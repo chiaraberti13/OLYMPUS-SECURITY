@@ -129,3 +129,53 @@ adapter now takes `AEGIS_NUCLEI_TEMPLATES` and passes `-templates` explicitly.
 **A bare host target is not a URL target.** `httpx --target 127.0.0.1` probes
 80/443, which are closed on the lab host, and exits 2. Targeting
 `http://127.0.0.1:8099` with `--kind url` returns `live` with 4 findings.
+
+
+---
+
+## 2026-09-05 — dirsearch + commix (native adapters)
+
+_Captured against a **local authorized lab**: the content-discovery target is a
+Python `http.server` on `127.0.0.1:8099` serving `/index.html`, `/admin/panel`
+and `/private/.env`; the command-injection target on `127.0.0.1:8094` shells out
+to `ping` with an unsanitised `addr` parameter. Scope authorizes `127.0.0.1` and
+`127.0.0.0/8` only. `AEGIS_ENABLE_LIVE_SCANS=true`._
+
+Engine versions: dirsearch v0.5.0, commix 4.x. Run through Olympus:
+`olympus aegis run <scanner> --target <url> --kind url --scope scope.json --i-am-authorized`
+
+| Scanner | State | Findings | Exit | Notes |
+| --- | --- | --- | --- | --- |
+| dirsearch | `live` | 4 | 0 | `/admin` and `/admin/` elevated to MEDIUM |
+| commix | `live` | 3 | 0 | one CRITICAL per confirmed technique (classic / time-based / file-based) |
+
+```json
+{"scanner": "dirsearch", "state": "live", "finding_count": 4, "exit_code": 0,
+ "error": null, "real_execution": true}
+{"scanner": "commix", "state": "live", "finding_count": 3, "exit_code": 0,
+ "error": null, "real_execution": true}
+```
+
+### What the live runs taught us
+
+**A Python scanner's dependencies must be visible to the sandbox user.**
+dirsearch first returned `failed` with `ModuleNotFoundError: No module named
+'requests'`: the tool and its dependencies had been installed into root's
+per-user site (`/root/.local`), which the unprivileged sandbox user cannot read,
+and the sandbox does not pass `PYTHONPATH` through. Installing dirsearch's
+dependencies into the system `dist-packages` — where a real deployment would put
+them — resolved it. The refusal was the sandbox working, not the adapter.
+
+**Both tools write structured reports only to a file, never to stdout.**
+dirsearch's `-o` JSON and commix's `--report-json` both target a path, and
+`-o /dev/stdout` hangs. Rather than give every adapter a writable scratch path
+and a temp-file lifecycle for one tool each, both adapters parse the stable
+result lines the tools already print (`[HH:MM:SS] <status> - <size> - <url>` for
+dirsearch, `[info] ... appears to be injectable via <technique> technique` for
+commix).
+
+**commix repeats its verdict per confirming request.** The adapter deduplicates
+on `(parameter, technique)`, so three confirmed techniques against one parameter
+produce three findings, not one per HTTP request. The technique payloads commix
+prints are deliberately omitted from evidence: they carry the injected commands,
+and "parameter X is injectable" does not need a working exploit string attached.

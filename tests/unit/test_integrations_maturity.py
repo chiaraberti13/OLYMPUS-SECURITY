@@ -203,10 +203,10 @@ def test_summary_covers_the_whole_catalogue() -> None:
 def test_summary_reflects_the_repository_today() -> None:
     """The honest numbers, restated so a change to them is a deliberate act."""
     assert summary() == {
-        "catalog-only": 14,
+        "catalog-only": 12,
         "adapter-ready": 0,
         "offline-tested": 2,
-        "live-tested": 8,
+        "live-tested": 10,
         "production-ready": 0,
     }
 
@@ -255,8 +255,8 @@ def test_inventory_document_carries_the_histogram() -> None:
 
 
 def test_count_at_least_matches_the_histogram() -> None:
-    assert count_at_least(Maturity.LIVE_TESTED, {}) == 8
-    assert count_at_least(Maturity.OFFLINE_TESTED, {}) == 10
+    assert count_at_least(Maturity.LIVE_TESTED, {}) == 10
+    assert count_at_least(Maturity.OFFLINE_TESTED, {}) == 12
     assert count_at_least(Maturity.ADAPTER_READY, {}) == len(implemented())
     assert count_at_least(Maturity.CATALOG_ONLY, {}) == len(REGISTRY)
     assert count_at_least(Maturity.PRODUCTION_READY, {}) == 0
@@ -280,17 +280,17 @@ def test_capabilities_reports_maturity_per_engine() -> None:
 
 def test_capabilities_gate_passes_when_the_bar_is_met() -> None:
     result = runner.invoke(
-        app, ["aegis", "capabilities", "--min-maturity", "live-tested", "--count", "8"]
+        app, ["aegis", "capabilities", "--min-maturity", "live-tested", "--count", "10"]
     )
     assert result.exit_code == 0, result.output
 
 
 def test_capabilities_gate_fails_when_the_bar_is_not_met() -> None:
     result = runner.invoke(
-        app, ["aegis", "capabilities", "--min-maturity", "live-tested", "--count", "9"]
+        app, ["aegis", "capabilities", "--min-maturity", "live-tested", "--count", "11"]
     )
     assert result.exit_code == int(ExitCode.NOT_AUTHORIZED)
-    assert "8 integration(s) reach live-tested, 9 required" in result.output
+    assert "10 integration(s) reach live-tested, 11 required" in result.output
 
 
 def test_capabilities_gate_rejects_an_unknown_stage() -> None:

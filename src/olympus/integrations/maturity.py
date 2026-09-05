@@ -98,6 +98,7 @@ class MaturityRecord:
 
 _OFFLINE_EVIDENCE = "tests/unit/test_aegis_execution.py"
 _OFFLINE_EVIDENCE_PD = "tests/unit/test_aegis_adapters_projectdiscovery.py"
+_OFFLINE_EVIDENCE_DC = "tests/unit/test_aegis_adapters_dirsearch_commix.py"
 _LIVE_EVIDENCE = "docs/aegis-execution-evidence.md"
 
 #: Where parser tests live. Adapters are grouped by family rather than piled
@@ -171,6 +172,18 @@ DECLARED: dict[str, MaturityRecord] = {
     ),
     "dalfox": MaturityRecord(
         "dalfox",
+        Maturity.LIVE_TESTED,
+        _LIVE_EVIDENCE,
+        "Definition of Done incomplete: no per-adapter evidence manifest or SBOM.",
+    ),
+    "dirsearch": MaturityRecord(
+        "dirsearch",
+        Maturity.LIVE_TESTED,
+        _LIVE_EVIDENCE,
+        "Definition of Done incomplete: no per-adapter evidence manifest or SBOM.",
+    ),
+    "commix": MaturityRecord(
+        "commix",
         Maturity.LIVE_TESTED,
         _LIVE_EVIDENCE,
         "Definition of Done incomplete: no per-adapter evidence manifest or SBOM.",
