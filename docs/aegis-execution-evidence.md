@@ -179,3 +179,40 @@ on `(parameter, technique)`, so three confirmed techniques against one parameter
 produce three findings, not one per HTTP request. The technique payloads commix
 prints are deliberately omitted from evidence: they carry the injected commands,
 and "parameter X is injectable" does not need a working exploit string attached.
+
+---
+
+## 2026-09-05 — arjun (native adapter)
+
+_Captured against a **local authorized lab**: a server on `127.0.0.1:8092` whose
+response changes for the hidden parameters `id` and `debug` (and ignores all
+others), and one on `127.0.0.1:8091` that honours no parameter. Scope authorizes
+`127.0.0.1` and `127.0.0.0/8` only. `AEGIS_ENABLE_LIVE_SCANS=true`._
+
+arjun 2.x, run through Olympus:
+`olympus aegis run arjun --target http://127.0.0.1:8092/ --kind url --scope scope.json --i-am-authorized`
+
+| Target | State | Findings | Notes |
+| --- | --- | --- | --- |
+| 8092 (`id`, `debug` honoured) | `live` | 2 | both hidden parameters found, at INFO |
+| 8091 (no hidden parameters) | `live` | 0 | a real empty result, not a failure |
+
+```json
+{"scanner": "arjun", "state": "live", "finding_count": 2, "exit_code": 0,
+ "error": null, "real_execution": true}
+```
+
+Confirmed captured result lines (through Olympus, so `NO_COLOR=1` — no ANSI):
+
+```text
+[✓] parameter detected: debug, based on: body length
+[✓] parameter detected: id, based on: body length
+[+] Parameters found: debug, id
+```
+
+Like dirsearch and commix, arjun writes its JSON only to a file (`-o`), so the
+adapter parses the per-parameter `[✓]` lines — which carry the detection reason
+the summary line drops. A hidden parameter is attack surface, not a
+vulnerability, so each is INFO. arjun needed the same treatment as the other
+Python scanners: its dependencies (`dicttoxml`, `ratelimit`) had to be installed
+into the system `dist-packages` to be visible to the unprivileged sandbox user.

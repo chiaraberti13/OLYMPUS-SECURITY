@@ -15,7 +15,7 @@ _Generated from `olympus.integrations.scanners` (registry) and `olympus.aegis.re
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | openvas | vuln | containerised-oss-service | `API/daemon` | GPL-2.0 | yes | no | — pending | n/a |
 | zap | web | containerised-oss-service | `API/daemon` | Apache-2.0 | yes | no | — pending | n/a |
-| arjun | web | local-oss-binary | `arjun` | AGPL-3.0 | yes | yes | — pending | n/a |
+| arjun | web | local-oss-binary | `arjun` | AGPL-3.0 | yes | yes | ✅ implemented | ✅ yes |
 | commix | web | local-oss-binary | `commix` | GPL-3.0 | yes | yes | ✅ implemented | ✅ yes |
 | dalfox | web | local-oss-binary | `dalfox` | MIT | yes | yes | ✅ implemented | ✅ yes |
 | dirsearch | web | local-oss-binary | `dirsearch` | GPL-2.0 | yes | yes | ✅ implemented | ✅ yes |
@@ -48,8 +48,8 @@ _Generated from `olympus.integrations.scanners` (registry) and `olympus.aegis.re
 - **Auto-installable / redistributable**: 20/24
 - **Bundled in `docker/Dockerfile.scanners`**: 19/24
 - **Proprietary (commercial licence)**: 3/24 (nessus, acunetix, burp)
-- **Native AEGIS execution adapters implemented**: 12/24 (commix, dalfox, dirsearch, httpx, katana, nikto, nmap, nuclei, sqlmap, testssl, wafw00f, whatweb)
-- **Live end-to-end verified in this environment**: 10/24 (commix, dalfox, dirsearch, httpx, katana, nikto, nmap, nuclei, sqlmap, wafw00f) — see evidence doc
+- **Native AEGIS execution adapters implemented**: 13/24 (arjun, commix, dalfox, dirsearch, httpx, katana, nikto, nmap, nuclei, sqlmap, testssl, wafw00f, whatweb)
+- **Live end-to-end verified in this environment**: 11/24 (arjun, commix, dalfox, dirsearch, httpx, katana, nikto, nmap, nuclei, sqlmap, wafw00f) — see evidence doc
 - **Production-ready**: **0/24** — no adapter meets the full Definition of Done
   (per-adapter evidence manifest with digests, SBOM, vulnerability scan,
   documented version compatibility)

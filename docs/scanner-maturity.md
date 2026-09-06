@@ -49,11 +49,11 @@ sbagliato non deve mai risultare una scansione pulita.
 ## Lo stato oggi
 
 ```text
-catalog-only     12
+catalog-only     11
 adapter-ready     0
 offline-tested    2   testssl, whatweb
-live-tested      10   nmap, nikto, sqlmap, wafw00f, httpx, nuclei, katana,
-                      dalfox, dirsearch, commix
+live-tested      11   nmap, nikto, sqlmap, wafw00f, httpx, nuclei, katana,
+                      dalfox, dirsearch, commix, arjun
 production-ready  0
 ```
 
@@ -109,8 +109,8 @@ l'evidenza — **mai** l'asserzione.
 # Ispezione: readiness + maturità per ogni motore
 olympus aegis capabilities
 
-# Gate: fallisce se meno di 10 integrazioni raggiungono live-tested
-olympus aegis capabilities --min-maturity live-tested --count 10
+# Gate: fallisce se meno di 11 integrazioni raggiungono live-tested
+olympus aegis capabilities --min-maturity live-tested --count 11
 ```
 
 Codici di uscita del gate:

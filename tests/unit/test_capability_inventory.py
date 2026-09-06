@@ -40,7 +40,7 @@ def test_inventory_contract_counts_real_states() -> None:
     document = capabilities.inventory_document({})
     assert document["schema_name"] == "olympus.aegis-capability-inventory"
     assert document["catalogued"] == 24
-    assert document["adapted"] == 12
+    assert document["adapted"] == 13
     assert 0 <= document["ready"] <= document["adapted"]
     assert len(document["capabilities"]) == 24
 
@@ -50,4 +50,4 @@ def test_capabilities_cli_is_machine_readable() -> None:
     assert result.exit_code == 0, result.output
     document = json.loads(result.output)
     assert document["catalogued"] == 24
-    assert document["adapted"] == 12
+    assert document["adapted"] == 13

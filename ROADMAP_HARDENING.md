@@ -30,9 +30,9 @@ Il registro `src/olympus/integrations/scanners.py` dichiara **24 scanner**, ma i
 `sqlmap`, `testssl`, `wafw00f`, `whatweb`. Gli altri 18 sono a catalogo ma non eseguibili
 nativamente. Inoltre `testssl` e `whatweb` hanno solo il parser, non il test live.
 
-- [ ] `P1` Completare i 18 adapter mancanti (dettaglio in §3.1). **6 fatti**: `httpx`,
-      `nuclei`, `katana`, `dalfox`, `dirsearch`, `commix` sono adapter nativi `live-tested`.
-      **12 restanti.**
+- [ ] `P1` Completare i 18 adapter mancanti (dettaglio in §3.1). **7 fatti**: `httpx`,
+      `nuclei`, `katana`, `dalfox`, `dirsearch`, `commix`, `arjun` sono adapter nativi
+      `live-tested`. **11 restanti.**
 - [ ] `P1` Test live autorizzati per `whatweb` e `testssl` (oggi "parser only"). Richiede un lab
       autorizzato, quindi resta aperta. Nel frattempo `whatweb` — che non aveva **nessun** test
       di parsing — ne ha ora tre, quindi la sua copertura offline è reale e non solo dichiarata.
@@ -123,8 +123,8 @@ si riusa quella dei 6 adapter già funzionanti.
 
 ## 3.1 — Completare gli scanner già a catalogo (18 mancanti)
 
-Web OSS: ~~`dalfox`~~, ~~`httpx`~~, ~~`katana`~~, ~~`nuclei`~~, ~~`commix`~~, ~~`dirsearch`~~
-(fatti) · `arjun`, `nosqlmap`, `wapiti`, `xsstrike` (da fare).
+Web OSS: ~~`dalfox`~~, ~~`httpx`~~, ~~`katana`~~, ~~`nuclei`~~, ~~`commix`~~, ~~`dirsearch`~~,
+~~`arjun`~~ (fatti) · `nosqlmap`, `wapiti`, `xsstrike` (da fare).
 DNS/recon OSS: `subfinder`, `theharvester`.
 WordPress: `wpscan` (gestione token API vuln DB).
 Servizi OSS via API: `zap` (Apache-2.0), `openvas`/GVM (GPL-2.0) — adapter con auth/TLS/health.
@@ -326,7 +326,8 @@ la riorganizzazione del documento non chiude lavoro.
 | _(prossima)_ | **Correzioni §1.3–§1.5** | da iniziare | dipendenze VAP e lock con hash, ritiro `vendor/`, P0 del web VAP legacy |
 | 2026-09-05 | **§3.1 lotto 1 — 4 adapter** | test locali verdi, CI da confermare | `httpx`, `nuclei`, `katana`, `dalfox` nativi e **`live-tested`**: eseguiti via `olympus aegis run` contro lab locale autorizzato (`127.0.0.1:8099`), stato `live` per tutti e quattro. Fixture da catture reali, non inventate. `nuclei` prende la directory template da `AEGIS_NUCLEI_TEMPLATES` (sotto sandbox `$HOME` non è quella dell'operatore) e gira con `-no-interactsh`; `katana` e `nuclei` con `-omit-raw`/`-omit-body` perché i corpi di risposta contengono cookie e PII. Maturità: 14 `catalog-only`, 2 `offline-tested`, **8 `live-tested`**, 0 `production-ready`. 1162 test |
 | 2026-09-05 | **§3.1 lotto 2 — 2 adapter** | test locali verdi, CI da confermare | `dirsearch` e `commix` nativi e **`live-tested`**: eseguiti via `olympus aegis run` contro lab locale autorizzato (content discovery su `127.0.0.1:8099`, command injection su `127.0.0.1:8094`), stato `live` per entrambi. Entrambi scrivono report strutturati solo su file, quindi gli adapter parsano lo stream testuale stabile che i tool già stampano. `commix` deduplica per (parametro, tecnica) e non porta mai il payload di exploit nelle evidenze. Maturità: 12 `catalog-only`, 2 `offline-tested`, **10 `live-tested`**, 0 `production-ready`. 1174 test |
-| _(prossima)_ | **§3.1 lotto 3 — 12 adapter** | da iniziare | `arjun`, `nosqlmap`, `wapiti`, `xsstrike`, `subfinder`, `theharvester`, `wpscan`, `zap`, `openvas`, `nessus`, `burp`, `acunetix` |
+| 2026-09-05 | **§3.1 lotto 3 — arjun** | test locali verdi, CI da confermare | `arjun` nativo e **`live-tested`**: hidden-parameter discovery eseguito via `olympus aegis run` contro lab locale (`127.0.0.1:8092` con parametri `id`/`debug`, `8091` senza), 2 finding INFO sul primo, 0 sul secondo. Parsa le righe `[✓] parameter detected`, tollerante agli ANSI, deduplica per nome. Maturità: 11 `catalog-only`, 2 `offline-tested`, **11 `live-tested`**, 0 `production-ready`. 1182 test |
+| _(prossima)_ | **§3.1 lotto 4 — 11 adapter** | da iniziare | `nosqlmap`, `wapiti`, `xsstrike`, `subfinder`, `theharvester`, `wpscan`, `zap`, `openvas`, `nessus`, `burp`, `acunetix` |
 | _(prossima)_ | **Nuovi tool §3** | da iniziare | naabu/dnsx/amass, Sigma/ATT&CK, STIX/MISP, EPSS/KEV, Trivy/Grype/Syft |
 | 2026-09-05 | **Policy editabile §4** | test locali verdi, CI da confermare | `olympus.core.policy`: `PolicyRuleset` Pydantic v2 versionato, profili come overlay di `[bounds.default]`, `MAX_*` come tetti rifiutati-non-clampati, precedenza CLI/env/file/default, `olympus policy show\|validate\|diff\|edit`, profilo `lab` con record di attivazione firmato e `is_authorized_destination` nella SSRF guard. Ruff pulito, mypy pulito sui moduli toccati, 1108 test |
 
@@ -335,7 +336,7 @@ configurazione da PR run `#137` (1040 test). Nessuna voce nuova si spunta senza 
 per i tool — evidenza live.
 
 Le tranche **§4**, **§1.1/§1.2** e **§3.1 lotto 1** sono state verificate in locale (Ruff pulito,
-mypy pulito sui moduli toccati, 1108 → 1137 → 1162 → 1174 test verdi): la conferma in CI è la condizione
+mypy pulito sui moduli toccati, 1108 → 1137 → 1162 → 1174 → 1182 test verdi): la conferma in CI è la condizione
 per considerarle chiuse secondo la Definition of Done.
 
 **Tre cose che le esecuzioni live hanno insegnato.** (1) Il sandbox è reale: il primo tentativo

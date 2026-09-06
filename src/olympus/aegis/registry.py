@@ -9,6 +9,7 @@ returns a clear error, never a fabricated result.
 
 from __future__ import annotations
 
+from olympus.aegis.adapters.arjun import ArjunAdapter
 from olympus.aegis.adapters.commix import CommixAdapter
 from olympus.aegis.adapters.dalfox import DalfoxAdapter
 from olympus.aegis.adapters.dirsearch import DirsearchAdapter
@@ -36,6 +37,7 @@ _ADAPTERS: dict[str, type[ScannerAdapter]] = {
     "dalfox": DalfoxAdapter,
     "dirsearch": DirsearchAdapter,
     "commix": CommixAdapter,
+    "arjun": ArjunAdapter,
 }
 
 
