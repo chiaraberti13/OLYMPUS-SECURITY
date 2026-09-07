@@ -359,7 +359,8 @@ def test_registry() -> None:
 
     assert set(implemented()) == {
         "nmap", "nikto", "wafw00f", "sqlmap", "whatweb", "testssl",
-        "httpx", "nuclei", "katana", "dalfox", "dirsearch", "commix",
+        "httpx", "nuclei", "katana", "dalfox", "dirsearch", "commix", "arjun",
+        "xsstrike",
     }
     assert get_adapter("nmap").name == "nmap"
     with pytest.raises(UnknownScannerError):

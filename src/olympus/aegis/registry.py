@@ -9,6 +9,7 @@ returns a clear error, never a fabricated result.
 
 from __future__ import annotations
 
+from olympus.aegis.adapters.arjun import ArjunAdapter
 from olympus.aegis.adapters.commix import CommixAdapter
 from olympus.aegis.adapters.dalfox import DalfoxAdapter
 from olympus.aegis.adapters.dirsearch import DirsearchAdapter
@@ -21,6 +22,7 @@ from olympus.aegis.adapters.sqlmap import SqlmapAdapter
 from olympus.aegis.adapters.testssl import TestsslAdapter
 from olympus.aegis.adapters.wafw00f import Wafw00fAdapter
 from olympus.aegis.adapters.whatweb import WhatwebAdapter
+from olympus.aegis.adapters.xsstrike import XsstrikeAdapter
 from olympus.aegis.base import ScannerAdapter
 
 _ADAPTERS: dict[str, type[ScannerAdapter]] = {
@@ -36,6 +38,8 @@ _ADAPTERS: dict[str, type[ScannerAdapter]] = {
     "dalfox": DalfoxAdapter,
     "dirsearch": DirsearchAdapter,
     "commix": CommixAdapter,
+    "arjun": ArjunAdapter,
+    "xsstrike": XsstrikeAdapter,
 }
 
 

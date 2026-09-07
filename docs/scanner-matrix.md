@@ -15,7 +15,7 @@ _Generated from `olympus.integrations.scanners` (registry) and `olympus.aegis.re
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | openvas | vuln | containerised-oss-service | `API/daemon` | GPL-2.0 | yes | no | — pending | n/a |
 | zap | web | containerised-oss-service | `API/daemon` | Apache-2.0 | yes | no | — pending | n/a |
-| arjun | web | local-oss-binary | `arjun` | AGPL-3.0 | yes | yes | — pending | n/a |
+| arjun | web | local-oss-binary | `arjun` | AGPL-3.0 | yes | yes | ✅ implemented | ✅ yes |
 | commix | web | local-oss-binary | `commix` | GPL-3.0 | yes | yes | ✅ implemented | ✅ yes |
 | dalfox | web | local-oss-binary | `dalfox` | MIT | yes | yes | ✅ implemented | ✅ yes |
 | dirsearch | web | local-oss-binary | `dirsearch` | GPL-2.0 | yes | yes | ✅ implemented | ✅ yes |
@@ -33,7 +33,7 @@ _Generated from `olympus.integrations.scanners` (registry) and `olympus.aegis.re
 | wapiti | web | local-oss-binary | `wapiti` | GPL-2.0 | yes | yes | — pending | n/a |
 | whatweb | web | local-oss-binary | `whatweb` | GPL-3.0 | yes | yes | ✅ implemented | parser only |
 | wpscan | web | local-oss-binary | `wpscan` | WPScan Public Source (non-OSI) | no | yes | — pending | n/a |
-| xsstrike | web | local-oss-binary | `xsstrike` | GPL-3.0 | yes | yes | — pending | n/a |
+| xsstrike | web | local-oss-binary | `xsstrike` | GPL-3.0 | yes | yes | ✅ implemented | ✅ yes |
 | burp | web | proprietary-local | `API/daemon` | Commercial (PortSwigger) | no | no | — pending | n/a |
 | acunetix | web | proprietary-remote-api | `API/daemon` | Commercial (Invicti) | no | no | — pending | n/a |
 | nessus | vuln | proprietary-remote-api | `API/daemon` | Commercial (Tenable) | no | no | — pending | n/a |
@@ -48,8 +48,8 @@ _Generated from `olympus.integrations.scanners` (registry) and `olympus.aegis.re
 - **Auto-installable / redistributable**: 20/24
 - **Bundled in `docker/Dockerfile.scanners`**: 19/24
 - **Proprietary (commercial licence)**: 3/24 (nessus, acunetix, burp)
-- **Native AEGIS execution adapters implemented**: 12/24 (commix, dalfox, dirsearch, httpx, katana, nikto, nmap, nuclei, sqlmap, testssl, wafw00f, whatweb)
-- **Live end-to-end verified in this environment**: 10/24 (commix, dalfox, dirsearch, httpx, katana, nikto, nmap, nuclei, sqlmap, wafw00f) — see evidence doc
+- **Native AEGIS execution adapters implemented**: 14/24 (arjun, commix, dalfox, dirsearch, httpx, katana, nikto, nmap, nuclei, sqlmap, testssl, wafw00f, whatweb, xsstrike)
+- **Live end-to-end verified in this environment**: 12/24 (arjun, commix, dalfox, dirsearch, httpx, katana, nikto, nmap, nuclei, sqlmap, wafw00f, xsstrike) — see evidence doc
 - **Production-ready**: **0/24** — no adapter meets the full Definition of Done
   (per-adapter evidence manifest with digests, SBOM, vulnerability scan,
   documented version compatibility)

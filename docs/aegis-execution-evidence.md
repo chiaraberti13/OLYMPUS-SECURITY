@@ -179,3 +179,86 @@ on `(parameter, technique)`, so three confirmed techniques against one parameter
 produce three findings, not one per HTTP request. The technique payloads commix
 prints are deliberately omitted from evidence: they carry the injected commands,
 and "parameter X is injectable" does not need a working exploit string attached.
+
+---
+
+## 2026-09-05 — arjun (native adapter)
+
+_Captured against a **local authorized lab**: a server on `127.0.0.1:8092` whose
+response changes for the hidden parameters `id` and `debug` (and ignores all
+others), and one on `127.0.0.1:8091` that honours no parameter. Scope authorizes
+`127.0.0.1` and `127.0.0.0/8` only. `AEGIS_ENABLE_LIVE_SCANS=true`._
+
+arjun 2.x, run through Olympus:
+`olympus aegis run arjun --target http://127.0.0.1:8092/ --kind url --scope scope.json --i-am-authorized`
+
+| Target | State | Findings | Notes |
+| --- | --- | --- | --- |
+| 8092 (`id`, `debug` honoured) | `live` | 2 | both hidden parameters found, at INFO |
+| 8091 (no hidden parameters) | `live` | 0 | a real empty result, not a failure |
+
+```json
+{"scanner": "arjun", "state": "live", "finding_count": 2, "exit_code": 0,
+ "error": null, "real_execution": true}
+```
+
+Confirmed captured result lines (through Olympus, so `NO_COLOR=1` — no ANSI):
+
+```text
+[✓] parameter detected: debug, based on: body length
+[✓] parameter detected: id, based on: body length
+[+] Parameters found: debug, id
+```
+
+Like dirsearch and commix, arjun writes its JSON only to a file (`-o`), so the
+adapter parses the per-parameter `[✓]` lines — which carry the detection reason
+the summary line drops. A hidden parameter is attack surface, not a
+vulnerability, so each is INFO. arjun needed the same treatment as the other
+Python scanners: its dependencies (`dicttoxml`, `ratelimit`) had to be installed
+into the system `dist-packages` to be visible to the unprivileged sandbox user.
+
+---
+
+## 2026-09-05 — xsstrike (native adapter)
+
+_Captured against a **matched pair** of local authorized lab targets: one on
+`127.0.0.1:8096` that reflects the `q` parameter unescaped (vulnerable), and one
+on `127.0.0.1:8095` that HTML-escapes it (safe). Scope authorizes `127.0.0.1`
+and `127.0.0.0/8` only. `AEGIS_ENABLE_LIVE_SCANS=true`._
+
+XSStrike 3.1.5, run through Olympus:
+`olympus aegis run xsstrike --target http://127.0.0.1:8096/?q=1 --kind url --scope scope.json --i-am-authorized`
+
+| Target | State | Findings | Notes |
+| --- | --- | --- | --- |
+| 8096 (reflects unescaped) | `live` | 1 | one HIGH, reflected XSS in `q` |
+| 8095 (HTML-escapes) | `live` | 0 | reflections and payloads appear, but none confirmed |
+
+```json
+{"scanner": "xsstrike", "state": "live", "finding_count": 1, "exit_code": 0,
+ "error": null, "real_execution": true}
+{"scanner": "xsstrike", "state": "live", "finding_count": 0, "exit_code": 0,
+ "error": null, "real_execution": true}
+```
+
+### Why efficiency, and nothing else
+
+XSStrike has no machine-readable output, so this adapter was the most carefully
+guarded of the set — and the guarding was chosen empirically, not guessed. The
+tempting signals are traps: against the **safe** target XSStrike still printed
+`Reflections found: 1` and a long stream of `[+] Payload:` candidates, so neither
+is proof of a vulnerability.
+
+The one signal that separated the two targets is **efficiency** — the fraction
+of a payload that survived into the response unmodified. Measured directly:
+
+```text
+safe target  (8095):  max Efficiency 94   → 0 findings
+vuln target  (8096):      Efficiency 100  → 1 finding
+```
+
+So the adapter raises a finding only for a payload whose very next efficiency
+reading is exactly 100 (byte-for-byte reflection, no escaping), pairs each
+efficiency with the payload just printed, deduplicates per parameter, and
+truncates the confirmed payload — reflected attacker-controlled markup — into
+evidence rather than a title.
