@@ -22,6 +22,7 @@ from olympus.aegis.adapters.sqlmap import SqlmapAdapter
 from olympus.aegis.adapters.testssl import TestsslAdapter
 from olympus.aegis.adapters.wafw00f import Wafw00fAdapter
 from olympus.aegis.adapters.whatweb import WhatwebAdapter
+from olympus.aegis.adapters.xsstrike import XsstrikeAdapter
 from olympus.aegis.base import ScannerAdapter
 
 _ADAPTERS: dict[str, type[ScannerAdapter]] = {
@@ -38,6 +39,7 @@ _ADAPTERS: dict[str, type[ScannerAdapter]] = {
     "dirsearch": DirsearchAdapter,
     "commix": CommixAdapter,
     "arjun": ArjunAdapter,
+    "xsstrike": XsstrikeAdapter,
 }
 
 

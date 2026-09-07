@@ -73,7 +73,7 @@ $ olympus athena run plan.json --storage ./.athena
 | **Vulcan** | `olympus vulcan` | Aggregation, deduplication, ranking and report rendering. |
 | **Metis** | `olympus metis` | Deterministic capability routing, engagement plans, CTI cases, IOC correlation and operational reports. |
 | **core** | `olympus core` | Shared data-contract utilities (e.g. `export-schemas`). |
-| **AEGIS** | `olympus aegis` | Scope-gated scanner orchestration, capability readiness and maturity, durable SQLite jobs, cancellation, audit and explicit execution states. Native for 13 of 24 catalogued engines; `serve`/`migrate`/`workers` still need `vendor/`. |
+| **AEGIS** | `olympus aegis` | Scope-gated scanner orchestration, capability readiness and maturity, durable SQLite jobs, cancellation, audit and explicit execution states. Native for 14 of 24 catalogued engines; `serve`/`migrate`/`workers` still need `vendor/`. |
 | **Unified TUI** | `olympus ui` | Keyboard-first interface over every real Olympus command, with streamed output and process cancellation. |
 
 > [!TIP]
@@ -250,17 +250,17 @@ catalogue, not an implementation claim. Today:
 
 | Maturity | Count | Meaning |
 | --- | --- | --- |
-| `catalog-only` | 11 | Registry entry only; nothing executes. |
+| `catalog-only` | 10 | Registry entry only; nothing executes. |
 | `adapter-ready` | 0 | Adapter registered, parser unproven. |
 | `offline-tested` | 2 | Parser proven against recorded output (`testssl`, `whatweb`). |
-| `live-tested` | 11 | Run end to end against a real engine (`nmap`, `nikto`, `sqlmap`, `wafw00f`, `httpx`, `nuclei`, `katana`, `dalfox`, `dirsearch`, `commix`, `arjun`). |
+| `live-tested` | 12 | Run end to end against a real engine (`nmap`, `nikto`, `sqlmap`, `wafw00f`, `httpx`, `nuclei`, `katana`, `dalfox`, `dirsearch`, `commix`, `arjun`, `xsstrike`). |
 | **`production-ready`** | **0** | Live-tested **and** the full Definition of Done met. |
 
 No adapter is `production-ready` yet: the Definition of Done — per-adapter
 evidence manifest with digests, SBOM, vulnerability scan and documented version
 compatibility — is not met for any engine. `olympus aegis capabilities` reports
 this per engine, and a CI job can enforce it with
-`olympus aegis capabilities --min-maturity live-tested --count 11`. The
+`olympus aegis capabilities --min-maturity live-tested --count 12`. The
 declarations are cross-checked against the repository on every test run, so the
 table cannot quietly drift; see [`docs/scanner-maturity.md`](docs/scanner-maturity.md).
 

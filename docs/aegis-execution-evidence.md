@@ -216,3 +216,49 @@ the summary line drops. A hidden parameter is attack surface, not a
 vulnerability, so each is INFO. arjun needed the same treatment as the other
 Python scanners: its dependencies (`dicttoxml`, `ratelimit`) had to be installed
 into the system `dist-packages` to be visible to the unprivileged sandbox user.
+
+---
+
+## 2026-09-05 — xsstrike (native adapter)
+
+_Captured against a **matched pair** of local authorized lab targets: one on
+`127.0.0.1:8096` that reflects the `q` parameter unescaped (vulnerable), and one
+on `127.0.0.1:8095` that HTML-escapes it (safe). Scope authorizes `127.0.0.1`
+and `127.0.0.0/8` only. `AEGIS_ENABLE_LIVE_SCANS=true`._
+
+XSStrike 3.1.5, run through Olympus:
+`olympus aegis run xsstrike --target http://127.0.0.1:8096/?q=1 --kind url --scope scope.json --i-am-authorized`
+
+| Target | State | Findings | Notes |
+| --- | --- | --- | --- |
+| 8096 (reflects unescaped) | `live` | 1 | one HIGH, reflected XSS in `q` |
+| 8095 (HTML-escapes) | `live` | 0 | reflections and payloads appear, but none confirmed |
+
+```json
+{"scanner": "xsstrike", "state": "live", "finding_count": 1, "exit_code": 0,
+ "error": null, "real_execution": true}
+{"scanner": "xsstrike", "state": "live", "finding_count": 0, "exit_code": 0,
+ "error": null, "real_execution": true}
+```
+
+### Why efficiency, and nothing else
+
+XSStrike has no machine-readable output, so this adapter was the most carefully
+guarded of the set — and the guarding was chosen empirically, not guessed. The
+tempting signals are traps: against the **safe** target XSStrike still printed
+`Reflections found: 1` and a long stream of `[+] Payload:` candidates, so neither
+is proof of a vulnerability.
+
+The one signal that separated the two targets is **efficiency** — the fraction
+of a payload that survived into the response unmodified. Measured directly:
+
+```text
+safe target  (8095):  max Efficiency 94   → 0 findings
+vuln target  (8096):      Efficiency 100  → 1 finding
+```
+
+So the adapter raises a finding only for a payload whose very next efficiency
+reading is exactly 100 (byte-for-byte reflection, no escaping), pairs each
+efficiency with the payload just printed, deduplicates per parameter, and
+truncates the confirmed payload — reflected attacker-controlled markup — into
+evidence rather than a title.

@@ -194,6 +194,12 @@ DECLARED: dict[str, MaturityRecord] = {
         _LIVE_EVIDENCE,
         "Definition of Done incomplete: no per-adapter evidence manifest or SBOM.",
     ),
+    "xsstrike": MaturityRecord(
+        "xsstrike",
+        Maturity.LIVE_TESTED,
+        _LIVE_EVIDENCE,
+        "Definition of Done incomplete: no per-adapter evidence manifest or SBOM.",
+    ),
 }
 
 
