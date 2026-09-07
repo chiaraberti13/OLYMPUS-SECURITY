@@ -43,6 +43,27 @@ esplicitamente con `--extra`. Così l'SBOM di default copre il runtime che un
 al gruppo `aegis`. Le dipendenze dichiarate ma **non installate** in questo
 ambiente non vengono attraversate: l'SBOM descrive ciò che è realmente presente.
 
+## Lock con hash (`pip --require-hashes`)
+
+Un elenco `name==version` fissa *cosa* installare, non *i byte*. `olympus core lock`
+genera un file di constraints hash-pinnato che chiude questa falla:
+
+```bash
+olympus core lock -o constraints.txt
+pip install --require-hashes -r constraints.txt
+```
+
+Per ogni pacchetto della chiusura runtime emette `name==version` seguito da un
+`--hash=sha256:<digest>` per **ogni** file di distribuzione della release (wheel
+e sdist: pip accetta un match con uno qualsiasi). Gli hash sono quelli che PyPI
+pubblica — presi dall'API JSON, non calcolati scaricando i wheel — quindi il
+generatore è leggero in rete e non può discordare da ciò che l'indice serve. I
+file **yanked** non vengono mai pinnati.
+
+Con `--require-hashes`, un artefatto sostituito o compromesso sull'indice viene
+**rifiutato all'installazione**: è la difesa contro un pacchetto avvelenato che
+condivide nome e versione ma non i byte.
+
 ## Scansione vulnerabilità
 
 La chiusura runtime — **solo** i pacchetti che Olympus porta con sé, non il
