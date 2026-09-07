@@ -43,7 +43,9 @@ x-vap-env: &vap-env
 
 services:
   redis:
-    image: redis:7-alpine
+    # Mandatory broker, pinned by digest for a reproducible stack.
+    # Refresh with: docker manifest inspect redis:7-alpine
+    image: redis:7-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf
     restart: unless-stopped
     # Not published to the host by default (keeps the broker off your LAN).
     expose:
@@ -109,6 +111,10 @@ services:
       start_period: 30s
 
 
+  # The optional engines below start ONLY under an explicit --profile, so their
+  # floating tags never affect the default stack; pin them in your own deployment
+  # if you need a reproducible engine version.
+  #
   # --- OWASP ZAP (open source, Apache-2.0) — long-running daemon with an API.
   #     Enable with:  docker compose --profile zap up
   zap:

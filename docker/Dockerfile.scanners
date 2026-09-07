@@ -18,10 +18,14 @@
 #   API/daemon or commercial (NOT installable here — see docs/scanner-matrix.md
 #   and `olympus aegis deps`): zap, openvas, nessus, burp, acunetix.
 #
-# Every extra install is best-effort ("|| true") so a single unavailable tool
-# never fails the image build; `olympus aegis deps` reports what is actually
-# present at runtime.
-FROM python:3.11-slim
+# Every extra *scanner* install is best-effort ("|| true") so a single
+# unavailable tool never fails the image build; `olympus aegis deps` reports what
+# is actually present at runtime. The mandatory base image and the Go toolchain
+# targets, by contrast, are pinned: the base by digest and the Go scanners to
+# exact versions, so a rebuild is reproducible instead of tracking a moving tag.
+#
+# To refresh the base digest: `docker manifest inspect python:3.11-slim`.
+FROM python:3.11-slim@sha256:9534e5a8e315485d4061ed659af0fd78a284c015f9b73661b41d6bab25604534
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -59,13 +63,14 @@ RUN set -eux; \
     if [ -f /opt/testssl/testssl.sh ]; then \
         ln -sf /opt/testssl/testssl.sh /usr/local/bin/testssl.sh; fi
 
-# Go-based ProjectDiscovery / dalfox scanners (best-effort).
+# Go-based ProjectDiscovery / dalfox scanners (best-effort, but version-pinned:
+# a build tracking @latest is not reproducible). Bump these deliberately.
 RUN set -eux; \
-    go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest || true; \
-    go install github.com/projectdiscovery/httpx/cmd/httpx@latest || true; \
-    go install github.com/projectdiscovery/katana/cmd/katana@latest || true; \
-    go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest || true; \
-    go install github.com/hahwul/dalfox/v2@latest || true
+    go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@v3.11.1 || true; \
+    go install github.com/projectdiscovery/httpx/cmd/httpx@v1.11.0 || true; \
+    go install github.com/projectdiscovery/katana/cmd/katana@v1.7.0 || true; \
+    go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@v2.16.0 || true; \
+    go install github.com/hahwul/dalfox/v2@v2.13.0 || true
 
 # WordPress scanner (Ruby gem; needs a free WPScan API token for the vuln DB).
 RUN gem install wpscan || true
