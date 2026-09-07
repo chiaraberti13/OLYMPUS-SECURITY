@@ -276,6 +276,8 @@ olympus argus doctor                       # dependency/config readiness
 olympus aegis capabilities                 # ready state here + project maturity
 olympus aegis doctor --scanner nuclei      # one engine: binary/version, adapter, maturity
 olympus aegis doctor --scanner all         # the same, for every catalogued engine
+olympus aegis matrix                       # classification matrix, generated from the registry
+olympus aegis matrix --check               # CI gate: fail if docs/scanner-matrix.md drifted
 olympus aegis jobs init                    # durable local job store
 olympus aegis jobs submit nmap --target example.com --scope scope.json --i-am-authorized
 olympus aegis jobs work                    # process one queued job

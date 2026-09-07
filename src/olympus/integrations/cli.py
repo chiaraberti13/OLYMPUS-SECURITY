@@ -302,6 +302,58 @@ def aegis_scanners(
     )
 
 
+@aegis_app.command("matrix")
+def aegis_matrix(
+    check: bool = typer.Option(
+        False,
+        "--check",
+        help="Exit non-zero if docs/scanner-matrix.md differs from the generated output.",
+    ),
+    write: bool = typer.Option(
+        False,
+        "--write",
+        help="Rewrite docs/scanner-matrix.md in place instead of printing it.",
+    ),
+) -> None:
+    """Render the scanner matrix from the registry, or check/rewrite the doc.
+
+    The catalogue, its licences, the derived native-adapter and live-verified
+    columns, and the totals are all generated from
+    ``olympus.integrations.scanners`` and the maturity ledger, so the document
+    can never drift from the code. ``--check`` is the CI gate: it exits ``2``
+    when the committed ``docs/scanner-matrix.md`` no longer matches.
+    """
+    from pathlib import Path
+
+    from olympus.integrations import matrix
+
+    rendered = matrix.render()
+    doc_path = Path(__file__).resolve().parents[3] / "docs" / "scanner-matrix.md"
+
+    if check:
+        try:
+            current = doc_path.read_text(encoding="utf-8")
+        except OSError as exc:
+            typer.echo(f"olympus: cannot read {doc_path}: {exc}", err=True)
+            raise typer.Exit(code=int(ExitCode.USAGE)) from exc
+        if current != rendered:
+            typer.echo(
+                "olympus: docs/scanner-matrix.md is stale; run "
+                "'olympus aegis matrix --write'",
+                err=True,
+            )
+            raise typer.Exit(code=int(ExitCode.USAGE))
+        typer.echo("olympus: scanner matrix is up to date", err=True)
+        return
+
+    if write:
+        doc_path.write_text(rendered, encoding="utf-8")
+        typer.echo(f"olympus: wrote {doc_path}", err=True)
+        return
+
+    typer.echo(rendered, nl=False)
+
+
 @aegis_app.command("capabilities")
 def aegis_capabilities(
     strict: bool = typer.Option(
