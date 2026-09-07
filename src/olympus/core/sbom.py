@@ -193,3 +193,21 @@ def render_sbom(
     ]
     document["components"] = components
     return document
+
+
+def requirements_lines(
+    root: str = ROOT_DISTRIBUTION, extras: frozenset[str] = frozenset()
+) -> list[str]:
+    """Return the runtime closure as pinned ``name==version`` requirement lines.
+
+    This is the scoped input a vulnerability scanner should audit: exactly the
+    packages Olympus pulls, at their installed versions, and nothing else — not
+    the interpreter's ``pip``/``setuptools``/``wheel`` bootstrap, which belong to
+    the environment rather than to Olympus. ``pip-audit -r`` consumes it directly.
+    """
+    lines: list[str] = []
+    for name in dependency_closure(root, extras):
+        component = component_for(name)
+        if component is not None:
+            lines.append(f"{component['name']}=={component['version']}")
+    return lines
