@@ -280,6 +280,55 @@ def export_schemas(
     typer.echo(f"olympus: wrote core schemas to {destination}", err=True)
 
 
+@core_app.command("sbom")
+def export_sbom(
+    output: Path | None = typer.Option(
+        None,
+        "--output",
+        "-o",
+        help="Write the SBOM here instead of stdout.",
+    ),
+    extra: list[str] = typer.Option(
+        [],
+        "--extra",
+        help="Include an optional-dependency extra (e.g. --extra aegis). Repeatable.",
+    ),
+    reproducible: bool = typer.Option(
+        False,
+        "--reproducible",
+        help="Omit the timestamp and serial number for a byte-stable document.",
+    ),
+) -> None:
+    """Emit a CycloneDX SBOM of the installed Olympus runtime closure.
+
+    Generated from ``importlib.metadata`` — no external tool — so it always
+    describes the packages this interpreter would load. ``--extra`` widens the
+    closure to an optional-dependency group; ``--reproducible`` drops the
+    timestamp and serial so two runs are byte-for-byte identical.
+    """
+    import datetime
+    import uuid
+
+    from olympus.core import sbom as sbom_module
+
+    timestamp: str | None = None
+    serial: str | None = None
+    if not reproducible:
+        timestamp = datetime.datetime.now(datetime.UTC).isoformat()
+        serial = f"urn:uuid:{uuid.uuid4()}"
+    document = sbom_module.render_sbom(
+        extras=frozenset(extra), timestamp=timestamp, serial_number=serial
+    )
+    payload = json.dumps(document, indent=2, sort_keys=True)
+    if output is None:
+        typer.echo(payload)
+        return
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(payload + "\n", encoding="utf-8")
+    typer.echo(f"olympus: wrote SBOM ({len(document['components'])} components) to {output}",
+               err=True)
+
+
 app.add_typer(core_app, name="core")
 app.add_typer(config_app, name="config")
 app.add_typer(policy_app, name="policy")

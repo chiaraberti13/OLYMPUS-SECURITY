@@ -69,6 +69,20 @@ jobs:
           "$OLYMPUS" aegis scanners
           "$OLYMPUS" aegis capabilities
 
+      - name: Generate SBOM of the installed runtime closure
+        run: |
+          set -euo pipefail
+          OLYMPUS=/tmp/olympus-wheel-smoke/bin/olympus
+          "$OLYMPUS" core sbom --output "$RUNNER_TEMP/olympus-sbom.json"
+          # Fail early if the document is not valid CycloneDX JSON.
+          python -c "import json,sys; d=json.load(open(sys.argv[1])); assert d['bomFormat']=='CycloneDX'; print(len(d['components']), 'components')" "$RUNNER_TEMP/olympus-sbom.json"
+
+      - name: Publish SBOM as a build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: olympus-sbom
+          path: ${{ runner.temp }}/olympus-sbom.json
+
   secret-scan:
     name: gitleaks (blocking working-tree + history scan)
     runs-on: ubuntu-latest

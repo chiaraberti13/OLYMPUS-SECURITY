@@ -209,9 +209,17 @@ make type      # mypy; additional local check
 make check     # run the complete local quality suite
 ```
 
+Generate a CycloneDX SBOM of the installed runtime — no external tool needed:
+
+```bash
+olympus core sbom --reproducible          # byte-stable CycloneDX 1.5 on stdout
+olympus core sbom -o sbom.json --extra aegis
+```
+
 See [`docs/architecture/`](docs/architecture) for the accepted design decisions,
 [`docs/contracts.md`](docs/contracts.md) for the versioned wire/storage compatibility rules,
 [`docs/execution-policy.md`](docs/execution-policy.md) for shared authorization and runtime bounds,
+[`docs/sbom.md`](docs/sbom.md) for the native SBOM generator,
 [`docs/parity/`](docs/parity) for the upstream capability manifests, and
 [`docs/professional-platform.md`](docs/professional-platform.md) for the
 professional control-plane migration.
