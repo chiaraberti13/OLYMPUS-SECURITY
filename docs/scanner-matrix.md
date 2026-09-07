@@ -1,6 +1,6 @@
 # AEGIS 24-scanner classification, dependency & execution matrix
 
-_Generated from `olympus.integrations.scanners` (registry) and `olympus.aegis.registry` (native execution adapters). See `docs/aegis-execution-evidence.md` for the real captured evidence._
+_Generated from `olympus.integrations.scanners` (registry) and `olympus.aegis.registry` (native execution adapters) by `olympus aegis matrix`. Do not edit by hand — run the command. See `docs/aegis-execution-evidence.md` for the real captured evidence._
 
 > **Correction:** OWASP **ZAP** and **OpenVAS/GVM** are open-source (Apache-2.0 / GPL-2.0) and are classified as `containerised-oss-service`, NOT commercial. Only Nessus, Burp, and Acunetix are proprietary.
 
@@ -47,7 +47,7 @@ _Generated from `olympus.integrations.scanners` (registry) and `olympus.aegis.re
   - `proprietary-remote-api`: 2
 - **Auto-installable / redistributable**: 20/24
 - **Bundled in `docker/Dockerfile.scanners`**: 19/24
-- **Proprietary (commercial licence)**: 3/24 (nessus, acunetix, burp)
+- **Proprietary (commercial licence)**: 3/24 (acunetix, burp, nessus)
 - **Native AEGIS execution adapters implemented**: 14/24 (arjun, commix, dalfox, dirsearch, httpx, katana, nikto, nmap, nuclei, sqlmap, testssl, wafw00f, whatweb, xsstrike)
 - **Live end-to-end verified in this environment**: 12/24 (arjun, commix, dalfox, dirsearch, httpx, katana, nikto, nmap, nuclei, sqlmap, wafw00f, xsstrike) — see evidence doc
 - **Production-ready**: **0/24** — no adapter meets the full Definition of Done
@@ -56,12 +56,11 @@ _Generated from `olympus.integrations.scanners` (registry) and `olympus.aegis.re
 
 ## Maturity, not just presence
 
-The "Native adapter" and "Live-verified" columns above are a snapshot maintained
-by hand. The machine-readable, self-checking version is the maturity ladder in
-`olympus.integrations.maturity` — `catalog-only` → `adapter-ready` →
-`offline-tested` → `live-tested` → `production-ready` — reported per engine by
-`olympus aegis capabilities` and cross-checked against the repository on every
-test run. See [`docs/scanner-maturity.md`](scanner-maturity.md).
+The "Native adapter" and "Live-verified" columns above are derived from the
+maturity ladder in `olympus.integrations.maturity` — `catalog-only` →
+`adapter-ready` → `offline-tested` → `live-tested` → `production-ready` —
+reported per engine by `olympus aegis capabilities` and cross-checked against
+the repository on every test run. See [`docs/scanner-maturity.md`](scanner-maturity.md).
 
 Readiness and maturity are different questions: readiness is about *this host*
 (is the binary installed, is the API configured), maturity is about *the project*
@@ -80,4 +79,3 @@ installed on your machine that Olympus has no adapter for stays `catalog-only`.
 ## Unavailable-tool policy
 
 `olympus aegis run <scanner>` returns an explicit state and never fabricates findings: `unavailable` (missing binary/API, with install instructions + `olympus aegis deps` diagnostic), `disabled` (live off), `failed` (real error), or `live`. Commercial/service engines return `unavailable` until configured. Nothing is silently skipped.
-
