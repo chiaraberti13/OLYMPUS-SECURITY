@@ -83,6 +83,33 @@ jobs:
           name: olympus-sbom
           path: ${{ runner.temp }}/olympus-sbom.json
 
+  dependency-audit:
+    name: pip-audit (blocking · runtime closure)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: Install Olympus and pip-audit
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install pip-audit
+      # Audit exactly the packages Olympus pulls, at their installed versions —
+      # not the interpreter's pip/setuptools/wheel bootstrap, which belong to the
+      # environment rather than to Olympus. The scoped list comes from the same
+      # closure walk the SBOM uses.
+      - name: Resolve the runtime closure
+        run: |
+          set -euo pipefail
+          python -c "from olympus.core.sbom import requirements_lines; print('\n'.join(requirements_lines()))" > "$RUNNER_TEMP/closure.txt"
+          cat "$RUNNER_TEMP/closure.txt"
+      - name: Audit the runtime closure against the PyPA advisory database
+        run: |
+          set -euo pipefail
+          pip-audit -r "$RUNNER_TEMP/closure.txt" --progress-spinner off
+
   secret-scan:
     name: gitleaks (blocking working-tree + history scan)
     runs-on: ubuntu-latest

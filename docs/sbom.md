@@ -43,7 +43,28 @@ esplicitamente con `--extra`. Così l'SBOM di default copre il runtime che un
 al gruppo `aegis`. Le dipendenze dichiarate ma **non installate** in questo
 ambiente non vengono attraversate: l'SBOM descrive ciò che è realmente presente.
 
+## Scansione vulnerabilità
+
+La chiusura runtime — **solo** i pacchetti che Olympus porta con sé, non il
+bootstrap `pip`/`setuptools`/`wheel` dell'interprete — viene auditata in CI con
+**pip-audit** (PyPA) contro il database di advisory:
+
+```python
+from olympus.core.sbom import requirements_lines
+# name==version, uno per riga, pronte per: pip-audit -r closure.txt
+```
+
+Il gate CI `dependency-audit` è **bloccante**: se compare una vulnerabilità nota
+in una dipendenza di Olympus, la CI diventa rossa e si aggiorna il pacchetto. Al
+momento la chiusura è pulita ("No known vulnerabilities found"). Lo scoping alla
+sola chiusura di Olympus evita che vulnerabilità di pacchetti di sistema — che
+non sono responsabilità di Olympus — inquinino il risultato.
+
+L'SBOM CycloneDX prodotto è inoltre consumabile da **Grype** (`grype sbom:...`)
+per lo stesso scopo sull'immagine/artefatto, complementare a pip-audit.
+
 ## In CI
 
 Il job wheel della CI genera l'SBOM dal wheel installato in un ambiente pulito,
-ne valida il formato e lo pubblica come artefatto di build (`olympus-sbom`).
+ne valida il formato e lo pubblica come artefatto di build (`olympus-sbom`). Un
+job separato `dependency-audit` esegue pip-audit sulla chiusura runtime.

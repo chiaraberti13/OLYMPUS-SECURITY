@@ -94,6 +94,26 @@ def test_render_records_requested_extras_as_properties() -> None:
     assert {"name": "olympus:extra", "value": "aegis"} in properties
 
 
+def test_requirements_lines_are_pinned_and_scoped() -> None:
+    lines = sbom.requirements_lines()
+    # Every line is a hard pin the scanner can resolve.
+    assert all("==" in line for line in lines)
+    names = {line.split("==", 1)[0] for line in lines}
+    # Olympus's own runtime deps are present...
+    assert "pydantic" in names
+    # ...and the interpreter bootstrap that belongs to the env, not to Olympus,
+    # is deliberately excluded so a vuln scan is not blamed on Olympus.
+    assert "pip" not in names and "setuptools" not in names and "wheel" not in names
+    assert "olympus-security" not in names
+
+
+def test_requirements_lines_match_the_sbom_components() -> None:
+    lines = sbom.requirements_lines()
+    components = {c["name"]: c["version"] for c in sbom.render_sbom()["components"]}
+    parsed = dict(line.split("==", 1) for line in lines)
+    assert parsed == components
+
+
 # --- CLI -------------------------------------------------------------------- #
 
 
