@@ -103,6 +103,20 @@ segnala ogni affermazione che lo supera:
 sia vuoto. Se quel test fallisce, si corregge la dichiarazione o si aggiunge
 l'evidenza — **mai** l'asserzione.
 
+## Diagnostica per motore
+
+`olympus aegis doctor --scanner <nome>` risponde, per un singolo motore, alle
+domande che un operatore si pone prima di aggiungerlo a un engagement: è a
+catalogo? Olympus ha un adapter nativo? il binario è su PATH e a quale versione
+(o, per i motori via API, quali variabili di endpoint/segreto sono impostate —
+solo i **nomi**, mai i valori)? a che stadio di maturità è? è pronto per un job
+live? `--scanner all` lo fa per tutti i 24 motori; un nome sconosciuto esce `2`.
+
+```bash
+olympus aegis doctor --scanner nuclei
+olympus aegis doctor --scanner all
+```
+
 ## Uso in CI
 
 ```bash

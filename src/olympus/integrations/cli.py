@@ -892,9 +892,51 @@ def aegis_scan(
 
 
 @aegis_app.command("doctor")
-def aegis_doctor() -> None:
-    """Diagnose the AEGIS runtime: web stack, DB dir, Redis, scanners, config."""
+def aegis_doctor(
+    scanner: str | None = typer.Option(
+        None,
+        "--scanner",
+        help=(
+            "Diagnose one scanner (binary/version/deps, adapter, maturity, readiness), "
+            "or 'all' for every catalogued engine, instead of the runtime."
+        ),
+    ),
+) -> None:
+    """Diagnose the AEGIS runtime, or one scanner with ``--scanner``.
+
+    Without ``--scanner`` this reports the whole runtime (web stack, DB dir,
+    Redis, config). With ``--scanner <name>`` it reports that one engine: whether
+    its binary is on PATH and at what version (or, for API engines, whether the
+    endpoint and secret variables are set — names only), whether Olympus owns a
+    native adapter, the project's maturity for it, and live-job readiness.
+    ``--scanner all`` reports every catalogued engine. Exit code ``2`` for an
+    unknown scanner name.
+    """
     import os
+
+    if scanner is not None:
+        from olympus.integrations import scanner_doctor
+
+        if scanner == "all":
+            reports = scanner_doctor.all_scanner_reports()
+            payload = {
+                "title": "aegis doctor --scanner all",
+                "ok": all(item.ok() for item in reports),
+                "scanners": [item.to_dict() for item in reports],
+            }
+            typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+            return
+        try:
+            single = scanner_doctor.scanner_report(scanner)
+        except KeyError:
+            typer.echo(
+                f"olympus: unknown scanner {scanner!r}; known: "
+                + ", ".join(scanner_doctor.scanner_names()),
+                err=True,
+            )
+            raise typer.Exit(code=int(ExitCode.USAGE)) from None
+        _emit_report(single)
+        return
 
     report = Report("aegis doctor")
     report.add(_vendor_check())
