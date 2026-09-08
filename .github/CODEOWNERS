@@ -1,0 +1,41 @@
+# Code ownership for review routing (roadmap §5.5 governance).
+#
+# GitHub requests a review from the owner of every changed path. The security-
+# critical surfaces are listed explicitly so a change to a guard, a bound, the
+# sandbox, or the supply-chain tooling always reaches a reviewer. Later lines win,
+# so the specific rules below override the catch-all.
+
+# Default owner for everything not matched more specifically.
+*                                   @chiaraberti13
+
+# --- Security-critical core: SSRF guard, IP pinning, execution bounds and
+#     redaction, editable policy, HTTP/decompression limits, retention. ---
+/src/olympus/core/addresses.py      @chiaraberti13
+/src/olympus/core/pinning.py        @chiaraberti13
+/src/olympus/core/execution.py      @chiaraberti13
+/src/olympus/core/policy.py         @chiaraberti13
+/src/olympus/core/http.py           @chiaraberti13
+/src/olympus/core/decompression.py  @chiaraberti13
+/src/olympus/core/retention.py      @chiaraberti13
+
+# --- AEGIS execution plane: sandbox isolation, scope gate, API identity. ---
+/src/olympus/aegis/sandbox.py       @chiaraberti13
+/src/olympus/aegis/scope.py         @chiaraberti13
+/src/olympus/aegis/identity.py      @chiaraberti13
+/src/olympus/aegis/base.py          @chiaraberti13
+
+# --- Supply chain: SBOM, hash-pinned lock, honest maturity ledger. ---
+/src/olympus/core/sbom.py           @chiaraberti13
+/src/olympus/core/lockfile.py       @chiaraberti13
+/src/olympus/integrations/maturity.py  @chiaraberti13
+
+# --- Release, CI and container supply chain. ---
+/.github/                           @chiaraberti13
+/docker/                            @chiaraberti13
+/docker-compose.yml                 @chiaraberti13
+/docker-compose.scanners.yml        @chiaraberti13
+/pyproject.toml                     @chiaraberti13
+
+# --- Security policy and threat model. ---
+/SECURITY.md                        @chiaraberti13
+/docs/threat-model.md               @chiaraberti13
