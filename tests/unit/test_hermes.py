@@ -1,6 +1,7 @@
 """Tests for Hermes detection, history scanning, SARIF and demo UX."""
 
 import json
+import re
 import shutil
 import stat
 import subprocess
@@ -14,8 +15,12 @@ from olympus.core.execution import CancellationRequested, CancellationToken, Exe
 from olympus.hermes.application import SecretScanRequest, SecretScanService
 from olympus.hermes.sarif import to_sarif
 from olympus.hermes.scanner import (
+    ALLOWLIST_SCHEMA_NAME,
+    ALLOWLIST_SCHEMA_VERSION,
+    Allowlist,
     ScanLimitError,
     SecretFinding,
+    load_allowlist,
     load_baseline,
     scan_git_history,
     scan_path,
@@ -140,8 +145,9 @@ def test_application_bounds_history_and_observes_cancellation(tmp_path: Path) ->
         cancellation: object,
         max_history_bytes: int,
         max_commits: int,
+        allowlist: object = None,
     ) -> list[SecretFinding]:
-        del cancellation
+        del cancellation, allowlist
         calls.append((repository, policy.timeout_seconds, max_history_bytes, max_commits))
         return []
 
@@ -253,3 +259,101 @@ def test_cli_missing_path_and_partial_directory_are_not_clean(tmp_path: Path) ->
     assert partial.exit_code == 2
     assert "partial scan" in partial.output
     assert output.exists()
+
+
+# --- Allowlist: suppress false positives by shape, not by fingerprint (§2) --- #
+
+
+def _write_allowlist(
+    path: Path, *, path_patterns: list[str], value_patterns: list[str]
+) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "schema_name": ALLOWLIST_SCHEMA_NAME,
+                "schema_version": ALLOWLIST_SCHEMA_VERSION,
+                "path_patterns": path_patterns,
+                "value_patterns": value_patterns,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_allowlist_suppresses_a_matching_value_pattern() -> None:
+    text = f'aws_key = "{SYNTHETIC_KEY}"'
+    assert scan_text(text, "config.py")  # flagged without an allowlist
+    allowlist = Allowlist(value_patterns=(re.compile("OLYMPUSDEMO"),))
+    assert scan_text(text, "config.py", allowlist=allowlist) == []
+
+
+def test_allowlist_suppresses_a_matching_path_glob(tmp_path: Path) -> None:
+    fixture = tmp_path / "tests" / "fixtures" / "sample.txt"
+    fixture.parent.mkdir(parents=True)
+    fixture.write_text(f"token={SYNTHETIC_KEY}", encoding="utf-8")
+
+    allowlist = Allowlist(path_patterns=("*/fixtures/*",))
+    result = scan_paths_bounded(
+        [fixture], policy=_policy(), allowlist=allowlist
+    )
+    assert result.findings == ()
+    assert result.scanned_files == 1  # scanned, but suppressed by shape
+
+
+def test_allowlist_leaves_an_unmatched_secret_flagged() -> None:
+    text = f'aws_key = "{SYNTHETIC_KEY}"'
+    allowlist = Allowlist(value_patterns=(re.compile("SOMETHING_ELSE"),))
+    assert len(scan_text(text, "config.py", allowlist=allowlist)) == 1
+
+
+def test_load_allowlist_round_trips(tmp_path: Path) -> None:
+    path = tmp_path / "allowlist.json"
+    _write_allowlist(path, path_patterns=["*/fixtures/*"], value_patterns=["EXAMPLE$"])
+    allowlist = load_allowlist(path)
+    assert allowlist.path_patterns == ("*/fixtures/*",)
+    assert allowlist.allows("a/fixtures/b.txt", "irrelevant") is True
+    assert allowlist.allows("src/app.py", "MY_EXAMPLE") is True
+    assert allowlist.allows("src/app.py", "real-secret") is False
+
+
+def test_load_allowlist_rejects_an_invalid_regex(tmp_path: Path) -> None:
+    path = tmp_path / "allowlist.json"
+    _write_allowlist(path, path_patterns=[], value_patterns=["("])  # unbalanced
+    with pytest.raises(ValueError, match="not a valid regex"):
+        load_allowlist(path)
+
+
+def test_load_allowlist_rejects_extra_keys(tmp_path: Path) -> None:
+    path = tmp_path / "allowlist.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_name": ALLOWLIST_SCHEMA_NAME,
+                "schema_version": ALLOWLIST_SCHEMA_VERSION,
+                "path_patterns": [],
+                "value_patterns": [],
+                "unexpected": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="must define exactly"):
+        load_allowlist(path)
+
+
+def test_scan_command_applies_the_allowlist(tmp_path: Path) -> None:
+    source = tmp_path / "config.py"
+    source.write_text(f'aws_key = "{SYNTHETIC_KEY}"', encoding="utf-8")
+    output = tmp_path / "results.sarif"
+    allowlist = tmp_path / "allowlist.json"
+    _write_allowlist(allowlist, path_patterns=[], value_patterns=["OLYMPUSDEMO"])
+
+    without = runner.invoke(app, ["hermes", "scan", str(source), "--output", str(output)])
+    assert without.exit_code == 1  # a finding without the allowlist
+
+    with_allowlist = runner.invoke(
+        app,
+        ["hermes", "scan", str(source), "--output", str(output), "--allowlist", str(allowlist)],
+    )
+    assert with_allowlist.exit_code == 0, with_allowlist.output
+    assert "0 potential secret(s)" in with_allowlist.output
