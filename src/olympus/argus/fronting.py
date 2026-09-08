@@ -30,6 +30,7 @@ from pathlib import Path
 from olympus.argus.ct import CertificateTransparencyClient
 from olympus.argus.resolver import DnsResolver
 from olympus.core.enums import AssetType, Severity, Source
+from olympus.core.fileio import atomic_write_text
 from olympus.core.models import Asset, Finding
 
 # Curated, published CDN/WAF network ranges (a maintained subset, not
@@ -237,7 +238,6 @@ def export_fronting(
     report: FrontingReport, asset: Asset, findings: list[Finding], output: Path
 ) -> None:
     """Write the fronting asset + findings atomically as a versioned JSON document."""
-    output.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "schema_name": "olympus.argus-fronting",
         "schema_version": "1.0.0",
@@ -247,6 +247,6 @@ def export_fronting(
         "asset": asset.model_dump(mode="json"),
         "findings": [finding.model_dump(mode="json") for finding in findings],
     }
-    temporary = output.with_suffix(f"{output.suffix}.tmp")
-    temporary.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    temporary.replace(output)
+    atomic_write_text(
+        output, json.dumps(payload, indent=2, sort_keys=True) + "\n", mode=0o600
+    )

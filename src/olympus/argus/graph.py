@@ -15,6 +15,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 
+from olympus.core.fileio import atomic_write_text
+
 
 class EntityType(StrEnum):
     """Kinds of node an OSINT investigation graph can hold."""
@@ -187,7 +189,6 @@ class Investigation:
 
 def export_investigation(investigation: Investigation, path: Path) -> None:
     """Write the investigation graph as JSON to ``path``."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(investigation.to_dict(), indent=2, sort_keys=True), encoding="utf-8"
+    atomic_write_text(
+        path, json.dumps(investigation.to_dict(), indent=2, sort_keys=True), mode=0o600
     )

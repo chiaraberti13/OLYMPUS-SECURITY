@@ -23,6 +23,7 @@ from olympus.argus.ip_osint import (
     build_ip_asset,
     build_ip_findings,
 )
+from olympus.core.fileio import atomic_write_text
 from olympus.core.http import HttpClient, HttpRequestError
 
 #: Public providers that return a JSON body containing an ``ip`` field.
@@ -95,5 +96,6 @@ def discover(http: HttpClient, *, geolocate: bool = False) -> MyIpResult:
 
 def export_myip(result: MyIpResult, path: Path) -> None:
     """Write a ``myip`` result as JSON to ``path``."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(result.to_dict(), indent=2, sort_keys=True), encoding="utf-8")
+    atomic_write_text(
+        path, json.dumps(result.to_dict(), indent=2, sort_keys=True), mode=0o600
+    )

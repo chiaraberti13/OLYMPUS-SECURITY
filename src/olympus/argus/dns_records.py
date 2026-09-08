@@ -18,6 +18,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 from olympus.core.enums import AssetType, Source
+from olympus.core.fileio import atomic_write_text
 from olympus.core.http import HttpClient, HttpRequestError
 from olympus.core.models import Asset
 
@@ -120,5 +121,6 @@ def build_dns_asset(report: DnsRecordReport) -> Asset:
 def export_dns_report(report: DnsRecordReport, asset: Asset, path: Path) -> None:
     """Write a DNS report (records + asset) as JSON to ``path``."""
     payload = {"report": report.to_dict(), "asset": json.loads(asset.model_dump_json())}
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    atomic_write_text(
+        path, json.dumps(payload, indent=2, sort_keys=True), mode=0o600
+    )

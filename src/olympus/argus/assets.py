@@ -7,6 +7,7 @@ from pathlib import Path
 
 from olympus.argus.recon import DomainRecon
 from olympus.core.enums import AssetType, Source
+from olympus.core.fileio import atomic_write_text
 from olympus.core.models import Asset
 
 
@@ -30,12 +31,11 @@ def recon_to_assets(recon: DomainRecon) -> list[Asset]:
 
 def export_assets(assets: list[Asset], output: Path) -> None:
     """Write assets atomically as a versioned JSON document."""
-    output.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "schema_name": "olympus.argus-assets",
         "schema_version": "1.0.0",
         "assets": [asset.model_dump(mode="json") for asset in assets],
     }
-    temporary = output.with_suffix(f"{output.suffix}.tmp")
-    temporary.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    temporary.replace(output)
+    atomic_write_text(
+        output, json.dumps(payload, indent=2, sort_keys=True) + "\n", mode=0o600
+    )
