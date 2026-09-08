@@ -214,6 +214,7 @@ Generate a CycloneDX SBOM of the installed runtime — no external tool needed:
 ```bash
 olympus core sbom --reproducible          # byte-stable CycloneDX 1.5 on stdout
 olympus core sbom -o sbom.json --extra aegis
+olympus core lock -o constraints.txt      # pip --require-hashes constraints (real PyPI hashes)
 ```
 
 See [`docs/architecture/`](docs/architecture) for the accepted design decisions,

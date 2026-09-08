@@ -329,6 +329,42 @@ def export_sbom(
                err=True)
 
 
+@core_app.command("lock")
+def export_lockfile(
+    output: Path | None = typer.Option(
+        None,
+        "--output",
+        "-o",
+        help="Write the constraints here instead of stdout.",
+    ),
+    extra: list[str] = typer.Option(
+        [],
+        "--extra",
+        help="Include an optional-dependency extra (e.g. --extra aegis). Repeatable.",
+    ),
+) -> None:
+    """Emit a hash-pinned ``pip --require-hashes`` constraints file.
+
+    Pins every package in the runtime closure to its installed version *and* to
+    the SHA-256 digests PyPI publishes for that release, so a substituted
+    artifact is rejected at install time. Hashes are fetched from the PyPI JSON
+    API. Install with ``pip install --require-hashes -r constraints.txt``.
+    """
+    from olympus.core import lockfile
+
+    try:
+        document = lockfile.generate_lockfile(extras=frozenset(extra))
+    except lockfile.LockfileError as exc:
+        typer.echo(f"olympus: cannot generate lockfile: {exc}", err=True)
+        raise typer.Exit(code=int(ExitCode.FAILED)) from exc
+    if output is None:
+        typer.echo(document, nl=False)
+        return
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(document, encoding="utf-8")
+    typer.echo(f"olympus: wrote hash-pinned constraints to {output}", err=True)
+
+
 app.add_typer(core_app, name="core")
 app.add_typer(config_app, name="config")
 app.add_typer(policy_app, name="policy")
