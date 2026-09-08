@@ -17,9 +17,11 @@ from olympus.minerva.application import (
     MinervaRecordRequest,
 )
 from olympus.minerva.custody import (
+    GENESIS_HASH,
     CustodyAction,
     CustodyIntegrityError,
     LegacyCustodyEntry,
+    _entry_hash,
     _legacy_entry_hash,
     append_entry,
     inspect_ledger,
@@ -203,3 +205,127 @@ def test_application_rejects_conflict_and_observes_cancellation(tmp_path: Path) 
     token.cancel()
     with pytest.raises(CancellationRequested):
         MinervaApplicationService(token).inspect(MinervaLedgerRequest(tmp_path / "any.json"))
+
+
+# --- Ledger attacks: truncation, reorder, fork, full rewrite (roadmap §5.2) --- #
+#
+# A hash-linked, sequence-contiguous ledger detects any edit that breaks the
+# chain: reordering entries, deleting a non-tail entry, or forging a fork with a
+# duplicate sequence number all make the sequence non-contiguous or the
+# `previous_hash` link fail. These tests lock that in.
+#
+# Two attacks are *not* detectable from the ledger content alone, and the tests
+# below make that gap explicit rather than hiding it:
+#   * **tail truncation** — dropping the most recent entries leaves a shorter
+#     but internally consistent chain; nothing inside the file records how long
+#     it was meant to be, and
+#   * **full rewrite** — an attacker who recomputes every `entry_hash` produces a
+#     ledger indistinguishable from a legitimate one, because the hashes are not
+#     keyed.
+# Both require an external anchor — a signed head/count with a trusted timestamp
+# — tracked as the "Signed evidence ledger" open item in `docs/threat-model.md`.
+# If signing lands, these two `documents_the_gap` tests are expected to flip and
+# force this note to be updated.
+
+
+def _three_entry_ledger(tmp_path: Path) -> Path:
+    """Append a verified collected → transferred → analyzed chain."""
+    ledger = tmp_path / "custody.json"
+    started = datetime(2026, 8, 14, 9, tzinfo=UTC)
+    append_entry(ledger, _evidence(), CustodyAction.COLLECTED, "responder", started)
+    append_entry(
+        ledger, _evidence(), CustodyAction.TRANSFERRED, "forensics",
+        started + timedelta(minutes=10),
+    )
+    append_entry(
+        ledger, _evidence(), CustodyAction.ANALYZED, "analyst",
+        started + timedelta(minutes=20),
+    )
+    return ledger
+
+
+def _rewrite(ledger: Path, payload: dict) -> None:
+    ledger.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def test_reordering_entries_is_detected(tmp_path: Path) -> None:
+    ledger = _three_entry_ledger(tmp_path)
+    payload = json.loads(ledger.read_text(encoding="utf-8"))
+    payload["entries"][0], payload["entries"][1] = (
+        payload["entries"][1], payload["entries"][0],
+    )
+    _rewrite(ledger, payload)
+    with pytest.raises(CustodyIntegrityError, match="sequence is not contiguous"):
+        load_ledger(ledger)
+
+
+def test_deleting_a_middle_entry_is_detected(tmp_path: Path) -> None:
+    ledger = _three_entry_ledger(tmp_path)
+    payload = json.loads(ledger.read_text(encoding="utf-8"))
+    del payload["entries"][1]  # sequences become 1, 3
+    _rewrite(ledger, payload)
+    with pytest.raises(CustodyIntegrityError, match="sequence is not contiguous"):
+        load_ledger(ledger)
+
+
+def test_forking_with_a_duplicate_sequence_is_detected(tmp_path: Path) -> None:
+    ledger = _three_entry_ledger(tmp_path)
+    payload = json.loads(ledger.read_text(encoding="utf-8"))
+    payload["entries"][2]["sequence"] = 2  # two entries now claim sequence 2
+    _rewrite(ledger, payload)
+    with pytest.raises(CustodyIntegrityError, match="sequence is not contiguous"):
+        load_ledger(ledger)
+
+
+def test_tail_truncation_documents_the_gap(tmp_path: Path) -> None:
+    """Dropping the last entry leaves a shorter chain that still verifies.
+
+    This is an inherent limit of an append-only hash chain with no external
+    anchor: the file does not record its intended length, so a shorter prefix is
+    internally consistent. Closing it needs a signed head/count — the "Signed
+    evidence ledger" open item in the threat model. The assertion pins the
+    *current* behaviour so the gap cannot be forgotten and so a future signing
+    change is forced to update this test.
+    """
+    ledger = _three_entry_ledger(tmp_path)
+    payload = json.loads(ledger.read_text(encoding="utf-8"))
+    payload["entries"] = payload["entries"][:-1]  # drop the analyzed entry
+    _rewrite(ledger, payload)
+    records = load_ledger(ledger)  # NOT rejected — the known gap
+    assert [record.sequence for record in records] == [1, 2]
+
+
+def test_full_rewrite_documents_the_gap(tmp_path: Path) -> None:
+    """A recomputed, internally valid chain is accepted, because hashes are unkeyed.
+
+    An attacker who controls the file can rebuild the whole ledger with any
+    contents and recompute every `entry_hash`; without a secret key or signature
+    the result is indistinguishable from a genuine ledger. This is the exact
+    reason a keyed/signed ledger is on the roadmap; the test pins the gap.
+    """
+    ledger = _three_entry_ledger(tmp_path)
+    started = datetime(2026, 8, 14, 9, tzinfo=UTC)
+    digest = "a" * 64
+    forged_hash = _entry_hash(
+        1, "EVD-2026-00001", digest, CustodyAction.COLLECTED,
+        "attacker", started, GENESIS_HASH,
+    )
+    forged = {
+        "schema_name": "olympus.custody",
+        "schema_version": "2.0.0",
+        "entries": [
+            {
+                "sequence": 1,
+                "evidence_id": "EVD-2026-00001",
+                "evidence_sha256": digest,
+                "action": "collected",
+                "actor": "attacker",
+                "occurred_at": started.isoformat(),
+                "previous_hash": GENESIS_HASH,
+                "entry_hash": forged_hash,
+            }
+        ],
+    }
+    _rewrite(ledger, forged)
+    records = load_ledger(ledger)  # NOT rejected — the known gap
+    assert records[0].actor == "attacker"
