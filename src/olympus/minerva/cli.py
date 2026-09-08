@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import typer
 
 from olympus.core.contracts import ContractCompatibilityError
+from olympus.core.evidence import DEFAULT_MAX_ARTIFACT_BYTES, capture_evidence
 from olympus.core.execution import CancellationRequested, ExecutionPolicyError
+from olympus.core.fileio import atomic_write_text
 from olympus.core.output import OutputFormat, render
 from olympus.core.paths import output_path
 from olympus.minerva.application import (
@@ -65,6 +68,38 @@ def triage(
         typer.echo(f"minerva: triage error: {exc}", err=True)
         raise typer.Exit(code=2) from exc
     typer.echo(f"minerva: incident {incident.incident_id} written to {output}")
+
+
+@app.command()
+def capture(
+    artifact: Path,
+    output: Path,
+    evidence_type: str = typer.Option(..., "--type", help="e.g. memory-image, pcap, disk-image."),
+    uri: str | None = typer.Option(
+        None, "--uri", help="Provenance URI; defaults to the artifact's file:// path."
+    ),
+    max_bytes: int = typer.Option(DEFAULT_MAX_ARTIFACT_BYTES, "--max-bytes"),
+) -> None:
+    """Hash a local artifact and write an evidence reference anchored to its bytes.
+
+    The sha256 is computed from the artifact as it is captured — not supplied by
+    hand — so the reference provably matches the material it points at.
+    """
+    try:
+        evidence = capture_evidence(
+            artifact, evidence_type=evidence_type, uri=uri, max_bytes=max_bytes
+        )
+        payload = json.loads(evidence.model_dump_json())
+        atomic_write_text(
+            output, json.dumps(payload, indent=2, sort_keys=True) + "\n", mode=0o600
+        )
+    except (OSError, ValueError) as exc:
+        typer.echo(f"minerva: capture error: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    typer.echo(
+        f"minerva: captured {evidence.evidence_id} "
+        f"sha256={evidence.sha256} -> {output}"
+    )
 
 
 @app.command()
