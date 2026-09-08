@@ -220,6 +220,7 @@ olympus core lock -o constraints.txt      # pip --require-hashes constraints (re
 See [`docs/architecture/`](docs/architecture) for the accepted design decisions,
 [`docs/contracts.md`](docs/contracts.md) for the versioned wire/storage compatibility rules,
 [`docs/execution-policy.md`](docs/execution-policy.md) for shared authorization and runtime bounds,
+[`docs/threat-model.md`](docs/threat-model.md) for the threat model and security architecture,
 [`docs/sbom.md`](docs/sbom.md) for the native SBOM generator,
 [`docs/parity/`](docs/parity) for the upstream capability manifests, and
 [`docs/professional-platform.md`](docs/professional-platform.md) for the
@@ -236,6 +237,9 @@ professional control-plane migration.
   concurrency, per-job timeouts and overall deadlines with safe maxima.
 - **Redacted audit trail**: append-only events with allowlisted metadata only —
   never credentials, bodies, or raw findings.
+
+See [`docs/threat-model.md`](docs/threat-model.md) for the full threat model,
+the control behind each threat, and an honest list of what is not yet covered.
 
 ## 🔁 Migration & specialist engines
 
