@@ -55,6 +55,7 @@ class MinervaRecordRequest:
     max_ledger_bytes: int = DEFAULT_MAX_LEDGER_BYTES
     max_entries: int = DEFAULT_MAX_ENTRIES
     deadline_seconds: float = 60.0
+    key: bytes | None = None
 
 
 @dataclass(frozen=True)
@@ -63,6 +64,7 @@ class MinervaLedgerRequest:
     max_ledger_bytes: int = DEFAULT_MAX_LEDGER_BYTES
     max_entries: int = DEFAULT_MAX_ENTRIES
     deadline_seconds: float = 60.0
+    key: bytes | None = None
 
 
 @dataclass(frozen=True)
@@ -70,6 +72,8 @@ class MinervaLedgerOutcome:
     entries: tuple[CustodyRecord, ...]
     schema_version: str
     evidence_anchored: bool
+    signed: bool = False
+    signature_verified: bool = False
 
 
 @dataclass(frozen=True)
@@ -109,6 +113,7 @@ class MinervaApplicationService:
             max_ledger_bytes=request.max_ledger_bytes,
             max_entries=request.max_entries,
             progress_check=progress,
+            key=request.key,
         )
 
     def inspect(self, request: MinervaLedgerRequest) -> MinervaLedgerOutcome:
@@ -119,9 +124,14 @@ class MinervaApplicationService:
             max_bytes=request.max_ledger_bytes,
             max_entries=request.max_entries,
             progress_check=progress,
+            key=request.key,
         )
         return MinervaLedgerOutcome(
-            inspection.entries, inspection.schema_version, inspection.evidence_anchored
+            inspection.entries,
+            inspection.schema_version,
+            inspection.evidence_anchored,
+            signed=inspection.signed,
+            signature_verified=inspection.signature_verified,
         )
 
     def _progress(self, deadline_seconds: float, operation: str) -> Callable[[], None]:

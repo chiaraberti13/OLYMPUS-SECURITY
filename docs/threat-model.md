@@ -62,6 +62,7 @@ Each row is a threat and the implemented control that addresses it.
 | **A poisoned or substituted dependency** | A CycloneDX SBOM of the runtime closure, a `pip --require-hashes` lockfile from real PyPI hashes, and a blocking pip-audit gate on that closure. | `olympus.core.sbom`, `olympus.core.lockfile`, `.github/workflows/ci.yml` |
 | **A drifting or mutable base image** | Mandatory container images pinned by digest; Go scanners pinned to versions; a test guards against regression. | `docker/Dockerfile.scanners`, `docker-compose.yml` |
 | **The catalogue overstating what it can run** | The maturity ledger is re-derived from the repository on every test run; a claim without an adapter, evidence, or a parser test fails the build. | `olympus.integrations.maturity` |
+| **Tampering with the custody ledger (truncation / full rewrite)** | The chain of custody can be HMAC-SHA256 signed with an operator key; the signature commits to the entry count and the chain head, so dropping entries or rewriting the ledger without the key is rejected on verify. The bare hash chain already catches reorder, deletion and fork. | `olympus.minerva.custody` |
 
 ## What is NOT yet covered
 
@@ -77,8 +78,12 @@ Honesty is a control here too. These are open, and tracked in
 - **seccomp/AppArmor.** The sandbox drops privileges and sets rlimits but does
   not yet apply a syscall filter or a read-only filesystem beyond the private
   scratch dir.
-- **Signed evidence ledger.** Minerva's chain-of-custody is not yet Ed25519/HMAC
-  signed with a trusted timestamp.
+- **Asymmetric signing and a trusted timestamp for the ledger.** Minerva's
+  chain-of-custody can now be **HMAC-SHA256 signed** (`OLYMPUS_CUSTODY_HMAC_KEY`),
+  which detects truncation and full rewrite. Still open: Ed25519/asymmetric
+  signing (HMAC needs the shared key to verify, so it gives no third-party
+  verification) and a trusted timestamp anchor (RFC 3161) so the *time* of each
+  event is independently attestable.
 
 ## Deployment hardening
 
