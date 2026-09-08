@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import fnmatch
 import hashlib
 import json
 import math
@@ -36,6 +37,12 @@ DEFAULT_MAX_HISTORY_BYTES = 20_000_000
 DEFAULT_MAX_COMMITS = 1_000
 BASELINE_SCHEMA_NAME = "olympus.hermes-baseline"
 BASELINE_SCHEMA_VERSION = "1.0.0"
+ALLOWLIST_SCHEMA_NAME = "olympus.hermes-allowlist"
+ALLOWLIST_SCHEMA_VERSION = "1.0.0"
+#: Bounds on an allowlist document so a hostile or careless file cannot blow up
+#: memory or compile time.
+_MAX_ALLOWLIST_PATTERNS = 10_000
+_MAX_ALLOWLIST_PATTERN_LEN = 1_000
 try:
     _NOFOLLOW = os.O_NOFOLLOW
 except AttributeError:  # pragma: no cover - Windows lacks this flag
@@ -55,6 +62,30 @@ class SecretFinding:
     line: int
     masked: str
     fingerprint: str
+
+
+@dataclass(frozen=True)
+class Allowlist:
+    """Operator-declared known-safe patterns that suppress a match.
+
+    Distinct from a baseline (which fingerprints *specific* accepted findings):
+    an allowlist suppresses by shape, so a class of false positives — test
+    fixtures under a path, or a documentation placeholder value — never has to be
+    fingerprinted one by one.
+
+    * ``path_patterns`` are ``fnmatch`` globs tested against the finding's path
+      (for history findings, the ``git-history/<commit>/<file>`` location).
+    * ``value_patterns`` are regexes searched against the *raw* matched value, so
+      they must be applied at detection time, before the value is masked.
+    """
+
+    path_patterns: tuple[str, ...] = ()
+    value_patterns: tuple[re.Pattern[str], ...] = ()
+
+    def allows(self, path: str, value: str) -> bool:
+        if any(fnmatch.fnmatch(path, pattern) for pattern in self.path_patterns):
+            return True
+        return any(pattern.search(value) for pattern in self.value_patterns)
 
 
 @dataclass(frozen=True)
@@ -98,8 +129,13 @@ def scan_text(
     entropy_threshold: float = 4.5,
     *,
     fingerprint_scope: str | None = None,
+    allowlist: Allowlist | None = None,
 ) -> list[SecretFinding]:
-    """Scan text using known prefixes followed by configurable entropy detection."""
+    """Scan text using known prefixes followed by configurable entropy detection.
+
+    ``allowlist`` suppresses a match whose path or raw value it covers, before the
+    value is masked into a finding.
+    """
     threshold = _validate_entropy_threshold(entropy_threshold)
     findings: list[SecretFinding] = []
     seen_values: set[str] = set()
@@ -118,13 +154,17 @@ def scan_text(
             if value in seen_values:
                 continue
             seen_values.add(value)
+            if allowlist is not None and allowlist.allows(path, value):
+                continue
             scope = fingerprint_scope or path
             fingerprint = hashlib.sha256(f"{scope}:{rule}:{value}".encode()).hexdigest()
             findings.append(SecretFinding(rule, path, line_number, _mask(value), fingerprint))
     return findings
 
 
-def _scan_git_patch(patch: str, entropy_threshold: float) -> list[SecretFinding]:
+def _scan_git_patch(
+    patch: str, entropy_threshold: float, allowlist: Allowlist | None = None
+) -> list[SecretFinding]:
     """Map changed patch lines to their introducing commit/file without exposing values."""
     current_commit = "unknown"
     current_path = "unknown"
@@ -162,6 +202,7 @@ def _scan_git_patch(patch: str, entropy_threshold: float) -> list[SecretFinding]
             location,
             entropy_threshold,
             fingerprint_scope=f"git-history/{current_path}",
+            allowlist=allowlist,
         ):
             if finding.fingerprint in seen:
                 continue
@@ -269,6 +310,7 @@ def scan_paths_bounded(
     excluded_paths: tuple[Path, ...] = (),
     policy: ExecutionPolicy,
     cancellation: Cancellation | None = None,
+    allowlist: Allowlist | None = None,
 ) -> PathScanResult:
     """Scan regular UTF-8 text files within a shared deadline and resource bounds."""
     if not paths:
@@ -318,7 +360,7 @@ def scan_paths_bounded(
         except UnicodeDecodeError:
             ignored.append(SkippedFile(str(file), "non-UTF-8 content"))
             continue
-        findings.extend(scan_text(text, str(file), threshold))
+        findings.extend(scan_text(text, str(file), threshold, allowlist=allowlist))
         scanned_files += 1
     return PathScanResult(tuple(findings), scanned_files, tuple(ignored), tuple(partial_errors))
 
@@ -369,6 +411,7 @@ def scan_git_history(
     cancellation: Cancellation | None = None,
     max_history_bytes: int = DEFAULT_MAX_HISTORY_BYTES,
     max_commits: int = DEFAULT_MAX_COMMITS,
+    allowlist: Allowlist | None = None,
 ) -> list[SecretFinding]:
     """Scan a bounded Git patch stream without checkout, textconv, pager, or shell."""
     threshold = _validate_entropy_threshold(entropy_threshold)
@@ -454,7 +497,7 @@ def scan_git_history(
     if process.returncode != 0:
         message = stderr.decode("utf-8", errors="replace").strip()
         raise subprocess.CalledProcessError(process.returncode, command, stderr=message)
-    return _scan_git_patch(stdout.decode("utf-8", errors="replace"), threshold)
+    return _scan_git_patch(stdout.decode("utf-8", errors="replace"), threshold, allowlist)
 
 
 def load_baseline(path: Path) -> set[str]:
@@ -482,6 +525,47 @@ def load_baseline(path: Path) -> set[str]:
 def apply_baseline(findings: list[SecretFinding], baseline: set[str]) -> list[SecretFinding]:
     """Drop findings whose fingerprint is in the accepted baseline."""
     return [finding for finding in findings if finding.fingerprint not in baseline]
+
+
+def _validate_pattern_list(raw: object, field: str) -> list[str]:
+    if not isinstance(raw, list) or len(raw) > _MAX_ALLOWLIST_PATTERNS:
+        raise ValueError(
+            f"allowlist {field} must be an array of at most {_MAX_ALLOWLIST_PATTERNS} entries"
+        )
+    for item in raw:
+        if not isinstance(item, str) or not item or len(item) > _MAX_ALLOWLIST_PATTERN_LEN:
+            raise ValueError(
+                f"allowlist {field} entries must be non-empty strings under 1000 chars"
+            )
+    return list(raw)
+
+
+def load_allowlist(path: Path) -> Allowlist:
+    """Load a strict, versioned allowlist of path globs and value regexes.
+
+    The document must define exactly ``schema_name``, ``schema_version``,
+    ``path_patterns`` and ``value_patterns``; each list may be empty. Value
+    patterns are compiled here so a bad regex fails loudly at load, not silently
+    at scan time.
+    """
+    raw: object = json.loads(path.read_text(encoding="utf-8"))
+    document = validate_contract_header(raw, schema_name=ALLOWLIST_SCHEMA_NAME)
+    if set(document) != {"schema_name", "schema_version", "path_patterns", "value_patterns"}:
+        raise ValueError(
+            "allowlist must define exactly schema_name, schema_version, path_patterns "
+            "and value_patterns"
+        )
+    path_patterns = _validate_pattern_list(document["path_patterns"], "path_patterns")
+    value_sources = _validate_pattern_list(document["value_patterns"], "value_patterns")
+    compiled: list[re.Pattern[str]] = []
+    for source in value_sources:
+        try:
+            compiled.append(re.compile(source))
+        except re.error as exc:
+            raise ValueError(
+                f"allowlist value_pattern {source!r} is not a valid regex: {exc}"
+            ) from exc
+    return Allowlist(path_patterns=tuple(path_patterns), value_patterns=tuple(compiled))
 
 
 def write_baseline(findings: list[SecretFinding], path: Path) -> None:

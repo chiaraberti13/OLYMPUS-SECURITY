@@ -24,6 +24,7 @@ from pathlib import Path
 
 from olympus.argus.resolver import DnsResolutionError, DnsResolver
 from olympus.core.enums import AssetType, Severity, Source
+from olympus.core.fileio import atomic_write_text
 from olympus.core.http import HttpClient, HttpRequestError
 from olympus.core.models import Asset, Finding
 
@@ -195,5 +196,6 @@ class EmailIntel:
 
 def export_email_intel(intel: EmailIntel, path: Path) -> None:
     """Write an email-intel bundle (report + asset + findings) as JSON to ``path``."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(intel.to_dict(), indent=2, sort_keys=True), encoding="utf-8")
+    atomic_write_text(
+        path, json.dumps(intel.to_dict(), indent=2, sort_keys=True), mode=0o600
+    )

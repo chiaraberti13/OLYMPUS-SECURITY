@@ -21,6 +21,7 @@ from phonenumbers import PhoneNumberType, carrier, geocoder, timezone
 
 from olympus.argus.enrichment import MessagingPresence, PhoneEnrichment
 from olympus.core.enums import AssetType, Severity, Source
+from olympus.core.fileio import atomic_write_text
 from olympus.core.models import Asset, Finding
 
 _LINE_TYPE_NAMES: dict[int, str] = {
@@ -251,5 +252,6 @@ class PhoneIntel:
 
 def export_phone_intel(intel: PhoneIntel, path: Path) -> None:
     """Write a phone-intel bundle (report + asset + findings) as JSON to ``path``."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(intel.to_dict(), indent=2, sort_keys=True), encoding="utf-8")
+    atomic_write_text(
+        path, json.dumps(intel.to_dict(), indent=2, sort_keys=True), mode=0o600
+    )

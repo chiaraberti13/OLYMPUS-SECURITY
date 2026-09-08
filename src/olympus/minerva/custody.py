@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import os
 import stat
@@ -29,10 +30,15 @@ except ImportError:  # pragma: no cover
 GENESIS_HASH = "0" * 64
 CUSTODY_SCHEMA_NAME = "olympus.custody"
 CUSTODY_SCHEMA_VERSION = "2.0.0"
+SIGNED_CUSTODY_VERSION = "2.1.0"
 LEGACY_CUSTODY_VERSION = "1.0.0"
 DEFAULT_MAX_LEDGER_BYTES = 50_000_000
 DEFAULT_MAX_ENTRIES = 100_000
 _PROCESS_LOCK = threading.RLock()
+
+#: HMAC algorithm used to sign a 2.1.0 ledger, and the env var carrying the key.
+CUSTODY_HMAC_ALGORITHM: Literal["HMAC-SHA256"] = "HMAC-SHA256"
+CUSTODY_KEY_ENV = "OLYMPUS_CUSTODY_HMAC_KEY"
 
 
 class CustodyAction(StrEnum):
@@ -106,8 +112,40 @@ class _CustodyLedgerV1(BaseModel):
     entries: list[LegacyCustodyEntry]
 
 
+class CustodySignature(BaseModel):
+    """HMAC over the ledger head, binding the whole chain and its length.
+
+    The signature covers ``entry_count`` and ``head_hash`` (the last entry's
+    ``entry_hash``, which already chains in every prior entry). An attacker who
+    rewrites the ledger can recompute every ``entry_hash`` and a consistent head,
+    but cannot recompute this value without the key; dropping entries changes the
+    count and head, so a truncation invalidates it too. These are exactly the two
+    attacks a bare hash chain cannot catch on its own.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    algorithm: Literal["HMAC-SHA256"]
+    entry_count: int = Field(ge=1)
+    head_hash: str = Field(pattern=r"^[a-f0-9]{64}$")
+    value: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class _CustodyLedgerV2Signed(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_name: Literal["olympus.custody"]
+    schema_version: Literal["2.1.0"]
+    entries: list[CustodyEntry]
+    signature: CustodySignature
+
+
 class CustodyIntegrityError(ValueError):
     """Raised when a ledger is malformed or its hash/state chain is invalid."""
+
+
+class CustodyKeyError(ValueError):
+    """Raised when a signing key is required but absent, or malformed."""
 
 
 @dataclass(frozen=True)
@@ -115,6 +153,8 @@ class LedgerInspection:
     entries: tuple[CustodyRecord, ...]
     schema_version: str
     evidence_anchored: bool
+    signed: bool = False
+    signature_verified: bool = False
 
 
 def _entry_hash(
@@ -150,6 +190,67 @@ def _legacy_entry_hash(entry: LegacyCustodyEntry) -> str:
     }
     canonical = json.dumps(payload, separators=(",", ":"), sort_keys=True)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def load_custody_key(env: dict[str, str] | None = None) -> bytes | None:
+    """Return the HMAC signing key from the environment, or ``None`` if unset.
+
+    The key is read from ``OLYMPUS_CUSTODY_HMAC_KEY`` as UTF-8 text (a
+    passphrase). An empty or whitespace-only value is treated as unset so a
+    blank export does not silently produce a weak key.
+    """
+    source = env if env is not None else os.environ
+    raw = source.get(CUSTODY_KEY_ENV, "").strip()
+    return raw.encode("utf-8") if raw else None
+
+
+def _signature_payload(entry_count: int, head_hash: str) -> bytes:
+    """Canonical bytes the HMAC is computed over."""
+    payload = {
+        "algorithm": CUSTODY_HMAC_ALGORITHM,
+        "entry_count": entry_count,
+        "head_hash": head_hash,
+        "schema_name": CUSTODY_SCHEMA_NAME,
+        "schema_version": SIGNED_CUSTODY_VERSION,
+    }
+    return json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+
+
+def _compute_signature(key: bytes, entry_count: int, head_hash: str) -> str:
+    return hmac.new(key, _signature_payload(entry_count, head_hash), hashlib.sha256).hexdigest()
+
+
+def _sign_entries(key: bytes, entries: list[CustodyEntry]) -> CustodySignature:
+    head_hash = entries[-1].entry_hash
+    return CustodySignature(
+        algorithm=CUSTODY_HMAC_ALGORITHM,
+        entry_count=len(entries),
+        head_hash=head_hash,
+        value=_compute_signature(key, len(entries), head_hash),
+    )
+
+
+def verify_signature(
+    key: bytes, entries: list[CustodyEntry], signature: CustodySignature
+) -> None:
+    """Raise :class:`CustodyIntegrityError` if the HMAC or its commitments fail.
+
+    The chain must already be verified (:func:`verify_entries`) so ``entries`` is
+    the real, ordered history; this then binds the operator's key to that exact
+    history and length.
+    """
+    if signature.entry_count != len(entries):
+        raise CustodyIntegrityError(
+            f"signature commits to {signature.entry_count} entries but the ledger has "
+            f"{len(entries)} (a truncation or an inserted entry)"
+        )
+    if signature.head_hash != entries[-1].entry_hash:
+        raise CustodyIntegrityError("signature head_hash does not match the ledger head")
+    expected = _compute_signature(key, len(entries), entries[-1].entry_hash)
+    if not hmac.compare_digest(expected, signature.value):
+        raise CustodyIntegrityError(
+            "custody signature mismatch: wrong key or the ledger was rewritten"
+        )
 
 
 def verify_entries(
@@ -241,8 +342,15 @@ def inspect_ledger(
     max_bytes: int = DEFAULT_MAX_LEDGER_BYTES,
     max_entries: int = DEFAULT_MAX_ENTRIES,
     progress_check: Callable[[], None] | None = None,
+    key: bytes | None = None,
 ) -> LedgerInspection:
-    """Load and verify v2 or the explicitly supported read-only v1 ledger."""
+    """Load and verify a signed 2.1.0, plain 2.0.0, or read-only 1.0.0 ledger.
+
+    When ``key`` is given and the ledger is signed, the HMAC is verified — a
+    truncation or a full rewrite is caught here. When the ledger is signed but no
+    key is given, the chain is still verified and the result reports
+    ``signed=True, signature_verified=False`` so a caller can refuse to trust it.
+    """
     if not path.exists():
         if missing_ok:
             return LedgerInspection((), CUSTODY_SCHEMA_VERSION, True)
@@ -254,6 +362,20 @@ def inspect_ledger(
         if not isinstance(payload, dict) or payload.get("schema_name") != CUSTODY_SCHEMA_NAME:
             raise CustodyIntegrityError("invalid custody schema_name")
         version = payload.get("schema_version")
+        if version == SIGNED_CUSTODY_VERSION:
+            signed = _CustodyLedgerV2Signed.model_validate(payload)
+            if not signed.entries:
+                raise CustodyIntegrityError("custody ledger must contain at least one entry")
+            verify_entries(
+                signed.entries, max_entries=max_entries, progress_check=progress_check
+            )
+            verified = False
+            if key is not None:
+                verify_signature(key, signed.entries, signed.signature)
+                verified = True
+            return LedgerInspection(
+                tuple(signed.entries), version, True, signed=True, signature_verified=verified
+            )
         if version == CUSTODY_SCHEMA_VERSION:
             document = _CustodyLedgerV2.model_validate(payload)
             if not document.entries:
@@ -272,7 +394,8 @@ def inspect_ledger(
             return LedgerInspection(tuple(legacy.entries), version, False)
         raise CustodyIntegrityError(
             f"unsupported custody version {version!r}; supported: "
-            f"{CUSTODY_SCHEMA_VERSION} (and read-only {LEGACY_CUSTODY_VERSION})"
+            f"{SIGNED_CUSTODY_VERSION}, {CUSTODY_SCHEMA_VERSION} "
+            f"(and read-only {LEGACY_CUSTODY_VERSION})"
         )
     except json.JSONDecodeError as exc:
         raise CustodyIntegrityError(f"invalid custody JSON: {exc.msg}") from exc
@@ -287,6 +410,7 @@ def load_ledger(
     max_bytes: int = DEFAULT_MAX_LEDGER_BYTES,
     max_entries: int = DEFAULT_MAX_ENTRIES,
     progress_check: Callable[[], None] | None = None,
+    key: bytes | None = None,
 ) -> list[CustodyRecord]:
     """Compatibility facade returning records from a fully verified ledger."""
     return list(
@@ -296,6 +420,7 @@ def load_ledger(
             max_bytes=max_bytes,
             max_entries=max_entries,
             progress_check=progress_check,
+            key=key,
         ).entries
     )
 
@@ -310,8 +435,15 @@ def append_entry(
     max_ledger_bytes: int = DEFAULT_MAX_LEDGER_BYTES,
     max_entries: int = DEFAULT_MAX_ENTRIES,
     progress_check: Callable[[], None] | None = None,
+    key: bytes | None = None,
 ) -> CustodyEntry:
-    """Verify, lock and append one v2 event, then durably replace the ledger."""
+    """Verify, lock and append one event, then durably replace the ledger.
+
+    With ``key`` the ledger is written signed (2.1.0) and an existing signed
+    ledger is verified against the key before the append. An existing signed
+    ledger with no key is refused (:class:`CustodyKeyError`): appending unsigned
+    would silently strip the signature.
+    """
     if progress_check is not None:
         progress_check()
     with _ledger_lock(ledger, progress_check):
@@ -321,11 +453,16 @@ def append_entry(
             max_bytes=max_ledger_bytes,
             max_entries=max_entries,
             progress_check=progress_check,
+            key=key,
         )
         if not inspection.evidence_anchored:
             raise CustodyIntegrityError(
                 "legacy custody 1.0.0 is read-only because it does not anchor evidence digests; "
                 "preserve it and start a 2.0.0 ledger"
+            )
+        if inspection.signed and key is None:
+            raise CustodyKeyError(
+                f"custody ledger is signed; set {CUSTODY_KEY_ENV} to append or verify it"
             )
         entries = [entry for entry in inspection.entries if isinstance(entry, CustodyEntry)]
         if len(entries) >= max_entries:
@@ -354,11 +491,20 @@ def append_entry(
         )
         entries.append(entry)
         verify_entries(entries, max_entries=max_entries, progress_check=progress_check)
-        payload = {
-            "schema_name": CUSTODY_SCHEMA_NAME,
-            "schema_version": CUSTODY_SCHEMA_VERSION,
-            "entries": [item.model_dump(mode="json") for item in entries],
-        }
+        if key is not None:
+            signature = _sign_entries(key, entries)
+            payload = {
+                "schema_name": CUSTODY_SCHEMA_NAME,
+                "schema_version": SIGNED_CUSTODY_VERSION,
+                "entries": [item.model_dump(mode="json") for item in entries],
+                "signature": signature.model_dump(mode="json"),
+            }
+        else:
+            payload = {
+                "schema_name": CUSTODY_SCHEMA_NAME,
+                "schema_version": CUSTODY_SCHEMA_VERSION,
+                "entries": [item.model_dump(mode="json") for item in entries],
+            }
         content = json.dumps(payload, indent=2, sort_keys=True) + "\n"
         if len(content.encode("utf-8")) > max_ledger_bytes:
             raise CustodyIntegrityError(

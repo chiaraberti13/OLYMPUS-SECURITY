@@ -13,9 +13,11 @@ from olympus.hermes.scanner import (
     DEFAULT_MAX_FILE_BYTES,
     DEFAULT_MAX_FILES,
     DEFAULT_MAX_HISTORY_BYTES,
+    Allowlist,
     SecretFinding,
     SkippedFile,
     apply_baseline,
+    load_allowlist,
     load_baseline,
     scan_git_history,
     scan_paths_bounded,
@@ -34,6 +36,7 @@ class HistoryScanner(Protocol):
         cancellation: Cancellation | None,
         max_history_bytes: int,
         max_commits: int,
+        allowlist: Allowlist | None,
     ) -> list[SecretFinding]: ...
 
 
@@ -43,6 +46,7 @@ class SecretScanRequest:
     entropy_threshold: float = 4.5
     history: bool = False
     baseline_path: Path | None = None
+    allowlist_path: Path | None = None
     timeout_seconds: float = 30.0
     deadline_seconds: float = 600.0
     max_file_bytes: int = DEFAULT_MAX_FILE_BYTES
@@ -84,6 +88,11 @@ class SecretScanService:
         baseline = (
             load_baseline(request.baseline_path) if request.baseline_path is not None else None
         )
+        allowlist = (
+            load_allowlist(request.allowlist_path)
+            if request.allowlist_path is not None
+            else None
+        )
         started = time.monotonic()
         file_result = scan_paths_bounded(
             list(request.paths),
@@ -93,6 +102,7 @@ class SecretScanService:
             excluded_paths=request.excluded_paths,
             policy=policy,
             cancellation=self.cancellation,
+            allowlist=allowlist,
         )
         findings = list(file_result.findings)
         if request.history:
@@ -112,6 +122,7 @@ class SecretScanService:
                     cancellation=self.cancellation,
                     max_history_bytes=request.max_history_bytes,
                     max_commits=request.max_commits,
+                    allowlist=allowlist,
                 )
             )
         if baseline is not None:

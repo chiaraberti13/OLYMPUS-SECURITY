@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import typer
 
 from olympus.core.contracts import ContractCompatibilityError
+from olympus.core.evidence import DEFAULT_MAX_ARTIFACT_BYTES, capture_evidence
 from olympus.core.execution import CancellationRequested, ExecutionPolicyError
+from olympus.core.fileio import atomic_write_text, ensure_write_target
 from olympus.core.output import OutputFormat, render
 from olympus.core.paths import output_path
 from olympus.minerva.application import (
@@ -21,6 +24,7 @@ from olympus.minerva.custody import (
     DEFAULT_MAX_ENTRIES,
     DEFAULT_MAX_LEDGER_BYTES,
     CustodyAction,
+    load_custody_key,
 )
 from olympus.minerva.triage import DEFAULT_MAX_ALERT_BYTES, DEFAULT_MAX_ALERTS, export_incident
 
@@ -68,6 +72,47 @@ def triage(
 
 
 @app.command()
+def capture(
+    artifact: Path,
+    output: Path,
+    evidence_type: str = typer.Option(..., "--type", help="e.g. memory-image, pcap, disk-image."),
+    uri: str | None = typer.Option(
+        None, "--uri", help="Provenance URI; defaults to the artifact's file:// path."
+    ),
+    max_bytes: int = typer.Option(DEFAULT_MAX_ARTIFACT_BYTES, "--max-bytes"),
+    force: bool = typer.Option(
+        False, "--force", help="Overwrite an existing evidence file (default: refuse)."
+    ),
+) -> None:
+    """Hash a local artifact and write an evidence reference anchored to its bytes.
+
+    The sha256 is computed from the artifact as it is captured — not supplied by
+    hand — so the reference provably matches the material it points at. The
+    destination is validated before writing (no symlink, no silent overwrite
+    unless ``--force``).
+    """
+    try:
+        evidence = capture_evidence(
+            artifact, evidence_type=evidence_type, uri=uri, max_bytes=max_bytes
+        )
+        ensure_write_target(output, overwrite=force)
+        payload = json.loads(evidence.model_dump_json())
+        atomic_write_text(
+            output,
+            json.dumps(payload, indent=2, sort_keys=True) + "\n",
+            mode=0o600,
+            overwrite=force,
+        )
+    except (OSError, ValueError) as exc:
+        typer.echo(f"minerva: capture error: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    typer.echo(
+        f"minerva: captured {evidence.evidence_id} "
+        f"sha256={evidence.sha256} -> {output}"
+    )
+
+
+@app.command()
 def record(
     evidence: Path,
     ledger: Path,
@@ -78,7 +123,11 @@ def record(
     max_entries: int = typer.Option(DEFAULT_MAX_ENTRIES, "--max-entries"),
     deadline: float = typer.Option(60.0, "--deadline"),
 ) -> None:
-    """Append an evidence-digest-anchored event after verifying the complete chain."""
+    """Append an evidence-digest-anchored event after verifying the complete chain.
+
+    When ``OLYMPUS_CUSTODY_HMAC_KEY`` is set the ledger is written signed (2.1.0);
+    an already-signed ledger requires the key to append.
+    """
     try:
         entry = MinervaApplicationService().record(
             MinervaRecordRequest(
@@ -90,6 +139,7 @@ def record(
                 max_ledger_bytes=max_ledger_bytes,
                 max_entries=max_entries,
                 deadline_seconds=deadline,
+                key=load_custody_key(),
             )
         )
     except _APPLICATION_ERRORS as exc:
@@ -108,20 +158,33 @@ def verify(
     max_entries: int = typer.Option(DEFAULT_MAX_ENTRIES, "--max-entries"),
     deadline: float = typer.Option(60.0, "--deadline"),
 ) -> None:
-    """Verify every hash, digest, state and timestamp in an existing ledger."""
+    """Verify every hash, digest, state, timestamp and (if signed) the HMAC.
+
+    A signed 2.1.0 ledger is fully verified only when ``OLYMPUS_CUSTODY_HMAC_KEY``
+    is set; without the key the chain is checked but the signature is not, which
+    exits non-zero.
+    """
+    key = load_custody_key()
     try:
         outcome = MinervaApplicationService().inspect(
-            MinervaLedgerRequest(ledger, max_ledger_bytes, max_entries, deadline)
+            MinervaLedgerRequest(ledger, max_ledger_bytes, max_entries, deadline, key=key)
         )
     except _APPLICATION_ERRORS as exc:
         typer.echo(f"minerva: custody integrity failure: {exc}", err=True)
         raise typer.Exit(code=2) from exc
-    qualifier = "evidence-anchored" if outcome.evidence_anchored else "legacy, not digest-anchored"
+    if not outcome.evidence_anchored:
+        qualifier = "legacy, not digest-anchored"
+    elif outcome.signed and outcome.signature_verified:
+        qualifier = "evidence-anchored; HMAC-SHA256 signature verified"
+    elif outcome.signed:
+        qualifier = "evidence-anchored; SIGNED but no key to verify the signature"
+    else:
+        qualifier = "evidence-anchored; unsigned"
     typer.echo(
         f"minerva: custody {outcome.schema_version} verified "
         f"({len(outcome.entries)} entries; {qualifier})"
     )
-    if not outcome.evidence_anchored:
+    if not outcome.evidence_anchored or (outcome.signed and not outcome.signature_verified):
         raise typer.Exit(code=1)
 
 
@@ -138,7 +201,9 @@ def timeline(
     """Print a verified custody timeline, including evidence digest provenance."""
     try:
         outcome = MinervaApplicationService().inspect(
-            MinervaLedgerRequest(ledger, max_ledger_bytes, max_entries, deadline)
+            MinervaLedgerRequest(
+                ledger, max_ledger_bytes, max_entries, deadline, key=load_custody_key()
+            )
         )
     except _APPLICATION_ERRORS as exc:
         typer.echo(f"minerva: custody integrity failure: {exc}", err=True)

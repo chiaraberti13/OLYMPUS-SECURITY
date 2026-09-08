@@ -17,6 +17,7 @@ from typing import Protocol
 from urllib.parse import quote
 
 from olympus.core.enums import AssetType, Severity, Source
+from olympus.core.fileio import atomic_write_text
 from olympus.core.http import HttpClient, HttpRequestError
 from olympus.core.models import Asset, Finding
 
@@ -247,5 +248,6 @@ class IpIntel:
 
 def export_ip_intel(intel: IpIntel, path: Path) -> None:
     """Write an IP-intel bundle (report + asset + findings) as JSON to ``path``."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(intel.to_dict(), indent=2, sort_keys=True), encoding="utf-8")
+    atomic_write_text(
+        path, json.dumps(intel.to_dict(), indent=2, sort_keys=True), mode=0o600
+    )

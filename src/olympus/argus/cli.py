@@ -107,6 +107,7 @@ from olympus.argus.whois import (
     build_whois_asset,
     export_whois_report,
 )
+from olympus.core.fileio import atomic_write_text
 from olympus.core.http import UrllibHttpClient
 from olympus.core.paths import audit_log_path, output_path
 from olympus.core.pinning import global_address_policy
@@ -346,8 +347,9 @@ def phone(
     payload = [intel.to_dict() for intel in batch.intels]
     typer.echo(json.dumps(payload, indent=2, sort_keys=True))
     if output is not None:
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        atomic_write_text(
+            output, json.dumps(payload, indent=2, sort_keys=True), mode=0o600
+        )
     typer.echo(f"argus: profiled {len(batch.intels)} number(s)", err=True)
 
 
@@ -450,8 +452,9 @@ def accounts(
         payload = [intel.to_dict() for intel in intels]
     typer.echo(json.dumps(payload, indent=2, sort_keys=True))
     if output is not None:
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        atomic_write_text(
+            output, json.dumps(payload, indent=2, sort_keys=True), mode=0o600
+        )
         typer.echo(f"argus: wrote account intel to {output}", err=True)
 
 
@@ -528,8 +531,9 @@ def ip(
     payload = [intel.to_dict() for intel in batch.intels]
     typer.echo(json.dumps(payload, indent=2, sort_keys=True))
     if output is not None:
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        atomic_write_text(
+            output, json.dumps(payload, indent=2, sort_keys=True), mode=0o600
+        )
     typer.echo(f"argus: profiled {len(batch.intels)} IP(s)", err=True)
 
 
@@ -634,8 +638,7 @@ def investigate(
         (graphml, graph.to_graphml),
     ):
         if target is not None:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(renderer(), encoding="utf-8")
+            atomic_write_text(target, renderer(), mode=0o600)
     typer.echo(
         f"argus: investigation '{name}' — {len(graph.entities)} entit(y/ies), "
         f"{len(graph.relationships)} edge(s); {output}",

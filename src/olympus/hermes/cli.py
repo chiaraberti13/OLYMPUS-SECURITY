@@ -34,6 +34,11 @@ def scan(
     baseline: Path | None = typer.Option(
         None, "--baseline", help="JSON baseline of accepted fingerprints to ignore."
     ),
+    allowlist: Path | None = typer.Option(
+        None,
+        "--allowlist",
+        help="JSON allowlist of path globs / value regexes to suppress by shape.",
+    ),
     write_baseline_path: Path | None = typer.Option(
         None, "--write-baseline", help="Write current findings' fingerprints as a baseline."
     ),
@@ -52,6 +57,7 @@ def scan(
                 entropy_threshold=entropy_threshold,
                 history=history,
                 baseline_path=baseline,
+                allowlist_path=allowlist,
                 timeout_seconds=timeout,
                 deadline_seconds=deadline,
                 max_file_bytes=max_file_bytes,
@@ -59,7 +65,9 @@ def scan(
                 max_history_bytes=max_history_bytes,
                 max_commits=max_commits,
                 excluded_paths=tuple(
-                    path for path in (output, baseline, write_baseline_path) if path is not None
+                    path
+                    for path in (output, baseline, allowlist, write_baseline_path)
+                    if path is not None
                 ),
             )
         )
