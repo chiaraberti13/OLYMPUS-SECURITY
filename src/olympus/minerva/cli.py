@@ -10,7 +10,7 @@ import typer
 from olympus.core.contracts import ContractCompatibilityError
 from olympus.core.evidence import DEFAULT_MAX_ARTIFACT_BYTES, capture_evidence
 from olympus.core.execution import CancellationRequested, ExecutionPolicyError
-from olympus.core.fileio import atomic_write_text
+from olympus.core.fileio import atomic_write_text, ensure_write_target
 from olympus.core.output import OutputFormat, render
 from olympus.core.paths import output_path
 from olympus.minerva.application import (
@@ -79,19 +79,28 @@ def capture(
         None, "--uri", help="Provenance URI; defaults to the artifact's file:// path."
     ),
     max_bytes: int = typer.Option(DEFAULT_MAX_ARTIFACT_BYTES, "--max-bytes"),
+    force: bool = typer.Option(
+        False, "--force", help="Overwrite an existing evidence file (default: refuse)."
+    ),
 ) -> None:
     """Hash a local artifact and write an evidence reference anchored to its bytes.
 
     The sha256 is computed from the artifact as it is captured — not supplied by
-    hand — so the reference provably matches the material it points at.
+    hand — so the reference provably matches the material it points at. The
+    destination is validated before writing (no symlink, no silent overwrite
+    unless ``--force``).
     """
     try:
         evidence = capture_evidence(
             artifact, evidence_type=evidence_type, uri=uri, max_bytes=max_bytes
         )
+        ensure_write_target(output, overwrite=force)
         payload = json.loads(evidence.model_dump_json())
         atomic_write_text(
-            output, json.dumps(payload, indent=2, sort_keys=True) + "\n", mode=0o600
+            output,
+            json.dumps(payload, indent=2, sort_keys=True) + "\n",
+            mode=0o600,
+            overwrite=force,
         )
     except (OSError, ValueError) as exc:
         typer.echo(f"minerva: capture error: {exc}", err=True)

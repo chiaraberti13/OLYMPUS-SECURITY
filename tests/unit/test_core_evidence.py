@@ -120,6 +120,38 @@ def test_captured_evidence_round_trips_into_the_custody_ledger(tmp_path: Path) -
     assert digest in recorded.output  # the ledger anchors the captured digest
 
 
+def test_capture_command_refuses_to_overwrite_without_force(tmp_path: Path) -> None:
+    artifact = tmp_path / "memory.raw"
+    artifact.write_bytes(b"bytes")
+    output = tmp_path / "evidence.json"
+    output.write_text("PRECIOUS", encoding="utf-8")  # an existing file
+
+    result = runner.invoke(
+        app, ["minerva", "capture", str(artifact), str(output), "--type", "memory-image"]
+    )
+
+    assert result.exit_code == 2
+    assert "overwrite" in result.output
+    assert output.read_text(encoding="utf-8") == "PRECIOUS"  # left untouched
+
+
+def test_capture_command_overwrites_with_force(tmp_path: Path) -> None:
+    artifact = tmp_path / "memory.raw"
+    artifact.write_bytes(b"bytes")
+    output = tmp_path / "evidence.json"
+    output.write_text("stale", encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        ["minerva", "capture", str(artifact), str(output),
+         "--type", "memory-image", "--force"],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["sha256"] == hashlib.sha256(artifact.read_bytes()).hexdigest()
+
+
 def test_capture_command_reports_a_missing_artifact(tmp_path: Path) -> None:
     result = runner.invoke(
         app,
