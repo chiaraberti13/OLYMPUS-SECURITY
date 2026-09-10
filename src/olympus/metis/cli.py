@@ -8,11 +8,14 @@ from pathlib import Path
 
 import typer
 
-from olympus.core.fileio import atomic_write_text
-from olympus.metis.cases import CaseStore, export_report
+from olympus.core.fileio import atomic_write_text, read_regular_text
+from olympus.metis.cases import CaseStore, _indicator, export_report
 from olympus.metis.catalog import CAPABILITIES, recommend
 from olympus.metis.labs import LABS
 from olympus.metis.planner import build_plan
+from olympus.metis.stix import StixError, bundle_to_indicators, indicators_to_bundle
+
+DEFAULT_MAX_STIX_BYTES = 50_000_000
 
 app = typer.Typer(
     help="Deterministic planning, capability routing and CTI casework.", no_args_is_help=True
@@ -215,6 +218,67 @@ def case_report(
     except (ValueError, LookupError, OSError, sqlite3.Error) as exc:
         _fail(exc)
     typer.echo(str(output))
+
+
+@case_app.command("stix-export")
+def case_stix_export(
+    database: Path = typer.Argument(...),
+    case_id: str = typer.Argument(...),
+    output: Path = typer.Argument(..., help="STIX 2.1 bundle output path (owner-only)."),
+) -> None:
+    """Export a case's indicators as a deterministic STIX 2.1 bundle."""
+    try:
+        with CaseStore(database) as store:
+            document = store.load_case(case_id)
+        bundle = indicators_to_bundle(document.indicators)
+        atomic_write_text(
+            output, json.dumps(bundle, indent=2, sort_keys=True) + "\n", mode=0o600
+        )
+    except (ValueError, LookupError, OSError, sqlite3.Error) as exc:
+        _fail(exc)
+    typer.echo(
+        json.dumps({"case_id": case_id, "objects": len(bundle["objects"]), "output": str(output)})
+    )
+
+
+@case_app.command("stix-import")
+def case_stix_import(
+    database: Path = typer.Argument(...),
+    case_id: str = typer.Argument(...),
+    bundle: Path = typer.Argument(..., help="STIX 2.1 bundle JSON to import."),
+    source: str = typer.Option(..., help="Analyst-visible provenance for imported IOCs."),
+    confidence: int = typer.Option(50, min=0, max=100),
+    max_bytes: int = typer.Option(DEFAULT_MAX_STIX_BYTES, "--max-bytes"),
+) -> None:
+    """Import the faithful (simple-equality) IOCs from a STIX 2.1 bundle into a case.
+
+    Compound or non-equality patterns cannot be represented as exact IOCs and are
+    reported as skipped, never silently mangled.
+    """
+    try:
+        parsed = bundle_to_indicators(
+            read_regular_text(bundle, max_bytes=max_bytes, label="STIX bundle")
+        )
+        indicators = [
+            _indicator(item.indicator_type, item.value, source, confidence)
+            for item in parsed.indicators
+        ]
+        with CaseStore(database) as store:
+            inserted = store.add_indicators(case_id, indicators)
+    except (StixError, ValueError, LookupError, OSError, sqlite3.Error) as exc:
+        _fail(exc)
+    typer.echo(
+        json.dumps(
+            {
+                "case_id": case_id,
+                "imported": len(parsed.indicators),
+                "inserted": inserted,
+                "skipped": len(parsed.skipped),
+            }
+        )
+    )
+    for item in parsed.skipped:
+        typer.echo(f"metis: skipped {item.reason}: {item.pattern}", err=True)
 
 
 app.add_typer(case_app, name="case")

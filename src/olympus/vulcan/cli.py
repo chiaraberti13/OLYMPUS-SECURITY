@@ -9,6 +9,7 @@ import typer
 
 from olympus.core.enums import Severity
 from olympus.core.execution import CancellationRequested, ExecutionPolicyError
+from olympus.core.fileio import atomic_write_text, read_regular_text
 from olympus.core.output import OutputFormat, render
 from olympus.core.paths import output_path
 from olympus.vulcan.aggregate import (
@@ -17,6 +18,7 @@ from olympus.vulcan.aggregate import (
     DEFAULT_MAX_ITEMS_PER_FILE,
     DEFAULT_MAX_TOTAL_ITEMS,
     AggregationError,
+    load_findings,
 )
 from olympus.vulcan.application import (
     DEFAULT_MAX_OUTPUT_BYTES,
@@ -24,6 +26,17 @@ from olympus.vulcan.application import (
     VulcanApplicationService,
     VulcanRankRequest,
     VulcanReportRequest,
+)
+from olympus.vulcan.enrichment import (
+    DEFAULT_MAX_FEED_BYTES,
+    EnrichmentError,
+    enrich_findings,
+    extract_cves,
+    fetch_epss_scores,
+    fetch_kev_catalog,
+    parse_epss_response,
+    parse_kev_catalog,
+    prioritize,
 )
 from olympus.vulcan.report import export_report, export_text
 
@@ -36,11 +49,13 @@ app = typer.Typer(
 _APPLICATION_ERRORS = (
     AggregationError,
     CancellationRequested,
+    EnrichmentError,
     ExecutionPolicyError,
     OSError,
     TimeoutError,
     ValueError,
 )
+DEFAULT_ENRICH_OUTPUT = output_path("vulcan-enrichment.json")
 
 
 @app.command()
@@ -116,6 +131,92 @@ def report(
         typer.echo(f"vulcan: wrote Markdown report to {markdown}", err=True)
     if html_output is not None:
         typer.echo(f"vulcan: wrote HTML report to {html_output}", err=True)
+
+
+@app.command()
+def enrich(
+    findings: list[Path] = typer.Option(
+        ..., "--findings", help="core.Finding JSON file(s) to enrich (repeatable)."
+    ),
+    kev: Path | None = typer.Option(
+        None, "--kev", help="Local CISA KEV catalogue JSON (offline enrichment)."
+    ),
+    epss: Path | None = typer.Option(
+        None, "--epss", help="Local FIRST EPSS API JSON response (offline enrichment)."
+    ),
+    fetch: bool = typer.Option(
+        False, "--fetch", help="Fetch KEV and EPSS live instead of reading local files."
+    ),
+    output: Path = typer.Option(DEFAULT_ENRICH_OUTPUT, "--output", help="Overlay JSON output."),
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.TABLE, "--format", help="Render the ranked view as table or json."
+    ),
+    max_files: int = typer.Option(DEFAULT_MAX_FILES, "--max-files"),
+    max_input_bytes: int = typer.Option(DEFAULT_MAX_INPUT_BYTES, "--max-input-bytes"),
+    max_items_per_file: int = typer.Option(DEFAULT_MAX_ITEMS_PER_FILE, "--max-items-per-file"),
+    max_total_items: int = typer.Option(DEFAULT_MAX_TOTAL_ITEMS, "--max-total-items"),
+    max_feed_bytes: int = typer.Option(DEFAULT_MAX_FEED_BYTES, "--max-feed-bytes"),
+) -> None:
+    """Overlay CVE risk (CISA KEV + FIRST EPSS) onto findings and rank by urgency.
+
+    Reads KEV/EPSS from local files by default (offline, reproducible); ``--fetch``
+    pulls both live. The overlay never mutates the finding contract.
+    """
+    try:
+        loaded = load_findings(
+            findings,
+            max_files=max_files,
+            max_bytes=max_input_bytes,
+            max_items_per_file=max_items_per_file,
+            max_total_items=max_total_items,
+        )
+        if fetch:
+            all_cves = sorted({cve for finding in loaded for cve in extract_cves(finding)})
+            kev_catalog = fetch_kev_catalog(max_bytes=max_feed_bytes)
+            epss_scores = fetch_epss_scores(all_cves, max_bytes=max_feed_bytes)
+        else:
+            kev_catalog = (
+                parse_kev_catalog(
+                    read_regular_text(kev, max_bytes=max_feed_bytes, label="KEV feed")
+                )
+                if kev is not None
+                else {}
+            )
+            epss_scores = (
+                parse_epss_response(
+                    read_regular_text(epss, max_bytes=max_feed_bytes, label="EPSS feed")
+                )
+                if epss is not None
+                else {}
+            )
+        enrichments = enrich_findings(loaded, kev=kev_catalog, epss=epss_scores)
+        ranked = prioritize(loaded, enrichments)
+        overlay = [enrichment.to_dict() for _, enrichment in ranked]
+        atomic_write_text(
+            output, json.dumps(overlay, indent=2, sort_keys=True) + "\n", mode=0o600
+        )
+    except _APPLICATION_ERRORS as exc:
+        typer.echo(f"vulcan: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    columns = ["kev", "epss", "cvss", "severity", "cves", "title"]
+    records: list[dict[str, object]] = [
+        {
+            "kev": "YES" if enrichment.in_kev else "",
+            "epss": f"{enrichment.max_epss:.3f}" if enrichment.max_epss is not None else "",
+            "cvss": finding.cvss if finding.cvss is not None else "",
+            "severity": finding.severity.value,
+            "cves": ",".join(enrichment.cves),
+            "title": finding.title,
+        }
+        for finding, enrichment in ranked
+    ]
+    kev_hits = sum(1 for _, enrichment in ranked if enrichment.in_kev)
+    typer.echo(render(records, columns, output_format, title="Findings by real-world risk"))
+    typer.echo(
+        f"vulcan: enriched {len(loaded)} finding(s); {kev_hits} in CISA KEV; overlay: {output}",
+        err=True,
+    )
 
 
 @app.command()
