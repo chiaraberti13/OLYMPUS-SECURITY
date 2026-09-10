@@ -272,6 +272,32 @@ class CaseStore:
     def close(self) -> None:
         self._conn.close()
 
+    def backup(self, destination: Path) -> Path:
+        """Write a consistent owner-only snapshot of the case store.
+
+        Uses SQLite's online backup API, so the snapshot is transactionally
+        consistent even under WAL and even if the store is being written
+        concurrently — unlike a plain file copy, which can catch a torn write or
+        miss the WAL. Returns the resolved destination path.
+        """
+        if destination.is_symlink():
+            raise OSError(f"backup destination must not be a symlink: {destination}")
+        destination = destination.resolve()
+        if destination == self.path:
+            raise ValueError("backup destination must differ from the live database")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        with suppress(OSError):
+            destination.parent.chmod(0o700)
+        target = sqlite3.connect(destination)
+        try:
+            with target:
+                self._conn.backup(target)
+        finally:
+            target.close()
+        with suppress(OSError):
+            destination.chmod(0o600)
+        return destination
+
     def _touch(self, case_id: str) -> None:
         self._conn.execute("UPDATE cases SET updated_at=? WHERE case_id=?", (_now(), case_id))
 
@@ -450,6 +476,73 @@ class CaseStore:
             findings=findings,
             correlations=tuple(sorted(correlations)),
         )
+
+
+class BackupError(ValueError):
+    """Raised when a backup is not a usable METIS case database."""
+
+
+def verify_backup(path: Path) -> dict[str, int]:
+    """Open a backup read-only and confirm it is a real METIS store.
+
+    Returns row counts for the core tables. Raises :class:`BackupError` if the
+    file is not a regular file, is not SQLite, or lacks the METIS schema — so a
+    restore never overwrites a live database from a bogus source.
+    """
+    if path.is_symlink() or not path.is_file():
+        raise BackupError(f"backup must be a regular non-symlink file: {path}")
+    if not stat.S_ISREG(path.stat().st_mode):
+        raise BackupError(f"backup must be a regular file: {path}")
+    uri = f"file:{path}?mode=ro"
+    try:
+        connection = sqlite3.connect(uri, uri=True)
+    except sqlite3.Error as exc:
+        raise BackupError(f"backup is not a readable SQLite database: {exc}") from exc
+    try:
+        version_row = connection.execute("SELECT MAX(version) FROM metis_schema").fetchone()
+        if version_row is None or version_row[0] != 1:
+            raise BackupError("backup is not a METIS schema version 1 database")
+        # Table names are a fixed literal allowlist, never user input, so the
+        # f-string cannot be an injection vector.
+        counts = {
+            table: int(
+                connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]  # noqa: S608
+            )
+            for table in ("cases", "indicators", "findings")
+        }
+    except sqlite3.Error as exc:
+        raise BackupError(f"backup is missing the METIS schema: {exc}") from exc
+    finally:
+        connection.close()
+    return counts
+
+
+def restore_backup(backup: Path, destination: Path) -> dict[str, int]:
+    """Restore a verified backup into ``destination``, replacing its contents.
+
+    The backup is validated with :func:`verify_backup` first, then copied in
+    through the SQLite backup API (a clean, consistent write) rather than a raw
+    file move, so a half-written destination can never result. Refuses to write
+    through a symlink. Returns the restored row counts.
+    """
+    counts = verify_backup(backup)
+    if destination.is_symlink():
+        raise OSError(f"restore destination must not be a symlink: {destination}")
+    destination = destination.resolve()
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with suppress(OSError):
+        destination.parent.chmod(0o700)
+    source = sqlite3.connect(f"file:{backup.resolve()}?mode=ro", uri=True)
+    target = sqlite3.connect(destination)
+    try:
+        with target:
+            source.backup(target)
+    finally:
+        target.close()
+        source.close()
+    with suppress(OSError):
+        destination.chmod(0o600)
+    return counts
 
 
 def render_markdown(case: IntelCaseDocument) -> str:

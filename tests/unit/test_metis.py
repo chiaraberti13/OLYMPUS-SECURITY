@@ -151,3 +151,63 @@ def test_metis_cli_roundtrip(tmp_path: Path) -> None:
     shown = runner.invoke(app, ["metis", "case", "show", str(database), case_id])
     assert shown.exit_code == 0
     assert json.loads(shown.stdout)["schema_name"] == "olympus.metis-case"
+
+
+# --- Backup / restore of the case store (roadmap §2 Metis) ------------------- #
+
+
+def test_backup_and_restore_round_trips_a_case(tmp_path: Path) -> None:
+    from olympus.metis.cases import _indicator, restore_backup, verify_backup
+
+    database = tmp_path / "cases.db"
+    with CaseStore(database) as store:
+        case_id = store.create_case("Backup case")
+        store.add_indicators(case_id, [_indicator(IndicatorType.DOMAIN, "evil.tld", "src", 60)])
+        snapshot = store.backup(tmp_path / "snap.db")
+
+    assert stat.S_IMODE(snapshot.stat().st_mode) == 0o600
+    assert verify_backup(snapshot) == {"cases": 1, "indicators": 1, "findings": 0}
+
+    restored = tmp_path / "restored.db"
+    counts = restore_backup(snapshot, restored)
+    assert counts["cases"] == 1
+    with CaseStore(restored) as store:
+        document = store.load_case(case_id)
+    assert document.title == "Backup case"
+    assert len(document.indicators) == 1
+
+
+def test_backup_refuses_to_overwrite_the_live_database(tmp_path: Path) -> None:
+    database = tmp_path / "cases.db"
+    with CaseStore(database) as store, pytest.raises(ValueError, match="must differ"):
+        store.backup(database)
+
+
+def test_verify_backup_rejects_a_non_metis_file(tmp_path: Path) -> None:
+    from olympus.metis.cases import BackupError, verify_backup
+
+    bogus = tmp_path / "bogus.db"
+    bogus.write_text("not a database", encoding="utf-8")
+    with pytest.raises(BackupError):
+        verify_backup(bogus)
+
+
+def test_cli_backup_verify_restore(tmp_path: Path) -> None:
+    database = tmp_path / "cases.db"
+    created = runner.invoke(app, ["metis", "case", "create", str(database), "CLI backup case"])
+    case_id = created.stdout.strip()
+    snapshot = tmp_path / "snap.db"
+
+    backed = runner.invoke(app, ["metis", "case", "backup", str(database), str(snapshot)])
+    assert backed.exit_code == 0, backed.output
+    assert snapshot.exists()
+
+    verified = runner.invoke(app, ["metis", "case", "verify-backup", str(snapshot)])
+    assert verified.exit_code == 0
+    assert json.loads(verified.stdout)["cases"] == 1
+
+    restored = tmp_path / "restored.db"
+    result = runner.invoke(app, ["metis", "case", "restore", str(snapshot), str(restored)])
+    assert result.exit_code == 0, result.output
+    shown = runner.invoke(app, ["metis", "case", "show", str(restored), case_id])
+    assert "CLI backup case" in shown.output

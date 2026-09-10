@@ -9,7 +9,14 @@ from pathlib import Path
 import typer
 
 from olympus.core.fileio import atomic_write_text, read_regular_text
-from olympus.metis.cases import CaseStore, _indicator, export_report
+from olympus.metis.cases import (
+    BackupError,
+    CaseStore,
+    _indicator,
+    export_report,
+    restore_backup,
+    verify_backup,
+)
 from olympus.metis.catalog import CAPABILITIES, recommend
 from olympus.metis.labs import LABS
 from olympus.metis.misp import MispError, event_to_indicators, indicators_to_event
@@ -347,6 +354,45 @@ def case_misp_import(
     )
     for item in parsed.skipped:
         typer.echo(f"metis: skipped {item.misp_type} ({item.reason}): {item.value}", err=True)
+
+
+@case_app.command("backup")
+def case_backup(
+    database: Path = typer.Argument(..., help="Live SQLite case database."),
+    output: Path = typer.Argument(..., help="Owner-only snapshot destination."),
+) -> None:
+    """Write a consistent owner-only snapshot of the whole case store."""
+    try:
+        with CaseStore(database) as store:
+            written = store.backup(output)
+    except (ValueError, OSError, sqlite3.Error) as exc:
+        _fail(exc)
+    typer.echo(str(written))
+
+
+@case_app.command("verify-backup")
+def case_verify_backup(
+    backup: Path = typer.Argument(..., help="Snapshot file to validate."),
+) -> None:
+    """Confirm a snapshot is a real METIS store and print its row counts."""
+    try:
+        counts = verify_backup(backup)
+    except (BackupError, OSError, sqlite3.Error) as exc:
+        _fail(exc)
+    typer.echo(json.dumps(counts, sort_keys=True))
+
+
+@case_app.command("restore")
+def case_restore(
+    backup: Path = typer.Argument(..., help="Snapshot file to restore from."),
+    database: Path = typer.Argument(..., help="Destination database (contents replaced)."),
+) -> None:
+    """Restore a verified snapshot into a database, replacing its contents."""
+    try:
+        counts = restore_backup(backup, database)
+    except (BackupError, ValueError, OSError, sqlite3.Error) as exc:
+        _fail(exc)
+    typer.echo(json.dumps({"database": str(database), **counts}, sort_keys=True))
 
 
 app.add_typer(case_app, name="case")
