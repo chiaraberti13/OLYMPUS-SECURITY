@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -23,6 +24,21 @@ from olympus.hermes.scanner import (
 
 app = typer.Typer(help="Hermes — secret and configuration scanner.", no_args_is_help=True)
 DEFAULT_OUTPUT = output_path("hermes-results.sarif")
+
+
+def _staged_files() -> list[Path]:
+    """Return the added/copied/modified files staged in the current Git index."""
+    git = shutil.which("git")
+    if git is None:
+        raise OSError("git executable not found")
+    completed = subprocess.run(  # noqa: S603 - fixed executable and arguments
+        [git, "diff", "--cached", "--name-only", "--diff-filter=ACM", "-z"],
+        capture_output=True,
+        check=True,
+        timeout=30,
+    )
+    names = completed.stdout.decode("utf-8", errors="replace").split("\0")
+    return [Path(name) for name in names if name]
 
 
 @app.command()
@@ -102,3 +118,65 @@ def scan(
         raise typer.Exit(code=2)
     if findings:
         raise typer.Exit(code=1)
+
+
+@app.command("pre-commit")
+def pre_commit(
+    paths: list[Path] = typer.Argument(
+        None, help="Files to scan; when omitted, the Git-staged files are scanned."
+    ),
+    entropy_threshold: float = typer.Option(4.5, "--entropy-threshold", min=0.0, max=8.0),
+    baseline: Path | None = typer.Option(None, "--baseline"),
+    allowlist: Path | None = typer.Option(None, "--allowlist"),
+    max_file_bytes: int = typer.Option(DEFAULT_MAX_FILE_BYTES, "--max-file-bytes"),
+    max_files: int = typer.Option(DEFAULT_MAX_FILES, "--max-files"),
+) -> None:
+    """Scan staged (or given) files and block the commit on any finding.
+
+    A developer/CI guard: it prints masked findings to the console (no SARIF
+    file), exits 0 when clean, 1 when a secret is found, and 2 on an error. With
+    no path arguments it scans the current Git index, so it drops straight into a
+    pre-commit hook or a CI step.
+    """
+    try:
+        targets = list(paths) if paths else _staged_files()
+        targets = [path for path in targets if path.is_file() and not path.is_symlink()]
+        if not targets:
+            typer.echo("hermes: no staged text files to scan", err=True)
+            return
+        outcome = SecretScanService().run(
+            SecretScanRequest(
+                paths=tuple(targets),
+                entropy_threshold=entropy_threshold,
+                history=False,
+                baseline_path=baseline,
+                allowlist_path=allowlist,
+                max_file_bytes=max_file_bytes,
+                max_files=max_files,
+            )
+        )
+    except (
+        CancellationRequested,
+        ContractCompatibilityError,
+        ExecutionPolicyError,
+        OSError,
+        ScanLimitError,
+        subprocess.SubprocessError,
+        TimeoutError,
+        ValueError,
+    ) as exc:
+        typer.echo(f"hermes: pre-commit error: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    for finding in outcome.findings:
+        typer.echo(f"hermes: {finding.rule} in {finding.path}:{finding.line} ({finding.masked})")
+    if outcome.partial_errors:
+        for error in outcome.partial_errors:
+            typer.echo(f"hermes: partial scan: {error.path}: {error.reason}", err=True)
+        raise typer.Exit(code=2)
+    if outcome.findings:
+        typer.echo(
+            f"hermes: {len(outcome.findings)} potential secret(s) found — commit blocked", err=True
+        )
+        raise typer.Exit(code=1)
+    typer.echo(f"hermes: clean ({outcome.scanned_files} file(s) scanned)")

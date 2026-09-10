@@ -357,3 +357,70 @@ def test_scan_command_applies_the_allowlist(tmp_path: Path) -> None:
     )
     assert with_allowlist.exit_code == 0, with_allowlist.output
     assert "0 potential secret(s)" in with_allowlist.output
+
+
+# --- pre-commit hook command (roadmap §2 Hermes) ----------------------------- #
+
+
+def _git_repo(tmp_path: Path) -> Path:
+    subprocess.run([GIT, "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run([GIT, "config", "user.email", "d@example.com"], cwd=tmp_path, check=True)
+    subprocess.run([GIT, "config", "user.name", "Demo"], cwd=tmp_path, check=True)
+    return tmp_path
+
+
+def test_pre_commit_scans_given_paths_and_blocks_on_a_secret(tmp_path: Path) -> None:
+    leaky = tmp_path / "config.py"
+    leaky.write_text(f'aws = "{SYNTHETIC_KEY}"', encoding="utf-8")
+    result = runner.invoke(app, ["hermes", "pre-commit", str(leaky)])
+    assert result.exit_code == 1
+    assert "commit blocked" in result.output
+    assert SYNTHETIC_KEY not in result.output  # masked
+
+
+def test_pre_commit_is_clean_for_a_safe_file(tmp_path: Path) -> None:
+    safe = tmp_path / "notes.txt"
+    safe.write_text("nothing secret here", encoding="utf-8")
+    result = runner.invoke(app, ["hermes", "pre-commit", str(safe)])
+    assert result.exit_code == 0
+    assert "clean" in result.output
+
+
+def test_pre_commit_scans_the_git_index_when_no_paths_given(tmp_path: Path) -> None:
+    repo = _git_repo(tmp_path)
+    leaky = repo / "secret.env"
+    leaky.write_text(SYNTHETIC_KEY, encoding="utf-8")
+    subprocess.run([GIT, "add", "secret.env"], cwd=repo, check=True)
+
+    # CliRunner has no cwd argument, so scan the staged index from inside the repo.
+    import os
+
+    cwd = Path.cwd()
+    try:
+        os.chdir(repo)
+        staged = runner.invoke(app, ["hermes", "pre-commit"])
+    finally:
+        os.chdir(cwd)
+    assert staged.exit_code == 1
+    assert "secret.env" in staged.output
+
+
+def test_pre_commit_allowlist_suppresses_a_staged_secret(tmp_path: Path) -> None:
+    leaky = tmp_path / "config.py"
+    leaky.write_text(f'aws = "{SYNTHETIC_KEY}"', encoding="utf-8")
+    allowlist = tmp_path / "allow.json"
+    allowlist.write_text(
+        json.dumps(
+            {
+                "schema_name": "olympus.hermes-allowlist",
+                "schema_version": "1.0.0",
+                "path_patterns": [],
+                "value_patterns": ["OLYMPUSDEMO"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = runner.invoke(
+        app, ["hermes", "pre-commit", str(leaky), "--allowlist", str(allowlist)]
+    )
+    assert result.exit_code == 0, result.output
