@@ -59,6 +59,11 @@ everything below lives under **Unreleased**.
 - Bounded the scrypt KDF parameters read from an encryption envelope, so a
   hostile document cannot turn decryption into a memory-exhaustion bomb
   (self-review finding).
+- Pinned HTTP clients no longer inherit an environment proxy for any scheme, so
+  a plain-HTTP request cannot be silently unpinned via an HTTP_PROXY (the HTTPS
+  CONNECT tunnel was already refused).
+- Import parsers (Sigma, MISP) refuse a non-scalar value instead of
+  stringifying it into a bogus rule/indicator.
 
 _Runtime-dependent items (live scanner runs, container runtime behaviour, remote
 feeds) are tracked with their blockers in `ROADMAP_HARDENING.md`._
