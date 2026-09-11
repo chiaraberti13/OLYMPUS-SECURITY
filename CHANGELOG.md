@@ -64,6 +64,13 @@ everything below lives under **Unreleased**.
   CONNECT tunnel was already refused).
 - Import parsers (Sigma, MISP) refuse a non-scalar value instead of
   stringifying it into a bogus rule/indicator.
+- Audit/metadata redaction now reaches URL query secrets nested inside list
+  values (and nested lists), not only a URL that is the immediate value of a
+  key (self-review finding).
+- Scanner-output evidence redaction now removes the credential *after* an
+  `Authorization`/`Proxy-Authorization` scheme word (`Bearer <token>`,
+  `Basic <b64>`), instead of redacting only the scheme name and leaking the
+  token (self-review finding).
 
 _Runtime-dependent items (live scanner runs, container runtime behaviour, remote
 feeds) are tracked with their blockers in `ROADMAP_HARDENING.md`._

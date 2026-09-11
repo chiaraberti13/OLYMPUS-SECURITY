@@ -92,6 +92,25 @@ def test_structured_audit_redacts_nested_secrets_and_url_queries() -> None:
     assert json.loads(serialized)["metadata"]["api_key"] == "[REDACTED]"
 
 
+def test_redaction_reaches_url_secrets_inside_lists_and_nested_lists() -> None:
+    # A URL query secret must be redacted wherever it sits, not only when it is
+    # the immediate value of a key: a redirect chain or a list of discovered
+    # endpoints is exactly the kind of value that lands in metadata as a list.
+    raw = {
+        "redirects": ["https://api.example/v1?token=leak-a&keep=1"],
+        "nested": [["https://api.example/v2?token=leak-b"]],
+        "mixed": [{"url": "https://api.example/v3?token=leak-c"}, "plain"],
+    }
+    redacted = redact_mapping(raw)
+    serialized = json.dumps(redacted)
+    assert "leak-a" not in serialized
+    assert "leak-b" not in serialized
+    assert "leak-c" not in serialized
+    # non-secret data is preserved so the audit record stays useful
+    assert redacted["redirects"][0].endswith("keep=1")
+    assert redacted["mixed"][1] == "plain"
+
+
 def test_structured_audit_append_writes_one_redacted_line(tmp_path: Path) -> None:
     path = tmp_path / "audit" / "events.ndjson"
     append_structured_audit(

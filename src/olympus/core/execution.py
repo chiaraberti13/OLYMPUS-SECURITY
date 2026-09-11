@@ -285,22 +285,28 @@ def redact_text(value: str) -> str:
     return _URL_IN_TEXT.sub(lambda match: redact_url(match.group(0)), value)
 
 
+def _redact_value(item: Any) -> Any:
+    """Redact one metadata value by shape: mapping, list, or URL-bearing string.
+
+    A URL query secret must be redacted wherever it sits — a direct value, an
+    element of a list, or an element of a nested list — not only when it is the
+    immediate value of a key. A string that is not a URL and anything that is
+    not a mapping/list/string are returned unchanged.
+    """
+    if isinstance(item, Mapping):
+        return redact_mapping(item)
+    if isinstance(item, list):
+        return [_redact_value(entry) for entry in item]
+    if isinstance(item, str):
+        return redact_url(item)
+    return item
+
+
 def redact_mapping(value: Mapping[str, Any]) -> dict[str, Any]:
     """Recursively redact secret-bearing keys and URL query parameters."""
     redacted: dict[str, Any] = {}
     for key, item in value.items():
-        if _sensitive_key(key):
-            redacted[key] = "[REDACTED]"
-        elif isinstance(item, Mapping):
-            redacted[key] = redact_mapping(item)
-        elif isinstance(item, list):
-            redacted[key] = [
-                redact_mapping(entry) if isinstance(entry, Mapping) else entry for entry in item
-            ]
-        elif isinstance(item, str):
-            redacted[key] = redact_url(item)
-        else:
-            redacted[key] = item
+        redacted[key] = "[REDACTED]" if _sensitive_key(key) else _redact_value(item)
     return redacted
 
 

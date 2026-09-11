@@ -28,7 +28,7 @@ from olympus.aegis.application import (
     AegisRunRequest,
     load_scope,
 )
-from olympus.aegis.base import NotAuthorizedError, ParseError, ScannerAdapter
+from olympus.aegis.base import NotAuthorizedError, ParseError, ScannerAdapter, _evidence
 from olympus.aegis.model import ScanRequest
 from olympus.aegis.runner import (
     CommandError,
@@ -330,6 +330,22 @@ def test_raw_evidence_is_bounded_and_redacted() -> None:
     assert result.state is ExecutionState.LIVE
     assert "secret" not in result.raw_evidence and "value" not in result.raw_evidence
     assert "[REDACTED]" in result.raw_evidence
+
+
+def test_evidence_redacts_the_token_after_an_authorization_scheme() -> None:
+    # An HTTP scanner (verbose curl, ZAP, nuclei) commonly echoes a request's
+    # ``Authorization: Bearer <token>`` header. Redacting only the scheme word
+    # would leak the token itself, so the credential after the scheme must go.
+    output = _out(
+        stdout="GET / HTTP/1.1\nAuthorization: Bearer eyJhbGciSECRETtoken.payload.sig\n",
+        stderr="Proxy-Authorization: Basic dXNlcjpTRUNSRVRwYXNz\n",
+    )
+    evidence = _evidence(output)
+    assert "SECRETtoken" not in evidence
+    assert "dXNlcjpTRUNSRVRwYXNz" not in evidence
+    assert "[REDACTED]" in evidence
+    # a following non-secret token on another line stays intact (no over-redaction)
+    assert "GET / HTTP/1.1" in evidence
 
 
 def test_state_failed_on_parse_error() -> None:
