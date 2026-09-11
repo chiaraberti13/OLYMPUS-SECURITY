@@ -41,8 +41,27 @@ x-vap-env: &vap-env
   # documented authorization and the scanner binaries installed.
   VAP_ENABLE_LIVE_SCANS: "${VAP_ENABLE_LIVE_SCANS:-false}"
 
+# Baseline container hardening applied to every service (roadmap §5.3). These are
+# the runtime-safe controls: no privilege escalation, all Linux capabilities
+# dropped (a Python web app / broker needs none to bind its high ports), and
+# conservative memory/PID caps so one runaway container cannot starve the host.
+# NOTE: read_only rootfs and a non-root `user:` are deliberately NOT set here —
+# they require validation against the vendored VAP image's writable paths and
+# volume ownership on a real Docker host, which is tracked as open in
+# ROADMAP_HARDENING.md (§5.3). Everything below is safe without that validation.
+x-hardening: &hardening
+  security_opt:
+    - "no-new-privileges:true"
+  cap_drop:
+    - "ALL"
+  pids_limit: 512
+  mem_limit: 1g
+  networks:
+    - backend
+
 services:
   redis:
+    <<: *hardening
     # Mandatory broker, pinned by digest for a reproducible stack.
     # Refresh with: docker manifest inspect redis:7-alpine
     image: redis:7-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf
@@ -59,6 +78,7 @@ services:
       - redis-data:/data
 
   aegis-migrate:
+    <<: *hardening
     build: *vap-build
     command: ["python", "-m", "alembic", "upgrade", "head"]
     environment: *vap-env
@@ -67,6 +87,7 @@ services:
     restart: "no"
 
   aegis-app:
+    <<: *hardening
     build: *vap-build
     command: ["python", "app.py"]
     environment: *vap-env
@@ -92,6 +113,7 @@ services:
       start_period: 20s
 
   aegis-worker:
+    <<: *hardening
     build: *vap-build
     command: ["celery", "-A", "celery_app.celery_app", "worker", "--loglevel=info", "-Q", "scans"]
     environment: *vap-env
@@ -120,6 +142,15 @@ services:
   zap:
     image: ghcr.io/zaproxy/zaproxy:stable
     profiles: ["zap", "scanners-cli"]
+    # The API key is mandatory: AEGIS_ZAP_API_KEY must be set (no unauthenticated
+    # ZAP API). ZAP gets its own hardening but not the shared 1g memory cap — it
+    # needs more headroom than the Python services.
+    security_opt:
+      - "no-new-privileges:true"
+    cap_drop:
+      - "ALL"
+    networks:
+      - backend
     command:
       - "zap.sh"
       - "-daemon"
@@ -128,7 +159,7 @@ services:
       - "-port"
       - "8090"
       - "-config"
-      - "api.disablekey=true"
+      - "api.key=${AEGIS_ZAP_API_KEY:?set AEGIS_ZAP_API_KEY to a strong secret}"
     expose:
       - "8090"
     restart: unless-stopped
@@ -157,6 +188,15 @@ services:
     restart: unless-stopped
     # NOTE: Burp Suite Professional and Acunetix have no redistributable image;
     # run them externally and point AEGIS at their APIs (see docs/scanner-matrix.md).
+
+networks:
+  # A dedicated bridge for the core control plane (broker, migrate, app, worker,
+  # and the ZAP engine) so it is isolated from other Compose projects' default
+  # network. Full control-plane / scan-plane segmentation across the scanner
+  # overlay (docker-compose.scanners.yml) still needs validation on a Docker host
+  # — see ROADMAP_HARDENING.md §5.3.
+  backend:
+    driver: bridge
 
 volumes:
   vap-data:

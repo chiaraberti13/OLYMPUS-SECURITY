@@ -67,3 +67,30 @@ def test_best_effort_scanner_installs_keep_their_guard() -> None:
 @pytest.mark.parametrize("path", [_DOCKERFILE_SCANNERS, _COMPOSE])
 def test_pinning_files_exist(path: Path) -> None:
     assert path.is_file()
+
+
+# --- Container hardening (roadmap §5.3) -------------------------------------- #
+#
+# Text-based guards (no YAML dependency, matching this file's style) so the
+# runtime-safe compose hardening cannot silently regress.
+
+
+def test_zap_requires_an_api_key_and_never_disables_it() -> None:
+    text = _COMPOSE.read_text(encoding="utf-8")
+    assert "api.disablekey=true" not in text, "ZAP API key must not be disabled"
+    assert "api.key=${AEGIS_ZAP_API_KEY" in text, "ZAP must require AEGIS_ZAP_API_KEY"
+
+
+def test_core_services_drop_privileges_and_capabilities() -> None:
+    text = _COMPOSE.read_text(encoding="utf-8")
+    assert "no-new-privileges:true" in text, "no-new-privileges must be set"
+    assert "cap_drop" in text and '- "ALL"' in text, "capabilities must be dropped"
+    # The shared hardening anchor is defined and applied.
+    assert "x-hardening: &hardening" in text
+    assert "<<: *hardening" in text
+
+
+def test_compose_defines_a_dedicated_network() -> None:
+    text = _COMPOSE.read_text(encoding="utf-8")
+    assert re.search(r"^networks:", text, re.MULTILINE), "no top-level networks block"
+    assert "backend:" in text
