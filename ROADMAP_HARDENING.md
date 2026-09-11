@@ -285,7 +285,7 @@ la riorganizzazione del documento non chiude lavoro.
 - [ ] `P3` Separare le suite `unit`, `contract`, `integration`, `offline-e2e`, `live-e2e`.
 - [ ] `P3` Integrare SAST, SCA/OSV, license compliance e CodeQL.
 - [ ] `P3` Verificare Docker Compose, build delle immagini e laboratorio e2e autorizzato.
-- [ ] `P3` Introdurre CHANGELOG, SemVer, tag/release firmati, migrazioni e rollback.
+- [~] `P3` Introdurre CHANGELOG, SemVer, tag/release firmati, migrazioni e rollback. **Fatto:** `CHANGELOG.md` (Keep a Changelog) con sezione `Unreleased` e dichiarazione dell'intento SemVer. **Aperti:** tag/release firmati, migrazioni e procedura di rollback (richiedono un processo di release/infra).
 
 ## 5.5 — Governance del repository
 
@@ -294,6 +294,80 @@ la riorganizzazione del documento non chiude lavoro.
 - [x] `P3` Pubblicare threat model, security architecture e deployment hardening guide. **Fatto**: [`docs/threat-model.md`](docs/threat-model.md) — trust boundary, asset, tabella minaccia→controllo grounded nei moduli reali, sezione onesta "cosa NON è ancora coperto", e guida al deployment hardening. Un test-guard verifica che ogni modulo citato esista ancora.
 - [ ] `P3` Sostituire le approvazioni didattiche predefinite del VAP con riferimenti verificabili.
 - [ ] `P3` Pulire branch temporanei e obsoleti.
+
+---
+
+# Stato finale — cosa è stato chiuso e cosa resta (e perché)
+
+Questa sezione rende conto, in modo onesto, di **ogni** voce ancora `[ ]` o `[~]`.
+Il principio seguito per tutta la campagna: si spunta `[x]` solo ciò che ha
+**codice + test + documentazione** ed è **verificabile in questo ambiente**; ciò
+che non lo è viene dichiarato, non finto.
+
+## Chiuso in questa campagna (verificato: test verdi, ruff/mypy puliti)
+
+§5.2 Output/evidenze (4/4); §2 **Hermes** completo (baseline, allowlist, entropy,
+SARIF, hook pre-commit/CI); §2 **Minerva** (ledger firmato HMAC, backup/restore);
+§2/§3.4 **Metis** (STIX 2.1 + MISP export/import); §2/§3.5 **Vulcan** (EPSS+KEV);
+§2/§3.3 **Apollo** (ECS, OCSF, layer ATT&CK, import Sigma); §5.3 hardening
+container runtime-safe (config + guardia statica); §5.4 CHANGELOG. Dettaglio nel
+Registro qui sotto.
+
+## Bloccato — richiede una dipendenza che non posso aggiungere/validare offline
+
+Il progetto pinna la propria chiusura via SBOM + lockfile con hash (§1.3); e il
+proxy di rete di questo ambiente blocca PyPI/host esterni. Aggiungere una nuova
+dipendenza runtime senza poterne validare gli hash violerebbe quella disciplina.
+
+- **§2 Metis — cifratura campi sensibili.** Richiede una libreria crittografica
+  reale (`cryptography`/`pynacl`); la stdlib non offre cifratura simmetrica
+  autenticata. **Non implemento crittografia fatta a mano** (sarebbe sicurezza
+  finta). Bloccato finché la dipendenza non è aggiunta e validata.
+- **§2 crosscutting — property-based testing/fuzzing** (riga 112). Richiede
+  `hypothesis`/`atheris` (dipendenze di sviluppo non dichiarate).
+
+_(Nota: l'import Sigma **non** è più in questa categoria — è stato risolto con un
+parser YAML-subset scritto a mano, senza PyYAML.)_
+
+## Bloccato — richiede Docker/kernel non disponibili qui
+
+- **§5.1 seccomp/AppArmor + filesystem read-only** (riga 262) e **segmentazione
+  rete di controllo/scansione** (riga 264): profili syscall e reti richiedono un
+  runtime container e un kernel su cui validare che le scansioni funzionino
+  ancora. La parte config-safe è stata applicata (§5.3); il resto è runtime.
+- **§5.3 `read_only` rootfs + `user:` non-root** (riga 276), **build multi-stage**
+  (275), **firma immagini/provenance** (279), **segmentazione completa** (277):
+  vanno validati con `docker build`/`docker compose up` su un host reale.
+- **§5.4 verifica Docker Compose / build immagini / lab e2e** (287): idem.
+
+## Bloccato — richiede tool/servizi/rete esterni (fixture reali non catturabili qui)
+
+La disciplina è: **nessuna fixture inventata** — ogni adapter dev'essere provato
+contro output reale. Qui i tool non sono installati e la rete è filtrata.
+
+- **§1.1/§3.1 adapter residui fino a production-ready** (righe 33, 137) e **test
+  live `whatweb`/`testssl`** (36): richiedono i binari e un lab autorizzato.
+- **§3.2 naabu, dnsx, Amass, reconftw** (148-151); **§3.3 Atomic Red Team** (157);
+  **§3.4 OpenCTI** (163) e **TAXII** (feed remoto); **§3.5 DefectDojo, Prowler,
+  ScoutSuite** (168-169); **§3.6 hephaestus/CIS** (175): nuovi tool/servizi
+  esterni o piattaforme da far girare e catturare.
+
+## Bloccato — codice vendorizzato (`vendor/`, da ritirare, non da estendere)
+
+- **§1.3 dipendenze datate del VAP** (60), **§1.4 path `vendor/`** (73), **§1.5 P0
+  del web VAP legacy** (78-84), **§5.5 approvazioni didattiche VAP** (295): vivono
+  nel VAP vendorizzato. Il threat model dichiara quella superficie in ritiro (non
+  in estensione); modificarla qui contraddirebbe quella scelta. Il control plane
+  **nativo** AEGIS non ha questi gap.
+
+## Infra GitHub/CI (non locale) e qualità P3 incrementale
+
+- **§5.4 matrice Python / cross-OS / SAST-CodeQL / suite separate** (283-286) e
+  **§5.5 branch protection su `main`, pulizia branch** (292, 296): configurazione
+  di CI/GitHub, non validabile da qui; parte è già coperta (pip-audit, gitleaks,
+  SBOM in CI).
+- **§2 P3 refactor** (110, 111) e **coverage/mypy bloccante** (113): miglioramenti
+  incrementali di qualità, non funzionalità; mypy è già pulito sui moduli toccati.
 
 ---
 
@@ -357,6 +431,7 @@ la riorganizzazione del documento non chiude lavoro.
 | 2026-09-11 | **§2/Apollo — OCSF + mappatura ATT&CK** | test locali verdi, CI da confermare | `olympus.apollo.ocsf` + opzione `--ocsf` su `apollo test`/`run`: mappa gli `Alert` alla classe **OCSF Detection Finding** (`class_uid` 2004, `type_uid` 200401, `severity_id`/`status_id` mappati, `finding_info`, `attacks` da ATT&CK; extra Olympus sotto `unmapped`), output NDJSON owner-only. `olympus.apollo.attack` + `apollo attack-layer`: conta le tecniche ATT&CK delle regole ed emette un **layer ATT&CK Navigator** (JSON schema 4.5) renderizzabile offline, score = numero di regole per tecnica. Nessuna nuova dipendenza (entrambi JSON). Ruff pulito, mypy pulito sui moduli toccati, 1374 test |
 | 2026-09-11 | **§3.3/Apollo — import Sigma (dependency-free)** | test locali verdi, CI da confermare | `olympus.apollo.sigma` + `apollo sigma-import`: converte una regola **Sigma** (sottoinsieme fedele — selezione singola a uguaglianza esatta, `condition: selection`) in una `DetectionRule` Apollo. Parser YAML-subset **scritto a mano** (in filosofia col progetto: niente dipendenza PyYAML; supporta solo scalari/mappe/sequenze a blocchi, rifiuta tab/tag/anchor/flow, bounded in righe e profondità). `logsource`→`event_type`, `level`→severità, tag `attack.tXXXX`→MITRE. **Rifiuta con motivo specifico** modificatori di campo (`|contains`), liste di valori (OR), wildcard, selezioni multiple e condizioni composte — nessuna traduzione errata silenziosa. La regola prodotta ricarica nel loader stretto di Apollo. Ruff pulito, mypy pulito sui moduli toccati, 1383 test |
 | 2026-09-11 | **§5.3 — hardening container (parte runtime-safe)** | config applicata + guardia statica; **runtime NON validato qui** (no Docker) | `docker-compose.yml`: anchor `x-hardening` (`no-new-privileges`, `cap_drop: [ALL]`, `pids_limit`, `mem_limit`) su tutti i servizi core; ZAP richiede `AEGIS_ZAP_API_KEY` (mai `api.disablekey=true`) con hardening dedicato; rete `backend` per il control plane. Sintassi YAML + risoluzione anchor validate localmente; guardia statica text-based in `test_docker_pinning`. **Onestà:** `read_only` rootfs, `user:` non-root e la segmentazione completa scan-plane richiedono un host Docker per la validazione e restano aperti (§5.3). 1386 test |
+| 2026-09-11 | **§5.4 CHANGELOG + resoconto finale onesto** | documentazione | `CHANGELOG.md` (Keep a Changelog, sezione `Unreleased`, intento SemVer). Nuova sezione «Stato finale» nel roadmap che categorizza **ogni** voce residua con il suo blocco preciso (dipendenza non aggiungibile offline / Docker / tool-servizi esterni / codice vendorizzato / infra CI-GitHub), così il quadro è completo e onesto invece di spuntato a forza. Nessun codice runtime toccato. 1386 test |
 
 **Nota evidenze.** Tranche P1 riconfermate da `main` run `#135` (Ruff, 1033 test, gitleaks, wheel smoke);
 configurazione da PR run `#137` (1040 test). Nessuna voce nuova si spunta senza codice, test e —
