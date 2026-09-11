@@ -84,6 +84,12 @@ def test_parser_rejects_tabs_and_flow_collections() -> None:
             "    condition: selection\n",
             "logsource",
         ),
+        (
+            "title: x\nlogsource:\n    product: windows\ndetection:\n"
+            "    selection:\n        Image:\n            sub: nested\n"
+            "    condition: selection\n",
+            "nested map",
+        ),
     ],
 )
 def test_unfaithful_sigma_is_refused_with_a_reason(document: str, expected: str) -> None:

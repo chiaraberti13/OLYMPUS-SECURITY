@@ -216,6 +216,8 @@ def _conditions_from_detection(detection: Any) -> dict[str, str]:
             raise SigmaImportError(f"field modifier not supported: {field!r} (only exact match)")
         if isinstance(value, list):
             raise SigmaImportError(f"value list (OR) not supported for {field!r}")
+        if isinstance(value, dict):
+            raise SigmaImportError(f"nested map not supported as a value for {field!r}")
         if value is None:
             raise SigmaImportError(f"empty value not supported for {field!r}")
         text = str(value)
