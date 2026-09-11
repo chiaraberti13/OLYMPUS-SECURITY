@@ -23,7 +23,10 @@ everything below lives under **Unreleased**.
   `decrypt`, `OLYMPUS_METIS_KEY`); optional encrypted whole-store backups
   (`backup --encrypt`, auto-detected and decrypted by `restore`).
 - **Core** — `core.crypto`: authenticated symmetric encryption (Fernet + scrypt)
-  over the vetted `cryptography` library.
+  over the vetted `cryptography` library; `core.signing`: Ed25519 detached
+  signatures with pinned-public-key verification (`core keygen`/`sign`/`verify`)
+  for third-party verifiable provenance on any artifact (ledger, evidence, SBOM,
+  report).
 - **Vulcan** — `enrich` overlay adding CISA KEV and FIRST EPSS to findings and
   ranking them by real-world risk (KEV → EPSS → CVSS → severity).
 - **Hermes** — shape-based allowlist (path globs / value regexes) and a
