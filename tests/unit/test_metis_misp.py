@@ -107,6 +107,20 @@ def test_import_accepts_a_bare_event_body() -> None:
     assert parsed.indicators[0].value == "x.tld"
 
 
+def test_import_skips_a_non_string_value_instead_of_stringifying_it() -> None:
+    event = {
+        "Event": {
+            "Attribute": [
+                {"type": "domain", "value": {"nested": 1}},  # malformed / hostile
+                {"type": "domain", "value": "good.example"},
+            ]
+        }
+    }
+    parsed = event_to_indicators(json.dumps(event))
+    assert [i.value for i in parsed.indicators] == ["good.example"]
+    assert parsed.skipped[0].reason == "non-string value"
+
+
 def test_import_rejects_bad_json_and_missing_attributes() -> None:
     with pytest.raises(MispError, match="invalid MISP JSON"):
         event_to_indicators("{not json")
