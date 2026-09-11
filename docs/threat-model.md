@@ -63,6 +63,7 @@ Each row is a threat and the implemented control that addresses it.
 | **A drifting or mutable base image** | Mandatory container images pinned by digest; Go scanners pinned to versions; a test guards against regression. | `docker/Dockerfile.scanners`, `docker-compose.yml` |
 | **The catalogue overstating what it can run** | The maturity ledger is re-derived from the repository on every test run; a claim without an adapter, evidence, or a parser test fails the build. | `olympus.integrations.maturity` |
 | **Tampering with the custody ledger (truncation / full rewrite)** | The chain of custody can be HMAC-SHA256 signed with an operator key; the signature commits to the entry count and the chain head, so dropping entries or rewriting the ledger without the key is rejected on verify. The bare hash chain already catches reorder, deletion and fork. | `olympus.minerva.custody` |
+| **Disputed provenance of an exported artifact** | Any artifact (ledger, evidence, SBOM, report) can be Ed25519 signed; a third party verifies with the operator's public key alone, and verification is pinned to that trusted key so a forgery re-signed under a different key is rejected. | `olympus.core.signing` |
 
 ## What is NOT yet covered
 
@@ -78,12 +79,14 @@ Honesty is a control here too. These are open, and tracked in
 - **seccomp/AppArmor.** The sandbox drops privileges and sets rlimits but does
   not yet apply a syscall filter or a read-only filesystem beyond the private
   scratch dir.
-- **Asymmetric signing and a trusted timestamp for the ledger.** Minerva's
-  chain-of-custody can now be **HMAC-SHA256 signed** (`OLYMPUS_CUSTODY_HMAC_KEY`),
-  which detects truncation and full rewrite. Still open: Ed25519/asymmetric
-  signing (HMAC needs the shared key to verify, so it gives no third-party
-  verification) and a trusted timestamp anchor (RFC 3161) so the *time* of each
-  event is independently attestable.
+- **Trusted timestamp for the ledger.** Minerva's chain-of-custody can be
+  **HMAC-SHA256 signed** (`OLYMPUS_CUSTODY_HMAC_KEY`, detects truncation and full
+  rewrite), and any artifact — a ledger, evidence, an SBOM, a report — can now be
+  **Ed25519 signed** for independent third-party verification via
+  `olympus core sign`/`verify` with a pinned public key (`olympus.core.signing`).
+  Still open: a trusted timestamp anchor (RFC 3161) so the *time* of each event
+  is independently attestable, and wiring the Ed25519 signature into the ledger
+  append path itself (today it is a detached signature over the ledger file).
 
 ## Deployment hardening
 

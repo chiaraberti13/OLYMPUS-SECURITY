@@ -365,6 +365,80 @@ def export_lockfile(
     typer.echo(f"olympus: wrote hash-pinned constraints to {output}", err=True)
 
 
+@core_app.command("keygen")
+def signing_keygen(
+    private: Path = typer.Option(..., "--private", help="Owner-only Ed25519 private key output."),
+    public: Path = typer.Option(..., "--public", help="Ed25519 public key output (distributable)."),
+) -> None:
+    """Generate an Ed25519 keypair for signing artifacts (provenance)."""
+    from olympus.core.fileio import atomic_write_text
+    from olympus.core.signing import generate_keypair
+
+    try:
+        private_pem, public_pem = generate_keypair()
+        atomic_write_text(private, private_pem, mode=0o600)
+        atomic_write_text(public, public_pem, mode=0o644)
+    except OSError as exc:
+        typer.echo(f"olympus: keygen error: {exc}", err=True)
+        raise typer.Exit(code=int(ExitCode.FAILED)) from exc
+    typer.echo(f"olympus: wrote private key {private} (0600) and public key {public}", err=True)
+
+
+@core_app.command("sign")
+def signing_sign(
+    artifact: Path = typer.Argument(..., help="File to sign (ledger, evidence, SBOM, report...)."),
+    key: Path = typer.Option(..., "--key", help="Ed25519 private key PEM."),
+    output: Path = typer.Option(
+        ..., "--output", "-o", help="Signature envelope output (owner-only)."
+    ),
+    max_bytes: int = typer.Option(500_000_000, "--max-bytes"),
+) -> None:
+    """Produce a detached Ed25519 signature so a third party can verify provenance."""
+    from olympus.core.fileio import atomic_write_text, read_regular_bytes, read_regular_text
+    from olympus.core.signing import SigningError, sign
+
+    try:
+        data = read_regular_bytes(artifact, max_bytes=max_bytes, label="artifact")
+        private_pem = read_regular_text(key, max_bytes=1_000_000, label="private key")
+        envelope = sign(data, private_pem)
+        atomic_write_text(output, envelope, mode=0o600)
+    except (SigningError, OSError, ValueError) as exc:
+        typer.echo(f"olympus: sign error: {exc}", err=True)
+        raise typer.Exit(code=int(ExitCode.USAGE)) from exc
+    typer.echo(f"olympus: signed {artifact} -> {output}", err=True)
+
+
+@core_app.command("verify")
+def signing_verify(
+    artifact: Path = typer.Argument(..., help="File whose signature to check."),
+    signature: Path = typer.Argument(..., help="Signature envelope from `core sign`."),
+    pubkey: Path = typer.Option(..., "--pubkey", help="TRUSTED Ed25519 public key PEM to pin."),
+    max_bytes: int = typer.Option(500_000_000, "--max-bytes"),
+) -> None:
+    """Verify a detached Ed25519 signature against a trusted public key.
+
+    Exits 0 if the signature is valid and made by the trusted key, 1 if the
+    signature does not match the data, 2 on any error (including a signature made
+    by a different key).
+    """
+    from olympus.core.fileio import read_regular_bytes, read_regular_text
+    from olympus.core.signing import SigningError, verify
+
+    try:
+        data = read_regular_bytes(artifact, max_bytes=max_bytes, label="artifact")
+        envelope = read_regular_text(signature, max_bytes=1_000_000, label="signature")
+        public_pem = read_regular_text(pubkey, max_bytes=1_000_000, label="public key")
+        valid = verify(data, envelope, public_pem=public_pem)
+    except (SigningError, OSError, ValueError) as exc:
+        typer.echo(f"olympus: verify error: {exc}", err=True)
+        raise typer.Exit(code=int(ExitCode.USAGE)) from exc
+    if valid:
+        typer.echo(f"olympus: signature VALID for {artifact} (trusted key)")
+    else:
+        typer.echo(f"olympus: signature INVALID for {artifact}", err=True)
+        raise typer.Exit(code=1)
+
+
 app.add_typer(core_app, name="core")
 app.add_typer(config_app, name="config")
 app.add_typer(policy_app, name="policy")

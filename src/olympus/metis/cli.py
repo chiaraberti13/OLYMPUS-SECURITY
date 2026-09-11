@@ -5,12 +5,19 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import tempfile
 from pathlib import Path
 
 import typer
 from pydantic import ValidationError
 
-from olympus.core.crypto import CryptoError, decrypt_to_text, encrypt_text
+from olympus.core.crypto import (
+    CryptoError,
+    decrypt_to_bytes,
+    decrypt_to_text,
+    encrypt_bytes,
+    encrypt_text,
+)
 from olympus.core.fileio import atomic_write_text, read_regular_text
 from olympus.metis.cases import (
     BackupError,
@@ -28,6 +35,8 @@ from olympus.metis.planner import build_plan
 from olympus.metis.stix import StixError, bundle_to_indicators, indicators_to_bundle
 
 DEFAULT_MAX_STIX_BYTES = 50_000_000
+#: Cap on an encrypted backup envelope read back for restore (base64 of a DB).
+DEFAULT_MAX_ENCRYPTED_BACKUP_BYTES = 500_000_000
 #: Passphrase for encrypting/decrypting sensitive CTI at rest (never stored).
 METIS_KEY_ENV = "OLYMPUS_METIS_KEY"
 
@@ -419,12 +428,30 @@ def case_decrypt(
 def case_backup(
     database: Path = typer.Argument(..., help="Live SQLite case database."),
     output: Path = typer.Argument(..., help="Owner-only snapshot destination."),
+    encrypt: bool = typer.Option(
+        False, "--encrypt", help="Encrypt the snapshot under OLYMPUS_METIS_KEY (authenticated)."
+    ),
 ) -> None:
-    """Write a consistent owner-only snapshot of the whole case store."""
+    """Write a consistent owner-only snapshot of the whole case store.
+
+    With ``--encrypt`` the consistent snapshot is taken to a private temp file and
+    then written out encrypted (Fernet + scrypt) under ``OLYMPUS_METIS_KEY`` — a
+    safe offsite backup. ``restore`` auto-detects and decrypts it.
+    """
     try:
-        with CaseStore(database) as store:
-            written = store.backup(output)
-    except (ValueError, OSError, sqlite3.Error) as exc:
+        if encrypt:
+            passphrase = _metis_passphrase()
+            with tempfile.TemporaryDirectory() as scratch:
+                snapshot = Path(scratch) / "snapshot.db"
+                with CaseStore(database) as store:
+                    store.backup(snapshot)
+                envelope = encrypt_bytes(snapshot.read_bytes(), passphrase)
+            atomic_write_text(output, envelope, mode=0o600)
+            written = output.resolve()
+        else:
+            with CaseStore(database) as store:
+                written = store.backup(output)
+    except (CryptoError, ValueError, OSError, sqlite3.Error) as exc:
         _fail(exc)
     typer.echo(str(written))
 
@@ -443,15 +470,46 @@ def case_verify_backup(
 
 @case_app.command("restore")
 def case_restore(
-    backup: Path = typer.Argument(..., help="Snapshot file to restore from."),
+    backup: Path = typer.Argument(..., help="Snapshot file to restore from (plain or encrypted)."),
     database: Path = typer.Argument(..., help="Destination database (contents replaced)."),
+    max_bytes: int = typer.Option(DEFAULT_MAX_ENCRYPTED_BACKUP_BYTES, "--max-bytes"),
 ) -> None:
-    """Restore a verified snapshot into a database, replacing its contents."""
+    """Restore a verified snapshot into a database, replacing its contents.
+
+    An encrypted backup (an ``export``/``backup --encrypt`` envelope) is detected
+    automatically and decrypted with ``OLYMPUS_METIS_KEY`` before verification; a
+    wrong key or any tampering fails loudly.
+    """
     try:
-        counts = restore_backup(backup, database)
-    except (BackupError, ValueError, OSError, sqlite3.Error) as exc:
+        if _is_encryption_envelope(backup):
+            passphrase = _metis_passphrase()
+            envelope = read_regular_text(backup, max_bytes=max_bytes, label="encrypted backup")
+            data = decrypt_to_bytes(envelope, passphrase)
+            with tempfile.TemporaryDirectory() as scratch:
+                snapshot = Path(scratch) / "snapshot.db"
+                snapshot.write_bytes(data)
+                counts = restore_backup(snapshot, database)
+        else:
+            counts = restore_backup(backup, database)
+    except (CryptoError, BackupError, ValueError, OSError, sqlite3.Error) as exc:
         _fail(exc)
     typer.echo(json.dumps({"database": str(database), **counts}, sort_keys=True))
+
+
+def _is_encryption_envelope(path: Path) -> bool:
+    """True if the file looks like a JSON encryption envelope, not a SQLite DB.
+
+    SQLite databases begin with the bytes ``SQLite format 3\\x00``; the envelope
+    is JSON starting with ``{``. Only a small prefix is read.
+    """
+    try:
+        if path.is_symlink() or not path.is_file():
+            return False
+        with path.open("rb") as handle:
+            prefix = handle.read(16).lstrip()
+    except OSError:
+        return False
+    return prefix.startswith(b"{")
 
 
 app.add_typer(case_app, name="case")
