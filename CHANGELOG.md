@@ -18,7 +18,11 @@ everything below lives under **Unreleased**.
   `backup`/`verify-backup`/`restore` of the SQLite case store via the online
   backup API.
 - **Metis** — STIX 2.1 and MISP export/import of indicators (deterministic,
-  faithful-subset with explicit skips); backup/restore of the case store.
+  faithful-subset with explicit skips); backup/restore of the case store;
+  authenticated encryption of a case document at rest (`export-encrypted` /
+  `decrypt`, `OLYMPUS_METIS_KEY`).
+- **Core** — `core.crypto`: authenticated symmetric encryption (Fernet + scrypt)
+  over the vetted `cryptography` library.
 - **Vulcan** — `enrich` overlay adding CISA KEV and FIRST EPSS to findings and
   ranking them by real-world risk (KEV → EPSS → CVSS → severity).
 - **Hermes** — shape-based allowlist (path globs / value regexes) and a
