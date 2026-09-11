@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from pathlib import Path
 
 import typer
+from pydantic import ValidationError
 
+from olympus.core.crypto import CryptoError, decrypt_to_text, encrypt_text
 from olympus.core.fileio import atomic_write_text, read_regular_text
 from olympus.metis.cases import (
     BackupError,
@@ -20,10 +23,20 @@ from olympus.metis.cases import (
 from olympus.metis.catalog import CAPABILITIES, recommend
 from olympus.metis.labs import LABS
 from olympus.metis.misp import MispError, event_to_indicators, indicators_to_event
+from olympus.metis.models import IntelCaseDocument
 from olympus.metis.planner import build_plan
 from olympus.metis.stix import StixError, bundle_to_indicators, indicators_to_bundle
 
 DEFAULT_MAX_STIX_BYTES = 50_000_000
+#: Passphrase for encrypting/decrypting sensitive CTI at rest (never stored).
+METIS_KEY_ENV = "OLYMPUS_METIS_KEY"
+
+
+def _metis_passphrase() -> str:
+    passphrase = os.environ.get(METIS_KEY_ENV, "").strip()
+    if not passphrase:
+        raise ValueError(f"set {METIS_KEY_ENV} to a strong passphrase")
+    return passphrase
 
 app = typer.Typer(
     help="Deterministic planning, capability routing and CTI casework.", no_args_is_help=True
@@ -354,6 +367,52 @@ def case_misp_import(
     )
     for item in parsed.skipped:
         typer.echo(f"metis: skipped {item.misp_type} ({item.reason}): {item.value}", err=True)
+
+
+@case_app.command("export-encrypted")
+def case_export_encrypted(
+    database: Path = typer.Argument(...),
+    case_id: str = typer.Argument(...),
+    output: Path = typer.Argument(..., help="Encrypted case document output (owner-only)."),
+) -> None:
+    """Export a case as an authenticated-encrypted document (sensitive CTI at rest).
+
+    The whole case (indicators, findings, assessments) is encrypted under the
+    ``OLYMPUS_METIS_KEY`` passphrase with Fernet + scrypt; decrypt it later with
+    ``metis case decrypt``.
+    """
+    try:
+        passphrase = _metis_passphrase()
+        with CaseStore(database) as store:
+            document = store.load_case(case_id)
+        envelope = encrypt_text(document.model_dump_json(indent=2), passphrase)
+        atomic_write_text(output, envelope, mode=0o600)
+    except (CryptoError, ValueError, LookupError, OSError, sqlite3.Error) as exc:
+        _fail(exc)
+    typer.echo(json.dumps({"case_id": case_id, "encrypted": str(output)}))
+
+
+@case_app.command("decrypt")
+def case_decrypt(
+    encrypted: Path = typer.Argument(..., help="Encrypted case document to decrypt."),
+    output: Path = typer.Argument(..., help="Decrypted JSON output (owner-only)."),
+    max_bytes: int = typer.Option(DEFAULT_MAX_STIX_BYTES, "--max-bytes"),
+) -> None:
+    """Decrypt a case document produced by ``export-encrypted`` back to JSON.
+
+    Verifies the case document parses; a wrong ``OLYMPUS_METIS_KEY`` or any
+    tampering fails loudly (the ciphertext is authenticated).
+    """
+    try:
+        passphrase = _metis_passphrase()
+        plaintext = decrypt_to_text(
+            read_regular_text(encrypted, max_bytes=max_bytes, label="encrypted case"), passphrase
+        )
+        document = IntelCaseDocument.model_validate_json(plaintext)
+        atomic_write_text(output, document.model_dump_json(indent=2) + "\n", mode=0o600)
+    except (CryptoError, ValidationError, ValueError, OSError) as exc:
+        _fail(exc)
+    typer.echo(json.dumps({"case_id": document.case_id, "decrypted": str(output)}))
 
 
 @case_app.command("backup")

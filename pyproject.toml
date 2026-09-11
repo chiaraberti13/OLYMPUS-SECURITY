@@ -17,6 +17,10 @@ dependencies = [
     "phonenumbers>=8.13",
     "rich>=13.0",
     "textual>=0.85",
+    # Authenticated symmetric encryption for sensitive CTI at rest (Metis §2).
+    # A vetted library, not hand-rolled crypto: Fernet (AES-128-CBC + HMAC) with
+    # an scrypt KDF.
+    "cryptography>=42.0",
 ]
 
 [project.optional-dependencies]

@@ -100,7 +100,7 @@ restano invariati e verificati; vedi Registro.)_
 | **Apollo** (detection) | ~~normalizzazione **ECS/OCSF**~~ (`olympus.apollo.ecs`/`.ocsf`), ~~mappatura **ATT&CK**~~ (`apollo attack-layer`), ~~import **Sigma**~~ (sottoinsieme fedele via `apollo sigma-import`, dependency-free); ancora aperti: conversione Sigma→query SIEM upstream, connettori SIEM push (rete) | `P1` |
 | **Minerva** (IR/chain-of-custody) | ~~Ledger firmato **HMAC**~~ (fatto: HMAC-SHA256, schema 2.1.0, rileva truncation/rewrite); ancora aperti: firma **Ed25519** (verifica di terze parti) e **trusted timestamp** (RFC 3161) | `P1` |
 | **Vulcan** (aggregazione/report) | ~~Arricchimento **CVSS + EPSS + CISA KEV**~~ (fatto: overlay `olympus.vulcan.enrichment`, ranking per rischio reale); ancora aperto: template report versionati e firmati (PDF/HTML/SARIF/JSON) | `P1` |
-| **Metis** (CTI) | ~~**STIX 2.1** export/import~~, ~~**MISP** export/import~~, ~~backup/restore~~ (fatti); ancora aperti: TAXII (feed remoto), cifratura campi sensibili | `P1` |
+| **Metis** (CTI) | ~~**STIX 2.1** export/import~~, ~~**MISP** export/import~~, ~~backup/restore~~, ~~cifratura campi sensibili~~ (fatti); ancora aperto: TAXII (feed remoto) | `P1` |
 | **Proteus** (SE simulato) | Minimizzazione PII, retention, lifecycle campagne, audit | `P2` |
 | **TUI** | Kill del process group, risultati parziali/errori visibili, test resize/focus/no-color, accessibilità | `P1` |
 | **AEGIS** (control plane) | Control-plane nativo completo (ritiro `vendor/`), ~~`aegis doctor --scanner`~~ (fatto), ~~capability matrix generata dal registro~~ (fatto) | `P1` |
@@ -284,7 +284,7 @@ la riorganizzazione del documento non chiude lavoro.
 - [ ] `P3` Test di core/CLI su Ubuntu, Windows e macOS.
 - [ ] `P3` Separare le suite `unit`, `contract`, `integration`, `offline-e2e`, `live-e2e`.
 - [ ] `P3` Integrare SAST, SCA/OSV, license compliance e CodeQL.
-- [ ] `P3` Verificare Docker Compose, build delle immagini e laboratorio e2e autorizzato.
+- [~] `P3` Verificare Docker Compose, build delle immagini e laboratorio e2e autorizzato. **Config Compose verificata** con `docker compose config` (Docker reale, exit 0). **Aperti:** build immagini e lab e2e — il download dei layer dal registry è bloccato dal proxy (vedi «Stato finale»).
 - [~] `P3` Introdurre CHANGELOG, SemVer, tag/release firmati, migrazioni e rollback. **Fatto:** `CHANGELOG.md` (Keep a Changelog) con sezione `Unreleased` e dichiarazione dell'intento SemVer. **Aperti:** tag/release firmati, migrazioni e procedura di rollback (richiedono un processo di release/infra).
 
 ## 5.5 — Governance del repository
@@ -319,26 +319,36 @@ Il progetto pinna la propria chiusura via SBOM + lockfile con hash (§1.3); e il
 proxy di rete di questo ambiente blocca PyPI/host esterni. Aggiungere una nuova
 dipendenza runtime senza poterne validare gli hash violerebbe quella disciplina.
 
-- **§2 Metis — cifratura campi sensibili.** Richiede una libreria crittografica
-  reale (`cryptography`/`pynacl`); la stdlib non offre cifratura simmetrica
-  autenticata. **Non implemento crittografia fatta a mano** (sarebbe sicurezza
-  finta). Bloccato finché la dipendenza non è aggiunta e validata.
+- **§2 Metis — cifratura campi sensibili. SBLOCCATO E FATTO** (2026-09-11, su
+  autorizzazione esplicita ad aggiungere una dipendenza): aggiunta
+  `cryptography>=42` a `pyproject`, `olympus.core.crypto` (Fernet + scrypt, mai
+  crypto fatta a mano) e `metis case export-encrypted`/`decrypt`. SBOM aggiornato
+  (`cryptography==50.0.1` nella chiusura runtime).
 - **§2 crosscutting — property-based testing/fuzzing** (riga 112). Richiede
-  `hypothesis`/`atheris` (dipendenze di sviluppo non dichiarate).
+  `hypothesis`/`atheris` (dipendenze di sviluppo non dichiarate); non autorizzate.
 
 _(Nota: l'import Sigma **non** è più in questa categoria — è stato risolto con un
 parser YAML-subset scritto a mano, senza PyYAML.)_
 
-## Bloccato — richiede Docker/kernel non disponibili qui
+## Docker: daemon disponibile, ma registry-blob egress bloccato
+
+Aggiornamento 2026-09-11: in questo ambiente il **daemon Docker è avviabile** e
+`docker compose config` valida ora il compose (schema + interpolazione + chiavi
+di hardening: exit 0, nessun errore) — validazione reale di Docker, più forte del
+solo check YAML. **Però** il download dei layer immagine è bloccato dal proxy
+(`production.cloudfront.docker.com` → `Forbidden`) e non ci sono immagini in
+cache: si risolvono i manifest ma non i blob, quindi **nessun container può
+essere eseguito o buildato qui**. Di conseguenza restano da validare su un host
+con accesso al registry:
 
 - **§5.1 seccomp/AppArmor + filesystem read-only** (riga 262) e **segmentazione
-  rete di controllo/scansione** (riga 264): profili syscall e reti richiedono un
-  runtime container e un kernel su cui validare che le scansioni funzionino
-  ancora. La parte config-safe è stata applicata (§5.3); il resto è runtime.
+  rete di controllo/scansione** (riga 264): profili syscall e reti da validare a
+  runtime che non rompano le scansioni.
 - **§5.3 `read_only` rootfs + `user:` non-root** (riga 276), **build multi-stage**
   (275), **firma immagini/provenance** (279), **segmentazione completa** (277):
-  vanno validati con `docker build`/`docker compose up` su un host reale.
-- **§5.4 verifica Docker Compose / build immagini / lab e2e** (287): idem.
+  `docker build`/`docker compose up` con pull dei layer.
+- **§5.4 verifica build immagini / lab e2e** (287): idem. La verifica *config* di
+  Docker Compose è invece **fatta** (`docker compose config` verde).
 
 ## Bloccato — richiede tool/servizi/rete esterni (fixture reali non catturabili qui)
 
@@ -432,6 +442,8 @@ contro output reale. Qui i tool non sono installati e la rete è filtrata.
 | 2026-09-11 | **§3.3/Apollo — import Sigma (dependency-free)** | test locali verdi, CI da confermare | `olympus.apollo.sigma` + `apollo sigma-import`: converte una regola **Sigma** (sottoinsieme fedele — selezione singola a uguaglianza esatta, `condition: selection`) in una `DetectionRule` Apollo. Parser YAML-subset **scritto a mano** (in filosofia col progetto: niente dipendenza PyYAML; supporta solo scalari/mappe/sequenze a blocchi, rifiuta tab/tag/anchor/flow, bounded in righe e profondità). `logsource`→`event_type`, `level`→severità, tag `attack.tXXXX`→MITRE. **Rifiuta con motivo specifico** modificatori di campo (`|contains`), liste di valori (OR), wildcard, selezioni multiple e condizioni composte — nessuna traduzione errata silenziosa. La regola prodotta ricarica nel loader stretto di Apollo. Ruff pulito, mypy pulito sui moduli toccati, 1383 test |
 | 2026-09-11 | **§5.3 — hardening container (parte runtime-safe)** | config applicata + guardia statica; **runtime NON validato qui** (no Docker) | `docker-compose.yml`: anchor `x-hardening` (`no-new-privileges`, `cap_drop: [ALL]`, `pids_limit`, `mem_limit`) su tutti i servizi core; ZAP richiede `AEGIS_ZAP_API_KEY` (mai `api.disablekey=true`) con hardening dedicato; rete `backend` per il control plane. Sintassi YAML + risoluzione anchor validate localmente; guardia statica text-based in `test_docker_pinning`. **Onestà:** `read_only` rootfs, `user:` non-root e la segmentazione completa scan-plane richiedono un host Docker per la validazione e restano aperti (§5.3). 1386 test |
 | 2026-09-11 | **§5.4 CHANGELOG + resoconto finale onesto** | documentazione | `CHANGELOG.md` (Keep a Changelog, sezione `Unreleased`, intento SemVer). Nuova sezione «Stato finale» nel roadmap che categorizza **ogni** voce residua con il suo blocco preciso (dipendenza non aggiungibile offline / Docker / tool-servizi esterni / codice vendorizzato / infra CI-GitHub), così il quadro è completo e onesto invece di spuntato a forza. Nessun codice runtime toccato. 1386 test |
+| 2026-09-11 | **§2/Metis — cifratura campi sensibili (dipendenza sbloccata)** | test locali verdi, CI da confermare | Su autorizzazione esplicita: aggiunta `cryptography>=42` a `pyproject`. `olympus.core.crypto` — cifratura simmetrica **autenticata** (Fernet AES-128-CBC+HMAC) con chiave derivata via **scrypt** da una passphrase, envelope JSON autodescrittivo, salt casuale per messaggio (mai crypto fatta a mano). Comandi `metis case export-encrypted` (cifra l'intero documento del caso: indicatori, finding, assessment) e `metis case decrypt`, passphrase da `OLYMPUS_METIS_KEY`, output owner-only; chiave errata/tamper rifiutati. Reinstall editable eseguito → **SBOM aggiornato** (`cryptography==50.0.1`, `cffi`, `pycparser` nella chiusura). 10 test (`test_core_crypto` + `test_metis_encryption`). Ruff pulito, mypy pulito sui moduli toccati, 1396 test |
+| 2026-09-11 | **§5.3/§5.4 — validazione Compose con Docker reale** | `docker compose config` verde | Daemon Docker avviato in questo ambiente; `docker compose -f docker-compose.yml config` valida schema, interpolazione e chiavi di hardening (exit 0, nessun errore) — upgrade rispetto al solo check pyyaml. **Onestà:** build/run dei container restano bloccati perché il proxy blocca il CDN dei layer del registry (`production.cloudfront.docker.com` → `Forbidden`) e non c'è cache; documentato in «Stato finale». Nessun codice toccato |
 
 **Nota evidenze.** Tranche P1 riconfermate da `main` run `#135` (Ruff, 1033 test, gitleaks, wheel smoke);
 configurazione da PR run `#137` (1040 test). Nessuna voce nuova si spunta senza codice, test e —
