@@ -84,3 +84,57 @@ def test_export_encrypted_requires_the_key(tmp_path: Path, monkeypatch) -> None:
     )
     assert result.exit_code == 2
     assert METIS_KEY_ENV in result.output
+
+
+# --- Encrypted backup / restore of the whole store --------------------------- #
+
+
+def test_encrypted_backup_round_trips_and_hides_plaintext(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv(METIS_KEY_ENV, "offsite backup passphrase")
+    database = tmp_path / "cases.db"
+    case_id = _seed_case(database)
+    encrypted = tmp_path / "store.enc"
+
+    backed = runner.invoke(
+        app, ["metis", "case", "backup", str(database), str(encrypted), "--encrypt"]
+    )
+    assert backed.exit_code == 0, backed.output
+    import stat
+
+    assert stat.S_IMODE(encrypted.stat().st_mode) == 0o600
+    assert "evil.example" not in encrypted.read_text(encoding="utf-8")
+
+    restored = tmp_path / "restored.db"
+    result = runner.invoke(app, ["metis", "case", "restore", str(encrypted), str(restored)])
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["cases"] == 1
+    shown = runner.invoke(app, ["metis", "case", "show", str(restored), case_id])
+    assert "evil.example" in shown.output
+
+
+def test_plain_backup_still_restores_without_a_key(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.delenv(METIS_KEY_ENV, raising=False)
+    database = tmp_path / "cases.db"
+    case_id = _seed_case(database)
+    plain = tmp_path / "store.db"
+    assert runner.invoke(app, ["metis", "case", "backup", str(database), str(plain)]).exit_code == 0
+
+    restored = tmp_path / "restored.db"
+    result = runner.invoke(app, ["metis", "case", "restore", str(plain), str(restored)])
+    assert result.exit_code == 0, result.output  # no key needed for a plain snapshot
+    assert case_id in runner.invoke(app, ["metis", "case", "show", str(restored), case_id]).output
+
+
+def test_encrypted_backup_restore_with_the_wrong_key_fails(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv(METIS_KEY_ENV, "right key")
+    database = tmp_path / "cases.db"
+    _seed_case(database)
+    encrypted = tmp_path / "store.enc"
+    runner.invoke(app, ["metis", "case", "backup", str(database), str(encrypted), "--encrypt"])
+
+    monkeypatch.setenv(METIS_KEY_ENV, "wrong key")
+    result = runner.invoke(
+        app, ["metis", "case", "restore", str(encrypted), str(tmp_path / "x.db")]
+    )
+    assert result.exit_code == 2
+    assert "wrong passphrase or corrupted" in result.output

@@ -20,7 +20,8 @@ everything below lives under **Unreleased**.
 - **Metis** — STIX 2.1 and MISP export/import of indicators (deterministic,
   faithful-subset with explicit skips); backup/restore of the case store;
   authenticated encryption of a case document at rest (`export-encrypted` /
-  `decrypt`, `OLYMPUS_METIS_KEY`).
+  `decrypt`, `OLYMPUS_METIS_KEY`); optional encrypted whole-store backups
+  (`backup --encrypt`, auto-detected and decrypted by `restore`).
 - **Core** — `core.crypto`: authenticated symmetric encryption (Fernet + scrypt)
   over the vetted `cryptography` library.
 - **Vulcan** — `enrich` overlay adding CISA KEV and FIRST EPSS to findings and
