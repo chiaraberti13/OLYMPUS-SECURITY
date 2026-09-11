@@ -7,6 +7,8 @@ from collections.abc import Sequence
 from contextlib import suppress
 from pathlib import Path
 
+from olympus.apollo.ecs import alerts_to_ndjson
+from olympus.core.fileio import atomic_write_text
 from olympus.core.models import Alert
 
 
@@ -32,3 +34,8 @@ def export_alerts(alerts: Sequence[Alert], output: Path) -> None:
             os.close(descriptor)
         temporary.unlink(missing_ok=True)
         raise
+
+
+def export_alerts_ecs(alerts: Sequence[Alert], output: Path) -> None:
+    """Write alerts as owner-only newline-delimited ECS JSON for SIEM ingestion."""
+    atomic_write_text(output, alerts_to_ndjson(alerts), mode=0o600)
