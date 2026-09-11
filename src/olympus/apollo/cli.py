@@ -20,9 +20,10 @@ from olympus.apollo.application import (
 from olympus.apollo.attack import build_navigator_layer, techniques_from_rules
 from olympus.apollo.export import export_alerts, export_alerts_ecs, export_alerts_ocsf
 from olympus.apollo.rules import DEFAULT_MAX_RULE_BYTES, DEFAULT_MAX_RULES
+from olympus.apollo.sigma import SigmaImportError, sigma_to_rule
 from olympus.core.contracts import ContractCompatibilityError
 from olympus.core.execution import CancellationRequested, ExecutionPolicyError
-from olympus.core.fileio import atomic_write_text
+from olympus.core.fileio import atomic_write_text, read_regular_text
 from olympus.core.output import OutputFormat, render
 from olympus.core.paths import output_path
 
@@ -174,6 +175,27 @@ def rules(
     ]
     columns = ["rule_id", "event_type", "severity", "mitre", "title"]
     typer.echo(render(records, columns, output_format, title=f"Apollo rules ({len(rule_set)})"))
+
+
+@app.command("sigma-import")
+def sigma_import(
+    sigma: Path = typer.Argument(..., help="Sigma rule YAML file to convert."),
+    output: Path = typer.Option(..., "--output", help="Apollo rule JSON output path."),
+    max_bytes: int = typer.Option(DEFAULT_MAX_RULE_BYTES, "--max-bytes"),
+) -> None:
+    """Convert a Sigma rule (faithful exact-match subset) into an Apollo rule.
+
+    Field modifiers, value lists, wildcards, multiple selections and compound
+    conditions cannot be represented as exact matches and are refused with a
+    specific reason rather than silently mistranslated.
+    """
+    try:
+        rule = sigma_to_rule(read_regular_text(sigma, max_bytes=max_bytes, label="Sigma rule"))
+        atomic_write_text(output, rule.model_dump_json(indent=2) + "\n", mode=0o600)
+    except (SigmaImportError, OSError, ValueError) as exc:
+        typer.echo(f"apollo: sigma-import error: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    typer.echo(f"apollo: imported {rule.rule_id} ({len(rule.conditions)} condition(s)) -> {output}")
 
 
 @app.command("attack-layer")
