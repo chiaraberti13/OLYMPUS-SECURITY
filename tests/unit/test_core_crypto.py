@@ -68,3 +68,23 @@ def test_non_envelope_and_empty_passphrase_are_rejected() -> None:
 
 def test_encryption_is_non_deterministic() -> None:
     assert encrypt_text("x", _PASSPHRASE) != encrypt_text("x", _PASSPHRASE)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "match"),
+    [
+        ("n", 2**30, "invalid scrypt n"),  # memory bomb via huge n
+        ("n", 40000, "invalid scrypt n"),  # not a power of two
+        ("n", 0, "invalid scrypt n"),
+        ("r", 64, "out-of-range KDF parameters"),  # huge r
+        ("p", 999, "out-of-range KDF parameters"),  # huge p
+    ],
+)
+def test_malicious_kdf_parameters_are_rejected_before_scrypt(
+    field: str, value: int, match: str
+) -> None:
+    """A hostile envelope cannot turn decryption into a memory-exhaustion bomb."""
+    envelope = json.loads(encrypt_text("secret", _PASSPHRASE))
+    envelope[field] = value
+    with pytest.raises(CryptoError, match=match):
+        decrypt_to_text(json.dumps(envelope), _PASSPHRASE)

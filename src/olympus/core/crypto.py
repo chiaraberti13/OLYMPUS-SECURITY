@@ -38,6 +38,16 @@ _SCRYPT_P = 1
 _KEY_LENGTH = 32
 _SALT_BYTES = 16
 
+#: Hard ceilings on the KDF parameters accepted from an (untrusted) envelope, so
+#: a hostile document cannot turn decryption into a memory bomb. scrypt uses
+#: roughly 128 * n * r bytes; the product cap below bounds that to ~1 GiB, and
+#: n must additionally be a power of two (scrypt requires it).
+_MAX_SCRYPT_N = 2**21
+_MAX_SCRYPT_R = 32
+_MAX_SCRYPT_P = 16
+_MAX_SCRYPT_MEMORY = 1024 * 1024 * 1024  # 128 * n * r ceiling
+_MAX_SALT_BYTES = 1024
+
 
 class CryptoError(ValueError):
     """Raised when decryption fails (wrong passphrase or corrupted data)."""
@@ -47,6 +57,22 @@ def _validate_passphrase(passphrase: str) -> bytes:
     if not passphrase or len(passphrase) < 1:
         raise CryptoError("passphrase must not be empty")
     return passphrase.encode("utf-8")
+
+
+def _validate_kdf_params(n: int, r: int, p: int, salt: bytes) -> None:
+    """Reject KDF parameters that are unsafe or a memory-exhaustion vector.
+
+    Called on the values read from an untrusted envelope before any scrypt work,
+    so a hostile document cannot make decryption allocate unbounded memory.
+    """
+    if not (1 <= r <= _MAX_SCRYPT_R and 1 <= p <= _MAX_SCRYPT_P):
+        raise CryptoError("encryption envelope has out-of-range KDF parameters")
+    if n < 2 or n > _MAX_SCRYPT_N or (n & (n - 1)) != 0:
+        raise CryptoError("encryption envelope has an invalid scrypt n (must be a power of two)")
+    if 128 * n * r > _MAX_SCRYPT_MEMORY:
+        raise CryptoError("encryption envelope requests too much KDF memory")
+    if not 1 <= len(salt) <= _MAX_SALT_BYTES:
+        raise CryptoError("encryption envelope has an out-of-range salt")
 
 
 def _derive_fernet_key(passphrase: bytes, salt: bytes, *, n: int, r: int, p: int) -> bytes:
@@ -89,6 +115,7 @@ def decrypt_to_bytes(envelope_text: str, passphrase: str) -> bytes:
         p = int(envelope["p"])
     except (KeyError, ValueError, TypeError) as exc:
         raise CryptoError(f"malformed encryption envelope: {exc}") from exc
+    _validate_kdf_params(n, r, p, salt)
     key = _derive_fernet_key(secret, salt, n=n, r=r, p=p)
     try:
         return Fernet(key).decrypt(token)

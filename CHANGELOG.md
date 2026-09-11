@@ -56,6 +56,9 @@ everything below lives under **Unreleased**.
 ### Security
 - Closed the custody-ledger truncation/rewrite gap via HMAC signing.
 - Removed the unauthenticated ZAP API default.
+- Bounded the scrypt KDF parameters read from an encryption envelope, so a
+  hostile document cannot turn decryption into a memory-exhaustion bomb
+  (self-review finding).
 
 _Runtime-dependent items (live scanner runs, container runtime behaviour, remote
 feeds) are tracked with their blockers in `ROADMAP_HARDENING.md`._
