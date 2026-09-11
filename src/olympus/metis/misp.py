@@ -159,7 +159,13 @@ def event_to_indicators(text: str) -> ParsedEvent:
         if not isinstance(attribute, dict):
             continue
         misp_type = str(attribute.get("type", ""))
-        value = str(attribute.get("value", "")).strip()
+        raw_value = attribute.get("value", "")
+        # MISP values are strings; refuse a non-string (a malformed or hostile
+        # event) rather than str()-ifying a dict/list into a bogus indicator.
+        if not isinstance(raw_value, str):
+            skipped.append(SkippedAttribute(misp_type, repr(raw_value)[:64], "non-string value"))
+            continue
+        value = raw_value.strip()
         if not value:
             skipped.append(SkippedAttribute(misp_type, value, "empty value"))
             continue
