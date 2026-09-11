@@ -50,6 +50,12 @@ from olympus.argus.application import (
     web_address_policy,
 )
 from olympus.argus.assets import export_assets, recon_to_assets
+from olympus.argus.correlation import (
+    connected_components,
+    correlate_by_value,
+    neighbors,
+    pivots,
+)
 from olympus.argus.ct import CertificateTransparencyError, CrtShClient
 from olympus.argus.dns_records import (
     RECORD_TYPES,
@@ -71,7 +77,7 @@ from olympus.argus.fronting import (
     report_to_asset,
     report_to_findings,
 )
-from olympus.argus.graph import EntityType, export_investigation
+from olympus.argus.graph import EntityType, export_investigation, investigation_from_dict
 from olympus.argus.ip_osint import (
     IpParseError,
     IpWhoisClient,
@@ -107,7 +113,7 @@ from olympus.argus.whois import (
     build_whois_asset,
     export_whois_report,
 )
-from olympus.core.fileio import atomic_write_text
+from olympus.core.fileio import atomic_write_text, read_regular_text
 from olympus.core.http import UrllibHttpClient
 from olympus.core.paths import audit_log_path, output_path
 from olympus.core.pinning import global_address_policy
@@ -943,3 +949,40 @@ def pipeline_command(
     else:
         export_pipeline(document, output)
         typer.echo(f"argus: wrote pipeline result to {output}", err=True)
+
+
+@app.command()
+def correlate(
+    investigation: Path = typer.Argument(..., help="Investigation JSON from `argus investigate`."),
+    seed: str | None = typer.Option(
+        None, "--seed", help="Entity id to expand neighbors from (e.g. 'ip:203.0.113.9')."
+    ),
+    hops: int = typer.Option(1, "--hops", min=1, help="Neighbor expansion depth for --seed."),
+    limit: int = typer.Option(10, "--limit", min=1, help="Top-N pivots to report."),
+    max_bytes: int = typer.Option(20_000_000, "--max-bytes"),
+) -> None:
+    """Analyze an investigation graph: clusters, pivot hubs and value correlations."""
+    try:
+        payload = json.loads(read_regular_text(investigation, max_bytes=max_bytes, label="graph"))
+        graph = investigation_from_dict(payload)
+    except (ValueError, OSError) as exc:
+        typer.echo(f"argus: correlate error: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    report: dict[str, object] = {
+        "components": [sorted(component) for component in connected_components(graph)],
+        "pivots": [
+            {"id": pivot.entity.id, "value": pivot.entity.value, "degree": pivot.degree}
+            for pivot in pivots(graph, limit=limit)
+        ],
+        "value_correlations": [
+            {"value": correlation.value, "entities": list(correlation.entity_ids)}
+            for correlation in correlate_by_value(graph)
+        ],
+    }
+    if seed is not None:
+        report["neighbors"] = {
+            "seed": seed,
+            "hops": hops,
+            "ids": sorted(neighbors(graph, seed, hops=hops)),
+        }
+    typer.echo(json.dumps(report, indent=2, sort_keys=True))

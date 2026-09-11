@@ -13,6 +13,11 @@
   "entrypoint": "olympus argus",
   "runtime_external_cli_dependencies": [],
   "commands": {
+    "correlate": {
+      "options": ["investigation", "--seed", "--hops", "--limit", "--max-bytes"],
+      "capabilities": ["graph-clusters", "pivot-ranking", "value-correlation", "neighbor-expansion"],
+      "mapping": ["correlation.py", "graph.py"]
+    },
     "accounts": {
       "options": ["--username", "--input", "--scope", "--log", "--sites", "--metadata", "--i-am-authorized", "--concurrency", "--rate", "--output"],
       "capabilities": ["account-presence", "public-profile-metadata", "batch"],

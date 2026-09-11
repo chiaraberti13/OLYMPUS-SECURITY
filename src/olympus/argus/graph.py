@@ -192,3 +192,45 @@ def export_investigation(investigation: Investigation, path: Path) -> None:
     atomic_write_text(
         path, json.dumps(investigation.to_dict(), indent=2, sort_keys=True), mode=0o600
     )
+
+
+def investigation_from_dict(data: object) -> Investigation:
+    """Reconstruct an :class:`Investigation` from its :meth:`Investigation.to_dict`.
+
+    Round-trips the JSON produced by :func:`export_investigation`. Unknown entity
+    types raise ``ValueError``; edges whose endpoints are not present are skipped.
+    """
+    if not isinstance(data, dict):
+        raise ValueError("investigation document must be a mapping")
+    investigation = Investigation(str(data.get("name", "investigation")))
+    raw_entities = data.get("entities", [])
+    if not isinstance(raw_entities, list):
+        raise ValueError("investigation 'entities' must be an array")
+    for item in raw_entities:
+        if not isinstance(item, dict):
+            continue
+        try:
+            entity_type = EntityType(str(item["type"]))
+        except (KeyError, ValueError) as exc:
+            raise ValueError(f"invalid entity type in investigation: {item.get('type')!r}") from exc
+        raw_attributes = item.get("attributes")
+        attributes = raw_attributes if isinstance(raw_attributes, dict) else {}
+        investigation.add_entity(
+            Entity(
+                entity_type=entity_type,
+                value=str(item.get("value", "")),
+                attributes={str(k): str(v) for k, v in attributes.items()},
+                discovered_by=str(item.get("discovered_by", "seed")),
+            )
+        )
+    by_id = {entity.id: entity for entity in investigation.entities}
+    raw_relationships = data.get("relationships", [])
+    if isinstance(raw_relationships, list):
+        for item in raw_relationships:
+            if not isinstance(item, dict):
+                continue
+            source = by_id.get(str(item.get("source")))
+            target = by_id.get(str(item.get("target")))
+            if source is not None and target is not None:
+                investigation.add_relationship(source, target, str(item.get("label", "")))
+    return investigation

@@ -38,7 +38,7 @@ def test_tui_keyboard_navigation_and_help() -> None:
         async with interface.run_test(size=(140, 42)) as pilot:
             await pilot.pause()
             assert interface.query_one("#tools").option_count == len(TOOLS)
-            assert interface.query_one("#commands").option_count == 15
+            assert interface.query_one("#commands").option_count == 16
             await pilot.press("f1")
             await pilot.pause()
             assert isinstance(interface.screen, HelpScreen)

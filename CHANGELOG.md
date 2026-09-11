@@ -32,6 +32,9 @@ everything below lives under **Unreleased**.
 - **Hermes** — shape-based allowlist (path globs / value regexes) and a
   `pre-commit` hook command with a `.pre-commit-hooks.yaml` declaration,
   completing baseline + allowlist + entropy + SARIF + pre-commit/CI.
+- **Argus** — investigation-graph correlation (`argus correlate`): connected
+  components, degree-ranked pivots, n-hop neighbors, and shared-value
+  correlation, plus a JSON round-trip loader for the graph.
 - **Apollo** — ECS and OCSF (Detection Finding) NDJSON export for SIEM ingestion,
   a MITRE ATT&CK Navigator layer export, and dependency-free import of the
   faithful subset of Sigma rules.
