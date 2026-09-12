@@ -33,9 +33,19 @@ nativamente. Inoltre `testssl` e `whatweb` hanno solo il parser, non il test liv
 - [ ] `P1` Completare i 18 adapter mancanti (dettaglio in §3.1). **8 fatti**: `httpx`,
       `nuclei`, `katana`, `dalfox`, `dirsearch`, `commix`, `arjun`, `xsstrike` sono adapter
       nativi `live-tested`. **10 restanti.**
-- [ ] `P1` Test live autorizzati per `whatweb` e `testssl` (oggi "parser only"). Richiede un lab
-      autorizzato, quindi resta aperta. Nel frattempo `whatweb` — che non aveva **nessun** test
-      di parsing — ne ha ora tre, quindi la sua copertura offline è reale e non solo dichiarata.
+- [~] `P1` Test live autorizzati per `whatweb` e `testssl` (oggi "parser only"). **Parser
+      validati su output REALE** (2026-09-12): `whatweb`, `wafw00f`, `nmap` e `testssl` sono
+      stati installati (apt) ed eseguiti contro un target locale autorizzato — HTTP via
+      `python -m http.server` su `127.0.0.1`, TLS via un server HTTPS con certificato
+      self-signed generato al volo; l'output catturato verbatim è in
+      `tests/fixtures/aegis/live/` e alimenta `tests/unit/test_aegis_adapters_live_capture.py`
+      (es. `testssl` produce davvero CRITICAL "self signed", HIGH "no SAN"/mismatch/scadenza).
+      Quindi la copertura offline non è più su fixture inventate ma su grammatica reale dei
+      tool. **Resta aperto** il *live-tested* pieno attraverso il percorso scope-gated contro un
+      lab remoto autorizzato. Note di packaging di questo ambiente: `apt` installa `whatweb`
+      0.5.5 che gira solo sotto la Ruby di sistema `ruby3.2` (non la rbenv di default) e il
+      binario `testssl` (non `testssl.sh`) che rifiuta `--jsonfile /dev/stdout` — quirk
+      dell'ambiente, non dell'adapter.
 - [x] `P1` `olympus aegis capabilities` espone lo stato reale per ogni scanner
       (`catalog-only` / `adapter-ready` / `offline-tested` / `live-tested` / `production-ready`),
       su un asse **separato** dalla readiness di macchina. Le dichiarazioni sono verificate
@@ -324,8 +334,15 @@ dipendenza runtime senza poterne validare gli hash violerebbe quella disciplina.
   `cryptography>=42` a `pyproject`, `olympus.core.crypto` (Fernet + scrypt, mai
   crypto fatta a mano) e `metis case export-encrypted`/`decrypt`. SBOM aggiornato
   (`cryptography==50.0.1` nella chiusura runtime).
-- **§2 crosscutting — property-based testing/fuzzing** (riga 112). Richiede
-  `hypothesis`/`atheris` (dipendenze di sviluppo non dichiarate); non autorizzate.
+- **§2 crosscutting — property-based testing/fuzzing. SBLOCCATO E FATTO**
+  (2026-09-12): `python3-hypothesis` è installabile via `apt` (dipendenza di
+  *sviluppo*, non runtime → nessun vincolo sul lockfile con hash della chiusura
+  runtime). Aggiunto `hypothesis>=6.98` alle dev-deps e
+  `tests/unit/test_property_security.py`: fuzz della guardia SSRF
+  (`is_globally_routable` non accetta mai un indirizzo non-globale, nemmeno
+  incapsulato in un wrapper IPv6) e della redaction (nessun segreto sopravvive,
+  a qualsiasi profondità di annidamento). Il fuzz ha anche confermato che il
+  blocco misto `192.0.0.0/24` è gestito correttamente (anycast PCP/TURN globali).
 
 _(Nota: l'import Sigma **non** è più in questa categoria — è stato risolto con un
 parser YAML-subset scritto a mano, senza PyYAML.)_
@@ -353,14 +370,26 @@ con accesso al registry:
 ## Bloccato — richiede tool/servizi/rete esterni (fixture reali non catturabili qui)
 
 La disciplina è: **nessuna fixture inventata** — ogni adapter dev'essere provato
-contro output reale. Qui i tool non sono installati e la rete è filtrata.
+contro output reale.
 
-- **§1.1/§3.1 adapter residui fino a production-ready** (righe 33, 137) e **test
-  live `whatweb`/`testssl`** (36): richiedono i binari e un lab autorizzato.
+Aggiornamento 2026-09-12: in questo ambiente **`apt` funziona** dai repo
+principali (i PPA launchpad restano 403). I tool classici a pacchetto Debian
+sono quindi installabili e sono stati usati per catturare output reale:
+`whatweb`, `wafw00f` e `nmap` girano ora contro un target locale autorizzato e i
+loro parser sono validati su quell'output (vedi §1.1 e
+`tests/unit/test_aegis_adapters_live_capture.py`). Resta invece **filtrata la
+rete verso host esterni** (PyPI diretto, registry Docker, feed remoti) e non
+sono disponibili i binari Go di ProjectDiscovery né le piattaforme-servizio.
+
+- **§1.1/§3.1 adapter residui fino a production-ready** (righe 33, 137): il
+  *live-tested* pieno attraverso lo scope-gate contro un lab **remoto**
+  autorizzato resta aperto; i parser dei tool apt-installabili sono però ora su
+  output reale, non inventato.
 - **§3.2 naabu, dnsx, Amass, reconftw** (148-151); **§3.3 Atomic Red Team** (157);
   **§3.4 OpenCTI** (163) e **TAXII** (feed remoto); **§3.5 DefectDojo, Prowler,
   ScoutSuite** (168-169); **§3.6 hephaestus/CIS** (175): nuovi tool/servizi
-  esterni o piattaforme da far girare e catturare.
+  esterni o piattaforme da far girare e catturare — non installabili via `apt`
+  (binari Go da release GitHub, o interi stack applicativi/cloud).
 
 ## Bloccato — codice vendorizzato (`vendor/`, da ritirare, non da estendere)
 

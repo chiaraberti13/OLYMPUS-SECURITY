@@ -1,0 +1,1 @@
+http://127.0.0.1:9093 [200 OK] Country[RESERVED][ZZ], HTML5, HTTPServer[SimpleHTTP/0.6 Python/3.11.15], IP[127.0.0.1], Python[3.11.15], Title[Directory listing for /]
