@@ -34,15 +34,18 @@ nativamente. Inoltre `testssl` e `whatweb` hanno solo il parser, non il test liv
       `nuclei`, `katana`, `dalfox`, `dirsearch`, `commix`, `arjun`, `xsstrike` sono adapter
       nativi `live-tested`. **10 restanti.**
 - [~] `P1` Test live autorizzati per `whatweb` e `testssl` (oggi "parser only"). **Parser
-      validati su output REALE** (2026-09-12): `whatweb`, `wafw00f` e `nmap` sono stati
-      installati (apt) ed eseguiti contro un target locale autorizzato
-      (`python -m http.server` su `127.0.0.1`); l'output catturato verbatim è in
-      `tests/fixtures/aegis/live/` e alimenta `tests/unit/test_aegis_adapters_live_capture.py`.
+      validati su output REALE** (2026-09-12): `whatweb`, `wafw00f`, `nmap` e `testssl` sono
+      stati installati (apt) ed eseguiti contro un target locale autorizzato — HTTP via
+      `python -m http.server` su `127.0.0.1`, TLS via un server HTTPS con certificato
+      self-signed generato al volo; l'output catturato verbatim è in
+      `tests/fixtures/aegis/live/` e alimenta `tests/unit/test_aegis_adapters_live_capture.py`
+      (es. `testssl` produce davvero CRITICAL "self signed", HIGH "no SAN"/mismatch/scadenza).
       Quindi la copertura offline non è più su fixture inventate ma su grammatica reale dei
       tool. **Resta aperto** il *live-tested* pieno attraverso il percorso scope-gated contro un
-      lab remoto autorizzato (e `testssl` richiede un endpoint TLS); nota: l'`apt` di questo
-      ambiente installa `whatweb` 0.5.5 che gira solo sotto la Ruby di sistema `ruby3.2`, non
-      sotto la Ruby rbenv di default — problema di packaging dell'ambiente, non dell'adapter.
+      lab remoto autorizzato. Note di packaging di questo ambiente: `apt` installa `whatweb`
+      0.5.5 che gira solo sotto la Ruby di sistema `ruby3.2` (non la rbenv di default) e il
+      binario `testssl` (non `testssl.sh`) che rifiuta `--jsonfile /dev/stdout` — quirk
+      dell'ambiente, non dell'adapter.
 - [x] `P1` `olympus aegis capabilities` espone lo stato reale per ogni scanner
       (`catalog-only` / `adapter-ready` / `offline-tested` / `live-tested` / `production-ready`),
       su un asse **separato** dalla readiness di macchina. Le dichiarazioni sono verificate

@@ -13,6 +13,10 @@ running the installed tools against a local authorized target — a throwaway
 * ``nmap_open.xml`` — ``nmap -Pn -sV --version-light -p 9090 -oX - 127.0.0.1``
   with the local server listening, so an open port with a probed service banner
   is real, not synthesised.
+* ``testssl.json`` — ``testssl --quiet --color 0 --jsonfile <f> --severity LOW
+  127.0.0.1:9443`` against a local HTTPS server using a freshly generated
+  self-signed certificate, so the TLS findings (self-signed chain, missing SAN,
+  URI mismatch) are what testssl really reports for that endpoint.
 
 These prove the parsers handle the real tools' actual grammar, not an idealised
 sample. The live *execution* path (scope gating, sandbox) is covered separately;
@@ -24,6 +28,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from olympus.aegis.adapters.nmap import NmapAdapter
+from olympus.aegis.adapters.testssl import TestsslAdapter
 from olympus.aegis.adapters.wafw00f import Wafw00fAdapter
 from olympus.aegis.adapters.whatweb import WhatwebAdapter
 from olympus.aegis.model import ScanRequest
@@ -72,3 +77,19 @@ def test_nmap_parser_reads_a_real_open_port_and_service_banner() -> None:
     assert any(item == "port=9090/tcp" for item in finding.evidence)
     # nmap -sV probed the real service: SimpleHTTPServer 0.6.
     assert any("SimpleHTTPServer" in item for item in finding.evidence)
+
+
+def test_testssl_parser_reads_real_tls_findings_for_a_self_signed_endpoint() -> None:
+    captured = (_FIXTURES / "testssl.json").read_text(encoding="utf-8")
+    findings = TestsslAdapter().parse(_out(captured), "127.0.0.1", _req())
+    # The real scan of a self-signed endpoint yields several severity-bearing
+    # findings; the self-signed chain of trust is the CRITICAL one.
+    assert findings, "expected testssl to report severity findings"
+    critical = [f for f in findings if f.severity is Severity.CRITICAL]
+    assert any("self signed" in f.description.lower() for f in critical)
+    # every emitted finding carries the testssl id and severity in its evidence
+    assert all(
+        any(item.startswith("id=") for item in f.evidence)
+        and any(item.startswith("severity=") for item in f.evidence)
+        for f in findings
+    )

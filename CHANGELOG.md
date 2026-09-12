@@ -53,9 +53,10 @@ everything below lives under **Unreleased**.
   secret survives redaction at any nesting depth. `hypothesis` added as a dev
   dependency.
 - Adapter parsers validated against REAL captured tool output rather than
-  invented fixtures: `whatweb`, `wafw00f` and `nmap` run against a local
-  authorized target, output saved verbatim under `tests/fixtures/aegis/live/`
-  and consumed by `tests/unit/test_aegis_adapters_live_capture.py`.
+  invented fixtures: `whatweb`, `wafw00f`, `nmap` and `testssl` run against a
+  local authorized target (HTTP and a self-signed HTTPS endpoint), output saved
+  verbatim under `tests/fixtures/aegis/live/` and consumed by
+  `tests/unit/test_aegis_adapters_live_capture.py`.
 
 ### Changed
 - All Argus persistence writes routed through atomic, owner-only, no-symlink
