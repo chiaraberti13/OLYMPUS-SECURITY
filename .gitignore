@@ -54,3 +54,6 @@ vendor/**/reports/*
 vendor/**/scans/*
 !vendor/**/scans/.gitkeep
 vendor/**/.venv/
+
+# Hypothesis example database (local test cache)
+.hypothesis/

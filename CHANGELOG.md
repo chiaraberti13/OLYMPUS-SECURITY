@@ -46,6 +46,17 @@ everything below lives under **Unreleased**.
 - **Governance** — CODEOWNERS on security-critical paths and a grounded threat
   model (`docs/threat-model.md`).
 
+### Testing
+- Property-based (fuzz) tests over the SSRF address guard and the audit/evidence
+  redaction (`tests/unit/test_property_security.py`, Hypothesis): the guard never
+  accepts a non-global destination — including one wrapped in IPv6 — and no
+  secret survives redaction at any nesting depth. `hypothesis` added as a dev
+  dependency.
+- Adapter parsers validated against REAL captured tool output rather than
+  invented fixtures: `whatweb`, `wafw00f` and `nmap` run against a local
+  authorized target, output saved verbatim under `tests/fixtures/aegis/live/`
+  and consumed by `tests/unit/test_aegis_adapters_live_capture.py`.
+
 ### Changed
 - All Argus persistence writes routed through atomic, owner-only, no-symlink
   writes (`core.fileio.atomic_write_text`).

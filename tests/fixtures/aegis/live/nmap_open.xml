@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE nmaprun>
+<?xml-stylesheet href="file:///usr/bin/../share/nmap/nmap.xsl" type="text/xsl"?>
+<!-- Nmap 7.94SVN scan initiated Sat Sep 12 08:49:48 2026 as: nmap -Pn -sV -&#45;version-light -p 9090 -oX - 127.0.0.1 -->
+<nmaprun scanner="nmap" args="nmap -Pn -sV -&#45;version-light -p 9090 -oX - 127.0.0.1" start="1789202988" startstr="Sat Sep 12 08:49:48 2026" version="7.94SVN" xmloutputversion="1.05">
+<scaninfo type="syn" protocol="tcp" numservices="1" services="9090"/>
+<verbose level="0"/>
+<debugging level="0"/>
+<host starttime="1789202988" endtime="1789202994"><status state="up" reason="user-set" reason_ttl="0"/>
+<address addr="127.0.0.1" addrtype="ipv4"/>
+<hostnames>
+<hostname name="localhost" type="PTR"/>
+</hostnames>
+<ports><port protocol="tcp" portid="9090"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="http" product="SimpleHTTPServer" version="0.6" extrainfo="Python 3.11.15" method="probed" conf="10"><cpe>cpe:/a:python:simplehttpserver:0.6</cpe></service></port>
+</ports>
+<times srtt="213" rttvar="5000" to="100000"/>
+</host>
+<runstats><finished time="1789202994" timestr="Sat Sep 12 08:49:54 2026" summary="Nmap done at Sat Sep 12 08:49:54 2026; 1 IP address (1 host up) scanned in 6.24 seconds" elapsed="6.24" exit="success"/><hosts up="1" down="0" total="1"/>
+</runstats>
+</nmaprun>
