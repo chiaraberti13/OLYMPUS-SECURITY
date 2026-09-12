@@ -528,3 +528,39 @@ def test_decompression_limits_are_validated() -> None:
         UrllibHttpClient(max_decompressed_bytes=0)
     with pytest.raises(ValueError, match="max_expansion_ratio"):
         UrllibHttpClient(max_expansion_ratio=0.5)
+
+
+def test_pinned_opener_never_uses_an_environment_proxy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A pinned client must not proxy any scheme: a proxy re-resolves the host,
+
+    which defeats pinning (regression for the plain-HTTP proxy gap — HTTPS CONNECT
+    tunnels were already refused, but a default ProxyHandler would silently proxy
+    a plain-HTTP pinned request).
+    """
+    monkeypatch.setenv("HTTP_PROXY", "http://127.0.0.1:9")
+    monkeypatch.setenv("HTTPS_PROXY", "http://127.0.0.1:9")
+    client = UrllibHttpClient(10.0, address_policy=lambda host: ("203.0.113.9",))
+    assert client._opener is not None
+    active_proxies = [
+        handler
+        for handler in client._opener.handlers
+        if type(handler).__name__ == "ProxyHandler" and getattr(handler, "proxies", {})
+    ]
+    assert active_proxies == [], "pinned opener must carry no environment proxy"
+
+
+def test_unpinned_opener_still_honours_environment_proxies(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Only pinned openers disable proxying; a redirect-only client is unaffected."""
+    monkeypatch.setenv("HTTPS_PROXY", "http://127.0.0.1:9")
+    client = UrllibHttpClient(10.0, redirect_validator=lambda _url: None)
+    assert client._opener is not None
+    proxy_handlers = [
+        handler
+        for handler in client._opener.handlers
+        if type(handler).__name__ == "ProxyHandler" and getattr(handler, "proxies", {})
+    ]
+    assert proxy_handlers, "a non-pinned opener should keep the environment proxy"

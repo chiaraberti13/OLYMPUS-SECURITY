@@ -309,9 +309,15 @@ def _exit_error(scanner: str, output: CommandOutput) -> str:
     return f"{scanner} exited with non-success status {output.exit_code}"
 
 
+# The value is one non-space run, but an ``Authorization`` header carries the
+# secret *after* a scheme word (``Bearer <token>``, ``Basic <b64>``): allow one
+# optional known auth scheme before the credential so the token itself — not
+# just the scheme name — is what gets redacted. Only enumerated schemes are
+# consumed, so a secret followed by unrelated text is not over-redacted.
 _SECRET_ASSIGNMENT = re.compile(
     r"(?i)\b(authorization|cookie|credential|password|secret|token|api[-_]?key|access[-_]?key)"
-    r"(\s*[:=]\s*)([^\s,;]+)"
+    r"(\s*[:=]\s*)"
+    r"((?:(?:bearer|basic|digest|negotiate|ntlm|token|apikey)\s+)?[^\s,;]+)"
 )
 def _evidence(output: CommandOutput) -> str:
     parts = []

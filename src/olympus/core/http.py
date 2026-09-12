@@ -234,6 +234,12 @@ class UrllibHttpClient:
             # Pinning must survive redirects too: the same policy authorizes
             # every hop's address at the moment the socket is opened.
             handlers.extend(pinned_handlers(address_policy))
+            # A pinned opener must NEVER proxy, for any scheme: a proxy resolves
+            # the destination itself, defeating the pin. An explicit empty
+            # ProxyHandler stops build_opener from adding the env-reading default
+            # (which would silently proxy a plain-HTTP pinned request even though
+            # the HTTPS CONNECT tunnel is already refused).
+            handlers.append(urllib.request.ProxyHandler({}))
         self._opener = urllib.request.build_opener(*handlers) if needs_opener else None
 
     @classmethod
