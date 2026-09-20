@@ -129,8 +129,11 @@ Prima di aggiungere, rendere *affidabile* ciò che c'è.
       fetch da parse", test offline sui payload.
 - [ ] **P2** **CTI live** in Metis: connettori **TAXII 2.1**, **MISP server**, **OpenCTI**
       (feed IOC/campagne). *Blocco:* feed remoti → parser testati offline, fetch dietro config.
-- [ ] **P2** **DFIR** in Minerva: **timeline** automatica degli eventi di un incidente + **IOC
-      sweep** guidato da Metis; export del caso firmato.
+- [~] **P2** **DFIR** in Minerva: **timeline** + export firmato. **Fatto** (2026-09-20): la
+      `minerva timeline` esisteva già (timeline di custodia verificata); aggiunto l'**export
+      firmato** (`--export`/`--sign-key`, artefatto `olympus.minerva-timeline` + envelope Ed25519
+      via `core.signing`, verificabile con `olympus core verify`; test in
+      `tests/unit/test_minerva_timeline_export.py`). **Resta:** **IOC sweep** guidato da Metis.
 - [ ] **P3** Nuovo modulo **`hephaestus`**: hardening/benchmark **CIS** su host e configurazioni.
 
 ### FASE 3 — Purple Team & automazione 🟣
@@ -171,7 +174,7 @@ Rimanda e si integra con [`ROADMAP_HARDENING.md`](ROADMAP_HARDENING.md):
 2. 🔴 Portare **whatweb/testssl** a live-tested end-to-end sullo scope-gate + `labs/mars`.
 3. 🟣 Definition of Done → **primi 3 adapter `production-ready`** (nmap, httpx, nuclei): evidence manifest + SBOM.
 4. 🔵 **`apollo ingest`** per un formato reale (es. log web/JSON) con fixture reali. — **fatto** (access-log)
-5. 🔵 **Minerva timeline** minima da eventi di un caso + export firmato.
+5. 🔵 **Minerva timeline** minima da eventi di un caso + export firmato. — **fatto** (export Ed25519)
 6. 🟣 Ritiro dipendenza `vendor/` per `aegis serve/migrate/workers` (o isolamento chiaro).
 
 > Ogni sprint chiude con: test verdi, `ruff`/`mypy` puliti, CHANGELOG aggiornato, commit firmato e

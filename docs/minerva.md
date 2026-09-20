@@ -49,7 +49,17 @@ olympus minerva record evidence.json custody.json \
   --actor responder --action collected
 olympus minerva verify custody.json
 olympus minerva timeline custody.json --format json
+# portable, third-party-verifiable timeline:
+olympus minerva timeline custody.json --export timeline.json --sign-key case.key.pem
+olympus core verify timeline.json timeline.json.sig --pubkey case.pub.pem
 ```
+
+`--export` writes the verified timeline as a deterministic
+`olympus.minerva-timeline` JSON artifact; `--sign-key` additionally emits an
+Ed25519 signature envelope over the exact exported bytes (reusing `core.signing`),
+so a recipient with the trusted public key can confirm the timeline's provenance
+and detect any tampering with `olympus core verify`. `--sign-key` requires
+`--export`.
 
 Defaults cap alert input at 50 MB/100,000 alerts, evidence at 1 MB, and custody
 at 50 MB/100,000 entries. The corresponding `--max-*` and `--deadline` options

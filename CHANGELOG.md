@@ -22,6 +22,11 @@ everything below lives under **Unreleased**.
   `OLYMPUS_CUSTODY_HMAC_KEY`) detecting truncation and full rewrite; consistent
   `backup`/`verify-backup`/`restore` of the SQLite case store via the online
   backup API.
+- **Minerva** — signed timeline export (`timeline --export [--sign-key]`): the
+  verified custody timeline is written as a deterministic
+  `olympus.minerva-timeline` JSON artifact and, optionally, an Ed25519 signature
+  envelope over its exact bytes (reuses `core.signing`), so a third party can
+  confirm provenance and detect tampering via `olympus core verify`.
 - **Metis** — STIX 2.1 and MISP export/import of indicators (deterministic,
   faithful-subset with explicit skips); backup/restore of the case store;
   authenticated encryption of a case document at rest (`export-encrypted` /
