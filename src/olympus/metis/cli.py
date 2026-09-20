@@ -20,10 +20,12 @@ from olympus.core.crypto import (
 )
 from olympus.core.fileio import atomic_write_text, read_regular_text
 from olympus.metis.cases import (
+    MAX_INGEST_BYTES,
     BackupError,
     CaseStore,
     _indicator,
     export_report,
+    extract_indicators,
     restore_backup,
     verify_backup,
 )
@@ -192,6 +194,59 @@ def case_ingest(
     except (ValueError, LookupError, OSError, sqlite3.Error) as exc:
         _fail(exc)
     typer.echo(json.dumps({"case_id": case_id, "inserted": count}))
+
+
+@case_app.command("sweep")
+def case_sweep(
+    database: Path = typer.Argument(...),
+    case_id: str = typer.Argument(...),
+    observations: Path = typer.Argument(
+        ..., help="Local artifact/log to sweep for the case's known IOCs."
+    ),
+    source: str = typer.Option("sweep", help="Provenance label for the swept observables."),
+) -> None:
+    """Sweep a local artifact for a case's known IOCs (offline threat-intel match).
+
+    Observables are extracted from the artifact with the same normalization used
+    to ingest indicators, so a hit is a true type+value match against the case's
+    stored intelligence — not a substring coincidence. Exits 1 when any IOC is
+    found (something to act on), 0 when the artifact is clean.
+    """
+    try:
+        text = read_regular_text(observations, max_bytes=MAX_INGEST_BYTES, label="observations")
+        observed = extract_indicators(text, source=source)
+        with CaseStore(database) as store:
+            document = store.load_case(case_id)
+    except (ValueError, LookupError, OSError, sqlite3.Error) as exc:
+        _fail(exc)
+        return  # unreachable: _fail raises, but keeps type-checkers happy
+    known = {(ioc.indicator_type, ioc.value): ioc for ioc in document.indicators}
+    observed_keys = {(ioc.indicator_type, ioc.value) for ioc in observed}
+    matched = sorted(observed_keys & known.keys(), key=lambda key: (key[0].value, key[1]))
+    hits = [
+        {
+            "indicator_type": known[key].indicator_type.value,
+            "value": known[key].value,
+            "source": known[key].source,
+            "confidence": known[key].confidence,
+            "first_seen": known[key].first_seen.isoformat(),
+        }
+        for key in matched
+    ]
+    typer.echo(
+        json.dumps(
+            {
+                "case_id": case_id,
+                "scanned": len(observed_keys),
+                "matched": len(hits),
+                "hits": hits,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
+    if hits:
+        raise typer.Exit(code=1)
 
 
 @case_app.command("finding")

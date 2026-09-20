@@ -83,13 +83,26 @@ Prima di aggiungere, rendere *affidabile* ciò che c'è.
 - [ ] **P0** Portare i 12 adapter `live-tested` a **`production-ready`**: evidence manifest con
       digest, SBOM per-tool, compatibilità di versione documentata (Definition of Done in
       `docs/scanner-maturity.md`). *Deliverable:* manifest committati + record maturità aggiornati.
+      **Bloccato (parziale):** il salto a `production-ready` richiede evidenza di esecuzione
+      *live attraverso lo scope-gate* in un lab autorizzato + assemblaggio del manifest DoD; non
+      lo dichiaro senza tutte le evidenze (disciplina: non alzare la maturità senza DoD).
 - [ ] **P0** Portare `whatweb` e `testssl` da `offline-tested` a `live-tested` end-to-end
-      (i parser sono già validati su output reale — vedi `tests/unit/test_aegis_adapters_live_capture.py`;
-      manca l'esecuzione attraverso lo scope-gate contro un target del lab).
+      (i parser sono già validati su output reale — vedi `tests/unit/test_aegis_adapters_live_capture.py`).
+      **Bloccato-da-ambiente:** l'`apt` di questo host installa `whatweb` 0.5.5 che gira solo
+      sotto `ruby3.2` (non il launcher `whatweb`/rbenv) e `testssl` (non `testssl.sh`) che rifiuta
+      `--jsonfile /dev/stdout`; una run genuina *attraverso l'adapter* fallirebbe qui per quirk di
+      packaging, non del codice. Da completare su un host con i binari canonici + lab autorizzato.
 - [ ] **P1** Ritirare la dipendenza `vendor/` per `aegis serve` / `migrate` / `workers`
-      (oggi richiedono un path relativo `vendor/`). *Deliverable:* runtime nativo, `vendor/` isolato.
-- [ ] **P1** `athena` playbook end-to-end committato: `recon (argus) → scan (aegis) → enrich
-      (vulcan) → report`, un solo comando, scope-safe. *Deliverable:* preset + test offline.
+      (oggi in `integrations/cli.py` delegano al VAP vendorizzato). **Differito (grande):** non è un
+      cambiamento contenuto ma una **re-implementazione nativa** dell'API/worker layer; il VAP è
+      dichiarato *in ritiro* dal threat model, quindi va sostituito con codice nativo, non esteso.
+- [~] **P1** `athena` playbook end-to-end: `recon → scan → enrich → report`, un solo comando,
+      scope-safe. **Fatto lo stadio enrich→report** (2026-09-20): `athena run --enrich-kev/--enrich-epss`
+      sovrappone KEV/EPSS da feed **locali** (offline), riordina il report per rischio reale e
+      scrive un sidecar `*.enriched.json` (riusa `vulcan.enrichment`; test in
+      `tests/unit/test_athena_cli.py`). Recon e report erano già integrati. **Resta:** wiring dello
+      **scan AEGIS** come stadio del pipeline Athena (motore job separato; richiede i binari
+      scanner a runtime → live contro `labs/mars`).
 
 ### FASE 1 — Red Team: completare la catena offensiva scope-safe 🔴
 
@@ -110,9 +123,13 @@ Prima di aggiungere, rendere *affidabile* ciò che c'è.
 
 ### FASE 2 — Blue Team: pipeline detection + DFIR 🔵
 
-- [ ] **P1** **Ingest di telemetria** in Apollo: lettori per log web/sistema, **Sysmon/Windows
-      Event**, **Zeek**, con normalizzazione verso il modello già usato in export (ECS/OCSF).
-      *Deliverable:* `apollo ingest <formato>` + fixture reali.
+- [~] **P1** **Ingest di telemetria** in Apollo: normalizzazione verso `core.Event`.
+      **Fatto il primo formato** (2026-09-20): `apollo ingest --format access-log` normalizza log
+      HTTP reali (Apache/nginx Common & Combined, e la variante `http.server`) in `core.Event`
+      NDJSON consumato da `apollo run`; parsing bounded, skip-never-guess, fixture **reale**
+      catturata (`tests/fixtures/apollo/ingest/access.log`), catena end-to-end ingest→run→alert
+      testata (`tests/unit/test_apollo_ingest.py`). **Resta:** formati **Sysmon/Windows Event** e
+      **Zeek** (stessa forma; Sysmon reale richiede telemetria Windows non disponibile qui).
 - [ ] **P1** **Loop di detection engineering**: `apollo` esegue una regola Sigma su eventi reali →
       esito → tuning; validazione con **Atomic Red Team** in lab (blocco: richiede lab autorizzato).
 - [ ] **P2** Connettori **SIEM/EDR runtime** (export *live*, non solo file): Splunk HEC, Elastic,
@@ -120,8 +137,14 @@ Prima di aggiungere, rendere *affidabile* ciò che c'è.
       fetch da parse", test offline sui payload.
 - [ ] **P2** **CTI live** in Metis: connettori **TAXII 2.1**, **MISP server**, **OpenCTI**
       (feed IOC/campagne). *Blocco:* feed remoti → parser testati offline, fetch dietro config.
-- [ ] **P2** **DFIR** in Minerva: **timeline** automatica degli eventi di un incidente + **IOC
-      sweep** guidato da Metis; export del caso firmato.
+- [~] **P2** **DFIR** in Minerva: **timeline** + export firmato. **Fatto** (2026-09-20): la
+      `minerva timeline` esisteva già (timeline di custodia verificata); aggiunto l'**export
+      firmato** (`--export`/`--sign-key`, artefatto `olympus.minerva-timeline` + envelope Ed25519
+      via `core.signing`, verificabile con `olympus core verify`; test in
+      `tests/unit/test_minerva_timeline_export.py`). **IOC sweep** guidato da Metis: **fatto**
+      (2026-09-20) — `metis case sweep <db> <case> <artefatto>` estrae osservabili con la stessa
+      normalizzazione dell'ingest e li confronta con gli IOC del caso (type+value, mai substring),
+      exit 1 su match; test in `tests/unit/test_metis_sweep.py`.
 - [ ] **P3** Nuovo modulo **`hephaestus`**: hardening/benchmark **CIS** su host e configurazioni.
 
 ### FASE 3 — Purple Team & automazione 🟣
@@ -158,11 +181,11 @@ Rimanda e si integra con [`ROADMAP_HARDENING.md`](ROADMAP_HARDENING.md):
 
 ## 5. Sprint 1 — priorità immediate (eseguibili subito, offline)
 
-1. 🟣 **Athena playbook** `recon→scan→enrich→report` in un comando (Fase 0). — *alto impatto, zero blocchi*
+1. 🟣 **Athena playbook** `recon→scan→enrich→report` in un comando (Fase 0). — *enrich→report **fatto**; resta lo stadio scan AEGIS*
 2. 🔴 Portare **whatweb/testssl** a live-tested end-to-end sullo scope-gate + `labs/mars`.
 3. 🟣 Definition of Done → **primi 3 adapter `production-ready`** (nmap, httpx, nuclei): evidence manifest + SBOM.
-4. 🔵 **`apollo ingest`** per un formato reale (es. log web/JSON) con fixture reali.
-5. 🔵 **Minerva timeline** minima da eventi di un caso + export firmato.
+4. 🔵 **`apollo ingest`** per un formato reale (es. log web/JSON) con fixture reali. — **fatto** (access-log)
+5. 🔵 **Minerva timeline** minima da eventi di un caso + export firmato. — **fatto** (export Ed25519)
 6. 🟣 Ritiro dipendenza `vendor/` per `aegis serve/migrate/workers` (o isolamento chiaro).
 
 > Ogni sprint chiude con: test verdi, `ruff`/`mypy` puliti, CHANGELOG aggiornato, commit firmato e

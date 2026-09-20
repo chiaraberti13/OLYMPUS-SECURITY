@@ -10,7 +10,7 @@ import typer
 from olympus.core.contracts import ContractCompatibilityError
 from olympus.core.evidence import DEFAULT_MAX_ARTIFACT_BYTES, capture_evidence
 from olympus.core.execution import CancellationRequested, ExecutionPolicyError
-from olympus.core.fileio import atomic_write_text, ensure_write_target
+from olympus.core.fileio import atomic_write_text, ensure_write_target, read_regular_text
 from olympus.core.output import OutputFormat, render
 from olympus.core.paths import output_path
 from olympus.minerva.application import (
@@ -194,11 +194,26 @@ def timeline(
     output_format: OutputFormat = typer.Option(
         OutputFormat.TABLE, "--format", help="Render as table (human) or json (machine)."
     ),
+    export: Path | None = typer.Option(
+        None, "--export", help="Write the verified timeline as a canonical JSON artifact."
+    ),
+    sign_key: Path | None = typer.Option(
+        None,
+        "--sign-key",
+        help="Ed25519 private key PEM: also write a detached signature of the export "
+        "(requires --export), verifiable with `olympus core verify`.",
+    ),
     max_ledger_bytes: int = typer.Option(DEFAULT_MAX_LEDGER_BYTES, "--max-ledger-bytes"),
     max_entries: int = typer.Option(DEFAULT_MAX_ENTRIES, "--max-entries"),
     deadline: float = typer.Option(60.0, "--deadline"),
 ) -> None:
-    """Print a verified custody timeline, including evidence digest provenance."""
+    """Print a verified custody timeline, including evidence digest provenance.
+
+    With ``--export`` the verified timeline is written as a deterministic JSON
+    artifact; add ``--sign-key`` to also emit an Ed25519 signature envelope over
+    the exact exported bytes, so a third party can confirm its provenance with
+    ``olympus core verify <export> <export>.sig --pubkey <trusted key>``.
+    """
     try:
         outcome = MinervaApplicationService().inspect(
             MinervaLedgerRequest(
@@ -223,6 +238,55 @@ def timeline(
     typer.echo(
         render(records, columns, output_format, title=f"Custody timeline ({len(records)})")
     )
+
+    if sign_key is not None and export is None:
+        typer.echo("minerva: --sign-key requires --export", err=True)
+        raise typer.Exit(code=2)
+    if export is not None:
+        _export_timeline(export, records, outcome.evidence_anchored, sign_key)
+
     if not outcome.evidence_anchored:
         typer.echo("minerva: legacy ledger has no evidence digest anchors", err=True)
         raise typer.Exit(code=1)
+
+
+def _export_timeline(
+    export: Path,
+    records: list[dict[str, object]],
+    evidence_anchored: bool,
+    sign_key: Path | None,
+) -> None:
+    """Write the verified timeline as canonical JSON and, if asked, sign it.
+
+    The signature is an Ed25519 envelope over the exact exported bytes, reusing
+    ``core.signing``; verify it with ``olympus core verify``.
+    """
+    payload = (
+        json.dumps(
+            {
+                "schema_name": "olympus.minerva-timeline",
+                "schema_version": "1.0.0",
+                "evidence_anchored": evidence_anchored,
+                "count": len(records),
+                "timeline": records,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    atomic_write_text(export, payload, mode=0o600)
+    typer.echo(f"minerva: wrote timeline to {export}", err=True)
+    if sign_key is None:
+        return
+    from olympus.core.signing import SigningError, sign
+
+    try:
+        private_pem = read_regular_text(sign_key, max_bytes=1_000_000, label="private key")
+        envelope = sign(payload.encode("utf-8"), private_pem)
+    except (SigningError, OSError, ValueError) as exc:
+        typer.echo(f"minerva: sign error: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    signature_path = export.with_name(export.name + ".sig")
+    atomic_write_text(signature_path, envelope, mode=0o600)
+    typer.echo(f"minerva: signed timeline -> {signature_path}", err=True)

@@ -13,10 +13,24 @@ everything below lives under **Unreleased**.
 ## [Unreleased]
 
 ### Added
+- **Athena** — offline KEV/EPSS enrichment stage in the assessment pipeline
+  (`athena run --enrich-kev/--enrich-epss`): overlays CISA KEV and FIRST EPSS
+  from **local** feed files (no network), re-orders the report by real-world
+  risk (KEV → EPSS → CVSS → severity), and writes a `<assessment_id>.enriched.json`
+  overlay sidecar. Reuses `olympus.vulcan.enrichment`; scope/audit unchanged.
 - **Minerva** — HMAC-SHA256 signed custody ledger (schema 2.1.0,
   `OLYMPUS_CUSTODY_HMAC_KEY`) detecting truncation and full rewrite; consistent
   `backup`/`verify-backup`/`restore` of the SQLite case store via the online
   backup API.
+- **Metis** — IOC sweep (`case sweep`): match a local artifact against a case's
+  known indicators using the same normalization as ingest (type+value, never
+  substring); reports each hit's source/confidence and exits 1 on any match, 0
+  when clean — a scriptable DFIR triage gate.
+- **Minerva** — signed timeline export (`timeline --export [--sign-key]`): the
+  verified custody timeline is written as a deterministic
+  `olympus.minerva-timeline` JSON artifact and, optionally, an Ed25519 signature
+  envelope over its exact bytes (reuses `core.signing`), so a third party can
+  confirm provenance and detect tampering via `olympus core verify`.
 - **Metis** — STIX 2.1 and MISP export/import of indicators (deterministic,
   faithful-subset with explicit skips); backup/restore of the case store;
   authenticated encryption of a case document at rest (`export-encrypted` /
@@ -38,6 +52,11 @@ everything below lives under **Unreleased**.
 - **Apollo** — ECS and OCSF (Detection Finding) NDJSON export for SIEM ingestion,
   a MITRE ATT&CK Navigator layer export, and dependency-free import of the
   faithful subset of Sigma rules.
+- **Apollo** — telemetry **ingest** (`apollo ingest --format access-log`): bounded,
+  skip-never-guess normalization of real HTTP access logs (Apache/nginx Common &
+  Combined, and the Python `http.server` variant) into `core.Event` NDJSON that
+  `apollo run` consumes end to end. First front door for operational telemetry;
+  additional formats (Sysmon, Zeek) can plug into the same shape.
 - **Core** — evidence digests computed from real artifact bytes at capture
   (`core.evidence`, `minerva capture`); pre-write target validation and race-free
   create-only atomic writes (`core.fileio.ensure_write_target`).

@@ -48,7 +48,15 @@ olympus metis case ingest .metis/cases.sqlite3 "$CASE_ID" evidence.txt \
   --source "mail-gateway export" --confidence 70
 olympus metis case show .metis/cases.sqlite3 "$CASE_ID"
 olympus metis case report .metis/cases.sqlite3 "$CASE_ID" report.md
+# DFIR sweep: does this artifact contain any of the case's known IOCs?
+olympus metis case sweep .metis/cases.sqlite3 "$CASE_ID" suspect.log
 ```
+
+`case sweep` extracts observables from a local artifact with the **same
+normalization** used at ingest and reports which ones match the case's stored
+indicators (by type and value, never substring), with each hit's source and
+confidence. It exits `1` when any IOC is found and `0` when the artifact is
+clean — usable directly as a triage gate in a script.
 
 Local ingestion recognizes and normalizes URLs, domains, email addresses,
 IPv4/IPv6 addresses, CVEs and MD5/SHA-1/SHA-256 hashes, including common
