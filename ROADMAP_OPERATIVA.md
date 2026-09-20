@@ -133,7 +133,10 @@ Prima di aggiungere, rendere *affidabile* ciò che c'è.
       `minerva timeline` esisteva già (timeline di custodia verificata); aggiunto l'**export
       firmato** (`--export`/`--sign-key`, artefatto `olympus.minerva-timeline` + envelope Ed25519
       via `core.signing`, verificabile con `olympus core verify`; test in
-      `tests/unit/test_minerva_timeline_export.py`). **Resta:** **IOC sweep** guidato da Metis.
+      `tests/unit/test_minerva_timeline_export.py`). **IOC sweep** guidato da Metis: **fatto**
+      (2026-09-20) — `metis case sweep <db> <case> <artefatto>` estrae osservabili con la stessa
+      normalizzazione dell'ingest e li confronta con gli IOC del caso (type+value, mai substring),
+      exit 1 su match; test in `tests/unit/test_metis_sweep.py`.
 - [ ] **P3** Nuovo modulo **`hephaestus`**: hardening/benchmark **CIS** su host e configurazioni.
 
 ### FASE 3 — Purple Team & automazione 🟣

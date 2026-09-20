@@ -22,6 +22,10 @@ everything below lives under **Unreleased**.
   `OLYMPUS_CUSTODY_HMAC_KEY`) detecting truncation and full rewrite; consistent
   `backup`/`verify-backup`/`restore` of the SQLite case store via the online
   backup API.
+- **Metis** — IOC sweep (`case sweep`): match a local artifact against a case's
+  known indicators using the same normalization as ingest (type+value, never
+  substring); reports each hit's source/confidence and exits 1 on any match, 0
+  when clean — a scriptable DFIR triage gate.
 - **Minerva** — signed timeline export (`timeline --export [--sign-key]`): the
   verified custody timeline is written as a deterministic
   `olympus.minerva-timeline` JSON artifact and, optionally, an Ed25519 signature
