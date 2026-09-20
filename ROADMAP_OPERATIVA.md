@@ -83,11 +83,19 @@ Prima di aggiungere, rendere *affidabile* ciò che c'è.
 - [ ] **P0** Portare i 12 adapter `live-tested` a **`production-ready`**: evidence manifest con
       digest, SBOM per-tool, compatibilità di versione documentata (Definition of Done in
       `docs/scanner-maturity.md`). *Deliverable:* manifest committati + record maturità aggiornati.
+      **Bloccato (parziale):** il salto a `production-ready` richiede evidenza di esecuzione
+      *live attraverso lo scope-gate* in un lab autorizzato + assemblaggio del manifest DoD; non
+      lo dichiaro senza tutte le evidenze (disciplina: non alzare la maturità senza DoD).
 - [ ] **P0** Portare `whatweb` e `testssl` da `offline-tested` a `live-tested` end-to-end
-      (i parser sono già validati su output reale — vedi `tests/unit/test_aegis_adapters_live_capture.py`;
-      manca l'esecuzione attraverso lo scope-gate contro un target del lab).
+      (i parser sono già validati su output reale — vedi `tests/unit/test_aegis_adapters_live_capture.py`).
+      **Bloccato-da-ambiente:** l'`apt` di questo host installa `whatweb` 0.5.5 che gira solo
+      sotto `ruby3.2` (non il launcher `whatweb`/rbenv) e `testssl` (non `testssl.sh`) che rifiuta
+      `--jsonfile /dev/stdout`; una run genuina *attraverso l'adapter* fallirebbe qui per quirk di
+      packaging, non del codice. Da completare su un host con i binari canonici + lab autorizzato.
 - [ ] **P1** Ritirare la dipendenza `vendor/` per `aegis serve` / `migrate` / `workers`
-      (oggi richiedono un path relativo `vendor/`). *Deliverable:* runtime nativo, `vendor/` isolato.
+      (oggi in `integrations/cli.py` delegano al VAP vendorizzato). **Differito (grande):** non è un
+      cambiamento contenuto ma una **re-implementazione nativa** dell'API/worker layer; il VAP è
+      dichiarato *in ritiro* dal threat model, quindi va sostituito con codice nativo, non esteso.
 - [~] **P1** `athena` playbook end-to-end: `recon → scan → enrich → report`, un solo comando,
       scope-safe. **Fatto lo stadio enrich→report** (2026-09-20): `athena run --enrich-kev/--enrich-epss`
       sovrappone KEV/EPSS da feed **locali** (offline), riordina il report per rischio reale e
