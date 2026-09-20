@@ -37,13 +37,27 @@ from olympus.athena.domain.assessment import AssessmentState
 from olympus.athena.domain.contracts import AssessmentPlan, PlanValidationError
 from olympus.athena.scope import ensure_web_target_allowed, scoped_address_policy
 from olympus.core.exit_codes import ExitCode
+from olympus.core.fileio import read_regular_text
 from olympus.core.http import UrllibHttpClient
+from olympus.core.models import Finding
+from olympus.vulcan.enrichment import (
+    EnrichmentError,
+    FindingEnrichment,
+    LocalCatalogs,
+    enrich_findings,
+    parse_epss_response,
+    parse_kev_catalog,
+    prioritize,
+)
 
 app = typer.Typer(help="Athena — assessment orchestration.", no_args_is_help=True)
 plan_app = typer.Typer(help="Plan validation utilities.", no_args_is_help=True)
 app.add_typer(plan_app, name="plan")
 
 _DB_NAME = "athena.db"
+
+#: Upper bound for a local KEV/EPSS feed file read during offline enrichment.
+_MAX_FEED_BYTES = 25_000_000
 
 
 def _open_repository(storage: Path) -> SqliteAssessmentRepository:
@@ -101,8 +115,25 @@ def run(
     report: bool = typer.Option(
         False, "--report", help="Write a findings report into the storage directory."
     ),
+    enrich_kev: Path | None = typer.Option(
+        None,
+        "--enrich-kev",
+        help="Local CISA KEV catalogue JSON: overlay known-exploited status on findings (offline).",
+    ),
+    enrich_epss: Path | None = typer.Option(
+        None,
+        "--enrich-epss",
+        help="Local FIRST EPSS response JSON: overlay exploit-probability on findings (offline).",
+    ),
 ) -> None:
-    """Execute an assessment plan end to end and persist its results."""
+    """Execute an assessment plan end to end and persist its results.
+
+    With ``--enrich-kev``/``--enrich-epss`` the findings are overlaid with CISA
+    KEV and FIRST EPSS from **local** feed files (no network) and re-ordered by
+    real-world risk (KEV -> EPSS -> CVSS -> severity), so the report leads with
+    what an operator should fix first. The enrichment overlay is also written as
+    a ``<assessment_id>.enriched.json`` sidecar next to the report.
+    """
     try:
         plan = load_plan_file(path)
     except PlanValidationError as exc:
@@ -118,22 +149,63 @@ def run(
             typer.echo(f"athena: {exc}", err=True)
             raise typer.Exit(code=2) from exc
 
-        typer.echo(
-            json.dumps(
-                {
-                    "assessment_id": outcome.assessment_id,
-                    "state": outcome.state.value,
-                    "findings": len(outcome.findings),
-                },
-                indent=2,
-                sort_keys=True,
-            )
-        )
+        findings: list[Finding] = list(outcome.findings)
+        enrichments: list[FindingEnrichment] | None = None
+        if enrich_kev is not None or enrich_epss is not None:
+            try:
+                catalogs = _load_local_catalogs(enrich_kev, enrich_epss)
+            except (EnrichmentError, OSError, ValueError) as exc:
+                typer.echo(f"athena: enrichment feed error: {exc}", err=True)
+                raise typer.Exit(code=2) from exc
+            enrichments = enrich_findings(findings, kev=catalogs.kev, epss=catalogs.epss)
+            # Lead with real-world risk: KEV first, then EPSS, then CVSS/severity.
+            findings = [finding for finding, _ in prioritize(findings, enrichments)]
+
+        summary: dict[str, object] = {
+            "assessment_id": outcome.assessment_id,
+            "state": outcome.state.value,
+            "findings": len(findings),
+        }
+        if enrichments is not None:
+            summary["kev_hits"] = sum(1 for item in enrichments if item.in_kev)
+        typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+
         if report:
-            _write_report(plan, outcome, storage)
+            _write_report(plan, outcome.assessment_id, findings, storage)
+        if enrichments is not None:
+            _write_enrichment(outcome.assessment_id, findings, enrichments, storage)
     finally:
         repository.close()
     raise typer.Exit(code=_exit_code_for(outcome))
+
+
+def _load_local_catalogs(kev_path: Path | None, epss_path: Path | None) -> LocalCatalogs:
+    """Load KEV/EPSS catalogues from local feed files for offline enrichment."""
+    kev = {}
+    epss = {}
+    if kev_path is not None:
+        kev = parse_kev_catalog(
+            read_regular_text(kev_path, max_bytes=_MAX_FEED_BYTES, label="KEV catalogue")
+        )
+    if epss_path is not None:
+        epss = parse_epss_response(
+            read_regular_text(epss_path, max_bytes=_MAX_FEED_BYTES, label="EPSS feed")
+        )
+    return LocalCatalogs(kev=kev, epss=epss)
+
+
+def _write_enrichment(
+    assessment_id: str,
+    findings: list[Finding],
+    enrichments: list[FindingEnrichment],
+    storage: Path,
+) -> None:
+    """Write the KEV/EPSS overlay as a risk-ordered sidecar next to the report."""
+    by_id = {item.finding_id: item for item in enrichments}
+    ordered = [by_id[finding.finding_id].to_dict() for finding in findings]
+    target = storage / f"{assessment_id}.enriched.json"
+    target.write_text(json.dumps(ordered, indent=2, sort_keys=True), encoding="utf-8")
+    typer.echo(f"athena: wrote enrichment overlay to {target}", err=True)
 
 
 def _build_coordinator(
@@ -170,12 +242,14 @@ def _build_coordinator(
     )
 
 
-def _write_report(plan: AssessmentPlan, outcome: RunOutcome, storage: Path) -> None:
+def _write_report(
+    plan: AssessmentPlan, assessment_id: str, findings: list[Finding], storage: Path
+) -> None:
     renderer = VulcanReportRenderer(plan.engagement_id)
     for fmt in plan.output.report_formats:
-        content = renderer.render(outcome.findings, fmt)
+        content = renderer.render(findings, fmt)
         suffix = "md" if fmt == "markdown" else "json"
-        target = storage / f"{outcome.assessment_id}.report.{suffix}"
+        target = storage / f"{assessment_id}.report.{suffix}"
         target.write_text(content, encoding="utf-8")
         typer.echo(f"athena: wrote {fmt} report to {target}", err=True)
 

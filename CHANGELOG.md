@@ -13,6 +13,11 @@ everything below lives under **Unreleased**.
 ## [Unreleased]
 
 ### Added
+- **Athena** — offline KEV/EPSS enrichment stage in the assessment pipeline
+  (`athena run --enrich-kev/--enrich-epss`): overlays CISA KEV and FIRST EPSS
+  from **local** feed files (no network), re-orders the report by real-world
+  risk (KEV → EPSS → CVSS → severity), and writes a `<assessment_id>.enriched.json`
+  overlay sidecar. Reuses `olympus.vulcan.enrichment`; scope/audit unchanged.
 - **Minerva** — HMAC-SHA256 signed custody ledger (schema 2.1.0,
   `OLYMPUS_CUSTODY_HMAC_KEY`) detecting truncation and full rewrite; consistent
   `backup`/`verify-backup`/`restore` of the SQLite case store via the online
