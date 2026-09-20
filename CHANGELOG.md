@@ -43,6 +43,11 @@ everything below lives under **Unreleased**.
 - **Apollo** — ECS and OCSF (Detection Finding) NDJSON export for SIEM ingestion,
   a MITRE ATT&CK Navigator layer export, and dependency-free import of the
   faithful subset of Sigma rules.
+- **Apollo** — telemetry **ingest** (`apollo ingest --format access-log`): bounded,
+  skip-never-guess normalization of real HTTP access logs (Apache/nginx Common &
+  Combined, and the Python `http.server` variant) into `core.Event` NDJSON that
+  `apollo run` consumes end to end. First front door for operational telemetry;
+  additional formats (Sysmon, Zeek) can plug into the same shape.
 - **Core** — evidence digests computed from real artifact bytes at capture
   (`core.evidence`, `minerva capture`); pre-write target validation and race-free
   create-only atomic writes (`core.fileio.ensure_write_target`).

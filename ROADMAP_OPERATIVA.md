@@ -115,9 +115,13 @@ Prima di aggiungere, rendere *affidabile* ciò che c'è.
 
 ### FASE 2 — Blue Team: pipeline detection + DFIR 🔵
 
-- [ ] **P1** **Ingest di telemetria** in Apollo: lettori per log web/sistema, **Sysmon/Windows
-      Event**, **Zeek**, con normalizzazione verso il modello già usato in export (ECS/OCSF).
-      *Deliverable:* `apollo ingest <formato>` + fixture reali.
+- [~] **P1** **Ingest di telemetria** in Apollo: normalizzazione verso `core.Event`.
+      **Fatto il primo formato** (2026-09-20): `apollo ingest --format access-log` normalizza log
+      HTTP reali (Apache/nginx Common & Combined, e la variante `http.server`) in `core.Event`
+      NDJSON consumato da `apollo run`; parsing bounded, skip-never-guess, fixture **reale**
+      catturata (`tests/fixtures/apollo/ingest/access.log`), catena end-to-end ingest→run→alert
+      testata (`tests/unit/test_apollo_ingest.py`). **Resta:** formati **Sysmon/Windows Event** e
+      **Zeek** (stessa forma; Sysmon reale richiede telemetria Windows non disponibile qui).
 - [ ] **P1** **Loop di detection engineering**: `apollo` esegue una regola Sigma su eventi reali →
       esito → tuning; validazione con **Atomic Red Team** in lab (blocco: richiede lab autorizzato).
 - [ ] **P2** Connettori **SIEM/EDR runtime** (export *live*, non solo file): Splunk HEC, Elastic,
@@ -166,7 +170,7 @@ Rimanda e si integra con [`ROADMAP_HARDENING.md`](ROADMAP_HARDENING.md):
 1. 🟣 **Athena playbook** `recon→scan→enrich→report` in un comando (Fase 0). — *enrich→report **fatto**; resta lo stadio scan AEGIS*
 2. 🔴 Portare **whatweb/testssl** a live-tested end-to-end sullo scope-gate + `labs/mars`.
 3. 🟣 Definition of Done → **primi 3 adapter `production-ready`** (nmap, httpx, nuclei): evidence manifest + SBOM.
-4. 🔵 **`apollo ingest`** per un formato reale (es. log web/JSON) con fixture reali.
+4. 🔵 **`apollo ingest`** per un formato reale (es. log web/JSON) con fixture reali. — **fatto** (access-log)
 5. 🔵 **Minerva timeline** minima da eventi di un caso + export firmato.
 6. 🟣 Ritiro dipendenza `vendor/` per `aegis serve/migrate/workers` (o isolamento chiaro).
 

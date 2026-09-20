@@ -23,6 +23,29 @@ rule and event IDs, the source `rule_id`, validated `mitre_attack` techniques,
 and the event observation time. Re-evaluating the same pair therefore does not
 create a new identity. The output is directly consumable by Minerva and Vulcan.
 
+## Ingesting real telemetry
+
+`apollo ingest` is the front door that turns real telemetry into the
+`olympus.event` NDJSON the engine consumes, so the same rules, ATT&CK mapping and
+ECS/OCSF export apply to operational data. Parsing is bounded and *skip, never
+guess*: a line that is not a valid record for the chosen format is reported and
+skipped, never coerced into a bogus event.
+
+The first format is `access-log` — HTTP access logs in the Apache/nginx *Common*
+and *Combined* Log Formats and the Python `http.server` variant — mapped to
+`event_type="http.request"` with string attributes (`client_ip`, `method`,
+`path`, `query`, `protocol`, `status`, `bytes`, and, for Combined, `referer` and
+`user_agent`). The end-to-end flow is:
+
+```bash
+olympus apollo ingest --format access-log --input access.log --output events.ndjson
+olympus apollo run --rules ./rules --events events.ndjson --output alerts.json
+```
+
+Additional formats (Sysmon/Windows Event, Zeek) can plug into the same
+`core.Event` shape. Sysmon capture needs real Windows telemetry, so it is tracked
+in `ROADMAP_OPERATIVA.md` rather than declared here.
+
 ## Streaming and limits
 
 `apollo run` reads NDJSON incrementally from a non-symlink regular file. Rules,

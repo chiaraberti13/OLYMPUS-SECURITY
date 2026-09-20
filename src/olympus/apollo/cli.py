@@ -19,9 +19,11 @@ from olympus.apollo.application import (
 )
 from olympus.apollo.attack import build_navigator_layer, techniques_from_rules
 from olympus.apollo.export import export_alerts, export_alerts_ecs, export_alerts_ocsf
+from olympus.apollo.ingest import IngestError, events_to_ndjson, parse_access_log
 from olympus.apollo.rules import DEFAULT_MAX_RULE_BYTES, DEFAULT_MAX_RULES
 from olympus.apollo.sigma import SigmaImportError, sigma_to_rule
 from olympus.core.contracts import ContractCompatibilityError
+from olympus.core.enums import Source
 from olympus.core.execution import CancellationRequested, ExecutionPolicyError
 from olympus.core.fileio import atomic_write_text, read_regular_text
 from olympus.core.output import OutputFormat, render
@@ -175,6 +177,55 @@ def rules(
     ]
     columns = ["rule_id", "event_type", "severity", "mitre", "title"]
     typer.echo(render(records, columns, output_format, title=f"Apollo rules ({len(rule_set)})"))
+
+
+@app.command()
+def ingest(
+    src_path: Path = typer.Option(
+        ..., "--input", help="Telemetry source file (e.g. an HTTP access log)."
+    ),
+    dst: Path = typer.Option(
+        ..., "--output", help="NDJSON of core.Event, ready for `apollo run --events`."
+    ),
+    telemetry_format: str = typer.Option(
+        "access-log", "--format", help="Telemetry format. Supported: access-log."
+    ),
+    source: str = typer.Option(
+        "manual", "--source", help="Source tag for the emitted events (an olympus source)."
+    ),
+    max_bytes: int = typer.Option(DEFAULT_MAX_STREAM_BYTES, "--max-bytes"),
+    max_lines: int = typer.Option(1_000_000, "--max-lines"),
+) -> None:
+    """Normalize real telemetry into ``core.Event`` NDJSON for the detection engine.
+
+    A line that is not a valid record for the chosen format is skipped with a
+    reason (reported on stderr), never coerced into a bogus event. The output is
+    consumed directly by ``apollo run --events``.
+    """
+    if telemetry_format != "access-log":
+        typer.echo(
+            f"apollo: unsupported ingest format: {telemetry_format} (supported: access-log)",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    try:
+        source_tag = Source(source)
+    except ValueError:
+        typer.echo(f"apollo: unknown source '{source}'", err=True)
+        raise typer.Exit(code=2) from None
+    try:
+        text = read_regular_text(src_path, max_bytes=max_bytes, label="telemetry source")
+        result = parse_access_log(text, source=source_tag, max_lines=max_lines)
+        atomic_write_text(dst, events_to_ndjson(result.events), mode=0o600)
+    except (IngestError, OSError, ValueError) as exc:
+        typer.echo(f"apollo: ingest error: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    for item in result.skipped:
+        typer.echo(f"apollo: skipped line {item.line}: {item.reason}", err=True)
+    typer.echo(
+        f"apollo: ingested {len(result.events)} event(s), "
+        f"skipped {len(result.skipped)} -> {dst}"
+    )
 
 
 @app.command("sigma-import")
