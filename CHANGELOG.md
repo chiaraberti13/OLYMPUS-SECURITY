@@ -22,6 +22,10 @@ everything below lives under **Unreleased**.
   `OLYMPUS_CUSTODY_HMAC_KEY`) detecting truncation and full rewrite; consistent
   `backup`/`verify-backup`/`restore` of the SQLite case store via the online
   backup API.
+- **AEGIS** — native **wapiti** adapter (web vulnerability scanner), taking the
+  catalogue to 15/24 native engines. Parses wapiti's JSON report into findings;
+  validated `offline-tested` against a REAL captured report from a bounded scan
+  of the bundled `labs/mars` target (a genuine reflected-XSS finding).
 - **Metis** — IOC sweep (`case sweep`): match a local artifact against a case's
   known indicators using the same normalization as ingest (type+value, never
   substring); reports each hit's source/confidence and exits 1 on any match, 0

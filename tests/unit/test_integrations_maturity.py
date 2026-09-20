@@ -203,9 +203,9 @@ def test_summary_covers_the_whole_catalogue() -> None:
 def test_summary_reflects_the_repository_today() -> None:
     """The honest numbers, restated so a change to them is a deliberate act."""
     assert summary() == {
-        "catalog-only": 10,
+        "catalog-only": 9,
         "adapter-ready": 0,
-        "offline-tested": 2,
+        "offline-tested": 3,
         "live-tested": 12,
         "production-ready": 0,
     }
@@ -256,7 +256,7 @@ def test_inventory_document_carries_the_histogram() -> None:
 
 def test_count_at_least_matches_the_histogram() -> None:
     assert count_at_least(Maturity.LIVE_TESTED, {}) == 12
-    assert count_at_least(Maturity.OFFLINE_TESTED, {}) == 14
+    assert count_at_least(Maturity.OFFLINE_TESTED, {}) == 15
     assert count_at_least(Maturity.ADAPTER_READY, {}) == len(implemented())
     assert count_at_least(Maturity.CATALOG_ONLY, {}) == len(REGISTRY)
     assert count_at_least(Maturity.PRODUCTION_READY, {}) == 0

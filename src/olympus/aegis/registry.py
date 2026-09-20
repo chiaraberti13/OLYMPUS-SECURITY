@@ -21,6 +21,7 @@ from olympus.aegis.adapters.nuclei import NucleiAdapter
 from olympus.aegis.adapters.sqlmap import SqlmapAdapter
 from olympus.aegis.adapters.testssl import TestsslAdapter
 from olympus.aegis.adapters.wafw00f import Wafw00fAdapter
+from olympus.aegis.adapters.wapiti import WapitiAdapter
 from olympus.aegis.adapters.whatweb import WhatwebAdapter
 from olympus.aegis.adapters.xsstrike import XsstrikeAdapter
 from olympus.aegis.base import ScannerAdapter
@@ -40,6 +41,7 @@ _ADAPTERS: dict[str, type[ScannerAdapter]] = {
     "commix": CommixAdapter,
     "arjun": ArjunAdapter,
     "xsstrike": XsstrikeAdapter,
+    "wapiti": WapitiAdapter,
 }
 
 
