@@ -21,6 +21,7 @@
 ## Quick Navigation
 
 - **[What is Olympus?](#what-is-olympus)** — what it does, and who it's for.
+- **[🏛️ Academy (learning path)](academy/README.md)** — a structured, ethical Ethical-Hacking course built on top of the platform ([`LEARN.md`](LEARN.md)).
 - **[Modules](#-modules)** — every tool, what it does, and its entry point.
 - **[Installation](#-installation)** — one command, Python 3.11+.
 - **[Quick start](#-quick-start)** — a verified recon → assessment → report path.
