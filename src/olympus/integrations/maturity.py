@@ -200,6 +200,13 @@ DECLARED: dict[str, MaturityRecord] = {
         _LIVE_EVIDENCE,
         "Definition of Done incomplete: no per-adapter evidence manifest or SBOM.",
     ),
+    "wapiti": MaturityRecord(
+        "wapiti",
+        Maturity.OFFLINE_TESTED,
+        _OFFLINE_EVIDENCE,
+        "No authorized live run through the scope-gate yet: the committed evidence "
+        "is a real wapiti JSON report (labs/mars) exercising the parser only.",
+    ),
 }
 
 

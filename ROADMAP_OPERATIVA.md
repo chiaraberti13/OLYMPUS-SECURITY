@@ -110,8 +110,12 @@ Prima di aggiungere, rendere *affidabile* ciò che c'è.
       (stesso pattern degli adapter esistenti: argv + parser + fixture su output reale).
       *Blocco:* i binari Go arrivano da release GitHub — installabili su un host con egress; in
       questo ambiente `apt` copre solo i tool a pacchetto Debian.
-- [ ] **P1** Adapter web residui: **wapiti, nosqlmap, wpscan** (per `wpscan`, gestione sicura del
-      token del vuln-DB via secret manager, mai in chiaro).
+- [~] **P1** Adapter web residui: **wapiti, nosqlmap, wpscan**. **wapiti: fatto** (2026-09-20,
+      `offline-tested`) — adapter nativo che parsa il report JSON, validato su output **reale**
+      catturato da uno scan bounded di `labs/mars` (XSS riflesso reale); porta il catalogo a
+      15/24 nativi. **Resta:** `nosqlmap`, `wpscan` (per `wpscan`, token del vuln-DB via secret
+      manager). Il salto di `wapiti` a `live-tested` richiede una run end-to-end attraverso lo
+      scope-gate in lab autorizzato.
 - [ ] **P2** **Exploitation orchestration** scope-gated: wrapper controllato verso un framework di
       exploitation (es. Metasploit via `msfrpcd`/RPC) con guardrail — autorizzazione esplicita per
       target, allowlist, dry-run di default, logging integrale. *Nota etica/tecnica:* niente

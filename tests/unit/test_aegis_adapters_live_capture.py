@@ -17,6 +17,10 @@ running the installed tools against a local authorized target — a throwaway
   127.0.0.1:9443`` against a local HTTPS server using a freshly generated
   self-signed certificate, so the TLS findings (self-signed chain, missing SAN,
   URI mismatch) are what testssl really reports for that endpoint.
+* ``wapiti.json`` — ``wapiti -u http://127.0.0.1:8081/app/search?q=test -d 1
+  --max-scan-time 60 -f json -o …`` against the bundled deliberately-vulnerable
+  ``labs/mars`` target, whose ``/app/search`` reflects ``q`` unescaped; the real
+  report contains a genuine Cross Site Scripting finding in parameter ``q``.
 
 These prove the parsers handle the real tools' actual grammar, not an idealised
 sample. The live *execution* path (scope gating, sandbox) is covered separately;
@@ -30,6 +34,7 @@ from pathlib import Path
 from olympus.aegis.adapters.nmap import NmapAdapter
 from olympus.aegis.adapters.testssl import TestsslAdapter
 from olympus.aegis.adapters.wafw00f import Wafw00fAdapter
+from olympus.aegis.adapters.wapiti import WapitiAdapter
 from olympus.aegis.adapters.whatweb import WhatwebAdapter
 from olympus.aegis.model import ScanRequest
 from olympus.aegis.runner import CommandOutput
@@ -77,6 +82,27 @@ def test_nmap_parser_reads_a_real_open_port_and_service_banner() -> None:
     assert any(item == "port=9090/tcp" for item in finding.evidence)
     # nmap -sV probed the real service: SimpleHTTPServer 0.6.
     assert any("SimpleHTTPServer" in item for item in finding.evidence)
+
+
+def test_wapiti_parser_reads_a_real_xss_finding() -> None:
+    captured = (_FIXTURES / "wapiti.json").read_text(encoding="utf-8")
+    findings = WapitiAdapter().parse(_out(captured), "127.0.0.1", _req())
+    # The real scan of labs/mars found a reflected XSS in parameter q.
+    assert len(findings) == 1
+    finding = findings[0]
+    assert finding.severity is Severity.MEDIUM
+    assert "Cross Site Scripting" in finding.title
+    assert any(item == "parameter=q" for item in finding.evidence)
+    assert any("/app/search" in item for item in finding.evidence)
+
+
+def test_wapiti_parser_locates_the_report_after_a_progress_preamble() -> None:
+    # In a live run wapiti prints an ASCII banner before the JSON on stdout; the
+    # parser must still find the report (there is no '{' in the banner).
+    captured = (_FIXTURES / "wapiti.json").read_text(encoding="utf-8")
+    noisy = "wapiti 3.x\n[*] Launching module xss\n" + captured
+    findings = WapitiAdapter().parse(_out(noisy), "127.0.0.1", _req())
+    assert len(findings) == 1
 
 
 def test_testssl_parser_reads_real_tls_findings_for_a_self_signed_endpoint() -> None:

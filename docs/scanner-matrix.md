@@ -30,7 +30,7 @@ _Generated from `olympus.integrations.scanners` (registry) and `olympus.aegis.re
 | testssl | tls | local-oss-binary | `testssl.sh` | GPL-2.0 | yes | yes | ✅ implemented | parser only |
 | theharvester | dns | local-oss-binary | `theHarvester` | GPL-2.0 | yes | yes | — pending | n/a |
 | wafw00f | web | local-oss-binary | `wafw00f` | BSD-3-Clause | yes | yes | ✅ implemented | ✅ yes |
-| wapiti | web | local-oss-binary | `wapiti` | GPL-2.0 | yes | yes | — pending | n/a |
+| wapiti | web | local-oss-binary | `wapiti` | GPL-2.0 | yes | yes | ✅ implemented | parser only |
 | whatweb | web | local-oss-binary | `whatweb` | GPL-3.0 | yes | yes | ✅ implemented | parser only |
 | wpscan | web | local-oss-binary | `wpscan` | WPScan Public Source (non-OSI) | no | yes | — pending | n/a |
 | xsstrike | web | local-oss-binary | `xsstrike` | GPL-3.0 | yes | yes | ✅ implemented | ✅ yes |
@@ -48,7 +48,7 @@ _Generated from `olympus.integrations.scanners` (registry) and `olympus.aegis.re
 - **Auto-installable / redistributable**: 20/24
 - **Bundled in `docker/Dockerfile.scanners`**: 19/24
 - **Proprietary (commercial licence)**: 3/24 (acunetix, burp, nessus)
-- **Native AEGIS execution adapters implemented**: 14/24 (arjun, commix, dalfox, dirsearch, httpx, katana, nikto, nmap, nuclei, sqlmap, testssl, wafw00f, whatweb, xsstrike)
+- **Native AEGIS execution adapters implemented**: 15/24 (arjun, commix, dalfox, dirsearch, httpx, katana, nikto, nmap, nuclei, sqlmap, testssl, wafw00f, wapiti, whatweb, xsstrike)
 - **Live end-to-end verified in this environment**: 12/24 (arjun, commix, dalfox, dirsearch, httpx, katana, nikto, nmap, nuclei, sqlmap, wafw00f, xsstrike) — see evidence doc
 - **Production-ready**: **0/24** — no adapter meets the full Definition of Done
   (per-adapter evidence manifest with digests, SBOM, vulnerability scan,
