@@ -13,6 +13,12 @@ everything below lives under **Unreleased**.
 ## [Unreleased]
 
 ### Added
+- **Athena** — AEGIS **scan stage** in the assessment pipeline: `aegis` is now a
+  plan adapter, so a single `athena run` chains recon → scan → enrich → report.
+  It delegates to a real AEGIS scanner, double scope-gated (Athena guard + AEGIS
+  `ensure_allowed`); with `AEGIS_ENABLE_LIVE_SCANS` off it uses AEGIS's own
+  scope-gated simulation mode (labelled findings, no binary run), and runs the
+  real tool when live scanning is enabled. Scanner is nmap for now.
 - **Athena** — offline KEV/EPSS enrichment stage in the assessment pipeline
   (`athena run --enrich-kev/--enrich-epss`): overlays CISA KEV and FIRST EPSS
   from **local** feed files (no network), re-orders the report by real-world

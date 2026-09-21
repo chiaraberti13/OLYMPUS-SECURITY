@@ -96,13 +96,17 @@ Prima di aggiungere, rendere *affidabile* ciò che c'è.
       (oggi in `integrations/cli.py` delegano al VAP vendorizzato). **Differito (grande):** non è un
       cambiamento contenuto ma una **re-implementazione nativa** dell'API/worker layer; il VAP è
       dichiarato *in ritiro* dal threat model, quindi va sostituito con codice nativo, non esteso.
-- [~] **P1** `athena` playbook end-to-end: `recon → scan → enrich → report`, un solo comando,
-      scope-safe. **Fatto lo stadio enrich→report** (2026-09-20): `athena run --enrich-kev/--enrich-epss`
-      sovrappone KEV/EPSS da feed **locali** (offline), riordina il report per rischio reale e
-      scrive un sidecar `*.enriched.json` (riusa `vulcan.enrichment`; test in
-      `tests/unit/test_athena_cli.py`). Recon e report erano già integrati. **Resta:** wiring dello
-      **scan AEGIS** come stadio del pipeline Athena (motore job separato; richiede i binari
-      scanner a runtime → live contro `labs/mars`).
+- [x] **P1** `athena` playbook end-to-end: `recon → scan → enrich → report`, un solo comando,
+      scope-safe. **Completo** (2026-09-21). Enrich→report (2026-09-20): `athena run
+      --enrich-kev/--enrich-epss` sovrappone KEV/EPSS da feed **locali**, riordina il report per
+      rischio, scrive sidecar `*.enriched.json`. **Scan AEGIS** (2026-09-21): `aegis` è ora un
+      adapter di piano (`AegisScanAdapter`, `tests/unit/test_athena_aegis_scan.py`) che delega a un
+      AEGIS `ScannerAdapter` reale, **doppiamente scope-gated** (guard Athena + `ensure_allowed`
+      AEGIS); con `AEGIS_ENABLE_LIVE_SCANS` off usa la **simulazione scope-gated** di AEGIS (finding
+      etichettati `[SIMULATION]`, nessun binario), e la scansione reale quando il live è abilitato.
+      Verificato end-to-end offline (`athena run` con `adapters:["dns","aegis"]` + `--enrich` +
+      `--report`). **Nota:** scanner fisso a `nmap`; selezionarne altri richiede un'estensione del
+      contratto del piano (follow-on). Il *live-tested* pieno resta gated da binari + lab autorizzato.
 
 ### FASE 1 — Red Team: completare la catena offensiva scope-safe 🔴
 
@@ -185,7 +189,7 @@ Rimanda e si integra con [`ROADMAP_HARDENING.md`](ROADMAP_HARDENING.md):
 
 ## 5. Sprint 1 — priorità immediate (eseguibili subito, offline)
 
-1. 🟣 **Athena playbook** `recon→scan→enrich→report` in un comando (Fase 0). — *enrich→report **fatto**; resta lo stadio scan AEGIS*
+1. 🟣 **Athena playbook** `recon→scan→enrich→report` in un comando (Fase 0). — **completo** (scan AEGIS + enrich + report)
 2. 🔴 Portare **whatweb/testssl** a live-tested end-to-end sullo scope-gate + `labs/mars`.
 3. 🟣 Definition of Done → **primi 3 adapter `production-ready`** (nmap, httpx, nuclei): evidence manifest + SBOM.
 4. 🔵 **`apollo ingest`** per un formato reale (es. log web/JSON) con fixture reali. — **fatto** (access-log)

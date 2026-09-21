@@ -149,7 +149,7 @@ def test_whois_adapter_failure() -> None:
 
 # -- registry -------------------------------------------------------------- #
 def test_registry() -> None:
-    assert set(available_adapters()) == {"web-headers", "dns", "whois"}
+    assert set(available_adapters()) == {"web-headers", "dns", "whois", "aegis"}
     http = _Http(HttpResponse(status_code=200, headers={}, body="{}"))
     runners = resolve_adapters(("dns", "whois"), http)
     assert set(runners) == {"dns", "whois"}
