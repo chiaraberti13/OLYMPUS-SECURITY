@@ -205,9 +205,7 @@ def _conditions_from_detection(detection: Any) -> dict[str, str]:
         )
     name, selection = next(iter(selections.items()))
     if not isinstance(condition, str) or condition.strip() != name:
-        raise SigmaImportError(
-            f"only 'condition: {name}' is supported (no and/or/not/aggregation)"
-        )
+        raise SigmaImportError(f"only 'condition: {name}' is supported (no and/or/not/aggregation)")
     if not isinstance(selection, dict):
         raise SigmaImportError("the selection must be a field:value mapping, not a list")
     conditions: dict[str, str] = {}

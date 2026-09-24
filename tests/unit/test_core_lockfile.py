@@ -14,10 +14,7 @@ runner = CliRunner()
 
 
 def _metadata(*digests: str, yanked_digest: str | None = None) -> str:
-    urls = [
-        {"filename": f"pkg-{i}.whl", "digests": {"sha256": d}}
-        for i, d in enumerate(digests)
-    ]
+    urls = [{"filename": f"pkg-{i}.whl", "digests": {"sha256": d}} for i, d in enumerate(digests)]
     if yanked_digest is not None:
         urls.append(
             {"filename": "pkg-yanked.whl", "yanked": True, "digests": {"sha256": yanked_digest}}
@@ -63,14 +60,9 @@ def test_single_hash_is_rendered_inline() -> None:
 
 
 def test_multiple_hashes_use_pip_continuations() -> None:
-    out = lockfile.render_constraints(
-        {"pkg": "2.0"}, {"pkg": ["aaa", "bbb", "ccc"]}, header=False
-    )
+    out = lockfile.render_constraints({"pkg": "2.0"}, {"pkg": ["aaa", "bbb", "ccc"]}, header=False)
     assert out == (
-        "pkg==2.0 \\\n"
-        "    --hash=sha256:aaa \\\n"
-        "    --hash=sha256:bbb \\\n"
-        "    --hash=sha256:ccc\n"
+        "pkg==2.0 \\\n    --hash=sha256:aaa \\\n    --hash=sha256:bbb \\\n    --hash=sha256:ccc\n"
     )
     # The last line must NOT carry a trailing backslash (pip would break).
     assert not out.rstrip("\n").endswith("\\")
@@ -135,9 +127,7 @@ def test_lock_command_writes_a_file(tmp_path: object, monkeypatch: pytest.Monkey
     from pathlib import Path
 
     assert isinstance(tmp_path, Path)
-    monkeypatch.setattr(
-        lockfile, "_http_fetch", lambda name, version: _metadata(f"h-{name}")
-    )
+    monkeypatch.setattr(lockfile, "_http_fetch", lambda name, version: _metadata(f"h-{name}"))
     destination = tmp_path / "constraints.txt"
     result = runner.invoke(app, ["core", "lock", "--output", str(destination)])
     assert result.exit_code == 0, result.output

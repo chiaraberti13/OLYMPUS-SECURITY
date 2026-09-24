@@ -78,6 +78,4 @@ def resolve_adapters(
             f"unknown adapter(s): {sorted(unknown)}; available: {list(available_adapters())}"
         )
     service = service_http if service_http is not None else http
-    return {
-        name: _FACTORIES[name](http if name in _TARGET_ADAPTERS else service) for name in names
-    }
+    return {name: _FACTORIES[name](http if name in _TARGET_ADAPTERS else service) for name in names}

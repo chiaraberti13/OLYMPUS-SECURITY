@@ -54,9 +54,7 @@ def campaign(
     i_am_authorized: bool = typer.Option(
         False, "--i-am-authorized", help="Confirm documented authorization for the engagement."
     ),
-    output: Path = typer.Option(
-        DEFAULT_CAMPAIGN_OUTPUT, "--output", help="Campaign JSON output."
-    ),
+    output: Path = typer.Option(DEFAULT_CAMPAIGN_OUTPUT, "--output", help="Campaign JSON output."),
 ) -> None:
     """Build an authorized simulation campaign (unique token per in-scope target)."""
     service = CampaignApplicationService()

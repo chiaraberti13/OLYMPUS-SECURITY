@@ -130,8 +130,18 @@ def test_cli_stix_export_then_import_round_trips_through_cases(tmp_path: Path) -
     source_case = created.stdout.strip()
     ingested = runner.invoke(
         app,
-        ["metis", "case", "ingest", str(database), source_case, str(evidence),
-         "--source", "fixture", "--confidence", "80"],
+        [
+            "metis",
+            "case",
+            "ingest",
+            str(database),
+            source_case,
+            str(evidence),
+            "--source",
+            "fixture",
+            "--confidence",
+            "80",
+        ],
     )
     assert ingested.exit_code == 0, ingested.output
 
@@ -149,8 +159,18 @@ def test_cli_stix_export_then_import_round_trips_through_cases(tmp_path: Path) -
     target_case = target.stdout.strip()
     imported = runner.invoke(
         app,
-        ["metis", "case", "stix-import", str(database), target_case, str(bundle_path),
-         "--source", "stix-import", "--confidence", "60"],
+        [
+            "metis",
+            "case",
+            "stix-import",
+            str(database),
+            target_case,
+            str(bundle_path),
+            "--source",
+            "stix-import",
+            "--confidence",
+            "60",
+        ],
     )
     assert imported.exit_code == 0, imported.output
     summary = json.loads(imported.stdout)

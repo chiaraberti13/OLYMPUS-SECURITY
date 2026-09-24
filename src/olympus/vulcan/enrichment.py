@@ -40,10 +40,7 @@ from olympus.core.models import Finding
 #: A CVE identifier: CVE-YYYY-NNNN(NNN...). Matched case-insensitively, uppercased.
 CVE_PATTERN = re.compile(r"CVE-\d{4}-\d{4,7}", re.IGNORECASE)
 
-CISA_KEV_URL = (
-    "https://www.cisa.gov/sites/default/files/feeds/"
-    "known_exploited_vulnerabilities.json"
-)
+CISA_KEV_URL = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
 EPSS_API_URL = "https://api.first.org/data/v1/epss"
 
 #: Guardrails so a hostile or oversized feed cannot exhaust memory.

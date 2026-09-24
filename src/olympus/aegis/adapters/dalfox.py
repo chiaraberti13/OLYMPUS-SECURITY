@@ -59,11 +59,13 @@ class DalfoxAdapter(ScannerAdapter):
         target = request.target if request.target_kind == "url" else f"http://{host}"
         return [
             self.binary,
-            "url", target,
-            "--format", "json",
+            "url",
+            target,
+            "--format",
+            "json",
             "--silence",
             "--no-color",
-            "--skip-mining-all",   # keep the request budget bounded and predictable
+            "--skip-mining-all",  # keep the request budget bounded and predictable
             "--no-spinner",
         ]
 
@@ -120,8 +122,7 @@ class DalfoxAdapter(ScannerAdapter):
                     source=Source.AEGIS,
                     title=f"{headline} in parameter {param}",
                     description=(
-                        f"dalfox reported a {inject} issue on parameter {param} "
-                        f"via {method}."
+                        f"dalfox reported a {inject} issue on parameter {param} via {method}."
                     ),
                     severity=severity,
                     evidence=evidence,

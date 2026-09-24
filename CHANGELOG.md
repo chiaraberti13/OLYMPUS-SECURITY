@@ -13,6 +13,10 @@ everything below lives under **Unreleased**.
 ## [Unreleased]
 
 ### Added
+- **Quality gates** — Mypy strict sul codice first-party e
+  `ruff format --check` sono ora controlli CI bloccanti; il codice è stato
+  normalizzato e le incompatibilità di tipo emerse sono state corrette
+  (`DEV-C`).
 - **Governance** — manifest versionato delle label GitHub (`area:*`, `P0`–`P3`,
   `roadmap`, `bug`) e workflow a privilegi minimi che crea o aggiorna soltanto le
   label gestite, senza cancellare quelle esterne al manifest (`DEV-H`).

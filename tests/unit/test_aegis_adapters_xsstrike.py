@@ -84,16 +84,17 @@ def test_xsstrike_parser_separates_two_parameters() -> None:
         "[+] Payload: <svg/onload=confirm()>\n[!] Efficiency: 100\n[!] Confidence: 10\n"
     )
     findings = XsstrikeAdapter().parse(_out(two), "127.0.0.1", _req())
-    params = {item.split("=", 1)[1] for f in findings for item in f.evidence
-              if item.startswith("parameter=")}
+    params = {
+        item.split("=", 1)[1]
+        for f in findings
+        for item in f.evidence
+        if item.startswith("parameter=")
+    }
     assert params == {"q", "search"}
 
 
 def test_xsstrike_parser_truncates_the_reflected_payload() -> None:
-    huge = (
-        "[!] Testing parameter: q\n"
-        f"[+] Payload: {'A' * 5000}\n[!] Efficiency: 100\n"
-    )
+    huge = f"[!] Testing parameter: q\n[+] Payload: {'A' * 5000}\n[!] Efficiency: 100\n"
     finding = XsstrikeAdapter().parse(_out(huge), "127.0.0.1", _req())[0]
     payload = next(item for item in finding.evidence if item.startswith("payload="))
     assert len(payload) <= len("payload=") + 300

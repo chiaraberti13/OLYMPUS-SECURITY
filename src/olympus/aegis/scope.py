@@ -84,14 +84,10 @@ def ensure_allowed(
         return host
     if (
         host not in exact_hosts
-        and not any(
-            host == domain or host.endswith(f".{domain}") for domain in domains
-        )
+        and not any(host == domain or host.endswith(f".{domain}") for domain in domains)
         and (
             not legacy_suffixes
-            or not any(
-                host == entry or host.endswith(f".{entry}") for entry in exact_hosts
-            )
+            or not any(host == entry or host.endswith(f".{entry}") for entry in exact_hosts)
         )
     ):
         raise OutOfScopeError(f"target {host} is out of scope")
@@ -132,8 +128,10 @@ def resolve_and_validate(
         if progress_check is not None:
             progress_check()
         address = ipaddress.ip_address(value)
-        if not address.is_global and value not in exact_hosts and not any(
-            address in network for network in networks
+        if (
+            not address.is_global
+            and value not in exact_hosts
+            and not any(address in network for network in networks)
         ):
             raise SsrfBlockedError(
                 f"authorized hostname {host} resolves to non-global {value} outside IP/CIDR scope"

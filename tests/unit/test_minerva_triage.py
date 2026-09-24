@@ -41,9 +41,10 @@ def test_triage_selects_max_severity_and_deduplicates_links() -> None:
     assert incident.alert_ids == ["ALT-2026-00001", "ALT-2026-00002"]
     assert incident.evidence_ids == ["EVD-2026-00001", "EVD-2026-00002"]
     assert incident.owner == "demo-soc"
-    assert incident.incident_id == triage_alerts(
-        [low, high], "Olympus Demo triage", "demo-soc"
-    ).incident_id
+    assert (
+        incident.incident_id
+        == triage_alerts([low, high], "Olympus Demo triage", "demo-soc").incident_id
+    )
 
 
 def test_triage_rejects_empty_alerts() -> None:

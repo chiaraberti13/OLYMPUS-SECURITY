@@ -38,9 +38,7 @@ def test_scope_normalizes_ouis_and_matches_mac(tmp_path: Path) -> None:
 
 
 def test_excluded_oui_wins(tmp_path: Path) -> None:
-    scope = load_mac_scope(
-        _write_scope(tmp_path / "scope.json", ["00:1A:2B"], ["001A2B"])
-    )
+    scope = load_mac_scope(_write_scope(tmp_path / "scope.json", ["00:1A:2B"], ["001A2B"]))
 
     assert not scope.covers("00:1A:2B:3C:4D:5E")
 

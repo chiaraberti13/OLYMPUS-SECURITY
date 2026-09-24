@@ -234,9 +234,7 @@ def _wait_for_turn(
     return deadline.remaining >= 0.05
 
 
-def discoveries_to_findings(
-    asset_id: str, discovered: Sequence[DiscoveredPath]
-) -> list[Finding]:
+def discoveries_to_findings(asset_id: str, discovered: Sequence[DiscoveredPath]) -> list[Finding]:
     """Turn discovered paths into findings; sensitive names are raised to LOW."""
     findings: list[Finding] = []
     for item in discovered:

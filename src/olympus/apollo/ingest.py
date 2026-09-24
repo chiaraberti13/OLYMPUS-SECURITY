@@ -39,10 +39,10 @@ from olympus.core.models import Event
 #: one (``20/Sep/2026 21:01:13``) — the timestamp is captured opaquely and parsed
 #: separately.
 _ACCESS_LINE = re.compile(
-    r'^(?P<host>\S+)\s+\S+\s+\S+\s+'
-    r'\[(?P<ts>[^\]]+)\]\s+'
+    r"^(?P<host>\S+)\s+\S+\s+\S+\s+"
+    r"\[(?P<ts>[^\]]+)\]\s+"
     r'"(?P<method>[A-Z][A-Z_-]*)\s+(?P<target>[^"\s]+)(?:\s+(?P<proto>[^"]*))?"\s+'
-    r'(?P<status>\d{3})\s+(?P<size>\S+)'
+    r"(?P<status>\d{3})\s+(?P<size>\S+)"
     r'(?:\s+"(?P<referer>[^"]*)"\s+"(?P<agent>[^"]*)")?\s*$'
 )
 

@@ -41,11 +41,7 @@ _FILE_SUFFIXES = (".toml", ".json", ".yaml", ".yml", ".md", ".txt", ".cfg", ".in
 
 def _named_modules() -> set[str]:
     text = _THREAT_MODEL.read_text(encoding="utf-8")
-    return {
-        name
-        for name in _MODULE.findall(text)
-        if not name.endswith(_FILE_SUFFIXES)
-    }
+    return {name for name in _MODULE.findall(text) if not name.endswith(_FILE_SUFFIXES)}
 
 
 def test_threat_model_exists() -> None:
@@ -76,11 +72,11 @@ def _longest_importable_prefix(dotted: str) -> str | None:
 def test_threat_model_references_the_key_controls() -> None:
     modules = _named_modules()
     for expected in (
-        "olympus.core.addresses",   # SSRF guard
-        "olympus.core.pinning",     # DNS rebinding
-        "olympus.aegis.sandbox",    # host isolation
-        "olympus.core.policy",      # bounds
-        "olympus.core.lockfile",    # supply chain
+        "olympus.core.addresses",  # SSRF guard
+        "olympus.core.pinning",  # DNS rebinding
+        "olympus.aegis.sandbox",  # host isolation
+        "olympus.core.policy",  # bounds
+        "olympus.core.lockfile",  # supply chain
         "olympus.integrations.maturity",  # catalogue honesty
     ):
         assert expected in modules, f"threat model no longer covers {expected}"

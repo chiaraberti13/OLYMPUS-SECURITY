@@ -92,8 +92,16 @@ def test_apollo_test_writes_owner_only_ecs(tmp_path: Path) -> None:
 
     result = runner.invoke(
         app,
-        ["apollo", "test", str(rule), str(event_path),
-         "--output", str(output), "--ecs", str(ecs_path)],
+        [
+            "apollo",
+            "test",
+            str(rule),
+            str(event_path),
+            "--output",
+            str(output),
+            "--ecs",
+            str(ecs_path),
+        ],
     )
 
     assert result.exit_code == 0, result.output

@@ -130,9 +130,7 @@ def test_guard_catches_offline_claim_without_a_parser_test(
         "parser_test_is_present",
         lambda name: name != "testssl",
     )
-    assert any(
-        "has no test_testssl_parser" in problem for problem in verify_declarations()
-    )
+    assert any("has no test_testssl_parser" in problem for problem in verify_declarations())
 
 
 def test_guard_catches_an_undeclared_adapter(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -153,10 +151,7 @@ def test_guard_catches_a_declaration_outside_the_catalogue(
         "not-a-scanner",
         MaturityRecord("not-a-scanner", Maturity.LIVE_TESTED, "README.md"),
     )
-    assert any(
-        "absent from the scanner catalogue" in problem
-        for problem in verify_declarations()
-    )
+    assert any("absent from the scanner catalogue" in problem for problem in verify_declarations())
 
 
 def test_guard_rejects_catalog_only_declarations(

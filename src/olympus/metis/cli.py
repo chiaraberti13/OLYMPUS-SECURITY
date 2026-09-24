@@ -49,6 +49,7 @@ def _metis_passphrase() -> str:
         raise ValueError(f"set {METIS_KEY_ENV} to a strong passphrase")
     return passphrase
 
+
 app = typer.Typer(
     help="Deterministic planning, capability routing and CTI casework.", no_args_is_help=True
 )
@@ -316,9 +317,7 @@ def case_stix_export(
         with CaseStore(database) as store:
             document = store.load_case(case_id)
         bundle = indicators_to_bundle(document.indicators)
-        atomic_write_text(
-            output, json.dumps(bundle, indent=2, sort_keys=True) + "\n", mode=0o600
-        )
+        atomic_write_text(output, json.dumps(bundle, indent=2, sort_keys=True) + "\n", mode=0o600)
     except (ValueError, LookupError, OSError, sqlite3.Error) as exc:
         _fail(exc)
     typer.echo(
@@ -377,9 +376,7 @@ def case_misp_export(
         with CaseStore(database) as store:
             document = store.load_case(case_id)
         event = indicators_to_event(document.indicators, info=document.title)
-        atomic_write_text(
-            output, json.dumps(event, indent=2, sort_keys=True) + "\n", mode=0o600
-        )
+        atomic_write_text(output, json.dumps(event, indent=2, sort_keys=True) + "\n", mode=0o600)
     except (ValueError, LookupError, OSError, sqlite3.Error) as exc:
         _fail(exc)
     typer.echo(

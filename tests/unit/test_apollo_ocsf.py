@@ -105,8 +105,18 @@ def test_apollo_run_writes_owner_only_ocsf(tmp_path: Path) -> None:
 
     result = runner.invoke(
         app,
-        ["apollo", "run", "--rules", str(rules_dir), "--events", str(events),
-         "--output", str(output), "--ocsf", str(ocsf_path)],
+        [
+            "apollo",
+            "run",
+            "--rules",
+            str(rules_dir),
+            "--events",
+            str(events),
+            "--output",
+            str(output),
+            "--ocsf",
+            str(ocsf_path),
+        ],
     )
 
     # apollo run exits 1 when alerts are produced; the OCSF file must still exist.

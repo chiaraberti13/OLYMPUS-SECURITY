@@ -79,11 +79,13 @@ class DirsearchAdapter(ScannerAdapter):
         target = request.target if request.target_kind == "url" else f"http://{host}"
         return [
             self.binary,
-            "-u", target,
-            "-q",             # results only: no banner, no progress bar
+            "-u",
+            target,
+            "-q",  # results only: no banner, no progress bar
             "--no-color",
             "--random-agent",
-            "-t", "10",       # bounded concurrency; the policy owns the deadline
+            "-t",
+            "10",  # bounded concurrency; the policy owns the deadline
         ]
 
     def parse(self, output: CommandOutput, host: str, request: ScanRequest) -> list[Finding]:
@@ -110,9 +112,7 @@ class DirsearchAdapter(ScannerAdapter):
                 evidence.append(f"redirect={redirect}")
 
             path = urlsplit(url).path.lower()
-            sensitive = next(
-                (segment for segment in _SENSITIVE_SEGMENTS if segment in path), None
-            )
+            sensitive = next((segment for segment in _SENSITIVE_SEGMENTS if segment in path), None)
 
             if status == 403:
                 # A refusal still proves the resource exists, which is the whole

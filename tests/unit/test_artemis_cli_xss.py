@@ -84,8 +84,13 @@ def test_xss_no_param_errors(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch(monkeypatch)
     result = runner.invoke(
         app,
-        ["artemis", "xss", "--url", "https://portal.olympusdemocorp.example/app/x",
-         "--i-am-authorized"],
+        [
+            "artemis",
+            "xss",
+            "--url",
+            "https://portal.olympusdemocorp.example/app/x",
+            "--i-am-authorized",
+        ],
     )
     assert result.exit_code == 2
     assert "no query parameter" in result.output

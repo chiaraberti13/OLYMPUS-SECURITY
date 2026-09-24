@@ -140,25 +140,19 @@ def _totals() -> str:
         s.name for s in specs if s.kind in {"proprietary-local", "proprietary-remote-api"}
     )
     adapters = sorted(implemented())
-    live = sorted(
-        s.name for s in specs if record_for(s.name).stage is Maturity.LIVE_TESTED
-    )
-    production = sum(
-        1 for s in specs if record_for(s.name).stage is Maturity.PRODUCTION_READY
-    )
+    live = sorted(s.name for s in specs if record_for(s.name).stage is Maturity.LIVE_TESTED)
+    production = sum(1 for s in specs if record_for(s.name).stage is Maturity.PRODUCTION_READY)
     production_line = (
         f"- **Production-ready**: **{production}/{total}** — no adapter meets the full "
         "Definition of Done"
         if production == 0
-        else f"- **Production-ready**: **{production}/{total}** — meets the full "
-        "Definition of Done"
+        else f"- **Production-ready**: **{production}/{total}** — meets the full Definition of Done"
     )
     return "\n".join(
         [
             "## Recalculated totals",
             "",
-            f"- **Open source** (local-oss-binary + containerised-oss-service): "
-            f"**{oss}/{total}**",
+            f"- **Open source** (local-oss-binary + containerised-oss-service): **{oss}/{total}**",
             f"  - `containerised-oss-service`: {by_kind['containerised-oss-service']}",
             f"  - `local-oss-binary`: {by_kind['local-oss-binary']}",
             f"  - `proprietary-local`: {by_kind['proprietary-local']}",

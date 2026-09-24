@@ -65,15 +65,18 @@ class KatanaAdapter(ScannerAdapter):
         target = request.target if request.target_kind == "url" else f"http://{host}"
         return [
             self.binary,
-            "-u", target,
+            "-u",
+            target,
             "-jsonl",
             "-silent",
             "-no-color",
-            "-depth", "2",
-            "-omit-raw",              # keep raw request/response out of evidence
-            "-omit-body",             # bodies carry cookies, tokens and PII
+            "-depth",
+            "2",
+            "-omit-raw",  # keep raw request/response out of evidence
+            "-omit-body",  # bodies carry cookies, tokens and PII
             "-disable-update-check",
-            "-field-scope", "rdn",    # never wander off the target's domain
+            "-field-scope",
+            "rdn",  # never wander off the target's domain
         ]
 
     def parse(self, output: CommandOutput, host: str, request: ScanRequest) -> list[Finding]:
@@ -111,9 +114,7 @@ class KatanaAdapter(ScannerAdapter):
                 evidence.append(f"source={crawl_request['source']}")
 
             path = urlsplit(endpoint).path.lower()
-            sensitive = next(
-                (segment for segment in _SENSITIVE_SEGMENTS if segment in path), None
-            )
+            sensitive = next((segment for segment in _SENSITIVE_SEGMENTS if segment in path), None)
             reachable = isinstance(status, int) and status in _REACHABLE
 
             if sensitive and reachable:

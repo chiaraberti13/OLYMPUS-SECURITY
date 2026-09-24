@@ -247,6 +247,4 @@ def export_fronting(
         "asset": asset.model_dump(mode="json"),
         "findings": [finding.model_dump(mode="json") for finding in findings],
     }
-    atomic_write_text(
-        output, json.dumps(payload, indent=2, sort_keys=True) + "\n", mode=0o600
-    )
+    atomic_write_text(output, json.dumps(payload, indent=2, sort_keys=True) + "\n", mode=0o600)

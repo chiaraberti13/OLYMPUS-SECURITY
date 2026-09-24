@@ -123,8 +123,18 @@ def test_cli_ok(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     out = tmp_path / "whois.json"
     result = runner.invoke(
         app,
-        ["argus", "whois", "--domain", "example.com", "--scope", str(_scope(tmp_path)),
-         "--log", str(tmp_path / "log"), "--output", str(out)],
+        [
+            "argus",
+            "whois",
+            "--domain",
+            "example.com",
+            "--scope",
+            str(_scope(tmp_path)),
+            "--log",
+            str(tmp_path / "log"),
+            "--output",
+            str(out),
+        ],
     )
     assert result.exit_code == 0, result.output
     assert out.exists()
@@ -133,8 +143,17 @@ def test_cli_ok(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 def test_cli_out_of_scope(tmp_path: Path) -> None:
     log = tmp_path / "log"
     result = runner.invoke(
-        app, ["argus", "whois", "--domain", "evil.test", "--scope", str(_scope(tmp_path)),
-              "--log", str(log)]
+        app,
+        [
+            "argus",
+            "whois",
+            "--domain",
+            "evil.test",
+            "--scope",
+            str(_scope(tmp_path)),
+            "--log",
+            str(log),
+        ],
     )
     assert result.exit_code == 3
     assert log.exists()

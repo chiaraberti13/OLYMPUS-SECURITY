@@ -89,9 +89,7 @@ class SecretScanService:
             load_baseline(request.baseline_path) if request.baseline_path is not None else None
         )
         allowlist = (
-            load_allowlist(request.allowlist_path)
-            if request.allowlist_path is not None
-            else None
+            load_allowlist(request.allowlist_path) if request.allowlist_path is not None else None
         )
         started = time.monotonic()
         file_result = scan_paths_bounded(

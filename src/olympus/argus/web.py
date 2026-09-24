@@ -198,6 +198,4 @@ class WebIntel:
 
 def export_web_intel(intel: WebIntel, path: Path) -> None:
     """Write a web-intel bundle (report + asset + findings) as JSON to ``path``."""
-    atomic_write_text(
-        path, json.dumps(intel.to_dict(), indent=2, sort_keys=True), mode=0o600
-    )
+    atomic_write_text(path, json.dumps(intel.to_dict(), indent=2, sort_keys=True), mode=0o600)

@@ -89,12 +89,18 @@ def test_atomic_claim_and_queue_order(tmp_path: Path) -> None:
     store = AegisJobStore(tmp_path / "jobs.sqlite3")
     scope = _scope(tmp_path / "scope.json")
     first = store.submit(
-        scanner="test-engine", target="127.0.0.1", target_kind="host",
-        scope_path=scope, authorized=True,
+        scanner="test-engine",
+        target="127.0.0.1",
+        target_kind="host",
+        scope_path=scope,
+        authorized=True,
     )
     store.submit(
-        scanner="test-engine", target="127.0.0.1", target_kind="host",
-        scope_path=scope, authorized=True,
+        scanner="test-engine",
+        target="127.0.0.1",
+        target_kind="host",
+        scope_path=scope,
+        authorized=True,
     )
     claimed = store.claim_next()
     assert claimed is not None and claimed.job_id == first.job_id
@@ -104,8 +110,11 @@ def test_atomic_claim_and_queue_order(tmp_path: Path) -> None:
 def test_queued_cancel_is_terminal_and_idempotent(tmp_path: Path) -> None:
     store = AegisJobStore(tmp_path / "jobs.sqlite3")
     job = store.submit(
-        scanner="test-engine", target="127.0.0.1", target_kind="host",
-        scope_path=_scope(tmp_path / "scope.json"), authorized=True,
+        scanner="test-engine",
+        target="127.0.0.1",
+        target_kind="host",
+        scope_path=_scope(tmp_path / "scope.json"),
+        authorized=True,
     )
     cancelled = store.cancel(job.job_id)
     assert cancelled.state is JobState.CANCELLED
@@ -120,8 +129,11 @@ def test_failure_is_persisted_without_secret_fields(tmp_path: Path) -> None:
 
     store = AegisJobStore(tmp_path / "jobs.sqlite3")
     job = store.submit(
-        scanner="test-engine", target="127.0.0.1", target_kind="host",
-        scope_path=_scope(tmp_path / "scope.json"), authorized=True,
+        scanner="test-engine",
+        target="127.0.0.1",
+        target_kind="host",
+        scope_path=_scope(tmp_path / "scope.json"),
+        authorized=True,
     )
     result = AegisWorker(
         store,
@@ -148,8 +160,17 @@ def test_job_cli_submit_list_status_cancel(tmp_path: Path) -> None:
     submitted = runner.invoke(
         app,
         [
-            "aegis", "jobs", "submit", "nmap", "--target", "127.0.0.1",
-            "--scope", str(scope), "--database", str(database), "--i-am-authorized",
+            "aegis",
+            "jobs",
+            "submit",
+            "nmap",
+            "--target",
+            "127.0.0.1",
+            "--scope",
+            str(scope),
+            "--database",
+            str(database),
+            "--i-am-authorized",
         ],
     )
     assert submitted.exit_code == 0, submitted.output
@@ -166,9 +187,16 @@ def test_job_cli_refuses_unconfirmed_authorization(tmp_path: Path) -> None:
     result = runner.invoke(
         app,
         [
-            "aegis", "jobs", "submit", "nmap", "--target", "127.0.0.1",
-            "--scope", str(_scope(tmp_path / "scope.json")),
-            "--database", str(tmp_path / "jobs.sqlite3"),
+            "aegis",
+            "jobs",
+            "submit",
+            "nmap",
+            "--target",
+            "127.0.0.1",
+            "--scope",
+            str(_scope(tmp_path / "scope.json")),
+            "--database",
+            str(tmp_path / "jobs.sqlite3"),
         ],
     )
     assert result.exit_code == 4
@@ -194,9 +222,7 @@ def _expire_lease(store: AegisJobStore, job_id: str) -> None:
     """Age a lease out, exactly as a worker that stopped reporting would."""
     past = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
     with sqlite3.connect(store.path) as db:
-        db.execute(
-            "UPDATE aegis_jobs SET lease_expires_at = ? WHERE job_id = ?", (past, job_id)
-        )
+        db.execute("UPDATE aegis_jobs SET lease_expires_at = ? WHERE job_id = ?", (past, job_id))
 
 
 def test_claim_leases_the_job_to_exactly_one_worker(tmp_path: Path) -> None:
@@ -284,9 +310,7 @@ def test_worker_renews_its_lease_while_a_scan_runs(tmp_path: Path) -> None:
     class _Slow(_Adapter):
         def run(self, request: ScanRequest) -> ScanResult:
             time.sleep(0.3)
-            return ScanResult(
-                scanner=self.name, state=ExecutionState.LIVE, target=request.target
-            )
+            return ScanResult(scanner=self.name, state=ExecutionState.LIVE, target=request.target)
 
     store = AegisJobStore(tmp_path / "jobs.sqlite3", lease_seconds=1.0)
     _submit(store, tmp_path)

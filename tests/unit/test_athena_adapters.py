@@ -246,9 +246,7 @@ def test_target_and_service_adapters_get_separate_transports() -> None:
     target = _MarkedHttp("target")
     service = _MarkedHttp("service")
 
-    runners = resolve_adapters(
-        ("web-headers", "dns", "whois"), target, service_http=service
-    )
+    runners = resolve_adapters(("web-headers", "dns", "whois"), target, service_http=service)
 
     # The web adapter connects to the engagement's own hosts...
     assert runners["web-headers"]._http is target

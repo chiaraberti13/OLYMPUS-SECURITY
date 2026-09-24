@@ -20,7 +20,7 @@ import urllib.error
 import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Protocol
+from typing import Protocol, cast
 
 from olympus.core.decompression import (
     DEFAULT_MAX_DECOMPRESSED_BYTES,
@@ -95,6 +95,12 @@ class _HeaderLookup(Protocol):
         ...
 
 
+class _HeaderItems(Protocol):
+    def items(self) -> list[tuple[str, str]]:
+        """Return all HTTP header name/value pairs."""
+        ...
+
+
 class HttpRequestError(RuntimeError):
     """Raised when the HTTP request fails (network error, timeout...)."""
 
@@ -125,7 +131,10 @@ class _ValidatingRedirectHandler(urllib.request.HTTPRedirectHandler):
         max_redirects: int = DEFAULT_MAX_REDIRECTS,
     ) -> None:
         self._validator = validator
-        self.max_redirections = max_redirects
+        # ``urllib`` models this as a class attribute, while the policy is
+        # intentionally per client. Store an instance override without
+        # mutating the handler class for every other client in the process.
+        self.__dict__["max_redirections"] = max_redirects
 
     def redirect_request(  # type: ignore[no-untyped-def]
         self, req, fp, code, msg, headers, newurl
@@ -336,9 +345,7 @@ class UrllibHttpClient:
         with self._throttle_lock:
             elapsed = time.monotonic() - self._last_request_at
             if 0.0 <= elapsed < self._min_interval:
-                self._sleep_interruptibly(
-                    self._min_interval - elapsed, deadline_at=deadline_at
-                )
+                self._sleep_interruptibly(self._min_interval - elapsed, deadline_at=deadline_at)
             self._last_request_at = time.monotonic()
 
     @staticmethod
@@ -365,7 +372,7 @@ class UrllibHttpClient:
     def _copy_bounded_headers(self, headers: object, url: str) -> dict[str, str]:
         """Copy headers only after enforcing count and aggregate encoded size."""
         try:
-            items = list(headers.items())  # type: ignore[union-attr]
+            items = list(cast(_HeaderItems, headers).items())
         except AttributeError:
             items = []
         if len(items) > self._max_response_headers:
@@ -402,14 +409,12 @@ class UrllibHttpClient:
             )
         return bytes(body)
 
-    def _reject_oversized_content_length(
-        self, headers: _HeaderLookup | None, url: str
-    ) -> None:
+    def _reject_oversized_content_length(self, headers: object | None, url: str) -> None:
         """Fail early when a trustworthy numeric Content-Length is already too large."""
         if headers is None:
             return
         try:
-            raw_value = headers.get("Content-Length")
+            raw_value = cast(_HeaderLookup, headers).get("Content-Length")
             content_length = int(raw_value) if raw_value is not None else None
         except (TypeError, ValueError):
             return
@@ -453,9 +458,7 @@ class UrllibHttpClient:
         except urllib.error.HTTPError as exc:
             response_headers = self._copy_bounded_headers(exc.headers or {}, url)
             self._reject_oversized_content_length(exc.headers, url)
-            body_bytes = self._decode_bounded(
-                self._read_bounded(exc, url), exc.headers, url
-            )
+            body_bytes = self._decode_bounded(self._read_bounded(exc, url), exc.headers, url)
             status_code = exc.code
         except urllib.error.URLError as exc:
             if isinstance(exc.reason, PinnedConnectionError):

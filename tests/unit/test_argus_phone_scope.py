@@ -34,9 +34,7 @@ def test_covers_allows_prefix() -> None:
 
 
 def test_covers_excludes_take_precedence() -> None:
-    scope = PhoneScope(
-        engagement="e", allowed_prefixes=("+39",), excluded_prefixes=("+3906",)
-    )
+    scope = PhoneScope(engagement="e", allowed_prefixes=("+39",), excluded_prefixes=("+3906",))
     assert scope.covers("+393331234567") is True
     assert scope.covers("+390612345678") is False
 

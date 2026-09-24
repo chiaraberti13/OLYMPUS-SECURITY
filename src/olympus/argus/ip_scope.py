@@ -77,8 +77,9 @@ def load_ip_scope(path: Path) -> IpScope:
     if not allowed:
         raise IpScopeError(f"IP scope file {path} defines no allowed_networks")
     excluded = _parse_networks(raw.get("excluded_networks", []), "excluded_networks", path)
-    return IpScope(engagement=str(raw["engagement"]), allowed_networks=allowed,
-                   excluded_networks=excluded)
+    return IpScope(
+        engagement=str(raw["engagement"]), allowed_networks=allowed, excluded_networks=excluded
+    )
 
 
 def log_blocked_ip(ip: str, scope_path: Path, log_path: Path) -> None:

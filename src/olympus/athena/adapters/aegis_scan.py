@@ -85,7 +85,5 @@ class AegisScanAdapter:
             return ToolResult(ok=False, error_code="scan_failed")
 
         if result.state in _OK_STATES:
-            return ToolResult(
-                ok=True, assets=list(result.assets), findings=list(result.findings)
-            )
+            return ToolResult(ok=True, assets=list(result.assets), findings=list(result.findings))
         return ToolResult(ok=False, error_code=result.state.value)

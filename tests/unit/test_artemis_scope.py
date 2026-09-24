@@ -14,11 +14,13 @@ runner = CliRunner()
 
 def _scope(path: Path) -> Path:
     path.write_text(
-        json.dumps({
-            "allowed_origins": ["https://portal.olympusdemocorp.example:443"],
-            "allowed_path_prefixes": ["/app"],
-            "allowed_ip_networks": ["192.0.2.0/24", "2001:db8::/32"],
-        }),
+        json.dumps(
+            {
+                "allowed_origins": ["https://portal.olympusdemocorp.example:443"],
+                "allowed_path_prefixes": ["/app"],
+                "allowed_ip_networks": ["192.0.2.0/24", "2001:db8::/32"],
+            }
+        ),
         encoding="utf-8",
     )
     return path

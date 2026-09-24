@@ -27,6 +27,7 @@ _SEVERITY_ORDER: dict[Severity, int] = {
     Severity.INFO: 4,
 }
 
+
 class _Envelope(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -76,9 +77,7 @@ class _ApolloAlerts(_Envelope):
 
 
 # schema -> (strict envelope model, payload key, singular payload)
-_COLLECTION_SCHEMAS: dict[
-    type[BaseModel], dict[str, tuple[type[BaseModel], str, bool]]
-] = {
+_COLLECTION_SCHEMAS: dict[type[BaseModel], dict[str, tuple[type[BaseModel], str, bool]]] = {
     Asset: {
         "olympus.argus-assets": (_ArgusAssets, "assets", False),
         "olympus.argus-fronting": (_ArgusFronting, "asset", True),
@@ -158,8 +157,10 @@ def _load_array(
                 raise AggregationError(f"{path} has an incompatible contract: {exc}") from exc
             envelope_type, key, singular = specification
             raw_payload = raw.get(key)
-            raw_count = 1 if singular and raw_payload is not None else (
-                len(raw_payload) if isinstance(raw_payload, list) else 0
+            raw_count = (
+                1
+                if singular and raw_payload is not None
+                else (len(raw_payload) if isinstance(raw_payload, list) else 0)
             )
             if raw_count > max_items:
                 raise AggregationError(f"{path} exceeds the {max_items} item limit")
@@ -308,9 +309,7 @@ def dedupe_alerts(alerts: Sequence[Alert]) -> list[Alert]:
     return _dedupe_by_id(alerts, "alert_id", "alert")
 
 
-def _dedupe_by_id(
-    items: Sequence[_ModelT], identifier: str, label: str
-) -> list[_ModelT]:
+def _dedupe_by_id(items: Sequence[_ModelT], identifier: str, label: str) -> list[_ModelT]:
     seen: dict[str, _ModelT] = {}
     unique: list[_ModelT] = []
     for item in items:

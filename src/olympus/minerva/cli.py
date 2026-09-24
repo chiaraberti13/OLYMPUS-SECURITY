@@ -106,10 +106,7 @@ def capture(
     except (OSError, ValueError) as exc:
         typer.echo(f"minerva: capture error: {exc}", err=True)
         raise typer.Exit(code=2) from exc
-    typer.echo(
-        f"minerva: captured {evidence.evidence_id} "
-        f"sha256={evidence.sha256} -> {output}"
-    )
+    typer.echo(f"minerva: captured {evidence.evidence_id} sha256={evidence.sha256} -> {output}")
 
 
 @app.command()
@@ -235,9 +232,7 @@ def timeline(
         for entry in outcome.entries
     ]
     columns = ["seq", "occurred_at", "action", "actor", "evidence_id", "evidence_sha256"]
-    typer.echo(
-        render(records, columns, output_format, title=f"Custody timeline ({len(records)})")
-    )
+    typer.echo(render(records, columns, output_format, title=f"Custody timeline ({len(records)})"))
 
     if sign_key is not None and export is None:
         typer.echo("minerva: --sign-key requires --export", err=True)

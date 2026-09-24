@@ -19,6 +19,8 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, ConfigDict, Field
+from starlette.middleware.base import RequestResponseEndpoint
+from starlette.responses import Response
 
 from olympus import __version__
 from olympus.aegis.identity import (
@@ -236,7 +238,7 @@ def create_app(settings: ApiSettings) -> FastAPI:
         return response
 
     @app.middleware("http")
-    async def security_boundary(request: Request, call_next):  # type: ignore[no-untyped-def]
+    async def security_boundary(request: Request, call_next: RequestResponseEndpoint) -> Response:
         content_length = request.headers.get("content-length")
         if content_length:
             try:
@@ -255,7 +257,7 @@ def create_app(settings: ApiSettings) -> FastAPI:
             if len(bounded_body) + len(chunk) > MAX_REQUEST_BYTES:
                 return JSONResponse(status_code=413, content={"detail": "request body too large"})
             bounded_body.extend(chunk)
-        request._body = bytes(bounded_body)  # type: ignore[attr-defined]
+        request._body = bytes(bounded_body)
 
         response = await call_next(request)
         response.headers["Cache-Control"] = "no-store"

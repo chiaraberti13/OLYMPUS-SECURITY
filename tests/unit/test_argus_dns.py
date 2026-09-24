@@ -93,8 +93,20 @@ def test_cli_ok(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     out = tmp_path / "dns.json"
     result = runner.invoke(
         app,
-        ["argus", "dns", "--domain", "example.com", "--types", "A",
-         "--scope", str(_scope(tmp_path)), "--log", str(tmp_path / "log"), "--output", str(out)],
+        [
+            "argus",
+            "dns",
+            "--domain",
+            "example.com",
+            "--types",
+            "A",
+            "--scope",
+            str(_scope(tmp_path)),
+            "--log",
+            str(tmp_path / "log"),
+            "--output",
+            str(out),
+        ],
     )
     assert result.exit_code == 0, result.output
     assert out.exists()
@@ -111,8 +123,17 @@ def test_cli_default_types(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> N
 def test_cli_out_of_scope(tmp_path: Path) -> None:
     log = tmp_path / "log"
     result = runner.invoke(
-        app, ["argus", "dns", "--domain", "evil.test", "--scope", str(_scope(tmp_path)),
-              "--log", str(log)]
+        app,
+        [
+            "argus",
+            "dns",
+            "--domain",
+            "evil.test",
+            "--scope",
+            str(_scope(tmp_path)),
+            "--log",
+            str(log),
+        ],
     )
     assert result.exit_code == 3
     assert log.exists()

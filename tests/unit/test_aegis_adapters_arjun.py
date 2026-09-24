@@ -21,9 +21,7 @@ ARJUN_STDOUT = (
     "[+] Parameters found: debug, id\n"
 )
 # The same tool run coloured on a TTY, to prove ANSI is tolerated.
-ARJUN_COLOURED = (
-    "\x1b[1;92m[✓]\x1b[0m parameter detected: token, based on: body length\n"
-)
+ARJUN_COLOURED = "\x1b[1;92m[✓]\x1b[0m parameter detected: token, based on: body length\n"
 
 
 def _out(stdout: str = "", stderr: str = "", code: int = 0) -> CommandOutput:
@@ -38,8 +36,12 @@ def _req(**kw: object) -> ScanRequest:
 
 def test_arjun_parser_reports_each_hidden_parameter() -> None:
     findings = ArjunAdapter().parse(_out(ARJUN_STDOUT), "127.0.0.1", _req())
-    names = {item.split("=", 1)[1] for f in findings for item in f.evidence
-             if item.startswith("parameter=")}
+    names = {
+        item.split("=", 1)[1]
+        for f in findings
+        for item in f.evidence
+        if item.startswith("parameter=")
+    }
     assert names == {"debug", "id"}
     assert all(f.severity == Severity.INFO for f in findings)
     assert all("detected_by=body length" in f.evidence for f in findings)

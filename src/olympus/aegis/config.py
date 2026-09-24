@@ -15,6 +15,7 @@ import os
 class AegisConfigError(ValueError):
     """Raised when native and legacy configuration is invalid or ambiguous."""
 
+
 #: AEGIS_* → legacy VAP_* compatibility mapping.
 COMPAT: dict[str, str] = {
     "AEGIS_ENABLE_LIVE_SCANS": "VAP_ENABLE_LIVE_SCANS",

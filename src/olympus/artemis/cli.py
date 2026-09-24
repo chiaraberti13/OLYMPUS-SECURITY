@@ -274,16 +274,13 @@ def content(
     findings = discoveries_to_findings(asset_id, report.discovered)
     _emit(findings, output)
     typer.echo(
-        f"artemis: content discovery tried {len(words)} path(s), "
-        f"found {len(report.discovered)}",
+        f"artemis: content discovery tried {len(words)} path(s), found {len(report.discovered)}",
         err=True,
     )
     _finish("content", findings, report.coverage)
 
 
-def _content_deadline(
-    requested: float | None, timeout: float, rate: float, words: int
-) -> float:
+def _content_deadline(requested: float | None, timeout: float, rate: float, words: int) -> float:
     """Derive one overall budget for a discovery run.
 
     The old default multiplied the per-request timeout by the wordlist length,

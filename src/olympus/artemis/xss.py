@@ -79,9 +79,7 @@ def check_reflected_xss(
     try:
         result = fetch_scoped(probed, scope_path, log_path, resolver, transport, policy=policy)
     except (HttpClientError, ScopeError, OutOfScopeError, ValueError) as exc:
-        return XssProbeResult(
-            param, failure=classify_fetch_error(exc), detail=f"{param}: {exc}"
-        )
+        return XssProbeResult(param, failure=classify_fetch_error(exc), detail=f"{param}: {exc}")
 
     body = result.response.body.decode("utf-8", errors="replace")
     if MARKER not in body:

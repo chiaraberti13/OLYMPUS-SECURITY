@@ -134,15 +134,23 @@ def test_import_rejects_bad_json_and_missing_attributes() -> None:
 def test_cli_misp_export_then_import_round_trips(tmp_path: Path) -> None:
     database = tmp_path / "cases.db"
     evidence = tmp_path / "evidence.txt"
-    evidence.write_text(
-        "Contact evil.example at 203.0.113.7; CVE-2021-44228", encoding="utf-8"
-    )
+    evidence.write_text("Contact evil.example at 203.0.113.7; CVE-2021-44228", encoding="utf-8")
     created = runner.invoke(app, ["metis", "case", "create", str(database), "source case"])
     source_case = created.stdout.strip()
     runner.invoke(
         app,
-        ["metis", "case", "ingest", str(database), source_case, str(evidence),
-         "--source", "fixture", "--confidence", "80"],
+        [
+            "metis",
+            "case",
+            "ingest",
+            str(database),
+            source_case,
+            str(evidence),
+            "--source",
+            "fixture",
+            "--confidence",
+            "80",
+        ],
     )
 
     event_path = tmp_path / "event.json"
@@ -157,8 +165,18 @@ def test_cli_misp_export_then_import_round_trips(tmp_path: Path) -> None:
     target_case = target.stdout.strip()
     imported = runner.invoke(
         app,
-        ["metis", "case", "misp-import", str(database), target_case, str(event_path),
-         "--source", "misp-import", "--confidence", "60"],
+        [
+            "metis",
+            "case",
+            "misp-import",
+            str(database),
+            target_case,
+            str(event_path),
+            "--source",
+            "misp-import",
+            "--confidence",
+            "60",
+        ],
     )
     assert imported.exit_code == 0, imported.output
     summary = json.loads(imported.stdout)

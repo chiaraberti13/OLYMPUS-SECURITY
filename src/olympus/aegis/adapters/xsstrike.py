@@ -65,9 +65,10 @@ class XsstrikeAdapter(ScannerAdapter):
         target = request.target if request.target_kind == "url" else f"http://{host}"
         return [
             self.binary,
-            "-u", target,
-            "--skip",         # never prompt to continue; the sandbox has no user
-            "--skip-dom",     # DOM XSS needs a real browser the sandbox lacks
+            "-u",
+            target,
+            "--skip",  # never prompt to continue; the sandbox has no user
+            "--skip-dom",  # DOM XSS needs a real browser the sandbox lacks
         ]
 
     def parse(self, output: CommandOutput, host: str, request: ScanRequest) -> list[Finding]:

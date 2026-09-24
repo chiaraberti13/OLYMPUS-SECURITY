@@ -7,7 +7,7 @@ on:
 
 jobs:
   quality:
-    name: ruff · pytest (required)
+    name: ruff · format · mypy · pytest (required)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -22,6 +22,10 @@ jobs:
           pip install -e ".[dev,api]"
       - name: Ruff
         run: ruff check .
+      - name: Ruff format
+        run: ruff format --check .
+      - name: Mypy
+        run: mypy --strict src/olympus
       - name: Pytest
         run: pytest
 

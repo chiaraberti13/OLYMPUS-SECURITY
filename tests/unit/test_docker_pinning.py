@@ -40,9 +40,7 @@ def test_scanner_image_base_is_pinned_by_digest() -> None:
 
 def test_redis_broker_is_pinned_by_digest() -> None:
     """The broker is a mandatory service, so its image must be digest-pinned."""
-    redis_images = [
-        ln for ln in _lines(_COMPOSE) if "image:" in ln and "redis" in ln
-    ]
+    redis_images = [ln for ln in _lines(_COMPOSE) if "image:" in ln and "redis" in ln]
     assert redis_images, "no redis image line found in docker-compose.yml"
     for line in redis_images:
         assert _DIGEST.search(line), f"redis image is not digest-pinned: {line!r}"

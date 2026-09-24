@@ -90,9 +90,7 @@ class AegisRunRequest:
     max_scope_bytes: int = DEFAULT_MAX_SCOPE_BYTES
     max_output_bytes: int = DEFAULT_MAX_PROCESS_OUTPUT_BYTES
     max_findings: int = DEFAULT_MAX_FINDINGS
-    cancellation: Cancellation = field(
-        default_factory=NeverCancelled, repr=False, compare=False
-    )
+    cancellation: Cancellation = field(default_factory=NeverCancelled, repr=False, compare=False)
 
 
 @dataclass(frozen=True)
@@ -214,9 +212,7 @@ def export_result(result: ScanResult, output: Path) -> None:
 def _validate_path_conflicts(request: AegisRunRequest) -> None:
     scope = request.scope_path.resolve()
     outputs = [
-        path.resolve()
-        for path in (request.output_path, request.audit_path)
-        if path is not None
+        path.resolve() for path in (request.output_path, request.audit_path) if path is not None
     ]
     if len(outputs) != len(set(outputs)):
         raise ValueError("AEGIS result and audit paths must differ")

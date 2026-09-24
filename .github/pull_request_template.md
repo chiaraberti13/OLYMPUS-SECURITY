@@ -19,7 +19,7 @@
 
 - [ ] Implemented without bypassing scope, authorization, audit or limits
 - [ ] Unit tests added or updated (contract/integration where appropriate)
-- [ ] Ruff and pytest green; mypy run where available
+- [ ] Ruff lint/format, strict Mypy and pytest are green
 - [ ] Target-provided data treated as untrusted (`SEC-H`)
 - [ ] Errors, partial coverage and missing dependencies surfaced clearly
 - [ ] No secrets, real targets or personal data in code, fixtures or logs

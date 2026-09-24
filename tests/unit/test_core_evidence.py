@@ -48,9 +48,7 @@ def test_capture_evidence_matches_the_file_bytes(tmp_path: Path) -> None:
 def test_capture_evidence_uses_an_explicit_uri_when_given(tmp_path: Path) -> None:
     artifact = tmp_path / "disk.img"
     artifact.write_bytes(b"disk contents")
-    evidence = capture_evidence(
-        artifact, evidence_type="disk-image", uri="s3://case-42/disk.img"
-    )
+    evidence = capture_evidence(artifact, evidence_type="disk-image", uri="s3://case-42/disk.img")
     assert evidence.uri == "s3://case-42/disk.img"
 
 
@@ -110,8 +108,16 @@ def test_captured_evidence_round_trips_into_the_custody_ledger(tmp_path: Path) -
     )
     recorded = runner.invoke(
         app,
-        ["minerva", "record", str(evidence_file), str(ledger),
-         "--actor", "responder", "--action", "collected"],
+        [
+            "minerva",
+            "record",
+            str(evidence_file),
+            str(ledger),
+            "--actor",
+            "responder",
+            "--action",
+            "collected",
+        ],
     )
 
     assert captured.exit_code == 0, captured.output
@@ -143,8 +149,7 @@ def test_capture_command_overwrites_with_force(tmp_path: Path) -> None:
 
     result = runner.invoke(
         app,
-        ["minerva", "capture", str(artifact), str(output),
-         "--type", "memory-image", "--force"],
+        ["minerva", "capture", str(artifact), str(output), "--type", "memory-image", "--force"],
     )
 
     assert result.exit_code == 0, result.output
@@ -155,8 +160,14 @@ def test_capture_command_overwrites_with_force(tmp_path: Path) -> None:
 def test_capture_command_reports_a_missing_artifact(tmp_path: Path) -> None:
     result = runner.invoke(
         app,
-        ["minerva", "capture", str(tmp_path / "absent.raw"),
-         str(tmp_path / "out.json"), "--type", "blob"],
+        [
+            "minerva",
+            "capture",
+            str(tmp_path / "absent.raw"),
+            str(tmp_path / "out.json"),
+            "--type",
+            "blob",
+        ],
     )
     assert result.exit_code == 2
     assert "capture error" in result.output

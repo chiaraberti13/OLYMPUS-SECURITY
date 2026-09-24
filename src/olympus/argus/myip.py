@@ -96,6 +96,4 @@ def discover(http: HttpClient, *, geolocate: bool = False) -> MyIpResult:
 
 def export_myip(result: MyIpResult, path: Path) -> None:
     """Write a ``myip`` result as JSON to ``path``."""
-    atomic_write_text(
-        path, json.dumps(result.to_dict(), indent=2, sort_keys=True), mode=0o600
-    )
+    atomic_write_text(path, json.dumps(result.to_dict(), indent=2, sort_keys=True), mode=0o600)

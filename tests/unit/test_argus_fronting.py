@@ -126,8 +126,16 @@ def test_cli_fronting_flags_leak_with_exit_1(tmp_path: Path, _stub: None) -> Non
     result = runner.invoke(
         app,
         [
-            "argus", "fronting", "--domain", DOMAIN, "--scope", str(scope),
-            "--log", str(tmp_path / "blocked.log"), "--output", str(output),
+            "argus",
+            "fronting",
+            "--domain",
+            DOMAIN,
+            "--scope",
+            str(scope),
+            "--log",
+            str(tmp_path / "blocked.log"),
+            "--output",
+            str(output),
         ],
     )
     assert result.exit_code == 1, result.output  # a leak was found
@@ -143,8 +151,16 @@ def test_cli_fronting_blocks_out_of_scope(tmp_path: Path, _stub: None) -> None:
     result = runner.invoke(
         app,
         [
-            "argus", "fronting", "--domain", "evil.example", "--scope", str(scope),
-            "--log", str(log), "--output", str(tmp_path / "out.json"),
+            "argus",
+            "fronting",
+            "--domain",
+            "evil.example",
+            "--scope",
+            str(scope),
+            "--log",
+            str(log),
+            "--output",
+            str(tmp_path / "out.json"),
         ],
     )
     assert result.exit_code == 3

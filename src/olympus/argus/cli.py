@@ -212,9 +212,7 @@ def fronting(
     asset_id: str = typer.Option(
         "AST-ARGUS-FRONT-1", "--asset-id", help="core.Asset id to attach findings to."
     ),
-    output: Path = typer.Option(
-        DEFAULT_FRONTING_OUTPUT, "--output", help="Fronting report JSON."
-    ),
+    output: Path = typer.Option(DEFAULT_FRONTING_OUTPUT, "--output", help="Fronting report JSON."),
 ) -> None:
     """Passively check whether an in-scope domain is CDN/WAF-fronted and leaks its origin IP."""
     try:
@@ -353,9 +351,7 @@ def phone(
     payload = [intel.to_dict() for intel in batch.intels]
     typer.echo(json.dumps(payload, indent=2, sort_keys=True))
     if output is not None:
-        atomic_write_text(
-            output, json.dumps(payload, indent=2, sort_keys=True), mode=0o600
-        )
+        atomic_write_text(output, json.dumps(payload, indent=2, sort_keys=True), mode=0o600)
     typer.echo(f"argus: profiled {len(batch.intels)} number(s)", err=True)
 
 
@@ -458,9 +454,7 @@ def accounts(
         payload = [intel.to_dict() for intel in intels]
     typer.echo(json.dumps(payload, indent=2, sort_keys=True))
     if output is not None:
-        atomic_write_text(
-            output, json.dumps(payload, indent=2, sort_keys=True), mode=0o600
-        )
+        atomic_write_text(output, json.dumps(payload, indent=2, sort_keys=True), mode=0o600)
         typer.echo(f"argus: wrote account intel to {output}", err=True)
 
 
@@ -537,9 +531,7 @@ def ip(
     payload = [intel.to_dict() for intel in batch.intels]
     typer.echo(json.dumps(payload, indent=2, sort_keys=True))
     if output is not None:
-        atomic_write_text(
-            output, json.dumps(payload, indent=2, sort_keys=True), mode=0o600
-        )
+        atomic_write_text(output, json.dumps(payload, indent=2, sort_keys=True), mode=0o600)
     typer.echo(f"argus: profiled {len(batch.intels)} IP(s)", err=True)
 
 

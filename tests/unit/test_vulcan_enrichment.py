@@ -162,9 +162,7 @@ def test_enrich_finding_without_a_cve_is_empty() -> None:
 def test_to_dict_is_json_serializable() -> None:
     kev = parse_kev_catalog(_KEV_JSON)
     epss = parse_epss_response(_EPSS_JSON)
-    overlay = enrich_finding(
-        _finding("CVE-2021-44228", severity=Severity.HIGH), kev=kev, epss=epss
-    )
+    overlay = enrich_finding(_finding("CVE-2021-44228", severity=Severity.HIGH), kev=kev, epss=epss)
     payload = json.loads(json.dumps(overlay.to_dict()))  # round-trips
     assert payload["in_kev"] is True
     assert payload["kev"][0]["cve"] == "CVE-2021-44228"
@@ -216,9 +214,18 @@ def test_enrich_command_offline_writes_overlay_and_counts_kev(tmp_path: Path) ->
     result = runner.invoke(
         app,
         [
-            "vulcan", "enrich", "--findings", str(findings),
-            "--kev", str(kev_file), "--epss", str(epss_file),
-            "--output", str(output), "--format", "json",
+            "vulcan",
+            "enrich",
+            "--findings",
+            str(findings),
+            "--kev",
+            str(kev_file),
+            "--epss",
+            str(epss_file),
+            "--output",
+            str(output),
+            "--format",
+            "json",
         ],
     )
 

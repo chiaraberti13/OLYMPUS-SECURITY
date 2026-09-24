@@ -56,22 +56,24 @@ the merge** when they fail:
 | Check | Why it blocks |
 | --- | --- |
 | `ruff check .` | catches real defects (unused/undefined names, unsafe patterns) |
+| `ruff format --check .` | prevents unreviewed style-only drift |
+| `mypy --strict src/olympus` | rejects type inconsistencies in first-party code |
 | `pytest` | offline unit, contract and guardrail tests |
 | wheel build, clean install and CLI smoke test | the package must work outside the checkout |
 | `pip-audit` on the runtime closure | no dependency with a known advisory ships |
 | `gitleaks` (with a canary proving it works) | no secret enters the repository |
 
-Planned, **not yet enforced**: `mypy`, `ruff format --check`, a coverage
-threshold, CodeQL and a link checker — tracked as `DEV-C`, `DEV-G` and `SEC-F` in
-`ROADMAP.md`. Until they are wired into CI they stay optional.
+Planned, **not yet enforced**: a coverage threshold, CodeQL and a link checker —
+tracked as `DEV-C`, `DEV-G` and `SEC-F` in `ROADMAP.md`.
 
 ## Local helpers
 
 ```bash
 make lint      # ruff
-make type      # mypy (optional until DEV-C lands)
+make format-check
+make type      # strict Mypy over first-party code
 make test      # pytest
-make check     # all three; never stops on the first failure
+make check     # all four blocking first-party checks
 ```
 
 `pre-commit` is opt-in. Bypassing it locally with `git commit --no-verify` is

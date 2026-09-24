@@ -165,9 +165,7 @@ def test_partial_coverage_outranks_findings() -> None:
 
 def test_ports_outside_the_engagement_allowlist_are_never_probed(tmp_path: Path) -> None:
     connector = FakeConnector()
-    report = discover(
-        "192.0.2.10", [22, 443], connector, allowed_ports=frozenset({443})
-    )
+    report = discover("192.0.2.10", [22, 443], connector, allowed_ports=frozenset({443}))
 
     assert [call[1] for call in connector.calls] == [443]
     denied = next(probe for probe in report.probes if probe.port == 22)
@@ -474,8 +472,7 @@ def test_cli_scan_enforces_scope_and_exports(
     assert payload["coverage"]["completed"] == 2
     assert payload["coverage"]["complete"] is True
     observations = {
-        item["attributes"]["port"]: item["attributes"]
-        for item in payload["observations"]
+        item["attributes"]["port"]: item["attributes"] for item in payload["observations"]
     }
     assert observations["443"]["state"] == "open"
     assert observations["80"]["state"] == "closed"

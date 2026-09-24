@@ -226,16 +226,10 @@ def test_two_runs_never_share_a_scratch_directory() -> None:
 # --- terminate → kill escalation ------------------------------------------- #
 @posix_only
 def test_a_child_that_ignores_sigterm_is_escalated_to_sigkill() -> None:
-    script = (
-        "import signal,time;"
-        "signal.signal(signal.SIGTERM, signal.SIG_IGN);"
-        "time.sleep(60)"
-    )
+    script = "import signal,time;signal.signal(signal.SIGTERM, signal.SIG_IGN);time.sleep(60)"
     started = time.monotonic()
     with pytest.raises(CommandTimeout) as caught:
-        run_command(
-            [sys.executable, "-c", script], timeout=0.5, sandbox=_policy(grace_seconds=0.5)
-        )
+        run_command([sys.executable, "-c", script], timeout=0.5, sandbox=_policy(grace_seconds=0.5))
     report = caught.value.report
     assert report.cause is TerminationCause.TIMEOUT
     assert report.limit == "timeout_seconds"

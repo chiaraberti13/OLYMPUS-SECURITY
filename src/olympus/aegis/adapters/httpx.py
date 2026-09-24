@@ -50,7 +50,8 @@ class HttpxAdapter(ScannerAdapter):
         target = request.target if request.target_kind == "url" else host
         return [
             self.binary,
-            "-target", target,
+            "-target",
+            target,
             "-json",
             "-silent",
             "-no-color",

@@ -34,8 +34,7 @@ def triage_alerts(alerts: Sequence[Alert], title: str, owner: str | None = None)
     if not unique:
         raise ValueError("at least one alert is required for triage")
     if any(
-        alert.created_at.tzinfo is None or alert.created_at.utcoffset() is None
-        for alert in unique
+        alert.created_at.tzinfo is None or alert.created_at.utcoffset() is None for alert in unique
     ):
         raise ValueError("alert created_at values must include a timezone")
     severity = max((alert.severity for alert in unique), key=_SEVERITY_RANK.__getitem__)

@@ -152,6 +152,4 @@ def build_whois_asset(report: WhoisReport) -> Asset:
 def export_whois_report(report: WhoisReport, asset: Asset, path: Path) -> None:
     """Write a WHOIS report (registration + asset) as JSON to ``path``."""
     payload = {"report": report.to_dict(), "asset": json.loads(asset.model_dump_json())}
-    atomic_write_text(
-        path, json.dumps(payload, indent=2, sort_keys=True), mode=0o600
-    )
+    atomic_write_text(path, json.dumps(payload, indent=2, sort_keys=True), mode=0o600)

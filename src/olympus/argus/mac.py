@@ -149,6 +149,4 @@ class MacIntel:
 
 def export_mac_intel(intel: MacIntel, path: Path) -> None:
     """Write a MAC-intel bundle (report + asset + findings) as JSON to ``path``."""
-    atomic_write_text(
-        path, json.dumps(intel.to_dict(), indent=2, sort_keys=True), mode=0o600
-    )
+    atomic_write_text(path, json.dumps(intel.to_dict(), indent=2, sort_keys=True), mode=0o600)

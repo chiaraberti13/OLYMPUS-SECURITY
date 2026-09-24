@@ -61,11 +61,16 @@ def _fake_factory(result: ScanResult):
 
 def test_scan_maps_a_live_result_into_findings() -> None:
     finding = Finding(
-        asset_id="AST-1", source=Source.AEGIS, severity=Severity.MEDIUM,
+        asset_id="AST-1",
+        source=Source.AEGIS,
+        severity=Severity.MEDIUM,
         title="Open port 22/tcp (ssh)",
     )
     live = ScanResult(
-        scanner="nmap", state=ExecutionState.LIVE, target="example.com", findings=[finding],
+        scanner="nmap",
+        state=ExecutionState.LIVE,
+        target="example.com",
+        findings=[finding],
     )
     adapter = AegisScanAdapter(
         "nmap", adapter_factory=_fake_factory(live), live_enabled=lambda: True
@@ -77,7 +82,9 @@ def test_scan_maps_a_live_result_into_findings() -> None:
 
 def test_scan_maps_an_unavailable_result_to_a_failed_step() -> None:
     unavailable = ScanResult(
-        scanner="nmap", state=ExecutionState.UNAVAILABLE, target="example.com",
+        scanner="nmap",
+        state=ExecutionState.UNAVAILABLE,
+        target="example.com",
     )
     adapter = AegisScanAdapter(
         "nmap", adapter_factory=_fake_factory(unavailable), live_enabled=lambda: True
@@ -115,7 +122,9 @@ def test_cli_pipeline_runs_the_scan_stage_and_reports(tmp_path: Path) -> None:
         "adapters": ["aegis"],
         "scope": {"allowed_domains": ["example.com"]},
         "authorization": {
-            "engagement_id": "ENG-PIPE", "approval_reference": "SOW-1", "confirmed": True
+            "engagement_id": "ENG-PIPE",
+            "approval_reference": "SOW-1",
+            "confirmed": True,
         },
     }
     plan_path = tmp_path / "plan.json"

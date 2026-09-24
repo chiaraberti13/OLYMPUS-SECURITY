@@ -52,9 +52,7 @@ def test_resolve_mx_record_renders_preference_and_exchange(monkeypatch: pytest.M
         [_FakeRdata("unused", preference=10, exchange="mail.olympusdemocorp.example.")],
     )
     resolver = DnspythonResolver()
-    assert resolver.resolve("olympusdemocorp.example", "MX") == [
-        "10 mail.olympusdemocorp.example"
-    ]
+    assert resolver.resolve("olympusdemocorp.example", "MX") == ["10 mail.olympusdemocorp.example"]
 
 
 def test_resolve_txt_record_joins_chunks(monkeypatch: pytest.MonkeyPatch) -> None:

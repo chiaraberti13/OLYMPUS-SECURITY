@@ -161,9 +161,7 @@ def test_response_size_violation_is_not_retried(monkeypatch: pytest.MonkeyPatch)
 
     monkeypatch.setattr("urllib.request.urlopen", _oversized)
     with pytest.raises(HttpResponseTooLarge):
-        UrllibHttpClient(retries=3, max_response_bytes=4).get(
-            "https://olympusdemocorp.example/"
-        )
+        UrllibHttpClient(retries=3, max_response_bytes=4).get("https://olympusdemocorp.example/")
     assert calls["n"] == 1
 
 
@@ -178,9 +176,7 @@ def test_rejects_excessive_response_headers_without_retry(
 
     monkeypatch.setattr("urllib.request.urlopen", _many_headers)
     with pytest.raises(HttpResponseHeadersTooLarge, match="header limit"):
-        UrllibHttpClient(retries=3, max_response_headers=1).get(
-            "https://olympusdemocorp.example/"
-        )
+        UrllibHttpClient(retries=3, max_response_headers=1).get("https://olympusdemocorp.example/")
     assert calls["n"] == 1
 
 
@@ -189,9 +185,7 @@ def test_rejects_aggregate_response_header_bytes(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr("urllib.request.urlopen", lambda request, timeout=0.0: fake)
 
     with pytest.raises(HttpResponseHeadersTooLarge, match="byte limit"):
-        UrllibHttpClient(max_response_header_bytes=8).get(
-            "https://olympusdemocorp.example/"
-        )
+        UrllibHttpClient(max_response_header_bytes=8).get("https://olympusdemocorp.example/")
 
 
 def test_default_response_limit_is_bounded() -> None:
@@ -213,9 +207,7 @@ def test_response_body_is_read_in_bounded_chunks(monkeypatch: pytest.MonkeyPatch
     fake.read = _recording_read  # type: ignore[method-assign]
     monkeypatch.setattr("urllib.request.urlopen", lambda request, timeout=0.0: fake)
 
-    response = UrllibHttpClient(max_response_bytes=16).get(
-        "https://olympusdemocorp.example/"
-    )
+    response = UrllibHttpClient(max_response_bytes=16).get("https://olympusdemocorp.example/")
 
     assert response.body == "abcdefghij"
     assert len(requested) > 1
@@ -464,9 +456,7 @@ def test_gzip_response_is_decoded(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         urllib.request,
         "urlopen",
-        lambda request, timeout=0.0: _FakeHttpResponse(
-            200, {"Content-Encoding": "gzip"}, body
-        ),
+        lambda request, timeout=0.0: _FakeHttpResponse(200, {"Content-Encoding": "gzip"}, body),
     )
 
     assert UrllibHttpClient().get("https://example.test/").body == "decoded payload"

@@ -208,9 +208,7 @@ def _write_enrichment(
     typer.echo(f"athena: wrote enrichment overlay to {target}", err=True)
 
 
-def _build_coordinator(
-    plan: AssessmentPlan, repository: SqliteAssessmentRepository
-) -> Coordinator:
+def _build_coordinator(plan: AssessmentPlan, repository: SqliteAssessmentRepository) -> Coordinator:
     def _redirect_validator(allowed: tuple[str, ...]) -> Callable[[str], None]:
         def validate(url: str) -> None:
             # urllib invokes this before every redirect hop is followed. Re-run

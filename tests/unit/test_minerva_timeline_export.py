@@ -33,8 +33,15 @@ def test_timeline_export_writes_a_canonical_artifact(tmp_path: Path) -> None:
     export = tmp_path / "tl.json"
     result = runner.invoke(
         app,
-        ["minerva", "timeline", str(_ledger(tmp_path)),
-         "--format", "json", "--export", str(export)],
+        [
+            "minerva",
+            "timeline",
+            str(_ledger(tmp_path)),
+            "--format",
+            "json",
+            "--export",
+            str(export),
+        ],
     )
     assert result.exit_code == 0, result.output
     doc = json.loads(export.read_text(encoding="utf-8"))
@@ -50,8 +57,15 @@ def test_signed_timeline_export_is_third_party_verifiable(tmp_path: Path) -> Non
     export = tmp_path / "tl.json"
     result = runner.invoke(
         app,
-        ["minerva", "timeline", str(_ledger(tmp_path)),
-         "--export", str(export), "--sign-key", str(key)],
+        [
+            "minerva",
+            "timeline",
+            str(_ledger(tmp_path)),
+            "--export",
+            str(export),
+            "--sign-key",
+            str(key),
+        ],
     )
     assert result.exit_code == 0, result.output
     signature = export.with_name(export.name + ".sig")

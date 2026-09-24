@@ -11,6 +11,7 @@ import json
 import os
 from pathlib import Path
 
+import click
 import typer
 
 from olympus import __version__
@@ -237,9 +238,7 @@ def edit_policy(
             raise typer.Exit(code=int(ExitCode.USAGE)) from exc
         created = True
     core_policy.reset_active_policy_cache()
-    typer.echo(
-        f"olympus: {'created' if created else 'using'} policy file {target}", err=True
-    )
+    typer.echo(f"olympus: {'created' if created else 'using'} policy file {target}", err=True)
     editor = os.environ.get("VISUAL") or os.environ.get("EDITOR")
     if open_editor and editor:
         typer.launch(str(target))
@@ -325,8 +324,9 @@ def export_sbom(
         return
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(payload + "\n", encoding="utf-8")
-    typer.echo(f"olympus: wrote SBOM ({len(document['components'])} components) to {output}",
-               err=True)
+    typer.echo(
+        f"olympus: wrote SBOM ({len(document['components'])} components) to {output}", err=True
+    )
 
 
 @core_app.command("lock")
@@ -471,7 +471,7 @@ def terminal_ui() -> None:
     from olympus.tui import OlympusTui
 
     root = get_command(app)
-    if not isinstance(root, typer.core.TyperGroup):
+    if not isinstance(root, click.Group):
         raise RuntimeError("Olympus root command is not a command group")
     OlympusTui(root).run()
 

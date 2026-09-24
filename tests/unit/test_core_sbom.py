@@ -83,9 +83,7 @@ def test_reproducible_render_omits_timestamp_and_serial() -> None:
     assert "serialNumber" not in document
     assert "timestamp" not in document.get("metadata", {})
     # Two reproducible renders are byte-for-byte identical.
-    assert json.dumps(document, sort_keys=True) == json.dumps(
-        sbom.render_sbom(), sort_keys=True
-    )
+    assert json.dumps(document, sort_keys=True) == json.dumps(sbom.render_sbom(), sort_keys=True)
 
 
 def test_render_records_requested_extras_as_properties() -> None:
@@ -138,9 +136,7 @@ def test_sbom_command_writes_a_file(tmp_path: object) -> None:
 
     assert isinstance(tmp_path, Path)
     destination = tmp_path / "nested" / "sbom.json"
-    result = runner.invoke(
-        app, ["core", "sbom", "--reproducible", "--output", str(destination)]
-    )
+    result = runner.invoke(app, ["core", "sbom", "--reproducible", "--output", str(destination)])
     assert result.exit_code == 0, result.output
     assert destination.exists()
     assert json.loads(destination.read_text())["bomFormat"] == "CycloneDX"

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 import shlex
+import subprocess
 import sys
 from pathlib import Path
 from typing import ClassVar
@@ -29,7 +30,7 @@ STATUS_HINT = " Enter: select/run   Tab: next panel   F1: help   F5: run   Esc: 
 class HelpScreen(ModalScreen[None]):
     """Compact keyboard reference."""
 
-    BINDINGS: ClassVar[list[Binding]] = [
+    BINDINGS: ClassVar[list[Binding | tuple[str, str] | tuple[str, str, str]]] = [
         Binding("escape", "dismiss", "Close"),
         Binding("f1", "dismiss", "Close"),
     ]
@@ -56,7 +57,7 @@ class HelpScreen(ModalScreen[None]):
 class CommandScreen(Screen[None]):
     """Run one real Olympus command and stream its output."""
 
-    BINDINGS: ClassVar[list[Binding]] = [
+    BINDINGS: ClassVar[list[Binding | tuple[str, str] | tuple[str, str, str]]] = [
         Binding("f1", "help", "Help"),
         Binding("f5", "run_command", "Run", priority=True),
         Binding("ctrl+c", "cancel_command", "Cancel", priority=True),
@@ -163,7 +164,7 @@ class CommandScreen(Screen[None]):
             style = "green" if return_code == 0 else "red"
             output.write(Text(f"Process exited with code {return_code}.", style=f"bold {style}"))
             status_bar.update(f" Completed with exit code {return_code}. ")
-        except (OSError, asyncio.SubprocessError) as exc:
+        except (OSError, subprocess.SubprocessError) as exc:
             output.write(Text(f"Unable to start command: {exc}", style="bold red"))
             status_bar.update(" Execution failed to start. ")
         finally:
@@ -177,7 +178,7 @@ class OlympusTui(App[None]):
     SUB_TITLE = "Professional Security Operations Console"
     CSS_PATH = "olympus.tcss"
     ENABLE_COMMAND_PALETTE = False
-    BINDINGS: ClassVar[list[Binding]] = [
+    BINDINGS: ClassVar[list[Binding | tuple[str, str] | tuple[str, str, str]]] = [
         Binding("f1", "help", "Help"),
         Binding("f10", "focus_tools", "Menu"),
         Binding("q", "quit", "Quit"),

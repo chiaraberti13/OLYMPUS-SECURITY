@@ -61,9 +61,10 @@ class CommixAdapter(ScannerAdapter):
         target = request.target if request.target_kind == "url" else f"http://{host}"
         return [
             self.binary,
-            "-u", target,
-            "--batch",            # never prompt; the sandbox has no interactive user
-            "--ignore-session",   # a reproducible run, not a resumed one
+            "-u",
+            target,
+            "--batch",  # never prompt; the sandbox has no interactive user
+            "--ignore-session",  # a reproducible run, not a resumed one
             "--disable-coloring",
             "--random-agent",
         ]

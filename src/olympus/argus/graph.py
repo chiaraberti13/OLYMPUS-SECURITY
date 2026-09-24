@@ -145,7 +145,7 @@ class Investigation:
             return text.replace("\\", "\\\\").replace('"', '\\"')
 
         node_ids = self._node_ids()
-        lines = ["digraph olympus {", "  rankdir=LR;", '  node [shape=box];']
+        lines = ["digraph olympus {", "  rankdir=LR;", "  node [shape=box];"]
         for entity in self.entities:
             label = esc(f"{entity.entity_type.value}: {entity.value}")
             lines.append(f'  {node_ids[entity.id]} [label="{label}"];')

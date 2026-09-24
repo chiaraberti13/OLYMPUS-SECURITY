@@ -91,15 +91,24 @@ def test_realistically_compressible_page_is_still_accepted() -> None:
 
 
 def test_effective_limit_takes_the_stricter_of_absolute_and_ratio() -> None:
-    assert effective_output_limit(
-        1_000, max_output_bytes=10_000, max_expansion_ratio=2.0, min_expansion_allowance=0
-    ) == 2_000
-    assert effective_output_limit(
-        1_000_000, max_output_bytes=10_000, max_expansion_ratio=2.0, min_expansion_allowance=0
-    ) == 10_000
-    assert effective_output_limit(
-        1, max_output_bytes=10_000, max_expansion_ratio=2.0, min_expansion_allowance=4_096
-    ) == 4_096
+    assert (
+        effective_output_limit(
+            1_000, max_output_bytes=10_000, max_expansion_ratio=2.0, min_expansion_allowance=0
+        )
+        == 2_000
+    )
+    assert (
+        effective_output_limit(
+            1_000_000, max_output_bytes=10_000, max_expansion_ratio=2.0, min_expansion_allowance=0
+        )
+        == 10_000
+    )
+    assert (
+        effective_output_limit(
+            1, max_output_bytes=10_000, max_expansion_ratio=2.0, min_expansion_allowance=4_096
+        )
+        == 4_096
+    )
 
 
 def test_truncated_and_malformed_bodies_are_errors_not_partial_results() -> None:

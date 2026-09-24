@@ -121,6 +121,4 @@ def build_dns_asset(report: DnsRecordReport) -> Asset:
 def export_dns_report(report: DnsRecordReport, asset: Asset, path: Path) -> None:
     """Write a DNS report (records + asset) as JSON to ``path``."""
     payload = {"report": report.to_dict(), "asset": json.loads(asset.model_dump_json())}
-    atomic_write_text(
-        path, json.dumps(payload, indent=2, sort_keys=True), mode=0o600
-    )
+    atomic_write_text(path, json.dumps(payload, indent=2, sort_keys=True), mode=0o600)

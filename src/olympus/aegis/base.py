@@ -73,9 +73,7 @@ class ScannerAdapter(ABC):
         return socket_resolver(host)
 
     @staticmethod
-    def add_finding(
-        findings: list[Finding], finding: Finding, request: ScanRequest
-    ) -> None:
+    def add_finding(findings: list[Finding], finding: Finding, request: ScanRequest) -> None:
         """Append without ever allocating beyond the configured finding cap."""
         if len(findings) >= request.max_findings:
             raise ParseError(f"scanner output exceeds the {request.max_findings} finding limit")
@@ -294,9 +292,7 @@ def _termination_of(exc: BaseException) -> TerminationReport:
     # The only remaining case is the adapter's own overall-deadline TimeoutError,
     # raised before the process was started rather than by the runner.
     cause = (
-        TerminationCause.TIMEOUT
-        if isinstance(exc, TimeoutError)
-        else TerminationCause.START_FAILED
+        TerminationCause.TIMEOUT if isinstance(exc, TimeoutError) else TerminationCause.START_FAILED
     )
     return TerminationReport(cause=cause, detail=str(exc), limit="deadline_seconds")
 
@@ -319,6 +315,8 @@ _SECRET_ASSIGNMENT = re.compile(
     r"(\s*[:=]\s*)"
     r"((?:(?:bearer|basic|digest|negotiate|ntlm|token|apikey)\s+)?[^\s,;]+)"
 )
+
+
 def _evidence(output: CommandOutput) -> str:
     parts = []
     if output.stdout.strip():

@@ -37,9 +37,7 @@ class ScanRequest:
     authorized: bool = False
     live_enabled: bool = False
     simulate: bool = False
-    cancellation: Cancellation = field(
-        default_factory=NeverCancelled, repr=False, compare=False
-    )
+    cancellation: Cancellation = field(default_factory=NeverCancelled, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         if re.fullmatch(r"[a-z0-9][a-z0-9-]{0,63}", self.scanner) is None:

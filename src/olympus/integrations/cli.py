@@ -16,6 +16,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import typer
 
@@ -40,6 +41,9 @@ from olympus.integrations.vendored import (
     optional_tool_path,
     tool_path,
 )
+
+if TYPE_CHECKING:
+    from olympus.aegis.identity import IdentityRegister
 
 
 def _os_environ() -> dict[str, str]:
@@ -224,8 +228,7 @@ def aegis_serve(
     path = _require_vendored(VAP_DIR)
     env = {**_os_environ(), "VAP_HOST": host, "VAP_PORT": str(port)}
     typer.echo(
-        f"olympus: starting quarantined legacy VAP web app on http://{host}:{port} "
-        f"(from {path})",
+        f"olympus: starting quarantined legacy VAP web app on http://{host}:{port} (from {path})",
         err=True,
     )
     completed = subprocess.run([sys.executable, "app.py"], cwd=str(path), env=env, check=False)
@@ -338,8 +341,7 @@ def aegis_matrix(
             raise typer.Exit(code=int(ExitCode.USAGE)) from exc
         if current != rendered:
             typer.echo(
-                "olympus: docs/scanner-matrix.md is stale; run "
-                "'olympus aegis matrix --write'",
+                "olympus: docs/scanner-matrix.md is stale; run 'olympus aegis matrix --write'",
                 err=True,
             )
             raise typer.Exit(code=int(ExitCode.USAGE))
@@ -410,8 +412,7 @@ def aegis_capabilities(
         reached = count_at_least(minimum)
         if reached < count:
             typer.echo(
-                f"olympus: {reached} integration(s) reach {minimum.value}, "
-                f"{count} required",
+                f"olympus: {reached} integration(s) reach {minimum.value}, {count} required",
                 err=True,
             )
             raise typer.Exit(code=int(ExitCode.NOT_AUTHORIZED))
@@ -630,7 +631,7 @@ def aegis_jobs_recover(
     )
 
 
-def _identity_register(path: str, *, create: bool = False) -> object:
+def _identity_register(path: str, *, create: bool = False) -> IdentityRegister:
     from pathlib import Path
 
     from olympus.aegis.identity import IdentityRegister, load_register
@@ -681,7 +682,7 @@ def aegis_identities_add(
     register = _identity_register(register_path, create=True)
     try:
         updated, secret = add_identity(
-            register,  # type: ignore[arg-type]
+            register,
             identity_id=identity_id,
             scopes=[item.strip() for item in scopes.split(",") if item.strip()],
             rate_limit_per_minute=rate_limit,
@@ -713,7 +714,7 @@ def aegis_identities_rotate(
 
     try:
         updated, secret = rotate_identity(
-            _identity_register(register_path),  # type: ignore[arg-type]
+            _identity_register(register_path),
             identity_id,
             overlap_seconds=overlap_seconds,
         )
@@ -736,7 +737,8 @@ def aegis_identities_revoke(
 
     try:
         updated = revoke_identity(
-            _identity_register(register_path), identity_id  # type: ignore[arg-type]
+            _identity_register(register_path),
+            identity_id,
         )
     except IdentityError as exc:
         typer.echo(f"olympus: {exc}", err=True)
@@ -751,7 +753,7 @@ def aegis_identities_list(
 ) -> None:
     """List identities, their scopes and status. Secrets are never stored."""
     register = _identity_register(register_path)
-    identities = register.public_view()  # type: ignore[attr-defined]
+    identities = register.public_view()
     typer.echo(
         json.dumps({"count": len(identities), "identities": identities}, indent=2, sort_keys=True)
     )
@@ -826,9 +828,7 @@ def aegis_retention_rotate_log(
     from olympus.core.retention import RetentionError, rotate_log
 
     try:
-        report = rotate_log(
-            Path(path), max_bytes=max_bytes, keep=keep, secure=not insecure
-        )
+        report = rotate_log(Path(path), max_bytes=max_bytes, keep=keep, secure=not insecure)
     except RetentionError as exc:
         typer.echo(f"olympus: {exc}", err=True)
         raise typer.Exit(code=2) from exc

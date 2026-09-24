@@ -134,9 +134,7 @@ def verify(data: bytes, envelope_text: str, *, public_pem: str) -> bool:
     if not isinstance(embedded, str):
         raise SigningError("signature envelope has no public_key")
     if _raw_public(embedded) != _raw_public(public_pem):
-        raise SigningError(
-            "signature was made by a different key than the trusted public key"
-        )
+        raise SigningError("signature was made by a different key than the trusted public key")
     try:
         signature = base64.b64decode(str(envelope["signature"]))
     except (KeyError, ValueError) as exc:

@@ -258,9 +258,7 @@ def parser_test_is_present(name: str) -> bool | None:
     if not (root / "pyproject.toml").exists() or not tests.is_dir():
         return None
     needle = f"def test_{name}_parser"
-    return any(
-        needle in module.read_text(encoding="utf-8") for module in tests.glob("test_*.py")
-    )
+    return any(needle in module.read_text(encoding="utf-8") for module in tests.glob("test_*.py"))
 
 
 def verify_declarations() -> list[str]:
@@ -285,20 +283,14 @@ def verify_declarations() -> list[str]:
             problems.append(f"{name}: declared but absent from the scanner catalogue")
             continue
         if record.stage is Maturity.CATALOG_ONLY:
-            problems.append(
-                f"{name}: declared catalog-only; leave it out of DECLARED instead"
-            )
+            problems.append(f"{name}: declared catalog-only; leave it out of DECLARED instead")
             continue
         if name not in adapters:
-            problems.append(
-                f"{name}: declared {record.stage.value} but has no native adapter"
-            )
+            problems.append(f"{name}: declared {record.stage.value} but has no native adapter")
         if not record.evidence:
             problems.append(f"{name}: declared {record.stage.value} without evidence")
         elif evidence_is_present(record) is False:
-            problems.append(
-                f"{name}: evidence {record.evidence} does not exist in the repository"
-            )
+            problems.append(f"{name}: evidence {record.evidence} does not exist in the repository")
         if (
             at_least(record.stage, Maturity.OFFLINE_TESTED)
             and parser_test_is_present(name) is False
@@ -308,9 +300,7 @@ def verify_declarations() -> list[str]:
                 f"{_OFFLINE_EVIDENCE} has no test_{name}_parser* function"
             )
         if record.stage is Maturity.PRODUCTION_READY and record.blocker:
-            problems.append(
-                f"{name}: declared production-ready while still recording a blocker"
-            )
+            problems.append(f"{name}: declared production-ready while still recording a blocker")
 
     # An adapter that exists but is not declared would silently read as
     # catalog-only, understating the project rather than overstating it — still

@@ -151,9 +151,7 @@ class VulcanApplicationService:
             raise AggregationError("max_items_per_file must be between 1 and 1000000")
         if not 1 <= request.max_total_items <= 1_000_000:
             raise AggregationError("max_total_items must be between 1 and 1000000")
-        _validate_input_set(
-            request.finding_paths, request.max_files, request.max_total_input_bytes
-        )
+        _validate_input_set(request.finding_paths, request.max_files, request.max_total_input_bytes)
         progress = self._progress(request.deadline_seconds, "Vulcan rank")
         findings = load_findings(
             request.finding_paths,
@@ -226,9 +224,7 @@ def _validate_input_set(inputs: tuple[Path, ...], max_files: int, max_total_byte
             raise AggregationError(f"aggregation input must be a non-symlink regular file: {path}")
         total += metadata.st_size
         if total > max_total_bytes:
-            raise AggregationError(
-                f"input set exceeds the {max_total_bytes} aggregate byte limit"
-            )
+            raise AggregationError(f"input set exceeds the {max_total_bytes} aggregate byte limit")
 
 
 def _ensure_output_size(content: bytes, maximum: int, label: str) -> None:

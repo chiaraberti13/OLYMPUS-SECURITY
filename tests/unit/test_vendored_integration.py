@@ -24,10 +24,30 @@ runner = CliRunner()
 
 # The complete VAP scanner catalogue — all 24 integrations.
 EXPECTED_VAP_SCANNERS = {
-    "acunetix", "arjun", "burp", "commix", "dalfox", "dirsearch", "httpx",
-    "katana", "nessus", "nikto", "nmap", "nosqlmap", "nuclei", "openvas",
-    "sqlmap", "subfinder", "testssl", "theharvester", "wafw00f", "wapiti",
-    "whatweb", "wpscan", "xsstrike", "zap",
+    "acunetix",
+    "arjun",
+    "burp",
+    "commix",
+    "dalfox",
+    "dirsearch",
+    "httpx",
+    "katana",
+    "nessus",
+    "nikto",
+    "nmap",
+    "nosqlmap",
+    "nuclei",
+    "openvas",
+    "sqlmap",
+    "subfinder",
+    "testssl",
+    "theharvester",
+    "wafw00f",
+    "wapiti",
+    "whatweb",
+    "wpscan",
+    "xsstrike",
+    "zap",
 }
 
 
@@ -41,10 +61,7 @@ def test_vendor_root_exists() -> None:
 def test_vap_source_is_complete() -> None:
     vap = tool_path(VAP_DIR)
     assert (vap / "LICENSE").is_file()
-    scanners = {
-        p.stem.removesuffix("_scanner")
-        for p in (vap / "scanners").glob("*_scanner.py")
-    }
+    scanners = {p.stem.removesuffix("_scanner") for p in (vap / "scanners").glob("*_scanner.py")}
     assert scanners == EXPECTED_VAP_SCANNERS
     for key_file in (
         "app.py",
@@ -142,9 +159,7 @@ def test_diagnostics_work_from_an_installation_without_the_vendored_tree(
         assert json.loads(result.output)["checks"]
 
     reported = json.loads(runner.invoke(app, ["aegis", "doctor"]).output)
-    vendor = next(
-        item for item in reported["checks"] if item["name"].startswith("vendor:")
-    )
+    vendor = next(item for item in reported["checks"] if item["name"].startswith("vendor:"))
     assert vendor["ok"] is False and vendor["optional"] is True
     assert "not installed" in vendor["detail"]
 

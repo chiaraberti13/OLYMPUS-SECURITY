@@ -18,9 +18,7 @@ class UnsafeWriteTarget(ValueError):
     """Raised when a write destination fails a pre-write safety check."""
 
 
-def ensure_write_target(
-    path: Path, *, base: Path | None = None, overwrite: bool = True
-) -> Path:
+def ensure_write_target(path: Path, *, base: Path | None = None, overwrite: bool = True) -> Path:
     """Validate a write destination *before* any bytes are written (§5.2).
 
     Three checks, each closing a real footgun for an operator-supplied path:
@@ -118,9 +116,7 @@ def atomic_write_bytes(
             try:
                 os.link(temporary, path)
             except FileExistsError as exc:
-                raise UnsafeWriteTarget(
-                    f"refusing to overwrite an existing file: {path}"
-                ) from exc
+                raise UnsafeWriteTarget(f"refusing to overwrite an existing file: {path}") from exc
             finally:
                 temporary.unlink(missing_ok=True)
         _fsync_directory(path.parent)

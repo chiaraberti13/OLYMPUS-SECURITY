@@ -94,8 +94,8 @@ extend-immutable-calls = ["typer.Option", "typer.Argument"]
 [tool.ruff.lint.isort]
 known-first-party = ["olympus"]
 
-# Mypy is an additional local quality tool. Ruff and pytest are blocking CI
-# checks. Vendored upstream tools are excluded; they carry their own tooling.
+# Mypy is a blocking CI check over first-party code. Vendored upstream tools
+# are excluded; they carry their own tooling.
 [tool.mypy]
 python_version = "3.11"
 strict = true

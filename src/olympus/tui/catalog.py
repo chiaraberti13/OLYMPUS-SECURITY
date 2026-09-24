@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 
 import click
@@ -47,7 +48,7 @@ def commands_for(root: click.Group, tool: ToolSpec) -> tuple[CommandSpec, ...]:
     return tuple(_walk(command, (tool.command,)))
 
 
-def _walk(command: click.Command, path: tuple[str, ...]):
+def _walk(command: click.Command, path: tuple[str, ...]) -> Iterator[CommandSpec]:
     children: dict[str, click.Command] | None = getattr(command, "commands", None)
     if children:
         for name, child in sorted(children.items()):

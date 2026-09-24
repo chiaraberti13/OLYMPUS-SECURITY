@@ -60,9 +60,7 @@ def alert_to_ecs(alert: Alert) -> dict[str, Any]:
     if alert.rule_id is not None:
         document["rule"] = {"id": alert.rule_id, "name": alert.title}
     if alert.mitre_attack:
-        document["threat"] = {
-            "technique": [{"id": technique} for technique in alert.mitre_attack]
-        }
+        document["threat"] = {"technique": [{"id": technique} for technique in alert.mitre_attack]}
     return document
 
 

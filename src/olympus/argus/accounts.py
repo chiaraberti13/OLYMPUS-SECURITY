@@ -271,6 +271,4 @@ class AccountIntel:
 
 def export_account_intel(intel: AccountIntel, path: Path) -> None:
     """Write an account-intel bundle (scan + assets + findings) as JSON to ``path``."""
-    atomic_write_text(
-        path, json.dumps(intel.to_dict(), indent=2, sort_keys=True), mode=0o600
-    )
+    atomic_write_text(path, json.dumps(intel.to_dict(), indent=2, sort_keys=True), mode=0o600)

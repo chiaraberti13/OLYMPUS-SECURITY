@@ -163,8 +163,12 @@ def build_ip_asset(report: IpReport, geo: IpGeo | None = None) -> Asset:
     metadata: dict[str, str] = {"version": str(report.version), "kind": report.kind}
     if geo is not None:
         for key, value in (
-            ("country", geo.country), ("region", geo.region), ("city", geo.city),
-            ("isp", geo.isp), ("org", geo.org), ("asn", geo.asn),
+            ("country", geo.country),
+            ("region", geo.region),
+            ("city", geo.city),
+            ("isp", geo.isp),
+            ("org", geo.org),
+            ("asn", geo.asn),
         ):
             if value:
                 metadata[key] = value
@@ -194,7 +198,8 @@ def build_ip_findings(asset_id: str, report: IpReport, geo: IpGeo | None = None)
         )
     if geo is not None and (geo.is_proxy or geo.is_hosting):
         labels = ", ".join(
-            label for label, flag in (("proxy/VPN", geo.is_proxy), ("hosting", geo.is_hosting))
+            label
+            for label, flag in (("proxy/VPN", geo.is_proxy), ("hosting", geo.is_hosting))
             if flag
         )
         findings.append(
@@ -248,6 +253,4 @@ class IpIntel:
 
 def export_ip_intel(intel: IpIntel, path: Path) -> None:
     """Write an IP-intel bundle (report + asset + findings) as JSON to ``path``."""
-    atomic_write_text(
-        path, json.dumps(intel.to_dict(), indent=2, sort_keys=True), mode=0o600
-    )
+    atomic_write_text(path, json.dumps(intel.to_dict(), indent=2, sort_keys=True), mode=0o600)

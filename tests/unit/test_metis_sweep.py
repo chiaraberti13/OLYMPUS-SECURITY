@@ -26,8 +26,18 @@ def _case_with_iocs(tmp_path: Path) -> tuple[Path, str]:
     intel.write_text("Known bad: evil.example and 203.0.113.7", encoding="utf-8")
     ingested = runner.invoke(
         app,
-        ["metis", "case", "ingest", str(database), case_id, str(intel),
-         "--source", "threatfeed", "--confidence", "80"],
+        [
+            "metis",
+            "case",
+            "ingest",
+            str(database),
+            case_id,
+            str(intel),
+            "--source",
+            "threatfeed",
+            "--confidence",
+            "80",
+        ],
     )
     assert ingested.exit_code == 0, ingested.output
     return database, case_id

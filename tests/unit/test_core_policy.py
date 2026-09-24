@@ -118,7 +118,7 @@ def test_unknown_profile_is_refused() -> None:
 
 def test_unknown_key_is_refused_rather_than_ignored() -> None:
     with pytest.raises(core_policy.PolicyError, match="timout_seconds"):
-        core_policy.parse_policy('[bounds.default]\ntimout_seconds = 5\n')
+        core_policy.parse_policy("[bounds.default]\ntimout_seconds = 5\n")
 
 
 def test_malformed_toml_is_a_policy_error() -> None:
@@ -211,9 +211,7 @@ def test_unparseable_environment_override_is_a_policy_error(
 
 def test_unknown_bound_name_is_refused() -> None:
     with pytest.raises(core_policy.PolicyError, match="unknown execution bound"):
-        core_policy.resolve_bounds(
-            ruleset=core_policy.parse_policy(MINIMAL), speed_limit=3
-        )
+        core_policy.resolve_bounds(ruleset=core_policy.parse_policy(MINIMAL), speed_limit=3)
 
 
 def test_resolve_execution_policy_builds_a_valid_execution_policy() -> None:
@@ -270,7 +268,7 @@ def test_environment_path_wins_over_the_project_file(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     write_policy(tmp_path, MINIMAL)
-    chosen = write_policy(tmp_path, '[bounds.default]\nretries = 5\n', name="other.toml")
+    chosen = write_policy(tmp_path, "[bounds.default]\nretries = 5\n", name="other.toml")
     monkeypatch.setenv(core_policy.POLICY_PATH_VARIABLE, str(chosen))
     ruleset, source = core_policy.load_policy_with_source()
     assert source == chosen.resolve()
@@ -300,19 +298,13 @@ def test_enabling_the_lab_without_an_owner_is_refused() -> None:
 
 
 def test_enabling_the_lab_without_a_timestamp_is_refused() -> None:
-    body = (
-        "[lab]\nenabled = true\n"
-        'allowed_networks = ["10.10.0.0/16"]\nactivated_by = "operator"\n'
-    )
+    body = '[lab]\nenabled = true\nallowed_networks = ["10.10.0.0/16"]\nactivated_by = "operator"\n'
     with pytest.raises(core_policy.PolicyError, match="activated_at"):
         core_policy.parse_policy(body)
 
 
 def test_enabling_the_lab_without_a_network_is_refused() -> None:
-    body = (
-        "[lab]\nenabled = true\nactivated_by = \"operator\"\n"
-        "activated_at = 2026-01-01T00:00:00Z\n"
-    )
+    body = '[lab]\nenabled = true\nactivated_by = "operator"\nactivated_at = 2026-01-01T00:00:00Z\n'
     with pytest.raises(core_policy.PolicyError, match="allowed_networks"):
         core_policy.parse_policy(body)
 
@@ -328,14 +320,14 @@ def _lab_with(networks: str) -> str:
 @pytest.mark.parametrize(
     "network",
     [
-        '["8.8.8.0/24"]',       # public space
-        '["0.0.0.0/0"]',        # the default route
-        '["::/0"]',             # the IPv6 default route
-        '["169.254.0.0/16"]',   # link-local
+        '["8.8.8.0/24"]',  # public space
+        '["0.0.0.0/0"]',  # the default route
+        '["::/0"]',  # the IPv6 default route
+        '["169.254.0.0/16"]',  # link-local
         '["169.254.169.254/32"]',  # cloud instance metadata
-        '["127.0.0.0/8"]',      # loopback
-        '["fe80::/10"]',        # IPv6 link-local
-        '["10.0.0.0/7"]',       # straddles RFC 1918 and public space
+        '["127.0.0.0/8"]',  # loopback
+        '["fe80::/10"]',  # IPv6 link-local
+        '["10.0.0.0/7"]',  # straddles RFC 1918 and public space
     ],
 )
 def test_lab_allowlist_refuses_ineligible_ranges(network: str) -> None:
@@ -392,13 +384,9 @@ def test_activation_record_is_signed_when_a_key_is_configured(
 
 
 def test_activation_signature_changes_with_the_document() -> None:
-    first = core_policy.lab_activation_record(
-        core_policy.parse_policy(LAB), signing_key="k"
-    )
+    first = core_policy.lab_activation_record(core_policy.parse_policy(LAB), signing_key="k")
     widened = LAB.replace('["10.10.0.0/16"]', '["10.10.0.0/16", "192.168.5.0/24"]')
-    second = core_policy.lab_activation_record(
-        core_policy.parse_policy(widened), signing_key="k"
-    )
+    second = core_policy.lab_activation_record(core_policy.parse_policy(widened), signing_key="k")
     assert first["policy_digest"] != second["policy_digest"]
     assert first["signature"] != second["signature"]
 

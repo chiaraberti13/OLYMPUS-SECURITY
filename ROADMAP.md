@@ -82,12 +82,12 @@ di sicurezza forti, release riproducibili e flussi operativi comprensibili.
 | Credenziali | i segreti first-party sono letti dall'ambiente e redatti | manca un backend opzionale per secret manager e una policy uniforme di rotazione |
 | Autorizzazione | scope file + conferma esplicita prima dell'esecuzione | lo scope non è ancora un engagement manifest firmato, con scadenza e approvatore |
 | Supply chain | SBOM, hash lock, audit dipendenze e secret scan | mancano attestazioni di build, firma immagini/release e SAST CodeQL bloccante |
-| Qualità | Ruff e pytest sono gate obbligatori | Mypy configurato ma non eseguito in CI; nessuna soglia di coverage; CI solo Ubuntu/Python 3.11 |
+| Qualità | Ruff lint/format, Mypy strict e pytest sono gate obbligatori | nessuna soglia di coverage; CI solo Ubuntu/Python 3.11 |
 | Input ostili | report HTML Vulcan con `html.escape`; RichLog TUI con `markup=False` | `aegis/adapters/nmap.py` parsa XML con `xml.etree` considerandolo “trusted local”, ma banner e script output sono controllati dal target; nessun fuzzing dei parser |
 | Scanner | ledger in `integrations/maturity.py` con prove verificabili | 12 `live-tested`, 3 `offline-tested`, 0 `production-ready` |
 | TUI | esecuzione senza shell e streaming dell'output | un solo campo libero per gli argomenti, UI solo inglese, poco supporto decisionale |
 | Documentazione | README bilingue, threat model, ADR e guide operative | link interni corretti, ma manca un link checker in CI; alcuni conteggi non allineati |
-| Governance | `ROADMAP.md` canonica, `upgrade.md` storico in sola aggiunta, `CONTRIBUTING.md` allineato alla CI, template issue/PR e indice ADR | label di area e priorità non ancora create su GitHub |
+| Governance | `ROADMAP.md` canonica, `upgrade.md` storico in sola aggiunta, `CONTRIBUTING.md` allineato alla CI, template issue/PR, label versionate e indice ADR | gli indicatori e la maturity table non sono ancora generati automaticamente |
 
 ## 🛡️ Prospettiva Cybersecurity (Analisi e Rinforzo)
 
@@ -308,9 +308,9 @@ senza modificare il core, ma non può bypassare scope, policy, audit o sandbox.
 
 ### Intervento C · `DEV-C` — Compatibilità e qualità misurabile (**P1**)
 
-- [ ] Rendere Mypy un gate CI bloccante sul codice first-party: oggi il job
-  obbligatorio esegue solo `ruff check .` e `pytest`, mentre la Definition of Done
-  richiede anche Mypy. Aggiungere `ruff format --check` per evitare diff di stile.
+- [x] Rendere Mypy un gate CI bloccante sul codice first-party e aggiungere
+  `ruff format --check`: il job obbligatorio esegue lint, format, type checking
+  strict e test; il repository è stato normalizzato dal formatter.
 - [ ] Estendere la CI a Python 3.11, 3.12, 3.13 e 3.14; mantenere almeno Ubuntu e
   aggiungere smoke test su macOS e Windows per le funzioni portabili.
 - [ ] Isolare e marcare chiaramente i test POSIX-only della sandbox.
@@ -644,7 +644,7 @@ lab autorizzato; in assenza del lab restano aperte e non cambiano maturità.
   (`DEV-G`).
 - [x] Riconciliare `upgrade.md` con la roadmap e creare template issue/PR e label
   versionate (`DEV-H`).
-- [ ] Attivare Mypy e `ruff format --check` come gate CI (`DEV-C`).
+- [x] Attivare Mypy e `ruff format --check` come gate CI (`DEV-C`).
 - [ ] Generare automaticamente inventario e maturity table.
 - [ ] Registrare baseline di test, coverage, package build e threat model.
 - [ ] Aprire `adr-003` ritiro VAP, `adr-004` plugin SDK e `adr-005` engagement
@@ -747,7 +747,7 @@ committata e verificabile secondo `docs/scanner-maturity.md`.
 | Adapter almeno `live-tested` | 12 su 15 | 15 su 15 | `integrations/maturity.py` |
 | Branch coverage first-party | non misurata come gate | soglia iniziale = baseline, poi +5 punti per release minor | report coverage in CI |
 | Versioni Python testate in CI | 1 (3.11) | 4 (3.11–3.14) | `.github/workflows/ci.yml` |
-| Gate statici bloccanti | Ruff, pytest, pip-audit, gitleaks | + Mypy, format, CodeQL, link checker | `.github/workflows/ci.yml` |
+| Gate statici bloccanti | Ruff lint/format, Mypy, pytest, pip-audit, gitleaks | + CodeQL, link checker | `.github/workflows/ci.yml` |
 | Parser coperti da fuzzing | 0 | 100% degli adapter dichiarati | suite `SEC-H` |
 | Import runtime da `vendor/` | presenti (`aegis serve`, `migrate`, `workers`) | 0 | test di architettura `DEV-A` |
 | Link interni rotti | ≥ 6 file → 0 (verifica manuale del 24/09/2026) | 0, garantito dalla CI | link checker `DEV-G` |

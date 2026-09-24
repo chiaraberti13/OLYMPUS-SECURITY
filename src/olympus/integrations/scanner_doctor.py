@@ -137,8 +137,7 @@ def scanner_report(name: str) -> Report:
         Check(
             f"scanner:{name}:maturity",
             True,
-            f"{record.stage.value}"
-            + (f" — blocker: {record.blocker}" if record.blocker else ""),
+            f"{record.stage.value}" + (f" — blocker: {record.blocker}" if record.blocker else ""),
             optional=True,
         )
     )

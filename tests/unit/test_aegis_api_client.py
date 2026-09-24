@@ -31,8 +31,17 @@ def test_scan_client_submits_to_native_api(monkeypatch) -> None:  # type: ignore
     result = CliRunner().invoke(
         app,
         [
-            "aegis", "scan", "--scanner", "nmap", "--target", "example.com",
-            "--kind", "domain", "--scope-id", "customer-1", "--i-am-authorized",
+            "aegis",
+            "scan",
+            "--scanner",
+            "nmap",
+            "--target",
+            "example.com",
+            "--kind",
+            "domain",
+            "--scope-id",
+            "customer-1",
+            "--i-am-authorized",
         ],
         env={"OLYMPUS_AEGIS_API_KEY": "k" * 32},
     )
@@ -48,8 +57,14 @@ def test_scan_client_submits_to_native_api(monkeypatch) -> None:  # type: ignore
 def test_scan_client_requires_authorization_secret_and_remote_tls() -> None:
     runner = CliRunner()
     base = [
-        "aegis", "scan", "--scanner", "nmap", "--target", "example.com",
-        "--scope-id", "customer-1",
+        "aegis",
+        "scan",
+        "--scanner",
+        "nmap",
+        "--target",
+        "example.com",
+        "--scope-id",
+        "customer-1",
     ]
     denied = runner.invoke(app, base)
     assert denied.exit_code == 4

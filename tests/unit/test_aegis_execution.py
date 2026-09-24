@@ -306,9 +306,7 @@ def test_nonzero_process_is_failed_before_parser() -> None:
         def build_argv(self, host: str, request: ScanRequest) -> list[str]:
             return ["false"]
 
-    result = _Nonzero().run(
-        _req(scanner="fake", authorized=True, live_enabled=True)
-    )
+    result = _Nonzero().run(_req(scanner="fake", authorized=True, live_enabled=True))
     assert result.state is ExecutionState.FAILED
     assert result.exit_code == 1
     assert result.findings == []
@@ -324,9 +322,7 @@ def test_raw_evidence_is_bounded_and_redacted() -> None:
         def parse(self, output: CommandOutput, host: str, request: ScanRequest) -> list:  # type: ignore[type-arg]
             return []
 
-    result = _Evidence().run(
-        _req(scanner="fake", authorized=True, live_enabled=True)
-    )
+    result = _Evidence().run(_req(scanner="fake", authorized=True, live_enabled=True))
     assert result.state is ExecutionState.LIVE
     assert "secret" not in result.raw_evidence and "value" not in result.raw_evidence
     assert "[REDACTED]" in result.raw_evidence
@@ -365,8 +361,15 @@ def test_not_authorized_raises() -> None:
 
 def test_out_of_scope_raises() -> None:
     with pytest.raises(OutOfScopeError):
-        _FakeAdapter().run(_req(scanner="fake", target="evil.test", allowed=("example.com",),
-                                authorized=True, live_enabled=True))
+        _FakeAdapter().run(
+            _req(
+                scanner="fake",
+                target="evil.test",
+                allowed=("example.com",),
+                authorized=True,
+                live_enabled=True,
+            )
+        )
 
 
 # --- registry / config ----------------------------------------------------- #
@@ -374,9 +377,21 @@ def test_registry() -> None:
     from olympus.aegis.registry import UnknownScannerError, get_adapter, implemented
 
     assert set(implemented()) == {
-        "nmap", "nikto", "wafw00f", "sqlmap", "whatweb", "testssl",
-        "httpx", "nuclei", "katana", "dalfox", "dirsearch", "commix", "arjun",
-        "xsstrike", "wapiti",
+        "nmap",
+        "nikto",
+        "wafw00f",
+        "sqlmap",
+        "whatweb",
+        "testssl",
+        "httpx",
+        "nuclei",
+        "katana",
+        "dalfox",
+        "dirsearch",
+        "commix",
+        "arjun",
+        "xsstrike",
+        "wapiti",
     }
     assert get_adapter("nmap").name == "nmap"
     with pytest.raises(UnknownScannerError):
@@ -447,9 +462,7 @@ def test_application_authorizes_before_scope_and_protects_paths(tmp_path: Path) 
     missing = tmp_path / "missing.json"
     service = AegisApplicationService(lambda name: _FakeAdapter())
     with pytest.raises(AuthorizationRequiredError):
-        service.run(
-            AegisRunRequest("fake", "127.0.0.1", "host", missing, False, True)
-        )
+        service.run(AegisRunRequest("fake", "127.0.0.1", "host", missing, False, True))
 
     scope = _scope(tmp_path / "scope.json")
     with pytest.raises(ValueError, match="must not overwrite"):

@@ -200,9 +200,7 @@ def resolve_authorized_addresses(
                 f"resolver returned an invalid address for {host}"
             ) from exc
         if not is_authorized_destination(address, lab_networks):
-            raise NonGlobalAddressError(
-                f"host {host} resolves to non-global address {address}"
-            )
+            raise NonGlobalAddressError(f"host {host} resolves to non-global address {address}")
         addresses.add(str(address))
     if not addresses:
         raise AddressResolutionError(f"host {host} resolved to no addresses")

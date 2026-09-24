@@ -98,9 +98,7 @@ def test_dns_rebinding_cannot_move_the_connection(monkeypatch: pytest.MonkeyPatc
 
     attempted = _record_connections(monkeypatch)
 
-    _connect_pinned(
-        global_address_policy(rebinding_resolver), "rebind.test", 443, 5.0, None
-    )
+    _connect_pinned(global_address_policy(rebinding_resolver), "rebind.test", 443, 5.0, None)
 
     # One lookup, and the socket goes to exactly what that lookup authorized.
     assert lookups == 1

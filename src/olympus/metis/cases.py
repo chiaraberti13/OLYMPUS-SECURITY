@@ -547,6 +547,7 @@ def restore_backup(backup: Path, destination: Path) -> dict[str, int]:
 
 def render_markdown(case: IntelCaseDocument) -> str:
     """Render one self-contained, source-aware CTI case report."""
+
     def markdown_text(value: str) -> str:
         compact = " ".join(value.split())
         escaped = compact.replace("\\", "\\\\")

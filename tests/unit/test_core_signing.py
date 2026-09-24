@@ -98,9 +98,7 @@ def test_cli_keygen_sign_verify_flow(tmp_path: Path) -> None:
     assert signed.exit_code == 0, signed.output
     assert stat.S_IMODE(sig.stat().st_mode) == 0o600
 
-    ok = runner.invoke(
-        app, ["core", "verify", str(artifact), str(sig), "--pubkey", str(public)]
-    )
+    ok = runner.invoke(app, ["core", "verify", str(artifact), str(sig), "--pubkey", str(public)])
     assert ok.exit_code == 0
     assert "VALID" in ok.output
 
@@ -111,9 +109,7 @@ def test_cli_verify_detects_tampering_and_wrong_key(tmp_path: Path) -> None:
     runner.invoke(app, ["core", "keygen", "--private", str(private), "--public", str(public)])
     other_pub = tmp_path / "other.pem"
     other_priv = tmp_path / "other-priv.pem"
-    runner.invoke(
-        app, ["core", "keygen", "--private", str(other_priv), "--public", str(other_pub)]
-    )
+    runner.invoke(app, ["core", "keygen", "--private", str(other_priv), "--public", str(other_pub)])
 
     artifact = tmp_path / "ledger.json"
     artifact.write_text("original", encoding="utf-8")

@@ -35,9 +35,5 @@ def test_scenario_fires_every_redteam_rule_exactly_once() -> None:
 
 def test_scenario_benign_noise_events_do_not_alert() -> None:
     rules = load_rules(REDTEAM_RULES)
-    benign_events = [
-        event
-        for event in _load_events()
-        if not evaluate_stream(rules, [event])
-    ]
+    benign_events = [event for event in _load_events() if not evaluate_stream(rules, [event])]
     assert len(benign_events) == 3

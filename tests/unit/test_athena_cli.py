@@ -124,8 +124,14 @@ def test_run_web_findings_exit_one_and_report(
     storage = tmp_path / "store"
     result = runner.invoke(
         app,
-        ["athena", "run", str(_plan_file(tmp_path, ["web-headers"])),
-         "--storage", str(storage), "--report"],
+        [
+            "athena",
+            "run",
+            str(_plan_file(tmp_path, ["web-headers"])),
+            "--storage",
+            str(storage),
+            "--report",
+        ],
     )
     # Missing security headers produce findings -> exit 1.
     assert result.exit_code == 1, result.output
@@ -146,9 +152,18 @@ def test_run_offline_enrichment_writes_ranked_sidecar(
     epss.write_text(_EPSS_FEED, encoding="utf-8")
     result = runner.invoke(
         app,
-        ["athena", "run", str(_plan_file(tmp_path, ["web-headers"])),
-         "--storage", str(storage), "--report",
-         "--enrich-kev", str(kev), "--enrich-epss", str(epss)],
+        [
+            "athena",
+            "run",
+            str(_plan_file(tmp_path, ["web-headers"])),
+            "--storage",
+            str(storage),
+            "--report",
+            "--enrich-kev",
+            str(kev),
+            "--enrich-epss",
+            str(epss),
+        ],
     )
     assert result.exit_code == 1, result.output  # missing-header findings
     summary = json.loads(result.output.split("\nathena:")[0])
@@ -167,8 +182,15 @@ def test_run_enrichment_rejects_a_malformed_feed(
     bad.write_text("{ not json", encoding="utf-8")
     result = runner.invoke(
         app,
-        ["athena", "run", str(_plan_file(tmp_path, ["dns"])),
-         "--storage", str(tmp_path / "s"), "--enrich-kev", str(bad)],
+        [
+            "athena",
+            "run",
+            str(_plan_file(tmp_path, ["dns"])),
+            "--storage",
+            str(tmp_path / "s"),
+            "--enrich-kev",
+            str(bad),
+        ],
     )
     assert result.exit_code == 2
     assert "enrichment feed error" in result.output
@@ -183,11 +205,16 @@ def test_enrichment_ranks_kev_first_and_writes_overlay(tmp_path: Path) -> None:
     assert "CVE-2021-44228" in catalogs.kev
 
     exploited = Finding(
-        asset_id="AST-1", source=Source.AEGIS, severity=Severity.HIGH, cvss=10.0,
+        asset_id="AST-1",
+        source=Source.AEGIS,
+        severity=Severity.HIGH,
+        cvss=10.0,
         title="Service vulnerable to CVE-2021-44228",
     )
     benign = Finding(
-        asset_id="AST-1", source=Source.AEGIS, severity=Severity.MEDIUM,
+        asset_id="AST-1",
+        source=Source.AEGIS,
+        severity=Severity.MEDIUM,
         title="Missing security header",
     )
     findings = [benign, exploited]  # deliberately unordered
@@ -211,9 +238,7 @@ def test_run_invalid_plan(tmp_path: Path) -> None:
     assert result.exit_code == 2
 
 
-def test_status_and_cancel_and_recover(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_status_and_cancel_and_recover(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(athena_cli, "UrllibHttpClient", _Http)
     storage = tmp_path / "store"
     run_result = runner.invoke(

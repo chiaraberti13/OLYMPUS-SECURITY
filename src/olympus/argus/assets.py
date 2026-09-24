@@ -36,6 +36,4 @@ def export_assets(assets: list[Asset], output: Path) -> None:
         "schema_version": "1.0.0",
         "assets": [asset.model_dump(mode="json") for asset in assets],
     }
-    atomic_write_text(
-        output, json.dumps(payload, indent=2, sort_keys=True) + "\n", mode=0o600
-    )
+    atomic_write_text(output, json.dumps(payload, indent=2, sort_keys=True) + "\n", mode=0o600)

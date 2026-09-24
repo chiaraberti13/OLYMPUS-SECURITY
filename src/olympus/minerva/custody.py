@@ -230,9 +230,7 @@ def _sign_entries(key: bytes, entries: list[CustodyEntry]) -> CustodySignature:
     )
 
 
-def verify_signature(
-    key: bytes, entries: list[CustodyEntry], signature: CustodySignature
-) -> None:
+def verify_signature(key: bytes, entries: list[CustodyEntry], signature: CustodySignature) -> None:
     """Raise :class:`CustodyIntegrityError` if the HMAC or its commitments fail.
 
     The chain must already be verified (:func:`verify_entries`) so ``entries`` is
@@ -366,9 +364,7 @@ def inspect_ledger(
             signed = _CustodyLedgerV2Signed.model_validate(payload)
             if not signed.entries:
                 raise CustodyIntegrityError("custody ledger must contain at least one entry")
-            verify_entries(
-                signed.entries, max_entries=max_entries, progress_check=progress_check
-            )
+            verify_entries(signed.entries, max_entries=max_entries, progress_check=progress_check)
             verified = False
             if key is not None:
                 verify_signature(key, signed.entries, signed.signature)
@@ -380,9 +376,7 @@ def inspect_ledger(
             document = _CustodyLedgerV2.model_validate(payload)
             if not document.entries:
                 raise CustodyIntegrityError("custody ledger must contain at least one entry")
-            verify_entries(
-                document.entries, max_entries=max_entries, progress_check=progress_check
-            )
+            verify_entries(document.entries, max_entries=max_entries, progress_check=progress_check)
             return LedgerInspection(tuple(document.entries), version, True)
         if version == LEGACY_CUSTODY_VERSION:
             legacy = _CustodyLedgerV1.model_validate(payload)
@@ -526,9 +520,7 @@ def _normalize_timestamp(value: datetime) -> datetime:
 
 
 @contextmanager
-def _ledger_lock(
-    ledger: Path, progress_check: Callable[[], None] | None
-) -> Iterator[None]:
+def _ledger_lock(ledger: Path, progress_check: Callable[[], None] | None) -> Iterator[None]:
     ledger.parent.mkdir(parents=True, exist_ok=True)
     lock_path = ledger.with_name(f".{ledger.name}.lock")
     nofollow = getattr(os, "O_NOFOLLOW", 0)

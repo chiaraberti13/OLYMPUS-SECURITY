@@ -26,8 +26,18 @@ def _seed_case(database: Path) -> str:
     evidence.write_text("beacon at evil.example 203.0.113.9", encoding="utf-8")
     ingested = runner.invoke(
         app,
-        ["metis", "case", "ingest", str(database), case_id, str(evidence),
-         "--source", "fixture", "--confidence", "70"],
+        [
+            "metis",
+            "case",
+            "ingest",
+            str(database),
+            case_id,
+            str(evidence),
+            "--source",
+            "fixture",
+            "--confidence",
+            "70",
+        ],
     )
     assert ingested.exit_code == 0, ingested.output
     return case_id

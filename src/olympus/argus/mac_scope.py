@@ -81,9 +81,7 @@ def load_mac_scope(path: Path) -> MacScope:
     if not isinstance(raw, dict):
         raise MacScopeError(f"MAC scope file {path} must contain a JSON object")
     if "engagement" not in raw or "allowed_ouis" not in raw:
-        raise MacScopeError(
-            f"MAC scope file {path} must define 'engagement' and 'allowed_ouis'"
-        )
+        raise MacScopeError(f"MAC scope file {path} must define 'engagement' and 'allowed_ouis'")
     allowed = _parse_ouis(raw["allowed_ouis"], "allowed_ouis", path)
     if not allowed:
         raise MacScopeError(f"MAC scope file {path} defines no allowed_ouis")

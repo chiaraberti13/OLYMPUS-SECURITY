@@ -80,9 +80,7 @@ def test_http_from_config_uses_file(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     assert client._min_interval == 0.5
 
 
-def test_http_from_config_caller_rate_wins(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_http_from_config_caller_rate_wins(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     cfg = tmp_path / "olympus.toml"
     cfg.write_text("[http]\nrate = 0.5\n", encoding="utf-8")
     monkeypatch.setenv("OLYMPUS_CONFIG", str(cfg))

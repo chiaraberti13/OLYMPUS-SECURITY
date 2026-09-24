@@ -60,9 +60,7 @@ def test_ip_out_of_scope_blocks(tmp_path: Path) -> None:
 
 
 def test_ip_parse_error(tmp_path: Path) -> None:
-    result = runner.invoke(
-        app, ["argus", "ip", "--ip", "nope", "--scope", str(_scope(tmp_path))]
-    )
+    result = runner.invoke(app, ["argus", "ip", "--ip", "nope", "--scope", str(_scope(tmp_path))])
     assert result.exit_code == 2
 
 
@@ -84,8 +82,16 @@ def test_ip_geo_with_fake_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr(argus_cli, "UrllibHttpClient", _GeoClient)
     result = runner.invoke(
         app,
-        ["argus", "ip", "--ip", "203.0.113.10", "--scope", str(_scope(tmp_path)),
-         "--geo", "--i-am-authorized"],
+        [
+            "argus",
+            "ip",
+            "--ip",
+            "203.0.113.10",
+            "--scope",
+            str(_scope(tmp_path)),
+            "--geo",
+            "--i-am-authorized",
+        ],
     )
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
@@ -99,8 +105,16 @@ def test_ip_batch_skips_invalid_and_out_of_scope(tmp_path: Path) -> None:
     ips.write_text("203.0.113.1\nnot-an-ip\n8.8.8.8\n", encoding="utf-8")
     result = runner.invoke(
         app,
-        ["argus", "ip", "--input", str(ips), "--scope", str(_scope(tmp_path)),
-         "--log", str(tmp_path / "log")],
+        [
+            "argus",
+            "ip",
+            "--input",
+            str(ips),
+            "--scope",
+            str(_scope(tmp_path)),
+            "--log",
+            str(tmp_path / "log"),
+        ],
     )
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output[result.output.find("[") : result.output.rfind("]") + 1])

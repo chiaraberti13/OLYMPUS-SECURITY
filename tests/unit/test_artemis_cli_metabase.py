@@ -43,9 +43,7 @@ def test_metabase_requires_authorization() -> None:
     assert "AUTHORIZED USE ONLY" in result.output
 
 
-def test_metabase_flags_affected_instance(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_metabase_flags_affected_instance(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _patch(monkeypatch)
     out = tmp_path / "findings.json"
     result = runner.invoke(

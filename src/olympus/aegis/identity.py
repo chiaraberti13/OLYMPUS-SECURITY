@@ -64,9 +64,7 @@ class IdentityError(ValueError):
 def hash_secret(secret: str) -> str:
     """Return the stored form of a credential: its SHA-256, never the secret."""
     if len(secret) < MIN_SECRET_CHARACTERS:
-        raise IdentityError(
-            f"API secrets must contain at least {MIN_SECRET_CHARACTERS} characters"
-        )
+        raise IdentityError(f"API secrets must contain at least {MIN_SECRET_CHARACTERS} characters")
     return hashlib.sha256(secret.encode("utf-8")).hexdigest()
 
 
@@ -139,9 +137,7 @@ class IdentityRegister(BaseModel):
         return self
 
     def find(self, identity_id: str) -> ApiIdentity | None:
-        return next(
-            (item for item in self.identities if item.identity_id == identity_id), None
-        )
+        return next((item for item in self.identities if item.identity_id == identity_id), None)
 
     def authenticate(self, presented: str, *, moment: datetime | None = None) -> ApiIdentity:
         """Return the identity a presented credential belongs to.
@@ -313,8 +309,6 @@ class RateLimiter:
     def _evict(self, moment: float) -> None:
         """Drop windows that hold nothing, so an attacker cannot grow the map."""
         for key in [
-            key
-            for key, hits in self._hits.items()
-            if not hits or hits[-1] <= moment - self._window
+            key for key, hits in self._hits.items() if not hits or hits[-1] <= moment - self._window
         ]:
             del self._hits[key]

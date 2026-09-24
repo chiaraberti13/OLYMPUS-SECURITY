@@ -196,6 +196,4 @@ class EmailIntel:
 
 def export_email_intel(intel: EmailIntel, path: Path) -> None:
     """Write an email-intel bundle (report + asset + findings) as JSON to ``path``."""
-    atomic_write_text(
-        path, json.dumps(intel.to_dict(), indent=2, sort_keys=True), mode=0o600
-    )
+    atomic_write_text(path, json.dumps(intel.to_dict(), indent=2, sort_keys=True), mode=0o600)

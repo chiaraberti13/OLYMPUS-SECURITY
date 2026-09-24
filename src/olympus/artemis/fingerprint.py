@@ -36,42 +36,60 @@ class Signature:
 # and app platforms. Every marker is one that appears in a normal base-URL
 # response — no custom endpoints are probed.
 SIGNATURES: tuple[Signature, ...] = (
-    Signature("nginx", "web-server", header=("server", "nginx"),
-              version_pattern=r"nginx/(\d[\w.]*)"),
-    Signature("Apache httpd", "web-server", header=("server", "apache"),
-              version_pattern=r"Apache/(\d[\w.]*)"),
-    Signature("Microsoft IIS", "web-server", header=("server", "microsoft-iis"),
-              version_pattern=r"Microsoft-IIS/(\d[\w.]*)"),
+    Signature(
+        "nginx", "web-server", header=("server", "nginx"), version_pattern=r"nginx/(\d[\w.]*)"
+    ),
+    Signature(
+        "Apache httpd",
+        "web-server",
+        header=("server", "apache"),
+        version_pattern=r"Apache/(\d[\w.]*)",
+    ),
+    Signature(
+        "Microsoft IIS",
+        "web-server",
+        header=("server", "microsoft-iis"),
+        version_pattern=r"Microsoft-IIS/(\d[\w.]*)",
+    ),
     Signature("Caddy", "web-server", header=("server", "caddy")),
     Signature("Cloudflare", "waf-cdn", header=("server", "cloudflare")),
     Signature("Fastly", "waf-cdn", header=("x-served-by", "cache-")),
     Signature("Amazon CloudFront", "waf-cdn", header=("via", "cloudfront")),
     Signature("Akamai", "waf-cdn", header=("server", "akamaighost")),
     Signature("Sucuri WAF", "waf-cdn", header=("x-sucuri-id", "")),
-    Signature("PHP", "language", header=("x-powered-by", "php"),
-              version_pattern=r"PHP/(\d[\w.]*)"),
-    Signature("ASP.NET", "framework", header=("x-powered-by", "asp.net"),
-              version_pattern=r"ASP\.NET(?:\s+Version:?\s*(\d[\w.]*))?"),
+    Signature("PHP", "language", header=("x-powered-by", "php"), version_pattern=r"PHP/(\d[\w.]*)"),
+    Signature(
+        "ASP.NET",
+        "framework",
+        header=("x-powered-by", "asp.net"),
+        version_pattern=r"ASP\.NET(?:\s+Version:?\s*(\d[\w.]*))?",
+    ),
     Signature("Express", "framework", header=("x-powered-by", "express")),
-    Signature("WordPress", "cms", body='wp-content',
-              version_pattern=r'name="generator" content="WordPress (\d[\w.]*)"'),
-    Signature("Drupal", "cms", header=("x-generator", "drupal"),
-              version_pattern=r"Drupal (\d+)"),
-    Signature("Joomla", "cms", body='content="Joomla!',
-              version_pattern=r'content="Joomla! (\d[\w.]*)'),
-    Signature("Django", "framework", body='csrfmiddlewaretoken'),
+    Signature(
+        "WordPress",
+        "cms",
+        body="wp-content",
+        version_pattern=r'name="generator" content="WordPress (\d[\w.]*)"',
+    ),
+    Signature("Drupal", "cms", header=("x-generator", "drupal"), version_pattern=r"Drupal (\d+)"),
+    Signature(
+        "Joomla", "cms", body='content="Joomla!', version_pattern=r'content="Joomla! (\d[\w.]*)'
+    ),
+    Signature("Django", "framework", body="csrfmiddlewaretoken"),
     Signature("Laravel", "framework", header=("set-cookie", "laravel_session")),
-    Signature("Jenkins", "app", header=("x-jenkins", ""),
-              version_pattern=r"x-jenkins:\s*(\d[\w.]*)"),
+    Signature(
+        "Jenkins", "app", header=("x-jenkins", ""), version_pattern=r"x-jenkins:\s*(\d[\w.]*)"
+    ),
     Signature("GitLab", "app", header=("x-gitlab-feature-category", "")),
-    Signature("Grafana", "app", body='grafanaBootData'),
+    Signature("Grafana", "app", body="grafanaBootData"),
     Signature("Kibana", "app", header=("kbn-name", "")),
-    Signature("phpMyAdmin", "app", body='phpMyAdmin'),
-    Signature("Apache Tomcat", "app", body='Apache Tomcat',
-              version_pattern=r"Apache Tomcat/(\d[\w.]*)"),
+    Signature("phpMyAdmin", "app", body="phpMyAdmin"),
+    Signature(
+        "Apache Tomcat", "app", body="Apache Tomcat", version_pattern=r"Apache Tomcat/(\d[\w.]*)"
+    ),
     Signature("Atlassian Jira", "app", header=("x-arequestid", "")),
     Signature("Atlassian Confluence", "app", body='name="confluence-'),
-    Signature("Metabase", "app", body='Metabase'),
+    Signature("Metabase", "app", body="Metabase"),
 )
 
 
@@ -88,9 +106,7 @@ class Fingerprint:
 
 def _header_haystack(response: HttpResponse) -> str:
     """Return a lower-cased ``name: value`` block of every response header."""
-    return "\n".join(
-        f"{name.lower()}: {value.lower()}" for name, value in response.headers.items()
-    )
+    return "\n".join(f"{name.lower()}: {value.lower()}" for name, value in response.headers.items())
 
 
 def _matches(signature: Signature, header_block: str, body: str) -> bool:

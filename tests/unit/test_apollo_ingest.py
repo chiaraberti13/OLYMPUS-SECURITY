@@ -56,7 +56,7 @@ def test_parse_reads_real_access_log_and_skips_non_records() -> None:
 
 def test_parse_extracts_query_and_combined_fields() -> None:
     combined = (
-        '203.0.113.5 - - [10/Oct/2026:13:55:36 +0000] '
+        "203.0.113.5 - - [10/Oct/2026:13:55:36 +0000] "
         '"GET /search?q=secret HTTP/1.1" 200 2326 '
         '"http://ref.example/" "Mozilla/5.0 (X11)"'
     )
@@ -84,8 +84,16 @@ def test_ingest_cli_then_run_detects_a_sensitive_path(tmp_path: Path) -> None:
     (rules_dir / "admin.yaml").write_text(_RULE, encoding="utf-8")
     run = runner.invoke(
         app,
-        ["apollo", "run", "--rules", str(rules_dir), "--events", str(events),
-         "--output", str(tmp_path / "alerts.json")],
+        [
+            "apollo",
+            "run",
+            "--rules",
+            str(rules_dir),
+            "--events",
+            str(events),
+            "--output",
+            str(tmp_path / "alerts.json"),
+        ],
     )
     # Alerts present -> exit 1; the /admin 404 request is the one match.
     assert run.exit_code == 1, run.output
@@ -98,8 +106,16 @@ def test_ingest_cli_then_run_detects_a_sensitive_path(tmp_path: Path) -> None:
 def test_ingest_rejects_an_unsupported_format(tmp_path: Path) -> None:
     result = runner.invoke(
         app,
-        ["apollo", "ingest", "--input", str(_FIXTURE),
-         "--output", str(tmp_path / "o.ndjson"), "--format", "sysmon"],
+        [
+            "apollo",
+            "ingest",
+            "--input",
+            str(_FIXTURE),
+            "--output",
+            str(tmp_path / "o.ndjson"),
+            "--format",
+            "sysmon",
+        ],
     )
     assert result.exit_code == 2
     assert "unsupported ingest format" in result.output

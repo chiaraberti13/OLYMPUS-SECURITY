@@ -72,14 +72,15 @@ class NucleiAdapter(ScannerAdapter):
         target = request.target if request.target_kind == "url" else f"http://{host}"
         argv = [
             self.binary,
-            "-target", target,
+            "-target",
+            target,
             "-jsonl",
-            "-silent",                 # keep the banner and progress bar out of stdout
+            "-silent",  # keep the banner and progress bar out of stdout
             "-no-color",
-            "-disable-update-check",   # never reach out to GitHub mid-scan
-            "-no-interactsh",          # no out-of-band callbacks to a third-party server
-            "-omit-raw",               # response bodies carry cookies, tokens and PII
-            "-omit-template",          # the base64 template body is noise in evidence
+            "-disable-update-check",  # never reach out to GitHub mid-scan
+            "-no-interactsh",  # no out-of-band callbacks to a third-party server
+            "-omit-raw",  # response bodies carry cookies, tokens and PII
+            "-omit-template",  # the base64 template body is noise in evidence
         ]
         templates = self.templates_path()
         if templates:

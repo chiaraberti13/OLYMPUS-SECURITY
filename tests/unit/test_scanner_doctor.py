@@ -44,9 +44,7 @@ def test_binary_scanner_report_captures_a_version(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(scanner_doctor.shutil, "which", lambda _binary: "/usr/bin/nmap")
-    monkeypatch.setattr(
-        scanner_doctor, "binary_version", lambda _b, _flag: "Nmap version 7.94"
-    )
+    monkeypatch.setattr(scanner_doctor, "binary_version", lambda _b, _flag: "Nmap version 7.94")
     binary = _checks(scanner_doctor.scanner_report("nmap").to_dict())["scanner:nmap:binary"]
     assert binary["ok"] is True
     assert "Nmap version 7.94" in binary["detail"]

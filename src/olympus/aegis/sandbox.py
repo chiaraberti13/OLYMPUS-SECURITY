@@ -98,9 +98,7 @@ class SandboxPolicy:
                 memory_bytes=_env_int("AEGIS_SANDBOX_MEMORY_BYTES", defaults.memory_bytes),
                 max_processes=_env_int("AEGIS_SANDBOX_MAX_PROCESSES", defaults.max_processes),
                 open_files=_env_int("AEGIS_SANDBOX_OPEN_FILES", defaults.open_files),
-                file_size_bytes=_env_int(
-                    "AEGIS_SANDBOX_FILE_SIZE_BYTES", defaults.file_size_bytes
-                ),
+                file_size_bytes=_env_int("AEGIS_SANDBOX_FILE_SIZE_BYTES", defaults.file_size_bytes),
                 grace_seconds=_env_float("AEGIS_SANDBOX_GRACE_SECONDS", defaults.grace_seconds),
                 user=get("AEGIS_SANDBOX_USER", defaults.user).strip() or defaults.user,
                 allow_root=_env_flag("AEGIS_SANDBOX_ALLOW_ROOT"),

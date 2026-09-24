@@ -96,20 +96,34 @@ def test_regressive_timestamp_is_rejected(tmp_path: Path) -> None:
 def test_record_and_verify_commands(tmp_path: Path) -> None:
     ledger = tmp_path / "custody.json"
     evidence_path = tmp_path / "evidence.json"
-    evidence = Evidence(
-        evidence_type="memory-image", uri="file://case/mem.raw", sha256="a" * 64
-    )
+    evidence = Evidence(evidence_type="memory-image", uri="file://case/mem.raw", sha256="a" * 64)
     evidence_path.write_text(evidence.model_dump_json(), encoding="utf-8")
 
     first = runner.invoke(
         app,
-        ["minerva", "record", str(evidence_path), str(ledger),
-         "--actor", "responder", "--action", "collected"],
+        [
+            "minerva",
+            "record",
+            str(evidence_path),
+            str(ledger),
+            "--actor",
+            "responder",
+            "--action",
+            "collected",
+        ],
     )
     second = runner.invoke(
         app,
-        ["minerva", "record", str(evidence_path), str(ledger),
-         "--actor", "forensics", "--action", "transferred"],
+        [
+            "minerva",
+            "record",
+            str(evidence_path),
+            str(ledger),
+            "--actor",
+            "forensics",
+            "--action",
+            "transferred",
+        ],
     )
     verified = runner.invoke(app, ["minerva", "verify", str(ledger)])
 
@@ -239,11 +253,17 @@ def _three_entry_ledger(tmp_path: Path) -> Path:
     started = datetime(2026, 8, 14, 9, tzinfo=UTC)
     append_entry(ledger, _evidence(), CustodyAction.COLLECTED, "responder", started)
     append_entry(
-        ledger, _evidence(), CustodyAction.TRANSFERRED, "forensics",
+        ledger,
+        _evidence(),
+        CustodyAction.TRANSFERRED,
+        "forensics",
         started + timedelta(minutes=10),
     )
     append_entry(
-        ledger, _evidence(), CustodyAction.ANALYZED, "analyst",
+        ledger,
+        _evidence(),
+        CustodyAction.ANALYZED,
+        "analyst",
         started + timedelta(minutes=20),
     )
     return ledger
@@ -257,7 +277,8 @@ def test_reordering_entries_is_detected(tmp_path: Path) -> None:
     ledger = _three_entry_ledger(tmp_path)
     payload = json.loads(ledger.read_text(encoding="utf-8"))
     payload["entries"][0], payload["entries"][1] = (
-        payload["entries"][1], payload["entries"][0],
+        payload["entries"][1],
+        payload["entries"][0],
     )
     _rewrite(ledger, payload)
     with pytest.raises(CustodyIntegrityError, match="sequence is not contiguous"):
@@ -312,8 +333,13 @@ def test_full_rewrite_documents_the_gap(tmp_path: Path) -> None:
     started = datetime(2026, 8, 14, 9, tzinfo=UTC)
     digest = "a" * 64
     forged_hash = _entry_hash(
-        1, "EVD-2026-00001", digest, CustodyAction.COLLECTED,
-        "attacker", started, GENESIS_HASH,
+        1,
+        "EVD-2026-00001",
+        digest,
+        CustodyAction.COLLECTED,
+        "attacker",
+        started,
+        GENESIS_HASH,
     )
     forged = {
         "schema_name": "olympus.custody",
@@ -346,12 +372,20 @@ def _signed_three_entry_ledger(tmp_path: Path) -> Path:
     started = datetime(2026, 8, 14, 9, tzinfo=UTC)
     append_entry(ledger, _evidence(), CustodyAction.COLLECTED, "responder", started, key=_KEY)
     append_entry(
-        ledger, _evidence(), CustodyAction.TRANSFERRED, "forensics",
-        started + timedelta(minutes=10), key=_KEY,
+        ledger,
+        _evidence(),
+        CustodyAction.TRANSFERRED,
+        "forensics",
+        started + timedelta(minutes=10),
+        key=_KEY,
     )
     append_entry(
-        ledger, _evidence(), CustodyAction.ANALYZED, "analyst",
-        started + timedelta(minutes=20), key=_KEY,
+        ledger,
+        _evidence(),
+        CustodyAction.ANALYZED,
+        "analyst",
+        started + timedelta(minutes=20),
+        key=_KEY,
     )
     return ledger
 
@@ -388,8 +422,13 @@ def test_signed_ledger_detects_full_rewrite(tmp_path: Path) -> None:
     started = datetime(2026, 8, 14, 9, tzinfo=UTC)
     digest = "a" * 64
     forged_hash = _entry_hash(
-        1, "EVD-2026-00001", digest, CustodyAction.COLLECTED,
-        "attacker", started, GENESIS_HASH,
+        1,
+        "EVD-2026-00001",
+        digest,
+        CustodyAction.COLLECTED,
+        "attacker",
+        started,
+        GENESIS_HASH,
     )
     payload = json.loads(ledger.read_text(encoding="utf-8"))
     payload["entries"] = [

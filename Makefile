@@ -1,4 +1,4 @@
-.PHONY: install lint type test check demo clean
+.PHONY: install lint format-check type test check demo clean
 
 PYTHON ?= python
 
@@ -6,26 +6,26 @@ install:
 	$(PYTHON) -m pip install -e ".[dev]"
 
 # --------------------------------------------------------------------------- #
-# Local quality helpers. Locally they never block you; CI is what enforces
-# ruff and pytest (plus build, pip-audit and gitleaks) on every pull request.
-# mypy stays optional until ROADMAP.md DEV-C wires it into CI. See
-# CONTRIBUTING.md, "What CI enforces today".
+# Local mirrors of the blocking first-party quality gates. CI also enforces
+# package smoke tests, pip-audit and gitleaks on every pull request.
 # --------------------------------------------------------------------------- #
 lint:
 	$(PYTHON) -m ruff check .
 
+format-check:
+	$(PYTHON) -m ruff format --check .
+
 type:
-	$(PYTHON) -m mypy .
+	$(PYTHON) -m mypy --strict src/olympus
 
 test:
 	$(PYTHON) -m pytest
 
-# `check` runs the optional helpers for convenience and never fails the build
-# (leading '-' tells make to ignore their exit status).
 check:
-	-$(MAKE) lint
-	-$(MAKE) type
-	-$(MAKE) test
+	$(MAKE) lint
+	$(MAKE) format-check
+	$(MAKE) type
+	$(MAKE) test
 
 demo:
 	olympus core export-schemas ./examples/output

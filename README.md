@@ -205,7 +205,7 @@ requires real execution evidence; a green CI run alone is not called parity.
 ```bash
 make lint      # Ruff; required in CI
 make test      # pytest; required in CI
-make type      # mypy; additional local check
+make type      # strict mypy gate over first-party code
 make check     # run the complete local quality suite
 ```
 

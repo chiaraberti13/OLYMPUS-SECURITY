@@ -125,9 +125,7 @@ def test_generated_secrets_are_unique_and_long() -> None:
 
 # --- authentication, expiry, rotation, revocation -------------------------- #
 def test_authentication_returns_the_matching_identity() -> None:
-    register, secret = add_identity(
-        IdentityRegister(), identity_id="ops", scopes=["jobs:read"]
-    )
+    register, secret = add_identity(IdentityRegister(), identity_id="ops", scopes=["jobs:read"])
     assert register.authenticate(secret).identity_id == "ops"
     with pytest.raises(IdentityError, match="no usable API identity"):
         register.authenticate(generate_secret())
@@ -144,9 +142,7 @@ def test_an_expired_identity_authenticates_nothing() -> None:
 
 
 def test_rotation_keeps_the_previous_secret_for_a_bounded_overlap() -> None:
-    register, original = add_identity(
-        IdentityRegister(), identity_id="ops", scopes=["jobs:read"]
-    )
+    register, original = add_identity(IdentityRegister(), identity_id="ops", scopes=["jobs:read"])
     rotated, replacement = rotate_identity(register, "ops", overlap_seconds=300)
     assert rotated.authenticate(replacement).identity_id == "ops"
     assert rotated.authenticate(original).identity_id == "ops", "overlap must not break clients"
@@ -157,9 +153,7 @@ def test_rotation_keeps_the_previous_secret_for_a_bounded_overlap() -> None:
 
 
 def test_rotation_without_overlap_invalidates_the_old_secret_at_once() -> None:
-    register, original = add_identity(
-        IdentityRegister(), identity_id="ops", scopes=["jobs:read"]
-    )
+    register, original = add_identity(IdentityRegister(), identity_id="ops", scopes=["jobs:read"])
     rotated, replacement = rotate_identity(register, "ops", overlap_seconds=0)
     assert rotated.authenticate(replacement).identity_id == "ops"
     with pytest.raises(IdentityError):
@@ -167,9 +161,7 @@ def test_rotation_without_overlap_invalidates_the_old_secret_at_once() -> None:
 
 
 def test_revocation_also_kills_a_secret_inside_its_rotation_window() -> None:
-    register, original = add_identity(
-        IdentityRegister(), identity_id="ops", scopes=["jobs:read"]
-    )
+    register, original = add_identity(IdentityRegister(), identity_id="ops", scopes=["jobs:read"])
     rotated, replacement = rotate_identity(register, "ops", overlap_seconds=3_600)
     revoked = revoke_identity(rotated, "ops")
     for credential in (original, replacement):
@@ -286,9 +278,7 @@ def test_a_single_api_key_still_works_and_holds_every_scope(tmp_path: Path) -> N
     created = client.post("/api/v1/jobs", headers=headers, json=_submission())
     assert created.status_code == 201
     assert (
-        client.post(
-            f"/api/v1/jobs/{created.json()['job_id']}/cancel", headers=headers
-        ).status_code
+        client.post(f"/api/v1/jobs/{created.json()['job_id']}/cancel", headers=headers).status_code
         == 200
     )
 
@@ -358,8 +348,14 @@ def test_identity_cli_creates_rotates_and_revokes(tmp_path: Path) -> None:
     created = runner.invoke(
         app,
         [
-            "aegis", "identities", "add", "ops-console",
-            "--scopes", "jobs:read,jobs:write", "-f", str(register_path),
+            "aegis",
+            "identities",
+            "add",
+            "ops-console",
+            "--scopes",
+            "jobs:read,jobs:write",
+            "-f",
+            str(register_path),
         ],
     )
     assert created.exit_code == 0, created.output
@@ -394,8 +390,14 @@ def test_identity_cli_reports_missing_registers_and_bad_scopes(tmp_path: Path) -
     bad = runner.invoke(
         app,
         [
-            "aegis", "identities", "add", "ops",
-            "--scopes", "jobs:everything", "-f", str(tmp_path / "identities.json"),
+            "aegis",
+            "identities",
+            "add",
+            "ops",
+            "--scopes",
+            "jobs:everything",
+            "-f",
+            str(tmp_path / "identities.json"),
         ],
     )
     assert bad.exit_code == 2 and "unknown API scopes" in bad.output

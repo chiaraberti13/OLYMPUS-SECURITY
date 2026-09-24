@@ -223,8 +223,7 @@ def ingest(
     for item in result.skipped:
         typer.echo(f"apollo: skipped line {item.line}: {item.reason}", err=True)
     typer.echo(
-        f"apollo: ingested {len(result.events)} event(s), "
-        f"skipped {len(result.skipped)} -> {dst}"
+        f"apollo: ingested {len(result.events)} event(s), skipped {len(result.skipped)} -> {dst}"
     )
 
 

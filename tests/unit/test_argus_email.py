@@ -117,9 +117,7 @@ def test_export_email_intel(tmp_path: Path) -> None:
 
 def _scope(tmp_path: Path, domain: str = "example.com") -> Path:
     path = tmp_path / "scope.json"
-    path.write_text(
-        json.dumps({"engagement": "t", "allowed_domains": [domain]}), encoding="utf-8"
-    )
+    path.write_text(json.dumps({"engagement": "t", "allowed_domains": [domain]}), encoding="utf-8")
     return path
 
 
@@ -137,8 +135,15 @@ def test_cli_invalid_email() -> None:
 def test_cli_enrich_requires_authorization(tmp_path: Path) -> None:
     result = runner.invoke(
         app,
-        ["argus", "email", "--email", "a@example.com", "--enrich",
-         "--scope", str(_scope(tmp_path))],
+        [
+            "argus",
+            "email",
+            "--email",
+            "a@example.com",
+            "--enrich",
+            "--scope",
+            str(_scope(tmp_path)),
+        ],
     )
     assert result.exit_code == 4
     assert "AUTHORIZED USE ONLY" in result.output
@@ -148,8 +153,18 @@ def test_cli_enrich_out_of_scope(tmp_path: Path) -> None:
     log = tmp_path / "log"
     result = runner.invoke(
         app,
-        ["argus", "email", "--email", "a@evil.test", "--enrich", "--i-am-authorized",
-         "--scope", str(_scope(tmp_path)), "--log", str(log)],
+        [
+            "argus",
+            "email",
+            "--email",
+            "a@evil.test",
+            "--enrich",
+            "--i-am-authorized",
+            "--scope",
+            str(_scope(tmp_path)),
+            "--log",
+            str(log),
+        ],
     )
     assert result.exit_code == 3
     assert log.exists()
@@ -158,8 +173,16 @@ def test_cli_enrich_out_of_scope(tmp_path: Path) -> None:
 def test_cli_enrich_scope_error(tmp_path: Path) -> None:
     result = runner.invoke(
         app,
-        ["argus", "email", "--email", "a@example.com", "--enrich", "--i-am-authorized",
-         "--scope", str(tmp_path / "missing.json")],
+        [
+            "argus",
+            "email",
+            "--email",
+            "a@example.com",
+            "--enrich",
+            "--i-am-authorized",
+            "--scope",
+            str(tmp_path / "missing.json"),
+        ],
     )
     assert result.exit_code == 2
 
@@ -170,8 +193,20 @@ def test_cli_enrich_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
     out = tmp_path / "email.json"
     result = runner.invoke(
         app,
-        ["argus", "email", "--email", "a@example.com", "--enrich", "--i-am-authorized",
-         "--scope", str(_scope(tmp_path)), "--log", str(tmp_path / "log"), "--output", str(out)],
+        [
+            "argus",
+            "email",
+            "--email",
+            "a@example.com",
+            "--enrich",
+            "--i-am-authorized",
+            "--scope",
+            str(_scope(tmp_path)),
+            "--log",
+            str(tmp_path / "log"),
+            "--output",
+            str(out),
+        ],
     )
     assert result.exit_code == 0, result.output
     assert out.exists()

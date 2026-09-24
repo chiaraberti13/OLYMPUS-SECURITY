@@ -70,9 +70,7 @@ def report(
     alerts: list[Path] = typer.Option(
         [], "--alerts", help="core.Alert JSON file(s) to include (repeatable)."
     ),
-    output: Path = typer.Option(
-        DEFAULT_REPORT_OUTPUT, "--output", help="JSON report output path."
-    ),
+    output: Path = typer.Option(DEFAULT_REPORT_OUTPUT, "--output", help="JSON report output path."),
     markdown: Path | None = typer.Option(
         None, "--markdown", help="If set, also write a Markdown report to this path."
     ),
@@ -87,9 +85,7 @@ def report(
     max_total_input_bytes: int = typer.Option(
         DEFAULT_MAX_TOTAL_INPUT_BYTES, "--max-total-input-bytes"
     ),
-    max_items_per_file: int = typer.Option(
-        DEFAULT_MAX_ITEMS_PER_FILE, "--max-items-per-file"
-    ),
+    max_items_per_file: int = typer.Option(DEFAULT_MAX_ITEMS_PER_FILE, "--max-items-per-file"),
     max_total_items: int = typer.Option(DEFAULT_MAX_TOTAL_ITEMS, "--max-total-items"),
     max_output_bytes: int = typer.Option(DEFAULT_MAX_OUTPUT_BYTES, "--max-output-bytes"),
     deadline: float = typer.Option(120.0, "--deadline"),
@@ -192,9 +188,7 @@ def enrich(
         enrichments = enrich_findings(loaded, kev=kev_catalog, epss=epss_scores)
         ranked = prioritize(loaded, enrichments)
         overlay = [enrichment.to_dict() for _, enrichment in ranked]
-        atomic_write_text(
-            output, json.dumps(overlay, indent=2, sort_keys=True) + "\n", mode=0o600
-        )
+        atomic_write_text(output, json.dumps(overlay, indent=2, sort_keys=True) + "\n", mode=0o600)
     except _APPLICATION_ERRORS as exc:
         typer.echo(f"vulcan: {exc}", err=True)
         raise typer.Exit(code=2) from exc
@@ -232,9 +226,7 @@ def rank(
     max_total_input_bytes: int = typer.Option(
         DEFAULT_MAX_TOTAL_INPUT_BYTES, "--max-total-input-bytes"
     ),
-    max_items_per_file: int = typer.Option(
-        DEFAULT_MAX_ITEMS_PER_FILE, "--max-items-per-file"
-    ),
+    max_items_per_file: int = typer.Option(DEFAULT_MAX_ITEMS_PER_FILE, "--max-items-per-file"),
     max_total_items: int = typer.Option(DEFAULT_MAX_TOTAL_ITEMS, "--max-total-items"),
     deadline: float = typer.Option(60.0, "--deadline"),
 ) -> None:

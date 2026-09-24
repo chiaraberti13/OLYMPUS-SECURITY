@@ -142,9 +142,7 @@ def inventory(environment: dict[str, str] | None = None) -> list[Capability]:
     return [inspect(spec, environment) for spec in sorted(REGISTRY, key=lambda item: item.name)]
 
 
-def count_at_least(
-    minimum: Maturity, environment: dict[str, str] | None = None
-) -> int:
+def count_at_least(minimum: Maturity, environment: dict[str, str] | None = None) -> int:
     """Return how many integrations reach ``minimum`` on the maturity ladder."""
     return sum(at_least(item.maturity, minimum) for item in inventory(environment))
 

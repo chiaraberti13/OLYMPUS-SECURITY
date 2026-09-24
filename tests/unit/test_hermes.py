@@ -264,9 +264,7 @@ def test_cli_missing_path_and_partial_directory_are_not_clean(tmp_path: Path) ->
 # --- Allowlist: suppress false positives by shape, not by fingerprint (§2) --- #
 
 
-def _write_allowlist(
-    path: Path, *, path_patterns: list[str], value_patterns: list[str]
-) -> None:
+def _write_allowlist(path: Path, *, path_patterns: list[str], value_patterns: list[str]) -> None:
     path.write_text(
         json.dumps(
             {
@@ -293,9 +291,7 @@ def test_allowlist_suppresses_a_matching_path_glob(tmp_path: Path) -> None:
     fixture.write_text(f"token={SYNTHETIC_KEY}", encoding="utf-8")
 
     allowlist = Allowlist(path_patterns=("*/fixtures/*",))
-    result = scan_paths_bounded(
-        [fixture], policy=_policy(), allowlist=allowlist
-    )
+    result = scan_paths_bounded([fixture], policy=_policy(), allowlist=allowlist)
     assert result.findings == ()
     assert result.scanned_files == 1  # scanned, but suppressed by shape
 
@@ -420,7 +416,5 @@ def test_pre_commit_allowlist_suppresses_a_staged_secret(tmp_path: Path) -> None
         ),
         encoding="utf-8",
     )
-    result = runner.invoke(
-        app, ["hermes", "pre-commit", str(leaky), "--allowlist", str(allowlist)]
-    )
+    result = runner.invoke(app, ["hermes", "pre-commit", str(leaky), "--allowlist", str(allowlist)])
     assert result.exit_code == 0, result.output

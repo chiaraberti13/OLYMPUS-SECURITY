@@ -63,9 +63,7 @@ class PortState(StrEnum):
 _CONCLUSIVE: frozenset[PortState] = frozenset({PortState.OPEN, PortState.CLOSED})
 
 #: States reached without sending a probe: counted as skipped, not failed.
-_NEVER_ATTEMPTED: frozenset[PortState] = frozenset(
-    {PortState.DENIED, PortState.DEADLINE_EXCEEDED}
-)
+_NEVER_ATTEMPTED: frozenset[PortState] = frozenset({PortState.DENIED, PortState.DEADLINE_EXCEEDED})
 
 #: How each inconclusive state is accounted for in the run's coverage.
 _FAILURE_KINDS: dict[PortState, FailureKind] = {
@@ -257,9 +255,7 @@ class SocketConnector:
         except ConnectionRefusedError as exc:
             return self._failed(host, port, service, PortState.CLOSED, exc)
         except OSError as exc:
-            state = (
-                PortState.UNREACHABLE if exc.errno in _UNREACHABLE_ERRNOS else PortState.ERROR
-            )
+            state = PortState.UNREACHABLE if exc.errno in _UNREACHABLE_ERRNOS else PortState.ERROR
             return self._failed(host, port, service, state, exc)
 
     def _read_banner(self, connection: socket.socket, service: str) -> tuple[str, str | None]:
@@ -273,9 +269,7 @@ class SocketConnector:
         return identified or service, product
 
     @staticmethod
-    def _failed(
-        host: str, port: int, service: str, state: PortState, exc: OSError
-    ) -> ProbeResult:
+    def _failed(host: str, port: int, service: str, state: PortState, exc: OSError) -> ProbeResult:
         return ProbeResult(
             host, port, state, service, detail=redact_text(str(exc))[:200] or state.value
         )

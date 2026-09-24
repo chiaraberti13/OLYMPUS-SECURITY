@@ -139,17 +139,13 @@ def test_cli_vendor(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 def test_cli_vendor_requires_authorization(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(argus_cli, "UrllibHttpClient", _Http)
 
-    result = runner.invoke(
-        app, ["argus", "mac", "--mac", "00:1a:2b:3c:4d:5e", "--vendor"]
-    )
+    result = runner.invoke(app, ["argus", "mac", "--mac", "00:1a:2b:3c:4d:5e", "--vendor"])
 
     assert result.exit_code == 4
     assert "AUTHORIZED USE ONLY" in result.output
 
 
-def test_cli_vendor_blocks_out_of_scope(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_cli_vendor_blocks_out_of_scope(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(argus_cli, "UrllibHttpClient", _Http)
     scope = tmp_path / "scope.json"
     scope.write_text(

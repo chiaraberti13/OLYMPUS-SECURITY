@@ -74,8 +74,7 @@ def parse_content_encodings(header_value: str | None) -> tuple[str, ...]:
     applied = tuple(coding for coding in codings if coding != "identity")
     if len(applied) > MAX_CONTENT_CODINGS:
         raise UnsupportedContentEncoding(
-            f"refusing a chain of {len(applied)} content codings "
-            f"(limit {MAX_CONTENT_CODINGS})"
+            f"refusing a chain of {len(applied)} content codings (limit {MAX_CONTENT_CODINGS})"
         )
     return applied
 

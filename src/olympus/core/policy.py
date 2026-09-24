@@ -93,16 +93,16 @@ IPNetwork = ipaddress.IPv4Network | ipaddress.IPv6Network
 #: metadata service" or "reach a service on this host" is not what an operator
 #: means by "the range I own".
 LAB_ELIGIBLE_RANGES: tuple[IPNetwork, ...] = (
-    ipaddress.ip_network("10.0.0.0/8"),          # RFC 1918
-    ipaddress.ip_network("172.16.0.0/12"),       # RFC 1918
-    ipaddress.ip_network("192.168.0.0/16"),      # RFC 1918
-    ipaddress.ip_network("100.64.0.0/10"),       # RFC 6598 carrier-grade NAT
-    ipaddress.ip_network("198.18.0.0/15"),       # RFC 2544 benchmarking
-    ipaddress.ip_network("192.0.2.0/24"),        # RFC 5737 TEST-NET-1
-    ipaddress.ip_network("198.51.100.0/24"),     # RFC 5737 TEST-NET-2
-    ipaddress.ip_network("203.0.113.0/24"),      # RFC 5737 TEST-NET-3
-    ipaddress.ip_network("fc00::/7"),            # RFC 4193 unique local
-    ipaddress.ip_network("2001:db8::/32"),       # RFC 3849 documentation
+    ipaddress.ip_network("10.0.0.0/8"),  # RFC 1918
+    ipaddress.ip_network("172.16.0.0/12"),  # RFC 1918
+    ipaddress.ip_network("192.168.0.0/16"),  # RFC 1918
+    ipaddress.ip_network("100.64.0.0/10"),  # RFC 6598 carrier-grade NAT
+    ipaddress.ip_network("198.18.0.0/15"),  # RFC 2544 benchmarking
+    ipaddress.ip_network("192.0.2.0/24"),  # RFC 5737 TEST-NET-1
+    ipaddress.ip_network("198.51.100.0/24"),  # RFC 5737 TEST-NET-2
+    ipaddress.ip_network("203.0.113.0/24"),  # RFC 5737 TEST-NET-3
+    ipaddress.ip_network("fc00::/7"),  # RFC 4193 unique local
+    ipaddress.ip_network("2001:db8::/32"),  # RFC 3849 documentation
 )
 
 #: The compiled-in ceiling for every bound. A policy file may only go lower.
@@ -167,9 +167,7 @@ class BoundsProfile(BaseModel):
     max_concurrency: int | None = Field(default=None, ge=1, le=MAX_CONCURRENCY)
     retries: int | None = Field(default=None, ge=0, le=MAX_RETRIES)
     backoff_seconds: float | None = Field(default=None, ge=0.0, le=MAX_BACKOFF_SECONDS)
-    min_interval_seconds: float | None = Field(
-        default=None, ge=0.0, le=MAX_MIN_INTERVAL_SECONDS
-    )
+    min_interval_seconds: float | None = Field(default=None, ge=0.0, le=MAX_MIN_INTERVAL_SECONDS)
     jitter_ratio: float | None = Field(default=None, ge=0.0, le=MAX_JITTER_RATIO)
 
     def overlay(self, base: dict[str, Any]) -> dict[str, Any]:
@@ -301,8 +299,7 @@ class PolicyRuleset(BaseModel):
         """Resolve built-in defaults, then ``[bounds.default]``, then ``profile``."""
         if profile not in self.profile_names():
             raise PolicyError(
-                f"unknown policy profile {profile!r}; available: "
-                f"{', '.join(self.profile_names())}"
+                f"unknown policy profile {profile!r}; available: {', '.join(self.profile_names())}"
             )
         resolved = dict(_BUILTIN_DEFAULTS)
         base = self.bounds.get(DEFAULT_PROFILE)
@@ -359,9 +356,7 @@ def load_policy_with_source(
     must exist. Only the implicit discovery fallbacks may be absent, in which
     case the built-in defaults apply.
     """
-    candidates = (
-        [(explicit_path, True)] if explicit_path is not None else _candidate_paths()
-    )
+    candidates = [(explicit_path, True)] if explicit_path is not None else _candidate_paths()
     for path, is_explicit in candidates:
         try:
             raw = path.read_bytes()

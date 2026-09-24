@@ -118,8 +118,18 @@ def test_cli_in_scope_findings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     out = tmp_path / "web.json"
     result = runner.invoke(
         app,
-        ["argus", "web", "--url", "https://example.com", "--scope", str(_scope(tmp_path)),
-         "--log", str(tmp_path / "log"), "--output", str(out)],
+        [
+            "argus",
+            "web",
+            "--url",
+            "https://example.com",
+            "--scope",
+            str(_scope(tmp_path)),
+            "--log",
+            str(tmp_path / "log"),
+            "--output",
+            str(out),
+        ],
     )
     # Missing security headers -> findings -> exit code 1.
     assert result.exit_code == 1, result.output
@@ -130,8 +140,16 @@ def test_cli_out_of_scope(tmp_path: Path) -> None:
     log = tmp_path / "log"
     result = runner.invoke(
         app,
-        ["argus", "web", "--url", "https://evil.test", "--scope", str(_scope(tmp_path)),
-         "--log", str(log)],
+        [
+            "argus",
+            "web",
+            "--url",
+            "https://evil.test",
+            "--scope",
+            str(_scope(tmp_path)),
+            "--log",
+            str(log),
+        ],
     )
     assert result.exit_code == 3
     assert log.exists()

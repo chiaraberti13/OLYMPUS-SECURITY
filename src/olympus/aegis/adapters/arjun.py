@@ -58,8 +58,10 @@ class ArjunAdapter(ScannerAdapter):
         target = request.target if request.target_kind == "url" else f"http://{host}"
         return [
             self.binary,
-            "-u", target,
-            "-t", "10",       # bounded concurrency; the policy owns the deadline
+            "-u",
+            target,
+            "-t",
+            "10",  # bounded concurrency; the policy owns the deadline
             "--disable-redirects",
         ]
 

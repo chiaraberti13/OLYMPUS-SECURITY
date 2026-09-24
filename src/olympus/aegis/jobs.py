@@ -853,9 +853,7 @@ class AegisWorker:
     def _record_exception(self, job_id: str, exc: BaseException) -> AegisJob:
         if self.store.cancellation_requested(job_id) or isinstance(exc, CancellationRequested):
             return self._settle(job_id, JobState.CANCELLED)
-        return self._settle(
-            job_id, classify_exception(exc), error=f"{type(exc).__name__}: {exc}"
-        )
+        return self._settle(job_id, classify_exception(exc), error=f"{type(exc).__name__}: {exc}")
 
     def _settle(
         self,

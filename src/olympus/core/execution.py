@@ -263,9 +263,7 @@ def redact_url(value: str) -> str:
     )
     hostname = parsed.hostname or ""
     port = f":{parsed.port}" if parsed.port is not None else ""
-    redacted = urlunsplit(
-        (parsed.scheme, f"{hostname}{port}", parsed.path, query, parsed.fragment)
-    )
+    redacted = urlunsplit((parsed.scheme, f"{hostname}{port}", parsed.path, query, parsed.fragment))
     # Audit logs and job records are read by people and matched by policy
     # checks, so keep the sentinel legible rather than percent-encoded.
     return redacted.replace("%5BREDACTED%5D", "[REDACTED]")
