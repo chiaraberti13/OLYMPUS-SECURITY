@@ -11,6 +11,9 @@ requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Olympus Security" }]
 dependencies = [
+    # The TUI traverses the Click command tree emitted by Typer; keep this
+    # runtime contract explicit instead of relying on Typer's dependency set.
+    "click>=8.1",
     "pydantic>=2.6",
     "typer>=0.12",
     "dnspython>=2.6",
