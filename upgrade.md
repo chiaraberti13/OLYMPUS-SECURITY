@@ -1,5 +1,16 @@
 # Olympus Security — restructuring and integration checklist
 
+> **Historical record — append-only (since 2026-09-24).** This file records the ARGUS/VAP
+> integration cycles as they happened; it is no longer used to plan new work. Forward planning,
+> priorities and the Definition of Done live in [`ROADMAP.md`](ROADMAP.md), and contribution rules
+> in [`CONTRIBUTING.md`](CONTRIBUTING.md). Existing entries are not rewritten: add a dated note
+> instead of editing history.
+>
+> **Superseded statement.** The "no mandatory quality gates" principle below describes the project
+> as it was during these cycles. The CI now blocks merges on Ruff, pytest, the wheel clean-install
+> smoke test, `pip-audit` and `gitleaks` (see `.github/workflows/ci.yml`). Where the two disagree,
+> `ROADMAP.md` and `CONTRIBUTING.md` win (`ROADMAP.md`, `DEV-H`).
+
 This checklist tracks the restructuring of Olympus Security and the in-repository integration of
 [ARGUS](https://github.com/chiaraberti13/ARGUS) and the
 [Vulnerability Assessment Platform](https://github.com/chiaraberti13/Vulnerability-Assessment-Platform).

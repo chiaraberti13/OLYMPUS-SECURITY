@@ -1,58 +1,96 @@
 # Contributing to Olympus Security
 
-## Development is flexible by design
+## Where work is planned
 
-Olympus deliberately has **no mandatory development gates**. Nothing in this
-repository may block, limit, reject, postpone, or reduce the implementation of a
-feature. In particular, none of the following are required or enforced:
+- [`ROADMAP.md`](ROADMAP.md) is the single source of truth for planned work. Every
+  intervention has a stable ID — `SEC-*` (cybersecurity), `DEV-*` (development),
+  `UX-*` (design), `OPS-*` (Red/Blue/Purple backlog) — and a priority `P0`–`P3`.
+- [`upgrade.md`](upgrade.md) is the append-only historical record of the ARGUS/VAP
+  integration cycles. Do not plan new work there.
+- Structural decisions are recorded as numbered ADRs in
+  [`docs/architecture/`](docs/architecture/README.md).
 
-- strict typing / `mypy` gates;
-- minimum test-coverage thresholds (there is no 90% or any other minimum);
-- linting or formatting gates that block builds, commits, or merges;
-- limits on file size, module size, function size, or lines of code;
-- a CLI-first restriction, or any ban on web interfaces, APIs, databases,
-  background workers, containers, plugins, or external dependencies;
-- fixed architectural patterns that prevent future changes;
-- limits on the number of modules, scanners, features, services, dependencies,
-  tools, or projects;
-- CI/CD checks that fail a build solely because an optional quality target was
-  not met.
+## Workflow: ID → issue → PR → commit → evidence
 
-Add whatever you need — a web UI, an HTTP API, a database, Celery workers,
-Docker services, new scanners, new modules, new dependencies. Architectural
-notes under `docs/architecture/` are **non-binding guidelines**; you may follow,
-adapt, or ignore them without a superseding ADR.
+1. **Issue.** Open it with the *Roadmap item* or *Bug report* template and name the
+   roadmap ID (for example `DEV-C`). Work that fits no ID first gets one in
+   `ROADMAP.md`.
+2. **Branch and commits.** Cite the ID in the commit subject, for example
+   `docs: fix broken internal links (DEV-G)`.
+3. **Pull request.** The PR template carries the Definition of Done checklist. Tick
+   only what is true; explain every unchecked item.
+4. **Roadmap.** Update the checkbox, the progress dashboard and, where relevant, the
+   indicators in `ROADMAP.md` **in the same PR** that changes the status.
+5. **Evidence.** Link the reproducible proof (test, CI run, committed evidence).
+   Nothing is marked more mature than its evidence.
 
-## Optional tools (never blocking)
+**Security vulnerabilities never go into public issues**: follow
+[`SECURITY.md`](SECURITY.md).
 
-These are available and encouraged, but purely optional — they never block a
-commit, build, merge, or future change:
+### Labels
+
+| Label | Meaning |
+| --- | --- |
+| `area:security`, `area:dev`, `area:ux`, `area:ops` | the roadmap perspective (`SEC-*`, `DEV-*`, `UX-*`, `OPS-*`) |
+| `P0`, `P1`, `P2`, `P3` | the priority defined in `ROADMAP.md` |
+| `roadmap` | the issue tracks a roadmap intervention |
+| `bug` | behaviour differs from what is documented |
+
+## Architecture stays open
+
+Olympus does not restrict *what* you build. Web interfaces, HTTP APIs,
+databases, background workers, containers, plugins, new scanners, new modules and
+new dependencies are all welcome. There are no limits on file, module or function
+size. ADRs under `docs/architecture/` are **non-binding guidelines**, except for
+the security invariants they list.
+
+## What CI enforces today
+
+These checks run on every pull request in `.github/workflows/ci.yml` and **block
+the merge** when they fail:
+
+| Check | Why it blocks |
+| --- | --- |
+| `ruff check .` | catches real defects (unused/undefined names, unsafe patterns) |
+| `pytest` | offline unit, contract and guardrail tests |
+| wheel build, clean install and CLI smoke test | the package must work outside the checkout |
+| `pip-audit` on the runtime closure | no dependency with a known advisory ships |
+| `gitleaks` (with a canary proving it works) | no secret enters the repository |
+
+Planned, **not yet enforced**: `mypy`, `ruff format --check`, a coverage
+threshold, CodeQL and a link checker — tracked as `DEV-C`, `DEV-G` and `SEC-F` in
+`ROADMAP.md`. Until they are wired into CI they stay optional.
+
+## Local helpers
 
 ```bash
 make lint      # ruff
-make type      # mypy
+make type      # mypy (optional until DEV-C lands)
 make test      # pytest
-make check     # all three, non-blocking (ignores their exit status)
+make check     # all three; never stops on the first failure
 ```
 
-CI runs the same tools with `continue-on-error: true`, and the secret scan is
-advisory. `pre-commit` is opt-in and can always be bypassed with
-`git commit --no-verify`.
+`pre-commit` is opt-in. Bypassing it locally with `git commit --no-verify` is
+possible, but CI still runs the blocking checks above.
 
-## What still holds (and why)
+## What always holds
 
-A short list of requirements remains — only because they are about **security**,
-**real functionality**, or **licences**, not about development process:
+These requirements concern **security**, **real functionality** and
+**licences**:
 
 - **Real, fully-functional tools.** No demos, stubs, mocks, placeholders, or
   partial implementations presented as complete.
 - **Secure runtime defaults.** Do not weaken authorization boundaries, scope
   enforcement, input validation, SSRF protection, secret handling, or
   safeguards against destructive operations.
+- **Untrusted target data.** Output coming from a scanned target (banners,
+  titles, reports) is hostile input: parse it safely and escape it in every
+  output format (`ROADMAP.md`, `SEC-H`).
 - **No committed secrets.** Never commit, log, or print real credentials.
 - **Licences & provenance.** Preserve upstream licences and record provenance
   for vendored/imported components (see `docs/provenance.md`).
 - **Compatibility & dependencies.** Keep dependency declarations and
   compatibility information accurate.
 
-Everything else is up to you.
+A change is complete when it meets the
+[Definition of Done](ROADMAP.md#definition-of-done-trasversale) in `ROADMAP.md`.
