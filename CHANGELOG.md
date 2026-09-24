@@ -13,6 +13,9 @@ everything below lives under **Unreleased**.
 ## [Unreleased]
 
 ### Added
+- **Governance** — manifest versionato delle label GitHub (`area:*`, `P0`–`P3`,
+  `roadmap`, `bug`) e workflow a privilegi minimi che crea o aggiorna soltanto le
+  label gestite, senza cancellare quelle esterne al manifest (`DEV-H`).
 - **Athena** — AEGIS **scan stage** in the assessment pipeline: `aegis` is now a
   plan adapter, so a single `athena run` chains recon → scan → enrich → report.
   It delegates to a real AEGIS scanner, double scope-gated (Athena guard + AEGIS
@@ -76,6 +79,8 @@ everything below lives under **Unreleased**.
   model (`docs/threat-model.md`).
 
 ### Testing
+- Test offline della validazione del manifest e del piano non distruttivo di
+  sincronizzazione delle label GitHub.
 - Property-based (fuzz) tests over the SSRF address guard and the audit/evidence
   redaction (`tests/unit/test_property_security.py`, Hypothesis): the guard never
   accepts a non-global destination — including one wrapped in IPv6 — and no

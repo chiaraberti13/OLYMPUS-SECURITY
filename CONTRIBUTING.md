@@ -36,6 +36,10 @@
 | `roadmap` | the issue tracks a roadmap intervention |
 | `bug` | behaviour differs from what is documented |
 
+The managed definitions live in [`.github/labels.json`](.github/labels.json).
+The `repository labels` workflow creates missing labels and updates their color
+or description on `main`; it deliberately never deletes unmanaged labels.
+
 ## Architecture stays open
 
 Olympus does not restrict *what* you build. Web interfaces, HTTP APIs,

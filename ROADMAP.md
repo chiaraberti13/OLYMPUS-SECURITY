@@ -394,13 +394,14 @@ capability scritto manualmente può divergere dal codice senza fallire la CI.
   iniziale; `CONTRIBUTING.md` e `Makefile` descrivono i controlli CI realmente
   bloccanti (prima dichiaravano `continue-on-error` e secret scan “advisory”,
   entrambi falsi) e quelli pianificati ma non ancora attivi.
-- [~] Creare issue template e label coerenti con gli ID (`SEC-*`, `DEV-*`, `UX-*`,
+- [x] Creare issue template e label coerenti con gli ID (`SEC-*`, `DEV-*`, `UX-*`,
   `OPS-*`) e con le priorità P0–P3, così che ogni issue sia riconducibile a un
-  intervento. Fatto: moduli `.github/ISSUE_TEMPLATE/` (roadmap item, bug report,
-  segnalazione vulnerabilità privata) con issue vuote disabilitate e schema label
-  in `CONTRIBUTING.md`. Manca: creare su GitHub le label `roadmap`,
-  `area:security`, `area:dev`, `area:ux`, `area:ops`, `P0`–`P3` (serve un
-  maintainer; `bug` esiste già).
+  intervento. I moduli `.github/ISSUE_TEMPLATE/` coprono roadmap item, bug report
+  e segnalazione vulnerabilità privata, con issue vuote disabilitate. Le label
+  `roadmap`, `bug`, `area:*` e `P0`–`P3` sono dichiarate in
+  `.github/labels.json` e sincronizzate in modo non distruttivo dal workflow
+  `.github/workflows/labels.yml`; validazione e piano di modifica sono coperti da
+  `tests/unit/test_label_sync.py`.
 - [x] Aggiungere un template di PR con checklist della Definition of Done e
   richiamo all'ID dell'intervento (`.github/pull_request_template.md`).
 - [x] Registrare ogni decisione strutturale come ADR numerato proseguendo la
@@ -641,8 +642,8 @@ lab autorizzato; in assenza del lab restano aperte e non cambiano maturità.
 
 - [x] Rendere `ROADMAP.md` la fonte canonica e risolvere i link interni rotti
   (`DEV-G`).
-- [~] Riconciliare `upgrade.md` con la roadmap e creare template issue/PR
-  (`DEV-H`); resta solo la creazione delle label su GitHub.
+- [x] Riconciliare `upgrade.md` con la roadmap e creare template issue/PR e label
+  versionate (`DEV-H`).
 - [ ] Attivare Mypy e `ruff format --check` come gate CI (`DEV-C`).
 - [ ] Generare automaticamente inventario e maturity table.
 - [ ] Registrare baseline di test, coverage, package build e threat model.
