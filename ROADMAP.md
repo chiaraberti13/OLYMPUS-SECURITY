@@ -12,6 +12,7 @@
 - `[x]` già presente e verificabile nel repository;
 - `[~]` presente ma incompleto o non ancora validato in tutti gli scenari;
 - `[ ]` da implementare;
+- `[⏸]` differito perché richiede laboratorio, infrastruttura o credenziali esterne;
 - **P0** blocca un utilizzo sicuro o una release affidabile;
 - **P1** alto valore e alta priorità;
 - **P2** miglioramento importante;
@@ -290,13 +291,13 @@ da artifact firmato e smoke test completo fuori dal checkout.
 
 - [ ] Correggere i link a `ROADMAP_HARDENING.md`, file oggi non presente, e
   scegliere `ROADMAP.md` come roadmap canonica.
-- [ ] Allineare README, `ROADMAP_OPERATIVA.md` e `integrations/maturity.py`: il
+- [ ] Allineare README e `integrations/maturity.py`: il
   ledger attuale dichiara 12 adapter `live-tested`, 3 `offline-tested` incluso
   Wapiti e nessun `production-ready`.
 - [ ] Aggiungere un link checker, esempi eseguibili e test che rigenerino tabelle
   di capacità/maturità dal registry invece di mantenerle a mano.
-- [ ] Conservare `ROADMAP_OPERATIVA.md` come backlog tecnico dettagliato oppure
-  assorbirlo progressivamente qui, evitando due fonti normative divergenti.
+- [x] Consolidare il backlog tecnico e strategico in questo unico `ROADMAP.md`,
+  eliminando roadmap parallele che potrebbero divergere.
 
 **Criterio di completamento:** nessun link interno rotto e nessun numero di
 capability scritto manualmente può divergere dal codice senza fallire la CI.
@@ -392,6 +393,104 @@ italiano e inglese, senza dipendere dalla percezione cromatica.
 **Criterio di completamento:** lo stesso assessment produce un riepilogo leggibile
 dal management e un allegato tecnico verificabile senza duplicare i dati.
 
+## 🧭 Backlog Operativo Consolidato
+
+Questa sezione incorpora gli interventi ancora validi della precedente roadmap
+operativa. È la lista delle capability concrete da sviluppare sopra i guardrail,
+i contratti e i controlli di sicurezza descritti nelle sezioni precedenti.
+
+### Funzionalità già consolidate
+
+- [x] **Athena playbook end-to-end:** `recon → scan → enrich → report` in un solo
+  flusso scope-safe, con enrichment KEV/EPSS da feed locali e sidecar JSON.
+- [x] **AEGIS in Athena:** adapter di piano con doppio scope gate; simulazione
+  esplicitamente etichettata quando le live scan sono disabilitate.
+- [x] **Apollo access-log ingest:** normalizzazione bounded di log Apache/nginx e
+  `http.server` in `core.Event` NDJSON, con catena ingest → regola → alert testata.
+- [x] **Minerva timeline:** export firmabile Ed25519 e verificabile con
+  `olympus core verify`.
+- [x] **Metis IOC sweep:** confronto normalizzato type+value tra osservabili e IOC,
+  senza matching per semplice substring.
+- [~] **Wapiti:** adapter nativo e parser provato su report JSON reale; resta la
+  validazione end-to-end attraverso lo scope gate per passare a `live-tested`.
+
+### Red Team — Copertura offensiva scope-safe
+
+- [⏸] **P1 — Recon ProjectDiscovery/OSINT:** aggiungere adapter nativi per
+  `subfinder`, `dnsx`, `naabu`, `amass` e `theHarvester`, ciascuno con argv senza
+  shell, parser, fixture su output reale, scope gate e maturity evidence.
+- [~] **P1 — Adapter web residui:** completare `nosqlmap` e `wpscan`; gestire il
+  token WPScan esclusivamente tramite `SecretProvider`. Portare Wapiti a
+  `live-tested` in un lab autorizzato.
+- [⏸] **P2 — Exploitation orchestration controllata:** integrare eventualmente
+  Metasploit tramite RPC solo dopo l'introduzione dell'engagement manifest
+  firmato, con allowlist dei moduli, dry-run predefinito, audit completo, timeout
+  e divieto esplicito di persistenza, DoS ed evasione.
+- [ ] **P2 — Mapping MITRE ATT&CK dei finding offensivi:** associare tecnica,
+  tattica, confidence e motivazione ai finding Vulcan, conservando il mapping
+  versionato e distinguendo associazioni automatiche da revisioni umane.
+- [⏸] **P3 — Proteus simulated delivery:** evolvere la modellazione in campagne
+  simulate esclusivamente in lab, con click e credential-harvest sintetici e
+  nessun invio o dato riferito a utenti reali.
+
+**Criterio di completamento Red Team:** ogni adapter eredita scope, autorizzazione,
+policy, audit, sandbox e stati di coverage; nessuna funzione offensiva diventa
+eseguibile solo perché il binario esterno è installato.
+
+### Blue Team — Detection, SIEM, CTI e DFIR
+
+- [~] **P1 — Ingest Apollo:** aggiungere Sysmon/Windows Event e Zeek oltre al
+  formato access-log già disponibile. Separare sempre acquisizione e parsing,
+  usare fixture sanitizzate reali e non inventare campi mancanti.
+- [⏸] **P1 — Detection engineering loop:** eseguire regola Sigma → generazione di
+  telemetria controllata → verifica → tuning → regression test, usando Atomic Red
+  Team soltanto in un lab autorizzato.
+- [⏸] **P2 — Connettori SIEM/EDR:** implementare Splunk HEC, Elastic e Microsoft
+  Sentinel tramite porte iniettate, retry idempotenti, backpressure, checkpoint e
+  test offline dei payload; le credenziali reali non entrano nelle fixture.
+- [⏸] **P2 — CTI live:** aggiungere client TAXII 2.1, MISP server e OpenCTI a
+  Metis, con allowlist delle sorgenti, caching, provenance, TTL e isolamento tra
+  fetch e parse.
+- [ ] **P3 — Hephaestus:** nuovo modulo per hardening e benchmark CIS su host e
+  configurazioni, inizialmente in modalità read-only, con profilo del benchmark,
+  evidenza, severità e remediation senza modifica automatica del sistema.
+
+**Criterio di completamento Blue Team:** ogni evento mantiene provenienza e schema;
+gli errori di ingest producono coverage parziale esplicita e non una pipeline
+apparentemente pulita.
+
+### Purple Team — Validazione e regressione operativa
+
+- [ ] **P2 — `athena purple`:** orchestrare attacco simulato scope-safe → ingest
+  Apollo → valutazione detection → report del gap di copertura, collegando tecnica
+  ATT&CK, evidenza generata, regola attesa e risultato osservato.
+- [ ] **P3 — Profilo lab ripetibile:** usare `labs/mars` come ambiente locale
+  dichiarato, con seed, versioni, policy, output atteso ed evidenze committate per
+  una regressione operativa riproducibile.
+- [ ] Aggiungere una matrice “tecnica ATT&CK → telemetria → regola → test” per
+  mostrare copertura reale, copertura parziale e assenza di dati.
+
+**Criterio di completamento Purple Team:** la pipeline non misura soltanto se una
+regola scatta, ma se la telemetria necessaria è stata prodotta, ingerita e
+correlata senza perdita di coverage.
+
+### Prerequisiti per le attività differite
+
+| ID | Intervento | Prerequisito verificabile di sblocco |
+| --- | --- | --- |
+| D1 | Adapter `live-tested` → `production-ready` | Run attraverso scope gate in lab autorizzato, evidence manifest, digest, SBOM, vulnerability scan e matrice versioni |
+| D2 | `testssl`, `whatweb` e Wapiti → `live-tested` | Binari canonici/versioni supportate e target di lab autorizzato |
+| D3 | Ritiro completo di `vendor/` | Control plane nativo con API, worker, migrazioni e test di parità |
+| D4 | Adapter recon ProjectDiscovery/OSINT | Binari verificati, sorgenti raggiungibili e fixture reali sanitizzate |
+| D5 | `nosqlmap` e `wpscan` | Target NoSQL/WordPress controllati e secret provider per il token WPScan |
+| D6 | Metasploit RPC | Manifest firmato, allowlist moduli, `msfrpcd` isolato e lab autorizzato |
+| D7 | Proteus simulated delivery | Lab chiuso con identità e tracking interamente sintetici |
+| D8 | Detection loop con Atomic Red Team | Endpoint di test ripristinabile e raccolta telemetria controllata |
+| D9 | Connettori SIEM/EDR | Endpoint di sviluppo, credenziali dedicate a minimo privilegio e dataset sanitizzati |
+| D10 | TAXII/MISP/OpenCTI live | Istanze di test raggiungibili e policy di provenance/retention approvate |
+| D11 | Firma e hardening container | Registry disponibile, profili seccomp/AppArmor e pipeline Cosign |
+| D12 | Release multi-platform | Runner CI per matrice Python/OS e suite chiaramente separate |
+
 ## 📅 Pianificazione Temporale
 
 Le durate sono stime per un team piccolo e presuppongono decisioni architetturali
@@ -440,7 +539,18 @@ verde su tutta la matrice dichiarata.
 **Exit gate:** test con utenti rappresentativi completano i flussi primari senza
 ricorrere alla documentazione e interpretano correttamente gli stati di coverage.
 
-### Fase 4 — Production readiness degli scanner (continuativa, 1–2 adapter/sprint)
+### Fase 4 — Capability Red/Blue/Purple (6–12 settimane, incrementale)
+
+- [ ] Completare ingest Apollo per Zeek e Sysmon/Windows Event.
+- [ ] Implementare mapping ATT&CK offensivo e il primo flusso `athena purple`.
+- [ ] Aggiungere progressivamente adapter recon/web secondo i prerequisiti D4/D5.
+- [ ] Sviluppare connettori SIEM/CTI partendo da porte e parser testabili offline.
+- [ ] Avviare Hephaestus read-only su configurazioni e benchmark CIS selezionati.
+
+**Exit gate:** ogni nuova capability dispone di schema, fixture reale sanitizzata,
+coverage esplicita e almeno un flusso end-to-end ripetibile.
+
+### Fase 5 — Production readiness degli scanner (continuativa, 1–2 adapter/sprint)
 
 - [ ] Portare prima `nmap`, `httpx` e `nuclei` a `production-ready` con evidence
   manifest, digest, SBOM, vulnerability scan e matrice versioni.
@@ -451,7 +561,7 @@ ricorrere alla documentazione e interpretano correttamente gli stati di coverage
 **Exit gate per adapter:** nessuna dichiarazione di maturità senza evidenza
 committata e verificabile secondo `docs/scanner-maturity.md`.
 
-### Fase 5 — Distribuzione e osservabilità (2–4 settimane, poi continua)
+### Fase 6 — Distribuzione e osservabilità (2–4 settimane, poi continua)
 
 - [ ] Trusted Publishing su PyPI, firma release/container e provenance SLSA.
 - [ ] Metriche e tracing redatti, dashboard operative e SLO.
@@ -470,8 +580,9 @@ committata e verificabile secondo `docs/scanner-maturity.md`.
 | 4 | CI matrix, coverage, SAST e docs-as-code | Development | Nessuna dipendenza esterna critica |
 | 5 | Form TUI e safety preview | UX + Development | Metadata CLI stabile |
 | 6 | Primi adapter `production-ready` | Cybersecurity | Lab autorizzato + evidenze |
-| 7 | Release firmata PyPI/container | Development + Cybersecurity | Gate precedenti verdi |
-| 8 | Wizard, reporting e accessibilità IT/EN | UX | Flussi e contratti stabilizzati |
+| 7 | Ingest Zeek/Sysmon e primo `athena purple` | Cybersecurity + Development | Fixture reali e lab ripetibile |
+| 8 | Release firmata PyPI/container | Development + Cybersecurity | Gate precedenti verdi |
+| 9 | Wizard, reporting e accessibilità IT/EN | UX | Flussi e contratti stabilizzati |
 
 ## Definition of Done trasversale
 
