@@ -78,7 +78,7 @@ knowing anything.
 > **verification** tools, not attack tools.
 
 > **Free, open-source software.** Olympus is distributed under the **MIT licence** (full text
-> in [`LICENSE`](LICENSE)). In plain terms:
+> in [`LICENSE`](../LICENSE)). In plain terms:
 > - You may **use, study, modify and redistribute it freely**, including in a commercial
 >   project, as long as you keep the copyright notice and licence in the code.
 > - There's no obligation to share your modifications (unlike copyleft licences such as the
@@ -358,7 +358,7 @@ olympus apollo run --rules examples/input/apollo-redteam \
 ```
 
 The complete step-by-step guide, explaining every deliberate weakness of the target, is in
-[`labs/mars/README.md`](labs/mars/README.md).
+[`labs/mars/README.md`](../labs/mars/README.md).
 
 ### Troubleshooting
 
@@ -443,7 +443,7 @@ senza dover già sapere nulla.
 > training. Sono strumenti di **verifica**, non di attacco.
 
 > **Software libero e gratuito.** Olympus è distribuito sotto licenza **MIT** (testo completo
-> in [`LICENSE`](LICENSE)). In pratica, in parole semplici:
+> in [`LICENSE`](../LICENSE)). In pratica, in parole semplici:
 > - Puoi **usarlo, studiarlo, modificarlo e ridistribuirlo liberamente**, anche in un progetto
 >   commerciale, a patto di mantenere l'avviso di copyright e la licenza nel codice.
 > - Non c'è obbligo di condividere le tue modifiche (a differenza di licenze come la GPL): puoi
@@ -725,7 +725,7 @@ olympus apollo run --rules examples/input/apollo-redteam \
 ```
 
 La guida completa, passo passo, con spiegazione di ogni debolezza del bersaglio, è in
-[`labs/mars/README.md`](labs/mars/README.md).
+[`labs/mars/README.md`](../labs/mars/README.md).
 
 ### Se qualcosa non va
 

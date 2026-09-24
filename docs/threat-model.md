@@ -68,7 +68,7 @@ Each row is a threat and the implemented control that addresses it.
 ## What is NOT yet covered
 
 Honesty is a control here too. These are open, and tracked in
-[`ROADMAP_HARDENING.md`](../ROADMAP_HARDENING.md):
+[`ROADMAP.md`](../ROADMAP.md) (`SEC-A`, `SEC-B`, `SEC-E`):
 
 - **The legacy VAP web surface (P0).** The vendored Vulnerability Assessment
   Platform still owns some HTML routes without full RBAC, fail-closed JWT, or a

@@ -36,7 +36,7 @@
 
 | Fase | Focus | Stato | Interventi principali |
 | --- | --- | --- | --- |
-| 0 | Baseline e coerenza documentale | `[ ]` | `DEV-G`, `DEV-H`, `DEV-C` (gate Mypy) |
+| 0 | Baseline e coerenza documentale | `[~]` | `DEV-G`, `DEV-H`, `DEV-C` (gate Mypy) |
 | 1 | Security hardening (**P0**) | `[ ]` | `SEC-A`, `SEC-B`, `SEC-C`, `SEC-H`, `UX-B` |
 | 2 | Architettura e qualità di release | `[ ]` | `DEV-A`, `DEV-B`, `DEV-C`, `DEV-D`, `SEC-F` |
 | 3 | UX operativa bilingue | `[ ]` | `UX-A`, `UX-C`, `UX-D`, `UX-E`, `UX-F`, `UX-G` |
@@ -86,7 +86,7 @@ di sicurezza forti, release riproducibili e flussi operativi comprensibili.
 | Input ostili | report HTML Vulcan con `html.escape`; RichLog TUI con `markup=False` | `aegis/adapters/nmap.py` parsa XML con `xml.etree` considerandolo “trusted local”, ma banner e script output sono controllati dal target; nessun fuzzing dei parser |
 | Scanner | ledger in `integrations/maturity.py` con prove verificabili | 12 `live-tested`, 3 `offline-tested`, 0 `production-ready` |
 | TUI | esecuzione senza shell e streaming dell'output | un solo campo libero per gli argomenti, UI solo inglese, poco supporto decisionale |
-| Documentazione | README bilingue, threat model, ADR e guide operative | link a `ROADMAP_HARDENING.md` e `ROADMAP_OPERATIVA.md`, non più presenti; alcuni conteggi non allineati |
+| Documentazione | README bilingue, threat model, ADR e guide operative | link interni corretti, ma manca un link checker in CI; alcuni conteggi non allineati |
 | Governance | `ROADMAP.md` canonica, `upgrade.md` storico | `upgrade.md` dichiara “nessun gate obbligatorio”, in contrasto con la CI bloccante e con la Definition of Done |
 
 ## 🛡️ Prospettiva Cybersecurity (Analisi e Rinforzo)
@@ -368,11 +368,13 @@ da artifact firmato e smoke test completo fuori dal checkout.
 
 ### Intervento G · `DEV-G` — Documentazione come codice (**P1**)
 
-- [ ] Correggere i link a `ROADMAP_HARDENING.md` e `ROADMAP_OPERATIVA.md`, file
-  oggi non presenti, puntando alle sezioni equivalenti di `ROADMAP.md`. Occorrenze
-  rilevate: `README.md`, `CHANGELOG.md`, `docker-compose.yml`,
-  `docs/scanner-maturity.md`, `docs/threat-model.md` e `docs/apollo.md`. I rimandi
-  a paragrafi (`§3.0`, `§5.3`, `§5.4`) vanno sostituiti con gli ID `SEC-*`/`DEV-*`.
+- [x] Correggere i link a `ROADMAP_HARDENING.md` e `ROADMAP_OPERATIVA.md`, file
+  non più presenti: i rimandi in `README.md`, `CHANGELOG.md`,
+  `docker-compose.yml`, `docs/scanner-maturity.md`, `docs/threat-model.md` e
+  `docs/apollo.md` puntano ora a `ROADMAP.md` tramite gli ID degli interventi
+  (`§3.0`, `§5.3`, `§5.4` sostituiti). Corretti anche i percorsi relativi di
+  `docs/reference.md` verso `LICENSE` e `labs/mars/README.md`. Verifica eseguita
+  su tutti i Markdown first-party (esclusa `vendor/`): 0 link relativi rotti.
 - [ ] Allineare README e `integrations/maturity.py`: il
   ledger attuale dichiara 12 adapter `live-tested`, 3 `offline-tested` incluso
   Wapiti e nessun `production-ready`.
@@ -628,7 +630,7 @@ lab autorizzato; in assenza del lab restano aperte e non cambiano maturità.
 
 ### Fase 0 — Baseline e coerenza documentale (1–2 settimane)
 
-- [ ] Rendere `ROADMAP.md` la fonte canonica e risolvere i link interni rotti
+- [x] Rendere `ROADMAP.md` la fonte canonica e risolvere i link interni rotti
   (`DEV-G`).
 - [ ] Riconciliare `upgrade.md` con la roadmap e creare template issue/PR
   (`DEV-H`).
@@ -738,7 +740,7 @@ committata e verificabile secondo `docs/scanner-maturity.md`.
 | Gate statici bloccanti | Ruff, pytest, pip-audit, gitleaks | + Mypy, format, CodeQL, link checker | `.github/workflows/ci.yml` |
 | Parser coperti da fuzzing | 0 | 100% degli adapter dichiarati | suite `SEC-H` |
 | Import runtime da `vendor/` | presenti (`aegis serve`, `migrate`, `workers`) | 0 | test di architettura `DEV-A` |
-| Link interni rotti | ≥ 6 file | 0 | link checker `DEV-G` |
+| Link interni rotti | ≥ 6 file → 0 (verifica manuale del 24/09/2026) | 0, garantito dalla CI | link checker `DEV-G` |
 | Lingue dell'interfaccia | 1 (EN) | 2 (IT/EN) | cataloghi `UX-E` |
 
 Gli indicatori si aggiornano solo dalla fonte indicata: un valore senza prova

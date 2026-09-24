@@ -152,7 +152,7 @@ what is verified:
 Olympus is developed and exercised on Linux. The core and CLI are written to be
 portable, and the sandbox layer (`olympus.aegis.sandbox`) is POSIX-specific by
 design — user drop and `setrlimit` have no Windows equivalent. Widening this
-matrix is tracked in [`ROADMAP_HARDENING.md`](ROADMAP_HARDENING.md) §5.4.
+matrix is tracked in [`ROADMAP.md`](ROADMAP.md) as `DEV-C`.
 
 ## ⚙️ Configuration
 
