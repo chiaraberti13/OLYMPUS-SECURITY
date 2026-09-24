@@ -48,7 +48,7 @@ x-vap-env: &vap-env
 # NOTE: read_only rootfs and a non-root `user:` are deliberately NOT set here —
 # they require validation against the vendored VAP image's writable paths and
 # volume ownership on a real Docker host, which is tracked as open in
-# ROADMAP_HARDENING.md (§5.3). Everything below is safe without that validation.
+# ROADMAP.md (SEC-B, prerequisite D11). Everything below is safe without that validation.
 x-hardening: &hardening
   security_opt:
     - "no-new-privileges:true"
@@ -194,7 +194,7 @@ networks:
   # and the ZAP engine) so it is isolated from other Compose projects' default
   # network. Full control-plane / scan-plane segmentation across the scanner
   # overlay (docker-compose.scanners.yml) still needs validation on a Docker host
-  # — see ROADMAP_HARDENING.md §5.3.
+  # — see ROADMAP.md, SEC-B.
   backend:
     driver: bridge
 

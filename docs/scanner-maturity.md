@@ -137,7 +137,7 @@ Codici di uscita del gate:
 
 ## Aggiungere un'integrazione
 
-Il meccanismo non cambia (vedi `ROADMAP_HARDENING.md` §3.0):
+Il meccanismo non cambia (vedi `ROADMAP.md`, Fase 5 e prerequisiti D1/D2):
 
 1. registrare la `ScannerSpec` in `olympus/integrations/scanners.py` → `catalog-only`;
 2. scrivere l'adapter in `olympus/aegis/adapters/<nome>.py` e registrarlo in
@@ -154,5 +154,5 @@ salta un passo, il verificatore se ne accorge.
 
 - Catalogo e licenze: [`docs/scanner-matrix.md`](scanner-matrix.md)
 - Evidenze di esecuzione reale: [`docs/aegis-execution-evidence.md`](aegis-execution-evidence.md)
-- Definition of Done: [`ROADMAP_HARDENING.md`](../ROADMAP_HARDENING.md)
+- Definition of Done: [`ROADMAP.md`](../ROADMAP.md#definition-of-done-trasversale)
 - Licenze di terze parti: [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md)

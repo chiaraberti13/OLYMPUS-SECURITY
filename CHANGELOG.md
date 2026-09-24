@@ -7,7 +7,7 @@ tagged release exists, breaking changes bump MAJOR, backward-compatible features
 bump MINOR, and fixes bump PATCH.
 
 Signed release tags, database migrations and a documented rollback procedure are
-still open (see `ROADMAP_HARDENING.md` §5.4); until a release is tagged,
+still open (see `ROADMAP.md`: `SEC-F`, `DEV-D`, `DEV-F`); until a release is tagged,
 everything below lives under **Unreleased**.
 
 ## [Unreleased]
@@ -114,4 +114,4 @@ everything below lives under **Unreleased**.
   token (self-review finding).
 
 _Runtime-dependent items (live scanner runs, container runtime behaviour, remote
-feeds) are tracked with their blockers in `ROADMAP_HARDENING.md`._
+feeds) are tracked with their blockers in `ROADMAP.md` (prerequisites D1–D12)._

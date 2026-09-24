@@ -44,7 +44,7 @@ olympus apollo run --rules ./rules --events events.ndjson --output alerts.json
 
 Additional formats (Sysmon/Windows Event, Zeek) can plug into the same
 `core.Event` shape. Sysmon capture needs real Windows telemetry, so it is tracked
-in `ROADMAP_OPERATIVA.md` rather than declared here.
+in [`ROADMAP.md`](../ROADMAP.md) as `OPS-BLUE` rather than declared here.
 
 ## Streaming and limits
 
