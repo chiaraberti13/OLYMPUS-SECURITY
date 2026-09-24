@@ -87,7 +87,7 @@ di sicurezza forti, release riproducibili e flussi operativi comprensibili.
 | Scanner | ledger in `integrations/maturity.py` con prove verificabili | 12 `live-tested`, 3 `offline-tested`, 0 `production-ready` |
 | TUI | esecuzione senza shell e streaming dell'output | un solo campo libero per gli argomenti, UI solo inglese, poco supporto decisionale |
 | Documentazione | README bilingue, threat model, ADR e guide operative | link interni corretti, ma manca un link checker in CI; alcuni conteggi non allineati |
-| Governance | `ROADMAP.md` canonica, `upgrade.md` storico | `upgrade.md` dichiara “nessun gate obbligatorio”, in contrasto con la CI bloccante e con la Definition of Done |
+| Governance | `ROADMAP.md` canonica, `upgrade.md` storico in sola aggiunta, `CONTRIBUTING.md` allineato alla CI, template issue/PR e indice ADR | label di area e priorità non ancora create su GitHub |
 
 ## 🛡️ Prospettiva Cybersecurity (Analisi e Rinforzo)
 
@@ -388,16 +388,25 @@ capability scritto manualmente può divergere dal codice senza fallire la CI.
 
 ### Intervento H · `DEV-H` — Governance del backlog (**P1**)
 
-- [ ] Riconciliare i principi di `upgrade.md` (“nessun gate obbligatorio”) con la
+- [x] Riconciliare i principi di `upgrade.md` (“nessun gate obbligatorio”) con la
   CI bloccante e con la Definition of Done di questa roadmap; dichiarare
-  `upgrade.md` registro storico in sola aggiunta.
-- [ ] Creare issue template e label coerenti con gli ID (`SEC-*`, `DEV-*`, `UX-*`,
+  `upgrade.md` registro storico in sola aggiunta. `upgrade.md` ha ora un avviso
+  iniziale; `CONTRIBUTING.md` e `Makefile` descrivono i controlli CI realmente
+  bloccanti (prima dichiaravano `continue-on-error` e secret scan “advisory”,
+  entrambi falsi) e quelli pianificati ma non ancora attivi.
+- [~] Creare issue template e label coerenti con gli ID (`SEC-*`, `DEV-*`, `UX-*`,
   `OPS-*`) e con le priorità P0–P3, così che ogni issue sia riconducibile a un
-  intervento.
-- [ ] Aggiungere un template di PR con checklist della Definition of Done e
-  richiamo all'ID dell'intervento.
-- [ ] Registrare ogni decisione strutturale come ADR numerato proseguendo la
-  sequenza esistente (`adr-001`, `adr-002` in `docs/architecture/`).
+  intervento. Fatto: moduli `.github/ISSUE_TEMPLATE/` (roadmap item, bug report,
+  segnalazione vulnerabilità privata) con issue vuote disabilitate e schema label
+  in `CONTRIBUTING.md`. Manca: creare su GitHub le label `roadmap`,
+  `area:security`, `area:dev`, `area:ux`, `area:ops`, `P0`–`P3` (serve un
+  maintainer; `bug` esiste già).
+- [x] Aggiungere un template di PR con checklist della Definition of Done e
+  richiamo all'ID dell'intervento (`.github/pull_request_template.md`).
+- [x] Registrare ogni decisione strutturale come ADR numerato proseguendo la
+  sequenza esistente: indice, regole di numerazione/immutabilità e template in
+  `docs/architecture/README.md` e `docs/architecture/adr-template.md`, con
+  `adr-003`–`adr-005` riservati per `SEC-A`, `DEV-B` e `SEC-C`.
 
 **Criterio di completamento:** ogni modifica è tracciabile da ID → issue → PR →
 commit → evidenza, e non esistono documenti di pianificazione in conflitto.
@@ -632,8 +641,8 @@ lab autorizzato; in assenza del lab restano aperte e non cambiano maturità.
 
 - [x] Rendere `ROADMAP.md` la fonte canonica e risolvere i link interni rotti
   (`DEV-G`).
-- [ ] Riconciliare `upgrade.md` con la roadmap e creare template issue/PR
-  (`DEV-H`).
+- [~] Riconciliare `upgrade.md` con la roadmap e creare template issue/PR
+  (`DEV-H`); resta solo la creazione delle label su GitHub.
 - [ ] Attivare Mypy e `ruff format --check` come gate CI (`DEV-C`).
 - [ ] Generare automaticamente inventario e maturity table.
 - [ ] Registrare baseline di test, coverage, package build e threat model.

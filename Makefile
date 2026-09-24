@@ -6,10 +6,10 @@ install:
 	$(PYTHON) -m pip install -e ".[dev]"
 
 # --------------------------------------------------------------------------- #
-# Optional quality helpers. None of these are a completion gate: linting, type
-# checking, tests, and coverage are optional tools that must never block
-# implementation, integration, execution, or calling a tool "complete".
-# Completeness means 100% functional feature parity, not a passing gate.
+# Local quality helpers. Locally they never block you; CI is what enforces
+# ruff and pytest (plus build, pip-audit and gitleaks) on every pull request.
+# mypy stays optional until ROADMAP.md DEV-C wires it into CI. See
+# CONTRIBUTING.md, "What CI enforces today".
 # --------------------------------------------------------------------------- #
 lint:
 	$(PYTHON) -m ruff check .

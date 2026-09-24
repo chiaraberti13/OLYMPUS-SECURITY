@@ -1,4 +1,4 @@
-# Code ownership for review routing (roadmap §5.5 governance).
+# Code ownership for review routing (ROADMAP.md, DEV-H governance).
 #
 # GitHub requests a review from the owner of every changed path. The security-
 # critical surfaces are listed explicitly so a change to a guard, a bound, the

@@ -1,0 +1,10 @@
+# Issue chooser. Blank issues are disabled so every issue maps to a roadmap ID
+# or a reproducible bug (ROADMAP.md, DEV-H).
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability (private)
+    url: https://github.com/chiaraberti13/OLYMPUS-SECURITY/security/advisories/new
+    about: Never open a public issue for an unpatched vulnerability. See SECURITY.md.
+  - name: Roadmap
+    url: https://github.com/chiaraberti13/OLYMPUS-SECURITY/blob/main/ROADMAP.md
+    about: Check the intervention ID (SEC-*, DEV-*, UX-*, OPS-*) before opening an issue.
