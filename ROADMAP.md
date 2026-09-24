@@ -18,6 +18,34 @@
 - **P2** miglioramento importante;
 - **P3** evoluzione successiva.
 
+### Come leggere e mantenere questa roadmap
+
+- Ogni intervento ha un identificativo stabile (`SEC-*` cybersecurity, `DEV-*`
+  sviluppo, `UX-*` design, `OPS-*` backlog operativo): fasi, priorità, issue, PR e
+  commit devono citarlo, così lo stato resta tracciabile senza duplicare testo.
+- `ROADMAP.md` è la fonte canonica per il lavoro **futuro**; `upgrade.md` resta il
+  registro storico dei cicli di integrazione ARGUS/VAP e non va usato per
+  pianificare nuove attività.
+- Una casella passa a `[x]` solo rispettando la
+  [Definition of Done trasversale](#definition-of-done-trasversale); un `[~]` deve
+  sempre indicare, nella stessa voce, cosa manca.
+- Un intervento `[⏸]` indica il prerequisito di sblocco nella tabella
+  [Prerequisiti per le attività differite](#prerequisiti-per-le-attività-differite).
+
+### Cruscotto di avanzamento
+
+| Fase | Focus | Stato | Interventi principali |
+| --- | --- | --- | --- |
+| 0 | Baseline e coerenza documentale | `[ ]` | `DEV-G`, `DEV-H`, `DEV-C` (gate Mypy) |
+| 1 | Security hardening (**P0**) | `[ ]` | `SEC-A`, `SEC-B`, `SEC-C`, `SEC-H`, `UX-B` |
+| 2 | Architettura e qualità di release | `[ ]` | `DEV-A`, `DEV-B`, `DEV-C`, `DEV-D`, `SEC-F` |
+| 3 | UX operativa bilingue | `[ ]` | `UX-A`, `UX-C`, `UX-D`, `UX-E`, `UX-F`, `UX-G` |
+| 4 | Capability Red/Blue/Purple | `[~]` | `OPS-RED`, `OPS-BLUE`, `OPS-PURPLE` |
+| 5 | Production readiness scanner | `[ ]` | `D1`, `D2` |
+| 6 | Distribuzione e osservabilità | `[ ]` | `DEV-E`, `DEV-F`, `SEC-F` |
+
+Il cruscotto va aggiornato nella stessa PR che cambia lo stato di un intervento.
+
 ## 📌 Panoramica del Progetto
 
 Il repository non è più costituito dal solo script `OLYMPUS.py`: quel file non è
@@ -54,10 +82,12 @@ di sicurezza forti, release riproducibili e flussi operativi comprensibili.
 | Credenziali | i segreti first-party sono letti dall'ambiente e redatti | manca un backend opzionale per secret manager e una policy uniforme di rotazione |
 | Autorizzazione | scope file + conferma esplicita prima dell'esecuzione | lo scope non è ancora un engagement manifest firmato, con scadenza e approvatore |
 | Supply chain | SBOM, hash lock, audit dipendenze e secret scan | mancano attestazioni di build, firma immagini/release e SAST CodeQL bloccante |
-| Qualità | Ruff e pytest sono gate obbligatori | nessuna soglia di coverage; CI verificata solo su Ubuntu/Python 3.11 |
+| Qualità | Ruff e pytest sono gate obbligatori | Mypy configurato ma non eseguito in CI; nessuna soglia di coverage; CI solo Ubuntu/Python 3.11 |
+| Input ostili | report HTML Vulcan con `html.escape`; RichLog TUI con `markup=False` | `aegis/adapters/nmap.py` parsa XML con `xml.etree` considerandolo “trusted local”, ma banner e script output sono controllati dal target; nessun fuzzing dei parser |
 | Scanner | ledger in `integrations/maturity.py` con prove verificabili | 12 `live-tested`, 3 `offline-tested`, 0 `production-ready` |
 | TUI | esecuzione senza shell e streaming dell'output | un solo campo libero per gli argomenti, UI solo inglese, poco supporto decisionale |
-| Documentazione | README bilingue, threat model, ADR e guide operative | riferimenti a `ROADMAP_HARDENING.md` non presente e alcuni conteggi non allineati |
+| Documentazione | README bilingue, threat model, ADR e guide operative | link a `ROADMAP_HARDENING.md` e `ROADMAP_OPERATIVA.md`, non più presenti; alcuni conteggi non allineati |
+| Governance | `ROADMAP.md` canonica, `upgrade.md` storico | `upgrade.md` dichiara “nessun gate obbligatorio”, in contrasto con la CI bloccante e con la Definition of Done |
 
 ## 🛡️ Prospettiva Cybersecurity (Analisi e Rinforzo)
 
@@ -74,7 +104,7 @@ tra il control plane nativo e la superficie VAP vendorizzata, seguito
 dall'isolamento di rete dei processi scanner e dalla forza probatoria dello scope e
 delle evidenze.
 
-### Intervento A — Ritirare la superficie VAP vendorizzata (**P0**)
+### Intervento A · `SEC-A` — Ritirare la superficie VAP vendorizzata (**P0**)
 
 - [ ] Reimplementare nativamente le funzioni ancora delegate da
   `src/olympus/integrations/cli.py` a `vendor/vulnerability-assessment-platform`:
@@ -90,7 +120,7 @@ delle evidenze.
 senza importare `vendor/`; i test di parità e regressione sono verdi; la directory
 vendorizzata può essere rimossa senza perdita di funzionalità dichiarata.
 
-### Intervento B — Isolamento forte degli scanner (**P0**)
+### Intervento B · `SEC-B` — Isolamento forte degli scanner (**P0**)
 
 `src/olympus/aegis/sandbox.py` applica già drop dei privilegi, limiti CPU/memoria/
 processi/file descriptor, directory temporanea privata e terminazione del process
@@ -111,7 +141,7 @@ group. Il file dichiara correttamente ciò che manca.
 host, elevare privilegi o raggiungere un indirizzo non autorizzato; le prove sono
 automatizzate e allegate come evidenza di release.
 
-### Intervento C — Engagement manifest firmato (**P1**)
+### Intervento C · `SEC-C` — Engagement manifest firmato (**P1**)
 
 `core.execution.ExecutionPolicy` richiede oggi `authorized=True` e può registrare
 un `approval_reference`, ma una conferma booleana non prova chi abbia autorizzato
@@ -130,7 +160,7 @@ cosa e per quanto tempo.
 **Criterio di completamento:** nessuna live scan può partire con un semplice flag;
 il report consente di dimostrare manifest, firma, scope e policy effettivi usati.
 
-### Intervento D — Gestione credenziali e identità (**P1**)
+### Intervento D · `SEC-D` — Gestione credenziali e identità (**P1**)
 
 - [ ] Conservare le variabili d'ambiente come fallback locale, senza introdurre
   `.env` caricati automaticamente in produzione.
@@ -148,7 +178,7 @@ il report consente di dimostrare manifest, firma, scope e policy effettivi usati
 telemetria o file temporanei nei test canary; tutte le credenziali di servizio sono
 ruotabili senza downtime.
 
-### Intervento E — Evidenze e chain of custody verificabili (**P1**)
+### Intervento E · `SEC-E` — Evidenze e chain of custody verificabili (**P1**)
 
 - [ ] Integrare la firma Ed25519 direttamente nell'append path del ledger Minerva,
   non solo come firma detached successiva del file.
@@ -162,7 +192,7 @@ ruotabili senza downtime.
 **Criterio di completamento:** modifica, riordino, troncamento o sostituzione di una
 evidenza vengono rilevati e la verifica è possibile da un soggetto terzo.
 
-### Intervento F — Supply-chain security e release signing (**P1**)
+### Intervento F · `SEC-F` — Supply-chain security e release signing (**P1**)
 
 - [ ] Aggiungere CodeQL/SAST come gate bloccante per il codice first-party.
 - [ ] Generare provenance SLSA e attestazioni firmate per wheel, sdist, container,
@@ -177,7 +207,7 @@ evidenza vengono rilevati e la verifica è possibile da un soggetto terzo.
 **Criterio di completamento:** ogni release pubblica è riproducibile, firmata,
 corredata da SBOM e attestazione; la verifica fallisce su artifact alterati.
 
-### Intervento G — Guardrail per capacità offensive (**P1**)
+### Intervento G · `SEC-G` — Guardrail per capacità offensive (**P1**)
 
 - [ ] Classificare ogni comando come `passive`, `active`, `intrusive` o
   `destructive-prohibited` e mostrare la classe prima dell'esecuzione.
@@ -192,6 +222,52 @@ corredata da SBOM e attestazione; la verifica fallisce su artifact alterati.
 **Criterio di completamento:** lo stesso comando non può ottenere privilegi o
 capacità maggiori passando da un'interfaccia diversa.
 
+### Intervento H · `SEC-H` — Dati ostili restituiti dai target (**P1**)
+
+Uno strumento di sicurezza elabora per definizione dati prodotti da sistemi non
+fidati: banner, header, titoli di pagina, hostname, output di script NSE e report
+degli scanner sono controllati dal target e possono colpire l'operatore
+(“attacco al pentester”). Oggi Vulcan esegue `html.escape` e la TUI disabilita il
+markup Rich, ma la difesa non è sistematica.
+
+- [ ] Trattare ogni output scanner come input non fidato: rimuovere il commento
+  “trusted local” in `aegis/adapters/nmap.py`, adottare `defusedxml` (o un parser
+  equivalente con entità disabilitate) e imporre limiti di dimensione e
+  profondità prima del parsing XML/JSON.
+- [ ] Aggiungere fuzzing (Hypothesis o Atheris) per tutti i parser in
+  `aegis/adapters/`, `apollo` e `metis`, con corpus iniziale dalle fixture reali:
+  nessun input deve causare crash non gestiti, consumo illimitato o finding
+  inventati.
+- [ ] Neutralizzare sequenze di escape ANSI/OSC e caratteri di controllo prima di
+  mostrarle in CLI, TUI e log (terminal injection, falsificazione di righe di log).
+- [ ] Garantire escaping contestuale in tutti gli export: HTML con Content Security
+  Policy restrittiva e nessuno script inline, Markdown, SARIF e CSV/XLSX con
+  protezione da formula injection (`=`, `+`, `-`, `@` in testa alla cella).
+- [ ] Vietare che valori provenienti dal target diventino path, argv, URL di
+  follow-up o nomi file senza passare per validazione e scope gate (path traversal,
+  SSRF di secondo ordine, argument injection).
+- [ ] Creare fixture “malevole” versionate (XML bomb, banner con escape ANSI,
+  payload XSS nel titolo, nomi file con `../`) eseguite a ogni run di CI.
+
+**Criterio di completamento:** un target controllato dall'attaccante non può
+eseguire codice, alterare la visualizzazione, iniettare contenuto nei report o
+esaurire le risorse dell'host che esegue Olympus; ogni regressione fa fallire la CI.
+
+### Intervento I · `SEC-I` — Security operations del progetto (**P2**)
+
+- [ ] Definire in `SECURITY.md` tempi di presa in carico e di risoluzione per
+  severità (es. critica: triage 48 h, fix 7 giorni) e un canale di segnalazione
+  privato (GitHub Private Vulnerability Reporting).
+- [ ] Collegare Dependabot a una SLA di aggiornamento per le dipendenze con CVE
+  note e registrare le eccezioni motivate con scadenza, mai allowlist permanenti.
+- [ ] Redigere un runbook di incident response per compromissione di chiavi di
+  firma, token CI o API key AEGIS: revoca, rotazione, re-firma e comunicazione.
+- [ ] Pianificare una review di sicurezza esterna o un bug bounty privato prima
+  della prima release dichiarata `production-ready`.
+
+**Criterio di completamento:** una vulnerabilità segnalata segue un percorso
+documentato e misurabile, dalla ricezione all'advisory pubblicato.
+
 ## 💻 Prospettiva Sviluppatore (Code Quality e Architettura)
 
 ### Stato del codice attuale
@@ -203,7 +279,7 @@ presente. I principali rischi sono il doppio stack nativo/vendorizzato, la
 registrazione statica degli adapter, una matrice di compatibilità troppo stretta e
 la mancanza di metriche di coverage bloccanti.
 
-### Intervento A — Confini architetturali e rimozione del doppio stack (**P0**)
+### Intervento A · `DEV-A` — Confini architetturali e rimozione del doppio stack (**P0**)
 
 - [ ] Stabilire una sola source of truth per API, job model, audit, persistence e
   report; il codice in `vendor/` non deve evolvere parallelamente al core nativo.
@@ -217,7 +293,7 @@ la mancanza di metriche di coverage bloccanti.
 **Criterio di completamento:** dipendenze tra layer documentate e verificate in
 CI; nessuna logica di dominio dipende da Typer, Textual, FastAPI o SQLite.
 
-### Intervento B — SDK per adapter e plugin registry (**P1**)
+### Intervento B · `DEV-B` — SDK per adapter e plugin registry (**P1**)
 
 - [ ] Estrarre un protocollo pubblico stabile per adapter: metadata, capability,
   input, argv, parser, health check, maturity ed evidence manifest.
@@ -230,8 +306,11 @@ CI; nessuna logica di dominio dipende da Typer, Textual, FastAPI o SQLite.
 **Criterio di completamento:** un adapter esterno può essere sviluppato e testato
 senza modificare il core, ma non può bypassare scope, policy, audit o sandbox.
 
-### Intervento C — Compatibilità e qualità misurabile (**P1**)
+### Intervento C · `DEV-C` — Compatibilità e qualità misurabile (**P1**)
 
+- [ ] Rendere Mypy un gate CI bloccante sul codice first-party: oggi il job
+  obbligatorio esegue solo `ruff check .` e `pytest`, mentre la Definition of Done
+  richiede anche Mypy. Aggiungere `ruff format --check` per evitare diff di stile.
 - [ ] Estendere la CI a Python 3.11, 3.12, 3.13 e 3.14; mantenere almeno Ubuntu e
   aggiungere smoke test su macOS e Windows per le funzioni portabili.
 - [ ] Isolare e marcare chiaramente i test POSIX-only della sandbox.
@@ -246,7 +325,7 @@ senza modificare il core, ma non può bypassare scope, policy, audit o sandbox.
 **Criterio di completamento:** matrice supportata dichiarata uguale a quella
 effettivamente testata; regressioni dei guardrail provocano sempre un fallimento.
 
-### Intervento D — Contratti, migrazioni e backward compatibility (**P1**)
+### Intervento D · `DEV-D` — Contratti, migrazioni e backward compatibility (**P1**)
 
 - [ ] Pubblicare JSON Schema versionati per input/output e applicare SemVer ai
   contratti oltre che al package.
@@ -260,7 +339,7 @@ effettivamente testata; regressioni dei guardrail provocano sempre un fallimento
 **Criterio di completamento:** una release nuova legge gli artifact supportati
 dalla precedente oppure restituisce un errore di migrazione esplicito e sicuro.
 
-### Intervento E — Performance, resilienza e osservabilità (**P2**)
+### Intervento E · `DEV-E` — Performance, resilienza e osservabilità (**P2**)
 
 - [ ] Creare benchmark ripetibili per ingest, normalizzazione, deduplica, grandi
   report e code AEGIS; definire budget di memoria, CPU e latenza.
@@ -274,7 +353,7 @@ dalla precedente oppure restituisce un errore di migrazione esplicito e sicuro.
 **Criterio di completamento:** esistono SLO e performance budget misurati; un
 riavvio non duplica scansioni né perde lo stato terminale di un job.
 
-### Intervento F — Release PyPI professionale (**P2**)
+### Intervento F · `DEV-F` — Release PyPI professionale (**P2**)
 
 - [ ] Automatizzare versione, changelog, build, test, firma e pubblicazione PyPI
   tramite Trusted Publishing/OIDC, senza token statici.
@@ -287,10 +366,13 @@ riavvio non duplica scansioni né perde lo stato terminale di un job.
 **Criterio di completamento:** installazione con `pipx install olympus-security`
 da artifact firmato e smoke test completo fuori dal checkout.
 
-### Intervento G — Documentazione come codice (**P1**)
+### Intervento G · `DEV-G` — Documentazione come codice (**P1**)
 
-- [ ] Correggere i link a `ROADMAP_HARDENING.md`, file oggi non presente, e
-  scegliere `ROADMAP.md` come roadmap canonica.
+- [ ] Correggere i link a `ROADMAP_HARDENING.md` e `ROADMAP_OPERATIVA.md`, file
+  oggi non presenti, puntando alle sezioni equivalenti di `ROADMAP.md`. Occorrenze
+  rilevate: `README.md`, `CHANGELOG.md`, `docker-compose.yml`,
+  `docs/scanner-maturity.md`, `docs/threat-model.md` e `docs/apollo.md`. I rimandi
+  a paragrafi (`§3.0`, `§5.3`, `§5.4`) vanno sostituiti con gli ID `SEC-*`/`DEV-*`.
 - [ ] Allineare README e `integrations/maturity.py`: il
   ledger attuale dichiara 12 adapter `live-tested`, 3 `offline-tested` incluso
   Wapiti e nessun `production-ready`.
@@ -301,6 +383,22 @@ da artifact firmato e smoke test completo fuori dal checkout.
 
 **Criterio di completamento:** nessun link interno rotto e nessun numero di
 capability scritto manualmente può divergere dal codice senza fallire la CI.
+
+### Intervento H · `DEV-H` — Governance del backlog (**P1**)
+
+- [ ] Riconciliare i principi di `upgrade.md` (“nessun gate obbligatorio”) con la
+  CI bloccante e con la Definition of Done di questa roadmap; dichiarare
+  `upgrade.md` registro storico in sola aggiunta.
+- [ ] Creare issue template e label coerenti con gli ID (`SEC-*`, `DEV-*`, `UX-*`,
+  `OPS-*`) e con le priorità P0–P3, così che ogni issue sia riconducibile a un
+  intervento.
+- [ ] Aggiungere un template di PR con checklist della Definition of Done e
+  richiamo all'ID dell'intervento.
+- [ ] Registrare ogni decisione strutturale come ADR numerato proseguendo la
+  sequenza esistente (`adr-001`, `adr-002` in `docs/architecture/`).
+
+**Criterio di completamento:** ogni modifica è tracciabile da ID → issue → PR →
+commit → evidenza, e non esistono documenti di pianificazione in conflitto.
 
 ## 🎨 Prospettiva Designer (UI/UX)
 
@@ -313,7 +411,20 @@ cancellazione. È una base sicura, ma la schermata di esecuzione espone un solo
 campo `Arguments` interpretato con `shlex.split`: l'utente deve già conoscere
 flag, formati dei file e relazioni tra scope, autorizzazione e output.
 
-### Intervento A — Form dinamici derivati dalla CLI (**P1**)
+### Principi di design
+
+1. **Sicurezza visibile, non nascosta:** scope, autorizzazione e classe di rischio
+   sono sempre sullo schermo prima e durante un'operazione attiva.
+2. **Onestà dello stato:** “nessun finding” non deve mai essere confuso con
+   “scansione parziale”, “simulazione” o “tool non disponibile”.
+3. **Attrito proporzionato:** nessuna conferma per operazioni passive, conferma
+   esplicita e specifica per quelle attive o intrusive.
+4. **Stesso modello, più interfacce:** CLI, TUI ed eventuale web UI condividono
+   schema, validazione e messaggi; nessuna logica duplicata.
+5. **Esperti e principianti:** percorsi guidati per chi inizia, modalità raw e
+   scorciatoie da tastiera per chi conosce già gli strumenti.
+
+### Intervento A · `UX-A` — Form dinamici derivati dalla CLI (**P1**)
 
 - [ ] Generare controlli TUI dalla metadata Click/Typer: text field, select,
   checkbox, path picker e repeatable option, invece di un'unica stringa libera.
@@ -326,7 +437,7 @@ flag, formati dei file e relazioni tra scope, autorizzazione e output.
 **Criterio di completamento:** un nuovo utente può configurare una scansione senza
 consultare `--help`; l'argv prodotto è visibile, redatto e riproducibile.
 
-### Intervento B — Safety preview e conferme proporzionate (**P0/P1**)
+### Intervento B · `UX-B` — Safety preview e conferme proporzionate (**P0/P1**)
 
 - [ ] Prima del run mostrare target normalizzato, scope match, classe di rischio,
   manifest/approvazione, timeout, rate, concorrenza, output e tool esterno.
@@ -340,7 +451,7 @@ consultare `--help`; l'argv prodotto è visibile, redatto e riproducibile.
 **Criterio di completamento:** test di usabilità dimostrano che gli utenti non
 confondono simulazione, successo senza finding e copertura incompleta.
 
-### Intervento C — Flusso guidato per assessment (**P1**)
+### Intervento C · `UX-C` — Flusso guidato per assessment (**P1**)
 
 - [ ] Aggiungere wizard: crea/importa engagement → valida scope → esegui doctor →
   seleziona capability → stima impatto → avvia → monitora → esporta report.
@@ -353,7 +464,7 @@ confondono simulazione, successo senza finding e copertura incompleta.
 **Criterio di completamento:** il percorso principale richiede decisioni chiare e
 non espone opzioni non applicabili all'ambiente corrente.
 
-### Intervento D — Monitoraggio operativo e cronologia (**P1**)
+### Intervento D · `UX-D` — Monitoraggio operativo e cronologia (**P1**)
 
 - [ ] Aggiungere vista job con progresso, fase, tempo trascorso, deadline, retry,
   coverage, finding count e stato dello scanner.
@@ -366,7 +477,7 @@ non espone opzioni non applicabili all'ambiente corrente.
 **Criterio di completamento:** l'utente può spiegare in ogni momento cosa è in
 esecuzione, con quale autorizzazione e quanto è completa la copertura.
 
-### Intervento E — Accessibilità e internazionalizzazione (**P1**)
+### Intervento E · `UX-E` — Accessibilità e internazionalizzazione (**P1**)
 
 - [ ] Estrarre tutte le stringhe runtime da TUI e CLI e introdurre cataloghi
   `it`/`en`; oggi README e policy sono bilingui, l'interfaccia è solo inglese.
@@ -380,7 +491,7 @@ esecuzione, con quale autorizzazione e quanto è completa la copertura.
 **Criterio di completamento:** tutti i flussi primari sono usabili da tastiera, in
 italiano e inglese, senza dipendere dalla percezione cromatica.
 
-### Intervento F — Reporting a più livelli (**P2**)
+### Intervento F · `UX-F` — Reporting a più livelli (**P2**)
 
 - [ ] Separare vista executive, tecnica e raw evidence mantenendo la tracciabilità
   dello stesso finding.
@@ -392,6 +503,24 @@ italiano e inglese, senza dipendere dalla percezione cromatica.
 
 **Criterio di completamento:** lo stesso assessment produce un riepilogo leggibile
 dal management e un allegato tecnico verificabile senza duplicare i dati.
+
+### Intervento G · `UX-G` — Coerenza CLI, errori e onboarding (**P1**)
+
+- [ ] Uniformare in tutti i moduli le opzioni trasversali (`--format
+  table|json|ndjson`, `--output`, `--quiet`, `--verbose`) e rispettare la variabile
+  `NO_COLOR` anche nell'output di Olympus, non solo nei processi scanner figli.
+- [ ] Riscrivere i messaggi di errore secondo lo schema “cosa è successo → perché →
+  cosa fare”, con codice errore stabile e link alla documentazione; mai stack
+  trace o segreti all'utente finale.
+- [ ] Offrire un primo avvio guidato basato su un `olympus doctor` globale (oggi il
+  doctor esiste solo in Argus): dipendenze, binari scanner, maturity, permessi,
+  configurazione e scope di esempio in un'unica diagnosi.
+- [ ] Rendere scopribili i comandi con suggerimenti “forse intendevi…”, esempi
+  copiabili in ogni `--help` e completion per bash/zsh/fish.
+
+**Criterio di completamento:** un nuovo utente installa Olympus, esegue la diagnosi
+e completa la prima operazione passiva senza consultare documentazione esterna;
+gli script possono consumare ogni comando in JSON senza parsing di testo.
 
 ## 🧭 Backlog Operativo Consolidato
 
@@ -414,7 +543,7 @@ i contratti e i controlli di sicurezza descritti nelle sezioni precedenti.
 - [~] **Wapiti:** adapter nativo e parser provato su report JSON reale; resta la
   validazione end-to-end attraverso lo scope gate per passare a `live-tested`.
 
-### Red Team — Copertura offensiva scope-safe
+### Red Team · `OPS-RED` — Copertura offensiva scope-safe
 
 - [⏸] **P1 — Recon ProjectDiscovery/OSINT:** aggiungere adapter nativi per
   `subfinder`, `dnsx`, `naabu`, `amass` e `theHarvester`, ciascuno con argv senza
@@ -437,7 +566,7 @@ i contratti e i controlli di sicurezza descritti nelle sezioni precedenti.
 policy, audit, sandbox e stati di coverage; nessuna funzione offensiva diventa
 eseguibile solo perché il binario esterno è installato.
 
-### Blue Team — Detection, SIEM, CTI e DFIR
+### Blue Team · `OPS-BLUE` — Detection, SIEM, CTI e DFIR
 
 - [~] **P1 — Ingest Apollo:** aggiungere Sysmon/Windows Event e Zeek oltre al
   formato access-log già disponibile. Separare sempre acquisizione e parsing,
@@ -459,7 +588,7 @@ eseguibile solo perché il binario esterno è installato.
 gli errori di ingest producono coverage parziale esplicita e non una pipeline
 apparentemente pulita.
 
-### Purple Team — Validazione e regressione operativa
+### Purple Team · `OPS-PURPLE` — Validazione e regressione operativa
 
 - [ ] **P2 — `athena purple`:** orchestrare attacco simulato scope-safe → ingest
   Apollo → valutazione detection → report del gap di copertura, collegando tecnica
@@ -499,10 +628,15 @@ lab autorizzato; in assenza del lab restano aperte e non cambiano maturità.
 
 ### Fase 0 — Baseline e coerenza documentale (1–2 settimane)
 
-- [ ] Rendere `ROADMAP.md` la fonte canonica e risolvere i link interni rotti.
+- [ ] Rendere `ROADMAP.md` la fonte canonica e risolvere i link interni rotti
+  (`DEV-G`).
+- [ ] Riconciliare `upgrade.md` con la roadmap e creare template issue/PR
+  (`DEV-H`).
+- [ ] Attivare Mypy e `ruff format --check` come gate CI (`DEV-C`).
 - [ ] Generare automaticamente inventario e maturity table.
 - [ ] Registrare baseline di test, coverage, package build e threat model.
-- [ ] Aprire ADR per ritiro VAP, plugin SDK ed engagement manifest firmato.
+- [ ] Aprire `adr-003` ritiro VAP, `adr-004` plugin SDK e `adr-005` engagement
+  manifest firmato.
 
 **Exit gate:** documentazione coerente con `main`, backlog senza duplicati e ADR
 approvati per i tre cambiamenti strutturali.
@@ -513,9 +647,12 @@ approvati per i tre cambiamenti strutturali.
 - [ ] Implementare egress allowlist, container sandbox e profilo seccomp/AppArmor.
 - [ ] Introdurre engagement manifest firmato e safety preview.
 - [ ] Rafforzare redaction test, secret provider e kill switch end-to-end.
+- [ ] Parsing sicuro, fuzzing e fixture malevole per i dati restituiti dai target
+  (`SEC-H`).
 
-**Exit gate:** nessuna operazione attiva può bypassare scope/autorizzazione e un
-processo scanner compromesso resta confinato.
+**Exit gate:** nessuna operazione attiva può bypassare scope/autorizzazione, un
+processo scanner compromesso resta confinato e un target ostile non può colpire
+l'operatore tramite output, log o report.
 
 ### Fase 2 — Architettura e qualità di release (4–8 settimane)
 
@@ -535,6 +672,8 @@ verde su tutta la matrice dichiarata.
   evidenze.
 - [ ] Completare localizzazione IT/EN e audit di accessibilità.
 - [ ] Consolidare report executive/technical/raw.
+- [ ] Uniformare opzioni CLI, messaggi di errore e `olympus doctor` globale
+  (`UX-G`).
 
 **Exit gate:** test con utenti rappresentativi completano i flussi primari senza
 ricorrere alla documentazione e interpretano correttamente gli stati di coverage.
@@ -567,6 +706,8 @@ committata e verificabile secondo `docs/scanner-maturity.md`.
 - [ ] Metriche e tracing redatti, dashboard operative e SLO.
 - [ ] Runbook di installazione, upgrade, backup, restore, revoca e incident response.
 - [ ] Release candidate in lab, security review e rollback testato.
+- [ ] SLA di vulnerability disclosure e runbook di compromissione chiavi
+  (`SEC-I`).
 
 **Exit gate:** release firmata, riproducibile, monitorabile e ripristinabile.
 
@@ -574,15 +715,46 @@ committata e verificabile secondo `docs/scanner-maturity.md`.
 
 | Ordine | Deliverable | Ruolo guida | Dipendenza |
 | ---: | --- | --- | --- |
-| 1 | Ritiro/messa in sicurezza VAP legacy | Cybersecurity + Development | ADR e test di parità |
-| 2 | Egress allowlist e sandbox forte | Cybersecurity | Runtime Linux/container |
-| 3 | Engagement manifest firmato | Cybersecurity + Development | Contratto schema + key management |
-| 4 | CI matrix, coverage, SAST e docs-as-code | Development | Nessuna dipendenza esterna critica |
-| 5 | Form TUI e safety preview | UX + Development | Metadata CLI stabile |
-| 6 | Primi adapter `production-ready` | Cybersecurity | Lab autorizzato + evidenze |
-| 7 | Ingest Zeek/Sysmon e primo `athena purple` | Cybersecurity + Development | Fixture reali e lab ripetibile |
-| 8 | Release firmata PyPI/container | Development + Cybersecurity | Gate precedenti verdi |
-| 9 | Wizard, reporting e accessibilità IT/EN | UX | Flussi e contratti stabilizzati |
+| 0 | Quick win: gate Mypy, link rotti, governance backlog (`DEV-C`, `DEV-G`, `DEV-H`) | Development | Nessuna |
+| 1 | Ritiro/messa in sicurezza VAP legacy (`SEC-A`, `DEV-A`) | Cybersecurity + Development | ADR e test di parità |
+| 2 | Egress allowlist e sandbox forte (`SEC-B`) | Cybersecurity | Runtime Linux/container |
+| 3 | Engagement manifest firmato (`SEC-C`) | Cybersecurity + Development | Contratto schema + key management |
+| 4 | Parsing sicuro e fuzzing dei dati dei target (`SEC-H`) | Cybersecurity + Development | Fixture reali esistenti |
+| 5 | CI matrix, coverage, SAST e docs-as-code (`DEV-C`, `SEC-F`) | Development | Nessuna dipendenza esterna critica |
+| 6 | Form TUI e safety preview (`UX-A`, `UX-B`) | UX + Development | Metadata CLI stabile |
+| 7 | Primi adapter `production-ready` (`D1`) | Cybersecurity | Lab autorizzato + evidenze |
+| 8 | Ingest Zeek/Sysmon e primo `athena purple` (`OPS-BLUE`, `OPS-PURPLE`) | Cybersecurity + Development | Fixture reali e lab ripetibile |
+| 9 | Release firmata PyPI/container (`DEV-F`, `SEC-F`) | Development + Cybersecurity | Gate precedenti verdi |
+| 10 | Wizard, reporting, CLI coerente e accessibilità IT/EN (`UX-C`…`UX-G`) | UX | Flussi e contratti stabilizzati |
+
+## 📈 Indicatori di avanzamento
+
+| Indicatore | Baseline (24/09/2026) | Obiettivo | Fonte verificabile |
+| --- | --- | --- | --- |
+| Adapter `production-ready` | 0 su 15 | ≥ 3 (`nmap`, `httpx`, `nuclei`) | `integrations/maturity.py` |
+| Adapter almeno `live-tested` | 12 su 15 | 15 su 15 | `integrations/maturity.py` |
+| Branch coverage first-party | non misurata come gate | soglia iniziale = baseline, poi +5 punti per release minor | report coverage in CI |
+| Versioni Python testate in CI | 1 (3.11) | 4 (3.11–3.14) | `.github/workflows/ci.yml` |
+| Gate statici bloccanti | Ruff, pytest, pip-audit, gitleaks | + Mypy, format, CodeQL, link checker | `.github/workflows/ci.yml` |
+| Parser coperti da fuzzing | 0 | 100% degli adapter dichiarati | suite `SEC-H` |
+| Import runtime da `vendor/` | presenti (`aegis serve`, `migrate`, `workers`) | 0 | test di architettura `DEV-A` |
+| Link interni rotti | ≥ 6 file | 0 | link checker `DEV-G` |
+| Lingue dell'interfaccia | 1 (EN) | 2 (IT/EN) | cataloghi `UX-E` |
+
+Gli indicatori si aggiornano solo dalla fonte indicata: un valore senza prova
+verificabile resta al valore precedente.
+
+## ⚠️ Registro dei rischi
+
+| Rischio | Probabilità | Impatto | Mitigazione |
+| --- | --- | --- | --- |
+| La migrazione dal VAP perde funzionalità o regressa la sicurezza | Media | Alto | matrice di parità, threat-model review per milestone, feature flag e rollback (`SEC-A`) |
+| Uso non autorizzato delle capacità offensive | Media | Critico | manifest firmato con scadenza, classi di rischio, dry-run e audit (`SEC-C`, `SEC-G`) |
+| Target ostile colpisce l'operatore tramite output o report | Media | Alto | parsing sicuro, escaping contestuale, fuzzing (`SEC-H`) |
+| Compromissione della supply chain o delle chiavi di firma | Bassa | Critico | provenance SLSA, Cosign, Trusted Publishing, runbook di rotazione (`SEC-F`, `SEC-I`) |
+| Lab autorizzato non disponibile blocca la maturità degli scanner | Alta | Medio | lavoro offline su parser e contratti; nessuna promozione senza evidenza (`D1`–`D12`) |
+| Dichiarazioni di maturità più ottimistiche delle prove | Media | Alto | tabelle generate dal ledger e verifica in CI (`DEV-G`) |
+| Complessità UX che induce errori operativi | Media | Medio | safety preview, stati di coverage distinti, test con utenti (`UX-B`, `UX-D`) |
 
 ## Definition of Done trasversale
 
@@ -599,7 +771,9 @@ Un intervento può essere marcato `[x]` soltanto se:
    controllato e autorizzato;
 9. la modifica include piano di migrazione/rollback quando altera dati o contratti;
 10. UX, accessibilità e localizzazione sono verificate per ogni nuovo flusso
-    operatore-facing.
+    operatore-facing;
+11. ogni dato proveniente da un target è trattato come non fidato (`SEC-H`) e
+    l'intervento è citato tramite il suo ID in issue, PR e commit.
 
 ---
 
