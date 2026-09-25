@@ -58,7 +58,8 @@ the merge** when they fail:
 | `ruff check .` | catches real defects (unused/undefined names, unsafe patterns) |
 | `ruff format --check .` | prevents unreviewed style-only drift |
 | `mypy --strict src/olympus` | rejects type inconsistencies in first-party code |
-| `pytest` | offline unit, contract and guardrail tests |
+| `pytest` on Python 3.11–3.14 | offline unit, contract and guardrail tests |
+| macOS/Windows wheel + CLI smoke | portable surfaces must import and execute outside Linux |
 | wheel build, clean install and CLI smoke test | the package must work outside the checkout |
 | `pip-audit` on the runtime closure | no dependency with a known advisory ships |
 | `gitleaks` (with a canary proving it works) | no secret enters the repository |

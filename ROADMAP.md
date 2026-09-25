@@ -82,7 +82,7 @@ di sicurezza forti, release riproducibili e flussi operativi comprensibili.
 | Credenziali | i segreti first-party sono letti dall'ambiente e redatti | manca un backend opzionale per secret manager e una policy uniforme di rotazione |
 | Autorizzazione | scope file + conferma esplicita prima dell'esecuzione | lo scope non è ancora un engagement manifest firmato, con scadenza e approvatore |
 | Supply chain | SBOM, hash lock, audit dipendenze e secret scan | mancano attestazioni di build, firma immagini/release e SAST CodeQL bloccante |
-| Qualità | Ruff lint/format, Mypy strict e pytest sono gate obbligatori | nessuna soglia di coverage; CI solo Ubuntu/Python 3.11 |
+| Qualità | Ruff lint/format, Mypy strict e pytest 3.11–3.14 sono gate obbligatori; smoke CLI su Ubuntu, macOS e Windows | nessuna soglia di coverage; sandbox non ancora separata esplicitamente dai test portabili |
 | Input ostili | report HTML Vulcan con `html.escape`; RichLog TUI con `markup=False` | `aegis/adapters/nmap.py` parsa XML con `xml.etree` considerandolo “trusted local”, ma banner e script output sono controllati dal target; nessun fuzzing dei parser |
 | Scanner | ledger in `integrations/maturity.py` con prove verificabili | 12 `live-tested`, 3 `offline-tested`, 0 `production-ready` |
 | TUI | esecuzione senza shell e streaming dell'output | un solo campo libero per gli argomenti, UI solo inglese, poco supporto decisionale |
@@ -311,8 +311,8 @@ senza modificare il core, ma non può bypassare scope, policy, audit o sandbox.
 - [x] Rendere Mypy un gate CI bloccante sul codice first-party e aggiungere
   `ruff format --check`: il job obbligatorio esegue lint, format, type checking
   strict e test; il repository è stato normalizzato dal formatter.
-- [ ] Estendere la CI a Python 3.11, 3.12, 3.13 e 3.14; mantenere almeno Ubuntu e
-  aggiungere smoke test su macOS e Windows per le funzioni portabili.
+- [x] Estendere la CI a Python 3.11, 3.12, 3.13 e 3.14 su Ubuntu e aggiungere
+  build della wheel e smoke test CLI portabili su macOS e Windows.
 - [ ] Isolare e marcare chiaramente i test POSIX-only della sandbox.
 - [ ] Impostare una soglia iniziale di branch coverage sul codice first-party,
   quindi aumentarla progressivamente; oggi `pyproject.toml` abilita branch
@@ -741,12 +741,12 @@ committata e verificabile secondo `docs/scanner-maturity.md`.
 
 ## 📈 Indicatori di avanzamento
 
-| Indicatore | Baseline (24/09/2026) | Obiettivo | Fonte verificabile |
+| Indicatore | Stato verificato (25/09/2026) | Obiettivo | Fonte verificabile |
 | --- | --- | --- | --- |
 | Adapter `production-ready` | 0 su 15 | ≥ 3 (`nmap`, `httpx`, `nuclei`) | `integrations/maturity.py` |
 | Adapter almeno `live-tested` | 12 su 15 | 15 su 15 | `integrations/maturity.py` |
 | Branch coverage first-party | non misurata come gate | soglia iniziale = baseline, poi +5 punti per release minor | report coverage in CI |
-| Versioni Python testate in CI | 1 (3.11) | 4 (3.11–3.14) | `.github/workflows/ci.yml` |
+| Versioni Python testate in CI | 4 (3.11–3.14) | mantenere tutte le versioni dichiarate | `.github/workflows/ci.yml` |
 | Gate statici bloccanti | Ruff lint/format, Mypy, pytest, pip-audit, gitleaks | + CodeQL, link checker | `.github/workflows/ci.yml` |
 | Parser coperti da fuzzing | 0 | 100% degli adapter dichiarati | suite `SEC-H` |
 | Import runtime da `vendor/` | presenti (`aegis serve`, `migrate`, `workers`) | 0 | test di architettura `DEV-A` |

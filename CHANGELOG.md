@@ -15,8 +15,9 @@ everything below lives under **Unreleased**.
 ### Added
 - **Quality gates** — Mypy strict sul codice first-party e
   `ruff format --check` sono ora controlli CI bloccanti; il codice è stato
-  normalizzato e le incompatibilità di tipo emerse sono state corrette
-  (`DEV-C`).
+  normalizzato e le incompatibilità di tipo emerse sono state corrette. Pytest
+  copre Python 3.11–3.14 su Ubuntu; build della wheel e smoke test CLI verificano
+  inoltre le superfici portabili su macOS e Windows (`DEV-C`).
 - **Governance** — manifest versionato delle label GitHub (`area:*`, `P0`–`P3`,
   `roadmap`, `bug`) e workflow a privilegi minimi che crea o aggiorna soltanto le
   label gestite, senza cancellare quelle esterne al manifest (`DEV-H`).

@@ -7,7 +7,7 @@ on:
 
 jobs:
   quality:
-    name: ruff · format · mypy · pytest (required)
+    name: ruff · format · mypy (required)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -26,8 +26,60 @@ jobs:
         run: ruff format --check .
       - name: Mypy
         run: mypy --strict src/olympus
+
+  tests:
+    name: pytest · Python ${{ matrix.python-version }} · Ubuntu
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,api]"
       - name: Pytest
         run: pytest
+
+  portable-smoke:
+    name: CLI smoke · ${{ matrix.platform }} · Python 3.11
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: macOS
+          - os: windows-latest
+            platform: Windows
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: Build wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+      - name: Install wheel
+        run: >-
+          python -c "import glob, subprocess, sys;
+          wheels = glob.glob('dist/*.whl');
+          assert len(wheels) == 1, wheels;
+          subprocess.check_call([sys.executable, '-m', 'pip', 'install', wheels[0]])"
+      - name: Smoke-test portable CLI surfaces
+        run: >-
+          python -c "import subprocess, sys;
+          commands = [
+          ['--help'], ['version'], ['config', 'validate'], ['core', '--help'],
+          ['argus', '--help'], ['athena', '--help'], ['aegis', '--help']];
+          [subprocess.check_call([sys.executable, '-m', 'olympus.cli', *args])
+          for args in commands]"
 
   package-smoke:
     name: wheel · clean-install · CLI smoke
