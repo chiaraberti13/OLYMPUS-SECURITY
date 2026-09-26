@@ -328,8 +328,11 @@ def test_worker_renews_its_lease_while_a_scan_runs(tmp_path: Path) -> None:
 
 def test_a_worker_that_loses_its_lease_stops_and_reports_the_new_owner(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     started = threading.Event()
+    heartbeat_waiting = threading.Event()
+    release_heartbeat = threading.Event()
 
     class _Blocking(_Adapter):
         def run(self, request: ScanRequest) -> ScanResult:
@@ -343,6 +346,14 @@ def test_a_worker_that_loses_its_lease_stops_and_reports_the_new_owner(
 
     store = AegisJobStore(tmp_path / "jobs.sqlite3", backoff_seconds=0.0)
     job = _submit(store, tmp_path, max_attempts=2)
+    original_heartbeat = AegisJobStore.heartbeat
+
+    def held_heartbeat(self: AegisJobStore, job_id: str, worker_id: str) -> AegisJob:
+        heartbeat_waiting.set()
+        assert release_heartbeat.wait(timeout=5), "the lease takeover never completed"
+        return original_heartbeat(self, job_id, worker_id)
+
+    monkeypatch.setattr(AegisJobStore, "heartbeat", held_heartbeat)
     worker = AegisWorker(
         store,
         AegisApplicationService(lambda name: _Blocking()),
@@ -354,10 +365,12 @@ def test_a_worker_that_loses_its_lease_stops_and_reports_the_new_owner(
     thread = threading.Thread(target=lambda: outcome.append(worker.run_next()))
     thread.start()
     assert started.wait(timeout=5)
+    assert heartbeat_waiting.wait(timeout=5)
 
     # The job is taken over exactly as an orphan-recovery run would take it.
     _expire_lease(store, job.job_id)
     stolen = store.claim_next("worker-b")
+    release_heartbeat.set()
     assert stolen is not None and stolen.worker_id == "worker-b"
 
     thread.join(timeout=10)

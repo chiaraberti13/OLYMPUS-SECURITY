@@ -134,8 +134,8 @@ def migrate_document(document: object, *, schema_name: str, current_version: str
         ]
         if len(matching) != 1:
             raise ContractMigrationError(
-                f"no unambiguous migration for {schema_name} from {source_version} "
-                f"to {current_version}"
+                f"unsupported contract version: no unambiguous migration for {schema_name} "
+                f"from {source_version} to {current_version}"
             )
         migration = matching[0]
         candidate = migration.transform(candidate)
