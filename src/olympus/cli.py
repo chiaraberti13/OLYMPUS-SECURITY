@@ -251,6 +251,24 @@ def export_schemas(
     )
 
 
+@core_app.command("migrations")
+def list_migrations() -> None:
+    """Print every explicit persisted-contract migration edge."""
+    from olympus.core.migrations import migration_manifest
+
+    typer.echo(
+        json.dumps(
+            {
+                "schema_name": "olympus.migration-manifest",
+                "schema_version": "1.0.0",
+                "migrations": migration_manifest(),
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
+
+
 @core_app.command("sbom")
 def export_sbom(
     output: Path | None = typer.Option(

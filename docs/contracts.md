@@ -62,6 +62,29 @@ published artifacts or its contract version.
    accepted only through a named, tested adapter and are re-emitted in the
    current format.
 
+## Explicit migration registry
+
+Persisted scope, plan, job, evidence and CTI case upgrades use the central
+`olympus.core.migrations` registry. Operators can inspect every supported edge:
+
+```console
+olympus core migrations
+```
+
+| Contract | Accepted source | Current target | Deterministic action |
+| --- | --- | --- | --- |
+| AEGIS scope | headerless `allowed`/current fields | `1.0.0` | rename `allowed` to `allowed_domains` and add the complete header |
+| Athena plan | headerless or integer version `1` | `1.0.0` | add/normalize only the contract header |
+| AEGIS job | headerless or `1.0.0` | `2.0.0` | replace private `scope_path` with its non-sensitive file name |
+| Evidence | headerless current fields | `1.0.0` | add the header; a missing SHA-256 remains an error |
+| METIS case | headerless current fields | `1.0.0` | add the header without changing CTI content |
+
+Every edge is pure, ordered and covered by committed legacy fixtures. Running a
+migration twice returns the same current document. A wrong identity, partial
+header, ambiguous legacy fields, unsupported future version, missing edge or
+incomplete evidence fails with an explicit error; migrations never fabricate a
+digest, authorization, timestamp, indicator or finding.
+
 ## Current legacy adapters
 
 - Athena plans created before SemVer either omitted both header fields or used

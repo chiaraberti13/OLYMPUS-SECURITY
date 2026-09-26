@@ -13,6 +13,9 @@ everything below lives under **Unreleased**.
 ## [Unreleased]
 
 ### Added
+- **Explicit persisted-contract migrations** — a central fail-closed registry and
+  versioned CLI manifest migrate legacy AEGIS scopes/jobs, Athena plans, evidence
+  references and METIS cases without inventing missing provenance (`DEV-D`).
 - **Golden interface contracts** — blocking deterministic fixtures now protect
   CLI JSON/NDJSON, AEGIS OpenAPI, Athena SQLite, and Vulcan JSON/Markdown reports;
   the compatibility policy defines explicit deprecation and support windows

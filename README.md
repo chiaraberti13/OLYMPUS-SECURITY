@@ -72,7 +72,7 @@ $ olympus athena run plan.json --storage ./.athena
 | **Minerva** | `olympus minerva` | Incident triage and chain-of-custody records. |
 | **Vulcan** | `olympus vulcan` | Aggregation, deduplication, ranking and report rendering. |
 | **Metis** | `olympus metis` | Deterministic capability routing, engagement plans, CTI cases, IOC correlation and operational reports. |
-| **core** | `olympus core` | Shared data-contract utilities (e.g. `export-schemas`). |
+| **core** | `olympus core` | Shared data-contract utilities (`export-schemas`, versioned migration manifest). |
 | **AEGIS** | `olympus aegis` | Scope-gated scanner orchestration, capability readiness and maturity, durable SQLite jobs, cancellation, audit and explicit execution states. Native for 15 of 24 catalogued engines; `serve`/`migrate`/`workers` still need `vendor/`. |
 | **Unified TUI** | `olympus ui` | Keyboard-first interface over every real Olympus command, with streamed output and process cancellation. |
 

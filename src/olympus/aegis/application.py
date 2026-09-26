@@ -31,6 +31,7 @@ from olympus.core.execution import (
     append_structured_audit,
 )
 from olympus.core.fileio import atomic_write_text, read_regular_text
+from olympus.core.migrations import migrate_document
 
 DEFAULT_MAX_SCOPE_BYTES = 1_000_000
 
@@ -184,17 +185,7 @@ def load_scope(path: Path, *, max_bytes: int = DEFAULT_MAX_SCOPE_BYTES) -> Aegis
         raise ValueError(f"invalid AEGIS scope JSON: {exc.msg}") from exc
     if not isinstance(raw, dict):
         raise ValueError("AEGIS scope must be a JSON object")
-    candidate = dict(raw)
-    has_name = "schema_name" in candidate
-    has_version = "schema_version" in candidate
-    if not has_name and not has_version:
-        allowed = candidate.pop("allowed", ())
-        if "allowed_domains" not in candidate:
-            candidate["allowed_domains"] = allowed
-        candidate["schema_name"] = "olympus.aegis-scope"
-        candidate["schema_version"] = "1.0.0"
-    elif has_name != has_version:
-        raise ValueError("AEGIS scope has a partial contract header")
+    candidate = migrate_document(raw, schema_name="olympus.aegis-scope", current_version="1.0.0")
     validate_contract_header(candidate, schema_name="olympus.aegis-scope")
     try:
         return AegisScope.model_validate(candidate).nonempty()

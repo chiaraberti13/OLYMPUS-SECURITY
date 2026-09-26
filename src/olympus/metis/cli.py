@@ -32,7 +32,7 @@ from olympus.metis.cases import (
 from olympus.metis.catalog import CAPABILITIES, recommend
 from olympus.metis.labs import LABS
 from olympus.metis.misp import MispError, event_to_indicators, indicators_to_event
-from olympus.metis.models import IntelCaseDocument
+from olympus.metis.models import load_case_document
 from olympus.metis.planner import build_plan
 from olympus.metis.stix import StixError, bundle_to_indicators, indicators_to_bundle
 
@@ -469,7 +469,7 @@ def case_decrypt(
         plaintext = decrypt_to_text(
             read_regular_text(encrypted, max_bytes=max_bytes, label="encrypted case"), passphrase
         )
-        document = IntelCaseDocument.model_validate_json(plaintext)
+        document = load_case_document(json.loads(plaintext))
         atomic_write_text(output, document.model_dump_json(indent=2) + "\n", mode=0o600)
     except (CryptoError, ValidationError, ValueError, OSError) as exc:
         _fail(exc)

@@ -20,6 +20,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from olympus.core.contracts import validate_contract_header
+from olympus.core.migrations import migrate_document
 from olympus.core.models import Asset, Finding, ScanJob
 
 # Resource-safety defaults (a safeguard against runtime resource exhaustion, not
@@ -181,15 +182,10 @@ def load_plan(raw: object) -> AssessmentPlan:
     """
     if not isinstance(raw, dict):
         raise PlanValidationError("plan must be a JSON object")
-    candidate = dict(raw)
-    # Explicit compatibility adapter for plans persisted before the ecosystem
-    # standardized every contract on Semantic Versioning.
-    if "schema_name" not in candidate and "schema_version" not in candidate:
-        candidate["schema_name"] = "olympus.athena.plan"
-        candidate["schema_version"] = "1.0.0"
-    if candidate.get("schema_version") == 1:
-        candidate["schema_version"] = "1.0.0"
     try:
+        candidate = migrate_document(
+            raw, schema_name="olympus.athena.plan", current_version="1.0.0"
+        )
         validate_contract_header(candidate, schema_name="olympus.athena.plan")
         return AssessmentPlan.model_validate(candidate)
     except ValueError as exc:

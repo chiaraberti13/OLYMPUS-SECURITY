@@ -49,6 +49,7 @@ from olympus.core.execution import (
     redact_text,
     redact_url,
 )
+from olympus.core.migrations import migrate_document
 
 #: Bumped whenever the SQLite layout changes; ``initialize`` migrates forward.
 SCHEMA_VERSION = 2
@@ -157,6 +158,12 @@ class AegisJob(BaseModel):
     heartbeat_at: datetime | None = None
     result: dict[str, object] | None = None
     error: str | None = Field(default=None, max_length=2_000)
+
+
+def load_job_document(raw: object) -> AegisJob:
+    """Load a current job document or migrate a declared legacy shape."""
+    candidate = migrate_document(raw, schema_name="olympus.aegis-job", current_version="2.0.0")
+    return AegisJob.model_validate(candidate)
 
 
 @dataclass(frozen=True)

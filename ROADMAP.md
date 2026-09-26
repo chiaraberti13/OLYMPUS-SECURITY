@@ -341,8 +341,10 @@ effettivamente testata; regressioni dei guardrail provocano sempre un fallimento
   report; le sei fixture deterministiche sono bloccanti nella suite contract e
   la policy documenta classificazione delle modifiche, deprecazioni e finestra
   minima di compatibilità.
-- [ ] Introdurre migrazioni esplicite per scope, assessment plan, job, evidence e
-  case CTI; nessun aggiornamento deve rendere il dato storico illeggibile.
+- [x] Introdurre migrazioni esplicite per scope, assessment plan, job, evidence e
+  case CTI: un registro centrale applica solo trasformazioni deterministiche,
+  espone il manifest via CLI e rifiuta versioni future, header parziali o dati di
+  provenienza non ricostruibili.
 - [ ] Centralizzare exit code e stati (`clean`, `findings`, `partial`, `failed`,
   `cancelled`) in tutti i moduli e verificarne la coerenza end-to-end.
 

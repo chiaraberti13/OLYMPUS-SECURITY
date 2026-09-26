@@ -13,6 +13,7 @@ from pydantic import ValidationError
 from olympus.core.contracts import validate_contract_header
 from olympus.core.execution import Cancellation, ExecutionPolicy, NeverCancelled
 from olympus.core.fileio import read_regular_text
+from olympus.core.migrations import migrate_document
 from olympus.core.models import Evidence, Incident
 from olympus.minerva.custody import (
     DEFAULT_MAX_ENTRIES,
@@ -152,9 +153,12 @@ def load_evidence(path: Path, *, max_bytes: int = DEFAULT_MAX_EVIDENCE_BYTES) ->
         payload = json.loads(read_regular_text(path, max_bytes=max_bytes, label="evidence input"))
     except json.JSONDecodeError as exc:
         raise ValueError(f"invalid evidence JSON: {exc.msg}") from exc
-    validate_contract_header(payload, schema_name="olympus.evidence")
     try:
-        return Evidence.model_validate(payload)
+        candidate = migrate_document(
+            payload, schema_name="olympus.evidence", current_version="1.0.0"
+        )
+        validate_contract_header(candidate, schema_name="olympus.evidence")
+        return Evidence.model_validate(candidate)
     except ValidationError as exc:
         details = exc.errors(include_input=False, include_url=False)
         raise ValueError(f"invalid evidence contract: {details}") from exc

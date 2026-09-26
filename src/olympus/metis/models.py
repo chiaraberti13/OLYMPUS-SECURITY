@@ -8,6 +8,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from olympus.core.migrations import migrate_document
+
 
 class OperatingMode(StrEnum):
     """Highest operational effect a capability may produce."""
@@ -163,3 +165,9 @@ class IntelCaseDocument(BaseModel):
     indicators: tuple[Indicator, ...] = Field(default=(), max_length=100_000)
     findings: tuple[IntelFinding, ...] = Field(default=(), max_length=100_000)
     correlations: tuple[tuple[str, str], ...] = Field(default=(), max_length=100_000)
+
+
+def load_case_document(raw: object) -> IntelCaseDocument:
+    """Load a current portable case or migrate its declared legacy shape."""
+    candidate = migrate_document(raw, schema_name="olympus.metis-case", current_version="1.0.0")
+    return IntelCaseDocument.model_validate(candidate)

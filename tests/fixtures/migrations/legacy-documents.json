@@ -1,0 +1,59 @@
+{
+  "aegis_job": {
+    "schema_name": "olympus.aegis-job",
+    "schema_version": "1.0.0",
+    "job_id": "AEGIS-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "idempotency_key": null,
+    "scanner": "nmap",
+    "target": "192.0.2.10",
+    "target_kind": "host",
+    "scope_path": "/srv/olympus/scopes/lab.json",
+    "state": "queued",
+    "authorized": true,
+    "attempts": 0,
+    "max_attempts": 1,
+    "worker_id": null,
+    "created_at": "2026-01-02T03:04:05Z",
+    "updated_at": "2026-01-02T03:04:05Z",
+    "available_at": "2026-01-02T03:04:05Z",
+    "started_at": null,
+    "finished_at": null,
+    "lease_expires_at": null,
+    "heartbeat_at": null,
+    "result": null,
+    "error": null
+  },
+  "aegis_scope": {
+    "allowed": ["example.test"],
+    "allowed_cidrs": ["192.0.2.0/24"]
+  },
+  "athena_plan": {
+    "engagement_id": "ENG-LEGACY",
+    "name": "Legacy assessment",
+    "targets": [{"kind": "domain", "value": "example.test"}],
+    "adapters": ["dns"],
+    "scope": {"allowed_domains": ["example.test"]},
+    "authorization": {
+      "engagement_id": "ENG-LEGACY",
+      "approval_reference": "AUTH-LEGACY",
+      "confirmed": true
+    }
+  },
+  "evidence": {
+    "evidence_id": "EVD-LEGACY-1",
+    "evidence_type": "pcap",
+    "uri": "file:///evidence/capture.pcap",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "collected_at": "2026-01-02T03:04:05Z"
+  },
+  "metis_case": {
+    "case_id": "case-aaaaaaaaaaaaaaaaaaaaaaaa",
+    "title": "Legacy CTI case",
+    "status": "open",
+    "created_at": "2026-01-02T03:04:05Z",
+    "updated_at": "2026-01-02T03:04:05Z",
+    "indicators": [],
+    "findings": [],
+    "correlations": []
+  }
+}
