@@ -35,6 +35,7 @@ dev = [
     "pre-commit>=3.7",
     "httpx>=0.27",
     "hypothesis>=6.98",
+    "mutmut>=3.5,<4",
 ]
 api = [
     "fastapi>=0.109",
@@ -133,6 +134,21 @@ markers = [
 [tool.coverage.run]
 branch = true
 source = ["olympus"]
+
+# Mutation testing runs only against security and correctness boundaries with
+# a dedicated, fast test selection. It is POSIX-only, so CI runs it on Ubuntu.
+[tool.mutmut]
+source_paths = ["src/olympus"]
+only_mutate = [
+    "src/olympus/athena/scope.py",
+    "src/olympus/core/execution.py",
+    "src/olympus/aegis/adapters/nmap.py",
+    "src/olympus/core/coverage.py",
+    "src/olympus/athena/cli.py",
+    "src/olympus/athena/domain/assessment.py",
+]
+pytest_add_cli_args_test_selection = ["tests/mutation/"]
+process_isolation = "forkserver"
 
 [tool.olympus.coverage]
 branch_fail_under = 75.0

@@ -13,6 +13,8 @@ everything below lives under **Unreleased**.
 ## [Unreleased]
 
 ### Added
+- **Security-boundary mutation tests** — CI tests mutations in scope validation,
+  secret redaction, Nmap parsing, exit-code mapping and Athena job transitions.
 - **Test engineering** — unit, contract and offline integration suites now run
   independently in CI. Container and authorized live-lab test collections are
   explicit opt-in and currently contain no cases (`DEV-C`).

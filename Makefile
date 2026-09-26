@@ -1,4 +1,4 @@
-.PHONY: install lint format-check type test test-unit test-contract test-integration test-container test-live-lab test-portable test-posix test-coverage check demo clean
+.PHONY: install lint format-check type test test-unit test-contract test-integration test-container test-live-lab test-portable test-posix test-coverage test-mutation check demo clean
 
 PYTHON ?= python
 
@@ -51,11 +51,28 @@ test-coverage:
 		--cov-report=term-missing --cov-report=json:.coverage-report.json
 	$(PYTHON) scripts/check_branch_coverage.py .coverage-report.json
 
+# POSIX-only, bounded mutation gate for critical scope/redaction/parser/status/job rules.
+test-mutation:
+	mutmut run --max-children 4 \
+		"olympus.athena.scope.x__reject_out_of_scope*" \
+		"olympus.athena.scope.x_ensure_target_allowed*" \
+		"olympus.core.execution.x__sensitive_key*" \
+		"olympus.core.execution.x_redact_url*" \
+		"olympus.core.execution.x_redact_text*" \
+		"olympus.core.execution.x_redact_mapping*" \
+		"olympus.aegis.adapters.nmap.xǁNmapAdapterǁparse*" \
+		"olympus.core.coverage.xǁCoverageǁstatus*" \
+		"olympus.athena.cli.x__exit_code_for*" \
+		"olympus.athena.domain.assessment.x_advance_job*" \
+		"olympus.athena.domain.assessment.x_derive_terminal_state*"
+	$(PYTHON) scripts/check_mutation_gate.py
+
 check:
 	$(MAKE) lint
 	$(MAKE) format-check
 	$(MAKE) type
 	$(MAKE) test-coverage
+	$(MAKE) test-mutation
 
 demo:
 	olympus core export-schemas ./examples/output

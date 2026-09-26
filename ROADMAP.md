@@ -82,7 +82,7 @@ di sicurezza forti, release riproducibili e flussi operativi comprensibili.
 | Credenziali | i segreti first-party sono letti dall'ambiente e redatti | manca un backend opzionale per secret manager e una policy uniforme di rotazione |
 | Autorizzazione | scope file + conferma esplicita prima dell'esecuzione | lo scope non è ancora un engagement manifest firmato, con scadenza e approvatore |
 | Supply chain | SBOM, hash lock, audit dipendenze e secret scan | mancano attestazioni di build, firma immagini/release e SAST CodeQL bloccante |
-| Qualità | Ruff lint/format, Mypy strict, pytest portabile 3.11–3.14 e branch coverage first-party ≥75% sono gate obbligatori; unit/contract/integration hanno selezioni CI separate e la sandbox POSIX un job dedicato | container e live-lab non hanno ancora casi eseguibili; mutation testing e CodeQL da aggiungere |
+| Qualità | Ruff lint/format, Mypy strict, pytest portabile 3.11–3.14, branch coverage first-party ≥75% e mutation score mirato ≥35% per funzione sono gate obbligatori; unit/contract/integration sono separate e la sandbox POSIX ha un job dedicato | CodeQL/SAST bloccante; suite container/live-lab senza casi eseguibili |
 | Input ostili | report HTML Vulcan con `html.escape`; RichLog TUI con `markup=False` | `aegis/adapters/nmap.py` parsa XML con `xml.etree` considerandolo “trusted local”, ma banner e script output sono controllati dal target; nessun fuzzing dei parser |
 | Scanner | ledger in `integrations/maturity.py` con prove verificabili | 12 `live-tested`, 3 `offline-tested`, 0 `production-ready` |
 | TUI | esecuzione senza shell e streaming dell'output | un solo campo libero per gli argomenti, UI solo inglese, poco supporto decisionale |
@@ -323,8 +323,10 @@ senza modificare il core, ma non può bypassare scope, policy, audit o sandbox.
   indipendenti; container e live-lab hanno selezione esplicita e opt-in, e una
   suite vuota fallisce come “no tests collected”. Le suite container/live-lab
   non contengono ancora casi: non attestano isolamento o scanner live.
-- [ ] Aggiungere mutation test mirati a scope gate, redaction, parser, exit code e
-  state machine dei job.
+- [x] Aggiungere mutation test mirati a scope gate, redaction, parser, exit code e
+  state machine dei job: la suite dedicata e un gate CI Linux selezionano le
+  funzioni critiche; il checker richiede almeno il 35% di mutazioni uccise per
+  ciascuna funzione, blocca gli esiti non verificati e segnala i mutanti superstiti.
 
 **Criterio di completamento:** matrice supportata dichiarata uguale a quella
 effettivamente testata; regressioni dei guardrail provocano sempre un fallimento.
@@ -677,8 +679,9 @@ l'operatore tramite output, log o report.
 - [ ] Pubblicare SDK/contract test per adapter.
 - [x] Attivare matrice Python, branch coverage gate e suite unit/contract/integration
   separate; POSIX resta in un job dedicato.
-- [ ] Aggiungere CodeQL e mutation test; le suite container/live-lab restano
-  esplicitamente non validate finché non esistono casi e relative prove.
+- [x] Aggiungere mutation test mirati e il gate minimo per funzione.
+- [ ] Aggiungere CodeQL; le suite container/live-lab restano esplicitamente non
+  validate finché non esistono casi e relative prove.
 - [ ] Stabilizzare schema, migrazioni, exit code e recovery dei job.
 
 **Exit gate:** wheel indipendente dal checkout, contratti versionati e pipeline
