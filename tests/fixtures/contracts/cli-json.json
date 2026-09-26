@@ -1,0 +1,9 @@
+[
+  {
+    "asset_id": "AST-GOLDEN-1",
+    "finding_id": "FND-GOLDEN-1",
+    "severity": "high",
+    "source": "artemis",
+    "title": "Reflected script injection"
+  }
+]

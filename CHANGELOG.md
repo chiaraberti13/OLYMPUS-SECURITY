@@ -13,6 +13,10 @@ everything below lives under **Unreleased**.
 ## [Unreleased]
 
 ### Added
+- **Golden interface contracts** — blocking deterministic fixtures now protect
+  CLI JSON/NDJSON, AEGIS OpenAPI, Athena SQLite, and Vulcan JSON/Markdown reports;
+  the compatibility policy defines explicit deprecation and support windows
+  (`DEV-D`).
 - **Versioned contract catalog** — deterministic Draft 2020-12 JSON Schemas are
   published by contract SemVer with stable identifiers, SHA-256 manifest entries,
   a compatibility bundle and a blocking drift check (`DEV-D`).

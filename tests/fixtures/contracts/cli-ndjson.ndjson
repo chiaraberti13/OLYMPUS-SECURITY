@@ -1,0 +1,1 @@
+{"schema_name":"olympus.event","schema_version":"1.0.0","event_id":"EVT-GOLDEN-1","event_type":"http.request","source":"manual","observed_at":"2026-01-02T03:04:05Z","asset_id":null,"attributes":{"client_ip":"192.0.2.10","method":"GET","path":"/login","protocol":"HTTP/1.1","status":"401","bytes":"123","query":"next=%2F","referer":"-","user_agent":"GoldenClient/1.0"}}

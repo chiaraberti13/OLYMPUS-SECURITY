@@ -337,8 +337,10 @@ effettivamente testata; regressioni dei guardrail provocano sempre un fallimento
   contratti oltre che al package: il catalogo committato include direzione,
   `$id`, versione, percorso e SHA-256; contract test e `make schemas-check`
   impediscono drift tra modelli e artifact pubblicati.
-- [ ] Aggiungere golden contract test per CLI JSON/NDJSON, API OpenAPI, SQLite e
-  report; documentare deprecazioni e finestra di compatibilità.
+- [x] Aggiungere golden contract test per CLI JSON/NDJSON, API OpenAPI, SQLite e
+  report; le sei fixture deterministiche sono bloccanti nella suite contract e
+  la policy documenta classificazione delle modifiche, deprecazioni e finestra
+  minima di compatibilità.
 - [ ] Introdurre migrazioni esplicite per scope, assessment plan, job, evidence e
   case CTI; nessun aggiornamento deve rendere il dato storico illeggibile.
 - [ ] Centralizzare exit code e stati (`clean`, `findings`, `partial`, `failed`,

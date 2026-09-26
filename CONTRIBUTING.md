@@ -82,6 +82,7 @@ make test      # all tests supported by the current host
 make test-portable
 make test-posix # POSIX kernel-isolation suite
 make test-coverage # tests plus the configured first-party branch threshold
+make contract-goldens # deliberately refresh reviewed public-interface fixtures
 make check         # lint, format, typing and test/coverage gates
 ```
 

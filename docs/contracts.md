@@ -85,6 +85,48 @@ published artifacts or its contract version.
 Migration adapters must be pure, deterministic, covered by fixtures from the
 old version, and removed only after the announced compatibility window.
 
+## Golden interface contracts
+
+The contract suite compares six committed fixtures with freshly generated output:
+
+| Fixture | Protected boundary |
+| --- | --- |
+| `cli-json.json` | JSON emitted by the `vulcan rank` CLI |
+| `cli-ndjson.ndjson` | NDJSON emitted by the `apollo ingest` CLI |
+| `openapi.json` | Complete AEGIS OpenAPI document |
+| `sqlite.json` | Athena table definitions, columns and canonical logical rows |
+| `report.json` | Canonical Vulcan machine-readable report |
+| `report.md` | Canonical Vulcan human-readable report |
+
+Run `make test-contract` to detect drift. After reviewing and classifying an
+intentional interface change, regenerate the fixtures with:
+
+```console
+make contract-goldens
+```
+
+A fixture update alone does not make a breaking change compatible. The same
+commit must update the affected contract SemVer, migration or adapter, schema
+catalog, changelog and documentation as required by the rules below.
+
+## Support and deprecation window
+
+- From the first tagged release, a consumer supports the current minor release
+  and the immediately preceding minor release of the same major for at least
+  six months after the newer minor is published. Patch releases remain wire
+  compatible within their minor line.
+- A deprecation is announced in the changelog and contract documentation. When
+  the surface supports it, CLI stderr or API `Deprecation` and `Sunset` headers
+  also identify the replacement and removal date.
+- A deprecated field or shape is not removed before both the six-month window
+  has elapsed and the next major release is available. Removal requires a major
+  contract version and an explicit migration or compatibility adapter.
+- A critical security defect may require an earlier removal. Such an exception
+  is documented in a security advisory with the safe replacement and migration
+  instructions; unsafe input is never accepted merely for compatibility.
+- Before the first tagged release, no calendar support guarantee is implied, but
+  every committed schema and golden remains a blocking compatibility boundary.
+
 ## Security properties
 
 Contract validation happens before persistence or cross-module processing.

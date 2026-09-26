@@ -1,0 +1,76 @@
+{
+  "alerts": [
+    {
+      "alert_id": "ALT-GOLDEN-1",
+      "created_at": "2026-01-02T03:04:05Z",
+      "event_id": "EVT-GOLDEN-1",
+      "evidence_ids": [],
+      "mitre_attack": [
+        "T1110"
+      ],
+      "rule_id": "APL-GOLDEN-1",
+      "schema_name": "olympus.alert",
+      "schema_version": "1.0.0",
+      "severity": "medium",
+      "source": "apollo",
+      "status": "open",
+      "title": "Suspicious login sequence"
+    }
+  ],
+  "assets": [
+    {
+      "asset_id": "AST-GOLDEN-1",
+      "asset_type": "domain",
+      "criticality": "medium",
+      "first_seen": "2026-01-02T03:04:05Z",
+      "hostname": "example.test",
+      "ip_addresses": [],
+      "last_seen": "2026-01-02T03:04:05Z",
+      "metadata": {},
+      "owner": null,
+      "schema_name": "olympus.asset",
+      "schema_version": "1.0.0",
+      "source": "argus",
+      "tags": []
+    }
+  ],
+  "engagement": "ENG-GOLDEN",
+  "findings": [
+    {
+      "asset_id": "AST-GOLDEN-1",
+      "cvss": 8.2,
+      "description": "Untrusted input is reflected into an HTML response.",
+      "evidence": [
+        "EVD-GOLDEN-1"
+      ],
+      "finding_id": "FND-GOLDEN-1",
+      "first_seen": "2026-01-02T03:04:05Z",
+      "last_seen": "2026-01-02T03:04:05Z",
+      "references": [
+        "https://owasp.org/www-community/attacks/xss/"
+      ],
+      "remediation": "Apply contextual output encoding.",
+      "schema_name": "olympus.finding",
+      "schema_version": "1.0.0",
+      "severity": "high",
+      "source": "artemis",
+      "status": "new",
+      "title": "Reflected script injection"
+    }
+  ],
+  "generated_at": "2026-01-02T03:04:05Z",
+  "schema_name": "olympus.security-report",
+  "schema_version": "1.0.0",
+  "summary": {
+    "alerts": 1,
+    "assets": 1,
+    "findings": 1,
+    "severity_breakdown": {
+      "critical": 0,
+      "high": 1,
+      "info": 0,
+      "low": 0,
+      "medium": 0
+    }
+  }
+}

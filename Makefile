@@ -1,4 +1,4 @@
-.PHONY: install lint format-check type test test-unit test-contract test-integration test-container test-live-lab test-portable test-posix test-coverage test-mutation schemas schemas-check check demo clean
+.PHONY: install lint format-check type test test-unit test-contract test-integration test-container test-live-lab test-portable test-posix test-coverage test-mutation schemas schemas-check contract-goldens check demo clean
 
 PYTHON ?= python
 
@@ -72,6 +72,9 @@ schemas:
 
 schemas-check:
 	$(PYTHON) scripts/export_schema_catalog.py --check
+
+contract-goldens:
+	$(PYTHON) scripts/update_contract_goldens.py
 
 check:
 	$(MAKE) lint
