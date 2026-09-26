@@ -59,14 +59,15 @@ the merge** when they fail:
 | `ruff format --check .` | prevents unreviewed style-only drift |
 | `mypy --strict src/olympus` | rejects type inconsistencies in first-party code |
 | portable `pytest` suite on Python 3.11–3.14 | offline unit, contract and guardrail tests without POSIX kernel assumptions |
+| first-party branch coverage on Python 3.11 | prevents control-flow coverage from dropping below 75% |
 | dedicated POSIX sandbox suite on Ubuntu/Python 3.11 | real privilege-drop, `setrlimit`, signal and process-group guarantees |
 | macOS/Windows wheel + CLI smoke | portable surfaces must import and execute outside Linux |
 | wheel build, clean install and CLI smoke test | the package must work outside the checkout |
 | `pip-audit` on the runtime closure | no dependency with a known advisory ships |
 | `gitleaks` (with a canary proving it works) | no secret enters the repository |
 
-Planned, **not yet enforced**: a coverage threshold, CodeQL and a link checker —
-tracked as `DEV-C`, `DEV-G` and `SEC-F` in `ROADMAP.md`.
+Planned, **not yet enforced**: CodeQL and a link checker — tracked as `DEV-G` and
+`SEC-F` in `ROADMAP.md`.
 
 ## Local helpers
 
@@ -77,7 +78,8 @@ make type      # strict Mypy over first-party code
 make test      # all tests supported by the current host
 make test-portable
 make test-posix # POSIX kernel-isolation suite
-make check     # all four blocking first-party checks
+make test-coverage # tests plus the configured first-party branch threshold
+make check         # lint, format, typing and test/coverage gates
 ```
 
 The sandbox's real-kernel tests live under `tests/platform/posix/`; related
@@ -86,7 +88,10 @@ their source. Narrower requirements use `linux_only` and `root_only`;
 `tests/conftest.py` skips them when the host cannot provide the required kernel
 or privilege boundary. Pytest runs with `--strict-markers`, so an unregistered
 or misspelled platform marker fails collection instead of silently weakening
-coverage.
+coverage. The blocking coverage job measures branches in `src/olympus/` on
+Python 3.11 and enforces the initial 75% floor from
+`tool.olympus.coverage.branch_fail_under` in `pyproject.toml`; it runs the
+POSIX-capable tests too, excluding only the root-only privilege-drop test.
 
 `pre-commit` is opt-in. Bypassing it locally with `git commit --no-verify` is
 possible, but CI still runs the blocking checks above.

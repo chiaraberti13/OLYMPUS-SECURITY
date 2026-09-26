@@ -200,13 +200,14 @@ security behaviour.
 
 ## 🧪 Development
 
-Ruff and the complete pytest suite are mandatory CI gates. Type checking remains
-available as an additional local check. Functional readiness additionally
+Ruff, strict type checking, portable pytest, POSIX sandbox tests and a first-party
+branch-coverage floor are mandatory CI gates. Functional readiness additionally
 requires real execution evidence; a green CI run alone is not called parity.
 
 ```bash
 make lint      # Ruff; required in CI
-make test      # pytest; required in CI
+make test      # pytest on the current host
+make test-coverage # pytest + branch coverage gate; required in CI
 make type      # strict mypy gate over first-party code
 make check     # run the complete local quality suite
 ```

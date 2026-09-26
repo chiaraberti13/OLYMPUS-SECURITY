@@ -113,7 +113,8 @@ init_forbid_extra = true
 init_typed = true
 warn_required_dynamic_aliases = true
 
-# Pytest is a blocking CI check. Coverage reporting currently has no threshold.
+# Pytest is a blocking CI check; branch coverage is checked separately so the
+# threshold measures executed control-flow edges, not the combined line metric.
 [tool.pytest.ini_options]
 addopts = "-q --strict-markers"
 testpaths = ["tests"]
@@ -127,3 +128,6 @@ markers = [
 [tool.coverage.run]
 branch = true
 source = ["olympus"]
+
+[tool.olympus.coverage]
+branch_fail_under = 75.0

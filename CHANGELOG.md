@@ -19,7 +19,8 @@ everything below lives under **Unreleased**.
   copre Python 3.11–3.14 su Ubuntu; build della wheel e smoke test CLI verificano
   inoltre le superfici portabili su macOS e Windows. I test real-kernel della
   sandbox sono ora isolati in una suite POSIX con marker strict e job Ubuntu
-  dedicato (`DEV-C`).
+  dedicato; una soglia del 75% di branch coverage first-party è bloccante in CI
+  (`DEV-C`).
 - **Governance** — manifest versionato delle label GitHub (`area:*`, `P0`–`P3`,
   `roadmap`, `bug`) e workflow a privilegi minimi che crea o aggiorna soltanto le
   label gestite, senza cancellare quelle esterne al manifest (`DEV-H`).

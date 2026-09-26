@@ -1,4 +1,4 @@
-.PHONY: install lint format-check type test test-portable test-posix check demo clean
+.PHONY: install lint format-check type test test-portable test-posix test-coverage check demo clean
 
 PYTHON ?= python
 
@@ -27,11 +27,16 @@ test-portable:
 test-posix:
 	$(PYTHON) -m pytest -m posix_only
 
+test-coverage:
+	$(PYTHON) -m pytest -m "not root_only" --cov=olympus --cov-branch \
+		--cov-report=term-missing --cov-report=json:.coverage-report.json
+	$(PYTHON) scripts/check_branch_coverage.py .coverage-report.json
+
 check:
 	$(MAKE) lint
 	$(MAKE) format-check
 	$(MAKE) type
-	$(MAKE) test
+	$(MAKE) test-coverage
 
 demo:
 	olympus core export-schemas ./examples/output

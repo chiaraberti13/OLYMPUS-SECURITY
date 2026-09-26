@@ -82,7 +82,7 @@ di sicurezza forti, release riproducibili e flussi operativi comprensibili.
 | Credenziali | i segreti first-party sono letti dall'ambiente e redatti | manca un backend opzionale per secret manager e una policy uniforme di rotazione |
 | Autorizzazione | scope file + conferma esplicita prima dell'esecuzione | lo scope non è ancora un engagement manifest firmato, con scadenza e approvatore |
 | Supply chain | SBOM, hash lock, audit dipendenze e secret scan | mancano attestazioni di build, firma immagini/release e SAST CodeQL bloccante |
-| Qualità | Ruff lint/format, Mypy strict e pytest portabile 3.11–3.14 sono gate obbligatori; la sandbox POSIX ha una suite/job dedicati; smoke CLI su Ubuntu, macOS e Windows | nessuna soglia di coverage; suite unit/contract/integration/container/live-lab non ancora completamente separate |
+| Qualità | Ruff lint/format, Mypy strict, pytest portabile 3.11–3.14 e branch coverage first-party ≥75% sono gate obbligatori; la sandbox POSIX ha una suite/job dedicati; smoke CLI su Ubuntu, macOS e Windows | suite unit/contract/integration/container/live-lab non ancora completamente separate |
 | Input ostili | report HTML Vulcan con `html.escape`; RichLog TUI con `markup=False` | `aegis/adapters/nmap.py` parsa XML con `xml.etree` considerandolo “trusted local”, ma banner e script output sono controllati dal target; nessun fuzzing dei parser |
 | Scanner | ledger in `integrations/maturity.py` con prove verificabili | 12 `live-tested`, 3 `offline-tested`, 0 `production-ready` |
 | TUI | esecuzione senza shell e streaming dell'output | un solo campo libero per gli argomenti, UI solo inglese, poco supporto decisionale |
@@ -316,9 +316,9 @@ senza modificare il core, ma non può bypassare scope, policy, audit o sandbox.
 - [x] Isolare i test real-kernel della sandbox in `tests/platform/posix/`,
   registrarli con marker strict `posix_only`/`linux_only`/`root_only` ed eseguirli
   in un job Ubuntu dedicato, separato dalla matrice portabile Python 3.11–3.14.
-- [ ] Impostare una soglia iniziale di branch coverage sul codice first-party,
-  quindi aumentarla progressivamente; oggi `pyproject.toml` abilita branch
-  coverage ma non definisce un fail-under.
+- [x] Misurare la branch coverage del codice first-party e imporre un floor
+  iniziale del 75% con report JSON, checker dedicato e job CI Python 3.11;
+  aumentare la soglia progressivamente quando la baseline cresce.
 - [ ] Separare suite `unit`, `contract`, `integration`, `container` e `live-lab`;
   le ultime non devono rendere verdi funzionalità non eseguite.
 - [ ] Aggiungere mutation test mirati a scope gate, redaction, parser, exit code e
