@@ -63,6 +63,7 @@ def _scope(path: Path) -> Path:
     return path
 
 
+@pytest.mark.posix_only
 def test_durable_job_lifecycle(tmp_path: Path) -> None:
     store = AegisJobStore(tmp_path / "state" / "jobs.sqlite3")
     job = store.submit(

@@ -58,7 +58,8 @@ the merge** when they fail:
 | `ruff check .` | catches real defects (unused/undefined names, unsafe patterns) |
 | `ruff format --check .` | prevents unreviewed style-only drift |
 | `mypy --strict src/olympus` | rejects type inconsistencies in first-party code |
-| `pytest` on Python 3.11–3.14 | offline unit, contract and guardrail tests |
+| portable `pytest` suite on Python 3.11–3.14 | offline unit, contract and guardrail tests without POSIX kernel assumptions |
+| dedicated POSIX sandbox suite on Ubuntu/Python 3.11 | real privilege-drop, `setrlimit`, signal and process-group guarantees |
 | macOS/Windows wheel + CLI smoke | portable surfaces must import and execute outside Linux |
 | wheel build, clean install and CLI smoke test | the package must work outside the checkout |
 | `pip-audit` on the runtime closure | no dependency with a known advisory ships |
@@ -73,9 +74,19 @@ tracked as `DEV-C`, `DEV-G` and `SEC-F` in `ROADMAP.md`.
 make lint      # ruff
 make format-check
 make type      # strict Mypy over first-party code
-make test      # pytest
+make test      # all tests supported by the current host
+make test-portable
+make test-posix # POSIX kernel-isolation suite
 make check     # all four blocking first-party checks
 ```
+
+The sandbox's real-kernel tests live under `tests/platform/posix/`; related
+subprocess integration tests carry the same registered `posix_only` marker at
+their source. Narrower requirements use `linux_only` and `root_only`;
+`tests/conftest.py` skips them when the host cannot provide the required kernel
+or privilege boundary. Pytest runs with `--strict-markers`, so an unregistered
+or misspelled platform marker fails collection instead of silently weakening
+coverage.
 
 `pre-commit` is opt-in. Bypassing it locally with `git commit --no-verify` is
 possible, but CI still runs the blocking checks above.

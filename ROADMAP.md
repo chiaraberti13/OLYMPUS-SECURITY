@@ -82,7 +82,7 @@ di sicurezza forti, release riproducibili e flussi operativi comprensibili.
 | Credenziali | i segreti first-party sono letti dall'ambiente e redatti | manca un backend opzionale per secret manager e una policy uniforme di rotazione |
 | Autorizzazione | scope file + conferma esplicita prima dell'esecuzione | lo scope non è ancora un engagement manifest firmato, con scadenza e approvatore |
 | Supply chain | SBOM, hash lock, audit dipendenze e secret scan | mancano attestazioni di build, firma immagini/release e SAST CodeQL bloccante |
-| Qualità | Ruff lint/format, Mypy strict e pytest 3.11–3.14 sono gate obbligatori; smoke CLI su Ubuntu, macOS e Windows | nessuna soglia di coverage; sandbox non ancora separata esplicitamente dai test portabili |
+| Qualità | Ruff lint/format, Mypy strict e pytest portabile 3.11–3.14 sono gate obbligatori; la sandbox POSIX ha una suite/job dedicati; smoke CLI su Ubuntu, macOS e Windows | nessuna soglia di coverage; suite unit/contract/integration/container/live-lab non ancora completamente separate |
 | Input ostili | report HTML Vulcan con `html.escape`; RichLog TUI con `markup=False` | `aegis/adapters/nmap.py` parsa XML con `xml.etree` considerandolo “trusted local”, ma banner e script output sono controllati dal target; nessun fuzzing dei parser |
 | Scanner | ledger in `integrations/maturity.py` con prove verificabili | 12 `live-tested`, 3 `offline-tested`, 0 `production-ready` |
 | TUI | esecuzione senza shell e streaming dell'output | un solo campo libero per gli argomenti, UI solo inglese, poco supporto decisionale |
@@ -313,7 +313,9 @@ senza modificare il core, ma non può bypassare scope, policy, audit o sandbox.
   strict e test; il repository è stato normalizzato dal formatter.
 - [x] Estendere la CI a Python 3.11, 3.12, 3.13 e 3.14 su Ubuntu e aggiungere
   build della wheel e smoke test CLI portabili su macOS e Windows.
-- [ ] Isolare e marcare chiaramente i test POSIX-only della sandbox.
+- [x] Isolare i test real-kernel della sandbox in `tests/platform/posix/`,
+  registrarli con marker strict `posix_only`/`linux_only`/`root_only` ed eseguirli
+  in un job Ubuntu dedicato, separato dalla matrice portabile Python 3.11–3.14.
 - [ ] Impostare una soglia iniziale di branch coverage sul codice first-party,
   quindi aumentarla progressivamente; oggi `pyproject.toml` abilita branch
   coverage ma non definisce un fail-under.

@@ -146,13 +146,15 @@ what is verified:
 
 | | Verified in CI | Not verified |
 | --- | --- | --- |
-| **OS** | Ubuntu full suite; macOS and Windows portable CLI smoke | Linux-only sandbox guarantees on macOS/Windows |
-| **Python** | 3.11, 3.12, 3.13, 3.14 on Ubuntu | future Python releases |
+| **OS** | Ubuntu portable suite plus dedicated POSIX sandbox suite; macOS and Windows portable CLI smoke | Linux-only sandbox guarantees on macOS/Windows |
+| **Python** | portable suite on 3.11–3.14; POSIX sandbox suite on 3.11 | future Python releases; POSIX sandbox on 3.12–3.14 |
 
 Olympus is developed and exercised on Linux. The core and CLI are written to be
 portable, and the sandbox layer (`olympus.aegis.sandbox`) is POSIX-specific by
-design — user drop and `setrlimit` have no Windows equivalent. Widening this
-matrix further is tracked in [`ROADMAP.md`](ROADMAP.md) as `DEV-C`.
+design — user drop and `setrlimit` have no Windows equivalent. Its real-kernel
+tests are isolated under `tests/platform/posix/`, use strict registered markers
+and run in a dedicated Ubuntu CI job. Widening this matrix further is tracked in
+[`ROADMAP.md`](ROADMAP.md) as `DEV-C`.
 
 ## ⚙️ Configuration
 

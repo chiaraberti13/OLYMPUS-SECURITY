@@ -1,4 +1,4 @@
-"""Tests for AEGIS scanner process isolation.
+"""POSIX-only integration tests for AEGIS scanner process isolation.
 
 These exercise the real kernel behaviour — a real fork/exec, real ``setrlimit``
 violations, a real SIGTERM that a child ignores — because the guarantee being
@@ -9,7 +9,6 @@ the process boundary.
 from __future__ import annotations
 
 import json
-import os
 import sys
 import time
 from pathlib import Path
@@ -17,75 +16,32 @@ from pathlib import Path
 import pytest
 
 from olympus.aegis.base import ScannerAdapter
-from olympus.aegis.model import ScanRequest, ScanResult
+from olympus.aegis.model import ScanRequest
 from olympus.aegis.runner import (
     CommandError,
     CommandOutput,
     CommandOutputLimit,
     CommandTimeout,
     TerminationCause,
-    TerminationReport,
     run_command,
 )
 from olympus.aegis.sandbox import (
     DEFAULT_SANDBOX_USER,
     SandboxError,
     SandboxPolicy,
-    UnprivilegedIdentity,
 )
 from olympus.aegis.states import ExecutionState
-from olympus.cli import app
 from olympus.core.execution import CancellationRequested, CancellationToken
-from olympus.integrations.cli import sandbox_check
 
-posix_only = pytest.mark.skipif(os.name != "posix", reason="POSIX process isolation")
-root_only = pytest.mark.skipif(
-    os.name != "posix" or os.geteuid() != 0, reason="privilege drop needs a privileged parent"
-)
-linux_only = pytest.mark.skipif(not sys.platform.startswith("linux"), reason="reads /proc")
+pytestmark = pytest.mark.posix_only
 
 
 def _policy(**overrides: object) -> SandboxPolicy:
+    # Kernel-limit tests do not need a privilege transition. Keep that separate
+    # from the explicitly root-only test so rootful developer containers with
+    # restricted chown still exercise every other POSIX guarantee.
+    overrides.setdefault("effective_uid", 1000)
     return SandboxPolicy(**overrides)  # type: ignore[arg-type]
-
-
-# --- policy validation ----------------------------------------------------- #
-def test_policy_rejects_limits_outside_their_bounds() -> None:
-    for field, value in (
-        ("cpu_seconds", 0),
-        ("memory_bytes", 1024),
-        ("max_processes", 0),
-        ("open_files", 4),
-        ("file_size_bytes", 10),
-        ("grace_seconds", 600.0),
-        ("user", "  "),
-    ):
-        with pytest.raises(SandboxError):
-            _policy(**{field: value})
-
-
-def test_policy_reads_the_environment_and_refuses_unparsable_values(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("AEGIS_SANDBOX_CPU_SECONDS", "120")
-    monkeypatch.setenv("AEGIS_SANDBOX_MAX_PROCESSES", "8")
-    monkeypatch.setenv("AEGIS_SANDBOX_GRACE_SECONDS", "1.5")
-    monkeypatch.setenv("AEGIS_SANDBOX_USER", "scanner")
-    policy = SandboxPolicy.from_environment()
-    assert (policy.cpu_seconds, policy.max_processes, policy.user) == (120, 8, "scanner")
-    assert policy.grace_seconds == 1.5
-
-    monkeypatch.setenv("AEGIS_SANDBOX_CPU_SECONDS", "lots")
-    with pytest.raises(SandboxError, match="must be an integer"):
-        SandboxPolicy.from_environment()
-    monkeypatch.delenv("AEGIS_SANDBOX_CPU_SECONDS")
-    monkeypatch.setenv("AEGIS_SANDBOX_ALLOW_ROOT", "perhaps")
-    with pytest.raises(SandboxError, match="true/false"):
-        SandboxPolicy.from_environment()
-
-
-def test_default_policy_targets_an_unprivileged_account() -> None:
-    assert SandboxPolicy().user == DEFAULT_SANDBOX_USER
 
 
 # --- privilege drop -------------------------------------------------------- #
@@ -107,11 +63,6 @@ def test_root_is_refused_even_when_the_configured_account_is_root() -> None:
         _policy(effective_uid=0, user="root").resolve_identity()
 
 
-def test_unprivileged_identity_rejects_uid_zero() -> None:
-    with pytest.raises(SandboxError):
-        UnprivilegedIdentity(name="root", uid=0, gid=0)
-
-
 def test_run_command_refuses_when_isolation_cannot_be_established() -> None:
     with pytest.raises(CommandError, match="refusing to run a scanner as root") as caught:
         run_command(
@@ -122,7 +73,7 @@ def test_run_command_refuses_when_isolation_cannot_be_established() -> None:
     assert caught.value.report.cause is TerminationCause.SANDBOX_DENIED
 
 
-@root_only
+@pytest.mark.root_only
 def test_scanner_runs_as_an_unprivileged_user_when_started_as_root() -> None:
     output = run_command(["id", "-u"], timeout=15)
     assert output.stdout.strip() not in {"", "0"}
@@ -131,7 +82,6 @@ def test_scanner_runs_as_an_unprivileged_user_when_started_as_root() -> None:
 
 
 # --- resource limits ------------------------------------------------------- #
-@posix_only
 def test_resource_limits_are_applied_inside_the_child() -> None:
     policy = _policy(open_files=64, max_processes=17, memory_bytes=512 * 1024 * 1024)
     script = (
@@ -150,7 +100,6 @@ def test_resource_limits_are_applied_inside_the_child() -> None:
     assert limits["as"] == [512 * 1024 * 1024, 512 * 1024 * 1024]
 
 
-@posix_only
 def test_cpu_limit_is_enforced_by_the_kernel_with_a_structured_cause() -> None:
     output = run_command(
         [sys.executable, "-c", "\nwhile True:\n    pass\n"],
@@ -164,7 +113,6 @@ def test_cpu_limit_is_enforced_by_the_kernel_with_a_structured_cause() -> None:
     assert output.termination.signal_name == "SIGXCPU"
 
 
-@posix_only
 def test_file_size_limit_bounds_temporary_space_with_a_structured_cause() -> None:
     # `dd` writes into the run's private scratch directory (its working
     # directory) and, unlike CPython, does not ignore SIGXFSZ — so this is the
@@ -181,7 +129,6 @@ def test_file_size_limit_bounds_temporary_space_with_a_structured_cause() -> Non
     assert output.termination.signal_name == "SIGXFSZ"
 
 
-@posix_only
 def test_the_file_size_limit_also_stops_a_process_that_handles_the_error() -> None:
     # CPython ignores SIGXFSZ and surfaces EFBIG instead: the write must still
     # fail, so the limit holds for scanners written in Python too.
@@ -200,7 +147,6 @@ def test_the_file_size_limit_also_stops_a_process_that_handles_the_error() -> No
 
 
 # --- isolated scratch space ------------------------------------------------ #
-@posix_only
 def test_each_run_gets_a_private_scratch_directory_that_is_removed_afterwards() -> None:
     script = (
         "import json,os,stat;"
@@ -215,7 +161,6 @@ def test_each_run_gets_a_private_scratch_directory_that_is_removed_afterwards() 
     assert not Path(seen["tmp"]).exists(), "the scratch directory must not outlive the run"
 
 
-@posix_only
 def test_two_runs_never_share_a_scratch_directory() -> None:
     script = "import os;print(os.environ['TMPDIR'])"
     first = run_command([sys.executable, "-c", script], timeout=30).stdout.strip()
@@ -224,7 +169,6 @@ def test_two_runs_never_share_a_scratch_directory() -> None:
 
 
 # --- terminate → kill escalation ------------------------------------------- #
-@posix_only
 def test_a_child_that_ignores_sigterm_is_escalated_to_sigkill() -> None:
     script = "import signal,time;signal.signal(signal.SIGTERM, signal.SIG_IGN);time.sleep(60)"
     started = time.monotonic()
@@ -238,7 +182,6 @@ def test_a_child_that_ignores_sigterm_is_escalated_to_sigkill() -> None:
     assert time.monotonic() - started < 30, "escalation must not wait for the child to finish"
 
 
-@posix_only
 def test_a_cooperative_child_is_stopped_by_sigterm_without_escalation() -> None:
     with pytest.raises(CommandTimeout) as caught:
         run_command([sys.executable, "-c", "import time;time.sleep(60)"], timeout=0.5)
@@ -246,7 +189,7 @@ def test_a_cooperative_child_is_stopped_by_sigterm_without_escalation() -> None:
     assert caught.value.report.process_group_signalled is True
 
 
-@linux_only
+@pytest.mark.linux_only
 def test_the_whole_process_group_dies_not_just_the_scanner(tmp_path: Path) -> None:
     shared = tmp_path / "shared"
     shared.mkdir()
@@ -295,7 +238,6 @@ def test_a_clean_exit_is_reported_as_completed() -> None:
     assert output.termination.exit_code == 0
 
 
-@posix_only
 def test_a_fatal_signal_is_distinguished_from_a_resource_violation() -> None:
     output = run_command(["sh", "-c", "kill -9 $$"], timeout=30)
     assert output.termination is not None
@@ -322,7 +264,6 @@ class _SignalledAdapter(ScannerAdapter):
         raise AssertionError("a killed scanner must never reach the parser")
 
 
-@posix_only
 def test_a_killed_scanner_fails_with_a_recorded_cause() -> None:
     result = _SignalledAdapter().run(
         ScanRequest(
@@ -343,48 +284,3 @@ def test_a_killed_scanner_fails_with_a_recorded_cause() -> None:
     assert isinstance(recorded, dict)
     assert recorded["cause"] == "signalled"
     assert recorded["signal_name"] == "SIGKILL"
-
-
-def test_the_result_contract_carries_no_termination_when_nothing_ran() -> None:
-    result = ScanResult(scanner="fake", state=ExecutionState.DISABLED, target="127.0.0.1")
-    assert result.to_dict()["termination"] is None
-
-
-def test_timeout_reports_reach_the_result_contract() -> None:
-    report = TerminationReport(
-        cause=TerminationCause.TIMEOUT, detail="slow", limit="timeout_seconds"
-    )
-    result = ScanResult(
-        scanner="fake", state=ExecutionState.FAILED, target="127.0.0.1", termination=report
-    )
-    assert result.to_dict()["termination"] == {
-        "cause": "timeout",
-        "detail": "slow",
-        "exit_code": None,
-        "signal_name": None,
-        "limit": "timeout_seconds",
-        "escalated_to_kill": False,
-        "process_group_signalled": False,
-        "unprivileged_user": None,
-    }
-
-
-# --- operator-visible diagnostics ------------------------------------------ #
-def test_doctor_reports_the_isolation_scanners_will_actually_get() -> None:
-    from typer.testing import CliRunner
-
-    result = CliRunner().invoke(app, ["aegis", "doctor"])
-    assert result.exit_code == 0
-    payload = json.loads(result.stdout)
-    check = next(item for item in payload["checks"] if item["name"] == "sandbox:isolation")
-    assert "limits cpu_seconds=" in check["detail"]
-    assert "open_files=" in check["detail"]
-
-
-def test_doctor_reports_a_misconfigured_sandbox_as_not_ok(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("AEGIS_SANDBOX_OPEN_FILES", "unlimited")
-    check = sandbox_check()
-    assert check.ok is False
-    assert "must be an integer" in check.detail

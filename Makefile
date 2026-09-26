@@ -1,4 +1,4 @@
-.PHONY: install lint format-check type test check demo clean
+.PHONY: install lint format-check type test test-portable test-posix check demo clean
 
 PYTHON ?= python
 
@@ -20,6 +20,12 @@ type:
 
 test:
 	$(PYTHON) -m pytest
+
+test-portable:
+	$(PYTHON) -m pytest -m "not posix_only"
+
+test-posix:
+	$(PYTHON) -m pytest -m posix_only
 
 check:
 	$(MAKE) lint

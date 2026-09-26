@@ -115,9 +115,14 @@ warn_required_dynamic_aliases = true
 
 # Pytest is a blocking CI check. Coverage reporting currently has no threshold.
 [tool.pytest.ini_options]
-addopts = "-q"
+addopts = "-q --strict-markers"
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+    "posix_only: exercises POSIX process isolation and kernel-enforced limits",
+    "linux_only: requires Linux-specific kernel interfaces such as /proc",
+    "root_only: requires a privileged parent that can drop to the sandbox user",
+]
 
 [tool.coverage.run]
 branch = true

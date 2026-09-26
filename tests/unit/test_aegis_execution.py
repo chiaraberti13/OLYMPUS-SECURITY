@@ -154,12 +154,14 @@ def test_url_target_rejects_credentials_and_unsafe_scheme() -> None:
 
 
 # --- runner ---------------------------------------------------------------- #
+@pytest.mark.posix_only
 def test_runner_executes_real_process() -> None:
     out = run_command(["printf", "hello"], timeout=10)
     assert out.exit_code == 0
     assert "hello" in out.stdout
 
 
+@pytest.mark.posix_only
 def test_runner_timeout() -> None:
     with pytest.raises(CommandTimeout):
         run_command(["sleep", "5"], timeout=1)
@@ -170,6 +172,7 @@ def test_runner_missing_binary() -> None:
         run_command(["definitely-not-a-real-binary-xyz"], timeout=5)
 
 
+@pytest.mark.posix_only
 def test_runner_caps_output_sanitizes_environment_and_cancels(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -286,6 +289,7 @@ def test_state_unavailable_when_binary_missing() -> None:
     assert result.findings == []
 
 
+@pytest.mark.posix_only
 def test_state_live_runs_real_process() -> None:
     result = _FakeAdapter().run(_req(scanner="fake", authorized=True, live_enabled=True))
     assert result.state is ExecutionState.LIVE
@@ -299,6 +303,7 @@ def test_state_live_runs_real_process() -> None:
     assert isinstance(termination, dict) and termination["cause"] == "completed"
 
 
+@pytest.mark.posix_only
 def test_nonzero_process_is_failed_before_parser() -> None:
     class _Nonzero(_FakeAdapter):
         binary = "false"
@@ -312,6 +317,7 @@ def test_nonzero_process_is_failed_before_parser() -> None:
     assert result.findings == []
 
 
+@pytest.mark.posix_only
 def test_raw_evidence_is_bounded_and_redacted() -> None:
     class _Evidence(_FakeAdapter):
         binary = "printf"
@@ -344,6 +350,7 @@ def test_evidence_redacts_the_token_after_an_authorization_scheme() -> None:
     assert "GET / HTTP/1.1" in evidence
 
 
+@pytest.mark.posix_only
 def test_state_failed_on_parse_error() -> None:
     class _Bad(_FakeAdapter):
         def parse(self, output: CommandOutput, host: str, request: ScanRequest) -> list:  # type: ignore[type-arg]
@@ -430,6 +437,7 @@ def _scope(path: Path) -> Path:
     return path
 
 
+@pytest.mark.posix_only
 def test_scope_loader_and_application_output_audit(tmp_path: Path) -> None:
     scope = _scope(tmp_path / "scope.json")
     assert load_scope(scope).allowed_hosts == ("127.0.0.1",)
