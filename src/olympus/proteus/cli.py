@@ -9,6 +9,7 @@ import typer
 
 from olympus.core.contracts import ContractCompatibilityError
 from olympus.core.execution import AuthorizationRequiredError, CancellationRequested
+from olympus.core.exit_codes import ExitCode
 from olympus.core.paths import audit_log_path, output_path
 from olympus.proteus.application import (
     CampaignApplicationService,
@@ -74,13 +75,13 @@ def campaign(
         export_campaign(outcome.campaign, output)
     except AuthorizationRequiredError as exc:
         typer.echo(f"proteus: {_DISCLAIMER}", err=True)
-        raise typer.Exit(code=4) from exc
+        raise typer.Exit(code=ExitCode.NOT_AUTHORIZED) from exc
     except ProteusOutOfScopeError as exc:
         typer.echo(f"proteus: blocked by scope: {exc}", err=True)
-        raise typer.Exit(code=3) from exc
+        raise typer.Exit(code=ExitCode.OUT_OF_SCOPE) from exc
     except (ProteusScopeError, CancellationRequested, OSError, UnicodeError, ValueError) as exc:
         typer.echo(f"proteus: campaign error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     for skipped in outcome.skipped_targets:
         typer.echo(f"proteus: skipping out-of-scope target {skipped!r} (logged)", err=True)
     typer.echo(
@@ -117,7 +118,7 @@ def page(
         output.write_text(CampaignApplicationService().render_page(engagement), encoding="utf-8")
     except (OSError, ValueError) as exc:
         typer.echo(f"proteus: page error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     typer.echo(f"proteus: wrote training page to {output}")
 
 
@@ -139,7 +140,7 @@ def email(
         ValueError,
     ) as exc:
         typer.echo(f"proteus: email error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     typer.echo(rendered)
 
 
@@ -157,5 +158,5 @@ def report(
         summary = CampaignApplicationService().report(campaign_file, set(clicked))
     except (ContractCompatibilityError, OSError, json.JSONDecodeError, ValueError) as exc:
         typer.echo(f"proteus: report error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     typer.echo(json.dumps(summary, indent=2, sort_keys=True))

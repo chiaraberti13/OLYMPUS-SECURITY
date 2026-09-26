@@ -18,6 +18,7 @@ from olympus.core.crypto import (
     encrypt_bytes,
     encrypt_text,
 )
+from olympus.core.exit_codes import ExitCode
 from olympus.core.fileio import atomic_write_text, read_regular_text
 from olympus.metis.cases import (
     MAX_INGEST_BYTES,
@@ -58,7 +59,7 @@ case_app = typer.Typer(help="Local-first cyber threat-intelligence cases.", no_a
 
 def _fail(exc: Exception) -> None:
     typer.echo(f"metis: {exc}", err=True)
-    raise typer.Exit(code=2) from exc
+    raise typer.Exit(code=ExitCode.USAGE) from exc
 
 
 @app.command("capabilities")
@@ -247,7 +248,7 @@ def case_sweep(
         )
     )
     if hits:
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=ExitCode.FINDINGS)
 
 
 @case_app.command("finding")

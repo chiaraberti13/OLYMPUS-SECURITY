@@ -177,7 +177,7 @@ def test_run_over_rule_dir_and_event_stream(tmp_path: Path) -> None:
         app,
         ["apollo", "run", "--rules", str(rules_dir), "--events", str(events), "--output", str(out)],
     )
-    assert result.exit_code == 2  # partial input takes precedence over the fired alert
+    assert result.exit_code == 5  # partial input takes precedence over the fired alert
     assert "malformed event" in result.output
     payload = json.loads(out.read_text(encoding="utf-8"))
     assert len(payload["alerts"]) == 1

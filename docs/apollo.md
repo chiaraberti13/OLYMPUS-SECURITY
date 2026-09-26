@@ -81,6 +81,7 @@ olympus apollo rules --rules examples/input/apollo-ad --format json
 
 `test` exits `0` after a valid evaluation whether or not it matches. `run` exits
 `0` for a complete stream with no alerts, `1` for a complete stream with one or
-more alerts, and `2` for invalid, incomplete, cancelled, timed-out, or otherwise
-failed input. Advanced temporal correlation is outside this exact single-event
-engine and must use a separately bounded, reviewed operator model.
+more alerts, `2` for invalid input, `5` when malformed records make the stream
+partial, and `7` when cancelled. Advanced temporal correlation is outside this
+exact single-event engine and must use a separately bounded, reviewed operator
+model.

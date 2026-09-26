@@ -113,6 +113,7 @@ from olympus.argus.whois import (
     build_whois_asset,
     export_whois_report,
 )
+from olympus.core.exit_codes import ExitCode
 from olympus.core.fileio import atomic_write_text, read_regular_text
 from olympus.core.http import UrllibHttpClient
 from olympus.core.paths import audit_log_path, output_path
@@ -188,14 +189,14 @@ def scan(
         )
     except ScopeError as exc:
         typer.echo(f"argus: scope error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     except OutOfScopeError as exc:
         typer.echo(f"argus: blocked, out of scope: {exc}", err=True)
-        raise typer.Exit(code=3) from exc
+        raise typer.Exit(code=ExitCode.OUT_OF_SCOPE) from exc
 
     except CertificateTransparencyError as exc:
         typer.echo(f"argus: Certificate Transparency error: {exc}", err=True)
-        raise typer.Exit(code=4) from exc
+        raise typer.Exit(code=ExitCode.NOT_AUTHORIZED) from exc
     export_assets(recon_to_assets(result), output)
     typer.echo(json.dumps(result.to_dict(), indent=2, sort_keys=True))
 
@@ -221,14 +222,14 @@ def fronting(
         )
     except ScopeError as exc:
         typer.echo(f"argus: scope error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     except OutOfScopeError as exc:
         typer.echo(f"argus: blocked, out of scope: {exc}", err=True)
-        raise typer.Exit(code=3) from exc
+        raise typer.Exit(code=ExitCode.OUT_OF_SCOPE) from exc
 
     except CertificateTransparencyError as exc:
         typer.echo(f"argus: Certificate Transparency error: {exc}", err=True)
-        raise typer.Exit(code=4) from exc
+        raise typer.Exit(code=ExitCode.NOT_AUTHORIZED) from exc
 
     asset = report_to_asset(report, asset_id)
     findings = report_to_findings(report, asset_id)
@@ -239,7 +240,7 @@ def fronting(
         f"{len(report.origin_leaks)} candidate origin leak(s); {output}"
     )
     if report.origin_leaks:
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=ExitCode.FINDINGS)
 
 
 @app.command("diff")
@@ -249,7 +250,7 @@ def diff_command(before: Path, after: Path) -> None:
         result = SnapshotDiffService().run(before, after)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         typer.echo(f"argus: diff error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     typer.echo(json.dumps(result.__dict__, indent=2, sort_keys=True))
 
 
@@ -296,7 +297,7 @@ def phone(
     """
     if (number is None) == (input_file is None):
         typer.echo("argus: provide exactly one of --number or --input", err=True)
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=ExitCode.USAGE)
 
     http = UrllibHttpClient.from_config()
     service = PhoneProfileService(
@@ -332,19 +333,19 @@ def phone(
         batch = service.run_many(tuple(request_for(target) for target in _read_targets(input_file)))
     except AuthorizationRequiredError as exc:
         typer.echo(f"argus: {_AUTH_DISCLAIMER}", err=True)
-        raise typer.Exit(code=4) from exc
+        raise typer.Exit(code=ExitCode.NOT_AUTHORIZED) from exc
     except PhoneParseError as exc:
         typer.echo(f"argus: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     except PhoneScopeError as exc:
         typer.echo(f"argus: phone scope error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     except PhoneOutOfScopeError as exc:
         typer.echo(f"argus: blocked, out of scope: {exc}", err=True)
-        raise typer.Exit(code=3) from exc
+        raise typer.Exit(code=ExitCode.OUT_OF_SCOPE) from exc
     except OSError as exc:
         typer.echo(f"argus: could not read phone input: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
 
     for warning in batch.warnings:
         typer.echo(f"argus: {warning}", err=True)
@@ -392,7 +393,7 @@ def accounts(
     """
     if (username is None) == (input_file is None):
         typer.echo("argus: provide exactly one of --username or --input", err=True)
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=ExitCode.USAGE)
 
     try:
         specs = load_site_registry(sites)
@@ -427,19 +428,19 @@ def accounts(
                 typer.echo(f"argus: {warning}", err=True)
     except AuthorizationRequiredError as exc:
         typer.echo(f"argus: {_METADATA_DISCLAIMER}", err=True)
-        raise typer.Exit(code=4) from exc
+        raise typer.Exit(code=ExitCode.NOT_AUTHORIZED) from exc
     except (SiteRegistryError, ValueError) as exc:
         typer.echo(f"argus: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     except AccountScopeError as exc:
         typer.echo(f"argus: account scope error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     except AccountOutOfScopeError as exc:
         typer.echo(f"argus: blocked, out of scope: {exc}", err=True)
-        raise typer.Exit(code=3) from exc
+        raise typer.Exit(code=ExitCode.OUT_OF_SCOPE) from exc
     except OSError as exc:
         typer.echo(f"argus: could not read account input: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
 
     for intel in intels:
         typer.echo(
@@ -484,7 +485,7 @@ def ip(
     """
     if (ip_address is None) == (input_file is None):
         typer.echo("argus: provide exactly one of --ip or --input", err=True)
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=ExitCode.USAGE)
     http = UrllibHttpClient.from_config()
     service = IpProfileService(IpWhoisClient(http) if geo else None)
 
@@ -512,19 +513,19 @@ def ip(
         batch = service.run_many(tuple(request_for(target) for target in _read_targets(input_file)))
     except AuthorizationRequiredError as exc:
         typer.echo(f"argus: {_IP_DISCLAIMER}", err=True)
-        raise typer.Exit(code=4) from exc
+        raise typer.Exit(code=ExitCode.NOT_AUTHORIZED) from exc
     except IpParseError as exc:
         typer.echo(f"argus: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     except IpScopeError as exc:
         typer.echo(f"argus: IP scope error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     except IpOutOfScopeError as exc:
         typer.echo(f"argus: blocked, out of scope: {exc}", err=True)
-        raise typer.Exit(code=3) from exc
+        raise typer.Exit(code=ExitCode.OUT_OF_SCOPE) from exc
     except OSError as exc:
         typer.echo(f"argus: could not read IP input: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
 
     for warning in batch.warnings:
         typer.echo(f"argus: {warning}", err=True)
@@ -613,16 +614,16 @@ def investigate(
         )
     except AuthorizationRequiredError as exc:
         typer.echo(f"argus: {_INVESTIGATE_DISCLAIMER}", err=True)
-        raise typer.Exit(code=4) from exc
+        raise typer.Exit(code=ExitCode.NOT_AUTHORIZED) from exc
     except (SiteRegistryError, ScopeError, IpScopeError, AccountScopeError, ValueError) as exc:
         typer.echo(f"argus: investigation configuration error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     except (OutOfScopeError, IpOutOfScopeError, AccountOutOfScopeError) as exc:
         typer.echo(f"argus: blocked, out of scope: {exc}", err=True)
-        raise typer.Exit(code=3) from exc
+        raise typer.Exit(code=ExitCode.OUT_OF_SCOPE) from exc
     except OSError as exc:
         typer.echo(f"argus: investigation I/O failed: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
 
     graph = outcome.graph
     for warning in outcome.warnings:
@@ -694,16 +695,16 @@ def email(
         )
     except EmailParseError as exc:
         typer.echo(f"argus: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     except AuthorizationRequiredError as exc:
         typer.echo(f"argus: {_EMAIL_DISCLAIMER}", err=True)
-        raise typer.Exit(code=4) from exc
+        raise typer.Exit(code=ExitCode.NOT_AUTHORIZED) from exc
     except ScopeError as exc:
         typer.echo(f"argus: scope error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     except OutOfScopeError as exc:
         typer.echo(f"argus: blocked, out of scope: {exc}", err=True)
-        raise typer.Exit(code=3) from exc
+        raise typer.Exit(code=ExitCode.OUT_OF_SCOPE) from exc
     typer.echo(json.dumps(intel.to_dict(), indent=2, sort_keys=True))
     if output is not None:
         export_email_intel(intel, output)
@@ -748,16 +749,16 @@ def mac(
         )
     except MacParseError as exc:
         typer.echo(f"argus: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     except MacScopeError as exc:
         typer.echo(f"argus: scope error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     except MacOutOfScopeError as exc:
         typer.echo(f"argus: blocked, out of scope: {exc}", err=True)
-        raise typer.Exit(code=3) from exc
+        raise typer.Exit(code=ExitCode.OUT_OF_SCOPE) from exc
     except AuthorizationRequiredError as exc:
         typer.echo(f"argus: {_MAC_DISCLAIMER}", err=True)
-        raise typer.Exit(code=4) from exc
+        raise typer.Exit(code=ExitCode.NOT_AUTHORIZED) from exc
     typer.echo(json.dumps(intel.to_dict(), indent=2, sort_keys=True))
     if output is not None:
         export_mac_intel(intel, output)
@@ -779,7 +780,7 @@ def myip(
         result = MyIpDiscoveryService(http, http).run(MyIpDiscoveryRequest(geolocate=geo))
     except MyIpError as exc:
         typer.echo(f"argus: {exc}", err=True)
-        raise typer.Exit(code=4) from exc
+        raise typer.Exit(code=ExitCode.NOT_AUTHORIZED) from exc
     typer.echo(json.dumps(result.to_dict(), indent=2, sort_keys=True))
     if output is not None:
         export_myip(result, output)
@@ -812,24 +813,24 @@ def web(
         )
     except InvalidWebTargetError as exc:
         typer.echo(f"argus: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     except ScopeError as exc:
         typer.echo(f"argus: scope error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     except OutOfScopeError as exc:
         typer.echo(f"argus: blocked, out of scope: {exc}", err=True)
-        raise typer.Exit(code=3) from exc
+        raise typer.Exit(code=ExitCode.OUT_OF_SCOPE) from exc
 
     except WebReconError as exc:
         typer.echo(f"argus: {exc}", err=True)
-        raise typer.Exit(code=4) from exc
+        raise typer.Exit(code=ExitCode.NOT_AUTHORIZED) from exc
 
     typer.echo(json.dumps(intel.to_dict(), indent=2, sort_keys=True))
     if output is not None:
         export_web_intel(intel, output)
         typer.echo(f"argus: wrote web intel to {output}", err=True)
     if intel.findings:
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=ExitCode.FINDINGS)
 
 
 @app.command()
@@ -861,14 +862,14 @@ def dns(
         )
     except ScopeError as exc:
         typer.echo(f"argus: scope error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     except OutOfScopeError as exc:
         typer.echo(f"argus: blocked, out of scope: {exc}", err=True)
-        raise typer.Exit(code=3) from exc
+        raise typer.Exit(code=ExitCode.OUT_OF_SCOPE) from exc
 
     except DnsRecordError as exc:
         typer.echo(f"argus: {exc}", err=True)
-        raise typer.Exit(code=4) from exc
+        raise typer.Exit(code=ExitCode.NOT_AUTHORIZED) from exc
 
     asset = build_dns_asset(report)
     payload = {"report": report.to_dict(), "asset": json.loads(asset.model_dump_json())}
@@ -898,14 +899,14 @@ def whois(
         )
     except ScopeError as exc:
         typer.echo(f"argus: scope error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     except OutOfScopeError as exc:
         typer.echo(f"argus: blocked, out of scope: {exc}", err=True)
-        raise typer.Exit(code=3) from exc
+        raise typer.Exit(code=ExitCode.OUT_OF_SCOPE) from exc
 
     except WhoisError as exc:
         typer.echo(f"argus: {exc}", err=True)
-        raise typer.Exit(code=4) from exc
+        raise typer.Exit(code=ExitCode.NOT_AUTHORIZED) from exc
 
     asset = build_whois_asset(report)
     payload = {"report": report.to_dict(), "asset": json.loads(asset.model_dump_json())}
@@ -934,7 +935,7 @@ def pipeline_command(
         document = EventPipeline(BUILTIN_MODULES).run(configuration, audit_path=audit)
     except (ValueError, OSError) as exc:
         typer.echo(f"argus: pipeline error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     payload = document.model_dump_json(indent=2)
     if output is None:
         typer.echo(payload)
@@ -959,7 +960,7 @@ def correlate(
         graph = investigation_from_dict(payload)
     except (ValueError, OSError) as exc:
         typer.echo(f"argus: correlate error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     report: dict[str, object] = {
         "components": [sorted(component) for component in connected_components(graph)],
         "pivots": [

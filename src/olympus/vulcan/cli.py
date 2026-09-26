@@ -9,6 +9,7 @@ import typer
 
 from olympus.core.enums import Severity
 from olympus.core.execution import CancellationRequested, ExecutionPolicyError
+from olympus.core.exit_codes import ExitCode
 from olympus.core.fileio import atomic_write_text, read_regular_text
 from olympus.core.output import OutputFormat, render
 from olympus.core.paths import output_path
@@ -119,7 +120,7 @@ def report(
             export_text(outcome.html, html_output)
     except _APPLICATION_ERRORS as exc:
         typer.echo(f"vulcan: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
 
     typer.echo(json.dumps(outcome.report.summary.model_dump(mode="json"), indent=2, sort_keys=True))
     typer.echo(f"vulcan: wrote report to {output}", err=True)
@@ -191,7 +192,7 @@ def enrich(
         atomic_write_text(output, json.dumps(overlay, indent=2, sort_keys=True) + "\n", mode=0o600)
     except _APPLICATION_ERRORS as exc:
         typer.echo(f"vulcan: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
 
     columns = ["kev", "epss", "cvss", "severity", "cves", "title"]
     records: list[dict[str, object]] = [
@@ -245,7 +246,7 @@ def rank(
         )
     except _APPLICATION_ERRORS as exc:
         typer.echo(f"vulcan: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     columns = ["severity", "title", "source", "asset_id", "finding_id"]
     records: list[dict[str, object]] = [
         {

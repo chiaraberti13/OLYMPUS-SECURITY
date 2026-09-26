@@ -13,6 +13,11 @@ everything below lives under **Unreleased**.
 ## [Unreleased]
 
 ### Added
+- **Contratto degli esiti (`DEV-D`)** — gli stati terminali `clean`, `findings`,
+  `partial`, `failed` e `cancelled` e gli exit code 0–7 sono ora centralizzati
+  nel core. Athena, AEGIS, Apollo e Hermes applicano lo stesso mapping; gli exit
+  code legacy/esterni sconosciuti diventano `failed` e un contract test AST
+  impedisce ai moduli CLI di reintrodurre numeri locali.
 - **Explicit persisted-contract migrations** — a central fail-closed registry and
   versioned CLI manifest migrate legacy AEGIS scopes/jobs, Athena plans, evidence
   references and METIS cases without inventing missing provenance (`DEV-D`).

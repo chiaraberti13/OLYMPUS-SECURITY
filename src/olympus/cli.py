@@ -83,7 +83,7 @@ def validate_config(
         effective = redact_mapping(core_config.effective_config(data))
     except core_config.ConfigError as exc:
         typer.echo(f"olympus: invalid configuration: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     typer.echo(
         json.dumps(
             {
@@ -426,7 +426,7 @@ def signing_verify(
         typer.echo(f"olympus: signature VALID for {artifact} (trusted key)")
     else:
         typer.echo(f"olympus: signature INVALID for {artifact}", err=True)
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=ExitCode.FINDINGS)
 
 
 app.add_typer(core_app, name="core")

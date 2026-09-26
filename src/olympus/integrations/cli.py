@@ -20,7 +20,8 @@ from typing import TYPE_CHECKING
 
 import typer
 
-from olympus.core.exit_codes import ExitCode
+from olympus.core.coverage import RunStatus, classify_run_status, exit_code_for
+from olympus.core.exit_codes import ExitCode, normalize_exit_code
 from olympus.core.paths import audit_log_path, state_file_path
 from olympus.integrations import scanners as scanner_registry
 from olympus.integrations.capabilities import count_at_least, inventory_document
@@ -92,13 +93,32 @@ def _emit_report(report: Report) -> None:
     typer.echo(json.dumps(report.to_dict(), indent=2, sort_keys=True))
 
 
+def _job_exit_code(job: object) -> ExitCode:
+    """Reduce an AEGIS job state to the canonical process contract."""
+    state = getattr(getattr(job, "state", None), "value", None)
+    if state == "partial":
+        return exit_code_for(RunStatus.PARTIAL)
+    if state in {"failed", "timed_out"}:
+        return exit_code_for(RunStatus.FAILED)
+    if state == "cancelled":
+        return exit_code_for(RunStatus.CANCELLED)
+    if state == "policy_denied":
+        return ExitCode.NOT_AUTHORIZED
+    if state == "succeeded":
+        result = getattr(job, "result", None)
+        findings = result.get("finding_count", 0) if isinstance(result, dict) else 0
+        count = findings if isinstance(findings, int) and not isinstance(findings, bool) else 0
+        return exit_code_for(classify_run_status(count))
+    return ExitCode.OK
+
+
 def _require_vendored(name: str) -> Path:
     """Return a vendored tool's root, or exit with the reason it is unavailable."""
     try:
         return tool_path(name)
     except VendoredToolNotFoundError as exc:
         typer.echo(f"olympus: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
 
 
 def _vendor_check() -> Check:
@@ -152,14 +172,14 @@ def aegis_api(
             "olympus: non-loopback AEGIS API binds require TLS certificate and key",
             err=True,
         )
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=ExitCode.USAGE)
     api_key = os.environ.get(api_key_env, "")
     if not api_key and not identities:
         typer.echo(
             f"olympus: set {api_key_env} or pass --identities with a credential register",
             err=True,
         )
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=ExitCode.USAGE)
 
     try:
         import uvicorn
@@ -180,7 +200,7 @@ def aegis_api(
             f'olympus: native API unavailable: {exc}; install with pip install -e ".[api]"',
             err=True,
         )
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
 
     uvicorn.run(
         application,
@@ -213,7 +233,7 @@ def aegis_serve(
             "--allow-legacy-web",
             err=True,
         )
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=ExitCode.USAGE)
     try:
         loopback = ipaddress.ip_address(host).is_loopback
     except ValueError:
@@ -224,7 +244,7 @@ def aegis_serve(
             "use 'olympus aegis api' for an authenticated network service",
             err=True,
         )
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=ExitCode.USAGE)
     path = _require_vendored(VAP_DIR)
     env = {**_os_environ(), "VAP_HOST": host, "VAP_PORT": str(port)}
     typer.echo(
@@ -232,7 +252,7 @@ def aegis_serve(
         err=True,
     )
     completed = subprocess.run([sys.executable, "app.py"], cwd=str(path), env=env, check=False)
-    raise typer.Exit(code=completed.returncode)
+    raise typer.Exit(code=normalize_exit_code(completed.returncode))
 
 
 @aegis_app.command("migrate")
@@ -245,7 +265,7 @@ def aegis_migrate() -> None:
         env=_os_environ(),
         check=False,
     )
-    raise typer.Exit(code=completed.returncode)
+    raise typer.Exit(code=normalize_exit_code(completed.returncode))
 
 
 @aegis_app.command("workers")
@@ -262,7 +282,7 @@ def aegis_workers(
         env=_os_environ(),
         check=False,
     )
-    raise typer.Exit(code=completed.returncode)
+    raise typer.Exit(code=normalize_exit_code(completed.returncode))
 
 
 @aegis_app.command("scanners")
@@ -467,7 +487,7 @@ def aegis_jobs_submit(
 
     if not i_am_authorized:
         typer.echo("olympus: queued live work requires --i-am-authorized", err=True)
-        raise typer.Exit(code=4)
+        raise typer.Exit(code=ExitCode.NOT_AUTHORIZED)
     try:
         job = AegisJobStore(Path(database)).submit(
             scanner=scanner,
@@ -480,7 +500,7 @@ def aegis_jobs_submit(
         )
     except ValueError as exc:
         typer.echo(f"olympus: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     _emit_job(job)
 
 
@@ -499,7 +519,7 @@ def aegis_jobs_list(
         selected = JobState(state) if state else None
     except ValueError as exc:
         typer.echo(f"olympus: invalid job state {state!r}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     jobs = AegisJobStore(Path(database)).list(limit=limit, state=selected)
     typer.echo(
         json.dumps(
@@ -529,7 +549,7 @@ def aegis_jobs_status(
         _emit_job(AegisJobStore(Path(database)).get(job_id))
     except KeyError as exc:
         typer.echo(f"olympus: {exc.args[0]}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
 
 
 @jobs_app.command("cancel")
@@ -546,7 +566,7 @@ def aegis_jobs_cancel(
         _emit_job(AegisJobStore(Path(database)).cancel(job_id))
     except KeyError as exc:
         typer.echo(f"olympus: {exc.args[0]}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
 
 
 @jobs_app.command("work")
@@ -567,15 +587,15 @@ def aegis_jobs_work(
         worker = AegisWorker(store, worker_id=worker_id or generate_worker_id())
     except ValueError as exc:
         typer.echo(f"olympus: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     job = worker.run_next(audit_path=Path(audit))
     if job is None:
         typer.echo(json.dumps({"claimed": False, "reason": "queue-empty"}, indent=2))
         return
     _emit_job(job)
-    # A refused, broken or timed-out job is not a successful worker run.
-    if job.state.value in {"failed", "timed_out", "policy_denied"}:
-        raise typer.Exit(code=4)
+    code = _job_exit_code(job)
+    if code is not ExitCode.OK:
+        raise typer.Exit(code=code)
 
 
 @jobs_app.command("prune")
@@ -641,7 +661,7 @@ def _identity_register(path: str, *, create: bool = False) -> IdentityRegister:
         if create:
             return IdentityRegister()
         typer.echo(f"olympus: identity register not found: {location}", err=True)
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=ExitCode.USAGE)
     return load_register(location)
 
 
@@ -657,7 +677,7 @@ def aegis_identities_init(
     location = Path(register_path)
     if location.exists():
         typer.echo(f"olympus: identity register already exists: {location}", err=True)
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=ExitCode.USAGE)
     save_register(location, IdentityRegister())
     typer.echo(json.dumps({"register": str(location), "identities": 0}, indent=2))
 
@@ -690,7 +710,7 @@ def aegis_identities_add(
         )
     except IdentityError as exc:
         typer.echo(f"olympus: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     save_register(Path(register_path), updated)
     _emit_secret(identity_id, secret, "created")
 
@@ -720,7 +740,7 @@ def aegis_identities_rotate(
         )
     except IdentityError as exc:
         typer.echo(f"olympus: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     save_register(Path(register_path), updated)
     _emit_secret(identity_id, secret, "rotated")
 
@@ -742,7 +762,7 @@ def aegis_identities_revoke(
         )
     except IdentityError as exc:
         typer.echo(f"olympus: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     save_register(Path(register_path), updated)
     typer.echo(json.dumps({"identity_id": identity_id, "revoked": True}, indent=2))
 
@@ -811,7 +831,7 @@ def aegis_retention_prune(
         )
     except RetentionError as exc:
         typer.echo(f"olympus: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     typer.echo(json.dumps(report.to_dict(), indent=2, sort_keys=True))
 
 
@@ -831,7 +851,7 @@ def aegis_retention_rotate_log(
         report = rotate_log(Path(path), max_bytes=max_bytes, keep=keep, secure=not insecure)
     except RetentionError as exc:
         typer.echo(f"olympus: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     typer.echo(json.dumps(report.to_dict(), indent=2, sort_keys=True))
 
 
@@ -892,25 +912,25 @@ def aegis_scan(
 
     if not i_am_authorized:
         typer.echo("olympus: API scan submission requires --i-am-authorized", err=True)
-        raise typer.Exit(code=4)
+        raise typer.Exit(code=ExitCode.NOT_AUTHORIZED)
     api_key = os.environ.get(api_key_env, "")
     if not api_key:
         typer.echo(
             f"olympus: required API key environment variable is not set: {api_key_env}",
             err=True,
         )
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=ExitCode.USAGE)
     parsed = urlparse(base_url)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         typer.echo("olympus: AEGIS API URL must be an absolute HTTP(S) URL", err=True)
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=ExitCode.USAGE)
     try:
         loopback = ipaddress.ip_address(parsed.hostname).is_loopback
     except ValueError:
         loopback = parsed.hostname.lower() == "localhost"
     if parsed.scheme != "https" and not loopback:
         typer.echo("olympus: remote AEGIS API connections require HTTPS", err=True)
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=ExitCode.USAGE)
 
     body: dict[str, object] = {
         "scanner": scanner,
@@ -933,14 +953,14 @@ def aegis_scan(
         # The server rejected the request (e.g. auth/scope/schema) — surface it.
         detail = exc.read().decode("utf-8", "replace")
         typer.echo(f"olympus: AEGIS server returned {exc.code}: {detail}", err=True)
-        raise typer.Exit(code=1) from exc
+        raise typer.Exit(code=ExitCode.FINDINGS) from exc
     except urllib.error.URLError as exc:
         typer.echo(
             f"olympus: could not reach an AEGIS server at {base_url} ({exc.reason}). "
             "Start it with: olympus aegis api",
             err=True,
         )
-        raise typer.Exit(code=4) from exc
+        raise typer.Exit(code=ExitCode.NOT_AUTHORIZED) from exc
 
 
 @aegis_app.command("doctor")
@@ -1083,7 +1103,8 @@ def register_vap_shim(parent: typer.Typer) -> None:
         try:
             command.main(args=list(ctx.args), prog_name="olympus aegis", standalone_mode=False)
         except SystemExit as exc:  # pragma: no cover - click may raise SystemExit
-            raise typer.Exit(code=int(exc.code or 0)) from exc
+            raw_code = exc.code if isinstance(exc.code, int) else None
+            raise typer.Exit(code=normalize_exit_code(raw_code)) from exc
 
 
 # --------------------------------------------------------------------------- #
@@ -1172,10 +1193,10 @@ def aegis_run(
         return
     if not target:
         typer.echo("olympus: --target is required (or use --list)", err=True)
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=ExitCode.USAGE)
     if not scope:
         typer.echo("olympus: --scope is required for every real or simulated target", err=True)
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=ExitCode.USAGE)
     try:
         result = AegisApplicationService().run(
             AegisRunRequest(
@@ -1197,33 +1218,36 @@ def aegis_run(
         )
     except (OutOfScopeError, SsrfBlockedError) as exc:
         typer.echo(f"olympus: blocked, out of scope: {exc}", err=True)
-        raise typer.Exit(code=3) from exc
+        raise typer.Exit(code=ExitCode.OUT_OF_SCOPE) from exc
     except (TargetResolutionError, TargetValidationError) as exc:
         typer.echo(f"olympus: invalid target: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     except AuthorizationRequiredError as exc:
         typer.echo(f"olympus: {exc}", err=True)
-        raise typer.Exit(code=4) from exc
+        raise typer.Exit(code=ExitCode.NOT_AUTHORIZED) from exc
     except UnknownScannerError as exc:
         typer.echo(f"olympus: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
-    except (AegisConfigError, CancellationRequested, OSError, TimeoutError, ValueError) as exc:
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    except CancellationRequested as exc:
+        typer.echo(f"olympus: AEGIS execution cancelled: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.CANCELLED) from exc
+    except (AegisConfigError, OSError, TimeoutError, ValueError) as exc:
         typer.echo(f"olympus: AEGIS execution error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.FAILED) from exc
 
     typer.echo(json.dumps(result.to_dict(), indent=2, sort_keys=True))
     raise typer.Exit(code=_scan_exit_code(result))
 
 
-def _scan_exit_code(result: object) -> int:
+def _scan_exit_code(result: object) -> ExitCode:
     from olympus.aegis.states import ExecutionState
 
     state = getattr(result, "state", None)
     findings = getattr(result, "findings", [])
     if state in {ExecutionState.FAILED, ExecutionState.UNAVAILABLE}:
-        return 2
+        return exit_code_for(RunStatus.FAILED)
     if state is ExecutionState.DISABLED:
-        return 4
-    if state is ExecutionState.LIVE and findings:
-        return 1
-    return 0
+        return ExitCode.NOT_AUTHORIZED
+    if state is ExecutionState.LIVE:
+        return exit_code_for(classify_run_status(len(findings)))
+    return ExitCode.OK

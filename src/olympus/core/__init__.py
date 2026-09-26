@@ -12,6 +12,7 @@ from olympus.core.coverage import (
     CoverageTracker,
     FailureKind,
     RunStatus,
+    classify_run_status,
     exit_code_for,
     summarize,
 )
@@ -36,7 +37,7 @@ from olympus.core.execution import (
     append_structured_audit,
     interruptible_sleep,
 )
-from olympus.core.exit_codes import ExitCode
+from olympus.core.exit_codes import ExitCode, normalize_exit_code
 from olympus.core.ids import IdGenerator, new_id
 from olympus.core.models import (
     Alert,
@@ -84,9 +85,11 @@ __all__ = [
     "StructuredAuditRecord",
     "ValidationReport",
     "append_structured_audit",
+    "classify_run_status",
     "exit_code_for",
     "format_validation_error",
     "interruptible_sleep",
     "new_id",
+    "normalize_exit_code",
     "summarize",
 ]

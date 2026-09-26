@@ -10,6 +10,7 @@ import typer
 from olympus.core.contracts import ContractCompatibilityError
 from olympus.core.evidence import DEFAULT_MAX_ARTIFACT_BYTES, capture_evidence
 from olympus.core.execution import CancellationRequested, ExecutionPolicyError
+from olympus.core.exit_codes import ExitCode
 from olympus.core.fileio import atomic_write_text, ensure_write_target, read_regular_text
 from olympus.core.output import OutputFormat, render
 from olympus.core.paths import output_path
@@ -67,7 +68,7 @@ def triage(
         export_incident(incident, output)
     except _APPLICATION_ERRORS as exc:
         typer.echo(f"minerva: triage error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     typer.echo(f"minerva: incident {incident.incident_id} written to {output}")
 
 
@@ -105,7 +106,7 @@ def capture(
         )
     except (OSError, ValueError) as exc:
         typer.echo(f"minerva: capture error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     typer.echo(f"minerva: captured {evidence.evidence_id} sha256={evidence.sha256} -> {output}")
 
 
@@ -141,7 +142,7 @@ def record(
         )
     except _APPLICATION_ERRORS as exc:
         typer.echo(f"minerva: custody error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     typer.echo(
         f"minerva: recorded custody sequence {entry.sequence} "
         f"for {entry.evidence_id} sha256={entry.evidence_sha256}"
@@ -168,7 +169,7 @@ def verify(
         )
     except _APPLICATION_ERRORS as exc:
         typer.echo(f"minerva: custody integrity failure: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     if not outcome.evidence_anchored:
         qualifier = "legacy, not digest-anchored"
     elif outcome.signed and outcome.signature_verified:
@@ -182,7 +183,7 @@ def verify(
         f"({len(outcome.entries)} entries; {qualifier})"
     )
     if not outcome.evidence_anchored or (outcome.signed and not outcome.signature_verified):
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=ExitCode.FINDINGS)
 
 
 @app.command()
@@ -219,7 +220,7 @@ def timeline(
         )
     except _APPLICATION_ERRORS as exc:
         typer.echo(f"minerva: custody integrity failure: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     records: list[dict[str, object]] = [
         {
             "seq": entry.sequence,
@@ -236,13 +237,13 @@ def timeline(
 
     if sign_key is not None and export is None:
         typer.echo("minerva: --sign-key requires --export", err=True)
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=ExitCode.USAGE)
     if export is not None:
         _export_timeline(export, records, outcome.evidence_anchored, sign_key)
 
     if not outcome.evidence_anchored:
         typer.echo("minerva: legacy ledger has no evidence digest anchors", err=True)
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=ExitCode.FINDINGS)
 
 
 def _export_timeline(
@@ -281,7 +282,7 @@ def _export_timeline(
         envelope = sign(payload.encode("utf-8"), private_pem)
     except (SigningError, OSError, ValueError) as exc:
         typer.echo(f"minerva: sign error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     signature_path = export.with_name(export.name + ".sig")
     atomic_write_text(signature_path, envelope, mode=0o600)
     typer.echo(f"minerva: signed timeline -> {signature_path}", err=True)

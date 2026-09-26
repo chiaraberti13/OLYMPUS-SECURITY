@@ -36,6 +36,7 @@ from olympus.athena.application.registry import (
 from olympus.athena.domain.assessment import AssessmentState
 from olympus.athena.domain.contracts import AssessmentPlan, PlanValidationError
 from olympus.athena.scope import ensure_web_target_allowed, scoped_address_policy
+from olympus.core.coverage import RunStatus, classify_run_status, exit_code_for
 from olympus.core.exit_codes import ExitCode
 from olympus.core.fileio import read_regular_text
 from olympus.core.http import UrllibHttpClient
@@ -73,7 +74,7 @@ def plan_validate(
         plan = load_plan_file(path)
     except PlanValidationError as exc:
         typer.echo(f"athena: invalid plan: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     typer.echo(
         json.dumps(
             {
@@ -100,12 +101,13 @@ def _exit_code_for(outcome: RunOutcome) -> int:
     reserved for a missing authorization flag.
     """
     if outcome.state is AssessmentState.SUCCEEDED:
-        return ExitCode.FINDINGS if outcome.findings else ExitCode.OK
+        status = classify_run_status(len(outcome.findings))
+        return int(exit_code_for(status))
     if outcome.state is AssessmentState.PARTIAL:
-        return ExitCode.PARTIAL
+        return int(exit_code_for(RunStatus.PARTIAL))
     if outcome.state is AssessmentState.CANCELLED:
-        return ExitCode.CANCELLED
-    return ExitCode.FAILED
+        return int(exit_code_for(RunStatus.CANCELLED))
+    return int(exit_code_for(RunStatus.FAILED))
 
 
 @app.command()
@@ -138,7 +140,7 @@ def run(
         plan = load_plan_file(path)
     except PlanValidationError as exc:
         typer.echo(f"athena: invalid plan: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
 
     repository = _open_repository(storage)
     try:
@@ -147,7 +149,7 @@ def run(
             outcome = coordinator.run(plan)
         except UnknownAdapterError as exc:
             typer.echo(f"athena: {exc}", err=True)
-            raise typer.Exit(code=2) from exc
+            raise typer.Exit(code=ExitCode.USAGE) from exc
 
         findings: list[Finding] = list(outcome.findings)
         enrichments: list[FindingEnrichment] | None = None
@@ -156,7 +158,7 @@ def run(
                 catalogs = _load_local_catalogs(enrich_kev, enrich_epss)
             except (EnrichmentError, OSError, ValueError) as exc:
                 typer.echo(f"athena: enrichment feed error: {exc}", err=True)
-                raise typer.Exit(code=2) from exc
+                raise typer.Exit(code=ExitCode.USAGE) from exc
             enrichments = enrich_findings(findings, kev=catalogs.kev, epss=catalogs.epss)
             # Lead with real-world risk: KEV first, then EPSS, then CVSS/severity.
             findings = [finding for finding, _ in prioritize(findings, enrichments)]
@@ -263,7 +265,7 @@ def status(
         assessment = repository.load_assessment(assessment_id)
         if assessment is None:
             typer.echo(f"athena: assessment not found: {assessment_id}", err=True)
-            raise typer.Exit(code=2)
+            raise typer.Exit(code=ExitCode.USAGE)
         payload = {
             "assessment_id": assessment.assessment_id,
             "plan_id": assessment.plan_id,
@@ -303,7 +305,7 @@ def cancel(
             state = coordinator.cancel(assessment_id)
         except LookupError as exc:
             typer.echo(f"athena: {exc}", err=True)
-            raise typer.Exit(code=2) from exc
+            raise typer.Exit(code=ExitCode.USAGE) from exc
     finally:
         repository.close()
     typer.echo(json.dumps({"assessment_id": assessment_id, "state": state.value}, sort_keys=True))

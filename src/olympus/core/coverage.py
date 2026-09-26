@@ -14,6 +14,7 @@ The vocabulary is deliberately small and shared:
     ``PARTIAL`` — some units completed, some did not. Findings (if any) are
     still reported, but the absence of a finding proves nothing.
     ``FAILED`` — nothing completed; the result carries no information.
+    ``CANCELLED`` — the operator stopped the run before it could finish.
 
 ``FailureKind``
     Why a unit did not complete, in terms an operator can act on: a scope or
@@ -50,6 +51,7 @@ class RunStatus(StrEnum):
     FINDINGS = "findings"
     PARTIAL = "partial"
     FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 class FailureKind(StrEnum):
@@ -127,12 +129,12 @@ class Coverage:
     def status(self, finding_count: int) -> RunStatus:
         """Derive the run status from coverage and the number of findings."""
         if self.planned == 0:
-            return RunStatus.FINDINGS if finding_count else RunStatus.CLEAN
+            return classify_run_status(finding_count)
         if self.completed == 0:
             return RunStatus.FAILED
         if not self.complete:
             return RunStatus.PARTIAL
-        return RunStatus.FINDINGS if finding_count else RunStatus.CLEAN
+        return classify_run_status(finding_count)
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serializable, deterministic view for exports and CLI output."""
@@ -215,7 +217,35 @@ _EXIT_CODES: dict[RunStatus, ExitCode] = {
     RunStatus.FINDINGS: ExitCode.FINDINGS,
     RunStatus.PARTIAL: ExitCode.PARTIAL,
     RunStatus.FAILED: ExitCode.FAILED,
+    RunStatus.CANCELLED: ExitCode.CANCELLED,
 }
+
+
+def classify_run_status(
+    finding_count: int = 0,
+    *,
+    partial: bool = False,
+    failed: bool = False,
+    cancelled: bool = False,
+) -> RunStatus:
+    """Classify a terminal run using the canonical precedence rules.
+
+    Domain modules keep their richer internal state machines, then reduce the
+    terminal result through this function before returning control to a shell.
+    Exactly one exceptional terminal flag may be set. ``partial`` deliberately
+    outranks findings because incomplete coverage must never read as exhaustive.
+    """
+    if finding_count < 0:
+        raise ValueError("finding_count must not be negative")
+    if sum((partial, failed, cancelled)) > 1:
+        raise ValueError("partial, failed and cancelled are mutually exclusive")
+    if cancelled:
+        return RunStatus.CANCELLED
+    if failed:
+        return RunStatus.FAILED
+    if partial:
+        return RunStatus.PARTIAL
+    return RunStatus.FINDINGS if finding_count else RunStatus.CLEAN
 
 
 def exit_code_for(status: RunStatus) -> ExitCode:

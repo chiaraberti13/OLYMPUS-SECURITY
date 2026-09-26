@@ -37,3 +37,17 @@ class ExitCode(IntEnum):
     PARTIAL = 5
     FAILED = 6
     CANCELLED = 7
+
+
+def normalize_exit_code(code: int | None) -> ExitCode:
+    """Return a canonical code, mapping unknown external failures to ``FAILED``.
+
+    Legacy Click applications and vendored subprocesses may return arbitrary
+    integers. Those values must not leak through the public Olympus CLI because
+    callers rely on the stable 0-7 contract.
+    """
+    candidate = ExitCode.OK if code is None else code
+    try:
+        return ExitCode(candidate)
+    except ValueError:
+        return ExitCode.FAILED

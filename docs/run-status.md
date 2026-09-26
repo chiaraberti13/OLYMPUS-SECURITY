@@ -17,6 +17,7 @@ process exit code so a pipeline can act on it without parsing output.
 | `findings` | every planned unit completed and something was found |
 | `partial` | some units completed, some did not — findings are not exhaustive |
 | `failed` | nothing completed; the result carries no information |
+| `cancelled` | the operator stopped the run before it could finish |
 
 `partial` deliberately outranks `findings`. A run that both found something and
 lost coverage is incomplete first: the findings are still printed and exported,
@@ -61,6 +62,17 @@ break `complete`, so neither can be mistaken for a clean answer.
 
 Codes `5` and `6` are what let a caller tell "we looked everywhere and found
 nothing" from "we could not look".
+
+`RunStatus`, `ExitCode`, `classify_run_status()` and `exit_code_for()` are the
+only first-party source of this mapping. Module-specific state machines remain
+free to retain details such as `timed_out`, `unavailable` or `policy_denied`, but
+must reduce them to the table above at the process boundary. Unknown exit values
+from legacy Click applications or vendored subprocesses are normalized to `6`
+instead of leaking an undocumented code through the public CLI.
+
+The contract suite parses every first-party `cli.py` and rejects numeric
+`typer.Exit` literals. It also verifies Athena assessment states, AEGIS execution
+states and durable AEGIS job states end to end against this mapping.
 
 ## Helios port states
 

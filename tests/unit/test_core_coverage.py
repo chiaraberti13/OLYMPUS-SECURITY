@@ -8,10 +8,11 @@ from olympus.core.coverage import (
     CoverageTracker,
     FailureKind,
     RunStatus,
+    classify_run_status,
     exit_code_for,
     summarize,
 )
-from olympus.core.exit_codes import ExitCode
+from olympus.core.exit_codes import ExitCode, normalize_exit_code
 
 
 def test_full_coverage_without_findings_is_clean() -> None:
@@ -97,12 +98,31 @@ def test_exit_codes_map_one_to_one_onto_the_canonical_set() -> None:
     assert exit_code_for(RunStatus.FINDINGS) is ExitCode.FINDINGS
     assert exit_code_for(RunStatus.PARTIAL) is ExitCode.PARTIAL
     assert exit_code_for(RunStatus.FAILED) is ExitCode.FAILED
+    assert exit_code_for(RunStatus.CANCELLED) is ExitCode.CANCELLED
     assert {exit_code_for(status) for status in RunStatus} == {
         ExitCode.OK,
         ExitCode.FINDINGS,
         ExitCode.PARTIAL,
         ExitCode.FAILED,
+        ExitCode.CANCELLED,
     }
+
+
+def test_terminal_status_classification_has_one_shared_precedence() -> None:
+    assert classify_run_status() is RunStatus.CLEAN
+    assert classify_run_status(2) is RunStatus.FINDINGS
+    assert classify_run_status(2, partial=True) is RunStatus.PARTIAL
+    assert classify_run_status(2, failed=True) is RunStatus.FAILED
+    assert classify_run_status(2, cancelled=True) is RunStatus.CANCELLED
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        classify_run_status(partial=True, cancelled=True)
+
+
+def test_external_exit_codes_cannot_escape_the_public_contract() -> None:
+    assert normalize_exit_code(None) is ExitCode.OK
+    assert normalize_exit_code(ExitCode.PARTIAL) is ExitCode.PARTIAL
+    assert normalize_exit_code(127) is ExitCode.FAILED
+    assert normalize_exit_code(-9) is ExitCode.FAILED
 
 
 def test_summary_names_the_status_the_gap_and_the_reasons() -> None:

@@ -23,8 +23,10 @@ from olympus.apollo.ingest import IngestError, events_to_ndjson, parse_access_lo
 from olympus.apollo.rules import DEFAULT_MAX_RULE_BYTES, DEFAULT_MAX_RULES
 from olympus.apollo.sigma import SigmaImportError, sigma_to_rule
 from olympus.core.contracts import ContractCompatibilityError
+from olympus.core.coverage import RunStatus, classify_run_status, exit_code_for
 from olympus.core.enums import Source
 from olympus.core.execution import CancellationRequested, ExecutionPolicyError
+from olympus.core.exit_codes import ExitCode
 from olympus.core.fileio import atomic_write_text, read_regular_text
 from olympus.core.output import OutputFormat, render
 from olympus.core.paths import output_path
@@ -66,8 +68,10 @@ def test(
             export_alerts_ecs(outcome.alerts, ecs)
         if ocsf is not None:
             export_alerts_ocsf(outcome.alerts, ocsf)
+    except CancellationRequested as exc:
+        typer.echo(f"apollo: evaluation cancelled: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.CANCELLED) from exc
     except (
-        CancellationRequested,
         ContractCompatibilityError,
         ExecutionPolicyError,
         OSError,
@@ -75,7 +79,7 @@ def test(
         ValueError,
     ) as exc:
         typer.echo(f"apollo: invalid input or execution limit: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     typer.echo(f"apollo: {len(outcome.alerts)} alert(s); output: {output}")
 
 
@@ -121,8 +125,10 @@ def run(
             export_alerts_ecs(outcome.alerts, ecs)
         if ocsf is not None:
             export_alerts_ocsf(outcome.alerts, ocsf)
+    except CancellationRequested as exc:
+        typer.echo(f"apollo: run cancelled: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.CANCELLED) from exc
     except (
-        CancellationRequested,
         ContractCompatibilityError,
         ExecutionPolicyError,
         OSError,
@@ -130,7 +136,7 @@ def run(
         ValueError,
     ) as exc:
         typer.echo(f"apollo: input or execution error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
 
     for error in outcome.input_errors:
         typer.echo(f"apollo: malformed event on line {error.line}: {error.message}", err=True)
@@ -139,9 +145,9 @@ def run(
         f"{len(outcome.alerts)} alert(s); duplicates={outcome.duplicates}; {output}"
     )
     if outcome.input_errors:
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=exit_code_for(RunStatus.PARTIAL))
     if outcome.alerts:
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=exit_code_for(classify_run_status(len(outcome.alerts))))
 
 
 @app.command()
@@ -164,7 +170,7 @@ def rules(
         )
     except (ContractCompatibilityError, OSError, TimeoutError, ValueError) as exc:
         typer.echo(f"apollo: rule error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     records: list[dict[str, object]] = [
         {
             "rule_id": rule.rule_id,
@@ -207,19 +213,19 @@ def ingest(
             f"apollo: unsupported ingest format: {telemetry_format} (supported: access-log)",
             err=True,
         )
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=ExitCode.USAGE)
     try:
         source_tag = Source(source)
     except ValueError:
         typer.echo(f"apollo: unknown source '{source}'", err=True)
-        raise typer.Exit(code=2) from None
+        raise typer.Exit(code=ExitCode.USAGE) from None
     try:
         text = read_regular_text(src_path, max_bytes=max_bytes, label="telemetry source")
         result = parse_access_log(text, source=source_tag, max_lines=max_lines)
         atomic_write_text(dst, events_to_ndjson(result.events), mode=0o600)
     except (IngestError, OSError, ValueError) as exc:
         typer.echo(f"apollo: ingest error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     for item in result.skipped:
         typer.echo(f"apollo: skipped line {item.line}: {item.reason}", err=True)
     typer.echo(
@@ -244,7 +250,7 @@ def sigma_import(
         atomic_write_text(output, rule.model_dump_json(indent=2) + "\n", mode=0o600)
     except (SigmaImportError, OSError, ValueError) as exc:
         typer.echo(f"apollo: sigma-import error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     typer.echo(f"apollo: imported {rule.rule_id} ({len(rule.conditions)} condition(s)) -> {output}")
 
 
@@ -274,7 +280,7 @@ def attack_layer(
         atomic_write_text(output, json.dumps(layer, indent=2, sort_keys=True) + "\n", mode=0o600)
     except (ContractCompatibilityError, OSError, TimeoutError, ValueError) as exc:
         typer.echo(f"apollo: attack-layer error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     typer.echo(
         f"apollo: {len(layer['techniques'])} technique(s) from {len(rule_set)} rule(s) -> {output}"
     )

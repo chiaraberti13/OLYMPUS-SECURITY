@@ -9,7 +9,9 @@ from pathlib import Path
 import typer
 
 from olympus.core.contracts import ContractCompatibilityError
+from olympus.core.coverage import RunStatus, classify_run_status, exit_code_for
 from olympus.core.execution import CancellationRequested, ExecutionPolicyError
+from olympus.core.exit_codes import ExitCode
 from olympus.core.paths import output_path
 from olympus.hermes.application import SecretScanRequest, SecretScanService
 from olympus.hermes.sarif import write_sarif
@@ -91,8 +93,10 @@ def scan(
         if write_baseline_path is not None:
             write_baseline(findings, write_baseline_path)
         write_sarif(findings, output)
+    except CancellationRequested as exc:
+        typer.echo(f"hermes: scan cancelled: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.CANCELLED) from exc
     except (
-        CancellationRequested,
         ContractCompatibilityError,
         ExecutionPolicyError,
         OSError,
@@ -102,7 +106,7 @@ def scan(
         ValueError,
     ) as exc:
         typer.echo(f"hermes: scan error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
 
     if write_baseline_path is not None:
         typer.echo(
@@ -115,9 +119,9 @@ def scan(
     if outcome.partial_errors:
         for error in outcome.partial_errors:
             typer.echo(f"hermes: partial scan: {error.path}: {error.reason}", err=True)
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=exit_code_for(RunStatus.PARTIAL))
     if findings:
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=exit_code_for(classify_run_status(len(findings))))
 
 
 @app.command("pre-commit")
@@ -155,8 +159,10 @@ def pre_commit(
                 max_files=max_files,
             )
         )
+    except CancellationRequested as exc:
+        typer.echo(f"hermes: pre-commit cancelled: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.CANCELLED) from exc
     except (
-        CancellationRequested,
         ContractCompatibilityError,
         ExecutionPolicyError,
         OSError,
@@ -166,17 +172,17 @@ def pre_commit(
         ValueError,
     ) as exc:
         typer.echo(f"hermes: pre-commit error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=ExitCode.USAGE) from exc
 
     for finding in outcome.findings:
         typer.echo(f"hermes: {finding.rule} in {finding.path}:{finding.line} ({finding.masked})")
     if outcome.partial_errors:
         for error in outcome.partial_errors:
             typer.echo(f"hermes: partial scan: {error.path}: {error.reason}", err=True)
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=exit_code_for(RunStatus.PARTIAL))
     if outcome.findings:
         typer.echo(
             f"hermes: {len(outcome.findings)} potential secret(s) found — commit blocked", err=True
         )
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=exit_code_for(classify_run_status(len(outcome.findings))))
     typer.echo(f"hermes: clean ({outcome.scanned_files} file(s) scanned)")

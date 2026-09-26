@@ -345,8 +345,12 @@ effettivamente testata; regressioni dei guardrail provocano sempre un fallimento
   case CTI: un registro centrale applica solo trasformazioni deterministiche,
   espone il manifest via CLI e rifiuta versioni future, header parziali o dati di
   provenienza non ricostruibili.
-- [ ] Centralizzare exit code e stati (`clean`, `findings`, `partial`, `failed`,
-  `cancelled`) in tutti i moduli e verificarne la coerenza end-to-end.
+- [x] Centralizzare exit code e stati (`clean`, `findings`, `partial`, `failed`,
+  `cancelled`) in tutti i moduli: `RunStatus` e `ExitCode` definiscono il
+  contratto 0–7, Apollo/Hermes distinguono i risultati parziali dagli errori di
+  input, Athena e AEGIS riducono le proprie state machine nello stesso mapping e
+  i contract test vietano exit code numerici locali o valori esterni non
+  normalizzati.
 
 **Criterio di completamento:** una release nuova legge gli artifact supportati
 dalla precedente oppure restituisce un errore di migrazione esplicito e sicuro.

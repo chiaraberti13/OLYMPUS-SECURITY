@@ -59,5 +59,6 @@ olympus hermes scan src --baseline accepted.json --output current.sarif
 ```
 
 Exit `0` means all supported inputs were scanned with no unsuppressed finding,
-`1` means findings are present, and `2` means invalid, incomplete, cancelled,
-timed-out, or otherwise failed work.
+`1` means findings are present, `2` means invalid input, `5` means that only part
+of the requested input was scanned, and `7` means cancellation. A partial scan
+never reports as a clean or generic usage result.

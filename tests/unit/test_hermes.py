@@ -256,7 +256,7 @@ def test_cli_missing_path_and_partial_directory_are_not_clean(tmp_path: Path) ->
             str(output),
         ],
     )
-    assert partial.exit_code == 2
+    assert partial.exit_code == 5
     assert "partial scan" in partial.output
     assert output.exists()
 
