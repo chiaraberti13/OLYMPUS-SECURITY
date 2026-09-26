@@ -36,7 +36,7 @@
 
 | Fase | Focus | Stato | Interventi principali |
 | --- | --- | --- | --- |
-| 0 | Baseline e coerenza documentale | `[~]` | `DEV-G`, `DEV-H`, `DEV-C` (gate Mypy) |
+| 0 | Baseline e coerenza documentale | `[~]` | `DEV-G`, `DEV-H`, `DEV-C` (suite e coverage) |
 | 1 | Security hardening (**P0**) | `[ ]` | `SEC-A`, `SEC-B`, `SEC-C`, `SEC-H`, `UX-B` |
 | 2 | Architettura e qualità di release | `[ ]` | `DEV-A`, `DEV-B`, `DEV-C`, `DEV-D`, `SEC-F` |
 | 3 | UX operativa bilingue | `[ ]` | `UX-A`, `UX-C`, `UX-D`, `UX-E`, `UX-F`, `UX-G` |
@@ -82,7 +82,7 @@ di sicurezza forti, release riproducibili e flussi operativi comprensibili.
 | Credenziali | i segreti first-party sono letti dall'ambiente e redatti | manca un backend opzionale per secret manager e una policy uniforme di rotazione |
 | Autorizzazione | scope file + conferma esplicita prima dell'esecuzione | lo scope non è ancora un engagement manifest firmato, con scadenza e approvatore |
 | Supply chain | SBOM, hash lock, audit dipendenze e secret scan | mancano attestazioni di build, firma immagini/release e SAST CodeQL bloccante |
-| Qualità | Ruff lint/format, Mypy strict, pytest portabile 3.11–3.14 e branch coverage first-party ≥75% sono gate obbligatori; la sandbox POSIX ha una suite/job dedicati; smoke CLI su Ubuntu, macOS e Windows | suite unit/contract/integration/container/live-lab non ancora completamente separate |
+| Qualità | Ruff lint/format, Mypy strict, pytest portabile 3.11–3.14 e branch coverage first-party ≥75% sono gate obbligatori; unit/contract/integration hanno selezioni CI separate e la sandbox POSIX un job dedicato | container e live-lab non hanno ancora casi eseguibili; mutation testing e CodeQL da aggiungere |
 | Input ostili | report HTML Vulcan con `html.escape`; RichLog TUI con `markup=False` | `aegis/adapters/nmap.py` parsa XML con `xml.etree` considerandolo “trusted local”, ma banner e script output sono controllati dal target; nessun fuzzing dei parser |
 | Scanner | ledger in `integrations/maturity.py` con prove verificabili | 12 `live-tested`, 3 `offline-tested`, 0 `production-ready` |
 | TUI | esecuzione senza shell e streaming dell'output | un solo campo libero per gli argomenti, UI solo inglese, poco supporto decisionale |
@@ -319,8 +319,10 @@ senza modificare il core, ma non può bypassare scope, policy, audit o sandbox.
 - [x] Misurare la branch coverage del codice first-party e imporre un floor
   iniziale del 75% con report JSON, checker dedicato e job CI Python 3.11;
   aumentare la soglia progressivamente quando la baseline cresce.
-- [ ] Separare suite `unit`, `contract`, `integration`, `container` e `live-lab`;
-  le ultime non devono rendere verdi funzionalità non eseguite.
+- [x] Separare unit, contract e integration con directory, marker e job CI
+  indipendenti; container e live-lab hanno selezione esplicita e opt-in, e una
+  suite vuota fallisce come “no tests collected”. Le suite container/live-lab
+  non contengono ancora casi: non attestano isolamento o scanner live.
 - [ ] Aggiungere mutation test mirati a scope gate, redaction, parser, exit code e
   state machine dei job.
 
@@ -673,7 +675,10 @@ l'operatore tramite output, log o report.
 - [ ] Completare control plane AEGIS nativo e rimuovere la dipendenza runtime da
   `vendor/`.
 - [ ] Pubblicare SDK/contract test per adapter.
-- [ ] Attivare matrice Python/OS, coverage gate, CodeQL e suite separate.
+- [x] Attivare matrice Python, branch coverage gate e suite unit/contract/integration
+  separate; POSIX resta in un job dedicato.
+- [ ] Aggiungere CodeQL e mutation test; le suite container/live-lab restano
+  esplicitamente non validate finché non esistono casi e relative prove.
 - [ ] Stabilizzare schema, migrazioni, exit code e recovery dei job.
 
 **Exit gate:** wheel indipendente dal checkout, contratti versionati e pipeline
@@ -747,7 +752,7 @@ committata e verificabile secondo `docs/scanner-maturity.md`.
 | --- | --- | --- | --- |
 | Adapter `production-ready` | 0 su 15 | ≥ 3 (`nmap`, `httpx`, `nuclei`) | `integrations/maturity.py` |
 | Adapter almeno `live-tested` | 12 su 15 | 15 su 15 | `integrations/maturity.py` |
-| Branch coverage first-party | non misurata come gate | soglia iniziale = baseline, poi +5 punti per release minor | report coverage in CI |
+| Branch coverage first-party | gate CI ≥75% (checker su report JSON) | mantenere la soglia e alzarla solo dopo baseline verificabile | `.github/workflows/ci.yml` + `scripts/check_branch_coverage.py` |
 | Versioni Python testate in CI | 4 (3.11–3.14) | mantenere tutte le versioni dichiarate | `.github/workflows/ci.yml` |
 | Gate statici bloccanti | Ruff lint/format, Mypy, pytest, pip-audit, gitleaks | + CodeQL, link checker | `.github/workflows/ci.yml` |
 | Parser coperti da fuzzing | 0 | 100% degli adapter dichiarati | suite `SEC-H` |

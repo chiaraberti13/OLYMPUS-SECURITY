@@ -13,6 +13,9 @@ everything below lives under **Unreleased**.
 ## [Unreleased]
 
 ### Added
+- **Test engineering** — unit, contract and offline integration suites now run
+  independently in CI. Container and authorized live-lab test collections are
+  explicit opt-in and currently contain no cases (`DEV-C`).
 - **Quality gates** — Mypy strict sul codice first-party e
   `ruff format --check` sono ora controlli CI bloccanti; il codice è stato
   normalizzato e le incompatibilità di tipo emerse sono state corrette. Pytest

@@ -58,7 +58,7 @@ the merge** when they fail:
 | `ruff check .` | catches real defects (unused/undefined names, unsafe patterns) |
 | `ruff format --check .` | prevents unreviewed style-only drift |
 | `mypy --strict src/olympus` | rejects type inconsistencies in first-party code |
-| portable `pytest` suite on Python 3.11–3.14 | offline unit, contract and guardrail tests without POSIX kernel assumptions |
+| unit, contract and offline integration suites on Python 3.11–3.14 | failures are attributed to the boundary under test; live/container suites are excluded |
 | first-party branch coverage on Python 3.11 | prevents control-flow coverage from dropping below 75% |
 | dedicated POSIX sandbox suite on Ubuntu/Python 3.11 | real privilege-drop, `setrlimit`, signal and process-group guarantees |
 | macOS/Windows wheel + CLI smoke | portable surfaces must import and execute outside Linux |
@@ -70,6 +70,9 @@ Planned, **not yet enforced**: CodeQL and a link checker — tracked as `DEV-G` 
 `SEC-F` in `ROADMAP.md`.
 
 ## Local helpers
+
+See [`docs/testing.md`](docs/testing.md) for suite boundaries, commands and the
+explicit authorization requirements for container and live-lab testing.
 
 ```bash
 make lint      # ruff

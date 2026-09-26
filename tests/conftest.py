@@ -29,7 +29,43 @@ def _can_drop_privileges() -> bool:
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
-    """Skip platform-specific tests when their kernel contract is unavailable."""
+    """Classify suites, enforce opt-in, and check platform requirements."""
+    suite_directories = {
+        "unit": "unit",
+        "contract": "contract",
+        "integration": "integration",
+        "container": "container",
+        "live_lab": "live_lab",
+    }
+    for item in items:
+        try:
+            relative_path = item.path.relative_to(item.config.rootpath / "tests")
+        except ValueError:
+            continue
+        if relative_path.parts:
+            suite = relative_path.parts[0]
+            marker_name = suite_directories.get(suite)
+            if marker_name:
+                item.add_marker(getattr(pytest.mark, marker_name))
+
+    selected_suites = {
+        suite for item in items for suite in suite_directories if item.get_closest_marker(suite)
+    }
+    if "container" in selected_suites and os.getenv("OLYMPUS_RUN_CONTAINER_TESTS") != "1":
+        raise pytest.UsageError(
+            "container tests require explicit opt-in: OLYMPUS_RUN_CONTAINER_TESTS=1"
+        )
+    if "live_lab" in selected_suites:
+        if os.getenv("OLYMPUS_RUN_LIVE_LAB_TESTS") != "1":
+            raise pytest.UsageError(
+                "live-lab tests require explicit opt-in: OLYMPUS_RUN_LIVE_LAB_TESTS=1"
+            )
+        if os.getenv("OLYMPUS_LIVE_LAB_AUTHORIZATION") != "I_HAVE_AUTHORIZATION":
+            raise pytest.UsageError(
+                "live-lab tests require OLYMPUS_LIVE_LAB_AUTHORIZATION="
+                "I_HAVE_AUTHORIZATION after verifying the target scope"
+            )
+
     if os.name != "posix":
         skip = pytest.mark.skip(reason="requires POSIX process isolation")
         for item in items:

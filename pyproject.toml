@@ -120,6 +120,11 @@ addopts = "-q --strict-markers"
 testpaths = ["tests"]
 pythonpath = ["src"]
 markers = [
+    "unit: isolated component tests with external effects mocked or absent",
+    "contract: versioned schema and adapter boundary tests",
+    "integration: offline tests across multiple Olympus components or CLI flows",
+    "container: tests requiring a container runtime (explicit opt-in)",
+    "live_lab: tests against an explicitly authorized isolated lab (explicit opt-in)",
     "posix_only: exercises POSIX process isolation and kernel-enforced limits",
     "linux_only: requires Linux-specific kernel interfaces such as /proc",
     "root_only: requires a privileged parent that can drop to the sandbox user",

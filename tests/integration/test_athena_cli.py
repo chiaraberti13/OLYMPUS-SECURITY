@@ -66,13 +66,13 @@ class _Http:
         return HttpResponse(status_code=200, headers={"Server": "nginx"}, body="")
 
 
-def _plan_file(tmp_path: Path, adapters: list[str]) -> Path:
+def _plan_file(tmp_path: Path, adapters: list[str], *, target: str = "example.com") -> Path:
     plan = {
         "engagement_id": "ENG-1",
         "name": "demo",
-        "targets": [{"kind": "domain", "value": "example.com"}],
+        "targets": [{"kind": "domain", "value": target}],
         "adapters": adapters,
-        "scope": {"allowed_domains": ["example.com"]},
+        "scope": {"allowed_domains": [target]},
         "authorization": {"engagement_id": "ENG-1", "approval_reference": "T", "confirmed": True},
     }
     path = tmp_path / "plan.json"
@@ -127,7 +127,7 @@ def test_run_web_findings_exit_one_and_report(
         [
             "athena",
             "run",
-            str(_plan_file(tmp_path, ["web-headers"])),
+            str(_plan_file(tmp_path, ["web-headers"], target="1.1.1.1")),
             "--storage",
             str(storage),
             "--report",
@@ -155,7 +155,7 @@ def test_run_offline_enrichment_writes_ranked_sidecar(
         [
             "athena",
             "run",
-            str(_plan_file(tmp_path, ["web-headers"])),
+            str(_plan_file(tmp_path, ["web-headers"], target="1.1.1.1")),
             "--storage",
             str(storage),
             "--report",

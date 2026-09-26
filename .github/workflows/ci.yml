@@ -43,8 +43,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev,api]"
-      - name: Pytest
-        run: pytest -m "not posix_only"
+      - name: Unit suite
+        run: pytest -m "unit and not posix_only"
+      - name: Contract suite
+        run: pytest -m "contract and not posix_only"
+      - name: Offline integration suite
+        run: pytest -m "integration and not posix_only"
 
   coverage:
     name: first-party branch coverage · Python 3.11 · Ubuntu
@@ -60,7 +64,7 @@ jobs:
           pip install -e ".[dev,api]"
       - name: Run tests with branch measurement
         run: >-
-          pytest -m "not root_only"
+          pytest -m "(unit or contract or integration or posix_only) and not root_only"
           --cov=olympus --cov-branch
           --cov-report=term-missing
           --cov-report=json:${{ runner.temp }}/coverage.json
