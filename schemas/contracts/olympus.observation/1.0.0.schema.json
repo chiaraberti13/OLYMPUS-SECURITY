@@ -1,0 +1,83 @@
+{
+  "$defs": {
+    "Source": {
+      "description": "Producing module for a given object (provenance).",
+      "enum": [
+        "argus",
+        "helios",
+        "artemis",
+        "proteus",
+        "hermes",
+        "apollo",
+        "minerva",
+        "vulcan",
+        "athena",
+        "aegis",
+        "mars",
+        "manual"
+      ],
+      "title": "Source",
+      "type": "string"
+    }
+  },
+  "$id": "urn:olympus:schema:olympus.observation:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One normalized, non-interpretive fact produced by a scanner or sensor.",
+  "properties": {
+    "asset_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Asset Id"
+    },
+    "attributes": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Attributes",
+      "type": "object"
+    },
+    "observation_id": {
+      "title": "Observation Id",
+      "type": "string"
+    },
+    "observation_type": {
+      "minLength": 1,
+      "title": "Observation Type",
+      "type": "string"
+    },
+    "observed_at": {
+      "format": "date-time",
+      "title": "Observed At",
+      "type": "string"
+    },
+    "schema_name": {
+      "const": "olympus.observation",
+      "default": "olympus.observation",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source": {
+      "$ref": "#/$defs/Source"
+    }
+  },
+  "required": [
+    "observation_type",
+    "source"
+  ],
+  "title": "Observation",
+  "type": "object"
+}

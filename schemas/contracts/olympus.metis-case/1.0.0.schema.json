@@ -1,0 +1,220 @@
+{
+  "$defs": {
+    "Indicator": {
+      "additionalProperties": false,
+      "description": "One normalized case indicator with provenance and confidence.",
+      "properties": {
+        "confidence": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "integer"
+        },
+        "first_seen": {
+          "format": "date-time",
+          "title": "First Seen",
+          "type": "string"
+        },
+        "indicator_id": {
+          "pattern": "^ioc-[a-f0-9]{24}$",
+          "title": "Indicator Id",
+          "type": "string"
+        },
+        "indicator_type": {
+          "$ref": "#/$defs/IndicatorType"
+        },
+        "source": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "indicator_id",
+        "indicator_type",
+        "value",
+        "source",
+        "confidence",
+        "first_seen"
+      ],
+      "title": "Indicator",
+      "type": "object"
+    },
+    "IndicatorType": {
+      "description": "Normalized CTI indicator types supported by the native case store.",
+      "enum": [
+        "domain",
+        "email",
+        "ipv4",
+        "ipv6",
+        "url",
+        "sha256",
+        "sha1",
+        "md5",
+        "cve"
+      ],
+      "title": "IndicatorType",
+      "type": "string"
+    },
+    "IntelFinding": {
+      "additionalProperties": false,
+      "description": "An analytic finding, distinct from an automatically extracted IOC.",
+      "properties": {
+        "assessment": {
+          "maxLength": 10000,
+          "minLength": 3,
+          "title": "Assessment",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "integer"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "finding_id": {
+          "pattern": "^cti-[a-f0-9]{24}$",
+          "title": "Finding Id",
+          "type": "string"
+        },
+        "indicator_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "title": "Indicator Ids",
+          "type": "array"
+        },
+        "source": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 300,
+          "minLength": 3,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "finding_id",
+        "title",
+        "assessment",
+        "source",
+        "confidence",
+        "created_at"
+      ],
+      "title": "IntelFinding",
+      "type": "object"
+    }
+  },
+  "$id": "urn:olympus:schema:olympus.metis-case:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Portable CTI case document emitted by the SQLite store.",
+  "properties": {
+    "case_id": {
+      "pattern": "^case-[a-f0-9]{24}$",
+      "title": "Case Id",
+      "type": "string"
+    },
+    "correlations": {
+      "default": [],
+      "items": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "maxItems": 100000,
+      "title": "Correlations",
+      "type": "array"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "findings": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/IntelFinding"
+      },
+      "maxItems": 100000,
+      "title": "Findings",
+      "type": "array"
+    },
+    "indicators": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Indicator"
+      },
+      "maxItems": 100000,
+      "title": "Indicators",
+      "type": "array"
+    },
+    "schema_name": {
+      "const": "olympus.metis-case",
+      "default": "olympus.metis-case",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "open",
+        "monitoring",
+        "closed"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "title": {
+      "maxLength": 300,
+      "minLength": 3,
+      "title": "Title",
+      "type": "string"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "case_id",
+    "title",
+    "status",
+    "created_at",
+    "updated_at"
+  ],
+  "title": "IntelCaseDocument",
+  "type": "object"
+}

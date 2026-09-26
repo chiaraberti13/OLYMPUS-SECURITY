@@ -1,4 +1,4 @@
-.PHONY: install lint format-check type test test-unit test-contract test-integration test-container test-live-lab test-portable test-posix test-coverage test-mutation check demo clean
+.PHONY: install lint format-check type test test-unit test-contract test-integration test-container test-live-lab test-portable test-posix test-coverage test-mutation schemas schemas-check check demo clean
 
 PYTHON ?= python
 
@@ -67,10 +67,17 @@ test-mutation:
 		"olympus.athena.domain.assessment.x_derive_terminal_state*"
 	$(PYTHON) scripts/check_mutation_gate.py
 
+schemas:
+	$(PYTHON) scripts/export_schema_catalog.py
+
+schemas-check:
+	$(PYTHON) scripts/export_schema_catalog.py --check
+
 check:
 	$(MAKE) lint
 	$(MAKE) format-check
 	$(MAKE) type
+	$(MAKE) schemas-check
 	$(MAKE) test-coverage
 	$(MAKE) test-mutation
 

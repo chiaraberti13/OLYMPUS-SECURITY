@@ -1,0 +1,139 @@
+{
+  "$defs": {
+    "NoiseLevel": {
+      "description": "Expected observability of a capability.",
+      "enum": [
+        "quiet",
+        "moderate",
+        "loud"
+      ],
+      "title": "NoiseLevel",
+      "type": "string"
+    },
+    "OperatingMode": {
+      "description": "Highest operational effect a capability may produce.",
+      "enum": [
+        "advisory",
+        "passive",
+        "active"
+      ],
+      "title": "OperatingMode",
+      "type": "string"
+    },
+    "PlanStep": {
+      "additionalProperties": false,
+      "description": "One ordered step in a generated engagement plan.",
+      "properties": {
+        "authorization_required": {
+          "title": "Authorization Required",
+          "type": "boolean"
+        },
+        "capability_id": {
+          "title": "Capability Id",
+          "type": "string"
+        },
+        "commands": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Commands",
+          "type": "array"
+        },
+        "mode": {
+          "$ref": "#/$defs/OperatingMode"
+        },
+        "noise": {
+          "$ref": "#/$defs/NoiseLevel"
+        },
+        "order": {
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Order",
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "ready",
+            "authorization-required"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "order",
+        "capability_id",
+        "title",
+        "commands",
+        "mode",
+        "noise",
+        "authorization_required",
+        "status"
+      ],
+      "title": "PlanStep",
+      "type": "object"
+    }
+  },
+  "$id": "urn:olympus:schema:olympus.metis-plan:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Versioned deterministic plan; it never executes a target itself.",
+  "properties": {
+    "authorization_confirmed": {
+      "default": false,
+      "title": "Authorization Confirmed",
+      "type": "boolean"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "objective": {
+      "maxLength": 2000,
+      "minLength": 3,
+      "title": "Objective",
+      "type": "string"
+    },
+    "schema_name": {
+      "const": "olympus.metis-plan",
+      "default": "olympus.metis-plan",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scope": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 1024,
+      "title": "Scope",
+      "type": "array"
+    },
+    "steps": {
+      "items": {
+        "$ref": "#/$defs/PlanStep"
+      },
+      "maxItems": 32,
+      "minItems": 1,
+      "title": "Steps",
+      "type": "array"
+    }
+  },
+  "required": [
+    "objective",
+    "steps"
+  ],
+  "title": "EngagementPlan",
+  "type": "object"
+}

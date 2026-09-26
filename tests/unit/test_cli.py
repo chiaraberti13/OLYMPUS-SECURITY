@@ -72,6 +72,10 @@ def test_export_schemas_writes_directory(tmp_path) -> None:  # type: ignore[no-u
     assert result.exit_code == 0
     payload = json.loads((out / "schemas.json").read_text())
     assert "olympus.asset" in payload
+    catalog = json.loads((out / "catalog.json").read_text())
+    asset = next(entry for entry in catalog["contracts"] if entry["name"] == "olympus.asset")
+    assert asset["schema_version"] == "1.0.0"
+    assert (out / asset["path"]).is_file()
 
 
 def test_config_validate_reports_redacted_effective_values(tmp_path) -> None:  # type: ignore[no-untyped-def]

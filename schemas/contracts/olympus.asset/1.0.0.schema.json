@@ -1,0 +1,143 @@
+{
+  "$defs": {
+    "AssetType": {
+      "description": "Kind of asset observed or managed by the platform.",
+      "enum": [
+        "domain",
+        "host",
+        "ip",
+        "web_server",
+        "service",
+        "url",
+        "phone",
+        "account",
+        "other"
+      ],
+      "title": "AssetType",
+      "type": "string"
+    },
+    "Criticality": {
+      "description": "Business criticality of an asset.",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "title": "Criticality",
+      "type": "string"
+    },
+    "Source": {
+      "description": "Producing module for a given object (provenance).",
+      "enum": [
+        "argus",
+        "helios",
+        "artemis",
+        "proteus",
+        "hermes",
+        "apollo",
+        "minerva",
+        "vulcan",
+        "athena",
+        "aegis",
+        "mars",
+        "manual"
+      ],
+      "title": "Source",
+      "type": "string"
+    }
+  },
+  "$id": "urn:olympus:schema:olympus.asset:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A resource observed or managed by the platform (host, domain, URL...).",
+  "properties": {
+    "asset_id": {
+      "title": "Asset Id",
+      "type": "string"
+    },
+    "asset_type": {
+      "$ref": "#/$defs/AssetType"
+    },
+    "criticality": {
+      "$ref": "#/$defs/Criticality",
+      "default": "medium"
+    },
+    "first_seen": {
+      "format": "date-time",
+      "title": "First Seen",
+      "type": "string"
+    },
+    "hostname": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Hostname"
+    },
+    "ip_addresses": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Ip Addresses",
+      "type": "array"
+    },
+    "last_seen": {
+      "format": "date-time",
+      "title": "Last Seen",
+      "type": "string"
+    },
+    "metadata": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Metadata",
+      "type": "object"
+    },
+    "owner": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Owner"
+    },
+    "schema_name": {
+      "const": "olympus.asset",
+      "default": "olympus.asset",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source": {
+      "$ref": "#/$defs/Source",
+      "default": "manual"
+    },
+    "tags": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Tags",
+      "type": "array"
+    }
+  },
+  "required": [
+    "asset_type"
+  ],
+  "title": "Asset",
+  "type": "object"
+}

@@ -1,0 +1,111 @@
+{
+  "contracts": [
+    {
+      "direction": "shared",
+      "name": "olympus.alert",
+      "path": "contracts/olympus.alert/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "2793057c9aff41cac2ee110592d9bbef162b90e06a1e403c7c54c36e667330c0"
+    },
+    {
+      "direction": "output",
+      "name": "olympus.argus-pipeline",
+      "path": "contracts/olympus.argus-pipeline/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "49ed7446997e3d1ea77f8e18cda7b1de9b6a6958dca8df788e345d8e6cfc2a77"
+    },
+    {
+      "direction": "input",
+      "name": "olympus.argus-pipeline-preset",
+      "path": "contracts/olympus.argus-pipeline-preset/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "cba1a64167f7b1782d410fe4696c9179bae05a3b6d47e57367021dd81acee5bd"
+    },
+    {
+      "direction": "shared",
+      "name": "olympus.asset",
+      "path": "contracts/olympus.asset/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "1d5d9dde0262e5557a88cfca2c27325c5cc599ff208df96f916b22613fc62b05"
+    },
+    {
+      "direction": "input",
+      "name": "olympus.athena.plan",
+      "path": "contracts/olympus.athena.plan/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "8b66e3fd6b5d9091df869c5346fbe1507402cac1d2693548411cbe0aa5a1ec31"
+    },
+    {
+      "direction": "output",
+      "name": "olympus.athena.result",
+      "path": "contracts/olympus.athena.result/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "714fb89f04ec7f7164ce268f14a0055cf888527ec6a89bba4b46b67176931535"
+    },
+    {
+      "direction": "shared",
+      "name": "olympus.event",
+      "path": "contracts/olympus.event/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "8cdef5deba97b1a468bbe3213354a4c288c45ed85cd6ef5e797dff7e7454082e"
+    },
+    {
+      "direction": "shared",
+      "name": "olympus.evidence",
+      "path": "contracts/olympus.evidence/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "6ff3e5690e9b369bbb701e92dc5fcebdd9de628f53a8986ebe960e52c3ca364a"
+    },
+    {
+      "direction": "shared",
+      "name": "olympus.finding",
+      "path": "contracts/olympus.finding/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "57fc4b9459493e91b240f1753da12662453bd009c526e7b6459dcbaa034aef8d"
+    },
+    {
+      "direction": "shared",
+      "name": "olympus.incident",
+      "path": "contracts/olympus.incident/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "16cc838c02b83c3ec43c17998bdad07021e2e1f30a2d6676cba6316d7b177ac7"
+    },
+    {
+      "direction": "output",
+      "name": "olympus.metis-case",
+      "path": "contracts/olympus.metis-case/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "13a85e310fe6c00e751b2215e279fcf5a0cfc11b484286b21cff1c19236617aa"
+    },
+    {
+      "direction": "output",
+      "name": "olympus.metis-plan",
+      "path": "contracts/olympus.metis-plan/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "876fc509197b70fac11e5f9c37145e5d02710fbed855089843f907b23fda2d49"
+    },
+    {
+      "direction": "shared",
+      "name": "olympus.observation",
+      "path": "contracts/olympus.observation/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "f52e6f3f3d91530a15c89157d25a05869f4bef984e27e5b6f8eb553dae545f81"
+    },
+    {
+      "direction": "shared",
+      "name": "olympus.scan-job",
+      "path": "contracts/olympus.scan-job/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "0134ac2715c110faf22816f4d87345a211f10ba9e0b38c1c19dc58114454d9bd"
+    },
+    {
+      "direction": "output",
+      "name": "olympus.security-report",
+      "path": "contracts/olympus.security-report/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "ec79ce123d65c42aa94b8783476a786f9cf22f7d635e5a0cb3999ecccc608907"
+    }
+  ],
+  "schema_name": "olympus.schema-catalog",
+  "schema_version": "1.0.0"
+}

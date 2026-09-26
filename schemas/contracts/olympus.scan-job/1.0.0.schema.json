@@ -1,0 +1,91 @@
+{
+  "$id": "urn:olympus:schema:olympus.scan-job:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Persistable shared view of one bounded adapter invocation.",
+  "properties": {
+    "adapter": {
+      "minLength": 1,
+      "title": "Adapter",
+      "type": "string"
+    },
+    "assessment_id": {
+      "minLength": 1,
+      "title": "Assessment Id",
+      "type": "string"
+    },
+    "error_code": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Error Code"
+    },
+    "job_id": {
+      "minLength": 1,
+      "title": "Job Id",
+      "type": "string"
+    },
+    "result_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Result Id"
+    },
+    "schema_name": {
+      "const": "olympus.scan-job",
+      "default": "olympus.scan-job",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "state": {
+      "default": "queued",
+      "enum": [
+        "queued",
+        "running",
+        "succeeded",
+        "failed",
+        "timed_out",
+        "cancelled"
+      ],
+      "title": "State",
+      "type": "string"
+    },
+    "target_kind": {
+      "minLength": 1,
+      "title": "Target Kind",
+      "type": "string"
+    },
+    "target_value": {
+      "minLength": 1,
+      "title": "Target Value",
+      "type": "string"
+    }
+  },
+  "required": [
+    "job_id",
+    "assessment_id",
+    "adapter",
+    "target_kind",
+    "target_value"
+  ],
+  "title": "ScanJob",
+  "type": "object"
+}

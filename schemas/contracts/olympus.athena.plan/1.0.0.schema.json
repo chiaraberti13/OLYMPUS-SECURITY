@@ -1,0 +1,219 @@
+{
+  "$defs": {
+    "AuthorizationContext": {
+      "additionalProperties": false,
+      "description": "Immutable authorization reference \u2014 never credentials.",
+      "properties": {
+        "approval_reference": {
+          "minLength": 1,
+          "title": "Approval Reference",
+          "type": "string"
+        },
+        "confirmed": {
+          "title": "Confirmed",
+          "type": "boolean"
+        },
+        "engagement_id": {
+          "minLength": 1,
+          "title": "Engagement Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "engagement_id",
+        "approval_reference",
+        "confirmed"
+      ],
+      "title": "AuthorizationContext",
+      "type": "object"
+    },
+    "ExecutionLimits": {
+      "additionalProperties": false,
+      "description": "Bounded resource limits, clamped to safe maxima at validation time.",
+      "properties": {
+        "concurrency": {
+          "default": 2,
+          "maximum": 16,
+          "minimum": 1,
+          "title": "Concurrency",
+          "type": "integer"
+        },
+        "max_retries": {
+          "default": 1,
+          "maximum": 5,
+          "minimum": 0,
+          "title": "Max Retries",
+          "type": "integer"
+        },
+        "overall_deadline_seconds": {
+          "default": 600,
+          "maximum": 7200,
+          "minimum": 1,
+          "title": "Overall Deadline Seconds",
+          "type": "integer"
+        },
+        "per_job_timeout_seconds": {
+          "default": 60,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Per Job Timeout Seconds",
+          "type": "integer"
+        }
+      },
+      "title": "ExecutionLimits",
+      "type": "object"
+    },
+    "OutputPolicy": {
+      "additionalProperties": false,
+      "description": "How and how long assessment results are retained.",
+      "properties": {
+        "report_formats": {
+          "default": [
+            "json"
+          ],
+          "items": {
+            "enum": [
+              "json",
+              "markdown"
+            ],
+            "type": "string"
+          },
+          "title": "Report Formats",
+          "type": "array"
+        },
+        "retention_days": {
+          "default": 30,
+          "maximum": 3650,
+          "minimum": 1,
+          "title": "Retention Days",
+          "type": "integer"
+        }
+      },
+      "title": "OutputPolicy",
+      "type": "object"
+    },
+    "ScopeReference": {
+      "additionalProperties": false,
+      "description": "The engagement perimeter the plan authorizes, embedded for digesting.",
+      "properties": {
+        "allowed_domains": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Allowed Domains",
+          "type": "array"
+        }
+      },
+      "required": [
+        "allowed_domains"
+      ],
+      "title": "ScopeReference",
+      "type": "object"
+    },
+    "Target": {
+      "additionalProperties": false,
+      "description": "A single normalized assessment target.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "domain",
+            "url"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "minLength": 1,
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "Target",
+      "type": "object"
+    }
+  },
+  "$id": "urn:olympus:schema:olympus.athena.plan:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "The complete, immutable description of one assessment.",
+  "properties": {
+    "adapters": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Adapters",
+      "type": "array"
+    },
+    "authorization": {
+      "$ref": "#/$defs/AuthorizationContext"
+    },
+    "engagement_id": {
+      "minLength": 1,
+      "title": "Engagement Id",
+      "type": "string"
+    },
+    "limits": {
+      "$ref": "#/$defs/ExecutionLimits",
+      "default": {
+        "concurrency": 2,
+        "max_retries": 1,
+        "overall_deadline_seconds": 600,
+        "per_job_timeout_seconds": 60
+      }
+    },
+    "name": {
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+    },
+    "output": {
+      "$ref": "#/$defs/OutputPolicy",
+      "default": {
+        "report_formats": [
+          "json"
+        ],
+        "retention_days": 30
+      }
+    },
+    "schema_name": {
+      "const": "olympus.athena.plan",
+      "default": "olympus.athena.plan",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scope": {
+      "$ref": "#/$defs/ScopeReference"
+    },
+    "targets": {
+      "items": {
+        "$ref": "#/$defs/Target"
+      },
+      "maxItems": 256,
+      "minItems": 1,
+      "title": "Targets",
+      "type": "array"
+    }
+  },
+  "required": [
+    "engagement_id",
+    "name",
+    "targets",
+    "adapters",
+    "scope",
+    "authorization"
+  ],
+  "title": "AssessmentPlan",
+  "type": "object"
+}

@@ -1,0 +1,144 @@
+{
+  "$defs": {
+    "FindingStatus": {
+      "description": "Lifecycle state of a finding inside the remediation workflow.",
+      "enum": [
+        "new",
+        "triaged",
+        "confirmed",
+        "false_positive",
+        "accepted",
+        "in_remediation",
+        "closed"
+      ],
+      "title": "FindingStatus",
+      "type": "string"
+    },
+    "Severity": {
+      "description": "Normalized severity scale shared by findings, alerts and reports.",
+      "enum": [
+        "info",
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "Source": {
+      "description": "Producing module for a given object (provenance).",
+      "enum": [
+        "argus",
+        "helios",
+        "artemis",
+        "proteus",
+        "hermes",
+        "apollo",
+        "minerva",
+        "vulcan",
+        "athena",
+        "aegis",
+        "mars",
+        "manual"
+      ],
+      "title": "Source",
+      "type": "string"
+    }
+  },
+  "$id": "urn:olympus:schema:olympus.finding:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A weakness, vulnerability or misconfiguration attached to an asset.",
+  "properties": {
+    "asset_id": {
+      "title": "Asset Id",
+      "type": "string"
+    },
+    "cvss": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cvss"
+    },
+    "description": {
+      "default": "",
+      "title": "Description",
+      "type": "string"
+    },
+    "evidence": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence",
+      "type": "array"
+    },
+    "finding_id": {
+      "title": "Finding Id",
+      "type": "string"
+    },
+    "first_seen": {
+      "format": "date-time",
+      "title": "First Seen",
+      "type": "string"
+    },
+    "last_seen": {
+      "format": "date-time",
+      "title": "Last Seen",
+      "type": "string"
+    },
+    "references": {
+      "items": {
+        "type": "string"
+      },
+      "title": "References",
+      "type": "array"
+    },
+    "remediation": {
+      "default": "",
+      "title": "Remediation",
+      "type": "string"
+    },
+    "schema_name": {
+      "const": "olympus.finding",
+      "default": "olympus.finding",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "severity": {
+      "$ref": "#/$defs/Severity",
+      "default": "medium"
+    },
+    "source": {
+      "$ref": "#/$defs/Source"
+    },
+    "status": {
+      "$ref": "#/$defs/FindingStatus",
+      "default": "new"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "asset_id",
+    "source",
+    "title"
+  ],
+  "title": "Finding",
+  "type": "object"
+}

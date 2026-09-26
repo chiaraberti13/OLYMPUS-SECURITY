@@ -1,0 +1,2544 @@
+{
+  "olympus.alert": {
+    "$defs": {
+      "AlertStatus": {
+        "description": "Lifecycle state of a detection alert.",
+        "enum": [
+          "open",
+          "acknowledged",
+          "investigating",
+          "closed"
+        ],
+        "title": "AlertStatus",
+        "type": "string"
+      },
+      "Severity": {
+        "description": "Normalized severity scale shared by findings, alerts and reports.",
+        "enum": [
+          "info",
+          "low",
+          "medium",
+          "high",
+          "critical"
+        ],
+        "title": "Severity",
+        "type": "string"
+      },
+      "Source": {
+        "description": "Producing module for a given object (provenance).",
+        "enum": [
+          "argus",
+          "helios",
+          "artemis",
+          "proteus",
+          "hermes",
+          "apollo",
+          "minerva",
+          "vulcan",
+          "athena",
+          "aegis",
+          "mars",
+          "manual"
+        ],
+        "title": "Source",
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "description": "A detection result linked to its source event and supporting evidence.",
+    "properties": {
+      "alert_id": {
+        "title": "Alert Id",
+        "type": "string"
+      },
+      "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+      },
+      "event_id": {
+        "title": "Event Id",
+        "type": "string"
+      },
+      "evidence_ids": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Evidence Ids",
+        "type": "array"
+      },
+      "mitre_attack": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Mitre Attack",
+        "type": "array"
+      },
+      "rule_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Rule Id"
+      },
+      "schema_name": {
+        "const": "olympus.alert",
+        "default": "olympus.alert",
+        "title": "Schema Name",
+        "type": "string"
+      },
+      "schema_version": {
+        "const": "1.0.0",
+        "default": "1.0.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "severity": {
+        "$ref": "#/$defs/Severity",
+        "default": "medium"
+      },
+      "source": {
+        "$ref": "#/$defs/Source"
+      },
+      "status": {
+        "$ref": "#/$defs/AlertStatus",
+        "default": "open"
+      },
+      "title": {
+        "minLength": 1,
+        "title": "Title",
+        "type": "string"
+      }
+    },
+    "required": [
+      "event_id",
+      "title",
+      "source"
+    ],
+    "title": "Alert",
+    "type": "object"
+  },
+  "olympus.argus-pipeline": {
+    "$defs": {
+      "PipelineEdge": {
+        "additionalProperties": false,
+        "description": "One provenance edge between emitted events.",
+        "properties": {
+          "module": {
+            "title": "Module",
+            "type": "string"
+          },
+          "source_event_id": {
+            "title": "Source Event Id",
+            "type": "string"
+          },
+          "target_event_id": {
+            "title": "Target Event Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_event_id",
+          "target_event_id",
+          "module"
+        ],
+        "title": "PipelineEdge",
+        "type": "object"
+      },
+      "ReconEvent": {
+        "additionalProperties": false,
+        "description": "Normalized event stored in the pipeline document.",
+        "properties": {
+          "attributes": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Attributes",
+            "type": "object"
+          },
+          "depth": {
+            "maximum": 8,
+            "minimum": 0,
+            "title": "Depth",
+            "type": "integer"
+          },
+          "discovered_by": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Discovered By",
+            "type": "string"
+          },
+          "event_id": {
+            "pattern": "^evt-[a-f0-9]{24}$",
+            "title": "Event Id",
+            "type": "string"
+          },
+          "event_type": {
+            "$ref": "#/$defs/ReconEventType"
+          },
+          "tags": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Tags",
+            "type": "array"
+          },
+          "value": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_id",
+          "event_type",
+          "value",
+          "depth",
+          "discovered_by"
+        ],
+        "title": "ReconEvent",
+        "type": "object"
+      },
+      "ReconEventType": {
+        "enum": [
+          "domain",
+          "email",
+          "host",
+          "ip",
+          "phone",
+          "url",
+          "username"
+        ],
+        "title": "ReconEventType",
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Portable, bounded pipeline result.",
+    "properties": {
+      "blocked": {
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "maxItems": 100000,
+        "title": "Blocked",
+        "type": "array"
+      },
+      "edges": {
+        "items": {
+          "$ref": "#/$defs/PipelineEdge"
+        },
+        "maxItems": 200000,
+        "title": "Edges",
+        "type": "array"
+      },
+      "events": {
+        "items": {
+          "$ref": "#/$defs/ReconEvent"
+        },
+        "maxItems": 100000,
+        "title": "Events",
+        "type": "array"
+      },
+      "name": {
+        "title": "Name",
+        "type": "string"
+      },
+      "schema_name": {
+        "const": "olympus.argus-pipeline",
+        "default": "olympus.argus-pipeline",
+        "title": "Schema Name",
+        "type": "string"
+      },
+      "schema_version": {
+        "const": "1.0.0",
+        "default": "1.0.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "truncated": {
+        "default": false,
+        "title": "Truncated",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "name",
+      "events",
+      "edges"
+    ],
+    "title": "PipelineDocument",
+    "type": "object"
+  },
+  "olympus.argus-pipeline-preset": {
+    "$defs": {
+      "ReconEventType": {
+        "enum": [
+          "domain",
+          "email",
+          "host",
+          "ip",
+          "phone",
+          "url",
+          "username"
+        ],
+        "title": "ReconEventType",
+        "type": "string"
+      },
+      "ReconSeed": {
+        "additionalProperties": false,
+        "description": "One typed pipeline seed.",
+        "properties": {
+          "tags": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Tags",
+            "type": "array"
+          },
+          "type": {
+            "$ref": "#/$defs/ReconEventType"
+          },
+          "value": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "value"
+        ],
+        "title": "ReconSeed",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Versioned pipeline configuration with hard resource bounds.",
+    "properties": {
+      "blacklist": {
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "maxItems": 2048,
+        "title": "Blacklist",
+        "type": "array"
+      },
+      "max_depth": {
+        "default": 2,
+        "maximum": 8,
+        "minimum": 0,
+        "title": "Max Depth",
+        "type": "integer"
+      },
+      "max_events": {
+        "default": 5000,
+        "maximum": 100000,
+        "minimum": 1,
+        "title": "Max Events",
+        "type": "integer"
+      },
+      "modules": {
+        "items": {
+          "type": "string"
+        },
+        "maxItems": 64,
+        "minItems": 1,
+        "title": "Modules",
+        "type": "array"
+      },
+      "name": {
+        "maxLength": 120,
+        "minLength": 1,
+        "title": "Name",
+        "type": "string"
+      },
+      "schema_name": {
+        "const": "olympus.argus-pipeline-preset",
+        "default": "olympus.argus-pipeline-preset",
+        "title": "Schema Name",
+        "type": "string"
+      },
+      "schema_version": {
+        "const": "1.0.0",
+        "default": "1.0.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "seeds": {
+        "items": {
+          "$ref": "#/$defs/ReconSeed"
+        },
+        "maxItems": 1024,
+        "minItems": 1,
+        "title": "Seeds",
+        "type": "array"
+      }
+    },
+    "required": [
+      "name",
+      "seeds",
+      "modules"
+    ],
+    "title": "PipelinePreset",
+    "type": "object"
+  },
+  "olympus.asset": {
+    "$defs": {
+      "AssetType": {
+        "description": "Kind of asset observed or managed by the platform.",
+        "enum": [
+          "domain",
+          "host",
+          "ip",
+          "web_server",
+          "service",
+          "url",
+          "phone",
+          "account",
+          "other"
+        ],
+        "title": "AssetType",
+        "type": "string"
+      },
+      "Criticality": {
+        "description": "Business criticality of an asset.",
+        "enum": [
+          "low",
+          "medium",
+          "high",
+          "critical"
+        ],
+        "title": "Criticality",
+        "type": "string"
+      },
+      "Source": {
+        "description": "Producing module for a given object (provenance).",
+        "enum": [
+          "argus",
+          "helios",
+          "artemis",
+          "proteus",
+          "hermes",
+          "apollo",
+          "minerva",
+          "vulcan",
+          "athena",
+          "aegis",
+          "mars",
+          "manual"
+        ],
+        "title": "Source",
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "description": "A resource observed or managed by the platform (host, domain, URL...).",
+    "properties": {
+      "asset_id": {
+        "title": "Asset Id",
+        "type": "string"
+      },
+      "asset_type": {
+        "$ref": "#/$defs/AssetType"
+      },
+      "criticality": {
+        "$ref": "#/$defs/Criticality",
+        "default": "medium"
+      },
+      "first_seen": {
+        "format": "date-time",
+        "title": "First Seen",
+        "type": "string"
+      },
+      "hostname": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Hostname"
+      },
+      "ip_addresses": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Ip Addresses",
+        "type": "array"
+      },
+      "last_seen": {
+        "format": "date-time",
+        "title": "Last Seen",
+        "type": "string"
+      },
+      "metadata": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "title": "Metadata",
+        "type": "object"
+      },
+      "owner": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Owner"
+      },
+      "schema_name": {
+        "const": "olympus.asset",
+        "default": "olympus.asset",
+        "title": "Schema Name",
+        "type": "string"
+      },
+      "schema_version": {
+        "const": "1.0.0",
+        "default": "1.0.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "source": {
+        "$ref": "#/$defs/Source",
+        "default": "manual"
+      },
+      "tags": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Tags",
+        "type": "array"
+      }
+    },
+    "required": [
+      "asset_type"
+    ],
+    "title": "Asset",
+    "type": "object"
+  },
+  "olympus.athena.plan": {
+    "$defs": {
+      "AuthorizationContext": {
+        "additionalProperties": false,
+        "description": "Immutable authorization reference \u2014 never credentials.",
+        "properties": {
+          "approval_reference": {
+            "minLength": 1,
+            "title": "Approval Reference",
+            "type": "string"
+          },
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "engagement_id": {
+            "minLength": 1,
+            "title": "Engagement Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "engagement_id",
+          "approval_reference",
+          "confirmed"
+        ],
+        "title": "AuthorizationContext",
+        "type": "object"
+      },
+      "ExecutionLimits": {
+        "additionalProperties": false,
+        "description": "Bounded resource limits, clamped to safe maxima at validation time.",
+        "properties": {
+          "concurrency": {
+            "default": 2,
+            "maximum": 16,
+            "minimum": 1,
+            "title": "Concurrency",
+            "type": "integer"
+          },
+          "max_retries": {
+            "default": 1,
+            "maximum": 5,
+            "minimum": 0,
+            "title": "Max Retries",
+            "type": "integer"
+          },
+          "overall_deadline_seconds": {
+            "default": 600,
+            "maximum": 7200,
+            "minimum": 1,
+            "title": "Overall Deadline Seconds",
+            "type": "integer"
+          },
+          "per_job_timeout_seconds": {
+            "default": 60,
+            "maximum": 900,
+            "minimum": 1,
+            "title": "Per Job Timeout Seconds",
+            "type": "integer"
+          }
+        },
+        "title": "ExecutionLimits",
+        "type": "object"
+      },
+      "OutputPolicy": {
+        "additionalProperties": false,
+        "description": "How and how long assessment results are retained.",
+        "properties": {
+          "report_formats": {
+            "default": [
+              "json"
+            ],
+            "items": {
+              "enum": [
+                "json",
+                "markdown"
+              ],
+              "type": "string"
+            },
+            "title": "Report Formats",
+            "type": "array"
+          },
+          "retention_days": {
+            "default": 30,
+            "maximum": 3650,
+            "minimum": 1,
+            "title": "Retention Days",
+            "type": "integer"
+          }
+        },
+        "title": "OutputPolicy",
+        "type": "object"
+      },
+      "ScopeReference": {
+        "additionalProperties": false,
+        "description": "The engagement perimeter the plan authorizes, embedded for digesting.",
+        "properties": {
+          "allowed_domains": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Allowed Domains",
+            "type": "array"
+          }
+        },
+        "required": [
+          "allowed_domains"
+        ],
+        "title": "ScopeReference",
+        "type": "object"
+      },
+      "Target": {
+        "additionalProperties": false,
+        "description": "A single normalized assessment target.",
+        "properties": {
+          "kind": {
+            "enum": [
+              "domain",
+              "url"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "value": {
+            "minLength": 1,
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "value"
+        ],
+        "title": "Target",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "description": "The complete, immutable description of one assessment.",
+    "properties": {
+      "adapters": {
+        "items": {
+          "type": "string"
+        },
+        "minItems": 1,
+        "title": "Adapters",
+        "type": "array"
+      },
+      "authorization": {
+        "$ref": "#/$defs/AuthorizationContext"
+      },
+      "engagement_id": {
+        "minLength": 1,
+        "title": "Engagement Id",
+        "type": "string"
+      },
+      "limits": {
+        "$ref": "#/$defs/ExecutionLimits",
+        "default": {
+          "concurrency": 2,
+          "max_retries": 1,
+          "overall_deadline_seconds": 600,
+          "per_job_timeout_seconds": 60
+        }
+      },
+      "name": {
+        "minLength": 1,
+        "title": "Name",
+        "type": "string"
+      },
+      "output": {
+        "$ref": "#/$defs/OutputPolicy",
+        "default": {
+          "report_formats": [
+            "json"
+          ],
+          "retention_days": 30
+        }
+      },
+      "schema_name": {
+        "const": "olympus.athena.plan",
+        "default": "olympus.athena.plan",
+        "title": "Schema Name",
+        "type": "string"
+      },
+      "schema_version": {
+        "const": "1.0.0",
+        "default": "1.0.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "scope": {
+        "$ref": "#/$defs/ScopeReference"
+      },
+      "targets": {
+        "items": {
+          "$ref": "#/$defs/Target"
+        },
+        "maxItems": 256,
+        "minItems": 1,
+        "title": "Targets",
+        "type": "array"
+      }
+    },
+    "required": [
+      "engagement_id",
+      "name",
+      "targets",
+      "adapters",
+      "scope",
+      "authorization"
+    ],
+    "title": "AssessmentPlan",
+    "type": "object"
+  },
+  "olympus.athena.result": {
+    "$defs": {
+      "Asset": {
+        "additionalProperties": false,
+        "description": "A resource observed or managed by the platform (host, domain, URL...).",
+        "properties": {
+          "asset_id": {
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "asset_type": {
+            "$ref": "#/$defs/AssetType"
+          },
+          "criticality": {
+            "$ref": "#/$defs/Criticality",
+            "default": "medium"
+          },
+          "first_seen": {
+            "format": "date-time",
+            "title": "First Seen",
+            "type": "string"
+          },
+          "hostname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Hostname"
+          },
+          "ip_addresses": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Ip Addresses",
+            "type": "array"
+          },
+          "last_seen": {
+            "format": "date-time",
+            "title": "Last Seen",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Metadata",
+            "type": "object"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Owner"
+          },
+          "schema_name": {
+            "const": "olympus.asset",
+            "default": "olympus.asset",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/$defs/Source",
+            "default": "manual"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "asset_type"
+        ],
+        "title": "Asset",
+        "type": "object"
+      },
+      "AssetType": {
+        "description": "Kind of asset observed or managed by the platform.",
+        "enum": [
+          "domain",
+          "host",
+          "ip",
+          "web_server",
+          "service",
+          "url",
+          "phone",
+          "account",
+          "other"
+        ],
+        "title": "AssetType",
+        "type": "string"
+      },
+      "Criticality": {
+        "description": "Business criticality of an asset.",
+        "enum": [
+          "low",
+          "medium",
+          "high",
+          "critical"
+        ],
+        "title": "Criticality",
+        "type": "string"
+      },
+      "Finding": {
+        "additionalProperties": false,
+        "description": "A weakness, vulnerability or misconfiguration attached to an asset.",
+        "properties": {
+          "asset_id": {
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "cvss": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Cvss"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "finding_id": {
+            "title": "Finding Id",
+            "type": "string"
+          },
+          "first_seen": {
+            "format": "date-time",
+            "title": "First Seen",
+            "type": "string"
+          },
+          "last_seen": {
+            "format": "date-time",
+            "title": "Last Seen",
+            "type": "string"
+          },
+          "references": {
+            "items": {
+              "type": "string"
+            },
+            "title": "References",
+            "type": "array"
+          },
+          "remediation": {
+            "default": "",
+            "title": "Remediation",
+            "type": "string"
+          },
+          "schema_name": {
+            "const": "olympus.finding",
+            "default": "olympus.finding",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "severity": {
+            "$ref": "#/$defs/Severity",
+            "default": "medium"
+          },
+          "source": {
+            "$ref": "#/$defs/Source"
+          },
+          "status": {
+            "$ref": "#/$defs/FindingStatus",
+            "default": "new"
+          },
+          "title": {
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_id",
+          "source",
+          "title"
+        ],
+        "title": "Finding",
+        "type": "object"
+      },
+      "FindingStatus": {
+        "description": "Lifecycle state of a finding inside the remediation workflow.",
+        "enum": [
+          "new",
+          "triaged",
+          "confirmed",
+          "false_positive",
+          "accepted",
+          "in_remediation",
+          "closed"
+        ],
+        "title": "FindingStatus",
+        "type": "string"
+      },
+      "ScanJob": {
+        "additionalProperties": false,
+        "description": "Persistable shared view of one bounded adapter invocation.",
+        "properties": {
+          "adapter": {
+            "minLength": 1,
+            "title": "Adapter",
+            "type": "string"
+          },
+          "assessment_id": {
+            "minLength": 1,
+            "title": "Assessment Id",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Error Code"
+          },
+          "job_id": {
+            "minLength": 1,
+            "title": "Job Id",
+            "type": "string"
+          },
+          "result_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Result Id"
+          },
+          "schema_name": {
+            "const": "olympus.scan-job",
+            "default": "olympus.scan-job",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "state": {
+            "default": "queued",
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed",
+              "timed_out",
+              "cancelled"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "target_kind": {
+            "minLength": 1,
+            "title": "Target Kind",
+            "type": "string"
+          },
+          "target_value": {
+            "minLength": 1,
+            "title": "Target Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "assessment_id",
+          "adapter",
+          "target_kind",
+          "target_value"
+        ],
+        "title": "ScanJob",
+        "type": "object"
+      },
+      "Severity": {
+        "description": "Normalized severity scale shared by findings, alerts and reports.",
+        "enum": [
+          "info",
+          "low",
+          "medium",
+          "high",
+          "critical"
+        ],
+        "title": "Severity",
+        "type": "string"
+      },
+      "Source": {
+        "description": "Producing module for a given object (provenance).",
+        "enum": [
+          "argus",
+          "helios",
+          "artemis",
+          "proteus",
+          "hermes",
+          "apollo",
+          "minerva",
+          "vulcan",
+          "athena",
+          "aegis",
+          "mars",
+          "manual"
+        ],
+        "title": "Source",
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Normalized, versioned output from one Athena scan job.",
+    "properties": {
+      "assessment_id": {
+        "minLength": 1,
+        "title": "Assessment Id",
+        "type": "string"
+      },
+      "assets": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/Asset"
+        },
+        "title": "Assets",
+        "type": "array"
+      },
+      "findings": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/Finding"
+        },
+        "title": "Findings",
+        "type": "array"
+      },
+      "job": {
+        "$ref": "#/$defs/ScanJob"
+      },
+      "schema_name": {
+        "const": "olympus.athena.result",
+        "default": "olympus.athena.result",
+        "title": "Schema Name",
+        "type": "string"
+      },
+      "schema_version": {
+        "const": "1.0.0",
+        "default": "1.0.0",
+        "title": "Schema Version",
+        "type": "string"
+      }
+    },
+    "required": [
+      "assessment_id",
+      "job"
+    ],
+    "title": "AssessmentResult",
+    "type": "object"
+  },
+  "olympus.event": {
+    "$defs": {
+      "Source": {
+        "description": "Producing module for a given object (provenance).",
+        "enum": [
+          "argus",
+          "helios",
+          "artemis",
+          "proteus",
+          "hermes",
+          "apollo",
+          "minerva",
+          "vulcan",
+          "athena",
+          "aegis",
+          "mars",
+          "manual"
+        ],
+        "title": "Source",
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "description": "A normalized observable consumed by detection rules.",
+    "properties": {
+      "asset_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Asset Id"
+      },
+      "attributes": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "title": "Attributes",
+        "type": "object"
+      },
+      "event_id": {
+        "title": "Event Id",
+        "type": "string"
+      },
+      "event_type": {
+        "minLength": 1,
+        "title": "Event Type",
+        "type": "string"
+      },
+      "observed_at": {
+        "format": "date-time",
+        "title": "Observed At",
+        "type": "string"
+      },
+      "schema_name": {
+        "const": "olympus.event",
+        "default": "olympus.event",
+        "title": "Schema Name",
+        "type": "string"
+      },
+      "schema_version": {
+        "const": "1.0.0",
+        "default": "1.0.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "source": {
+        "$ref": "#/$defs/Source"
+      }
+    },
+    "required": [
+      "event_type",
+      "source"
+    ],
+    "title": "Event",
+    "type": "object"
+  },
+  "olympus.evidence": {
+    "additionalProperties": false,
+    "description": "An immutable reference to material supporting a finding or alert.",
+    "properties": {
+      "collected_at": {
+        "format": "date-time",
+        "title": "Collected At",
+        "type": "string"
+      },
+      "evidence_id": {
+        "title": "Evidence Id",
+        "type": "string"
+      },
+      "evidence_type": {
+        "minLength": 1,
+        "title": "Evidence Type",
+        "type": "string"
+      },
+      "schema_name": {
+        "const": "olympus.evidence",
+        "default": "olympus.evidence",
+        "title": "Schema Name",
+        "type": "string"
+      },
+      "schema_version": {
+        "const": "1.0.0",
+        "default": "1.0.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "sha256": {
+        "pattern": "^[a-fA-F0-9]{64}$",
+        "title": "Sha256",
+        "type": "string"
+      },
+      "uri": {
+        "minLength": 1,
+        "title": "Uri",
+        "type": "string"
+      }
+    },
+    "required": [
+      "evidence_type",
+      "uri",
+      "sha256"
+    ],
+    "title": "Evidence",
+    "type": "object"
+  },
+  "olympus.finding": {
+    "$defs": {
+      "FindingStatus": {
+        "description": "Lifecycle state of a finding inside the remediation workflow.",
+        "enum": [
+          "new",
+          "triaged",
+          "confirmed",
+          "false_positive",
+          "accepted",
+          "in_remediation",
+          "closed"
+        ],
+        "title": "FindingStatus",
+        "type": "string"
+      },
+      "Severity": {
+        "description": "Normalized severity scale shared by findings, alerts and reports.",
+        "enum": [
+          "info",
+          "low",
+          "medium",
+          "high",
+          "critical"
+        ],
+        "title": "Severity",
+        "type": "string"
+      },
+      "Source": {
+        "description": "Producing module for a given object (provenance).",
+        "enum": [
+          "argus",
+          "helios",
+          "artemis",
+          "proteus",
+          "hermes",
+          "apollo",
+          "minerva",
+          "vulcan",
+          "athena",
+          "aegis",
+          "mars",
+          "manual"
+        ],
+        "title": "Source",
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "description": "A weakness, vulnerability or misconfiguration attached to an asset.",
+    "properties": {
+      "asset_id": {
+        "title": "Asset Id",
+        "type": "string"
+      },
+      "cvss": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Cvss"
+      },
+      "description": {
+        "default": "",
+        "title": "Description",
+        "type": "string"
+      },
+      "evidence": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Evidence",
+        "type": "array"
+      },
+      "finding_id": {
+        "title": "Finding Id",
+        "type": "string"
+      },
+      "first_seen": {
+        "format": "date-time",
+        "title": "First Seen",
+        "type": "string"
+      },
+      "last_seen": {
+        "format": "date-time",
+        "title": "Last Seen",
+        "type": "string"
+      },
+      "references": {
+        "items": {
+          "type": "string"
+        },
+        "title": "References",
+        "type": "array"
+      },
+      "remediation": {
+        "default": "",
+        "title": "Remediation",
+        "type": "string"
+      },
+      "schema_name": {
+        "const": "olympus.finding",
+        "default": "olympus.finding",
+        "title": "Schema Name",
+        "type": "string"
+      },
+      "schema_version": {
+        "const": "1.0.0",
+        "default": "1.0.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "severity": {
+        "$ref": "#/$defs/Severity",
+        "default": "medium"
+      },
+      "source": {
+        "$ref": "#/$defs/Source"
+      },
+      "status": {
+        "$ref": "#/$defs/FindingStatus",
+        "default": "new"
+      },
+      "title": {
+        "minLength": 1,
+        "title": "Title",
+        "type": "string"
+      }
+    },
+    "required": [
+      "asset_id",
+      "source",
+      "title"
+    ],
+    "title": "Finding",
+    "type": "object"
+  },
+  "olympus.incident": {
+    "$defs": {
+      "IncidentStatus": {
+        "description": "Lifecycle state of an incident response case.",
+        "enum": [
+          "open",
+          "triaged",
+          "contained",
+          "eradicated",
+          "recovered",
+          "closed"
+        ],
+        "title": "IncidentStatus",
+        "type": "string"
+      },
+      "Severity": {
+        "description": "Normalized severity scale shared by findings, alerts and reports.",
+        "enum": [
+          "info",
+          "low",
+          "medium",
+          "high",
+          "critical"
+        ],
+        "title": "Severity",
+        "type": "string"
+      },
+      "Source": {
+        "description": "Producing module for a given object (provenance).",
+        "enum": [
+          "argus",
+          "helios",
+          "artemis",
+          "proteus",
+          "hermes",
+          "apollo",
+          "minerva",
+          "vulcan",
+          "athena",
+          "aegis",
+          "mars",
+          "manual"
+        ],
+        "title": "Source",
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "description": "An incident response case linking alerts, evidence and lifecycle state.",
+    "properties": {
+      "alert_ids": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Alert Ids",
+        "type": "array"
+      },
+      "closed_at": {
+        "anyOf": [
+          {
+            "format": "date-time",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Closed At"
+      },
+      "evidence_ids": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Evidence Ids",
+        "type": "array"
+      },
+      "incident_id": {
+        "title": "Incident Id",
+        "type": "string"
+      },
+      "opened_at": {
+        "format": "date-time",
+        "title": "Opened At",
+        "type": "string"
+      },
+      "owner": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Owner"
+      },
+      "schema_name": {
+        "const": "olympus.incident",
+        "default": "olympus.incident",
+        "title": "Schema Name",
+        "type": "string"
+      },
+      "schema_version": {
+        "const": "1.0.0",
+        "default": "1.0.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "severity": {
+        "$ref": "#/$defs/Severity",
+        "default": "medium"
+      },
+      "source": {
+        "$ref": "#/$defs/Source"
+      },
+      "status": {
+        "$ref": "#/$defs/IncidentStatus",
+        "default": "open"
+      },
+      "summary": {
+        "default": "",
+        "title": "Summary",
+        "type": "string"
+      },
+      "title": {
+        "minLength": 1,
+        "title": "Title",
+        "type": "string"
+      },
+      "updated_at": {
+        "format": "date-time",
+        "title": "Updated At",
+        "type": "string"
+      }
+    },
+    "required": [
+      "title",
+      "source"
+    ],
+    "title": "Incident",
+    "type": "object"
+  },
+  "olympus.metis-case": {
+    "$defs": {
+      "Indicator": {
+        "additionalProperties": false,
+        "description": "One normalized case indicator with provenance and confidence.",
+        "properties": {
+          "confidence": {
+            "maximum": 100,
+            "minimum": 0,
+            "title": "Confidence",
+            "type": "integer"
+          },
+          "first_seen": {
+            "format": "date-time",
+            "title": "First Seen",
+            "type": "string"
+          },
+          "indicator_id": {
+            "pattern": "^ioc-[a-f0-9]{24}$",
+            "title": "Indicator Id",
+            "type": "string"
+          },
+          "indicator_type": {
+            "$ref": "#/$defs/IndicatorType"
+          },
+          "source": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Source",
+            "type": "string"
+          },
+          "value": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indicator_id",
+          "indicator_type",
+          "value",
+          "source",
+          "confidence",
+          "first_seen"
+        ],
+        "title": "Indicator",
+        "type": "object"
+      },
+      "IndicatorType": {
+        "description": "Normalized CTI indicator types supported by the native case store.",
+        "enum": [
+          "domain",
+          "email",
+          "ipv4",
+          "ipv6",
+          "url",
+          "sha256",
+          "sha1",
+          "md5",
+          "cve"
+        ],
+        "title": "IndicatorType",
+        "type": "string"
+      },
+      "IntelFinding": {
+        "additionalProperties": false,
+        "description": "An analytic finding, distinct from an automatically extracted IOC.",
+        "properties": {
+          "assessment": {
+            "maxLength": 10000,
+            "minLength": 3,
+            "title": "Assessment",
+            "type": "string"
+          },
+          "confidence": {
+            "maximum": 100,
+            "minimum": 0,
+            "title": "Confidence",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "finding_id": {
+            "pattern": "^cti-[a-f0-9]{24}$",
+            "title": "Finding Id",
+            "type": "string"
+          },
+          "indicator_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "title": "Indicator Ids",
+            "type": "array"
+          },
+          "source": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Source",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 3,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "finding_id",
+          "title",
+          "assessment",
+          "source",
+          "confidence",
+          "created_at"
+        ],
+        "title": "IntelFinding",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Portable CTI case document emitted by the SQLite store.",
+    "properties": {
+      "case_id": {
+        "pattern": "^case-[a-f0-9]{24}$",
+        "title": "Case Id",
+        "type": "string"
+      },
+      "correlations": {
+        "default": [],
+        "items": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "type": "array"
+        },
+        "maxItems": 100000,
+        "title": "Correlations",
+        "type": "array"
+      },
+      "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+      },
+      "findings": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/IntelFinding"
+        },
+        "maxItems": 100000,
+        "title": "Findings",
+        "type": "array"
+      },
+      "indicators": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/Indicator"
+        },
+        "maxItems": 100000,
+        "title": "Indicators",
+        "type": "array"
+      },
+      "schema_name": {
+        "const": "olympus.metis-case",
+        "default": "olympus.metis-case",
+        "title": "Schema Name",
+        "type": "string"
+      },
+      "schema_version": {
+        "const": "1.0.0",
+        "default": "1.0.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "status": {
+        "enum": [
+          "open",
+          "monitoring",
+          "closed"
+        ],
+        "title": "Status",
+        "type": "string"
+      },
+      "title": {
+        "maxLength": 300,
+        "minLength": 3,
+        "title": "Title",
+        "type": "string"
+      },
+      "updated_at": {
+        "format": "date-time",
+        "title": "Updated At",
+        "type": "string"
+      }
+    },
+    "required": [
+      "case_id",
+      "title",
+      "status",
+      "created_at",
+      "updated_at"
+    ],
+    "title": "IntelCaseDocument",
+    "type": "object"
+  },
+  "olympus.metis-plan": {
+    "$defs": {
+      "NoiseLevel": {
+        "description": "Expected observability of a capability.",
+        "enum": [
+          "quiet",
+          "moderate",
+          "loud"
+        ],
+        "title": "NoiseLevel",
+        "type": "string"
+      },
+      "OperatingMode": {
+        "description": "Highest operational effect a capability may produce.",
+        "enum": [
+          "advisory",
+          "passive",
+          "active"
+        ],
+        "title": "OperatingMode",
+        "type": "string"
+      },
+      "PlanStep": {
+        "additionalProperties": false,
+        "description": "One ordered step in a generated engagement plan.",
+        "properties": {
+          "authorization_required": {
+            "title": "Authorization Required",
+            "type": "boolean"
+          },
+          "capability_id": {
+            "title": "Capability Id",
+            "type": "string"
+          },
+          "commands": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Commands",
+            "type": "array"
+          },
+          "mode": {
+            "$ref": "#/$defs/OperatingMode"
+          },
+          "noise": {
+            "$ref": "#/$defs/NoiseLevel"
+          },
+          "order": {
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Order",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "ready",
+              "authorization-required"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "order",
+          "capability_id",
+          "title",
+          "commands",
+          "mode",
+          "noise",
+          "authorization_required",
+          "status"
+        ],
+        "title": "PlanStep",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Versioned deterministic plan; it never executes a target itself.",
+    "properties": {
+      "authorization_confirmed": {
+        "default": false,
+        "title": "Authorization Confirmed",
+        "type": "boolean"
+      },
+      "generated_at": {
+        "format": "date-time",
+        "title": "Generated At",
+        "type": "string"
+      },
+      "objective": {
+        "maxLength": 2000,
+        "minLength": 3,
+        "title": "Objective",
+        "type": "string"
+      },
+      "schema_name": {
+        "const": "olympus.metis-plan",
+        "default": "olympus.metis-plan",
+        "title": "Schema Name",
+        "type": "string"
+      },
+      "schema_version": {
+        "const": "1.0.0",
+        "default": "1.0.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "scope": {
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "maxItems": 1024,
+        "title": "Scope",
+        "type": "array"
+      },
+      "steps": {
+        "items": {
+          "$ref": "#/$defs/PlanStep"
+        },
+        "maxItems": 32,
+        "minItems": 1,
+        "title": "Steps",
+        "type": "array"
+      }
+    },
+    "required": [
+      "objective",
+      "steps"
+    ],
+    "title": "EngagementPlan",
+    "type": "object"
+  },
+  "olympus.observation": {
+    "$defs": {
+      "Source": {
+        "description": "Producing module for a given object (provenance).",
+        "enum": [
+          "argus",
+          "helios",
+          "artemis",
+          "proteus",
+          "hermes",
+          "apollo",
+          "minerva",
+          "vulcan",
+          "athena",
+          "aegis",
+          "mars",
+          "manual"
+        ],
+        "title": "Source",
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "description": "One normalized, non-interpretive fact produced by a scanner or sensor.",
+    "properties": {
+      "asset_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Asset Id"
+      },
+      "attributes": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "title": "Attributes",
+        "type": "object"
+      },
+      "observation_id": {
+        "title": "Observation Id",
+        "type": "string"
+      },
+      "observation_type": {
+        "minLength": 1,
+        "title": "Observation Type",
+        "type": "string"
+      },
+      "observed_at": {
+        "format": "date-time",
+        "title": "Observed At",
+        "type": "string"
+      },
+      "schema_name": {
+        "const": "olympus.observation",
+        "default": "olympus.observation",
+        "title": "Schema Name",
+        "type": "string"
+      },
+      "schema_version": {
+        "const": "1.0.0",
+        "default": "1.0.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "source": {
+        "$ref": "#/$defs/Source"
+      }
+    },
+    "required": [
+      "observation_type",
+      "source"
+    ],
+    "title": "Observation",
+    "type": "object"
+  },
+  "olympus.scan-job": {
+    "additionalProperties": false,
+    "description": "Persistable shared view of one bounded adapter invocation.",
+    "properties": {
+      "adapter": {
+        "minLength": 1,
+        "title": "Adapter",
+        "type": "string"
+      },
+      "assessment_id": {
+        "minLength": 1,
+        "title": "Assessment Id",
+        "type": "string"
+      },
+      "error_code": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Error Code"
+      },
+      "job_id": {
+        "minLength": 1,
+        "title": "Job Id",
+        "type": "string"
+      },
+      "result_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Result Id"
+      },
+      "schema_name": {
+        "const": "olympus.scan-job",
+        "default": "olympus.scan-job",
+        "title": "Schema Name",
+        "type": "string"
+      },
+      "schema_version": {
+        "const": "1.0.0",
+        "default": "1.0.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "state": {
+        "default": "queued",
+        "enum": [
+          "queued",
+          "running",
+          "succeeded",
+          "failed",
+          "timed_out",
+          "cancelled"
+        ],
+        "title": "State",
+        "type": "string"
+      },
+      "target_kind": {
+        "minLength": 1,
+        "title": "Target Kind",
+        "type": "string"
+      },
+      "target_value": {
+        "minLength": 1,
+        "title": "Target Value",
+        "type": "string"
+      }
+    },
+    "required": [
+      "job_id",
+      "assessment_id",
+      "adapter",
+      "target_kind",
+      "target_value"
+    ],
+    "title": "ScanJob",
+    "type": "object"
+  },
+  "olympus.security-report": {
+    "$defs": {
+      "Alert": {
+        "additionalProperties": false,
+        "description": "A detection result linked to its source event and supporting evidence.",
+        "properties": {
+          "alert_id": {
+            "title": "Alert Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "event_id": {
+            "title": "Event Id",
+            "type": "string"
+          },
+          "evidence_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Ids",
+            "type": "array"
+          },
+          "mitre_attack": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Mitre Attack",
+            "type": "array"
+          },
+          "rule_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Rule Id"
+          },
+          "schema_name": {
+            "const": "olympus.alert",
+            "default": "olympus.alert",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "severity": {
+            "$ref": "#/$defs/Severity",
+            "default": "medium"
+          },
+          "source": {
+            "$ref": "#/$defs/Source"
+          },
+          "status": {
+            "$ref": "#/$defs/AlertStatus",
+            "default": "open"
+          },
+          "title": {
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_id",
+          "title",
+          "source"
+        ],
+        "title": "Alert",
+        "type": "object"
+      },
+      "AlertStatus": {
+        "description": "Lifecycle state of a detection alert.",
+        "enum": [
+          "open",
+          "acknowledged",
+          "investigating",
+          "closed"
+        ],
+        "title": "AlertStatus",
+        "type": "string"
+      },
+      "Asset": {
+        "additionalProperties": false,
+        "description": "A resource observed or managed by the platform (host, domain, URL...).",
+        "properties": {
+          "asset_id": {
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "asset_type": {
+            "$ref": "#/$defs/AssetType"
+          },
+          "criticality": {
+            "$ref": "#/$defs/Criticality",
+            "default": "medium"
+          },
+          "first_seen": {
+            "format": "date-time",
+            "title": "First Seen",
+            "type": "string"
+          },
+          "hostname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Hostname"
+          },
+          "ip_addresses": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Ip Addresses",
+            "type": "array"
+          },
+          "last_seen": {
+            "format": "date-time",
+            "title": "Last Seen",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Metadata",
+            "type": "object"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Owner"
+          },
+          "schema_name": {
+            "const": "olympus.asset",
+            "default": "olympus.asset",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/$defs/Source",
+            "default": "manual"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "asset_type"
+        ],
+        "title": "Asset",
+        "type": "object"
+      },
+      "AssetType": {
+        "description": "Kind of asset observed or managed by the platform.",
+        "enum": [
+          "domain",
+          "host",
+          "ip",
+          "web_server",
+          "service",
+          "url",
+          "phone",
+          "account",
+          "other"
+        ],
+        "title": "AssetType",
+        "type": "string"
+      },
+      "Criticality": {
+        "description": "Business criticality of an asset.",
+        "enum": [
+          "low",
+          "medium",
+          "high",
+          "critical"
+        ],
+        "title": "Criticality",
+        "type": "string"
+      },
+      "Finding": {
+        "additionalProperties": false,
+        "description": "A weakness, vulnerability or misconfiguration attached to an asset.",
+        "properties": {
+          "asset_id": {
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "cvss": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Cvss"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "finding_id": {
+            "title": "Finding Id",
+            "type": "string"
+          },
+          "first_seen": {
+            "format": "date-time",
+            "title": "First Seen",
+            "type": "string"
+          },
+          "last_seen": {
+            "format": "date-time",
+            "title": "Last Seen",
+            "type": "string"
+          },
+          "references": {
+            "items": {
+              "type": "string"
+            },
+            "title": "References",
+            "type": "array"
+          },
+          "remediation": {
+            "default": "",
+            "title": "Remediation",
+            "type": "string"
+          },
+          "schema_name": {
+            "const": "olympus.finding",
+            "default": "olympus.finding",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "severity": {
+            "$ref": "#/$defs/Severity",
+            "default": "medium"
+          },
+          "source": {
+            "$ref": "#/$defs/Source"
+          },
+          "status": {
+            "$ref": "#/$defs/FindingStatus",
+            "default": "new"
+          },
+          "title": {
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_id",
+          "source",
+          "title"
+        ],
+        "title": "Finding",
+        "type": "object"
+      },
+      "FindingStatus": {
+        "description": "Lifecycle state of a finding inside the remediation workflow.",
+        "enum": [
+          "new",
+          "triaged",
+          "confirmed",
+          "false_positive",
+          "accepted",
+          "in_remediation",
+          "closed"
+        ],
+        "title": "FindingStatus",
+        "type": "string"
+      },
+      "ReportSummary": {
+        "additionalProperties": false,
+        "description": "Stable counters embedded in a consolidated security report.",
+        "properties": {
+          "alerts": {
+            "minimum": 0,
+            "title": "Alerts",
+            "type": "integer"
+          },
+          "assets": {
+            "minimum": 0,
+            "title": "Assets",
+            "type": "integer"
+          },
+          "findings": {
+            "minimum": 0,
+            "title": "Findings",
+            "type": "integer"
+          },
+          "severity_breakdown": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Severity Breakdown",
+            "type": "object"
+          }
+        },
+        "required": [
+          "assets",
+          "findings",
+          "alerts",
+          "severity_breakdown"
+        ],
+        "title": "ReportSummary",
+        "type": "object"
+      },
+      "Severity": {
+        "description": "Normalized severity scale shared by findings, alerts and reports.",
+        "enum": [
+          "info",
+          "low",
+          "medium",
+          "high",
+          "critical"
+        ],
+        "title": "Severity",
+        "type": "string"
+      },
+      "Source": {
+        "description": "Producing module for a given object (provenance).",
+        "enum": [
+          "argus",
+          "helios",
+          "artemis",
+          "proteus",
+          "hermes",
+          "apollo",
+          "minerva",
+          "vulcan",
+          "athena",
+          "aegis",
+          "mars",
+          "manual"
+        ],
+        "title": "Source",
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Canonical machine-readable engagement report consumed across Olympus.",
+    "properties": {
+      "alerts": {
+        "items": {
+          "$ref": "#/$defs/Alert"
+        },
+        "title": "Alerts",
+        "type": "array"
+      },
+      "assets": {
+        "items": {
+          "$ref": "#/$defs/Asset"
+        },
+        "title": "Assets",
+        "type": "array"
+      },
+      "engagement": {
+        "minLength": 1,
+        "title": "Engagement",
+        "type": "string"
+      },
+      "findings": {
+        "items": {
+          "$ref": "#/$defs/Finding"
+        },
+        "title": "Findings",
+        "type": "array"
+      },
+      "generated_at": {
+        "format": "date-time",
+        "title": "Generated At",
+        "type": "string"
+      },
+      "schema_name": {
+        "const": "olympus.security-report",
+        "default": "olympus.security-report",
+        "title": "Schema Name",
+        "type": "string"
+      },
+      "schema_version": {
+        "const": "1.0.0",
+        "default": "1.0.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "summary": {
+        "$ref": "#/$defs/ReportSummary"
+      }
+    },
+    "required": [
+      "engagement",
+      "summary"
+    ],
+    "title": "SecurityReport",
+    "type": "object"
+  }
+}

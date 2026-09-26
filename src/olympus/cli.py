@@ -17,25 +17,12 @@ import typer
 from olympus import __version__
 from olympus.apollo.cli import app as apollo_app
 from olympus.argus.cli import app as argus_app
-from olympus.argus.pipeline import PipelineDocument, PipelinePreset
 from olympus.artemis.cli import app as artemis_app
 from olympus.athena.cli import app as athena_app
-from olympus.athena.domain.contracts import AssessmentPlan, AssessmentResult
 from olympus.core import config as core_config
 from olympus.core import policy as core_policy
 from olympus.core.execution import redact_mapping
 from olympus.core.exit_codes import ExitCode
-from olympus.core.models import (
-    Alert,
-    Asset,
-    Event,
-    Evidence,
-    Finding,
-    Incident,
-    Observation,
-    ScanJob,
-    SecurityReport,
-)
 from olympus.helios.cli import app as helios_app
 from olympus.hermes.cli import app as hermes_app
 from olympus.integrations.cli import (
@@ -44,7 +31,6 @@ from olympus.integrations.cli import (
     register_vap_shim,
 )
 from olympus.metis.cli import app as metis_app
-from olympus.metis.models import EngagementPlan, IntelCaseDocument
 from olympus.minerva.cli import app as minerva_app
 from olympus.proteus.cli import app as proteus_app
 from olympus.vulcan.cli import app as vulcan_app
@@ -248,35 +234,21 @@ def edit_policy(
 def export_schemas(
     output_dir: Path | None = typer.Argument(
         None,
-        help="Optional directory to write schemas.json into; prints to stdout when omitted.",
+        help="Optional directory for the versioned catalog; prints the legacy bundle when omitted.",
     ),
 ) -> None:
-    """Print the JSON Schema of the core models, or write it to a directory."""
-    schemas = {
-        "olympus.athena.plan": AssessmentPlan.model_json_schema(),
-        "olympus.athena.result": AssessmentResult.model_json_schema(),
-        "olympus.argus-pipeline-preset": PipelinePreset.model_json_schema(),
-        "olympus.argus-pipeline": PipelineDocument.model_json_schema(),
-        "olympus.metis-plan": EngagementPlan.model_json_schema(),
-        "olympus.metis-case": IntelCaseDocument.model_json_schema(),
-        "olympus.asset": Asset.model_json_schema(),
-        "olympus.finding": Finding.model_json_schema(),
-        "olympus.event": Event.model_json_schema(),
-        "olympus.evidence": Evidence.model_json_schema(),
-        "olympus.alert": Alert.model_json_schema(),
-        "olympus.incident": Incident.model_json_schema(),
-        "olympus.observation": Observation.model_json_schema(),
-        "olympus.scan-job": ScanJob.model_json_schema(),
-        "olympus.security-report": SecurityReport.model_json_schema(),
-    }
-    payload = json.dumps(schemas, indent=2, sort_keys=True)
+    """Print the legacy bundle, or publish the versioned JSON Schema catalog."""
+    from olympus.schema_catalog import legacy_schema_bundle, write_catalog
+
+    payload = json.dumps(legacy_schema_bundle(), indent=2, sort_keys=True)
     if output_dir is None:
         typer.echo(payload)
         return
-    output_dir.mkdir(parents=True, exist_ok=True)
-    destination = output_dir / "schemas.json"
-    destination.write_text(payload, encoding="utf-8")
-    typer.echo(f"olympus: wrote core schemas to {destination}", err=True)
+    written = write_catalog(output_dir)
+    typer.echo(
+        f"olympus: wrote {len(written) - 2} versioned schemas and catalog to {output_dir}",
+        err=True,
+    )
 
 
 @core_app.command("sbom")

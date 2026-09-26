@@ -1,0 +1,51 @@
+{
+  "$id": "urn:olympus:schema:olympus.evidence:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "An immutable reference to material supporting a finding or alert.",
+  "properties": {
+    "collected_at": {
+      "format": "date-time",
+      "title": "Collected At",
+      "type": "string"
+    },
+    "evidence_id": {
+      "title": "Evidence Id",
+      "type": "string"
+    },
+    "evidence_type": {
+      "minLength": 1,
+      "title": "Evidence Type",
+      "type": "string"
+    },
+    "schema_name": {
+      "const": "olympus.evidence",
+      "default": "olympus.evidence",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "sha256": {
+      "pattern": "^[a-fA-F0-9]{64}$",
+      "title": "Sha256",
+      "type": "string"
+    },
+    "uri": {
+      "minLength": 1,
+      "title": "Uri",
+      "type": "string"
+    }
+  },
+  "required": [
+    "evidence_type",
+    "uri",
+    "sha256"
+  ],
+  "title": "Evidence",
+  "type": "object"
+}

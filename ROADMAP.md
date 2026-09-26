@@ -333,8 +333,10 @@ effettivamente testata; regressioni dei guardrail provocano sempre un fallimento
 
 ### Intervento D · `DEV-D` — Contratti, migrazioni e backward compatibility (**P1**)
 
-- [ ] Pubblicare JSON Schema versionati per input/output e applicare SemVer ai
-  contratti oltre che al package.
+- [x] Pubblicare JSON Schema versionati per input/output e applicare SemVer ai
+  contratti oltre che al package: il catalogo committato include direzione,
+  `$id`, versione, percorso e SHA-256; contract test e `make schemas-check`
+  impediscono drift tra modelli e artifact pubblicati.
 - [ ] Aggiungere golden contract test per CLI JSON/NDJSON, API OpenAPI, SQLite e
   report; documentare deprecazioni e finestra di compatibilità.
 - [ ] Introdurre migrazioni esplicite per scope, assessment plan, job, evidence e

@@ -13,6 +13,9 @@ everything below lives under **Unreleased**.
 ## [Unreleased]
 
 ### Added
+- **Versioned contract catalog** — deterministic Draft 2020-12 JSON Schemas are
+  published by contract SemVer with stable identifiers, SHA-256 manifest entries,
+  a compatibility bundle and a blocking drift check (`DEV-D`).
 - **Security-boundary mutation tests** — CI tests mutations in scope validation,
   secret redaction, Nmap parsing, exit-code mapping and Athena job transitions.
 - **Test engineering** — unit, contract and offline integration suites now run

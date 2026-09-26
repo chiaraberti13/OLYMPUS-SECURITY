@@ -1,0 +1,119 @@
+{
+  "$defs": {
+    "ReconEventType": {
+      "enum": [
+        "domain",
+        "email",
+        "host",
+        "ip",
+        "phone",
+        "url",
+        "username"
+      ],
+      "title": "ReconEventType",
+      "type": "string"
+    },
+    "ReconSeed": {
+      "additionalProperties": false,
+      "description": "One typed pipeline seed.",
+      "properties": {
+        "tags": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "title": "Tags",
+          "type": "array"
+        },
+        "type": {
+          "$ref": "#/$defs/ReconEventType"
+        },
+        "value": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "value"
+      ],
+      "title": "ReconSeed",
+      "type": "object"
+    }
+  },
+  "$id": "urn:olympus:schema:olympus.argus-pipeline-preset:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Versioned pipeline configuration with hard resource bounds.",
+  "properties": {
+    "blacklist": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 2048,
+      "title": "Blacklist",
+      "type": "array"
+    },
+    "max_depth": {
+      "default": 2,
+      "maximum": 8,
+      "minimum": 0,
+      "title": "Max Depth",
+      "type": "integer"
+    },
+    "max_events": {
+      "default": 5000,
+      "maximum": 100000,
+      "minimum": 1,
+      "title": "Max Events",
+      "type": "integer"
+    },
+    "modules": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 64,
+      "minItems": 1,
+      "title": "Modules",
+      "type": "array"
+    },
+    "name": {
+      "maxLength": 120,
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+    },
+    "schema_name": {
+      "const": "olympus.argus-pipeline-preset",
+      "default": "olympus.argus-pipeline-preset",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "seeds": {
+      "items": {
+        "$ref": "#/$defs/ReconSeed"
+      },
+      "maxItems": 1024,
+      "minItems": 1,
+      "title": "Seeds",
+      "type": "array"
+    }
+  },
+  "required": [
+    "name",
+    "seeds",
+    "modules"
+  ],
+  "title": "PipelinePreset",
+  "type": "object"
+}
