@@ -24,9 +24,9 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from olympus.aegis.jobs import AegisJobStore
-from olympus.apollo.ingest import parse_access_log
+from olympus.apollo.ingest import iter_access_log
 from olympus.core.enums import AssetType, Criticality, Severity, Source
-from olympus.core.models import Asset, Finding
+from olympus.core.models import Asset, Event, Finding
 from olympus.vulcan.aggregate import dedupe_findings
 from olympus.vulcan.report import build_report_model, render_report_html
 
@@ -136,6 +136,7 @@ def _queue_lifecycle(jobs: int, root: Path) -> int:
 
 def _scenario_operations(records: int, jobs: int) -> dict[str, tuple[int, Callable[[], int]]]:
     access_text = _access_log(records)
+    access_lines = tuple(access_text.splitlines())
     unique_findings = _findings(records)
     duplicate_findings = unique_findings + unique_findings
     assets = [
@@ -153,10 +154,11 @@ def _scenario_operations(records: int, jobs: int) -> dict[str, tuple[int, Callab
     report_findings = unique_findings[: min(1_000, records)]
 
     def ingest() -> int:
-        parsed = parse_access_log(access_text, max_lines=records)
-        if len(parsed.events) != records or parsed.skipped:
+        parsed = iter_access_log(access_lines, max_lines=records)
+        event_count = sum(isinstance(item, Event) for item in parsed)
+        if event_count != records:
             raise RuntimeError("access-log benchmark fixture did not parse completely")
-        return len(parsed.events)
+        return event_count
 
     def deduplicate() -> int:
         unique = dedupe_findings(duplicate_findings)

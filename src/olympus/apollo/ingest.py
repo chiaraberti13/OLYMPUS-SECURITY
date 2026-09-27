@@ -26,7 +26,7 @@ variant (same field layout, space between date and time), mapping each request t
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -95,19 +95,35 @@ def parse_access_log(
     """
     events: list[Event] = []
     skipped: list[SkippedLine] = []
-    for number, line in enumerate(text.splitlines(), start=1):
+    for item in iter_access_log(text.splitlines(), source=source, max_lines=max_lines):
+        if isinstance(item, Event):
+            events.append(item)
+        else:
+            skipped.append(item)
+    return IngestResult(events=tuple(events), skipped=tuple(skipped))
+
+
+def iter_access_log(
+    lines: Iterable[str],
+    *,
+    source: Source = Source.MANUAL,
+    max_lines: int = 1_000_000,
+) -> Iterator[Event | SkippedLine]:
+    """Parse access-log lines lazily, applying backpressure from the consumer."""
+    if not 1 <= max_lines <= 10_000_000:
+        raise ValueError("max_lines must be between 1 and 10000000")
+    for number, line in enumerate(lines, start=1):
         if number > max_lines:
-            skipped.append(SkippedLine(number, line[:80], "line budget exceeded"))
+            yield SkippedLine(number, line[:80], "line budget exceeded")
             break
         stripped = line.strip()
         if not stripped:
             continue
         match = _ACCESS_LINE.match(stripped)
         if match is None:
-            skipped.append(SkippedLine(number, stripped[:80], "not an access-log record"))
+            yield SkippedLine(number, stripped[:80], "not an access-log record")
             continue
-        events.append(_event_from_match(match, source))
-    return IngestResult(events=tuple(events), skipped=tuple(skipped))
+        yield _event_from_match(match, source)
 
 
 def _event_from_match(match: re.Match[str], source: Source) -> Event:

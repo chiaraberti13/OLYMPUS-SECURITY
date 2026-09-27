@@ -13,9 +13,11 @@ import pytest
 
 from olympus.core.fileio import (
     UnsafeWriteTarget,
+    atomic_text_writer,
     atomic_write_bytes,
     atomic_write_text,
     ensure_write_target,
+    iter_regular_utf8_lines,
 )
 
 
@@ -87,3 +89,29 @@ def test_atomic_write_overwrite_replaces_by_default(tmp_path: Path) -> None:
     atomic_write_text(target, "first")
     atomic_write_text(target, "second")  # default overwrite=True
     assert target.read_text(encoding="utf-8") == "second"
+
+
+def test_streaming_reader_enforces_total_and_line_budgets(tmp_path: Path) -> None:
+    source = tmp_path / "events.ndjson"
+    source.write_text("one\ntwo\n", encoding="utf-8")
+    assert list(iter_regular_utf8_lines(source, max_bytes=8, max_line_bytes=4, label="events")) == [
+        "one\n",
+        "two\n",
+    ]
+    with pytest.raises(ValueError, match="exceeds the 3 byte limit"):
+        list(iter_regular_utf8_lines(source, max_bytes=8, max_line_bytes=3, label="events"))
+    with pytest.raises(ValueError, match="exceeds the 7 byte limit"):
+        list(iter_regular_utf8_lines(source, max_bytes=7, max_line_bytes=4, label="events"))
+
+
+def test_atomic_stream_writer_rolls_back_a_partial_output(tmp_path: Path) -> None:
+    target = tmp_path / "events.ndjson"
+    target.write_text("previous\n", encoding="utf-8")
+    with (
+        pytest.raises(RuntimeError, match="stop"),
+        atomic_text_writer(target, mode=0o600) as output,
+    ):
+        output.write("partial\n")
+        raise RuntimeError("stop")
+    assert target.read_text(encoding="utf-8") == "previous\n"
+    assert [path.name for path in tmp_path.iterdir()] == ["events.ndjson"]

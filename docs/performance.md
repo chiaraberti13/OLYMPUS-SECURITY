@@ -22,6 +22,20 @@ Each sample records wall time, process CPU time and peak Python allocations via
 include native allocator or child-process RSS. Results are diagnostic rather
 than a substitute for production profiling.
 
+## Streaming and backpressure
+
+`olympus apollo ingest` reads, parses and writes one record at a time. The
+consumer controls the producer's pace; aggregate bytes, per-line bytes and line
+count are bounded, while skipped-record details are capped separately. Output
+is written to an owner-only temporary file and atomically replaces the target
+only after the complete input succeeds, so a malformed or growing source cannot
+leave a partial NDJSON artifact.
+
+`olympus apollo run` likewise evaluates each unique event before reading the
+next. Deduplication retains only each event ID and a SHA-256 fingerprint rather
+than every normalized event. Alerts remain bounded by `--max-alerts` because
+they are the requested result set, not an unbounded input buffer.
+
 ## Initial budgets
 
 The initial fail thresholds below apply to the quick profile. They are
@@ -51,7 +65,7 @@ python scripts/benchmark_hot_paths.py --profile standard --output benchmark.json
 ```
 
 The quick result currently passes on Python 3.12/Linux. A baseline sample from
-the implementation session measured approximately 0.22 s / 1.43 MiB for ingest,
-0.003 s / 0.05 MiB for deduplication, 0.025 s / 1.37 MiB for report rendering,
-and 0.48 s / 0.02 MiB for the 50-job lifecycle. These observations describe one
-container run and are not portable SLO promises.
+the streaming implementation measured approximately 0.13 s / 0.01 MiB for
+ingest, 0.001 s / 0.04 MiB for deduplication, 0.019 s / 1.36 MiB for report
+rendering, and 0.20 s / 0.01 MiB for the 50-job lifecycle. These observations
+describe one container run and are not portable SLO promises.

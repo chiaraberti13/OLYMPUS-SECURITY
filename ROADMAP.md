@@ -362,8 +362,11 @@ dalla precedente oppure restituisce un errore di migrazione esplicito e sicuro.
   profilo quick/standard registra wall time, CPU e memoria Python e dispone di
   budget espliciti applicabili con `--enforce` (`docs/performance.md`). I limiti
   non sono ancora gate CI perché i runner condivisi hanno prestazioni variabili.
-- [ ] Usare streaming e backpressure per file/log grandi, evitando di caricare
-  interi dataset in memoria.
+- [x] Usare streaming e backpressure per file/log grandi: Apollo ingest legge e
+  normalizza una riga alla volta, pubblica NDJSON con scrittura atomica
+  incrementale e limita byte totali, byte per riga e diagnostica degli scarti;
+  Apollo run valuta subito ogni evento e conserva per la deduplica solo ID e
+  fingerprint, non l'intero dataset.
 - [ ] Aggiungere metriche OpenTelemetry/Prometheus con cardinalità limitata e
   redazione by design; correlare assessment, job, evidence e report.
 - [ ] Testare crash recovery, retry idempotenti, lock SQLite, migrazioni interrotte
@@ -699,6 +702,8 @@ l'operatore tramite output, log o report.
 - [x] Registrare baseline di performance offline e budget iniziali per le
   operazioni critiche (`DEV-E`); il gate resta manuale fino alla raccolta di
   misure su runner stabili.
+- [x] Rendere incrementali ingest e valutazione Apollo con backpressure, limiti
+  per riga e output atomico, senza materializzare l'intero stream di eventi.
 
 **Exit gate:** wheel indipendente dal checkout, contratti versionati e pipeline
 verde su tutta la matrice dichiarata.

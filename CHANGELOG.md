@@ -13,6 +13,10 @@ everything below lives under **Unreleased**.
 ## [Unreleased]
 
 ### Added
+- **Streaming e backpressure (`DEV-E`)** — Apollo normalizza i log e valuta gli
+  eventi NDJSON in modo incrementale. Lettura e scrittura applicano limiti
+  globali/per-riga, rollback atomico e diagnostica degli scarti limitata; la
+  deduplicazione conserva fingerprint compatte invece dell'intero input.
 - **Performance baseline (`DEV-E`)** — harness deterministico offline per ingest
   Apollo, deduplicazione Vulcan, rendering dei report e lifecycle della coda
   SQLite AEGIS; misura latenza, CPU e memoria Python, con profili quick/standard

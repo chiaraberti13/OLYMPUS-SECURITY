@@ -1,11 +1,13 @@
 """Tests for secure Apollo rule loading and detection evaluation."""
 
+import io
 import json
 from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
 
+import olympus.apollo.application as apollo_application
 from olympus.apollo.application import (
     ApolloApplicationService,
     ApolloRunRequest,
@@ -241,6 +243,40 @@ def test_application_deduplicates_events_and_enforces_product_and_cancellation(
         evaluate_stream([rule], [matching], cancellation=token)
 
 
+def test_application_evaluates_each_event_before_reading_the_next(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    _rule(rules_dir / "r.yaml")
+    first = Event(event_type="process.start", source=Source.APOLLO, attributes={"n": "1"})
+    second = Event(event_type="process.start", source=Source.APOLLO, attributes={"n": "2"})
+    evaluated = False
+
+    class GuardedStream(io.BytesIO):
+        def readline(self, size: int = -1) -> bytes:
+            if self.tell() and not evaluated:
+                raise AssertionError("reader advanced before the consumer evaluated the event")
+            return super().readline(size)
+
+    payload = (first.model_dump_json() + "\n" + second.model_dump_json() + "\n").encode()
+
+    def fake_open_regular(_path: Path) -> GuardedStream:
+        return GuardedStream(payload)
+
+    def fake_evaluate(_rules: list[object], _event: Event) -> list[Alert]:
+        nonlocal evaluated
+        evaluated = True
+        return []
+
+    monkeypatch.setattr(apollo_application, "_open_regular", fake_open_regular)
+    monkeypatch.setattr(apollo_application, "evaluate", fake_evaluate)
+    outcome = ApolloApplicationService().run(
+        ApolloRunRequest(rules_path=rules_dir, events_path=tmp_path / "unused.ndjson")
+    )
+    assert outcome.events == 2
+
+
 def test_event_stream_never_invents_identity_and_rejects_output_conflicts(tmp_path: Path) -> None:
     rules_dir = tmp_path / "rules"
     rules_dir.mkdir()
@@ -256,6 +292,17 @@ def test_event_stream_never_invents_identity_and_rejects_output_conflicts(tmp_pa
     assert outcome.events == 0
     assert outcome.alerts == ()
     assert "missing required fields" in outcome.input_errors[0].message
+
+    events.write_text("{bad}\n{also-bad}\n{still-bad}\n", encoding="utf-8")
+    capped = ApolloApplicationService().run(
+        ApolloRunRequest(
+            rules_path=rules_dir,
+            events_path=events,
+            max_input_error_details=1,
+        )
+    )
+    assert capped.input_error_count == 3
+    assert len(capped.input_errors) == 1
 
     with pytest.raises(ValueError, match="conflicts"):
         ApolloApplicationService().run(

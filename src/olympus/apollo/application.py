@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import time
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import BinaryIO
@@ -28,6 +30,7 @@ DEFAULT_MAX_EVENTS = 100_000
 DEFAULT_MAX_STREAM_BYTES = 100_000_000
 DEFAULT_MAX_EVALUATIONS = 1_000_000
 DEFAULT_MAX_ALERTS = 100_000
+DEFAULT_MAX_INPUT_ERROR_DETAILS = 100
 try:
     _NOFOLLOW = os.O_NOFOLLOW
 except AttributeError:  # pragma: no cover - Windows lacks this flag
@@ -62,6 +65,7 @@ class ApolloRunRequest:
     max_stream_bytes: int = DEFAULT_MAX_STREAM_BYTES
     max_evaluations: int = DEFAULT_MAX_EVALUATIONS
     max_alerts: int = DEFAULT_MAX_ALERTS
+    max_input_error_details: int = DEFAULT_MAX_INPUT_ERROR_DETAILS
     deadline_seconds: float = 600.0
 
 
@@ -72,6 +76,21 @@ class ApolloRunOutcome:
     events: int
     duplicates: int
     input_errors: tuple[EventInputError, ...]
+    input_error_count: int = 0
+
+
+@dataclass
+class _EventStreamState:
+    max_error_details: int
+    events: int = 0
+    duplicates: int = 0
+    error_count: int = 0
+    errors: list[EventInputError] = field(default_factory=list)
+
+    def record_error(self, error: EventInputError) -> None:
+        self.error_count += 1
+        if len(self.errors) < self.max_error_details:
+            self.errors.append(error)
 
 
 @dataclass(frozen=True)
@@ -117,8 +136,10 @@ class ApolloApplicationService:
             max_rule_bytes=request.max_rule_bytes,
             progress_check=progress_check,
         )
-        events, duplicates, errors = _load_event_stream(
+        stream_state = _EventStreamState(request.max_input_error_details)
+        events = _iter_event_stream(
             request.events_path,
+            state=stream_state,
             policy=policy,
             cancellation=self.cancellation,
             deadline=deadline,
@@ -141,7 +162,14 @@ class ApolloApplicationService:
             if len(alerts) + len(fired) > request.max_alerts:
                 raise ValueError(f"alerts exceed the {request.max_alerts} result limit")
             alerts.extend(fired)
-        return ApolloRunOutcome(tuple(rules), tuple(alerts), len(events), duplicates, tuple(errors))
+        return ApolloRunOutcome(
+            tuple(rules),
+            tuple(alerts),
+            stream_state.events,
+            stream_state.duplicates,
+            tuple(stream_state.errors),
+            stream_state.error_count,
+        )
 
     def list_rules(
         self,
@@ -176,6 +204,7 @@ def _validate_run_limits(request: ApolloRunRequest) -> None:
         (request.max_stream_bytes, 1, 1_000_000_000, "max_stream_bytes"),
         (request.max_evaluations, 1, 100_000_000, "max_evaluations"),
         (request.max_alerts, 1, 1_000_000, "max_alerts"),
+        (request.max_input_error_details, 0, 10_000, "max_input_error_details"),
     )
     for value, minimum, maximum, name in limits:
         if not minimum <= value <= maximum:
@@ -221,20 +250,18 @@ def _load_single_event(path: Path, max_event_bytes: int) -> Event:
         raise ValueError("event file must be UTF-8 JSON") from exc
 
 
-def _load_event_stream(
+def _iter_event_stream(
     path: Path,
     *,
+    state: _EventStreamState,
     policy: ExecutionPolicy,
     cancellation: Cancellation,
     deadline: float,
     max_event_bytes: int,
     max_events: int,
     max_stream_bytes: int,
-) -> tuple[list[Event], int, list[EventInputError]]:
-    events: list[Event] = []
-    by_id: dict[str, Event] = {}
-    duplicates = 0
-    errors: list[EventInputError] = []
+) -> Iterator[Event]:
+    fingerprints_by_id: dict[str, bytes] = {}
     total_bytes = 0
     line_number = 0
     records = 0
@@ -264,17 +291,20 @@ def _load_event_stream(
             try:
                 event = _event_from_json(line.decode("utf-8"))
             except (UnicodeDecodeError, ValueError) as exc:
-                errors.append(EventInputError(line_number, str(exc)))
+                state.record_error(EventInputError(line_number, str(exc)))
                 continue
-            previous = by_id.get(event.event_id)
+            fingerprint = hashlib.sha256(event.model_dump_json().encode("utf-8")).digest()
+            previous = fingerprints_by_id.get(event.event_id)
             if previous is not None:
-                if previous.model_dump(mode="json") != event.model_dump(mode="json"):
-                    errors.append(EventInputError(line_number, "conflicting duplicate event_id"))
+                if previous != fingerprint:
+                    state.record_error(
+                        EventInputError(line_number, "conflicting duplicate event_id")
+                    )
                 else:
-                    duplicates += 1
+                    state.duplicates += 1
                 continue
-            by_id[event.event_id] = event
-            events.append(event)
-    if not events and not errors:
+            fingerprints_by_id[event.event_id] = fingerprint
+            state.events += 1
+            yield event
+    if not state.events and not state.error_count:
         raise ValueError("event stream contains no events")
-    return events, duplicates, errors

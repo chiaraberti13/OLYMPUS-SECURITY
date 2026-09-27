@@ -14,7 +14,7 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from olympus.apollo.ingest import parse_access_log
+from olympus.apollo.ingest import iter_access_log, parse_access_log
 from olympus.cli import app
 from olympus.core.enums import Source
 
@@ -70,6 +70,21 @@ def test_parse_extracts_query_and_combined_fields() -> None:
     assert event.attributes["bytes"] == "2326"
 
 
+def test_access_log_parser_applies_consumer_backpressure() -> None:
+    consumed = 0
+
+    def records():
+        nonlocal consumed
+        for line in _FIXTURE.open(encoding="utf-8"):
+            consumed += 1
+            yield line
+
+    parsed = iter_access_log(records())
+    first = next(parsed)
+    assert consumed == 1
+    assert first is not None
+
+
 def test_ingest_cli_then_run_detects_a_sensitive_path(tmp_path: Path) -> None:
     events = tmp_path / "events.ndjson"
     ingest = runner.invoke(
@@ -119,3 +134,26 @@ def test_ingest_rejects_an_unsupported_format(tmp_path: Path) -> None:
     )
     assert result.exit_code == 2
     assert "unsupported ingest format" in result.output
+
+
+def test_ingest_rolls_back_output_when_a_line_exceeds_its_budget(tmp_path: Path) -> None:
+    source = tmp_path / "large.log"
+    source.write_text("x" * 100, encoding="utf-8")
+    output = tmp_path / "events.ndjson"
+    output.write_text("previous\n", encoding="utf-8")
+    result = runner.invoke(
+        app,
+        [
+            "apollo",
+            "ingest",
+            "--input",
+            str(source),
+            "--output",
+            str(output),
+            "--max-line-bytes",
+            "16",
+        ],
+    )
+    assert result.exit_code == 2
+    assert "line 1 exceeds" in result.output
+    assert output.read_text(encoding="utf-8") == "previous\n"

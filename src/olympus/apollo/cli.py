@@ -12,6 +12,7 @@ from olympus.apollo.application import (
     DEFAULT_MAX_EVALUATIONS,
     DEFAULT_MAX_EVENT_BYTES,
     DEFAULT_MAX_EVENTS,
+    DEFAULT_MAX_INPUT_ERROR_DETAILS,
     DEFAULT_MAX_STREAM_BYTES,
     ApolloApplicationService,
     ApolloRunRequest,
@@ -19,7 +20,7 @@ from olympus.apollo.application import (
 )
 from olympus.apollo.attack import build_navigator_layer, techniques_from_rules
 from olympus.apollo.export import export_alerts, export_alerts_ecs, export_alerts_ocsf
-from olympus.apollo.ingest import IngestError, events_to_ndjson, parse_access_log
+from olympus.apollo.ingest import IngestError, iter_access_log
 from olympus.apollo.rules import DEFAULT_MAX_RULE_BYTES, DEFAULT_MAX_RULES
 from olympus.apollo.sigma import SigmaImportError, sigma_to_rule
 from olympus.core.contracts import ContractCompatibilityError
@@ -27,7 +28,13 @@ from olympus.core.coverage import RunStatus, classify_run_status, exit_code_for
 from olympus.core.enums import Source
 from olympus.core.execution import CancellationRequested, ExecutionPolicyError
 from olympus.core.exit_codes import ExitCode
-from olympus.core.fileio import atomic_write_text, read_regular_text
+from olympus.core.fileio import (
+    atomic_text_writer,
+    atomic_write_text,
+    iter_regular_utf8_lines,
+    read_regular_text,
+)
+from olympus.core.models import Event
 from olympus.core.output import OutputFormat, render
 from olympus.core.paths import output_path
 
@@ -101,6 +108,9 @@ def run(
     max_stream_bytes: int = typer.Option(DEFAULT_MAX_STREAM_BYTES, "--max-stream-bytes"),
     max_evaluations: int = typer.Option(DEFAULT_MAX_EVALUATIONS, "--max-evaluations"),
     max_alerts: int = typer.Option(DEFAULT_MAX_ALERTS, "--max-alerts"),
+    max_input_error_details: int = typer.Option(
+        DEFAULT_MAX_INPUT_ERROR_DETAILS, "--max-input-error-details", min=0, max=10_000
+    ),
     deadline: float = typer.Option(600.0, "--deadline"),
 ) -> None:
     """Evaluate a bounded rule set against a strict streaming NDJSON event source."""
@@ -117,6 +127,7 @@ def run(
                 max_stream_bytes=max_stream_bytes,
                 max_evaluations=max_evaluations,
                 max_alerts=max_alerts,
+                max_input_error_details=max_input_error_details,
                 deadline_seconds=deadline,
             )
         )
@@ -140,11 +151,17 @@ def run(
 
     for error in outcome.input_errors:
         typer.echo(f"apollo: malformed event on line {error.line}: {error.message}", err=True)
+    if outcome.input_error_count > len(outcome.input_errors):
+        typer.echo(
+            "apollo: suppressed "
+            f"{outcome.input_error_count - len(outcome.input_errors)} additional input error(s)",
+            err=True,
+        )
     typer.echo(
         f"apollo: {len(outcome.rules)} rule(s) x {outcome.events} event(s) -> "
         f"{len(outcome.alerts)} alert(s); duplicates={outcome.duplicates}; {output}"
     )
-    if outcome.input_errors:
+    if outcome.input_error_count:
         raise typer.Exit(code=exit_code_for(RunStatus.PARTIAL))
     if outcome.alerts:
         raise typer.Exit(code=exit_code_for(classify_run_status(len(outcome.alerts))))
@@ -200,7 +217,9 @@ def ingest(
         "manual", "--source", help="Source tag for the emitted events (an olympus source)."
     ),
     max_bytes: int = typer.Option(DEFAULT_MAX_STREAM_BYTES, "--max-bytes"),
+    max_line_bytes: int = typer.Option(DEFAULT_MAX_EVENT_BYTES, "--max-line-bytes"),
     max_lines: int = typer.Option(1_000_000, "--max-lines"),
+    max_skip_details: int = typer.Option(20, "--max-skip-details", min=0, max=10_000),
 ) -> None:
     """Normalize real telemetry into ``core.Event`` NDJSON for the detection engine.
 
@@ -220,17 +239,32 @@ def ingest(
         typer.echo(f"apollo: unknown source '{source}'", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from None
     try:
-        text = read_regular_text(src_path, max_bytes=max_bytes, label="telemetry source")
-        result = parse_access_log(text, source=source_tag, max_lines=max_lines)
-        atomic_write_text(dst, events_to_ndjson(result.events), mode=0o600)
+        records = iter_regular_utf8_lines(
+            src_path,
+            max_bytes=max_bytes,
+            max_line_bytes=max_line_bytes,
+            label="telemetry source",
+        )
+        ingested = 0
+        skipped = 0
+        with atomic_text_writer(dst, mode=0o600) as output:
+            for item in iter_access_log(records, source=source_tag, max_lines=max_lines):
+                if isinstance(item, Event):
+                    output.write(item.model_dump_json() + "\n")
+                    ingested += 1
+                    continue
+                skipped += 1
+                if skipped <= max_skip_details:
+                    typer.echo(f"apollo: skipped line {item.line}: {item.reason}", err=True)
     except (IngestError, OSError, ValueError) as exc:
         typer.echo(f"apollo: ingest error: {exc}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
-    for item in result.skipped:
-        typer.echo(f"apollo: skipped line {item.line}: {item.reason}", err=True)
-    typer.echo(
-        f"apollo: ingested {len(result.events)} event(s), skipped {len(result.skipped)} -> {dst}"
-    )
+    if skipped > max_skip_details:
+        typer.echo(
+            f"apollo: suppressed {skipped - max_skip_details} additional skipped-line detail(s)",
+            err=True,
+        )
+    typer.echo(f"apollo: ingested {ingested} event(s), skipped {skipped} -> {dst}")
 
 
 @app.command("sigma-import")
