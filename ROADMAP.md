@@ -38,7 +38,7 @@
 | --- | --- | --- | --- |
 | 0 | Baseline e coerenza documentale | `[~]` | `DEV-G`, `DEV-H`, `DEV-C` (suite e coverage) |
 | 1 | Security hardening (**P0**) | `[ ]` | `SEC-A`, `SEC-B`, `SEC-C`, `SEC-H`, `UX-B` |
-| 2 | Architettura e qualità di release | `[ ]` | `DEV-A`, `DEV-B`, `DEV-C`, `DEV-D`, `SEC-F` |
+| 2 | Architettura e qualità di release | `[~]` | `DEV-A`, `DEV-B`, `DEV-C`, `DEV-D`, `DEV-E`, `SEC-F` |
 | 3 | UX operativa bilingue | `[ ]` | `UX-A`, `UX-C`, `UX-D`, `UX-E`, `UX-F`, `UX-G` |
 | 4 | Capability Red/Blue/Purple | `[~]` | `OPS-RED`, `OPS-BLUE`, `OPS-PURPLE` |
 | 5 | Production readiness scanner | `[ ]` | `D1`, `D2` |
@@ -357,8 +357,11 @@ dalla precedente oppure restituisce un errore di migrazione esplicito e sicuro.
 
 ### Intervento E · `DEV-E` — Performance, resilienza e osservabilità (**P2**)
 
-- [ ] Creare benchmark ripetibili per ingest, normalizzazione, deduplica, grandi
-  report e code AEGIS; definire budget di memoria, CPU e latenza.
+- [x] Creare benchmark offline ripetibili per ingest, normalizzazione,
+  deduplicazione finding, rendering report e lifecycle della coda AEGIS; il
+  profilo quick/standard registra wall time, CPU e memoria Python e dispone di
+  budget espliciti applicabili con `--enforce` (`docs/performance.md`). I limiti
+  non sono ancora gate CI perché i runner condivisi hanno prestazioni variabili.
 - [ ] Usare streaming e backpressure per file/log grandi, evitando di caricare
   interi dataset in memoria.
 - [ ] Aggiungere metriche OpenTelemetry/Prometheus con cardinalità limitata e
@@ -693,6 +696,9 @@ l'operatore tramite output, log o report.
 - [ ] Aggiungere CodeQL; le suite container/live-lab restano esplicitamente non
   validate finché non esistono casi e relative prove.
 - [ ] Stabilizzare schema, migrazioni, exit code e recovery dei job.
+- [x] Registrare baseline di performance offline e budget iniziali per le
+  operazioni critiche (`DEV-E`); il gate resta manuale fino alla raccolta di
+  misure su runner stabili.
 
 **Exit gate:** wheel indipendente dal checkout, contratti versionati e pipeline
 verde su tutta la matrice dichiarata.

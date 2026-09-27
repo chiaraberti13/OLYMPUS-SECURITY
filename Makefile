@@ -1,4 +1,4 @@
-.PHONY: install lint format-check type test test-unit test-contract test-integration test-container test-live-lab test-portable test-posix test-coverage test-mutation schemas schemas-check contract-goldens check demo clean
+.PHONY: install lint format-check type test test-unit test-contract test-integration test-container test-live-lab test-portable test-posix test-coverage test-mutation benchmark benchmark-standard schemas schemas-check contract-goldens check demo clean
 
 PYTHON ?= python
 
@@ -66,6 +66,13 @@ test-mutation:
 		"olympus.athena.domain.assessment.x_advance_job*" \
 		"olympus.athena.domain.assessment.x_derive_terminal_state*"
 	$(PYTHON) scripts/check_mutation_gate.py
+
+# Deterministic offline performance baselines; add --enforce to apply budgets.
+benchmark:
+	$(PYTHON) scripts/benchmark_hot_paths.py --profile quick
+
+benchmark-standard:
+	$(PYTHON) scripts/benchmark_hot_paths.py --profile standard
 
 schemas:
 	$(PYTHON) scripts/export_schema_catalog.py

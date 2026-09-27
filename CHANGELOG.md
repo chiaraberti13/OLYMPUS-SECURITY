@@ -13,6 +13,10 @@ everything below lives under **Unreleased**.
 ## [Unreleased]
 
 ### Added
+- **Performance baseline (`DEV-E`)** — harness deterministico offline per ingest
+  Apollo, deduplicazione Vulcan, rendering dei report e lifecycle della coda
+  SQLite AEGIS; misura latenza, CPU e memoria Python, con profili quick/standard
+  e budget espliciti attivabili senza vincolare la CI a runner rumorosi.
 - **Contratto degli esiti (`DEV-D`)** — gli stati terminali `clean`, `findings`,
   `partial`, `failed` e `cancelled` e gli exit code 0–7 sono ora centralizzati
   nel core. Athena, AEGIS, Apollo e Hermes applicano lo stesso mapping; gli exit
