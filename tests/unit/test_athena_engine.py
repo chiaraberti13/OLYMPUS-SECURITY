@@ -18,6 +18,7 @@ from olympus.athena.ports import Cancellation, Clock, ToolRequest, ToolResult, T
 from olympus.core.enums import Severity, Source
 from olympus.core.http import HttpResponse
 from olympus.core.models import Finding
+from olympus.core.observability import InMemoryExporter, Observability
 
 
 class _Clock:
@@ -88,7 +89,10 @@ def _plan(**overrides: object) -> AssessmentPlan:
 
 
 def _coordinator(
-    tmp_path: Path, runners: dict[str, ToolRunner], clock: Clock | None = None
+    tmp_path: Path,
+    runners: dict[str, ToolRunner],
+    clock: Clock | None = None,
+    observability: Observability | None = None,
 ) -> tuple[Coordinator, SqliteAssessmentRepository, InMemoryAuditSink]:
     repo = SqliteAssessmentRepository(tmp_path / "athena.db")
     audit = InMemoryAuditSink()
@@ -98,6 +102,7 @@ def _coordinator(
         clock=clock or _Clock(),
         ids=_Ids(),
         resolver=lambda names: {name: runners[name] for name in names},
+        observability=observability,
     )
     return coordinator, repo, audit
 
@@ -115,6 +120,30 @@ def test_run_success(tmp_path: Path) -> None:
     stored = repo.load_assessment(outcome.assessment_id)
     assert stored is not None and stored.jobs[0].state is JobState.SUCCEEDED
     assert any(e.action == "assessment_finished" for e in audit.events)
+    repo.close()
+
+
+def test_run_correlates_assessment_job_and_evidence_without_metric_ids(tmp_path: Path) -> None:
+    exporter = InMemoryExporter()
+    telemetry = Observability(exporter)
+    runner = _Runner("a", ToolResult(ok=True, findings=[_finding()]))
+    coordinator, repo, _ = _coordinator(tmp_path, {"a": runner}, observability=telemetry)
+
+    outcome = coordinator.run(_plan())
+
+    metric_names = {record.name for record in exporter.records}
+    assert {
+        "olympus_assessments_total",
+        "olympus_jobs_total",
+        "olympus_artifacts_total",
+    } <= metric_names
+    assert outcome.assessment_id not in repr(exporter.records)
+    span_attributes = [dict(attributes) for _name, attributes in exporter.spans]
+    assert any(
+        item.get("olympus.assessment.id") == outcome.assessment_id for item in span_attributes
+    )
+    assert any("olympus.job.id" in item for item in span_attributes)
+    assert any("olympus.evidence.id" in item for item in span_attributes)
     repo.close()
 
 

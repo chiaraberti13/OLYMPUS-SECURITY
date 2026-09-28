@@ -162,7 +162,8 @@ and run in a dedicated Ubuntu CI job. Widening this matrix further is tracked in
   `{"engagement": "...", "allowed_domains": [...], "excluded_domains": [...]}`.
   Argus IP/phone/account scopes use their own keys — see
   [`examples/input/`](examples/input).
-- **`olympus.toml`** (optional) sets shared HTTP defaults; resolution order is
+- **`olympus.toml`** (optional) sets shared HTTP defaults and redaction-first
+  observability (`none`, authenticated Prometheus, or OTLP); resolution order is
   `OLYMPUS_CONFIG` → `./olympus.toml` → `~/.olympus.toml`.
 - **`olympus.policy.toml`** (optional) makes the execution bounds editable per
   engagement — timeout, deadline, concurrency, retries, backoff, interval,
@@ -175,6 +176,10 @@ and run in a dedicated Ubuntu CI job. Widening this matrix further is tracked in
 - **Secrets** are read only from environment variables (e.g.
   `OLYMPUS_NUMVERIFY_KEY`) and are **never** logged, exported, or placed in
   reports.
+
+See [`docs/configuration.md`](docs/configuration.md) for precedence and
+validation, and [`docs/observability.md`](docs/observability.md) for bounded
+metrics, authenticated scraping and trace correlation.
 
 ## 🗂️ Project structure
 
@@ -223,6 +228,7 @@ olympus core lock -o constraints.txt      # pip --require-hashes constraints (re
 See [`docs/architecture/`](docs/architecture) for the accepted design decisions,
 [`docs/contracts.md`](docs/contracts.md) for the versioned wire/storage compatibility rules,
 [`docs/execution-policy.md`](docs/execution-policy.md) for shared authorization and runtime bounds,
+[`docs/observability.md`](docs/observability.md) for redacted metrics and trace correlation,
 [`docs/threat-model.md`](docs/threat-model.md) for the threat model and security architecture,
 [`docs/sbom.md`](docs/sbom.md) for the native SBOM generator,
 [`docs/parity/`](docs/parity) for the upstream capability manifests, and

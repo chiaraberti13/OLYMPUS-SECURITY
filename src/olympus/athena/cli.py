@@ -41,6 +41,12 @@ from olympus.core.exit_codes import ExitCode
 from olympus.core.fileio import read_regular_text
 from olympus.core.http import UrllibHttpClient
 from olympus.core.models import Finding
+from olympus.core.observability import (
+    Correlation,
+    Observability,
+    ObservabilityConfigurationError,
+    observability_from_config,
+)
 from olympus.vulcan.enrichment import (
     EnrichmentError,
     FindingEnrichment,
@@ -142,9 +148,15 @@ def run(
         typer.echo(f"athena: invalid plan: {exc}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
 
+    try:
+        observability = observability_from_config()
+    except ObservabilityConfigurationError as exc:
+        typer.echo(f"athena: observability configuration error: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+
     repository = _open_repository(storage)
     try:
-        coordinator = _build_coordinator(plan, repository)
+        coordinator = _build_coordinator(plan, repository, observability)
         try:
             outcome = coordinator.run(plan)
         except UnknownAdapterError as exc:
@@ -173,11 +185,12 @@ def run(
         typer.echo(json.dumps(summary, indent=2, sort_keys=True))
 
         if report:
-            _write_report(plan, outcome.assessment_id, findings, storage)
+            _write_report(plan, outcome.assessment_id, findings, storage, observability)
         if enrichments is not None:
             _write_enrichment(outcome.assessment_id, findings, enrichments, storage)
     finally:
         repository.close()
+        observability.shutdown()
     raise typer.Exit(code=_exit_code_for(outcome))
 
 
@@ -210,7 +223,11 @@ def _write_enrichment(
     typer.echo(f"athena: wrote enrichment overlay to {target}", err=True)
 
 
-def _build_coordinator(plan: AssessmentPlan, repository: SqliteAssessmentRepository) -> Coordinator:
+def _build_coordinator(
+    plan: AssessmentPlan,
+    repository: SqliteAssessmentRepository,
+    observability: Observability | None = None,
+) -> Coordinator:
     def _redirect_validator(allowed: tuple[str, ...]) -> Callable[[str], None]:
         def validate(url: str) -> None:
             # urllib invokes this before every redirect hop is followed. Re-run
@@ -239,18 +256,29 @@ def _build_coordinator(plan: AssessmentPlan, repository: SqliteAssessmentReposit
         clock=SystemClock(),
         ids=CoreIdProvider(),
         resolver=lambda names: resolve_adapters(names, target_http, service_http=service_http),
+        observability=observability,
     )
 
 
 def _write_report(
-    plan: AssessmentPlan, assessment_id: str, findings: list[Finding], storage: Path
+    plan: AssessmentPlan,
+    assessment_id: str,
+    findings: list[Finding],
+    storage: Path,
+    observability: Observability | None = None,
 ) -> None:
+    telemetry = observability or Observability()
     renderer = VulcanReportRenderer(plan.engagement_id)
     for fmt in plan.output.report_formats:
         content = renderer.render(findings, fmt)
         suffix = "md" if fmt == "markdown" else "json"
         target = storage / f"{assessment_id}.report.{suffix}"
         target.write_text(content, encoding="utf-8")
+        with telemetry.span(
+            "athena.report",
+            Correlation(assessment_id=assessment_id, report_id=target.name),
+        ):
+            telemetry.artifact_created("athena", "report", fmt)
         typer.echo(f"athena: wrote {fmt} report to {target}", err=True)
 
 

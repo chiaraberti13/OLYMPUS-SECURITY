@@ -131,11 +131,17 @@ script. Un'esecuzione parziale non viene mai riportata come pulita; vedi
   `{"engagement": "...", "allowed_domains": [...], "excluded_domains": [...]}`.
   Gli scope IP/telefono/account di Argus usano chiavi proprie — vedi
   [`examples/input/`](examples/input).
-- **`olympus.toml`** (opzionale) imposta i default HTTP condivisi; l'ordine di
+- **`olympus.toml`** (opzionale) imposta i default HTTP condivisi e
+  l'osservabilità con redazione preventiva (`none`, Prometheus autenticato o
+  OTLP); l'ordine di
   risoluzione è `OLYMPUS_CONFIG` → `./olympus.toml` → `~/.olympus.toml`.
 - **I segreti** sono letti solo da variabili d'ambiente (es.
   `OLYMPUS_NUMVERIFY_KEY`) e **non** vengono mai loggati, esportati o inseriti
   nei report.
+
+Vedi [`docs/configuration.md`](docs/configuration.md) per precedenza e validazione
+e [`docs/observability.md`](docs/observability.md) per metriche limitate, scraping
+autenticato e correlazione delle trace.
 
 ## 🗂️ Struttura del progetto
 
@@ -175,7 +181,8 @@ make check     # esegue l'intera suite locale
 Vedi [`docs/architecture/`](docs/architecture) per le decisioni di progetto
 accettate, [`docs/contracts.md`](docs/contracts.md) per le regole di compatibilità
 dei contratti versionati, [`docs/execution-policy.md`](docs/execution-policy.md) per autorizzazione
-e limiti di esecuzione condivisi, [`docs/parity/`](docs/parity) per i manifest di capacità upstream e
+e limiti di esecuzione condivisi, [`docs/observability.md`](docs/observability.md)
+per metriche redatte e correlazione delle trace, [`docs/parity/`](docs/parity) per i manifest di capacità upstream e
 [`docs/professional-platform.md`](docs/professional-platform.md) per la migrazione del control plane professionale.
 
 ## 🔐 Modello di sicurezza

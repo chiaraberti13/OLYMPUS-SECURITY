@@ -22,6 +22,7 @@ to the built-in defaults, so nothing changes. Example::
 from __future__ import annotations
 
 import os
+import re
 import tomllib
 from pathlib import Path
 from typing import Any
@@ -45,6 +46,17 @@ HTTP_DEFAULTS: dict[str, int | float] = {
     "max_expansion_ratio": 100.0,
     "deadline": 600.0,
 }
+
+OBSERVABILITY_DEFAULTS: dict[str, str | int] = {
+    "backend": "none",
+    "cardinality_limit": 64,
+    "otlp_endpoint": "http://127.0.0.1:4318",
+    "prometheus_textfile": "",
+    "service_name": "olympus-security",
+}
+
+_OBSERVABILITY_BACKENDS = frozenset({"none", "prometheus", "otlp"})
+_SERVICE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 
 _HTTP_NUMERIC_RULES: dict[str, tuple[type, float, float]] = {
     "timeout": (float, 0.001, 3600.0),
@@ -93,8 +105,35 @@ def _validate_http_config(data: dict[str, Any], path: Path) -> None:
             )
 
 
+def _validate_observability_config(data: dict[str, Any], path: Path) -> None:
+    table = data.get("observability")
+    if table is None:
+        return
+    if not isinstance(table, dict):
+        raise ConfigError(f"[observability] must be a TOML table in {path}")
+    unknown = set(table) - set(OBSERVABILITY_DEFAULTS)
+    if unknown:
+        raise ConfigError(f"unknown [observability] option {sorted(unknown)[0]!r} in {path}")
+    backend = table.get("backend", "none")
+    if not isinstance(backend, str) or backend.casefold() not in _OBSERVABILITY_BACKENDS:
+        raise ConfigError(f"invalid [observability].backend in {path}")
+    limit = table.get("cardinality_limit", 64)
+    if not isinstance(limit, int) or isinstance(limit, bool) or not 8 <= limit <= 256:
+        raise ConfigError(f"invalid [observability].cardinality_limit in {path}: expected 8..256")
+    endpoint = table.get("otlp_endpoint", "http://127.0.0.1:4318")
+    if not isinstance(endpoint, str) or not endpoint.startswith(("http://", "https://")):
+        raise ConfigError(f"invalid [observability].otlp_endpoint in {path}")
+    textfile = table.get("prometheus_textfile", "")
+    if not isinstance(textfile, str):
+        raise ConfigError(f"invalid [observability].prometheus_textfile in {path}")
+    service_name = table.get("service_name", "olympus-security")
+    if not isinstance(service_name, str) or not _SERVICE_NAME.fullmatch(service_name):
+        raise ConfigError(f"invalid [observability].service_name in {path}")
+
+
 def _validate_config(data: dict[str, Any], path: Path) -> dict[str, Any]:
     _validate_http_config(data, path)
+    _validate_observability_config(data, path)
     return data
 
 
@@ -167,6 +206,10 @@ def get(section: str, key: str, default: Any, config: dict[str, Any] | None = No
         value = _environment_value(variable, raw_environment, default)
         if section == "http":
             _validate_http_config({"http": {key: value}}, Path(f"environment:{variable}"))
+        if section == "observability":
+            _validate_observability_config(
+                {"observability": {key: value}}, Path(f"environment:{variable}")
+            )
         return value
     table = data.get(section)
     if not isinstance(table, dict) or key not in table:
@@ -194,13 +237,23 @@ def effective_config(data: dict[str, Any] | None = None) -> dict[str, Any]:
     }
     http["deadline"] = get("http", "deadline", max(float(http["timeout"]), 600.0), loaded)
     effective["http"] = http
+    effective["observability"] = {
+        key: get("observability", key, default, loaded)
+        for key, default in OBSERVABILITY_DEFAULTS.items()
+    }
     return effective
 
 
 def active_environment_overrides() -> list[str]:
     """List active known override names without exposing their values."""
-    return sorted(
+    variables = [
         variable
         for key in HTTP_DEFAULTS
         if (variable := environment_variable("http", key)) in os.environ
+    ]
+    variables.extend(
+        variable
+        for key in OBSERVABILITY_DEFAULTS
+        if (variable := environment_variable("observability", key)) in os.environ
     )
+    return sorted(variables)

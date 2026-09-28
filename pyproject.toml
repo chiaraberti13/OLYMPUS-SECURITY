@@ -41,6 +41,12 @@ api = [
     "fastapi>=0.109",
     "uvicorn[standard]>=0.27",
 ]
+observability = [
+    "prometheus-client>=0.19",
+    "opentelemetry-api>=1.27",
+    "opentelemetry-sdk>=1.27",
+    "opentelemetry-exporter-otlp-proto-http>=1.27",
+]
 # AEGIS — the vendored Vulnerability Assessment Platform (complete upstream app
 # under vendor/vulnerability-assessment-platform). See that directory's
 # requirements.txt for the full pinned set; this extra pulls the core web/DB/

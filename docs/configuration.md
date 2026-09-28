@@ -40,9 +40,17 @@ Le opzioni HTTP riconosciute sono `timeout`, `deadline`, `retries`, `backoff`,
 `max_response_header_bytes`, `max_redirects`, `max_decompressed_bytes` e
 `max_expansion_ratio`.
 
+La tabella `[observability]` è opzionale e usa gli stessi criteri di precedenza.
+Le opzioni riconosciute sono `backend` (`none`, `prometheus`, `otlp`),
+`cardinality_limit` (8–256), `service_name`, `otlp_endpoint` e
+`prometheus_textfile`. Il default `none` non carica dipendenze, non invia dati e
+non apre listener. Configurazione dei backend, metriche e confini di redazione
+sono descritti in [Observability / Osservabilità](observability.md).
+
 ## Due file, due scopi
 
-`olympus.toml` (questo documento) configura il **client HTTP** condiviso.
+`olympus.toml` (questo documento) configura il **client HTTP** condiviso e
+l'**osservabilità operativa** opzionale.
 I **bound di esecuzione** — timeout, deadline, concorrenza, retry, backoff,
 intervallo minimo, jitter — e il profilo `lab` vivono invece in un file
 separato, `olympus.policy.toml`, con una propria catena di discovery

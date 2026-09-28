@@ -27,6 +27,7 @@ import re
 import secrets
 import sqlite3
 import threading
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -50,6 +51,7 @@ from olympus.core.execution import (
     redact_url,
 )
 from olympus.core.migrations import migrate_document
+from olympus.core.observability import Correlation, Observability
 
 #: Bumped whenever the SQLite layout changes; ``initialize`` migrates forward.
 SCHEMA_VERSION = 2
@@ -822,40 +824,54 @@ class AegisWorker:
     live_scans: bool | None = None
     worker_id: str = field(default_factory=generate_worker_id)
     heartbeat_seconds: float = DEFAULT_HEARTBEAT_SECONDS
+    observability: Observability = field(default_factory=Observability)
 
     def run_next(self, *, audit_path: Path | None = None) -> AegisJob | None:
         """Claim one job, execute it under a renewed lease, and record its outcome."""
         job = self.store.claim_next(self.worker_id)
         if job is None:
             return None
-        if self.store.cancellation_requested(job.job_id):
-            return self._settle(job.job_id, JobState.CANCELLED)
-        record = self.store.execution_record(job.job_id)
-        cancellation = _JobCancellation(self.store, job.job_id)
-        try:
-            with _Heartbeat(
-                self.store, job.job_id, self.worker_id, cancellation, self.heartbeat_seconds
-            ):
-                result = self.application.run(
-                    AegisRunRequest(
-                        scanner=record.scanner,
-                        target=record.target,
-                        target_kind=record.target_kind,
-                        scope_path=record.scope_path,
-                        authorized=record.authorized,
-                        live_enabled=(
-                            live_enabled() if self.live_scans is None else self.live_scans
-                        ),
-                        audit_path=audit_path,
-                        cancellation=cancellation,
+        started_at = time.monotonic()
+        correlation = Correlation(job_id=job.job_id)
+        with self.observability.span("aegis.job", correlation):
+            if self.store.cancellation_requested(job.job_id):
+                settled = self._settle(job.job_id, JobState.CANCELLED)
+                return self._observed(job.scanner, settled, started_at)
+            record = self.store.execution_record(job.job_id)
+            cancellation = _JobCancellation(self.store, job.job_id)
+            try:
+                with _Heartbeat(
+                    self.store, job.job_id, self.worker_id, cancellation, self.heartbeat_seconds
+                ):
+                    result = self.application.run(
+                        AegisRunRequest(
+                            scanner=record.scanner,
+                            target=record.target,
+                            target_kind=record.target_kind,
+                            scope_path=record.scope_path,
+                            authorized=record.authorized,
+                            live_enabled=(
+                                live_enabled() if self.live_scans is None else self.live_scans
+                            ),
+                            audit_path=audit_path,
+                            cancellation=cancellation,
+                        )
                     )
-                )
-        except BaseException as exc:
-            return self._record_exception(job.job_id, exc)
-        if self.store.cancellation_requested(job.job_id):
-            return self._settle(job.job_id, JobState.CANCELLED)
-        state, error = classify_result(result)
-        return self._settle(job.job_id, state, result=result.to_dict(), error=error)
+            except BaseException as exc:
+                settled = self._record_exception(job.job_id, exc)
+                return self._observed(job.scanner, settled, started_at)
+            if self.store.cancellation_requested(job.job_id):
+                settled = self._settle(job.job_id, JobState.CANCELLED)
+                return self._observed(job.scanner, settled, started_at)
+            state, error = classify_result(result)
+            settled = self._settle(job.job_id, state, result=result.to_dict(), error=error)
+            return self._observed(job.scanner, settled, started_at)
+
+    def _observed(self, scanner: str, job: AegisJob, started_at: float) -> AegisJob:
+        self.observability.job_finished(
+            "aegis", scanner, job.state.value, time.monotonic() - started_at
+        )
+        return job
 
     def _record_exception(self, job_id: str, exc: BaseException) -> AegisJob:
         if self.store.cancellation_requested(job_id) or isinstance(exc, CancellationRequested):

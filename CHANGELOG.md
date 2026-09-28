@@ -13,6 +13,10 @@ everything below lives under **Unreleased**.
 ## [Unreleased]
 
 ### Added
+- **Osservabilità sicura (`DEV-E`)** — metriche con label limitate e prive di
+  target, identità, errori e ID; backend opzionali Prometheus e OTLP/HTTP,
+  `/metrics` AEGIS autenticato, textfile atomico per processi brevi e trace che
+  correlano assessment, job, evidence e report tramite soli ID Olympus validati.
 - **Streaming e backpressure (`DEV-E`)** — Apollo normalizza i log e valuta gli
   eventi NDJSON in modo incrementale. Lettura e scrittura applicano limiti
   globali/per-riga, rollback atomico e diagnostica degli scarti limitata; la

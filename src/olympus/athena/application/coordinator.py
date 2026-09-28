@@ -39,6 +39,7 @@ from olympus.core.execution import (
     ExecutionPolicy,
 )
 from olympus.core.models import Finding
+from olympus.core.observability import Correlation, Observability
 
 AdapterResolver = Callable[[tuple[str, ...]], dict[str, ToolRunner]]
 
@@ -65,12 +66,14 @@ class Coordinator:
         clock: Clock,
         ids: IdProvider,
         resolver: AdapterResolver,
+        observability: Observability | None = None,
     ) -> None:
         self._repo = repository
         self._audit = audit
         self._clock = clock
         self._ids = ids
         self._resolver = resolver
+        self._observability = observability or Observability()
         self._sequence: dict[str, int] = {}
 
     # -- auditing ---------------------------------------------------------- #
@@ -134,44 +137,50 @@ class Coordinator:
             assessment_id, "assessment_created", "planned", metadata={"count": str(len(jobs))}
         )
 
-        self._repo.transition_assessment(assessment_id, AssessmentState.RUNNING)
-        self._emit(assessment_id, "assessment_started", "running")
+        started_at = self._clock.monotonic()
+        correlation = Correlation(assessment_id=assessment_id)
+        with self._observability.span("athena.assessment", correlation):
+            self._repo.transition_assessment(assessment_id, AssessmentState.RUNNING)
+            self._emit(assessment_id, "assessment_started", "running")
 
-        findings: list[Finding] = []
-        terminal_jobs: list[Job] = []
-        deadline = self._clock.monotonic() + policy.deadline_seconds
-        concurrency = policy.max_concurrency
-        allowed = plan.scope.allowed_domains
+            findings: list[Finding] = []
+            terminal_jobs: list[Job] = []
+            deadline = started_at + policy.deadline_seconds
+            concurrency = policy.max_concurrency
+            allowed = plan.scope.allowed_domains
 
-        pool = ThreadPoolExecutor(max_workers=concurrency)
-        try:
-            for batch_start in range(0, len(jobs), concurrency):
-                batch = jobs[batch_start : batch_start + concurrency]
-                deadline_hit = self._clock.monotonic() >= deadline
-                if deadline_hit:
-                    terminal_jobs.extend(self._cancel_batch(assessment_id, batch, "deadline"))
-                    continue
-                terminal_jobs.extend(
-                    self._run_batch(
-                        assessment_id,
-                        batch,
-                        runners,
-                        allowed,
-                        policy,
-                        findings,
-                        pool,
-                        deadline,
+            pool = ThreadPoolExecutor(max_workers=concurrency)
+            try:
+                for batch_start in range(0, len(jobs), concurrency):
+                    batch = jobs[batch_start : batch_start + concurrency]
+                    deadline_hit = self._clock.monotonic() >= deadline
+                    if deadline_hit:
+                        terminal_jobs.extend(self._cancel_batch(assessment_id, batch, "deadline"))
+                        continue
+                    terminal_jobs.extend(
+                        self._run_batch(
+                            assessment_id,
+                            batch,
+                            runners,
+                            allowed,
+                            policy,
+                            findings,
+                            pool,
+                            deadline,
+                        )
                     )
-                )
-        finally:
-            # Timed-out adapters receive cooperative cancellation. Do not make
-            # the coordinator wait again for a non-cooperative worker here.
-            pool.shutdown(wait=False, cancel_futures=True)
+            finally:
+                # Timed-out adapters receive cooperative cancellation. Do not make
+                # the coordinator wait again for a non-cooperative worker here.
+                pool.shutdown(wait=False, cancel_futures=True)
 
-        state = derive_terminal_state(tuple(terminal_jobs))
-        self._repo.transition_assessment(assessment_id, state)
-        self._emit(assessment_id, "assessment_finished", state.value)
-        return RunOutcome(assessment_id=assessment_id, state=state, findings=findings)
+            state = derive_terminal_state(tuple(terminal_jobs))
+            self._repo.transition_assessment(assessment_id, state)
+            self._emit(assessment_id, "assessment_finished", state.value)
+            self._observability.assessment_finished(
+                "athena", state.value, self._clock.monotonic() - started_at
+            )
+            return RunOutcome(assessment_id=assessment_id, state=state, findings=findings)
 
     def _cancel_batch(self, assessment_id: str, batch: tuple[Job, ...], reason: str) -> list[Job]:
         cancelled: list[Job] = []
@@ -184,6 +193,7 @@ class Coordinator:
                 job_id=job.job_id,
                 metadata={"adapter": job.adapter, "reason": reason},
             )
+            self._observability.job_finished("athena", job.adapter, "cancelled", 0.0)
             cancelled.append(updated)
         return cancelled
 
@@ -199,10 +209,12 @@ class Coordinator:
         deadline: float,
     ) -> list[Job]:
         running: list[Job] = [self._repo.transition_job(job, JobState.RUNNING) for job in batch]
+        started_at = {job.job_id: self._clock.monotonic() for job in running}
         tokens = {job.job_id: CancellationToken() for job in running}
         futures = {
             pool.submit(
                 self._invoke,
+                assessment_id,
                 runners[job.adapter],
                 job,
                 allowed,
@@ -219,46 +231,58 @@ class Coordinator:
         results: list[Job] = []
         for future, job in futures.items():
             if future in done:
-                results.append(self._finish(assessment_id, job, future.result(), findings))
+                duration = self._clock.monotonic() - started_at[job.job_id]
+                results.append(
+                    self._finish(assessment_id, job, future.result(), findings, duration)
+                )
                 continue
             if future in pending:
                 tokens[job.job_id].cancel()
+                duration = self._clock.monotonic() - started_at[job.job_id]
                 if deadline_limited:
-                    results.append(self._finish_deadline(assessment_id, job))
+                    results.append(self._finish_deadline(assessment_id, job, duration))
                 else:
-                    results.append(self._finish_timed_out(assessment_id, job))
+                    results.append(self._finish_timed_out(assessment_id, job, duration))
         return results
 
     def _invoke(
         self,
+        assessment_id: str,
         runner: ToolRunner,
         job: Job,
         allowed: tuple[str, ...],
         policy: ExecutionPolicy,
         cancellation: CancellationToken,
     ) -> ToolResult:
-        request = ToolRequest(
-            target_kind=job.target_kind,
-            target_value=job.target_value,
-            allowed_domains=allowed,
-            timeout_seconds=int(policy.timeout_seconds),
-        )
-        for attempt in range(policy.retries + 1):
-            try:
-                policy.check_cancellation(cancellation)
-            except CancellationRequested:
-                return ToolResult(ok=False, error_code="cancelled")
-            result = runner.run(request, cancellation)
-            if (
-                result.ok
-                or result.error_code not in _RETRYABLE_TOOL_ERRORS
-                or attempt == policy.retries
-            ):
-                return result
-        return ToolResult(ok=False, error_code="retry_exhausted")
+        correlation = Correlation(assessment_id=assessment_id, job_id=job.job_id)
+        with self._observability.span("athena.job", correlation):
+            request = ToolRequest(
+                target_kind=job.target_kind,
+                target_value=job.target_value,
+                allowed_domains=allowed,
+                timeout_seconds=int(policy.timeout_seconds),
+            )
+            for attempt in range(policy.retries + 1):
+                try:
+                    policy.check_cancellation(cancellation)
+                except CancellationRequested:
+                    return ToolResult(ok=False, error_code="cancelled")
+                result = runner.run(request, cancellation)
+                if (
+                    result.ok
+                    or result.error_code not in _RETRYABLE_TOOL_ERRORS
+                    or attempt == policy.retries
+                ):
+                    return result
+            return ToolResult(ok=False, error_code="retry_exhausted")
 
     def _finish(
-        self, assessment_id: str, job: Job, result: ToolResult, findings: list[Finding]
+        self,
+        assessment_id: str,
+        job: Job,
+        result: ToolResult,
+        findings: list[Finding],
+        duration_seconds: float,
     ) -> Job:
         if not result.ok:
             updated = self._repo.transition_job(
@@ -271,6 +295,8 @@ class Coordinator:
                 job_id=job.job_id,
                 metadata={"adapter": job.adapter},
             )
+            outcome = "cancelled" if result.error_code == "cancelled" else "failed"
+            self._observability.job_finished("athena", job.adapter, outcome, duration_seconds)
             return updated
         document = AssessmentResult(
             assessment_id=assessment_id,
@@ -279,6 +305,15 @@ class Coordinator:
             findings=tuple(result.findings),
         )
         result_id = self._repo.save_result(assessment_id, job.job_id, document.canonical_json())
+        with self._observability.span(
+            "athena.evidence",
+            Correlation(
+                assessment_id=assessment_id,
+                job_id=job.job_id,
+                evidence_id=result_id,
+            ),
+        ):
+            self._observability.artifact_created("athena", "evidence", "json")
         findings.extend(result.findings)
         updated = self._repo.transition_job(job, JobState.SUCCEEDED, result_id=result_id)
         self._emit(
@@ -288,9 +323,10 @@ class Coordinator:
             job_id=job.job_id,
             metadata={"adapter": job.adapter, "count": str(len(result.findings))},
         )
+        self._observability.job_finished("athena", job.adapter, "succeeded", duration_seconds)
         return updated
 
-    def _finish_timed_out(self, assessment_id: str, job: Job) -> Job:
+    def _finish_timed_out(self, assessment_id: str, job: Job, duration_seconds: float) -> Job:
         updated = self._repo.transition_job(job, JobState.TIMED_OUT, error_code="timeout")
         self._emit(
             assessment_id,
@@ -299,9 +335,10 @@ class Coordinator:
             job_id=job.job_id,
             metadata={"adapter": job.adapter},
         )
+        self._observability.job_finished("athena", job.adapter, "timed_out", duration_seconds)
         return updated
 
-    def _finish_deadline(self, assessment_id: str, job: Job) -> Job:
+    def _finish_deadline(self, assessment_id: str, job: Job, duration_seconds: float) -> Job:
         updated = self._repo.transition_job(job, JobState.CANCELLED, error_code="deadline")
         self._emit(
             assessment_id,
@@ -310,6 +347,7 @@ class Coordinator:
             job_id=job.job_id,
             metadata={"adapter": job.adapter, "reason": "deadline"},
         )
+        self._observability.job_finished("athena", job.adapter, "cancelled", duration_seconds)
         return updated
 
     # -- lifecycle use cases ---------------------------------------------- #

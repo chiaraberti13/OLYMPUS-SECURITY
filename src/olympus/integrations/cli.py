@@ -581,14 +581,31 @@ def aegis_jobs_work(
     from pathlib import Path
 
     from olympus.aegis.jobs import AegisJobStore, AegisWorker, generate_worker_id
+    from olympus.core.observability import (
+        ObservabilityConfigurationError,
+        observability_from_config,
+    )
 
     store = AegisJobStore(Path(database))
     try:
-        worker = AegisWorker(store, worker_id=worker_id or generate_worker_id())
-    except ValueError as exc:
+        observability = observability_from_config()
+    except ObservabilityConfigurationError as exc:
         typer.echo(f"olympus: {exc}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
-    job = worker.run_next(audit_path=Path(audit))
+    try:
+        worker = AegisWorker(
+            store,
+            worker_id=worker_id or generate_worker_id(),
+            observability=observability,
+        )
+    except ValueError as exc:
+        observability.shutdown()
+        typer.echo(f"olympus: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    try:
+        job = worker.run_next(audit_path=Path(audit))
+    finally:
+        observability.shutdown()
     if job is None:
         typer.echo(json.dumps({"claimed": False, "reason": "queue-empty"}, indent=2))
         return

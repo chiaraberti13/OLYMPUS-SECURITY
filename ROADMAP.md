@@ -42,7 +42,7 @@
 | 3 | UX operativa bilingue | `[ ]` | `UX-A`, `UX-C`, `UX-D`, `UX-E`, `UX-F`, `UX-G` |
 | 4 | Capability Red/Blue/Purple | `[~]` | `OPS-RED`, `OPS-BLUE`, `OPS-PURPLE` |
 | 5 | Production readiness scanner | `[ ]` | `D1`, `D2` |
-| 6 | Distribuzione e osservabilità | `[ ]` | `DEV-E`, `DEV-F`, `SEC-F` |
+| 6 | Distribuzione e osservabilità | `[~]` | `DEV-E`, `DEV-F`, `SEC-F` |
 
 Il cruscotto va aggiornato nella stessa PR che cambia lo stato di un intervento.
 
@@ -367,8 +367,12 @@ dalla precedente oppure restituisce un errore di migrazione esplicito e sicuro.
   incrementale e limita byte totali, byte per riga e diagnostica degli scarti;
   Apollo run valuta subito ogni evento e conserva per la deduplica solo ID e
   fingerprint, non l'intero dataset.
-- [ ] Aggiungere metriche OpenTelemetry/Prometheus con cardinalità limitata e
-  redazione by design; correlare assessment, job, evidence e report.
+- [x] Aggiungere metriche OpenTelemetry/Prometheus con cardinalità limitata e
+  redazione by design: backend opzionali `none|prometheus|otlp`, endpoint
+  Prometheus AEGIS autenticato, textfile atomico per processi brevi e metriche
+  prive di target/identità/ID. Le trace correlano assessment, job, evidence e
+  report esclusivamente tramite identificativi Olympus opachi e validati
+  (`docs/observability.md`).
 - [ ] Testare crash recovery, retry idempotenti, lock SQLite, migrazioni interrotte
   e cancellazione durante l'esecuzione di un tool esterno.
 
@@ -746,7 +750,8 @@ committata e verificabile secondo `docs/scanner-maturity.md`.
 ### Fase 6 — Distribuzione e osservabilità (2–4 settimane, poi continua)
 
 - [ ] Trusted Publishing su PyPI, firma release/container e provenance SLSA.
-- [ ] Metriche e tracing redatti, dashboard operative e SLO.
+- [~] Metriche e tracing redatti sono disponibili via Prometheus/OTLP (`DEV-E`);
+  restano da definire dashboard operative e SLO misurati su ambienti stabili.
 - [ ] Runbook di installazione, upgrade, backup, restore, revoca e incident response.
 - [ ] Release candidate in lab, security review e rollback testato.
 - [ ] SLA di vulnerability disclosure e runbook di compromissione chiavi

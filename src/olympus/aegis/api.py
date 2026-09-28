@@ -9,6 +9,9 @@ from __future__ import annotations
 
 import math
 import re
+import time
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -40,6 +43,7 @@ from olympus.aegis.jobs import (
     JobState,
 )
 from olympus.core.execution import StructuredAuditRecord, append_structured_audit
+from olympus.core.observability import Correlation, Observability, observability_from_config
 from olympus.integrations.capabilities import inventory_document
 
 MAX_REQUEST_BYTES = 64 * 1024
@@ -157,19 +161,31 @@ class JobList(BaseModel):
     jobs: list[AegisJob]
 
 
-def create_app(settings: ApiSettings) -> FastAPI:
+def create_app(settings: ApiSettings, observability: Observability | None = None) -> FastAPI:
     """Build a fail-closed AEGIS API around the canonical durable job store."""
     settings.validate()
+    owns_telemetry = observability is None
+    telemetry = observability or observability_from_config()
     store = AegisJobStore(settings.database)
     store.initialize()
     scope_root = settings.scope_directory.resolve()
     registers = _RegisterSource(settings)
     limiter = RateLimiter()
 
+    @asynccontextmanager
+    async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+        del application
+        try:
+            yield
+        finally:
+            if owns_telemetry:
+                telemetry.shutdown()
+
     app = FastAPI(
         title="Olympus AEGIS API",
         version=__version__,
         description="Authorized specialist-engine orchestration and evidence lifecycle.",
+        lifespan=lifespan,
     )
 
     def authenticated(required_scope: str) -> Caller:
@@ -214,10 +230,25 @@ def create_app(settings: ApiSettings) -> FastAPI:
     @app.middleware("http")
     async def accountability(request: Request, call_next):  # type: ignore[no-untyped-def]
         """Give every request an id, echo it back, and record what it did."""
+        started_at = time.monotonic()
         request_id = _trace_id(request.headers.get("x-request-id"), "req")
         correlation_id = _trace_id(request.headers.get("x-correlation-id"), "cor")
         request.state.request_id = request_id
-        response = await call_next(request)
+        response: Response | None = None
+        try:
+            with telemetry.span("aegis.api.request"):
+                response = await call_next(request)
+        finally:
+            route_object = request.scope.get("route")
+            route = getattr(route_object, "path", "unmatched")
+            telemetry.api_request(
+                "aegis",
+                request.method,
+                route,
+                response.status_code if response is not None else 500,
+                time.monotonic() - started_at,
+            )
+        assert response is not None  # noqa: S101 - call_next returned without raising
         response.headers["X-Request-ID"] = request_id
         response.headers["X-Correlation-ID"] = correlation_id
         if settings.audit_path is not None:
@@ -287,6 +318,14 @@ def create_app(settings: ApiSettings) -> FastAPI:
             "capabilities": inventory_document(),
         }
 
+    @app.get("/metrics", include_in_schema=False)
+    def metrics(caller: Caller = reads_capabilities) -> Response:
+        payload = telemetry.prometheus_payload()
+        if payload is None:
+            raise HTTPException(status_code=404, detail="Prometheus metrics are not enabled")
+        content, content_type = payload
+        return Response(content=content, headers={"Content-Type": content_type})
+
     @app.get("/api/v1/capabilities", tags=["capabilities"])
     def capabilities(caller: Caller = reads_capabilities) -> dict[str, object]:
         return inventory_document()
@@ -305,7 +344,7 @@ def create_app(settings: ApiSettings) -> FastAPI:
             )
         scope_path = _registered_scope(scope_root, body.scope_id)
         try:
-            return store.submit(
+            job = store.submit(
                 scanner=body.scanner,
                 target=body.target,
                 target_kind=body.target_kind,
@@ -314,6 +353,8 @@ def create_app(settings: ApiSettings) -> FastAPI:
                 idempotency_key=body.idempotency_key,
                 max_attempts=body.max_attempts,
             )
+            with telemetry.span("aegis.job.queued", Correlation(job_id=job.job_id)):
+                return job
         except IdempotencyConflict as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except ValueError as exc:

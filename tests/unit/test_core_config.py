@@ -71,6 +71,26 @@ def test_invalid_http_config_fails_closed(
         config.load_config()
 
 
+@pytest.mark.parametrize(
+    "body",
+    [
+        '[observability]\nbackend = "unknown"\n',
+        "[observability]\ncardinality_limit = 7\n",
+        '[observability]\notlp_endpoint = "file:///tmp/collector"\n',
+        '[observability]\nservice_name = "unsafe service"\n',
+        "[observability]\nunknown = true\n",
+    ],
+)
+def test_invalid_observability_config_fails_closed(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, body: str
+) -> None:
+    cfg = tmp_path / "olympus.toml"
+    cfg.write_text(body, encoding="utf-8")
+    monkeypatch.setenv("OLYMPUS_CONFIG", str(cfg))
+    with pytest.raises(config.ConfigError):
+        config.load_config()
+
+
 def test_http_from_config_uses_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     cfg = tmp_path / "olympus.toml"
     cfg.write_text("[http]\ntimeout = 20.0\nrate = 0.5\n", encoding="utf-8")
@@ -140,3 +160,13 @@ def test_effective_config_lists_override_names_not_values(
 def test_effective_deadline_tracks_timeout_when_not_overridden() -> None:
     effective = config.effective_config({"http": {"timeout": 900.0}})
     assert effective["http"]["deadline"] == 900.0
+
+
+def test_effective_observability_config_and_environment_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OLYMPUS_OBSERVABILITY_BACKEND", "prometheus")
+    effective = config.effective_config({})
+    assert effective["observability"]["backend"] == "prometheus"
+    assert effective["observability"]["cardinality_limit"] == 64
+    assert config.active_environment_overrides() == ["OLYMPUS_OBSERVABILITY_BACKEND"]
