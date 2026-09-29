@@ -373,8 +373,13 @@ dalla precedente oppure restituisce un errore di migrazione esplicito e sicuro.
   prive di target/identità/ID. Le trace correlano assessment, job, evidence e
   report esclusivamente tramite identificativi Olympus opachi e validati
   (`docs/observability.md`).
-- [ ] Testare crash recovery, retry idempotenti, lock SQLite, migrazioni interrotte
-  e cancellazione durante l'esecuzione di un tool esterno.
+- [x] Testare crash recovery, retry idempotenti, lock SQLite, migrazioni interrotte
+  e cancellazione durante l'esecuzione di un tool esterno: la suite di fault
+  injection riavvia lo store dopo una lease abbandonata, forza submit concorrenti
+  con la stessa idempotency key, contende un writer lock reale, interrompe una
+  migrazione DDL e cancella un processo già avviato. Le migrazioni AEGIS sono ora
+  atomiche e acquisiscono il write lock solo quando la versione deve avanzare
+  (`tests/integration/test_aegis_resilience.py`, suite POSIX).
 
 **Criterio di completamento:** esistono SLO e performance budget misurati; un
 riavvio non duplica scansioni né perde lo stato terminale di un job.

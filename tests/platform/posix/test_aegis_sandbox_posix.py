@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -229,6 +230,52 @@ def test_output_limit_and_cancellation_carry_their_own_causes() -> None:
     token.cancel()
     with pytest.raises(CancellationRequested):
         run_command(["true"], timeout=5, cancellation=token)
+
+
+def test_cancellation_during_an_external_tool_kills_the_running_process(
+    tmp_path: Path,
+) -> None:
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    shared.chmod(0o777)
+    token = CancellationToken()
+    marker = shared / "started.pid"
+    terminated = shared / "terminated"
+    script = (
+        "import os,signal,sys,time;"
+        "signal.signal(signal.SIGTERM,lambda *_:"
+        "(open('terminated','w').write('yes'),sys.exit(0)));"
+        "open('started.pid','w').write(str(os.getpid()));"
+        "time.sleep(120)"
+    )
+
+    def cancel_after_start() -> None:
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            if marker.exists():
+                token.cancel()
+                return
+            time.sleep(0.01)
+        raise AssertionError("the external tool never started")
+
+    canceller = threading.Thread(target=cancel_after_start)
+    canceller.start()
+    started_at = time.monotonic()
+    with pytest.raises(CancellationRequested):
+        run_command(
+            [sys.executable, "-c", script],
+            timeout=30,
+            cwd=shared,
+            cancellation=token,
+            sandbox=_policy(),
+        )
+    canceller.join(timeout=10)
+
+    assert not canceller.is_alive()
+    assert marker.exists(), "cancellation happened before the external tool started"
+    assert int(marker.read_text()) > 0
+    assert terminated.read_text() == "yes", "the running tool did not receive SIGTERM"
+    assert time.monotonic() - started_at < 10
 
 
 def test_a_clean_exit_is_reported_as_completed() -> None:

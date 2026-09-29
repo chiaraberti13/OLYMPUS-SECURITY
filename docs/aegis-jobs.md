@@ -7,7 +7,9 @@ validation, deadlines, output limits or redacted audit.
 
 Implemented in `src/olympus/aegis/jobs.py`; exposed by `olympus aegis jobs …`
 and the native API (`src/olympus/aegis/api.py`); tested in
-`tests/unit/test_aegis_jobs.py`.
+`tests/unit/test_aegis_jobs.py` e nella suite di fault injection
+`tests/integration/test_aegis_resilience.py`; la cancellazione di un processo
+reale è verificata dalla suite POSIX.
 
 ## Job states
 
@@ -78,11 +80,20 @@ olympus aegis jobs recover
   pre-versioning database is altered in place (leases, attempt budget,
   availability and idempotency columns are added, `available_at` is backfilled
   from `created_at`) without losing queued jobs.
+- Schema inspection remains read-only on a current database. When migration is
+  necessary, all DDL and the `user_version` bump run in one `BEGIN IMMEDIATE`
+  transaction; an interruption rolls back columns, indexes and version together,
+  and a later startup can retry safely. DDL is executed statement by statement
+  because Python's `executescript()` would commit a pending transaction first.
 - A database written by a **newer** release is refused with `SchemaVersionError`
   rather than being silently misread.
 - Connections use WAL journalling with `synchronous = FULL` and a 10s busy
   timeout, so a status query is not locked out by a worker's write transaction
   and a committed transition is on disk before the caller is told it happened.
+- Concurrent writers wait for the SQLite lock instead of losing a claim;
+  concurrent resubmissions with the same idempotency key converge on exactly one
+  persisted job. Restart recovery preserves a completed terminal state and never
+  manufactures a second job.
 
 ## What the store publishes
 

@@ -13,6 +13,11 @@ everything below lives under **Unreleased**.
 ## [Unreleased]
 
 ### Added
+- **Resilience fault injection (`DEV-E`)** — integration tests now exercise a
+  worker crash and restart, concurrent idempotent submissions, real SQLite writer
+  contention, interrupted schema migration rollback and cancellation of an
+  already-running external process. AEGIS schema DDL and its version bump now
+  commit atomically without blocking ordinary WAL readers.
 - **Osservabilità sicura (`DEV-E`)** — metriche con label limitate e prive di
   target, identità, errori e ID; backend opzionali Prometheus e OTLP/HTTP,
   `/metrics` AEGIS autenticato, textfile atomico per processi brevi e trace che

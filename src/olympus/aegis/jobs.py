@@ -225,16 +225,33 @@ class AegisJobStore:
         """Create or migrate the schema; safe to call before every operation."""
         self._validate_path()
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self._transaction() as db:
+        # Keep the normal current-schema path read-only so WAL readers remain
+        # available while another connection writes. Only an actual migration
+        # acquires the serialized write lock.
+        with self._reading() as db:
             version = int(db.execute("PRAGMA user_version").fetchone()[0])
-            if version > SCHEMA_VERSION:
-                raise SchemaVersionError(
-                    f"AEGIS job database is at schema {version}, but this release understands "
-                    f"{SCHEMA_VERSION}: upgrade Olympus rather than downgrading the database"
-                )
-            if version < SCHEMA_VERSION:
-                self._migrate(db, version)
-                db.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+        if version > SCHEMA_VERSION:
+            raise SchemaVersionError(
+                f"AEGIS job database is at schema {version}, but this release understands "
+                f"{SCHEMA_VERSION}: upgrade Olympus rather than downgrading the database"
+            )
+        if version < SCHEMA_VERSION:
+            # Migration and version bump are one serialized transaction. Read
+            # the version again after taking the lock: a concurrent initializer
+            # may have completed the same migration while this caller waited.
+            # Do not use ``executescript`` here because sqlite3 commits a
+            # pending transaction before running it.
+            with self._transaction(immediate=True) as db:
+                locked_version = int(db.execute("PRAGMA user_version").fetchone()[0])
+                if locked_version > SCHEMA_VERSION:
+                    raise SchemaVersionError(
+                        f"AEGIS job database is at schema {locked_version}, but this release "
+                        f"understands {SCHEMA_VERSION}: upgrade Olympus rather than downgrading "
+                        "the database"
+                    )
+                if locked_version < SCHEMA_VERSION:
+                    self._migrate(db, locked_version)
+                    db.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
         self.path.chmod(0o600)
 
     def _migrate(self, db: sqlite3.Connection, version: int) -> None:
@@ -242,7 +259,7 @@ class AegisJobStore:
             "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'aegis_jobs'"
         ).fetchone()
         if version == 0 and legacy is None:
-            db.executescript(_SCHEMA_V2)
+            _execute_schema_statements(db, _SCHEMA_V2_STATEMENTS)
             return
         if version == 0:
             # A pre-versioning database: add what v2 introduced, keeping rows.
@@ -257,7 +274,7 @@ class AegisJobStore:
             ):
                 db.execute(f"ALTER TABLE aegis_jobs ADD COLUMN {column} {definition}")
             db.execute("UPDATE aegis_jobs SET available_at = created_at")
-            db.executescript(_INDEXES_V2)
+            _execute_schema_statements(db, _INDEXES_V2_STATEMENTS)
 
     # -- submission --------------------------------------------------------- #
     def submit(
@@ -695,8 +712,8 @@ class AegisJobStore:
             raise OSError("AEGIS job database must be a regular non-symlink file")
 
 
-_SCHEMA_V2 = """
-CREATE TABLE IF NOT EXISTS aegis_jobs (
+_CREATE_JOBS_V2 = """
+CREATE TABLE aegis_jobs (
     job_id TEXT PRIMARY KEY,
     idempotency_key TEXT,
     scanner TEXT NOT NULL,
@@ -719,19 +736,24 @@ CREATE TABLE IF NOT EXISTS aegis_jobs (
     error TEXT,
     cancel_requested INTEGER NOT NULL DEFAULT 0
         CHECK (cancel_requested IN (0, 1))
-);
+)
 """
 
-_INDEXES_V2 = """
-CREATE INDEX IF NOT EXISTS idx_aegis_jobs_state_created
-    ON aegis_jobs(state, created_at);
-CREATE INDEX IF NOT EXISTS idx_aegis_jobs_claim
-    ON aegis_jobs(state, available_at);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_aegis_jobs_idempotency
-    ON aegis_jobs(idempotency_key) WHERE idempotency_key IS NOT NULL;
-"""
+_INDEXES_V2_STATEMENTS = (
+    "CREATE INDEX IF NOT EXISTS idx_aegis_jobs_state_created ON aegis_jobs(state, created_at)",
+    "CREATE INDEX IF NOT EXISTS idx_aegis_jobs_claim ON aegis_jobs(state, available_at)",
+    """CREATE UNIQUE INDEX IF NOT EXISTS idx_aegis_jobs_idempotency
+       ON aegis_jobs(idempotency_key) WHERE idempotency_key IS NOT NULL""",
+)
 
-_SCHEMA_V2 = _SCHEMA_V2 + _INDEXES_V2
+_SCHEMA_V2_STATEMENTS = (_CREATE_JOBS_V2, *_INDEXES_V2_STATEMENTS)
+
+
+def _execute_schema_statements(db: sqlite3.Connection, statements: tuple[str, ...]) -> None:
+    """Execute DDL without the implicit commit performed by ``executescript``."""
+    for statement in statements:
+        db.execute(statement)
+
 
 #: An absolute path in an error message tells a caller how the server is laid
 #: out. Matches POSIX and Windows roots but never the ``//host/path`` part of a
