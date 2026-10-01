@@ -59,18 +59,37 @@ of truth.
 
 ## Formatted PDF report (`OPS-SCAN`)
 
-`--pdf` writes a designed, presentation-ready report — a branded cover, an
-executive summary with KPI tiles and a proportional severity-distribution bar
-with a labelled legend, the ranked findings as cards (a severity chip, a
-severity-coloured left accent rule, a monospace evidence box and a remediation
-callout) and the asset/alert inventories — from the same canonical model as
-every other format. `athena run --report` produces it too when the plan's
-`output.report_formats` lists `pdf`.
+`--pdf` writes a minimal, presentation-ready report — a branded cover, a summary
+(overall risk, the per-severity rating counts with a thin distribution bar, and
+the report's own counts), a **known-vulnerabilities table** and the findings as
+clean typographic blocks, plus the asset/alert inventories — from the same
+canonical model as every other format. `athena run --report` produces it too when
+the plan's `output.report_formats` lists `pdf`.
+
+### NIST / CVE / CVSS / EPSS
+
+The known-vulnerabilities table lists one row per CVE referenced by a finding —
+**CVE · CVSS · EPSS · percentile · KEV** — and each CVE links to its
+[NIST NVD](https://nvd.nist.gov/) detail page. Each finding's references also
+resolve CVE ids to the NVD and CWE ids to [MITRE CWE](https://cwe.mitre.org/).
+
+EPSS scores and KEV membership come from the KEV/EPSS enrichment overlay, never
+fabricated. Supply them from local feeds (offline, reproducible):
+
+```bash
+olympus vulcan report --engagement ENG --findings f.json \
+  --pdf report.pdf --kev kev.json --epss epss.json
+```
+
+`athena run --report` passes the overlay through automatically when the run was
+enriched with `--enrich-kev` / `--enrich-epss`. Without an overlay the CVE/CWE
+links are still rendered from the finding's own text, and the EPSS columns show
+`—`.
 
 Severity colour is a validated ordinal scale (critical → info). Because it is a
-status scale, every mark that carries it also carries its text label (the chip
-text, the bar and legend labels), so meaning is never colour-alone, and each
-chip's text colour is chosen by WCAG contrast against its own fill.
+status scale, every mark that carries it also carries its text label, so meaning
+is never colour-alone, and each severity chip's text colour is chosen by WCAG
+contrast against its own fill.
 
 The renderer uses [ReportLab](https://docs.reportlab.com/), a pure-Python engine
 with no system binaries, so the PDF stays fully offline and reproducible. It ships

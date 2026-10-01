@@ -8,6 +8,7 @@ receive typed requests, not CLI argument arrays.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Protocol
 
@@ -15,6 +16,7 @@ from olympus.athena.domain.assessment import Assessment, AssessmentState, Job, J
 from olympus.athena.domain.audit import AuditEvent
 from olympus.athena.domain.contracts import AssessmentPlan
 from olympus.core.models import Asset, Finding
+from olympus.vulcan.enrichment import FindingEnrichment
 
 
 @dataclass(frozen=True)
@@ -145,6 +147,8 @@ class ReportRenderer(Protocol):
         """Render ``findings`` in a text ``fmt`` (``json``, ``markdown`` or ``html``)."""
         ...
 
-    def render_pdf(self, findings: list[Finding]) -> bytes:
-        """Render ``findings`` as a formatted PDF report."""
+    def render_pdf(
+        self, findings: list[Finding], enrichments: Sequence[FindingEnrichment] | None = None
+    ) -> bytes:
+        """Render ``findings`` as a formatted PDF report, with an optional overlay."""
         ...

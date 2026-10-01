@@ -27,6 +27,7 @@ from olympus.vulcan.aggregate import (
     load_findings,
     rank_findings,
 )
+from olympus.vulcan.enrichment import EpssScore, KevEntry, enrich_findings
 from olympus.vulcan.pdf import render_report_pdf
 from olympus.vulcan.report import build_report_model, render_report_html, render_report_markdown
 
@@ -45,6 +46,10 @@ class VulcanReportRequest:
     render_markdown: bool = False
     render_html: bool = False
     render_pdf: bool = False
+    #: Optional KEV/EPSS catalogues; when present and ``render_pdf`` is set, the
+    #: PDF's known-vulnerabilities table shows EPSS scores and KEV membership.
+    kev_catalog: dict[str, KevEntry] = field(default_factory=dict)
+    epss_scores: dict[str, EpssScore] = field(default_factory=dict)
     max_files: int = DEFAULT_MAX_FILES
     max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES
     max_total_input_bytes: int = DEFAULT_MAX_TOTAL_INPUT_BYTES
@@ -141,8 +146,14 @@ class VulcanApplicationService:
         if html is not None:
             _ensure_output_size(html.encode(), request.max_output_bytes, "HTML")
         progress()
-        pdf = render_report_pdf(report) if request.render_pdf else None
-        if pdf is not None:
+        pdf = None
+        if request.render_pdf:
+            overlay = None
+            if request.kev_catalog or request.epss_scores:
+                overlay = enrich_findings(
+                    report.findings, kev=request.kev_catalog, epss=request.epss_scores
+                )
+            pdf = render_report_pdf(report, enrichments=overlay)
             _ensure_output_size(pdf, request.max_output_bytes, "PDF")
         progress()
         return VulcanReportOutcome(report, markdown, html, pdf)

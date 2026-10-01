@@ -186,7 +186,9 @@ def run(
         typer.echo(json.dumps(summary, indent=2, sort_keys=True))
 
         if report:
-            _write_report(plan, outcome.assessment_id, findings, storage, observability)
+            _write_report(
+                plan, outcome.assessment_id, findings, storage, observability, enrichments
+            )
         if enrichments is not None:
             _write_enrichment(outcome.assessment_id, findings, enrichments, storage)
     finally:
@@ -267,6 +269,7 @@ def _write_report(
     findings: list[Finding],
     storage: Path,
     observability: Observability | None = None,
+    enrichments: list[FindingEnrichment] | None = None,
 ) -> None:
     telemetry = observability or Observability()
     renderer = VulcanReportRenderer(plan.engagement_id)
@@ -275,7 +278,7 @@ def _write_report(
         target = storage / f"{assessment_id}.report.{suffixes.get(fmt, 'json')}"
         if fmt == "pdf":
             try:
-                target.write_bytes(renderer.render_pdf(findings))
+                target.write_bytes(renderer.render_pdf(findings, enrichments))
             except PdfUnavailableError as exc:
                 typer.echo(f"athena: {exc}", err=True)
                 raise typer.Exit(code=ExitCode.USAGE) from exc
