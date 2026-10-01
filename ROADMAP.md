@@ -43,6 +43,12 @@
 | 4 | Capability Red/Blue/Purple | `[~]` | `OPS-RED`, `OPS-BLUE`, `OPS-PURPLE`, `OPS-SCAN` |
 | 5 | Production readiness scanner | `[ ]` | `D1`, `D2` |
 | 6 | Distribuzione e osservabilità | `[~]` | `DEV-E`, `DEV-F`, `SEC-F` |
+| 7 | Rename Themis + Web control plane | `[ ]` | `DEV-I`, `WEB-A`…`WEB-H` |
+
+L'ordine di esecuzione concordato per la Fase 7: `DEV-I` (rename) → `WEB-B`
+(engagement) → `WEB-A` (API/SSE + web skeleton sicuro) → `WEB-D` (tools) →
+`WEB-E` (new assessment) → `WEB-C` (findings) → `WEB-F` (smart scan) →
+`WEB-H` (persistenza) → ritiro runtime VAP (`SEC-A`).
 
 Il cruscotto va aggiornato nella stessa PR che cambia lo stato di un intervento.
 
@@ -442,6 +448,156 @@ capability scritto manualmente può divergere dal codice senza fallire la CI.
 
 **Criterio di completamento:** ogni modifica è tracciabile da ID → issue → PR →
 commit → evidenza, e non esistono documenti di pianificazione in conflitto.
+
+### Intervento I · `DEV-I` — Rinominare AEGIS in Themis (**P1**)
+
+Il sottosistema `src/olympus/aegis/` (control plane degli scanner specialistici:
+registry, adapter, job, scope, autorizzazione, sandbox, execution, API,
+identity) assume il nome **Themis** — la Titanide della legge e dell'ordine, che
+riflette il suo ruolo di gate di governance sull'esecuzione degli strumenti. Il
+rename è un'evoluzione di naming, non una riscrittura: una sola implementazione.
+Precedente collaudato: `docs/vap-to-aegis-rename.md` (VAP → AEGIS).
+
+- [ ] Migrare gli identificatori tecnici: package/dir `aegis/` → `themis/`,
+  `athena/adapters/aegis_scan.py` → `themis_scan.py`, classi `Aegis*` →
+  `Themis*`, comando CLI `aegis` → `themis`, tag/endpoint FastAPI, doc
+  `docs/aegis-*.md` → `docs/themis-*.md`, servizi/volumi docker, stringhe audit
+  e messaggi CLI.
+- [ ] Trattare come **contract change** gli schema name versionati
+  (`olympus.aegis`, `.aegis-job`, `.aegis-result`, `.aegis-scope`,
+  `.aegis-readiness`, `.aegis-capability-inventory`, `.aegis-api-identities`,
+  `.aegis-job-list`): nuovi nomi `olympus.themis*` con migrazione
+  `core/migrations` che legge i documenti storici, rigenerando schema catalog e
+  golden contract.
+- [ ] Preservare la compatibilità deployment: variabili d'ambiente `THEMIS_*`
+  con **fallback automatico** alle `AEGIS_*` per almeno una release; i nomi dei
+  file di storage restano leggibili.
+- [ ] Mantenere `olympus aegis` come **alias deprecato** (warning che indica il
+  nuovo comando) che inoltra a `themis`, senza duplicare l'implementazione; un
+  CLI backward-compatibility test verifica l'alias.
+- [ ] Distinguere i riferimenti **storici** da conservare (`upgrade.md`,
+  `docs/vap-to-aegis-rename.md`, CHANGELOG) da quelli tecnici da migrare.
+
+**Criterio di completamento:** nessun identificatore tecnico `AEGIS`/`aegis`
+residuo salvo l'alias deprecato e i riferimenti storici; migrazione schema
+testata; `olympus aegis` emette il warning e funziona; Ruff, Mypy, Pytest,
+schema-check e golden contract verdi; documentazione allineata.
+
+## 🌐 Prospettiva Web Control Plane (interfaccia sullo stesso core)
+
+> CLI, TUI, API e Web sono interfacce diverse sullo **stesso** core e sugli stessi
+> use case: nessuna logica di cybersecurity nel frontend, nessun bypass di scope,
+> autorizzazione, execution policy, sandbox, audit, retention o redaction. Il
+> control plane nativo è `olympus.themis.api` (FastAPI tipizzata); la Web UI vi si
+> appoggia, non la sostituisce.
+
+### Stato attuale
+
+Esiste già un'API FastAPI tipizzata (`themis/api.py`, ex `aegis/api.py`) con
+autenticazione per-scope, middleware di accountability e limiti sul body,
+`/health`, `/ready`, `/metrics`, `/api/v1/capabilities` e `/api/v1/jobs`
+(submit/list/get/cancel). **Non esiste una Web UI nativa**: l'unica web è la VAP
+vendorizzata in quarantena (solo loopback), destinata al ritiro (`SEC-A`). La
+Web UI nativa va costruita sopra l'API esistente, non come piattaforma parallela.
+
+### Intervento A · `WEB-A` — Web control plane nativo (**P0/P1**)
+
+- [ ] Servire una Web UI nativa con **FastAPI + Jinja2 + HTMX + SSE** sopra
+  l'API tipizzata esistente; nessun endpoint tipo `POST /run-command` e nessuna
+  shell arbitraria — solo richieste tipizzate (`scanner`, `target`, `engagement`,
+  `profile`) che il server traduce nell'esecuzione scope/policy-gated.
+- [ ] Applicare gli stessi controlli della CLI: scope, autorizzazione, execution
+  policy, rate limit, deadline, sandbox, audit, retention, redaction; la GUI non
+  può ridurli (**P0**).
+- [ ] Aggiungere security headers, CSP restrittiva, cookie `Secure`/`SameSite`,
+  CSRF dove necessario, validazione input, rate limiting, autenticazione e audit
+  trail (**P0**).
+- [ ] Streaming job via SSE/WebSocket con stati `QUEUED/STARTING/RUNNING/PARSING/
+  NORMALIZING/COMPLETED` e `FAILED/CANCELLED/PARTIAL/UNAVAILABLE/DISABLED`, output
+  redatto e pulsante **Cancel** collegato alla cancellazione reale di Olympus.
+
+**Criterio di completamento:** un job avviato dal browser è indistinguibile, per
+policy e audit, da uno avviato in CLI; i test di web-security (headers, CSRF,
+authz) e di job-lifecycle/cancellation passano.
+
+### Intervento B · `WEB-B` — Engagement come entità di primo livello (**P1**)
+
+- [ ] Rendere l'Engagement il contenitore centrale di asset, scan, job, finding,
+  evidence, alert, incident, report e audit, con scope incluso/escluso.
+- [ ] CLI, TUI, API e Web referenziano lo **stesso** engagement model e lo stesso
+  database; nessun DB separato per la GUI se non strettamente necessario.
+
+**Criterio di completamento:** lo stesso engagement è leggibile e operabile
+identicamente dai quattro canali.
+
+### Intervento C · `WEB-C` — Finding management e lifecycle (**P1**)
+
+- [ ] Vista finding con Title, Severity, Status, Asset, Source, Scanner, CVE,
+  CWE, CVSS, EPSS, CISA KEV (quando disponibili), Evidence, First/Last seen,
+  Remediation, References, senza assumere che ogni dato sia sempre presente.
+- [ ] Stati `New/Confirmed/False Positive/Accepted Risk/Remediated/Retest
+  Required/Closed`, suppression/accepted-risk, workflow false-positive,
+  remediation tracking, deduplica cross-scanner, tagging, ricerca e filtri.
+
+**Criterio di completamento:** un finding attraversa tutto il ciclo di vita con
+audit; la deduplica non perde evidenza né remediation.
+
+### Intervento D · `WEB-D` — Pagina Tools dal registry reale (**P1**)
+
+- [ ] Card per ogni strumento con nome, categoria, descrizione non eccessivamente
+  tecnica, stato, versione, maturity Olympus, capability, requisiti,
+  installato/configurato/ready — **derivati dal registry/capability system reale**
+  (`themis capabilities`), mai da un elenco hardcoded nella GUI.
+
+**Criterio di completamento:** la pagina riflette esattamente il
+registry/capability inventory; uno scanner non adattato non appare eseguibile.
+
+### Intervento E · `WEB-E` — New Assessment guidato (**P1**)
+
+- [ ] Flusso: scegli engagement → target → controllo scope → tipo attività
+  (Recon / Network / Web / Vulnerability Assessment / Secret Scan / Detection /
+  Full) → tool o modalità automatica → **anteprima "Olympus sta per eseguire"**
+  con livello `PASSIVE/ACTIVE/INTRUSIVE` → autorizzazione quando necessaria →
+  avvio → progress → risultati → evidenze → finding → report.
+- [ ] Spiegazioni brevi non tecniche per ogni strumento e una modalità
+  **Advanced** per utenti esperti; onboarding guidato.
+
+**Criterio di completamento:** un utente che non ricorda i flag CLI completa un
+assessment passivo end-to-end; nessuna operazione attiva parte senza preview e
+autorizzazione.
+
+### Intervento F · `WEB-F` — Smart Scan (pipeline proposta) (**P2**)
+
+- [ ] Da target + engagement + obiettivo, Olympus **propone** una pipeline
+  deterministica, spiegabile, scope-aware, policy-aware, limitata, configurabile e
+  **visualizzabile prima dell'esecuzione**; mai esecuzione automatica di qualunque
+  scanner. L'utente approva il piano.
+
+**Criterio di completamento:** la pipeline proposta è riproducibile e approvata
+esplicitamente; nessun ramo parte fuori scope o senza autorizzazione.
+
+### Intervento G · `WEB-G` — Dashboard, accessibilità, i18n (**P2**)
+
+- [ ] Dashboard con widget che rispondono a domande operative reali (asset, job
+  in corso, scansioni completate, finding per severità/scanner, incident aperti,
+  attività recente, scanner readiness, avanzamento assessment); nessun widget
+  decorativo.
+- [ ] Responsive, accessibile (lega a `UX-E`), bilingue IT/EN, con onboarding e
+  modalità Advanced.
+
+**Criterio di completamento:** ogni widget è tracciabile a una domanda
+operativa; i flussi primari sono usabili da tastiera, in IT ed EN.
+
+### Intervento H · `WEB-H` — Astrazione persistenza (SQLite / Postgres) (**P2**)
+
+- [ ] Introdurre un repository/port di persistenza che mantiene **SQLite come
+  default locale** e consente **PostgreSQL opzionale** per deployment
+  server/multiutente; Postgres non è mai un requisito per l'uso locale.
+- [ ] RBAC, OIDC e API token multiutente estendono l'identità già presente
+  (`SEC-D`), con audit trail multiutente.
+
+**Criterio di completamento:** lo stesso codice gira su SQLite e Postgres dietro
+lo stesso port; l'utente locale non deve installare Postgres.
 
 ## 🎨 Prospettiva Designer (UI/UX)
 
