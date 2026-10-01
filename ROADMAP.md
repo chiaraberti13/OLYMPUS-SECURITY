@@ -43,7 +43,7 @@
 | 4 | Capability Red/Blue/Purple | `[~]` | `OPS-RED`, `OPS-BLUE`, `OPS-PURPLE`, `OPS-SCAN` |
 | 5 | Production readiness scanner | `[ ]` | `D1`, `D2` |
 | 6 | Distribuzione e osservabilità | `[~]` | `DEV-E`, `DEV-F`, `SEC-F` |
-| 7 | Rename Themis + Web control plane | `[ ]` | `DEV-I`, `WEB-A`…`WEB-H` |
+| 7 | Rename Themis + Web control plane | `[ ]` | `DEV-I`, `WEB-A`…`WEB-J` |
 
 L'ordine di esecuzione concordato per la Fase 7: `DEV-I` (rename) → `WEB-B`
 (engagement) → `WEB-A` (API/SSE + web skeleton sicuro) → `WEB-D` (tools) →
@@ -538,9 +538,13 @@ identicamente dai quattro canali.
 - [ ] Stati `New/Confirmed/False Positive/Accepted Risk/Remediated/Retest
   Required/Closed`, suppression/accepted-risk, workflow false-positive,
   remediation tracking, deduplica cross-scanner, tagging, ricerca e filtri.
+- [ ] **Evidence browser**: navigare le evidenze collegate a un finding
+  (comando/argv redatto, output, digest, firma Ed25519) riusando Minerva e la
+  chain-of-custody, senza esporre dati redatti o segreti.
 
 **Criterio di completamento:** un finding attraversa tutto il ciclo di vita con
-audit; la deduplica non perde evidenza né remediation.
+audit; la deduplica non perde evidenza né remediation; ogni finding è navigabile
+fino alla sua evidenza verificabile.
 
 ### Intervento D · `WEB-D` — Pagina Tools dal registry reale (**P1**)
 
@@ -598,6 +602,38 @@ operativa; i flussi primari sono usabili da tastiera, in IT ed EN.
 
 **Criterio di completamento:** lo stesso codice gira su SQLite e Postgres dietro
 lo stesso port; l'utente locale non deve installare Postgres.
+
+### Intervento I · `WEB-I` — Reporting, trend e notifiche (**P2**)
+
+- [ ] **Report builder** sopra Vulcan: comporre un report (executive/tecnico/raw)
+  da un engagement scegliendo sezioni, scope e formato (JSON/MD/HTML/PDF), senza
+  duplicare la logica di rendering già esistente.
+- [ ] **Report comparison / scan diff**: confrontare due run o due report dello
+  stesso scope evidenziando finding nuovi, risolti e persistenti.
+- [ ] **Trend storici e attack-surface evolution**: andamento di finding per
+  severità nel tempo e variazione della superficie (asset/porte/servizi/subdomain)
+  tra run, riusando il diff già presente in Argus.
+- [ ] **Notifiche**: canali opzionali (webhook/e-mail) su eventi di job e finding,
+  con payload redatto e nessun segreto; disattivate di default.
+
+**Criterio di completamento:** un operatore confronta due assessment e riceve una
+notifica redatta alla chiusura di un job, senza logica di report duplicata.
+
+### Intervento J · `WEB-J` — Operabilità dei dati (**P2**)
+
+- [ ] **Backup / restore** verificabile di engagement, job, finding, evidence e
+  identità, con integrità controllabile; **data retention** applicata in modo
+  uniforme (riusa `core.retention`).
+- [ ] **Import / export** di engagement/finding/asset in formati versionati
+  (JSON/NDJSON/SARIF) per portabilità tra installazioni, senza rompere i
+  contratti dati.
+- [ ] **OpenAPI pubblicata e documentata**: esporre e versionare lo schema
+  OpenAPI del control plane (`themis.api`) come superficie di integrazione
+  stabile, con esempi.
+
+**Criterio di completamento:** un engagement esportato da un'installazione è
+reimportabile in un'altra senza perdita di dati né violazione di contratto; lo
+schema OpenAPI è versionato e verificato in CI.
 
 ## 🎨 Prospettiva Designer (UI/UX)
 
@@ -833,6 +869,27 @@ cui questo intervento *potenzia* quei due moduli, non ne crea di paralleli.
 - [⏸] **Scansioni programmate e monitoraggio.** Esecuzione ricorrente di un
   profilo su uno scope con diff dei finding tra run; differito perché richiede uno
   scheduler persistente e un lab autorizzato (prerequisito D13).
+
+#### Candidati scanner vagliati (solo se colmano una capability mancante)
+
+Regola: nessuno scanner si aggiunge perché esiste; solo se colma una capability
+reale e non duplica un adapter presente. Il valore resta orchestrazione +
+normalizzazione + scope + evidence + report, non il numero di wrapper. La recon
+attiva ProjectDiscovery/OSINT (`subfinder`, `dnsx`, `naabu`, `amass`,
+`theHarvester`) è già pianificata in `OPS-RED`; il SAST first-party (CodeQL) in
+`SEC-F`. Restano da valutare:
+
+| Tool | Capability mancante | Sovrapposizione | Priorità |
+| --- | --- | --- | --- |
+| Semgrep / Bandit | SAST del codice dell'ingaggio (oltre a CodeQL in CI) | parziale con `SEC-F` | P2 |
+| Trivy / OSV-Scanner | dependency/container/IaC e SBOM-vuln | nessuna oggi | P2 |
+| sslscan | TLS rapido e leggero | parziale con `testssl` | P3 |
+| ffuf | fuzzing web parametrico ampio | parziale con `dirsearch` | P3 |
+
+Esplicitamente **non** pianificati (sovrapposti o fuori dallo scope di prodotto:
+DoS-prone o post-exploitation/AD che eccede i guardrail): Masscan, RustScan,
+Gobuster, Feroxbuster, kiterunner, kube-bench, kube-hunter,
+BloodHound/SharpHound, NetExec, Impacket.
 
 **Criterio di completamento OPS-SCAN:** un operatore configura un profilo su un
 target autorizzato, avvia una scansione scope-safe e ottiene un report PDF
