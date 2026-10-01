@@ -95,7 +95,7 @@ class OutputPolicy(_StrictModel):
     """How and how long assessment results are retained."""
 
     retention_days: int = Field(default=30, ge=1, le=MAX_RETENTION_DAYS)
-    report_formats: tuple[Literal["json", "markdown"], ...] = ("json",)
+    report_formats: tuple[Literal["json", "markdown", "html", "pdf"], ...] = ("json",)
 
 
 class ScopeReference(_StrictModel):

@@ -613,7 +613,9 @@
             "items": {
               "enum": [
                 "json",
-                "markdown"
+                "markdown",
+                "html",
+                "pdf"
               ],
               "type": "string"
             },

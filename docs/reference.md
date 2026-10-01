@@ -325,7 +325,7 @@ jitter = 0.2   # spread each retry wait by +/- this fraction (0 = off)
 
 | Kind | Default | Override |
 |---|---|---|
-| **Reports and exports** — what you asked for (`--output`, `--markdown`, `--html`) | a plain filename in the directory you ran the command from, e.g. `argus-assets.json` | `--output <path>` |
+| **Reports and exports** — what you asked for (`--output`, `--markdown`, `--html`, `--pdf`) | a plain filename in the directory you ran the command from, e.g. `argus-assets.json` | `--output <path>` |
 | **Audit and block logs** — written implicitly when a target is refused (`--log`) | `~/.local/state/olympus/audit/`, following `$XDG_STATE_HOME` when set | `--log <path>`, or `$OLYMPUS_STATE_DIR` for all of them at once |
 
 Audit logs deliberately do *not* depend on your working directory: they are written as a side
@@ -691,7 +691,7 @@ jitter = 0.2   # distribuisce ogni attesa di retry di +/- questa frazione (0 = o
 
 | Tipo | Default | Override |
 |---|---|---|
-| **Report ed export** — quello che hai chiesto (`--output`, `--markdown`, `--html`) | un nome di file semplice nella directory da cui hai lanciato il comando, es. `argus-assets.json` | `--output <path>` |
+| **Report ed export** — quello che hai chiesto (`--output`, `--markdown`, `--html`, `--pdf`) | un nome di file semplice nella directory da cui hai lanciato il comando, es. `argus-assets.json` | `--output <path>` |
 | **Log di audit e di blocco** — scritti implicitamente quando un bersaglio viene rifiutato (`--log`) | `~/.local/state/olympus/audit/`, rispettando `$XDG_STATE_HOME` se impostata | `--log <path>`, oppure `$OLYMPUS_STATE_DIR` per tutti insieme |
 
 I log di audit di proposito *non* dipendono dalla directory di lavoro: sono scritti come

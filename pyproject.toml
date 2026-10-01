@@ -73,6 +73,13 @@ aegis = [
 vap = [
     "olympus-security[aegis]",
 ]
+# Formatted PDF reports (Vulcan). ReportLab is a pure-Python engine with no
+# system binaries, so `olympus vulcan report --pdf` and `athena run --report`
+# stay fully offline and reproducible. Without this extra the other report
+# formats (JSON/Markdown/HTML) are unaffected.
+report = [
+    "reportlab>=4.0",
+]
 
 [project.scripts]
 olympus = "olympus.cli:main"
@@ -119,6 +126,12 @@ exclude = ['^vendor/']
 init_forbid_extra = true
 init_typed = true
 warn_required_dynamic_aliases = true
+
+# ReportLab (optional 'report' extra) ships no type information, so strict mypy
+# cannot resolve its symbols. The dependency is isolated to olympus.vulcan.pdf.
+[[tool.mypy.overrides]]
+module = ["reportlab.*"]
+ignore_missing_imports = true
 
 # Pytest is a blocking CI check; branch coverage is checked separately so the
 # threshold measures executed control-flow edges, not the combined line metric.

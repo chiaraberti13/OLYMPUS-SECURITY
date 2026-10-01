@@ -33,7 +33,7 @@
       "name": "olympus.athena.plan",
       "path": "contracts/olympus.athena.plan/1.0.0.schema.json",
       "schema_version": "1.0.0",
-      "sha256": "8b66e3fd6b5d9091df869c5346fbe1507402cac1d2693548411cbe0aa5a1ec31"
+      "sha256": "7c054ec93129cc73d960f7b0603873384c17096b417800200ecdaf5c15fcdcdb"
     },
     {
       "direction": "output",

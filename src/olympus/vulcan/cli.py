@@ -10,7 +10,7 @@ import typer
 from olympus.core.enums import Severity
 from olympus.core.execution import CancellationRequested, ExecutionPolicyError
 from olympus.core.exit_codes import ExitCode
-from olympus.core.fileio import atomic_write_text, read_regular_text
+from olympus.core.fileio import atomic_write_bytes, atomic_write_text, read_regular_text
 from olympus.core.output import OutputFormat, render
 from olympus.core.paths import output_path
 from olympus.vulcan.aggregate import (
@@ -39,6 +39,7 @@ from olympus.vulcan.enrichment import (
     parse_kev_catalog,
     prioritize,
 )
+from olympus.vulcan.pdf import PdfUnavailableError
 from olympus.vulcan.report import export_report, export_text
 
 DEFAULT_REPORT_OUTPUT = output_path("vulcan-report.json")
@@ -78,6 +79,11 @@ def report(
     html_output: Path | None = typer.Option(
         None, "--html", help="If set, also write a self-contained HTML report to this path."
     ),
+    pdf_output: Path | None = typer.Option(
+        None,
+        "--pdf",
+        help="If set, also write a formatted PDF report (needs the 'report' extra).",
+    ),
     min_severity: Severity | None = typer.Option(
         None, "--min-severity", help="Only include findings at or above this severity."
     ),
@@ -91,8 +97,10 @@ def report(
     max_output_bytes: int = typer.Option(DEFAULT_MAX_OUTPUT_BYTES, "--max-output-bytes"),
     deadline: float = typer.Option(120.0, "--deadline"),
 ) -> None:
-    """Aggregate strict inputs into consistent JSON, Markdown and HTML views."""
-    outputs = tuple(path for path in (output, markdown, html_output) if path is not None)
+    """Aggregate strict inputs into consistent JSON, Markdown, HTML and PDF views."""
+    outputs = tuple(
+        path for path in (output, markdown, html_output, pdf_output) if path is not None
+    )
     try:
         outcome = VulcanApplicationService().report(
             VulcanReportRequest(
@@ -104,6 +112,7 @@ def report(
                 min_severity=min_severity,
                 render_markdown=markdown is not None,
                 render_html=html_output is not None,
+                render_pdf=pdf_output is not None,
                 max_files=max_files,
                 max_input_bytes=max_input_bytes,
                 max_total_input_bytes=max_total_input_bytes,
@@ -118,6 +127,11 @@ def report(
             export_text(outcome.markdown, markdown)
         if html_output is not None and outcome.html is not None:
             export_text(outcome.html, html_output)
+        if pdf_output is not None and outcome.pdf is not None:
+            atomic_write_bytes(pdf_output, outcome.pdf, mode=0o600)
+    except PdfUnavailableError as exc:
+        typer.echo(f"vulcan: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     except _APPLICATION_ERRORS as exc:
         typer.echo(f"vulcan: {exc}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
@@ -128,6 +142,8 @@ def report(
         typer.echo(f"vulcan: wrote Markdown report to {markdown}", err=True)
     if html_output is not None:
         typer.echo(f"vulcan: wrote HTML report to {html_output}", err=True)
+    if pdf_output is not None:
+        typer.echo(f"vulcan: wrote PDF report to {pdf_output}", err=True)
 
 
 @app.command()

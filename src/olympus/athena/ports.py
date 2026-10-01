@@ -142,5 +142,9 @@ class ReportRenderer(Protocol):
     """Renders normalized findings into an operator-facing report."""
 
     def render(self, findings: list[Finding], fmt: str) -> str:
-        """Render ``findings`` in ``fmt`` (``json`` or ``markdown``)."""
+        """Render ``findings`` in a text ``fmt`` (``json``, ``markdown`` or ``html``)."""
+        ...
+
+    def render_pdf(self, findings: list[Finding]) -> bytes:
+        """Render ``findings`` as a formatted PDF report."""
         ...

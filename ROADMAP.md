@@ -40,7 +40,7 @@
 | 1 | Security hardening (**P0**) | `[ ]` | `SEC-A`, `SEC-B`, `SEC-C`, `SEC-H`, `UX-B` |
 | 2 | Architettura e qualità di release | `[~]` | `DEV-A`, `DEV-B`, `DEV-C`, `DEV-D`, `DEV-E`, `SEC-F` |
 | 3 | UX operativa bilingue | `[ ]` | `UX-A`, `UX-C`, `UX-D`, `UX-E`, `UX-F`, `UX-G` |
-| 4 | Capability Red/Blue/Purple | `[~]` | `OPS-RED`, `OPS-BLUE`, `OPS-PURPLE` |
+| 4 | Capability Red/Blue/Purple | `[~]` | `OPS-RED`, `OPS-BLUE`, `OPS-PURPLE`, `OPS-SCAN` |
 | 5 | Production readiness scanner | `[ ]` | `D1`, `D2` |
 | 6 | Distribuzione e osservabilità | `[~]` | `DEV-E`, `DEV-F`, `SEC-F` |
 
@@ -646,6 +646,41 @@ apparentemente pulita.
 regola scatta, ma se la telemetria necessaria è stata prodotta, ingerita e
 correlata senza perdita di coverage.
 
+### Suite di scansione guidata · `OPS-SCAN` — Esperienza "pentest-tools.com" (**P1**)
+
+Allineare l'esperienza operatore a quella di una suite commerciale tipo
+[pentest-tools.com](https://pentest-tools.com/alltools): un toolkit integrato in
+cui, scelto un target autorizzato e un profilo, parte una catena
+`recon → scan → enrich → report` e si ottiene un report professionale
+esportabile. Le fondamenta esistono già in Olympus — **Athena** orchestra la
+catena su un piano firmabile e **Vulcan** produce report JSON/Markdown/HTML — per
+cui questo intervento *potenzia* quei due moduli, non ne crea di paralleli.
+
+- [~] **Report PDF formattato.** Aggiungere a Vulcan un renderer PDF (copertina
+  con engagement e data, sommario esecutivo, tabella severità, finding ordinati
+  con severità, CVSS, evidenza, remediation e reference). L'export è esposto da
+  `vulcan report` e da `athena run --report`, mantenendo JSON/Markdown/HTML. Il
+  testo proveniente dai target è escapato (`SEC-H`). *In corso.*
+- [ ] **Profili Light/Deep.** Introdurre profili di scansione nominati che
+  generano il piano Athena, come il Light/Deep scan della suite: `light` passivo e
+  veloce (recon + header + TLS, nessuna autenticazione), `deep` completo
+  (aggiunge gli adapter attivi AEGIS). Ispezionabili e senza target predefiniti.
+- [ ] **Catalogo capability allineato.** Mappare esplicitamente ogni capacità
+  della suite (Website/Network/SSL/CMS scanner, Port Scanner, Subdomain/Domain
+  Finder, Password Auditor) sui moduli Olympus esistenti o mancanti, così il
+  `catalog` dichiara cosa c'è, cosa è simulato e cosa manca, senza sovrastimare.
+- [ ] **Report template e sommario esecutivo riusabile.** Sezioni riusabili
+  (scope, metodologia, disclaimer, executive summary) parametrizzate
+  dall'engagement manifest (`SEC-C`), per report ripetibili tra ingaggi.
+- [⏸] **Scansioni programmate e monitoraggio.** Esecuzione ricorrente di un
+  profilo su uno scope con diff dei finding tra run; differito perché richiede uno
+  scheduler persistente e un lab autorizzato (prerequisito D13).
+
+**Criterio di completamento OPS-SCAN:** un operatore configura un profilo su un
+target autorizzato, avvia una scansione scope-safe e ottiene un report PDF
+leggibile dal management, senza scrivere a mano il piano JSON e senza che una
+capacità simulata appaia come reale.
+
 ### Prerequisiti per le attività differite
 
 | ID | Intervento | Prerequisito verificabile di sblocco |
@@ -662,6 +697,7 @@ correlata senza perdita di coverage.
 | D10 | TAXII/MISP/OpenCTI live | Istanze di test raggiungibili e policy di provenance/retention approvate |
 | D11 | Firma e hardening container | Registry disponibile, profili seccomp/AppArmor e pipeline Cosign |
 | D12 | Release multi-platform | Runner CI per matrice Python/OS e suite chiaramente separate |
+| D13 | Scansioni programmate e monitoraggio (`OPS-SCAN`) | Scheduler persistente, storage dei run e lab autorizzato per i diff tra scansioni |
 
 ## 📅 Pianificazione Temporale
 
@@ -793,6 +829,7 @@ committata e verificabile secondo `docs/scanner-maturity.md`.
 | Import runtime da `vendor/` | presenti (`aegis serve`, `migrate`, `workers`) | 0 | test di architettura `DEV-A` |
 | Link interni rotti | ≥ 6 file → 0 (verifica manuale del 24/09/2026) | 0, garantito dalla CI | link checker `DEV-G` |
 | Lingue dell'interfaccia | 1 (EN) | 2 (IT/EN) | cataloghi `UX-E` |
+| Formati di report Vulcan | 3 (JSON, Markdown, HTML) | 4 con PDF formattato | `src/olympus/vulcan/` + test |
 
 Gli indicatori si aggiornano solo dalla fonte indicata: un valore senza prova
 verificabile resta al valore precedente.
