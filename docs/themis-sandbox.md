@@ -67,7 +67,7 @@ The report also records `escalated_to_kill` (the scanner ignored `SIGTERM`),
 `process_group_signalled` (the whole group was signalled, not just the leader),
 the limit that was crossed, the signal name, and the unprivileged account used.
 It is persisted as the optional `termination` object of the
-`olympus.aegis-result` contract (schema `1.1.0`; every `1.0.0` field is
+`olympus.themis-result` contract (schema `1.1.0`; every `1.0.0` field is
 unchanged, so a `1.0.0` reader still understands the document).
 
 Note that CPython ignores `SIGXFSZ` and surfaces `EFBIG` instead, so a

@@ -159,7 +159,7 @@ def inventory_document(environment: dict[str, str] | None = None) -> dict[str, o
     for item in capabilities:
         histogram[item.maturity.value] += 1
     return {
-        "schema_name": "olympus.aegis-capability-inventory",
+        "schema_name": "olympus.themis-capability-inventory",
         "schema_version": "1.1.0",
         "catalogued": len(capabilities),
         "adapted": sum(item.adapted for item in capabilities),

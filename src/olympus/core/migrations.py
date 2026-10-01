@@ -6,7 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, cast
 
-from olympus.core.contracts import ContractVersion
+from olympus.core.contracts import ContractVersion, canonicalize_schema_name
 
 LEGACY = "legacy"
 MigrationFunction = Callable[[dict[str, Any]], dict[str, Any]]
@@ -41,7 +41,7 @@ def _legacy_themis_scope(document: dict[str, Any]) -> dict[str, Any]:
         )
     if "allowed" in migrated:
         migrated["allowed_domains"] = migrated.pop("allowed")
-    return _headers(migrated, "olympus.aegis-scope", "1.0.0")
+    return _headers(migrated, "olympus.themis-scope", "1.0.0")
 
 
 def _legacy_plan(document: dict[str, Any]) -> dict[str, Any]:
@@ -55,7 +55,7 @@ def _integer_plan_v1(document: dict[str, Any]) -> dict[str, Any]:
 
 
 def _legacy_job(document: dict[str, Any]) -> dict[str, Any]:
-    return _headers(document, "olympus.aegis-job", "1.0.0")
+    return _headers(document, "olympus.themis-job", "1.0.0")
 
 
 def _job_v1_to_v2(document: dict[str, Any]) -> dict[str, Any]:
@@ -84,11 +84,11 @@ def _legacy_metis_case(document: dict[str, Any]) -> dict[str, Any]:
 
 
 MIGRATIONS = (
-    ContractMigration("olympus.aegis-scope", LEGACY, "1.0.0", _legacy_themis_scope),
+    ContractMigration("olympus.themis-scope", LEGACY, "1.0.0", _legacy_themis_scope),
     ContractMigration("olympus.athena.plan", LEGACY, "1.0.0", _legacy_plan),
     ContractMigration("olympus.athena.plan", "1", "1.0.0", _integer_plan_v1),
-    ContractMigration("olympus.aegis-job", LEGACY, "1.0.0", _legacy_job),
-    ContractMigration("olympus.aegis-job", "1.0.0", "2.0.0", _job_v1_to_v2),
+    ContractMigration("olympus.themis-job", LEGACY, "1.0.0", _legacy_job),
+    ContractMigration("olympus.themis-job", "1.0.0", "2.0.0", _job_v1_to_v2),
     ContractMigration("olympus.evidence", LEGACY, "1.0.0", _legacy_evidence),
     ContractMigration("olympus.metis-case", LEGACY, "1.0.0", _legacy_metis_case),
 )
@@ -98,7 +98,7 @@ def migrate_document(document: object, *, schema_name: str, current_version: str
     """Migrate a mapping along declared edges, or fail without guessing."""
     if not isinstance(document, dict) or not all(isinstance(key, str) for key in document):
         raise ContractMigrationError("contract document must be a JSON object with string keys")
-    candidate = dict(cast(dict[str, Any], document))
+    candidate = canonicalize_schema_name(dict(cast(dict[str, Any], document)))
     has_name = "schema_name" in candidate
     has_version = "schema_version" in candidate
     if has_name != has_version:

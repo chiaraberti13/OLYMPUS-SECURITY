@@ -34,8 +34,8 @@ def legacy_documents() -> dict[str, dict[str, object]]:
 def test_migration_manifest_covers_every_required_family() -> None:
     names = {entry["schema_name"] for entry in migration_manifest()}
     assert names == {
-        "olympus.aegis-job",
-        "olympus.aegis-scope",
+        "olympus.themis-job",
+        "olympus.themis-scope",
         "olympus.athena.plan",
         "olympus.evidence",
         "olympus.metis-case",
@@ -80,13 +80,13 @@ def test_scope_plan_job_evidence_and_case_migrate_through_real_loaders(
 def test_current_documents_are_idempotent(legacy_documents: dict[str, dict[str, object]]) -> None:
     migrated = migrate_document(
         legacy_documents["themis_job"],
-        schema_name="olympus.aegis-job",
+        schema_name="olympus.themis-job",
         current_version="2.0.0",
     )
     assert (
         migrate_document(
             migrated,
-            schema_name="olympus.aegis-job",
+            schema_name="olympus.themis-job",
             current_version="2.0.0",
         )
         == migrated
@@ -101,7 +101,7 @@ def test_migrations_refuse_ambiguous_future_and_incomplete_evidence(
     with pytest.raises(ContractMigrationError, match="both allowed"):
         migrate_document(
             ambiguous,
-            schema_name="olympus.aegis-scope",
+            schema_name="olympus.themis-scope",
             current_version="1.0.0",
         )
 
@@ -127,3 +127,34 @@ def test_partial_contract_header_is_never_guessed() -> None:
             schema_name="olympus.metis-case",
             current_version="1.0.0",
         )
+
+
+def test_legacy_aegis_schema_names_are_canonicalized_to_themis() -> None:
+    # The AEGIS subsystem was renamed to Themis (ROADMAP DEV-I). Documents
+    # persisted under the old schema names must still load, rewritten to the
+    # current name, so no stored contract becomes unreadable.
+    from olympus.core.contracts import canonicalize_schema_name
+    from olympus.core.migrations import migrate_document
+
+    legacy_job = {"schema_name": "olympus.aegis-job", "schema_version": "2.0.0", "job_id": "j1"}
+    migrated = migrate_document(
+        legacy_job, schema_name="olympus.themis-job", current_version="2.0.0"
+    )
+    assert migrated["schema_name"] == "olympus.themis-job"
+
+    # A legacy scope at 1.0.0 is accepted and renamed, keeping its version.
+    legacy_scope = {"schema_name": "olympus.aegis-scope", "schema_version": "1.0.0"}
+    assert canonicalize_schema_name(legacy_scope)["schema_name"] == "olympus.themis-scope"
+
+    # A document already on the current name is returned unchanged.
+    current = {"schema_name": "olympus.themis-job", "schema_version": "2.0.0"}
+    assert canonicalize_schema_name(current) is current
+
+
+def test_provenance_value_aegis_still_validates_and_themis_is_canonical() -> None:
+    from olympus.core.enums import Source
+
+    assert Source.THEMIS.value == "themis"
+    # Old records stored with provenance "aegis" still parse (deprecated member).
+    assert Source("aegis") is Source.AEGIS
+    assert Source("themis") is Source.THEMIS

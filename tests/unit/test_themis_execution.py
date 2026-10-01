@@ -295,7 +295,7 @@ def test_state_live_runs_real_process() -> None:
     assert result.state is ExecutionState.LIVE
     assert result.findings and result.findings[0].title == "live finding"
     document = result.to_dict()
-    assert document["schema_name"] == "olympus.aegis-result"
+    assert document["schema_name"] == "olympus.themis-result"
     assert document["schema_version"] == "1.1.0"
     assert document["real_execution"] is True
     assert document["resolved_addresses"] == ["127.0.0.1"]
@@ -425,7 +425,7 @@ def _scope(path: Path) -> Path:
     path.write_text(
         json.dumps(
             {
-                "schema_name": "olympus.aegis-scope",
+                "schema_name": "olympus.themis-scope",
                 "schema_version": "1.0.0",
                 "allowed_hosts": ["127.0.0.1"],
                 "allowed_domains": [],

@@ -82,10 +82,10 @@ class Source(StrEnum):
     MINERVA = "minerva"
     VULCAN = "vulcan"
     ATHENA = "athena"
-    # The subsystem was renamed AEGIS -> Themis (ROADMAP DEV-I). The provenance
-    # *value* stays "aegis" so findings/alerts stored before the rename remain
-    # valid; migrating the value to "themis" is staged with the schema-name
-    # migration (DEV-I, follow-up).
-    THEMIS = "aegis"
+    # The subsystem was renamed AEGIS -> Themis (ROADMAP DEV-I). New records use
+    # THEMIS ("themis"); the deprecated AEGIS ("aegis") member is retained so
+    # findings/alerts persisted before the rename still validate on load.
+    THEMIS = "themis"
+    AEGIS = "aegis"
     MARS = "mars"
     MANUAL = "manual"

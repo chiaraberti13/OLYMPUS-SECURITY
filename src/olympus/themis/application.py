@@ -41,7 +41,7 @@ class ThemisScope(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    schema_name: Literal["olympus.aegis-scope"] = "olympus.aegis-scope"
+    schema_name: Literal["olympus.themis-scope"] = "olympus.themis-scope"
     schema_version: Literal["1.0.0"] = "1.0.0"
     allowed_hosts: tuple[str, ...] = Field(default=(), max_length=1_024)
     allowed_domains: tuple[str, ...] = Field(default=(), max_length=1_024)
@@ -185,8 +185,8 @@ def load_scope(path: Path, *, max_bytes: int = DEFAULT_MAX_SCOPE_BYTES) -> Themi
         raise ValueError(f"invalid THEMIS scope JSON: {exc.msg}") from exc
     if not isinstance(raw, dict):
         raise ValueError("THEMIS scope must be a JSON object")
-    candidate = migrate_document(raw, schema_name="olympus.aegis-scope", current_version="1.0.0")
-    validate_contract_header(candidate, schema_name="olympus.aegis-scope")
+    candidate = migrate_document(raw, schema_name="olympus.themis-scope", current_version="1.0.0")
+    validate_contract_header(candidate, schema_name="olympus.themis-scope")
     try:
         return ThemisScope.model_validate(candidate).nonempty()
     except ValidationError as exc:

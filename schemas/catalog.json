@@ -5,7 +5,7 @@
       "name": "olympus.alert",
       "path": "contracts/olympus.alert/1.0.0.schema.json",
       "schema_version": "1.0.0",
-      "sha256": "2793057c9aff41cac2ee110592d9bbef162b90e06a1e403c7c54c36e667330c0"
+      "sha256": "8ef7e4f5e28293d87386a115c53ae8f6bc864f3f58e487a2fae8e7b900b015dd"
     },
     {
       "direction": "output",
@@ -26,7 +26,7 @@
       "name": "olympus.asset",
       "path": "contracts/olympus.asset/1.0.0.schema.json",
       "schema_version": "1.0.0",
-      "sha256": "1d5d9dde0262e5557a88cfca2c27325c5cc599ff208df96f916b22613fc62b05"
+      "sha256": "1d051ed3340a5036597dd7f3908cfb84c5f05aca466f1f312689d0e4d00ffcb7"
     },
     {
       "direction": "input",
@@ -40,14 +40,14 @@
       "name": "olympus.athena.result",
       "path": "contracts/olympus.athena.result/1.0.0.schema.json",
       "schema_version": "1.0.0",
-      "sha256": "714fb89f04ec7f7164ce268f14a0055cf888527ec6a89bba4b46b67176931535"
+      "sha256": "3ebc334dfae75dd65a01c0da7244e1a506e33cf0a7b5e5c5628c483b24cfdd13"
     },
     {
       "direction": "shared",
       "name": "olympus.event",
       "path": "contracts/olympus.event/1.0.0.schema.json",
       "schema_version": "1.0.0",
-      "sha256": "8cdef5deba97b1a468bbe3213354a4c288c45ed85cd6ef5e797dff7e7454082e"
+      "sha256": "2c0375b391afb66c80c63e4249a5bbe9b9bdb36e49a381aa9fd555ebae5baae7"
     },
     {
       "direction": "shared",
@@ -61,14 +61,14 @@
       "name": "olympus.finding",
       "path": "contracts/olympus.finding/1.0.0.schema.json",
       "schema_version": "1.0.0",
-      "sha256": "57fc4b9459493e91b240f1753da12662453bd009c526e7b6459dcbaa034aef8d"
+      "sha256": "5e72f9b44601cdddb82c94f0c261f31c10e8120da2c971b272f267376df71798"
     },
     {
       "direction": "shared",
       "name": "olympus.incident",
       "path": "contracts/olympus.incident/1.0.0.schema.json",
       "schema_version": "1.0.0",
-      "sha256": "16cc838c02b83c3ec43c17998bdad07021e2e1f30a2d6676cba6316d7b177ac7"
+      "sha256": "1f87da4245ebb04e25128395e10f891a831ddc9bfe3c2810fb1eb435f4321158"
     },
     {
       "direction": "output",
@@ -89,7 +89,7 @@
       "name": "olympus.observation",
       "path": "contracts/olympus.observation/1.0.0.schema.json",
       "schema_version": "1.0.0",
-      "sha256": "f52e6f3f3d91530a15c89157d25a05869f4bef984e27e5b6f8eb553dae545f81"
+      "sha256": "5c2f462fd0fb7faf3f5bf0d448edaf1cfdbe2150d7868997113da3c3a1d7bcf8"
     },
     {
       "direction": "shared",
@@ -103,7 +103,7 @@
       "name": "olympus.security-report",
       "path": "contracts/olympus.security-report/1.0.0.schema.json",
       "schema_version": "1.0.0",
-      "sha256": "ec79ce123d65c42aa94b8783476a786f9cf22f7d635e5a0cb3999ecccc608907"
+      "sha256": "a31f0d8607f82bc6bdfecc36136d92c76b4ab04f95dc5415bacd8ce56d46b241"
     }
   ],
   "schema_name": "olympus.schema-catalog",

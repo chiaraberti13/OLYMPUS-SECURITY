@@ -24,7 +24,7 @@ register is loaded, so a typo cannot silently grant nothing — or everything.
 
 ## The identity register
 
-`olympus.aegis-api-identities` (`1.0.0`) is written atomically and owner-only
+`olympus.themis-api-identities` (`1.0.0`) is written atomically and owner-only
 (`0600`). It stores, per identity: the id, the **SHA-256 of the secret**, the
 scope set, creation/rotation timestamps, an optional expiry, a revocation flag,
 and a per-identity rate limit.
