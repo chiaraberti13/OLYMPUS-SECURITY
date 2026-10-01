@@ -626,8 +626,11 @@ authz) e di job-lifecycle/cancellation passano.
   `engagement_id` sui contratti scoped (`Asset`, `Finding`, `Event`, `Evidence`,
   `Alert`, `Incident`, `Observation`) via base condivisa `EngagementScopedModel`
   (`core/models.py`), additivo e retro-compatibile (schema resta `1.0.0`,
-  validazione `ENG-YYYY-NNNNN`). **Rimane:** far popolare e interrogare
-  `engagement_id` da Athena/Themis contro l'engagement store condiviso, e
+  validazione `ENG-YYYY-NNNNN`). Primitive di associazione pronte e testate:
+  `Engagement.stamp()`/`stamp_all()` (collega una copia senza mutare l'originale,
+  tipo preservato), `Engagement.covers()` (scope-check) e
+  `SqliteEngagementStore.require()` (risolve o solleva). **Rimane:** far
+  **chiamare** queste primitive a Athena/Themis al momento della produzione e
   collegare `scan`/`job`/`report`/audit.
 - [ ] **Slice 3.** Esporre gli engagement via API e Web UI (sullo stesso store),
   con scope enforcement derivato dall'engagement.

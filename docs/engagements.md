@@ -69,10 +69,37 @@ finding = Finding(
 )
 ```
 
+### Association primitives
+
+Rather than copy the `engagement_id` by hand, producers use the helpers on the
+`Engagement` model so the link is set the same way everywhere:
+
+- `engagement.stamp(obj)` returns a **copy** of any engagement-scoped object
+  (`Asset`, `Finding`, `Alert`, …) linked to the engagement, without mutating the
+  original. The concrete type is preserved (a stamped `Finding` is a `Finding`).
+- `engagement.stamp_all(objects)` stamps an iterable in one call.
+- `engagement.covers(host)` forwards to `EngagementScope.covers`, so a producer
+  can scope-check a host against the engagement without reaching into `scope`.
+
+```python
+from olympus.engagements.store import SqliteEngagementStore
+
+store = SqliteEngagementStore(Path("./workspace/engagements.db"))
+engagement = store.require("ENG-2026-00001")  # raises if the id is unknown
+
+if engagement.covers("api.example.com"):
+    findings = engagement.stamp_all(raw_findings)  # each linked to ENG-2026-00001
+```
+
+`SqliteEngagementStore.require(engagement_id)` resolves an engagement or raises
+`EngagementStoreError`, so an unknown id fails loudly at the source instead of
+silently stamping objects with a dangling reference.
+
 ## Status
 
-The shared contract, the store, the CLI (slice 1) and the optional
-`engagement_id` on the core scoped contracts (slice 2, data foundation) are in
-place. Wiring Athena assessments and Themis jobs to **populate** and **query**
-`engagement_id` against the shared store, and exposing engagements through the
-API and Web UI, are the remaining slices — all on this one model and store.
+The shared contract, the store, the CLI (slice 1), the optional `engagement_id`
+on the core scoped contracts and the association primitives (`stamp`/`stamp_all`/
+`covers`, `store.require`) for slice 2 are in place. Wiring Athena assessments
+and Themis jobs to **call** these primitives against the shared store at produce
+time, and exposing engagements through the API and Web UI, are the remaining
+slices — all on this one model and store.

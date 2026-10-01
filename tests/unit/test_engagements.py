@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from olympus.core.enums import EngagementStatus
-from olympus.core.models import Engagement, EngagementScope
+from olympus.core.enums import AssetType, EngagementStatus, Source
+from olympus.core.models import Asset, Engagement, EngagementScope, Finding
 from olympus.engagements.store import EngagementStoreError, SqliteEngagementStore
 
 
@@ -58,6 +58,45 @@ def test_engagement_has_stable_identity_and_schema() -> None:
         engagement.digest()
         == Engagement.model_validate(engagement.model_dump(mode="json")).digest()
     )
+
+
+# --- WEB-B slice 2: association primitives ----------------------------------- #
+
+
+def test_engagement_covers_forwards_to_scope() -> None:
+    engagement = _engagement()
+    assert engagement.covers("www.example.com")  # subdomain of an included domain
+    assert not engagement.covers("db.example.com")  # excluded
+    assert not engagement.covers("other.org")  # not included
+
+
+def test_stamp_links_object_without_mutating_the_original() -> None:
+    engagement = _engagement()
+    finding = Finding(asset_id="AST-2026-00001", source=Source.THEMIS, title="x")
+    stamped = engagement.stamp(finding)
+    assert stamped.engagement_id == engagement.engagement_id
+    assert finding.engagement_id is None  # original untouched
+    assert isinstance(stamped, Finding)  # concrete type preserved
+
+
+def test_stamp_all_links_every_object() -> None:
+    engagement = _engagement()
+    assets = [Asset(asset_type=AssetType.HOST), Asset(asset_type=AssetType.IP)]
+    stamped = engagement.stamp_all(assets)
+    assert {a.engagement_id for a in stamped} == {engagement.engagement_id}
+    assert all(original.engagement_id is None for original in assets)
+
+
+def test_store_require_returns_or_raises(tmp_path: Path) -> None:
+    store = SqliteEngagementStore(tmp_path / "engagements.db")
+    try:
+        engagement = _engagement()
+        store.save(engagement)
+        assert store.require(engagement.engagement_id).name == engagement.name
+        with pytest.raises(EngagementStoreError):
+            store.require("ENG-2026-99999")
+    finally:
+        store.close()
 
 
 def test_store_round_trips_and_lists(tmp_path: Path) -> None:

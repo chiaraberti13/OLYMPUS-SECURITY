@@ -79,6 +79,18 @@ class SqliteEngagementStore:
             return None
         return self._load(row["document"])
 
+    def require(self, engagement_id: str) -> Engagement:
+        """Return the stored engagement, or raise if it does not exist.
+
+        Producers that must associate work with an engagement (Athena, Themis)
+        resolve it through this helper so an unknown ``engagement_id`` fails loudly
+        at the source rather than silently stamping objects with a dangling id.
+        """
+        engagement = self.get(engagement_id)
+        if engagement is None:
+            raise EngagementStoreError(f"unknown engagement_id: {engagement_id!r}")
+        return engagement
+
     def list(self) -> list[Engagement]:
         """Return every stored engagement, most recently created first."""
         rows = self._conn.execute(

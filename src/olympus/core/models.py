@@ -11,8 +11,9 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Iterable
 from datetime import UTC, datetime
-from typing import Literal, Self
+from typing import Literal, Self, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -78,6 +79,11 @@ class EngagementScopedModel(OlympusModel):
         if not _ENGAGEMENT_ID_RE.fullmatch(cleaned):
             raise ValueError(f"invalid engagement_id {value!r}; expected ENG-YYYY-NNNNN")
         return cleaned
+
+
+#: A generic engagement-scoped object, so :meth:`Engagement.stamp` returns the
+#: same concrete type it was given (a stamped ``Finding`` is still a ``Finding``).
+ScopedT = TypeVar("ScopedT", bound=EngagementScopedModel)
 
 
 class Asset(EngagementScopedModel):
@@ -364,6 +370,28 @@ class Engagement(OlympusModel):
     updated_at: datetime = Field(default_factory=_utcnow)
     tags: list[str] = Field(default_factory=list)
     metadata: dict[str, str] = Field(default_factory=dict)
+
+    def covers(self, host: str) -> bool:
+        """Return ``True`` if ``host`` is inside this engagement's scope.
+
+        Convenience that forwards to :meth:`EngagementScope.covers`, so producers
+        can scope-check against an engagement without reaching into ``scope``.
+        """
+        return self.scope.covers(host)
+
+    def stamp(self, obj: ScopedT) -> ScopedT:
+        """Return a copy of ``obj`` linked to this engagement.
+
+        The original is left unchanged (a new, validated copy is returned), so a
+        producer can associate an asset, finding, alert or any engagement-scoped
+        object with this engagement by its ``engagement_id`` without mutating the
+        object it was handed.
+        """
+        return obj.model_copy(update={"engagement_id": self.engagement_id})
+
+    def stamp_all(self, objects: Iterable[ScopedT]) -> list[ScopedT]:
+        """Return copies of every object in ``objects`` linked to this engagement."""
+        return [self.stamp(obj) for obj in objects]
 
     def canonical_json(self) -> str:
         """Return the deterministic JSON encoding used for digesting and storage."""

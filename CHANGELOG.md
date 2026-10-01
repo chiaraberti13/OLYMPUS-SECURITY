@@ -46,6 +46,15 @@ everything below lives under **Unreleased**.
   catalog/golden verdi.
 
 ### Added
+- **Primitive di associazione all'engagement (`WEB-B`, slice 2).** Il modello
+  `Engagement` espone `stamp()`/`stamp_all()` (ritornano una **copia** degli
+  oggetti scoped collegata all'engagement, senza mutare l'originale e
+  preservandone il tipo) e `covers()` (scope-check che inoltra a
+  `EngagementScope.covers`); `SqliteEngagementStore.require()` risolve un
+  `engagement_id` o solleva `EngagementStoreError`, così un id sconosciuto
+  fallisce all'origine invece di lasciare riferimenti pendenti. Aggiunti test e
+  documentazione (`docs/engagements.md`). Resta da fare: far **chiamare** queste
+  primitive da Athena/Themis al momento della produzione.
 - **Collegamento degli oggetti all'engagement (`WEB-B`, slice 2 — fondamenta
   dati).** I contratti scoped (`Asset`, `Finding`, `Event`, `Evidence`, `Alert`,
   `Incident`, `Observation`) acquisiscono un campo opzionale `engagement_id` via
@@ -54,8 +63,7 @@ everything below lives under **Unreleased**.
   retro-compatibile (schema resta `1.0.0`, gli oggetti pre-`WEB-B` validano con
   `engagement_id=None`); quando valorizzato è normalizzato e validato come
   `ENG-YYYY-NNNNN`. Aggiunti test, nota in `docs/engagements.md`; schema catalog
-  e golden rigenerati. Resta da fare: popolamento/query di `engagement_id` da
-  Athena/Themis contro l'engagement store condiviso.
+  e golden rigenerati.
 - **Finding con intelligence strutturata (`WEB-C`, fondamenta).** Il contratto
   `olympus.finding` acquisisce campi opzionali tipizzati — `cve`, `cwe`, `epss`,
   `epss_percentile`, `kev` e `confidence` (nuovo enum `Confidence`) — con
