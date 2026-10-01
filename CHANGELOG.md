@@ -46,6 +46,16 @@ everything below lives under **Unreleased**.
   catalog/golden verdi.
 
 ### Added
+- **Collegamento degli oggetti all'engagement (`WEB-B`, slice 2 — fondamenta
+  dati).** I contratti scoped (`Asset`, `Finding`, `Event`, `Evidence`, `Alert`,
+  `Incident`, `Observation`) acquisiscono un campo opzionale `engagement_id` via
+  la base condivisa `EngagementScopedModel`, che tiene insieme gli oggetti del
+  medesimo engagement su CLI/TUI/API/Web. Il campo è additivo e
+  retro-compatibile (schema resta `1.0.0`, gli oggetti pre-`WEB-B` validano con
+  `engagement_id=None`); quando valorizzato è normalizzato e validato come
+  `ENG-YYYY-NNNNN`. Aggiunti test, nota in `docs/engagements.md`; schema catalog
+  e golden rigenerati. Resta da fare: popolamento/query di `engagement_id` da
+  Athena/Themis contro l'engagement store condiviso.
 - **Finding con intelligence strutturata (`WEB-C`, fondamenta).** Il contratto
   `olympus.finding` acquisisce campi opzionali tipizzati — `cve`, `cwe`, `epss`,
   `epss_percentile`, `kev` e `confidence` (nuovo enum `Confidence`) — con

@@ -9,6 +9,18 @@
       "title": "Collected At",
       "type": "string"
     },
+    "engagement_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Engagement Id"
+    },
     "evidence_id": {
       "title": "Evidence Id",
       "type": "string"

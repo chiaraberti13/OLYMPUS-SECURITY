@@ -3,6 +3,7 @@
     {
       "alert_id": "ALT-GOLDEN-1",
       "created_at": "2026-01-02T03:04:05Z",
+      "engagement_id": null,
       "event_id": "EVT-GOLDEN-1",
       "evidence_ids": [],
       "mitre_attack": [
@@ -22,6 +23,7 @@
       "asset_id": "AST-GOLDEN-1",
       "asset_type": "domain",
       "criticality": "medium",
+      "engagement_id": null,
       "first_seen": "2026-01-02T03:04:05Z",
       "hostname": "example.test",
       "ip_addresses": [],
@@ -43,6 +45,7 @@
       "cvss": 8.2,
       "cwe": [],
       "description": "Untrusted input is reflected into an HTML response.",
+      "engagement_id": null,
       "epss": null,
       "epss_percentile": null,
       "evidence": [

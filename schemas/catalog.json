@@ -5,7 +5,7 @@
       "name": "olympus.alert",
       "path": "contracts/olympus.alert/1.0.0.schema.json",
       "schema_version": "1.0.0",
-      "sha256": "8ef7e4f5e28293d87386a115c53ae8f6bc864f3f58e487a2fae8e7b900b015dd"
+      "sha256": "46c028e0abd0567252db2ac54692b3558a08a7b9ada797cf865946e242745817"
     },
     {
       "direction": "output",
@@ -26,7 +26,7 @@
       "name": "olympus.asset",
       "path": "contracts/olympus.asset/1.0.0.schema.json",
       "schema_version": "1.0.0",
-      "sha256": "1d051ed3340a5036597dd7f3908cfb84c5f05aca466f1f312689d0e4d00ffcb7"
+      "sha256": "6f5393cffd30154a4976f6b620bc36b5b1f52656ab27479b8239dbbdd05870cd"
     },
     {
       "direction": "input",
@@ -40,7 +40,7 @@
       "name": "olympus.athena.result",
       "path": "contracts/olympus.athena.result/1.0.0.schema.json",
       "schema_version": "1.0.0",
-      "sha256": "443ec1faf6d325c5464233bb403aded698b522ac3ac80f9825e5d38ee7c49f22"
+      "sha256": "9a31e78a876de960dc64c13e2ed4763597c8e2a24651d5933327905be7ecdc4c"
     },
     {
       "direction": "shared",
@@ -54,28 +54,28 @@
       "name": "olympus.event",
       "path": "contracts/olympus.event/1.0.0.schema.json",
       "schema_version": "1.0.0",
-      "sha256": "2c0375b391afb66c80c63e4249a5bbe9b9bdb36e49a381aa9fd555ebae5baae7"
+      "sha256": "6cdd4e2cd970ad60e0846fe70c44494d7433c114d15eb824d0ccf93afaa8b3a1"
     },
     {
       "direction": "shared",
       "name": "olympus.evidence",
       "path": "contracts/olympus.evidence/1.0.0.schema.json",
       "schema_version": "1.0.0",
-      "sha256": "6ff3e5690e9b369bbb701e92dc5fcebdd9de628f53a8986ebe960e52c3ca364a"
+      "sha256": "60a486341663b846262310b181bada8c748460119d28cec02cdd80a80ee06857"
     },
     {
       "direction": "shared",
       "name": "olympus.finding",
       "path": "contracts/olympus.finding/1.0.0.schema.json",
       "schema_version": "1.0.0",
-      "sha256": "39a0886409fdf9a43093591c12892d0217814d448a6d95eee68bb77d9b6b3d8b"
+      "sha256": "54647c3f159c19902b26d67286ed0bfff1794a6d7ddc124917a093bba0ec269a"
     },
     {
       "direction": "shared",
       "name": "olympus.incident",
       "path": "contracts/olympus.incident/1.0.0.schema.json",
       "schema_version": "1.0.0",
-      "sha256": "1f87da4245ebb04e25128395e10f891a831ddc9bfe3c2810fb1eb435f4321158"
+      "sha256": "4134d58557048e70a2de4c62095dcfcb536953328ad05bb2ccb67b00115c6018"
     },
     {
       "direction": "output",
@@ -96,7 +96,7 @@
       "name": "olympus.observation",
       "path": "contracts/olympus.observation/1.0.0.schema.json",
       "schema_version": "1.0.0",
-      "sha256": "5c2f462fd0fb7faf3f5bf0d448edaf1cfdbe2150d7868997113da3c3a1d7bcf8"
+      "sha256": "eda499c5a19e69edd810a52a64a2952afdd10877f183440a8638626f65f9386d"
     },
     {
       "direction": "shared",
@@ -110,7 +110,7 @@
       "name": "olympus.security-report",
       "path": "contracts/olympus.security-report/1.0.0.schema.json",
       "schema_version": "1.0.0",
-      "sha256": "4c94f172db294aa399254276c50de89c22ef350352acab320517c6847ad43f36"
+      "sha256": "ad76b8820acf67e8bd3e0ce1c36cfddb093c954d26f9bc5c4b9a8c75f931cad5"
     }
   ],
   "schema_name": "olympus.schema-catalog",

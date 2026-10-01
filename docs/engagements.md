@@ -43,9 +43,36 @@ olympus engagement show ENG-2026-00001 --storage ./workspace
 Every command prints JSON for machine use. `show` on an unknown id exits `2`
 (usage), consistent with the canonical Olympus exit codes.
 
+## Linking objects to an engagement
+
+Every engagement-scoped contract — `Asset`, `Finding`, `Event`, `Evidence`,
+`Alert`, `Incident` and `Observation` — carries an optional `engagement_id`
+(`core/models.py`, via the shared `EngagementScopedModel` base). It ties the
+object to the engagement that owns it, so CLI, TUI, API and Web scope the same
+objects identically instead of each inventing a private notion of ownership.
+
+The field is **optional and additive** (the contract stays at `schema_version`
+`1.0.0`): objects produced outside any engagement, or persisted before `WEB-B`,
+leave it `None`. When set it must be a canonical engagement id
+(`ENG-YYYY-NNNNN`); the value is upper-cased and validated, and a malformed id
+raises a `ValidationError`.
+
+```python
+from olympus.core.models import Finding
+from olympus.core.enums import Source
+
+finding = Finding(
+    asset_id="AST-2026-00001",
+    source=Source.THEMIS,
+    title="Outdated component",
+    engagement_id="ENG-2026-00001",  # ties this finding to the engagement
+)
+```
+
 ## Status
 
-This is the first slice of `WEB-B`: the shared contract, the store and the CLI.
-Linking Athena assessments and Themis jobs/findings to an `engagement_id`, and
-exposing engagements through the API and Web UI, are the next slices — all on
-this one model and store.
+The shared contract, the store, the CLI (slice 1) and the optional
+`engagement_id` on the core scoped contracts (slice 2, data foundation) are in
+place. Wiring Athena assessments and Themis jobs to **populate** and **query**
+`engagement_id` against the shared store, and exposing engagements through the
+API and Web UI, are the remaining slices — all on this one model and store.

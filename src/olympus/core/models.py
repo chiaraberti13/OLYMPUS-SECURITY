@@ -34,6 +34,9 @@ from olympus.core.ids import new_id
 _CVE_RE = re.compile(r"CVE-\d{4}-\d{4,7}", re.IGNORECASE)
 _CWE_RE = re.compile(r"CWE-\d+", re.IGNORECASE)
 
+#: A canonical engagement id, e.g. ``ENG-2026-00001`` (see :func:`new_id`).
+_ENGAGEMENT_ID_RE = re.compile(r"ENG-\d{4}-\d{5}", re.IGNORECASE)
+
 
 def _utcnow() -> datetime:
     """Return the current time as a timezone-aware UTC datetime."""
@@ -53,7 +56,31 @@ class OlympusModel(BaseModel):
     schema_version: Literal["1.0.0"] = "1.0.0"
 
 
-class Asset(OlympusModel):
+class EngagementScopedModel(OlympusModel):
+    """An Olympus object that can be linked to an engagement (ROADMAP ``WEB-B``).
+
+    ``engagement_id`` is optional and additive: objects created before an
+    engagement existed, produced outside any engagement, or imported from a
+    legacy document leave it ``None``. When set it must be a canonical engagement
+    id (``ENG-YYYY-NNNNN``), tying the object to the shared ``olympus.engagement``
+    record so CLI, TUI, API and Web scope it identically rather than inventing a
+    per-interface notion of ownership.
+    """
+
+    engagement_id: str | None = None
+
+    @field_validator("engagement_id")
+    @classmethod
+    def _validate_engagement_id(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = value.strip().upper()
+        if not _ENGAGEMENT_ID_RE.fullmatch(cleaned):
+            raise ValueError(f"invalid engagement_id {value!r}; expected ENG-YYYY-NNNNN")
+        return cleaned
+
+
+class Asset(EngagementScopedModel):
     """A resource observed or managed by the platform (host, domain, URL...)."""
 
     schema_name: Literal["olympus.asset"] = "olympus.asset"
@@ -70,7 +97,7 @@ class Asset(OlympusModel):
     metadata: dict[str, str] = Field(default_factory=dict)
 
 
-class Finding(OlympusModel):
+class Finding(EngagementScopedModel):
     """A weakness, vulnerability or misconfiguration attached to an asset."""
 
     schema_name: Literal["olympus.finding"] = "olympus.finding"
@@ -145,7 +172,7 @@ class Finding(OlympusModel):
         return sorted({match.group().upper() for match in _CWE_RE.finditer(haystack)})
 
 
-class Event(OlympusModel):
+class Event(EngagementScopedModel):
     """A normalized observable consumed by detection rules."""
 
     schema_name: Literal["olympus.event"] = "olympus.event"
@@ -157,7 +184,7 @@ class Event(OlympusModel):
     attributes: dict[str, str] = Field(default_factory=dict)
 
 
-class Evidence(OlympusModel):
+class Evidence(EngagementScopedModel):
     """An immutable reference to material supporting a finding or alert."""
 
     schema_name: Literal["olympus.evidence"] = "olympus.evidence"
@@ -168,7 +195,7 @@ class Evidence(OlympusModel):
     collected_at: datetime = Field(default_factory=_utcnow)
 
 
-class Alert(OlympusModel):
+class Alert(EngagementScopedModel):
     """A detection result linked to its source event and supporting evidence."""
 
     schema_name: Literal["olympus.alert"] = "olympus.alert"
@@ -200,7 +227,7 @@ class Alert(OlympusModel):
         return value
 
 
-class Incident(OlympusModel):
+class Incident(EngagementScopedModel):
     """An incident response case linking alerts, evidence and lifecycle state."""
 
     schema_name: Literal["olympus.incident"] = "olympus.incident"
@@ -230,7 +257,7 @@ class Incident(OlympusModel):
         return self
 
 
-class Observation(OlympusModel):
+class Observation(EngagementScopedModel):
     """One normalized, non-interpretive fact produced by a scanner or sensor."""
 
     schema_name: Literal["olympus.observation"] = "olympus.observation"

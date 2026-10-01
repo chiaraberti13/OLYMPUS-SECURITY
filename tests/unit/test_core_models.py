@@ -156,3 +156,50 @@ def test_finding_accepts_legacy_document_without_structured_fields() -> None:
     finding = Finding.model_validate(legacy)
     assert finding.cve == []
     assert finding.kev is False
+    assert finding.engagement_id is None
+
+
+# --- WEB-B slice 2: optional engagement linkage ------------------------------ #
+
+
+def test_scoped_models_default_engagement_id_to_none() -> None:
+    """Every engagement-scoped contract leaves the link unset by default."""
+    asset = Asset(asset_type=AssetType.HOST)
+    finding = Finding(asset_id="AST-2026-00001", source=Source.THEMIS, title="x")
+    assert asset.engagement_id is None
+    assert finding.engagement_id is None
+
+
+def test_engagement_id_is_normalized_to_upper_case() -> None:
+    asset = Asset(asset_type=AssetType.HOST, engagement_id="eng-2026-00001")
+    assert asset.engagement_id == "ENG-2026-00001"
+
+
+@pytest.mark.parametrize("bad_id", ["ENG-26-1", "ENGAGEMENT", "ENG-2026-1", "ENG-2026-000001"])
+def test_engagement_id_rejects_malformed_values(bad_id: str) -> None:
+    with pytest.raises(ValidationError):
+        Asset(asset_type=AssetType.HOST, engagement_id=bad_id)
+
+
+def test_engagement_id_round_trips() -> None:
+    original = Finding(
+        asset_id="AST-2026-00001",
+        source=Source.THEMIS,
+        title="x",
+        engagement_id="ENG-2026-00042",
+    )
+    restored = Finding.model_validate_json(original.model_dump_json())
+    assert restored == original
+    assert restored.engagement_id == "ENG-2026-00042"
+
+
+def test_scoped_model_accepts_legacy_document_without_engagement_id() -> None:
+    """A pre-WEB-B asset (no engagement_id) still validates."""
+    legacy = {
+        "schema_name": "olympus.asset",
+        "schema_version": "1.0.0",
+        "asset_id": "AST-2024-00001",
+        "asset_type": "host",
+    }
+    asset = Asset.model_validate(legacy)
+    assert asset.engagement_id is None

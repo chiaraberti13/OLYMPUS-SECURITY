@@ -64,6 +64,18 @@
       "$ref": "#/$defs/Criticality",
       "default": "medium"
     },
+    "engagement_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Engagement Id"
+    },
     "first_seen": {
       "format": "date-time",
       "title": "First Seen",

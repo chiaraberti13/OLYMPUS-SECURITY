@@ -71,6 +71,18 @@
       "default": null,
       "title": "Closed At"
     },
+    "engagement_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Engagement Id"
+    },
     "evidence_ids": {
       "items": {
         "type": "string"

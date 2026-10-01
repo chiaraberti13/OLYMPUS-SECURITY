@@ -45,6 +45,18 @@
       "title": "Attributes",
       "type": "object"
     },
+    "engagement_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Engagement Id"
+    },
     "event_id": {
       "title": "Event Id",
       "type": "string"

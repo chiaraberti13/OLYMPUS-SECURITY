@@ -57,6 +57,18 @@
         "title": "Created At",
         "type": "string"
       },
+      "engagement_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Engagement Id"
+      },
       "event_id": {
         "title": "Event Id",
         "type": "string"
@@ -461,6 +473,18 @@
         "$ref": "#/$defs/Criticality",
         "default": "medium"
       },
+      "engagement_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Engagement Id"
+      },
       "first_seen": {
         "format": "date-time",
         "title": "First Seen",
@@ -775,6 +799,18 @@
             "$ref": "#/$defs/Criticality",
             "default": "medium"
           },
+          "engagement_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Engagement Id"
+          },
           "first_seen": {
             "format": "date-time",
             "title": "First Seen",
@@ -939,6 +975,18 @@
             "default": "",
             "title": "Description",
             "type": "string"
+          },
+          "engagement_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Engagement Id"
           },
           "epss": {
             "anyOf": [
@@ -1380,6 +1428,18 @@
         "title": "Attributes",
         "type": "object"
       },
+      "engagement_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Engagement Id"
+      },
       "event_id": {
         "title": "Event Id",
         "type": "string"
@@ -1425,6 +1485,18 @@
         "format": "date-time",
         "title": "Collected At",
         "type": "string"
+      },
+      "engagement_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Engagement Id"
       },
       "evidence_id": {
         "title": "Evidence Id",
@@ -1573,6 +1645,18 @@
         "default": "",
         "title": "Description",
         "type": "string"
+      },
+      "engagement_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Engagement Id"
       },
       "epss": {
         "anyOf": [
@@ -1743,6 +1827,18 @@
         ],
         "default": null,
         "title": "Closed At"
+      },
+      "engagement_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Engagement Id"
       },
       "evidence_ids": {
         "items": {
@@ -2218,6 +2314,18 @@
         "title": "Attributes",
         "type": "object"
       },
+      "engagement_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Engagement Id"
+      },
       "observation_id": {
         "title": "Observation Id",
         "type": "string"
@@ -2359,6 +2467,18 @@
             "title": "Created At",
             "type": "string"
           },
+          "engagement_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Engagement Id"
+          },
           "event_id": {
             "title": "Event Id",
             "type": "string"
@@ -2451,6 +2571,18 @@
           "criticality": {
             "$ref": "#/$defs/Criticality",
             "default": "medium"
+          },
+          "engagement_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Engagement Id"
           },
           "first_seen": {
             "format": "date-time",
@@ -2616,6 +2748,18 @@
             "default": "",
             "title": "Description",
             "type": "string"
+          },
+          "engagement_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Engagement Id"
           },
           "epss": {
             "anyOf": [

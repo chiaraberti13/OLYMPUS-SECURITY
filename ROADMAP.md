@@ -118,7 +118,7 @@ Legenda stato: ✅ implementata · 🟡 parziale · 🗓️ pianificata · ❌ a
 | 7 | Deduplicazione + ciclo di vita finding | 🟡 | `vulcan/aggregate.py` (`dedupe_findings` per ID), `FindingStatus` (7 stati) | Stati+dedup ✅; **workflow/suppression/false-positive** → `WEB-C` |
 | 8 | Severità, confidence, risk scoring contestuale | 🟡 | `Severity`, `Finding.confidence` (`WEB-C`), `vulcan/enrichment.prioritize` (KEV>EPSS>CVSS>severità) | `Finding.confidence` ✅; **risk score numerico** ❌ → sotto-punto aperto in `WEB-C` |
 | 9 | Mapping CVE/CWE/CVSS/MITRE ATT&CK | 🟡 | `Finding.cvss` + campi `cve`/`cwe`/`epss`/`kev` strutturati (`WEB-C`); link NVD/MITRE in `vulcan/pdf.py`; EPSS/KEV `vulcan/enrichment.py`; ATT&CK detection `apollo/attack.py`, `Alert.mitre_attack` | Campi strutturati ✅; **ATT&CK offensivo sui finding** → `OPS-RED` |
-| 10 | Inventario centralizzato asset | 🟡 | `core.Asset`, `argus/assets.py`, persistenza per-assessment in Athena | **Centralizzazione cross-engagement** → `WEB-B` (Engagement) |
+| 10 | Inventario centralizzato asset | 🟡 | `core.Asset`, `argus/assets.py`, persistenza per-assessment in Athena; `Asset.engagement_id` opzionale (`WEB-B` slice 2) | Campo di collegamento ✅; **popolamento/query cross-engagement** da Athena/Themis → `WEB-B` slice 2 (resto) |
 | 11 | Scheduler, code, worker isolati, ripresa job | 🟡 | job store SQLite `themis/jobs.py` (stati+`recover`), `olympus themis recover`, sandbox isolato, worker Celery (vendored) | Queue+recover+sandbox ✅; **scheduler nativo** ❌ → `D13`; ritiro Celery vendored → `SEC-A` |
 | 12 | Scansioni incrementali + confronto risultati | 🟡 | `argus/diff.py` (diff recon) | **Finding/scan diff cross-run** → `WEB-I` |
 | 13 | Dashboard, notifiche, report JSON/CSV/HTML/PDF/SARIF | 🟡 | report JSON/MD/HTML/PDF `vulcan/`, SARIF `hermes/sarif.py`, OCSF/ECS/NDJSON `apollo/` | **CSV** ❌ (basso costo) → `WEB-I`; **dashboard/notifiche** → `WEB-G`/`WEB-I` |
@@ -622,9 +622,13 @@ authz) e di job-lifecycle/cancellation passano.
   `olympus engagement create|list|show` (`engagements/cli.py`), sullo **stesso**
   modello e database per tutti i canali. Schema catalog + golden, test unit e
   integration, `docs/engagements.md`.
-- [ ] **Slice 2.** Collegare asset, scan, job, finding, evidence, alert,
-  incident, report e audit all'`engagement_id`; Athena e Themis referenziano
-  l'engagement store condiviso.
+- [~] **Slice 2 (in corso).** Fondamenta dati fatte: campo opzionale
+  `engagement_id` sui contratti scoped (`Asset`, `Finding`, `Event`, `Evidence`,
+  `Alert`, `Incident`, `Observation`) via base condivisa `EngagementScopedModel`
+  (`core/models.py`), additivo e retro-compatibile (schema resta `1.0.0`,
+  validazione `ENG-YYYY-NNNNN`). **Rimane:** far popolare e interrogare
+  `engagement_id` da Athena/Themis contro l'engagement store condiviso, e
+  collegare `scan`/`job`/`report`/audit.
 - [ ] **Slice 3.** Esporre gli engagement via API e Web UI (sullo stesso store),
   con scope enforcement derivato dall'engagement.
 
