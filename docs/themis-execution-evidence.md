@@ -2,7 +2,7 @@
 
 _Captured on 2026-08-25 against a **local authorized lab** (a Python HTTP
 server on 127.0.0.1:8000). No public/third-party system was scanned. Scope
-file authorizes only 127.0.0.1; AEGIS_ENABLE_LIVE_SCANS=true._
+file authorizes only 127.0.0.1; THEMIS_ENABLE_LIVE_SCANS=true._
 
 Binaries present in this environment: nmap 7.94, nikto 2.5, wafw00f 2.x,
 sqlmap 1.10.8, testssl.sh 3.x, whatweb (apt binary — broken Ruby env).
@@ -86,7 +86,7 @@ _Captured against a **local authorized lab**: a Python `http.server` on
 `127.0.0.1:8099` serving a small page with an `/admin/panel` link, plus a
 deliberately broken server on `127.0.0.1:8098` that always answers 500. Scope
 file authorizes `127.0.0.1` and `127.0.0.0/8` only; no public or third-party
-system was contacted. `AEGIS_ENABLE_LIVE_SCANS=true`._
+system was contacted. `THEMIS_ENABLE_LIVE_SCANS=true`._
 
 Engine versions: httpx (ProjectDiscovery) 1.x, katana 1.x, nuclei v3.11.1,
 dalfox v2.13.0 — all built with `go install` and placed in `/opt/scanners`.
@@ -124,7 +124,7 @@ refusal was correct behaviour, not a bug.
 **nuclei cannot find its templates under the sandbox.** nuclei locates
 `nuclei-templates` through `$HOME`, and the sandbox user's home is not the
 operator's, so the engine exited 1 with "no templates provided for scan". The
-adapter now takes `AEGIS_NUCLEI_TEMPLATES` and passes `-templates` explicitly.
+adapter now takes `THEMIS_NUCLEI_TEMPLATES` and passes `-templates` explicitly.
 
 **A bare host target is not a URL target.** `httpx --target 127.0.0.1` probes
 80/443, which are closed on the lab host, and exits 2. Targeting
@@ -139,7 +139,7 @@ _Captured against a **local authorized lab**: the content-discovery target is a
 Python `http.server` on `127.0.0.1:8099` serving `/index.html`, `/admin/panel`
 and `/private/.env`; the command-injection target on `127.0.0.1:8094` shells out
 to `ping` with an unsanitised `addr` parameter. Scope authorizes `127.0.0.1` and
-`127.0.0.0/8` only. `AEGIS_ENABLE_LIVE_SCANS=true`._
+`127.0.0.0/8` only. `THEMIS_ENABLE_LIVE_SCANS=true`._
 
 Engine versions: dirsearch v0.5.0, commix 4.x. Run through Olympus:
 `olympus themis run <scanner> --target <url> --kind url --scope scope.json --i-am-authorized`
@@ -187,7 +187,7 @@ and "parameter X is injectable" does not need a working exploit string attached.
 _Captured against a **local authorized lab**: a server on `127.0.0.1:8092` whose
 response changes for the hidden parameters `id` and `debug` (and ignores all
 others), and one on `127.0.0.1:8091` that honours no parameter. Scope authorizes
-`127.0.0.1` and `127.0.0.0/8` only. `AEGIS_ENABLE_LIVE_SCANS=true`._
+`127.0.0.1` and `127.0.0.0/8` only. `THEMIS_ENABLE_LIVE_SCANS=true`._
 
 arjun 2.x, run through Olympus:
 `olympus themis run arjun --target http://127.0.0.1:8092/ --kind url --scope scope.json --i-am-authorized`
@@ -224,7 +224,7 @@ into the system `dist-packages` to be visible to the unprivileged sandbox user.
 _Captured against a **matched pair** of local authorized lab targets: one on
 `127.0.0.1:8096` that reflects the `q` parameter unescaped (vulnerable), and one
 on `127.0.0.1:8095` that HTML-escapes it (safe). Scope authorizes `127.0.0.1`
-and `127.0.0.0/8` only. `AEGIS_ENABLE_LIVE_SCANS=true`._
+and `127.0.0.0/8` only. `THEMIS_ENABLE_LIVE_SCANS=true`._
 
 XSStrike 3.1.5, run through Olympus:
 `olympus themis run xsstrike --target http://127.0.0.1:8096/?q=1 --kind url --scope scope.json --i-am-authorized`

@@ -13,6 +13,15 @@ everything below lives under **Unreleased**.
 ## [Unreleased]
 
 ### Changed
+- **Variabili d'ambiente THEMIS_* con fallback (`DEV-I`, Milestone 1c).** Le
+  variabili di configurazione sono ora canonicamente `THEMIS_*`, con risoluzione
+  centralizzata `THEMIS_*` → `AEGIS_*` → `VAP_*` in `olympus.themis.config`
+  (resolver bidirezionale; impostare due nomi a valori diversi è rifiutato come
+  ambiguo). Aggiornati i call site (sandbox, nuclei, capabilities,
+  scanner-doctor, chiave API della CLI), `docker-compose.yml` e la
+  documentazione; aggiunto un test del fallback. Le deployment esistenti che
+  usano `AEGIS_*` o `VAP_*` continuano a funzionare senza modifiche. Completa
+  `DEV-I` (rename AEGIS → Themis).
 - **Migrazione schema-name e provenance AEGIS→Themis (`DEV-I`, Milestone 1b).**
   Gli schema name versionati sono ora `olympus.themis-*` e il valore provenance
   `Source` è `"themis"`. Un canonicalizzatore

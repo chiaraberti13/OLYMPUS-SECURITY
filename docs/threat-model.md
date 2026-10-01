@@ -92,7 +92,7 @@ Honesty is a control here too. These are open, and tracked in
 
 For an operator running Olympus against authorized targets:
 
-1. **Keep live scans off until needed.** `AEGIS_ENABLE_LIVE_SCANS` defaults to
+1. **Keep live scans off until needed.** `THEMIS_ENABLE_LIVE_SCANS` defaults to
    off; a missing binary yields `unavailable`, never a fabricated finding.
 2. **Declare scope narrowly.** Use an engagement scope file and, for a lab, the
    `[lab]` policy block with the exact ranges you own — nothing wider.

@@ -41,12 +41,22 @@ class CapabilityState(StrEnum):
 
 
 API_CONFIGURATION: dict[str, tuple[str, str]] = {
-    "zap": ("AEGIS_ZAP_URL", "AEGIS_ZAP_API_KEY"),
-    "openvas": ("AEGIS_OPENVAS_URL", "AEGIS_OPENVAS_TOKEN"),
-    "nessus": ("AEGIS_NESSUS_URL", "AEGIS_NESSUS_TOKEN"),
-    "burp": ("AEGIS_BURP_URL", "AEGIS_BURP_API_KEY"),
-    "acunetix": ("AEGIS_ACUNETIX_URL", "AEGIS_ACUNETIX_API_KEY"),
+    "zap": ("THEMIS_ZAP_URL", "THEMIS_ZAP_API_KEY"),
+    "openvas": ("THEMIS_OPENVAS_URL", "THEMIS_OPENVAS_TOKEN"),
+    "nessus": ("THEMIS_NESSUS_URL", "THEMIS_NESSUS_TOKEN"),
+    "burp": ("THEMIS_BURP_URL", "THEMIS_BURP_API_KEY"),
+    "acunetix": ("THEMIS_ACUNETIX_URL", "THEMIS_ACUNETIX_API_KEY"),
 }
+
+
+def is_configured(env: dict[str, str], name: str) -> bool:
+    """True when a canonical ``THEMIS_*`` var, or its legacy ``AEGIS_*`` name, is set."""
+    if env.get(name, "").strip():
+        return True
+    if name.startswith("THEMIS_"):
+        legacy = "AEGIS_" + name[len("THEMIS_") :]
+        return bool(env.get(legacy, "").strip())
+    return False
 
 
 @dataclass(frozen=True)
@@ -108,7 +118,7 @@ def inspect(spec: ScannerSpec, environment: dict[str, str] | None = None) -> Cap
             state = CapabilityState.READY
     else:
         required = API_CONFIGURATION.get(spec.name, ())
-        missing = tuple(name for name in required if not env.get(name, "").strip())
+        missing = tuple(name for name in required if not is_configured(env, name))
         available = bool(required) and not missing
         # API adapters are not registered yet; configuration alone must never
         # make the engine appear executable.

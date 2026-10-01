@@ -53,6 +53,21 @@ def _os_environ() -> dict[str, str]:
     return dict(os.environ)
 
 
+def _read_api_key(api_key_env: str) -> str:
+    """Read the API key, falling back from the canonical name to the legacy one.
+
+    The default env var was renamed ``OLYMPUS_AEGIS_API_KEY`` ->
+    ``OLYMPUS_THEMIS_API_KEY`` (ROADMAP ``DEV-I``). When the caller keeps the new
+    default and only the legacy variable is set, the legacy value is still used.
+    """
+    import os
+
+    value = os.environ.get(api_key_env, "")
+    if not value and api_key_env == "OLYMPUS_THEMIS_API_KEY":
+        value = os.environ.get("OLYMPUS_AEGIS_API_KEY", "")
+    return value
+
+
 # --------------------------------------------------------------------------- #
 # THEMIS — native control plane with temporary VAP compatibility commands
 # --------------------------------------------------------------------------- #
@@ -86,7 +101,7 @@ DEFAULT_IDENTITY_REGISTER = str(state_file_path("themis-api-identities.json"))
 
 #: THEMIS writes this audit log whether or not the operator asked for it, so it
 #: defaults to the per-user state directory rather than the working directory.
-DEFAULT_AEGIS_AUDIT_LOG = str(audit_log_path("themis-audit.ndjson"))
+DEFAULT_THEMIS_AUDIT_LOG = str(audit_log_path("themis-audit.ndjson"))
 
 
 def _emit_report(report: Report) -> None:
@@ -143,12 +158,12 @@ def themis_api(
     scope_directory: str = typer.Option(".olympus/scopes", "--scope-directory"),
     host: str = typer.Option("127.0.0.1", "--host"),
     port: int = typer.Option(8443, "--port", min=1, max=65_535),
-    api_key_env: str = typer.Option("OLYMPUS_AEGIS_API_KEY", "--api-key-env"),
+    api_key_env: str = typer.Option("OLYMPUS_THEMIS_API_KEY", "--api-key-env"),
     identities: str = typer.Option(
         "", "--identities", help="Identity register with scoped, revocable credentials."
     ),
     audit: str = typer.Option(
-        DEFAULT_AEGIS_AUDIT_LOG, "--audit", help="Redacted per-request audit log."
+        DEFAULT_THEMIS_AUDIT_LOG, "--audit", help="Redacted per-request audit log."
     ),
     ssl_certfile: str = typer.Option("", "--ssl-certfile"),
     ssl_keyfile: str = typer.Option("", "--ssl-keyfile"),
@@ -160,7 +175,6 @@ def themis_api(
     command line.
     """
     import ipaddress
-    import os
     from pathlib import Path
 
     try:
@@ -173,7 +187,7 @@ def themis_api(
             err=True,
         )
         raise typer.Exit(code=ExitCode.USAGE)
-    api_key = os.environ.get(api_key_env, "")
+    api_key = _read_api_key(api_key_env)
     if not api_key and not identities:
         typer.echo(
             f"olympus: set {api_key_env} or pass --identities with a credential register",
@@ -917,12 +931,11 @@ def themis_scan(
     base_url: str = typer.Option(
         "http://127.0.0.1:8443", "--url", help="Base URL of the native THEMIS API."
     ),
-    api_key_env: str = typer.Option("OLYMPUS_AEGIS_API_KEY", "--api-key-env"),
+    api_key_env: str = typer.Option("OLYMPUS_THEMIS_API_KEY", "--api-key-env"),
     i_am_authorized: bool = typer.Option(False, "--i-am-authorized"),
 ) -> None:
     """Submit authorized work to the native THEMIS API."""
     import ipaddress
-    import os
     import urllib.error
     import urllib.request
     from urllib.parse import urlparse
@@ -930,7 +943,7 @@ def themis_scan(
     if not i_am_authorized:
         typer.echo("olympus: API scan submission requires --i-am-authorized", err=True)
         raise typer.Exit(code=ExitCode.NOT_AUTHORIZED)
-    api_key = os.environ.get(api_key_env, "")
+    api_key = _read_api_key(api_key_env)
     if not api_key:
         typer.echo(
             f"olympus: required API key environment variable is not set: {api_key_env}",
@@ -1070,7 +1083,7 @@ def sandbox_check() -> Check:
     if identity is not None:
         confined, detail = True, f"scanners drop to {identity.name} (uid {identity.uid})"
     elif privileged_parent:
-        confined, detail = False, "AEGIS_SANDBOX_ALLOW_ROOT is set: scanners would run as ROOT"
+        confined, detail = False, "THEMIS_SANDBOX_ALLOW_ROOT is set: scanners would run as ROOT"
     else:
         confined, detail = True, "parent process is already unprivileged"
     limits = ", ".join(f"{name}={value}" for name, value in sorted(policy.describe().items()))
@@ -1209,7 +1222,7 @@ def themis_run(
     max_findings: int = typer.Option(10_000, "--max-findings"),
     output: str = typer.Option("", "--output", help="Optional private versioned result JSON."),
     audit: str = typer.Option(
-        DEFAULT_AEGIS_AUDIT_LOG, "--audit", help="Redacted structured audit log."
+        DEFAULT_THEMIS_AUDIT_LOG, "--audit", help="Redacted structured audit log."
     ),
     i_am_authorized: bool = typer.Option(
         False, "--i-am-authorized", help="Confirm documented authorization for a real scan."

@@ -92,11 +92,11 @@ id in the metadata. Credentials never appear: only the identity's name does.
 
 Non-loopback binds require both `--ssl-certfile` and `--ssl-keyfile`; the API
 refuses to start otherwise. The single-key secret is read from an environment
-variable (`--api-key-env`, default `OLYMPUS_AEGIS_API_KEY`) and is never
+variable (`--api-key-env`, default `OLYMPUS_THEMIS_API_KEY`) and is never
 accepted as a command-line argument.
 
 ```bash
-OLYMPUS_AEGIS_API_KEY=… olympus themis api            # loopback, single key
+OLYMPUS_THEMIS_API_KEY=… olympus themis api            # loopback, single key
 olympus themis api --identities ~/.local/state/olympus/themis-api-identities.json \
   --host 10.0.0.5 --ssl-certfile server.crt --ssl-keyfile server.key
 ```

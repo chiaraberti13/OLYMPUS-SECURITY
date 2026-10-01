@@ -14,7 +14,7 @@ Authorization and scope are never bypassed — they are enforced twice:
 An Athena plan only runs once ``authorization.confirmed`` is true (the plan
 contract refuses otherwise), so the engagement is authorized by construction;
 that is what lets this adapter mark the THEMIS request authorized. Whether a
-*real* scan runs is still gated by ``AEGIS_ENABLE_LIVE_SCANS``: with live
+*real* scan runs is still gated by ``THEMIS_ENABLE_LIVE_SCANS``: with live
 scanning off (the default, and in CI) the adapter uses THEMIS's own scope-gated
 **simulation** mode, which returns clearly-labelled illustrative findings and
 never executes a binary.

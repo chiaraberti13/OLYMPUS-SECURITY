@@ -142,7 +142,7 @@ services:
   zap:
     image: ghcr.io/zaproxy/zaproxy:stable
     profiles: ["zap", "scanners-cli"]
-    # The API key is mandatory: AEGIS_ZAP_API_KEY must be set (no unauthenticated
+    # The API key is mandatory: THEMIS_ZAP_API_KEY must be set (no unauthenticated
     # ZAP API). ZAP gets its own hardening but not the shared 1g memory cap — it
     # needs more headroom than the Python services.
     security_opt:
@@ -159,7 +159,7 @@ services:
       - "-port"
       - "8090"
       - "-config"
-      - "api.key=${AEGIS_ZAP_API_KEY:?set AEGIS_ZAP_API_KEY to a strong secret}"
+      - "api.key=${THEMIS_ZAP_API_KEY:?set THEMIS_ZAP_API_KEY to a strong secret}"
     expose:
       - "8090"
     restart: unless-stopped
@@ -178,7 +178,7 @@ services:
   # --- Commercial connectors (proprietary licences required; images are
   #     operator-provided). Enable with:  docker compose --profile commercial-connectors up
   nessus:
-    image: ${AEGIS_NESSUS_IMAGE:-tenableofficial/nessus:latest}
+    image: ${THEMIS_NESSUS_IMAGE:-tenableofficial/nessus:latest}
     profiles: ["commercial-connectors"]
     environment:
       # Provide your own licence/activation via env (never commit these).

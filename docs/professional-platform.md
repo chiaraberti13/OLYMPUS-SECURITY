@@ -45,7 +45,7 @@ fabricated successful result.
 durable job lifecycle (`submit`, `list`, `status`, `cancel`). Scope documents
 are registered by identifier in a server-owned directory, so remote callers
 cannot submit arbitrary filesystem paths. The API requires a 32-character
-minimum secret from `OLYMPUS_AEGIS_API_KEY`; non-loopback binds require an
+minimum secret from `OLYMPUS_THEMIS_API_KEY`; non-loopback binds require an
 explicit TLS certificate and key. Request bodies are bounded and operational
 responses carry no-store and browser-hardening headers.
 

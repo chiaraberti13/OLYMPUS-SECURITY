@@ -177,7 +177,7 @@ class ScannerAdapter(ABC):
                 state=ExecutionState.DISABLED,
                 target=request.target,
                 error=(
-                    "live scanning is disabled; set AEGIS_ENABLE_LIVE_SCANS=true for a real "
+                    "live scanning is disabled; set THEMIS_ENABLE_LIVE_SCANS=true for a real "
                     "scan, or pass --simulate explicitly"
                 ),
             )

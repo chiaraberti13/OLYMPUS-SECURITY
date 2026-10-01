@@ -23,5 +23,5 @@ class ExecutionState(StrEnum):
     #: Live execution is intentionally switched off (no simulation requested).
     DISABLED = "disabled"
     #: Findings are illustrative and were produced ONLY because simulation was
-    #: explicitly requested (``--simulate`` / ``AEGIS_SIMULATION_MODE=true``).
+    #: explicitly requested (``--simulate`` / ``THEMIS_SIMULATION_MODE=true``).
     SIMULATION = "simulation"

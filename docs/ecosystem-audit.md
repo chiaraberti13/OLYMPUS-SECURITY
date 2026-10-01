@@ -108,7 +108,7 @@ commands.
   preserved verbatim). **Resolved for the Olympus-native path:** `olympus themis
   run` is a new native execution layer with explicit states
   (`live`/`unavailable`/`failed`/`disabled`/`simulation`) that **never** emits a
-  simulated finding unless `--simulate` (or `AEGIS_SIMULATION_MODE=true`) is
+  simulated finding unless `--simulate` (or `THEMIS_SIMULATION_MODE=true`) is
   explicitly given. Six scanners have real native adapters (nmap, nikto, wafw00f,
   sqlmap, whatweb, testssl); four were verified live end-to-end here against a
   local lab (see `docs/themis-execution-evidence.md`). The remaining 18 native

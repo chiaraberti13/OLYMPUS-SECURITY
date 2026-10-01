@@ -139,7 +139,7 @@ def test_cli_requires_secret_and_tls_for_remote_bind(tmp_path: Path) -> None:
     scopes.mkdir()
     missing = runner.invoke(app, ["themis", "api", "--scope-directory", str(scopes)])
     assert missing.exit_code == 2
-    assert "OLYMPUS_AEGIS_API_KEY" in missing.output
+    assert "OLYMPUS_THEMIS_API_KEY" in missing.output
     assert "--identities" in missing.output
     remote = runner.invoke(
         app,

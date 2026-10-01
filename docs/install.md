@@ -30,7 +30,7 @@ The Olympus-owned control plane needs no Redis or Celery:
 ```bash
 mkdir -p .olympus/scopes
 # Place validated scope documents here as <scope-id>.json
-export OLYMPUS_AEGIS_API_KEY='<at least 32 random characters>'
+export OLYMPUS_THEMIS_API_KEY='<at least 32 random characters>'
 olympus themis api --scope-directory .olympus/scopes       # terminal 1
 olympus themis jobs work                                  # terminal 2 / supervisor
 olympus themis scan --scanner nmap --target example.com \

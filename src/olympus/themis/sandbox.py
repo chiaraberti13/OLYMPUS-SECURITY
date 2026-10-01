@@ -7,9 +7,9 @@ requirements into one validated policy that :mod:`olympus.themis.runner` applies
 to every child process:
 
 * **Unprivileged execution.** When the parent runs as ``root``, the child drops
-  to a dedicated account (``AEGIS_SANDBOX_USER``, ``nobody`` by default) between
+  to a dedicated account (``THEMIS_SANDBOX_USER``, ``nobody`` by default) between
   ``fork`` and ``exec``. If the account cannot be resolved the run is refused
-  rather than silently performed as root; ``AEGIS_SANDBOX_ALLOW_ROOT=true`` is
+  rather than silently performed as root; ``THEMIS_SANDBOX_ALLOW_ROOT=true`` is
   the explicit, documented opt-out.
 * **Resource limits.** CPU time, address space, process count, file
   descriptors, file size and core dumps are bounded with ``setrlimit`` in the
@@ -90,18 +90,20 @@ class SandboxPolicy:
 
     @classmethod
     def from_environment(cls) -> SandboxPolicy:
-        """Build the policy from ``AEGIS_SANDBOX_*``, falling back to defaults."""
+        """Build the policy from ``THEMIS_SANDBOX_*``, falling back to defaults."""
         defaults = cls()
         try:
             return cls(
-                cpu_seconds=_env_int("AEGIS_SANDBOX_CPU_SECONDS", defaults.cpu_seconds),
-                memory_bytes=_env_int("AEGIS_SANDBOX_MEMORY_BYTES", defaults.memory_bytes),
-                max_processes=_env_int("AEGIS_SANDBOX_MAX_PROCESSES", defaults.max_processes),
-                open_files=_env_int("AEGIS_SANDBOX_OPEN_FILES", defaults.open_files),
-                file_size_bytes=_env_int("AEGIS_SANDBOX_FILE_SIZE_BYTES", defaults.file_size_bytes),
-                grace_seconds=_env_float("AEGIS_SANDBOX_GRACE_SECONDS", defaults.grace_seconds),
-                user=get("AEGIS_SANDBOX_USER", defaults.user).strip() or defaults.user,
-                allow_root=_env_flag("AEGIS_SANDBOX_ALLOW_ROOT"),
+                cpu_seconds=_env_int("THEMIS_SANDBOX_CPU_SECONDS", defaults.cpu_seconds),
+                memory_bytes=_env_int("THEMIS_SANDBOX_MEMORY_BYTES", defaults.memory_bytes),
+                max_processes=_env_int("THEMIS_SANDBOX_MAX_PROCESSES", defaults.max_processes),
+                open_files=_env_int("THEMIS_SANDBOX_OPEN_FILES", defaults.open_files),
+                file_size_bytes=_env_int(
+                    "THEMIS_SANDBOX_FILE_SIZE_BYTES", defaults.file_size_bytes
+                ),
+                grace_seconds=_env_float("THEMIS_SANDBOX_GRACE_SECONDS", defaults.grace_seconds),
+                user=get("THEMIS_SANDBOX_USER", defaults.user).strip() or defaults.user,
+                allow_root=_env_flag("THEMIS_SANDBOX_ALLOW_ROOT"),
             )
         except ThemisConfigError as exc:
             raise SandboxError(str(exc)) from exc
@@ -124,14 +126,14 @@ class SandboxPolicy:
                 return None
             raise SandboxError(
                 f"refusing to run a scanner as root: unprivileged account {self.user!r} does "
-                "not exist. Create it, set AEGIS_SANDBOX_USER to an existing account, or set "
-                "AEGIS_SANDBOX_ALLOW_ROOT=true to accept the risk explicitly."
+                "not exist. Create it, set THEMIS_SANDBOX_USER to an existing account, or set "
+                "THEMIS_SANDBOX_ALLOW_ROOT=true to accept the risk explicitly."
             ) from None
         if entry.pw_uid == 0:
             if self.allow_root:
                 return None
             raise SandboxError(
-                f"refusing to run a scanner as root: AEGIS_SANDBOX_USER={self.user!r} is uid 0"
+                f"refusing to run a scanner as root: THEMIS_SANDBOX_USER={self.user!r} is uid 0"
             )
         return UnprivilegedIdentity(name=entry.pw_name, uid=entry.pw_uid, gid=entry.pw_gid)
 

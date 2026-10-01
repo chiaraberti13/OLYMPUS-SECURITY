@@ -72,7 +72,7 @@ diverso da zero con "no templates provided for scan". La directory si dichiara
 esplicitamente:
 
 ```bash
-export AEGIS_NUCLEI_TEMPLATES=/opt/nuclei-templates   # leggibile dall'utente sandbox
+export THEMIS_NUCLEI_TEMPLATES=/opt/nuclei-templates   # leggibile dall'utente sandbox
 olympus themis run nuclei --target http://lab.interno --kind url \
   --scope scope.json --i-am-authorized
 ```

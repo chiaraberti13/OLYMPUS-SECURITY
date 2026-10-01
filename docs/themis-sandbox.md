@@ -14,9 +14,9 @@ tested in `tests/unit/test_themis_sandbox.py` against the real kernel behaviour
 
 | Guarantee | Mechanism |
 | --- | --- |
-| Unprivileged execution | `subprocess`'s own C-level `setgroups`/`setgid`/`setuid` to `AEGIS_SANDBOX_USER` when the parent is root |
+| Unprivileged execution | `subprocess`'s own C-level `setgroups`/`setgid`/`setuid` to `THEMIS_SANDBOX_USER` when the parent is root |
 | No shell, no argument injection | Fixed argument vector, executable resolved on `PATH`, `stdin` from `/dev/null` |
-| Bounded CPU time | `RLIMIT_CPU` (soft `AEGIS_SANDBOX_CPU_SECONDS`, hard +5s so `SIGXCPU` is deliverable) |
+| Bounded CPU time | `RLIMIT_CPU` (soft `THEMIS_SANDBOX_CPU_SECONDS`, hard +5s so `SIGXCPU` is deliverable) |
 | Bounded memory | `RLIMIT_AS` |
 | Bounded process count | `RLIMIT_NPROC` |
 | Bounded file descriptors | `RLIMIT_NOFILE` |
@@ -36,13 +36,13 @@ is the `setrlimit` loop, which has no `Popen` parameter.
 
 ## Running as root is refused, not assumed
 
-When the parent process is root, the child drops to `AEGIS_SANDBOX_USER`
+When the parent process is root, the child drops to `THEMIS_SANDBOX_USER`
 (`nobody` by default). If that account does not exist — or resolves to uid 0 —
 the run is **refused** with `TerminationCause.SANDBOX_DENIED` and nothing is
 executed. Accepting the risk is explicit and auditable:
 
 ```bash
-AEGIS_SANDBOX_ALLOW_ROOT=true olympus themis run ...
+THEMIS_SANDBOX_ALLOW_ROOT=true olympus themis run ...
 ```
 
 When the parent is already unprivileged, no drop is attempted and the scanner
@@ -82,14 +82,14 @@ described in [`themis-config.md`](themis-config.md).
 
 | Variable | Purpose | Default | Accepted range |
 | --- | --- | --- | --- |
-| `AEGIS_SANDBOX_USER` | Account the scanner drops to when the parent is root | `nobody` | 1–64 characters |
-| `AEGIS_SANDBOX_ALLOW_ROOT` | Explicitly accept running scanners as root | `false` | `true`/`false` |
-| `AEGIS_SANDBOX_CPU_SECONDS` | `RLIMIT_CPU` soft limit | `900` | 1–86400 |
-| `AEGIS_SANDBOX_MEMORY_BYTES` | `RLIMIT_AS` | 2 GiB | 64 MiB–64 GiB |
-| `AEGIS_SANDBOX_MAX_PROCESSES` | `RLIMIT_NPROC` | `256` | 1–4096 |
-| `AEGIS_SANDBOX_OPEN_FILES` | `RLIMIT_NOFILE` | `512` | 16–65536 |
-| `AEGIS_SANDBOX_FILE_SIZE_BYTES` | `RLIMIT_FSIZE` | 512 MiB | 1 MiB–64 GiB |
-| `AEGIS_SANDBOX_GRACE_SECONDS` | `SIGTERM` → `SIGKILL` escalation window | `5` | 0.05–60 |
+| `THEMIS_SANDBOX_USER` | Account the scanner drops to when the parent is root | `nobody` | 1–64 characters |
+| `THEMIS_SANDBOX_ALLOW_ROOT` | Explicitly accept running scanners as root | `false` | `true`/`false` |
+| `THEMIS_SANDBOX_CPU_SECONDS` | `RLIMIT_CPU` soft limit | `900` | 1–86400 |
+| `THEMIS_SANDBOX_MEMORY_BYTES` | `RLIMIT_AS` | 2 GiB | 64 MiB–64 GiB |
+| `THEMIS_SANDBOX_MAX_PROCESSES` | `RLIMIT_NPROC` | `256` | 1–4096 |
+| `THEMIS_SANDBOX_OPEN_FILES` | `RLIMIT_NOFILE` | `512` | 16–65536 |
+| `THEMIS_SANDBOX_FILE_SIZE_BYTES` | `RLIMIT_FSIZE` | 512 MiB | 1 MiB–64 GiB |
+| `THEMIS_SANDBOX_GRACE_SECONDS` | `SIGTERM` → `SIGKILL` escalation window | `5` | 0.05–60 |
 
 An unparsable or out-of-range value is a startup error for that run, never a
 silently disabled limit.
@@ -118,4 +118,4 @@ process-level ones. Do not read the guarantees above as covering them:
   path, not to `TMPDIR`.
 - `RLIMIT_AS` bounds *address space*, not resident memory. A runtime that
   reserves large virtual mappings (JVM-based scanners, for example) may need
-  `AEGIS_SANDBOX_MEMORY_BYTES` raised above the default.
+  `THEMIS_SANDBOX_MEMORY_BYTES` raised above the default.

@@ -65,7 +65,7 @@ def test_api_scanner_reports_missing_configuration_by_name() -> None:
     checks = _checks(scanner_doctor.scanner_report("nessus").to_dict())
     api = checks["scanner:nessus:api"]
     assert api["ok"] is False
-    assert "AEGIS_NESSUS_URL" in api["detail"] and "AEGIS_NESSUS_TOKEN" in api["detail"]
+    assert "THEMIS_NESSUS_URL" in api["detail"] and "THEMIS_NESSUS_TOKEN" in api["detail"]
     assert checks["scanner:nessus:adapter"]["ok"] is False
     assert checks["scanner:nessus:ready"]["ok"] is False
 

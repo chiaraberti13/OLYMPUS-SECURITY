@@ -43,7 +43,7 @@
 | 4 | Capability Red/Blue/Purple | `[~]` | `OPS-RED`, `OPS-BLUE`, `OPS-PURPLE`, `OPS-SCAN` |
 | 5 | Production readiness scanner | `[ ]` | `D1`, `D2` |
 | 6 | Distribuzione e osservabilità | `[~]` | `DEV-E`, `DEV-F`, `SEC-F` |
-| 7 | Rename Themis + Web control plane | `[~]` | `DEV-I`, `WEB-A`…`WEB-J` |
+| 7 | Rename Themis + Web control plane | `[~]` | `DEV-I` ✓, `WEB-A`…`WEB-J` |
 
 L'ordine di esecuzione concordato per la Fase 7 mette le **fondamenta dati prima
 delle interfacce**: `DEV-I` (rename) → `WEB-B` (engagement entità di primo
@@ -479,16 +479,18 @@ Precedente collaudato: `docs/vap-to-aegis-rename.md` (VAP → AEGIS).
   riscrive i documenti persistiti sotto i vecchi nomi `olympus.aegis-*`, e il
   membro deprecato `Source.AEGIS = "aegis"` mantiene validi i record storici.
   Schema catalog e golden rigenerati; test di migrazione e di provenance.
-- [ ] **Milestone 1c.** Variabili d'ambiente `THEMIS_*` con **fallback
-  automatico** alle `AEGIS_*` (già con fallback `VAP_*`) per almeno una release;
-  docker/docs allineati. Isolato perché tocca molti punti di lettura env
-  (sandbox, adapter, capabilities, CLI) e beneficia di una PR dedicata.
+- [x] **Milestone 1c (fatto).** Variabili d'ambiente canoniche `THEMIS_*` con
+  **fallback automatico** `THEMIS_*` → `AEGIS_*` → `VAP_*` centralizzato in
+  `olympus.themis.config` (resolver bidirezionale, ambiguità rifiutata); call
+  site aggiornati (sandbox, nuclei, capabilities, scanner-doctor, API key CLI),
+  docker-compose e docs allineati; test del fallback. Le `AEGIS_*`/`VAP_*`
+  esistenti continuano a funzionare senza modifiche.
 
-**Criterio di completamento:** nessun identificatore tecnico `AEGIS`/`aegis`
-residuo salvo l'alias deprecato, i due contratti esterni rinviati a M1b (schema
-name/valore provenance ed env) e i riferimenti storici; migrazione schema
-testata; `olympus aegis` emette il warning e funziona; Ruff, Mypy, Pytest,
-schema-check e golden contract verdi; documentazione allineata.
+**Criterio di completamento (soddisfatto):** nessun identificatore tecnico
+`AEGIS`/`aegis` residuo salvo l'alias CLI deprecato, i nomi env legaci di
+fallback e i riferimenti storici; migrazione schema e fallback env testati;
+`olympus aegis` emette il warning e funziona; Ruff, Mypy, Pytest, schema-check e
+golden contract verdi; documentazione allineata. **`DEV-I` completo.**
 
 ## 🌐 Prospettiva Web Control Plane (interfaccia sullo stesso core)
 

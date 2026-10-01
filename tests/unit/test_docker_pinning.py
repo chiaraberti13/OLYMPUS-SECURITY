@@ -76,7 +76,7 @@ def test_pinning_files_exist(path: Path) -> None:
 def test_zap_requires_an_api_key_and_never_disables_it() -> None:
     text = _COMPOSE.read_text(encoding="utf-8")
     assert "api.disablekey=true" not in text, "ZAP API key must not be disabled"
-    assert "api.key=${AEGIS_ZAP_API_KEY" in text, "ZAP must require AEGIS_ZAP_API_KEY"
+    assert "api.key=${THEMIS_ZAP_API_KEY" in text, "ZAP must require THEMIS_ZAP_API_KEY"
 
 
 def test_core_services_drop_privileges_and_capabilities() -> None:

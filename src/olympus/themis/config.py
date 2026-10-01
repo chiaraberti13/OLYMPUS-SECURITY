@@ -1,48 +1,77 @@
-"""Themis configuration with legacy ``VAP_*`` compatibility.
+"""Themis configuration with ``AEGIS_*`` and legacy ``VAP_*`` compatibility.
 
-The subsystem was renamed AEGIS -> Themis (ROADMAP ``DEV-I``). The configuration
-environment variables are a **deployment contract**, so they keep the
-``AEGIS_*`` names for now; each falls back to the corresponding legacy ``VAP_*``
-variable when unset. Renaming the variables to ``THEMIS_*`` (reading
-``THEMIS_*`` first, then ``AEGIS_*``, then ``VAP_*``) is staged with the
-schema-name migration as a ``DEV-I`` follow-up, so existing deployments keep
-working. This mapping is documented in ``docs/themis-config.md``.
+The subsystem was renamed AEGIS -> Themis (ROADMAP ``DEV-I``). Configuration
+environment variables are now canonically ``THEMIS_*``. Because the variable
+names are a **deployment contract**, each canonical ``THEMIS_*`` value falls
+back — in order — to the corresponding ``AEGIS_*`` variable (the previous name)
+and then to the legacy ``VAP_*`` variable (the vendored upstream name), so
+existing deployments keep working without any change. Setting two of them to
+*different* values is rejected as ambiguous. This mapping is documented in
+``docs/themis-config.md``.
 """
 
 from __future__ import annotations
 
 import os
 
+_THEMIS_PREFIX = "THEMIS_"
+_AEGIS_PREFIX = "AEGIS_"
+
 
 class ThemisConfigError(ValueError):
-    """Raised when native and legacy configuration is invalid or ambiguous."""
+    """Raised when canonical and legacy configuration is invalid or ambiguous."""
 
 
-#: AEGIS_* → legacy VAP_* compatibility mapping.
+#: Canonical ``THEMIS_*`` → legacy ``VAP_*`` compatibility mapping (deepest
+#: fallback, from the vendored upstream platform).
 COMPAT: dict[str, str] = {
-    "AEGIS_ENABLE_LIVE_SCANS": "VAP_ENABLE_LIVE_SCANS",
-    "AEGIS_SIMULATION_MODE": "VAP_SIMULATION_MODE",
-    "AEGIS_HOST": "VAP_HOST",
-    "AEGIS_PORT": "VAP_PORT",
-    "AEGIS_DATABASE_URL": "VAP_DATABASE_URL",
-    "AEGIS_REPORTS_DIR": "VAP_REPORTS_DIR",
-    "AEGIS_CELERY_BROKER_URL": "VAP_CELERY_BROKER_URL",
+    "THEMIS_ENABLE_LIVE_SCANS": "VAP_ENABLE_LIVE_SCANS",
+    "THEMIS_SIMULATION_MODE": "VAP_SIMULATION_MODE",
+    "THEMIS_HOST": "VAP_HOST",
+    "THEMIS_PORT": "VAP_PORT",
+    "THEMIS_DATABASE_URL": "VAP_DATABASE_URL",
+    "THEMIS_REPORTS_DIR": "VAP_REPORTS_DIR",
+    "THEMIS_CELERY_BROKER_URL": "VAP_CELERY_BROKER_URL",
 }
 
 
+def _fallback_names(name: str) -> list[str]:
+    """Return the resolution order for ``name``: THEMIS, then AEGIS, then VAP.
+
+    The resolver is bidirectional: whether a caller passes the canonical
+    ``THEMIS_*`` name or the previous ``AEGIS_*`` name, both are tried (canonical
+    first), followed by any mapped legacy ``VAP_*`` name. This keeps every read
+    working during the rename regardless of which name a call site uses.
+    """
+    if name.startswith(_THEMIS_PREFIX):
+        canonical = name
+        aegis = _AEGIS_PREFIX + name[len(_THEMIS_PREFIX) :]
+    elif name.startswith(_AEGIS_PREFIX):
+        canonical = _THEMIS_PREFIX + name[len(_AEGIS_PREFIX) :]
+        aegis = name
+    else:
+        return [name]
+    order = [canonical, aegis]
+    legacy = COMPAT.get(canonical)
+    if legacy is not None:
+        order.append(legacy)
+    return order
+
+
 def get(name: str, default: str = "") -> str:
-    """Return ``AEGIS_<name>`` (or its legacy ``VAP_*`` fallback), else ``default``."""
-    value = os.environ.get(name)
-    legacy = COMPAT.get(name)
-    legacy_value = os.environ.get(legacy) if legacy is not None else None
-    if value is not None and legacy_value is not None and value.strip() != legacy_value.strip():
-        raise ThemisConfigError(
-            f"ambiguous configuration: {name} and {legacy} are both set differently"
-        )
-    if value is not None:
-        return value
-    if legacy_value is not None:
-        return legacy_value
+    """Return the value of ``name`` (canonical ``THEMIS_*``) or a fallback.
+
+    Resolution order is ``THEMIS_*`` → ``AEGIS_*`` → ``VAP_*``. If more than one
+    is set to a *different* value, the configuration is ambiguous and rejected.
+    """
+    candidates = _fallback_names(name)
+    present = [(key, os.environ[key]) for key in candidates if key in os.environ]
+    distinct = {value.strip() for _, value in present}
+    if len(distinct) > 1:
+        names = ", ".join(key for key, _ in present)
+        raise ThemisConfigError(f"ambiguous configuration: {names} are set to different values")
+    if present:
+        return present[0][1]
     return default
 
 
@@ -58,10 +87,10 @@ def _flag(name: str) -> bool:
 
 
 def live_enabled() -> bool:
-    """True when live scanning is explicitly enabled (AEGIS or legacy VAP)."""
-    return _flag("AEGIS_ENABLE_LIVE_SCANS")
+    """True when live scanning is explicitly enabled (THEMIS, AEGIS or VAP)."""
+    return _flag("THEMIS_ENABLE_LIVE_SCANS")
 
 
 def simulation_mode() -> bool:
     """True when global simulation mode is explicitly requested."""
-    return _flag("AEGIS_SIMULATION_MODE")
+    return _flag("THEMIS_SIMULATION_MODE")

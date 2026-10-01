@@ -26,7 +26,7 @@ from __future__ import annotations
 import re
 import shutil
 
-from olympus.integrations.capabilities import API_CONFIGURATION, inspect
+from olympus.integrations.capabilities import API_CONFIGURATION, inspect, is_configured
 from olympus.integrations.diagnostics import Check, Report, binary_version
 from olympus.integrations.maturity import record_for
 from olympus.integrations.scanners import REGISTRY, ScannerSpec
@@ -86,7 +86,8 @@ def _api_check(spec: ScannerSpec) -> Check:
         )
     import os
 
-    missing = [name for name in required if not os.environ.get(name, "").strip()]
+    env = dict(os.environ)
+    missing = [name for name in required if not is_configured(env, name)]
     if missing:
         # Secret-safe: name the variables that are unset, never any value.
         return Check(

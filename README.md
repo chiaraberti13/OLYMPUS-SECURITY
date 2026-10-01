@@ -303,7 +303,7 @@ olympus themis matrix --check               # CI gate: fail if docs/scanner-matr
 olympus themis jobs init                    # durable local job store
 olympus themis jobs submit nmap --target example.com --scope scope.json --i-am-authorized
 olympus themis jobs work                    # process one queued job
-OLYMPUS_AEGIS_API_KEY='<32+ random chars>' olympus themis api --scope-directory .olympus/scopes
+OLYMPUS_THEMIS_API_KEY='<32+ random chars>' olympus themis api --scope-directory .olympus/scopes
 olympus themis scanners                     # specialist-engine catalogue
 olympus themis migrate                       # apply the VAP database migrations
 olympus themis serve --host 127.0.0.1 --port 8000   # serve the full VAP web app
@@ -346,7 +346,7 @@ docker compose -f docker-compose.yml -f docker-compose.scanners.yml up --build
 For a hardened/HTTPS deployment or PostgreSQL instead of SQLite, set the
 corresponding `VAP_*` variables (see `vendor/vulnerability-assessment-platform/.env.example`).
 
-**Real scans, never fabricated:** `olympus themis run <scanner> --target <t> --scope s.json --i-am-authorized` runs a real scanner with explicit states — `live` / `unavailable` / `failed` / `disabled` / `simulation`. Simulation is produced **only** with `--simulate` (or `AEGIS_SIMULATION_MODE=true`); a missing binary yields `unavailable`, never a fake finding. See [`docs/scanner-matrix.md`](docs/scanner-matrix.md) and [`docs/themis-execution-evidence.md`](docs/themis-execution-evidence.md).
+**Real scans, never fabricated:** `olympus themis run <scanner> --target <t> --scope s.json --i-am-authorized` runs a real scanner with explicit states — `live` / `unavailable` / `failed` / `disabled` / `simulation`. Simulation is produced **only** with `--simulate` (or `THEMIS_SIMULATION_MODE=true`); a missing binary yields `unavailable`, never a fake finding. See [`docs/scanner-matrix.md`](docs/scanner-matrix.md) and [`docs/themis-execution-evidence.md`](docs/themis-execution-evidence.md).
 
 External scanner **binaries** and the full runtime (Redis/Celery) are also
 provisioned by the vendored `installer.sh` for a non-container setup; a scanner

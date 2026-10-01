@@ -17,18 +17,19 @@ nuclei is useless without templates, and it finds them through ``$HOME``. Under
 the THEMIS sandbox the process runs as an unprivileged user with a different
 home, so an operator's ``nuclei-templates`` checkout is invisible and the engine
 exits non-zero with "no templates provided for scan". The template directory is
-therefore named explicitly through ``AEGIS_NUCLEI_TEMPLATES``, and its absence
-produces an error that says what to set rather than a bare exit status.
+therefore named explicitly through ``THEMIS_NUCLEI_TEMPLATES`` (the legacy
+``AEGIS_NUCLEI_TEMPLATES`` is still honoured), and its absence produces an error
+that says what to set rather than a bare exit status.
 """
 
 from __future__ import annotations
 
 import json
-import os
 
 from olympus.core.enums import AssetType, Severity, Source
 from olympus.core.models import Asset, Finding
 from olympus.themis.base import ParseError, ScannerAdapter
+from olympus.themis.config import get as get_env
 from olympus.themis.model import ScanRequest
 from olympus.themis.runner import CommandOutput
 
@@ -45,7 +46,7 @@ _SEVERITY: dict[str, Severity] = {
 
 #: Where the operator keeps their nuclei-templates checkout. Explicit, because
 #: the sandbox user's ``$HOME`` is not the operator's.
-TEMPLATES_VARIABLE = "AEGIS_NUCLEI_TEMPLATES"
+TEMPLATES_VARIABLE = "THEMIS_NUCLEI_TEMPLATES"
 
 
 class NucleiAdapter(ScannerAdapter):
@@ -56,7 +57,7 @@ class NucleiAdapter(ScannerAdapter):
 
     def templates_path(self) -> str:
         """Return the configured template directory, or an empty string."""
-        return os.environ.get(TEMPLATES_VARIABLE, "").strip()
+        return get_env(TEMPLATES_VARIABLE, "").strip()
 
     def build_asset(self, host: str, request: ScanRequest) -> Asset:
         return Asset(

@@ -224,7 +224,7 @@ olympus themis capabilities                 # stati configured/available/ready
 olympus themis jobs init                    # archivio job locale persistente
 olympus themis jobs submit nmap --target example.com --scope scope.json --i-am-authorized
 olympus themis jobs work                    # elabora un job in coda
-OLYMPUS_AEGIS_API_KEY='<32+ caratteri casuali>' olympus themis api --scope-directory .olympus/scopes
+OLYMPUS_THEMIS_API_KEY='<32+ caratteri casuali>' olympus themis api --scope-directory .olympus/scopes
 olympus themis scanners                     # catalogo motori specialistici
 olympus themis migrate                       # applica le migrazioni DB di VAP
 olympus themis serve --host 127.0.0.1 --port 8000   # avvia la web app VAP completa
@@ -268,7 +268,7 @@ docker compose -f docker-compose.yml -f docker-compose.scanners.yml up --build
 Per un deployment con HTTPS/hardening o PostgreSQL al posto di SQLite, imposta le
 variabili `VAP_*` corrispondenti (vedi `vendor/vulnerability-assessment-platform/.env.example`).
 
-**Scansioni reali, mai inventate:** `olympus themis run <scanner> --target <t> --scope s.json --i-am-authorized` esegue uno scanner reale con stati espliciti — `live` / `unavailable` / `failed` / `disabled` / `simulation`. La simulazione è prodotta **solo** con `--simulate` (o `AEGIS_SIMULATION_MODE=true`); un binario mancante dà `unavailable`, mai un finding falso. Vedi [`docs/scanner-matrix.md`](docs/scanner-matrix.md) e [`docs/themis-execution-evidence.md`](docs/themis-execution-evidence.md).
+**Scansioni reali, mai inventate:** `olympus themis run <scanner> --target <t> --scope s.json --i-am-authorized` esegue uno scanner reale con stati espliciti — `live` / `unavailable` / `failed` / `disabled` / `simulation`. La simulazione è prodotta **solo** con `--simulate` (o `THEMIS_SIMULATION_MODE=true`); un binario mancante dà `unavailable`, mai un finding falso. Vedi [`docs/scanner-matrix.md`](docs/scanner-matrix.md) e [`docs/themis-execution-evidence.md`](docs/themis-execution-evidence.md).
 
 I **binari** degli scanner esterni e il runtime completo (Redis/Celery) sono
 forniti anche dallo `installer.sh` importato per un setup senza container; uno
