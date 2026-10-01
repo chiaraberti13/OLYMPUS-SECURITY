@@ -1,4 +1,4 @@
-"""Runtime capability inventory for the AEGIS professional control plane.
+"""Runtime capability inventory for the THEMIS professional control plane.
 
 The catalogue deliberately separates four facts that older Olympus releases
 collapsed into a single "scanner present" claim:
@@ -26,9 +26,9 @@ import os
 from dataclasses import dataclass
 from enum import StrEnum
 
-from olympus.aegis.registry import implemented
 from olympus.integrations.maturity import LADDER, Maturity, at_least, record_for
 from olympus.integrations.scanners import REGISTRY, ScannerSpec
+from olympus.themis.registry import implemented
 
 
 class CapabilityState(StrEnum):
@@ -51,7 +51,7 @@ API_CONFIGURATION: dict[str, tuple[str, str]] = {
 
 @dataclass(frozen=True)
 class Capability:
-    """One honest, machine-readable AEGIS capability record."""
+    """One honest, machine-readable THEMIS capability record."""
 
     name: str
     category: str

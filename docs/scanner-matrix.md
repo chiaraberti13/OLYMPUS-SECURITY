@@ -1,6 +1,6 @@
-# AEGIS 24-scanner classification, dependency & execution matrix
+# THEMIS 24-scanner classification, dependency & execution matrix
 
-_Generated from `olympus.integrations.scanners` (registry) and `olympus.aegis.registry` (native execution adapters) by `olympus aegis matrix`. Do not edit by hand — run the command. See `docs/aegis-execution-evidence.md` for the real captured evidence._
+_Generated from `olympus.integrations.scanners` (registry) and `olympus.themis.registry` (native execution adapters) by `olympus themis matrix`. Do not edit by hand — run the command. See `docs/themis-execution-evidence.md` for the real captured evidence._
 
 > **Correction:** OWASP **ZAP** and **OpenVAS/GVM** are open-source (Apache-2.0 / GPL-2.0) and are classified as `containerised-oss-service`, NOT commercial. Only Nessus, Burp, and Acunetix are proprietary.
 
@@ -9,7 +9,7 @@ _Generated from `olympus.integrations.scanners` (registry) and `olympus.aegis.re
 > ProjectDiscovery probe. The adapter refuses non-probe output with an error
 > naming the collision rather than reporting a clean scan.
 
-> **Simulation is opt-in.** `olympus aegis run` never fabricates findings: a missing binary → `unavailable`, live-off → `disabled`, explicit `--simulate` → `simulation`.
+> **Simulation is opt-in.** `olympus themis run` never fabricates findings: a missing binary → `unavailable`, live-off → `disabled`, explicit `--simulate` → `simulation`.
 
 | Scanner | Category | Kind | Binary / API | Licence | Auto-install | In image | Native adapter | Live-verified here |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -48,7 +48,7 @@ _Generated from `olympus.integrations.scanners` (registry) and `olympus.aegis.re
 - **Auto-installable / redistributable**: 20/24
 - **Bundled in `docker/Dockerfile.scanners`**: 19/24
 - **Proprietary (commercial licence)**: 3/24 (acunetix, burp, nessus)
-- **Native AEGIS execution adapters implemented**: 15/24 (arjun, commix, dalfox, dirsearch, httpx, katana, nikto, nmap, nuclei, sqlmap, testssl, wafw00f, wapiti, whatweb, xsstrike)
+- **Native THEMIS execution adapters implemented**: 15/24 (arjun, commix, dalfox, dirsearch, httpx, katana, nikto, nmap, nuclei, sqlmap, testssl, wafw00f, wapiti, whatweb, xsstrike)
 - **Live end-to-end verified in this environment**: 12/24 (arjun, commix, dalfox, dirsearch, httpx, katana, nikto, nmap, nuclei, sqlmap, wafw00f, xsstrike) — see evidence doc
 - **Production-ready**: **0/24** — no adapter meets the full Definition of Done
   (per-adapter evidence manifest with digests, SBOM, vulnerability scan,
@@ -59,7 +59,7 @@ _Generated from `olympus.integrations.scanners` (registry) and `olympus.aegis.re
 The "Native adapter" and "Live-verified" columns above are derived from the
 maturity ladder in `olympus.integrations.maturity` — `catalog-only` →
 `adapter-ready` → `offline-tested` → `live-tested` → `production-ready` —
-reported per engine by `olympus aegis capabilities` and cross-checked against
+reported per engine by `olympus themis capabilities` and cross-checked against
 the repository on every test run. See [`docs/scanner-maturity.md`](scanner-maturity.md).
 
 Readiness and maturity are different questions: readiness is about *this host*
@@ -78,4 +78,4 @@ installed on your machine that Olympus has no adapter for stays `catalog-only`.
 
 ## Unavailable-tool policy
 
-`olympus aegis run <scanner>` returns an explicit state and never fabricates findings: `unavailable` (missing binary/API, with install instructions + `olympus aegis deps` diagnostic), `disabled` (live off), `failed` (real error), or `live`. Commercial/service engines return `unavailable` until configured. Nothing is silently skipped.
+`olympus themis run <scanner>` returns an explicit state and never fabricates findings: `unavailable` (missing binary/API, with install instructions + `olympus themis deps` diagnostic), `disabled` (live off), `failed` (real error), or `live`. Commercial/service engines return `unavailable` until configured. Nothing is silently skipped.

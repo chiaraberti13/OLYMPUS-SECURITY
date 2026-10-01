@@ -55,7 +55,7 @@ LABS: tuple[Lab, ...] = (
         "Authorized local web assessment",
         "advanced",
         "Run scoped native checks only against the bundled local Mars practice target.",
-        ("docker compose -f labs/mars/docker-compose.yml up", "olympus aegis run nmap"),
+        ("docker compose -f labs/mars/docker-compose.yml up", "olympus themis run nmap"),
         ("scope contract", "real execution result", "normalized findings"),
     ),
 )

@@ -26,9 +26,10 @@ from olympus.core.exit_codes import ExitCode
 from olympus.helios.cli import app as helios_app
 from olympus.hermes.cli import app as hermes_app
 from olympus.integrations.cli import (
-    aegis_app,
+    register_aegis_shim,
     register_doctor,
     register_vap_shim,
+    themis_app,
 )
 from olympus.metis.cli import app as metis_app
 from olympus.minerva.cli import app as minerva_app
@@ -280,7 +281,7 @@ def export_sbom(
     extra: list[str] = typer.Option(
         [],
         "--extra",
-        help="Include an optional-dependency extra (e.g. --extra aegis). Repeatable.",
+        help="Include an optional-dependency extra (e.g. --extra themis). Repeatable.",
     ),
     reproducible: bool = typer.Option(
         False,
@@ -330,7 +331,7 @@ def export_lockfile(
     extra: list[str] = typer.Option(
         [],
         "--extra",
-        help="Include an optional-dependency extra (e.g. --extra aegis). Repeatable.",
+        help="Include an optional-dependency extra (e.g. --extra themis). Repeatable.",
     ),
 ) -> None:
     """Emit a hash-pinned ``pip --require-hashes`` constraints file.
@@ -442,8 +443,9 @@ app.add_typer(apollo_app, name="apollo")
 app.add_typer(minerva_app, name="minerva")
 app.add_typer(vulcan_app, name="vulcan")
 app.add_typer(metis_app, name="metis")
-app.add_typer(aegis_app, name="aegis")
-register_vap_shim(app)  # deprecated 'olympus vap' -> forwards to 'olympus aegis'
+app.add_typer(themis_app, name="themis")
+register_aegis_shim(app)  # deprecated 'olympus aegis' -> forwards to 'olympus themis'
+register_vap_shim(app)  # deprecated 'olympus vap' -> forwards to 'olympus themis'
 register_doctor(app)  # 'olympus doctor'
 
 

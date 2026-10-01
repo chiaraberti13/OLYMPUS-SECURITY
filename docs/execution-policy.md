@@ -101,6 +101,6 @@ uses the same URL redactor before SQLite persistence.
 - Vulcan: all input files, aggregate bytes/items, output bytes and report/rank deadlines are bounded;
   complete producer envelopes are validated, cancellation is checked between records/renderers, and
   every output is preflighted then written with a unique fsynced atomic replacement.
-- AEGIS adoption is tracked in
+- THEMIS adoption is tracked in
   `upgrade.md`; offline-only work uses the same validation/redaction pieces where
   applicable but does not invent network authorization requirements.

@@ -1,12 +1,12 @@
 # Maturità delle integrazioni scanner
 
-Il catalogo AEGIS elenca **24 scanner**. Elencarli non significa eseguirli. Questo
+Il catalogo THEMIS elenca **24 scanner**. Elencarli non significa eseguirli. Questo
 documento descrive la scala con cui Olympus dichiara *quanto* ogni integrazione è
 stata davvero validata, e il meccanismo che impedisce a quella dichiarazione di
 mentire.
 
 Modulo di riferimento: `olympus.integrations.maturity`.
-Comando: `olympus aegis capabilities`.
+Comando: `olympus themis capabilities`.
 
 ## Due assi, non uno
 
@@ -41,7 +41,7 @@ sbagliato non deve mai risultare una scansione pulita.
 | Stadio | Significato |
 | --- | --- |
 | `catalog-only` | Esiste una `ScannerSpec`. Non esegue nulla. |
-| `adapter-ready` | Adapter registrato in `olympus.aegis.registry`: Olympus sa costruire la command line e possiede codice di parsing. Nessuno dei due è dimostrato. |
+| `adapter-ready` | Adapter registrato in `olympus.themis.registry`: Olympus sa costruire la command line e possiede codice di parsing. Nessuno dei due è dimostrato. |
 | `offline-tested` | Il parser è esercitato contro output reale registrato: una regressione **fa fallire la build**. |
 | `live-tested` | L'adapter è stato eseguito end-to-end contro un motore reale in un lab autorizzato, e l'evidenza è committata. |
 | `production-ready` | `live-tested` **più** l'intera Definition of Done: evidence manifest con digest, SBOM, vulnerability scan, compatibilità di versione documentata. |
@@ -66,19 +66,19 @@ impedire.
 ### Configurazione: nuclei e i suoi template
 
 nuclei è inutile senza template, e li cerca tramite `$HOME`. Sotto il sandbox
-AEGIS il processo gira come utente non privilegiato con una home diversa, quindi
+THEMIS il processo gira come utente non privilegiato con una home diversa, quindi
 il checkout `nuclei-templates` dell'operatore è invisibile e il motore esce
 diverso da zero con "no templates provided for scan". La directory si dichiara
 esplicitamente:
 
 ```bash
 export AEGIS_NUCLEI_TEMPLATES=/opt/nuclei-templates   # leggibile dall'utente sandbox
-olympus aegis run nuclei --target http://lab.interno --kind url \
+olympus themis run nuclei --target http://lab.interno --kind url \
   --scope scope.json --i-am-authorized
 ```
 
 `whatweb` merita una nota: l'unica esecuzione live catturata è **fallita** su un
-ambiente Ruby rotto (`docs/aegis-execution-evidence.md`), quindi l'adapter non ha
+ambiente Ruby rotto (`docs/themis-execution-evidence.md`), quindi l'adapter non ha
 mai analizzato output reale del motore. Il parser è coperto da test offline, e lo
 stadio si ferma lì.
 
@@ -105,7 +105,7 @@ l'evidenza — **mai** l'asserzione.
 
 ## Diagnostica per motore
 
-`olympus aegis doctor --scanner <nome>` risponde, per un singolo motore, alle
+`olympus themis doctor --scanner <nome>` risponde, per un singolo motore, alle
 domande che un operatore si pone prima di aggiungerlo a un engagement: è a
 catalogo? Olympus ha un adapter nativo? il binario è su PATH e a quale versione
 (o, per i motori via API, quali variabili di endpoint/segreto sono impostate —
@@ -113,18 +113,18 @@ solo i **nomi**, mai i valori)? a che stadio di maturità è? è pronto per un j
 live? `--scanner all` lo fa per tutti i 24 motori; un nome sconosciuto esce `2`.
 
 ```bash
-olympus aegis doctor --scanner nuclei
-olympus aegis doctor --scanner all
+olympus themis doctor --scanner nuclei
+olympus themis doctor --scanner all
 ```
 
 ## Uso in CI
 
 ```bash
 # Ispezione: readiness + maturità per ogni motore
-olympus aegis capabilities
+olympus themis capabilities
 
 # Gate: fallisce se meno di 12 integrazioni raggiungono live-tested
-olympus aegis capabilities --min-maturity live-tested --count 12
+olympus themis capabilities --min-maturity live-tested --count 12
 ```
 
 Codici di uscita del gate:
@@ -140,11 +140,11 @@ Codici di uscita del gate:
 Il meccanismo non cambia (vedi `ROADMAP.md`, Fase 5 e prerequisiti D1/D2):
 
 1. registrare la `ScannerSpec` in `olympus/integrations/scanners.py` → `catalog-only`;
-2. scrivere l'adapter in `olympus/aegis/adapters/<nome>.py` e registrarlo in
-   `olympus/aegis/registry.py` → `adapter-ready`;
+2. scrivere l'adapter in `olympus/themis/adapters/<nome>.py` e registrarlo in
+   `olympus/themis/registry.py` → `adapter-ready`;
 3. aggiungere fixture di output reale e `test_<nome>_parser` → `offline-tested`;
 4. eseguire contro un motore reale in lab autorizzato e committare l'evidenza in
-   `docs/aegis-execution-evidence.md` → `live-tested`;
+   `docs/themis-execution-evidence.md` → `live-tested`;
 5. completare la Definition of Done → `production-ready`.
 
 A ogni passo si aggiorna `DECLARED` in `olympus/integrations/maturity.py`. Se si
@@ -153,6 +153,6 @@ salta un passo, il verificatore se ne accorge.
 ## Riferimenti
 
 - Catalogo e licenze: [`docs/scanner-matrix.md`](scanner-matrix.md)
-- Evidenze di esecuzione reale: [`docs/aegis-execution-evidence.md`](aegis-execution-evidence.md)
+- Evidenze di esecuzione reale: [`docs/themis-execution-evidence.md`](themis-execution-evidence.md)
 - Definition of Done: [`ROADMAP.md`](../ROADMAP.md#definition-of-done-trasversale)
 - Licenze di terze parti: [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md)

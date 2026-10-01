@@ -18,7 +18,7 @@ them, and tests pin them), so a byte-for-byte comparison is possible.
 The dependency closure is walked from the root distribution's own
 ``Requires-Dist``, following only the requirements whose environment markers are
 *not* gated on an extra unless that extra is explicitly requested — so a default
-SBOM covers the runtime the plain install pulls, and ``--extra aegis`` widens it.
+SBOM covers the runtime the plain install pulls, and ``--extra themis`` widens it.
 """
 
 from __future__ import annotations

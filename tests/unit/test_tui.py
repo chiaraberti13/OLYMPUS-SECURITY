@@ -13,7 +13,7 @@ def test_catalog_exposes_every_tool_and_real_leaf_commands() -> None:
     root = get_command(app)
     inventory = {tool.command: commands_for(root, tool) for tool in TOOLS}
     assert set(inventory) == {
-        "aegis",
+        "themis",
         "apollo",
         "argus",
         "artemis",
@@ -28,7 +28,7 @@ def test_catalog_exposes_every_tool_and_real_leaf_commands() -> None:
     }
     assert all(inventory.values())
     assert ("argus", "pipeline") in {item.path for item in inventory["argus"]}
-    assert ("aegis", "jobs", "status") in {item.path for item in inventory["aegis"]}
+    assert ("themis", "jobs", "status") in {item.path for item in inventory["themis"]}
     assert ("metis", "case", "report") in {item.path for item in inventory["metis"]}
 
 

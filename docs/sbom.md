@@ -7,7 +7,7 @@ runtime, con un comando nativo che non richiede tool esterni:
 olympus core sbom                       # su stdout, con timestamp e serial
 olympus core sbom -o sbom.json          # su file
 olympus core sbom --reproducible        # senza timestamp/serial: byte-stable
-olympus core sbom --extra aegis         # include l'extra opzionale 'aegis'
+olympus core sbom --extra themis         # include l'extra opzionale 'themis'
 ```
 
 ## Perché nativo e non solo Syft
@@ -39,8 +39,8 @@ esecuzioni — utile per diff e attestazioni.
 Viene percorsa dal `Requires-Dist` della distribuzione radice, seguendo solo i
 requisiti **non** vincolati a un extra, a meno che l'extra non sia richiesto
 esplicitamente con `--extra`. Così l'SBOM di default copre il runtime che un
-`pip install olympus-security` semplice porta con sé; `--extra aegis` lo allarga
-al gruppo `aegis`. Le dipendenze dichiarate ma **non installate** in questo
+`pip install olympus-security` semplice porta con sé; `--extra themis` lo allarga
+al gruppo `themis`. Le dipendenze dichiarate ma **non installate** in questo
 ambiente non vengono attraversate: l'SBOM descrive ciò che è realmente presente.
 
 ## Lock con hash (`pip --require-hashes`)

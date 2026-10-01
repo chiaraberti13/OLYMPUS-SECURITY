@@ -8,8 +8,6 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from olympus.aegis.application import load_scope
-from olympus.aegis.jobs import load_job_document
 from olympus.athena.domain.contracts import load_plan
 from olympus.cli import app
 from olympus.core.migrations import (
@@ -19,6 +17,8 @@ from olympus.core.migrations import (
 )
 from olympus.metis.models import load_case_document
 from olympus.minerva.application import load_evidence
+from olympus.themis.application import load_scope
+from olympus.themis.jobs import load_job_document
 
 FIXTURE = Path("tests/fixtures/migrations/legacy-documents.json")
 runner = CliRunner()
@@ -55,7 +55,7 @@ def test_scope_plan_job_evidence_and_case_migrate_through_real_loaders(
     tmp_path: Path, legacy_documents: dict[str, dict[str, object]]
 ) -> None:
     scope_path = tmp_path / "scope.json"
-    scope_path.write_text(json.dumps(legacy_documents["aegis_scope"]), encoding="utf-8")
+    scope_path.write_text(json.dumps(legacy_documents["themis_scope"]), encoding="utf-8")
     scope = load_scope(scope_path)
     assert scope.schema_version == "1.0.0"
     assert scope.allowed_domains == ("example.test",)
@@ -63,7 +63,7 @@ def test_scope_plan_job_evidence_and_case_migrate_through_real_loaders(
     plan = load_plan(legacy_documents["athena_plan"])
     assert plan.schema_version == "1.0.0"
 
-    job = load_job_document(legacy_documents["aegis_job"])
+    job = load_job_document(legacy_documents["themis_job"])
     assert job.schema_version == "2.0.0"
     assert job.scope_name == "lab.json"
     assert "scope_path" not in job.model_dump()
@@ -79,7 +79,7 @@ def test_scope_plan_job_evidence_and_case_migrate_through_real_loaders(
 
 def test_current_documents_are_idempotent(legacy_documents: dict[str, dict[str, object]]) -> None:
     migrated = migrate_document(
-        legacy_documents["aegis_job"],
+        legacy_documents["themis_job"],
         schema_name="olympus.aegis-job",
         current_version="2.0.0",
     )
@@ -96,7 +96,7 @@ def test_current_documents_are_idempotent(legacy_documents: dict[str, dict[str, 
 def test_migrations_refuse_ambiguous_future_and_incomplete_evidence(
     tmp_path: Path, legacy_documents: dict[str, dict[str, object]]
 ) -> None:
-    ambiguous = dict(legacy_documents["aegis_scope"])
+    ambiguous = dict(legacy_documents["themis_scope"])
     ambiguous["allowed_domains"] = ["other.test"]
     with pytest.raises(ContractMigrationError, match="both allowed"):
         migrate_document(

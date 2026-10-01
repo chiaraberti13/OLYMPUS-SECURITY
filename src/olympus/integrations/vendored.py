@@ -1,7 +1,7 @@
 """Locate the temporary legacy Vulnerability Assessment Platform boundary.
 
 The full, unmodified VAP source currently lives under ``vendor/`` while its
-remaining runtime surfaces migrate to native AEGIS. These helpers put the vendored
+remaining runtime surfaces migrate to native THEMIS. These helpers put the vendored
 tool's root on ``sys.path`` on demand (only when the operator actually runs it)
 so importing ``olympus`` never pulls in the heavy upstream dependency stacks.
 

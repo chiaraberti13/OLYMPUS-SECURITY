@@ -71,8 +71,8 @@ from legacy Click applications or vendored subprocesses are normalized to `6`
 instead of leaking an undocumented code through the public CLI.
 
 The contract suite parses every first-party `cli.py` and rejects numeric
-`typer.Exit` literals. It also verifies Athena assessment states, AEGIS execution
-states and durable AEGIS job states end to end against this mapping.
+`typer.Exit` literals. It also verifies Athena assessment states, THEMIS execution
+states and durable THEMIS job states end to end against this mapping.
 
 ## Helios port states
 

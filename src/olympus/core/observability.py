@@ -30,7 +30,7 @@ BackendName = Literal["none", "prometheus", "otlp"]
 
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 _SAFE_LABEL = re.compile(r"[^a-z0-9_.:-]+")
-_COMPONENTS = frozenset({"aegis", "apollo", "athena", "core", "minerva", "vulcan"})
+_COMPONENTS = frozenset({"themis", "apollo", "athena", "core", "minerva", "vulcan"})
 _ARTIFACT_KINDS = frozenset({"evidence", "report"})
 _ARTIFACT_FORMATS = frozenset({"json", "markdown", "ndjson", "sarif", "html", "pdf"})
 _OUTCOMES = frozenset(

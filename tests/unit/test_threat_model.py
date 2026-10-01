@@ -29,7 +29,7 @@ _OWNED_PATHS = (
     "/src/olympus/core/pinning.py",
     "/src/olympus/core/execution.py",
     "/src/olympus/core/policy.py",
-    "/src/olympus/aegis/sandbox.py",
+    "/src/olympus/themis/sandbox.py",
     "/src/olympus/core/sbom.py",
     "/src/olympus/core/lockfile.py",
 )
@@ -74,7 +74,7 @@ def test_threat_model_references_the_key_controls() -> None:
     for expected in (
         "olympus.core.addresses",  # SSRF guard
         "olympus.core.pinning",  # DNS rebinding
-        "olympus.aegis.sandbox",  # host isolation
+        "olympus.themis.sandbox",  # host isolation
         "olympus.core.policy",  # bounds
         "olympus.core.lockfile",  # supply chain
         "olympus.integrations.maturity",  # catalogue honesty

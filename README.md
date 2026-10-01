@@ -28,7 +28,7 @@
 - **[Project structure](#-project-structure)** — how the repository is laid out.
 - **[Development](#-development)** — required CI checks and local commands.
 - **[Security model](#-security-model)** — scope, authorization, SSRF, audit.
-- **[Migration](#-migration--specialist-engines)** — native ARGUS, AEGIS and specialist engines.
+- **[Migration](#-migration--specialist-engines)** — native ARGUS, THEMIS and specialist engines.
 - **[Licences](#-licence-scope)** — MIT native code plus preserved vendored licences.
 - **[Legal & ethical use](#-legal--ethical-use)** — authorized-only, in practice.
 
@@ -73,7 +73,7 @@ $ olympus athena run plan.json --storage ./.athena
 | **Vulcan** | `olympus vulcan` | Aggregation, deduplication, ranking and report rendering. |
 | **Metis** | `olympus metis` | Deterministic capability routing, engagement plans, CTI cases, IOC correlation and operational reports. |
 | **core** | `olympus core` | Shared data-contract utilities (`export-schemas`, versioned migration manifest). |
-| **AEGIS** | `olympus aegis` | Scope-gated scanner orchestration, capability readiness and maturity, durable SQLite jobs, cancellation, audit and explicit execution states. Native for 15 of 24 catalogued engines; `serve`/`migrate`/`workers` still need `vendor/`. |
+| **THEMIS** | `olympus themis` | Scope-gated scanner orchestration, capability readiness and maturity, durable SQLite jobs, cancellation, audit and explicit execution states. Native for 15 of 24 catalogued engines; `serve`/`migrate`/`workers` still need `vendor/`. |
 | **Unified TUI** | `olympus ui` | Keyboard-first interface over every real Olympus command, with streamed output and process cancellation. |
 
 > [!TIP]
@@ -150,7 +150,7 @@ what is verified:
 | **Python** | portable suite on 3.11–3.14; POSIX sandbox suite on 3.11 | future Python releases; POSIX sandbox on 3.12–3.14 |
 
 Olympus is developed and exercised on Linux. The core and CLI are written to be
-portable, and the sandbox layer (`olympus.aegis.sandbox`) is POSIX-specific by
+portable, and the sandbox layer (`olympus.themis.sandbox`) is POSIX-specific by
 design — user drop and `setrlimit` have no Windows equivalent. Its real-kernel
 tests are isolated under `tests/platform/posix/`, use strict registered markers
 and run in a dedicated Ubuntu CI job. Widening this matrix further is tracked in
@@ -221,7 +221,7 @@ Generate a CycloneDX SBOM of the installed runtime — no external tool needed:
 
 ```bash
 olympus core sbom --reproducible          # byte-stable CycloneDX 1.5 on stdout
-olympus core sbom -o sbom.json --extra aegis
+olympus core sbom -o sbom.json --extra themis
 olympus core lock -o constraints.txt      # pip --require-hashes constraints (real PyPI hashes)
 ```
 
@@ -256,13 +256,13 @@ The standalone **ARGUS** migration is complete. Its maintained implementation is
 `src/olympus/argus/`, exposed only as `olympus argus`; the duplicated
 `vendor/argus` source and the `argus-native` passthrough have been removed.
 
-AEGIS is **still being migrated** from the temporary vendored Vulnerability
+THEMIS is **still being migrated** from the temporary vendored Vulnerability
 Assessment Platform compatibility layer to an Olympus-owned control plane; it is
 not finished. The native path already owns scope and authorization gates,
 scanner adapters, capability readiness, durable SQLite jobs, cancellation, audit
-and explicit execution states, and `olympus aegis doctor`, `deps`, `info`,
+and explicit execution states, and `olympus themis doctor`, `deps`, `info`,
 `scanners` and `capabilities` all run without the vendored tree. What is *not*
-native yet: `aegis serve`, `aegis migrate` and `aegis workers` still require
+native yet: `themis serve`, `themis migrate` and `themis workers` still require
 `vendor/` and exit with code `2` without it, and the legacy web surface remains
 temporary until its API, persistence and report contracts are replaced and
 verified.
@@ -280,9 +280,9 @@ catalogue, not an implementation claim. Today:
 
 No adapter is `production-ready` yet: the Definition of Done — per-adapter
 evidence manifest with digests, SBOM, vulnerability scan and documented version
-compatibility — is not met for any engine. `olympus aegis capabilities` reports
+compatibility — is not met for any engine. `olympus themis capabilities` reports
 this per engine, and a CI job can enforce it with
-`olympus aegis capabilities --min-maturity live-tested --count 12`. The
+`olympus themis capabilities --min-maturity live-tested --count 12`. The
 declarations are cross-checked against the repository on every test run, so the
 table cannot quietly drift; see [`docs/scanner-maturity.md`](docs/scanner-maturity.md).
 
@@ -295,18 +295,18 @@ licences and installation channels remain authoritative.
 olympus argus --help                       # native OSINT/recon surface
 olympus argus doctor                       # dependency/config readiness
 
-olympus aegis capabilities                 # ready state here + project maturity
-olympus aegis doctor --scanner nuclei      # one engine: binary/version, adapter, maturity
-olympus aegis doctor --scanner all         # the same, for every catalogued engine
-olympus aegis matrix                       # classification matrix, generated from the registry
-olympus aegis matrix --check               # CI gate: fail if docs/scanner-matrix.md drifted
-olympus aegis jobs init                    # durable local job store
-olympus aegis jobs submit nmap --target example.com --scope scope.json --i-am-authorized
-olympus aegis jobs work                    # process one queued job
-OLYMPUS_AEGIS_API_KEY='<32+ random chars>' olympus aegis api --scope-directory .olympus/scopes
-olympus aegis scanners                     # specialist-engine catalogue
-olympus aegis migrate                       # apply the VAP database migrations
-olympus aegis serve --host 127.0.0.1 --port 8000   # serve the full VAP web app
+olympus themis capabilities                 # ready state here + project maturity
+olympus themis doctor --scanner nuclei      # one engine: binary/version, adapter, maturity
+olympus themis doctor --scanner all         # the same, for every catalogued engine
+olympus themis matrix                       # classification matrix, generated from the registry
+olympus themis matrix --check               # CI gate: fail if docs/scanner-matrix.md drifted
+olympus themis jobs init                    # durable local job store
+olympus themis jobs submit nmap --target example.com --scope scope.json --i-am-authorized
+olympus themis jobs work                    # process one queued job
+OLYMPUS_AEGIS_API_KEY='<32+ random chars>' olympus themis api --scope-directory .olympus/scopes
+olympus themis scanners                     # specialist-engine catalogue
+olympus themis migrate                       # apply the VAP database migrations
+olympus themis serve --host 127.0.0.1 --port 8000   # serve the full VAP web app
 ```
 
 ### Running the complete VAP platform: native or Docker
@@ -314,9 +314,9 @@ olympus aegis serve --host 127.0.0.1 --port 8000   # serve the full VAP web app
 **Native (single process, via Olympus):**
 
 ```bash
-pip install -e ".[aegis]"            # or: bash scripts/setup-vendored-tools.sh
-olympus aegis migrate               # apply the database migrations
-olympus aegis serve --host 127.0.0.1 --port 8000
+pip install -e ".[themis]"            # or: bash scripts/setup-vendored-tools.sh
+olympus themis migrate               # apply the database migrations
+olympus themis serve --host 127.0.0.1 --port 8000
 ```
 
 Redis is optional on the native path: synchronous features work without it, and
@@ -346,7 +346,7 @@ docker compose -f docker-compose.yml -f docker-compose.scanners.yml up --build
 For a hardened/HTTPS deployment or PostgreSQL instead of SQLite, set the
 corresponding `VAP_*` variables (see `vendor/vulnerability-assessment-platform/.env.example`).
 
-**Real scans, never fabricated:** `olympus aegis run <scanner> --target <t> --scope s.json --i-am-authorized` runs a real scanner with explicit states — `live` / `unavailable` / `failed` / `disabled` / `simulation`. Simulation is produced **only** with `--simulate` (or `AEGIS_SIMULATION_MODE=true`); a missing binary yields `unavailable`, never a fake finding. See [`docs/scanner-matrix.md`](docs/scanner-matrix.md) and [`docs/aegis-execution-evidence.md`](docs/aegis-execution-evidence.md).
+**Real scans, never fabricated:** `olympus themis run <scanner> --target <t> --scope s.json --i-am-authorized` runs a real scanner with explicit states — `live` / `unavailable` / `failed` / `disabled` / `simulation`. Simulation is produced **only** with `--simulate` (or `AEGIS_SIMULATION_MODE=true`); a missing binary yields `unavailable`, never a fake finding. See [`docs/scanner-matrix.md`](docs/scanner-matrix.md) and [`docs/themis-execution-evidence.md`](docs/themis-execution-evidence.md).
 
 External scanner **binaries** and the full runtime (Redis/Celery) are also
 provisioned by the vendored `installer.sh` for a non-container setup; a scanner
@@ -354,7 +354,7 @@ with no binary present always reports "tool not installed" rather than failing
 silently.
 
 Olympus ships **native** implementations: `olympus argus …` (scope-first OSINT),
-`olympus aegis …` (specialist-engine control) and `olympus athena …`
+`olympus themis …` (specialist-engine control) and `olympus athena …`
 (assessment orchestration). Their
 capability contracts and provenance are pinned in
 [`docs/parity/`](docs/parity) and [`docs/provenance.md`](docs/provenance.md);
@@ -363,7 +363,7 @@ Exhaustive walkthroughs live in [`docs/reference.md`](docs/reference.md).
 
 ## 📄 Licence scope
 
-Olympus-native code, including native ARGUS and AEGIS, is MIT — see
+Olympus-native code, including native ARGUS and THEMIS, is MIT — see
 [LICENSE](LICENSE). The temporarily vendored Vulnerability Assessment Platform is **GPL-3.0-only** and
 retains its own licence. The root MIT licence does not relicense vendored code.
 See [third-party notices](THIRD_PARTY_NOTICES.md) and

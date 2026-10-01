@@ -33,14 +33,14 @@ otlp_endpoint = "http://127.0.0.1:4318"
 ```
 
 `otlp` exports metrics to `<endpoint>/v1/metrics` and traces to
-`<endpoint>/v1/traces` over OTLP/HTTP. Athena assessments and AEGIS worker jobs
+`<endpoint>/v1/traces` over OTLP/HTTP. Athena assessments and THEMIS worker jobs
 are therefore observable even when they are short-lived processes.
 
 `otlp` esporta metriche verso `<endpoint>/v1/metrics` e trace verso
 `<endpoint>/v1/traces` tramite OTLP/HTTP. Gli assessment Athena e i job dei
-worker AEGIS restano quindi osservabili anche quando il processo dura poco.
+worker THEMIS restano quindi osservabili anche quando il processo dura poco.
 
-For `prometheus`, the native AEGIS API exposes an authenticated `/metrics`
+For `prometheus`, the native THEMIS API exposes an authenticated `/metrics`
 endpoint. It uses the same API credential and requires `capabilities:read`; the
 endpoint is never public. Short-lived CLI/worker processes can atomically write
 a Prometheus textfile on clean shutdown:
@@ -51,7 +51,7 @@ backend = "prometheus"
 prometheus_textfile = "/var/lib/node_exporter/textfile_collector/olympus.prom"
 ```
 
-Con `prometheus`, l'API AEGIS nativa espone `/metrics` con autenticazione e
+Con `prometheus`, l'API THEMIS nativa espone `/metrics` con autenticazione e
 permesso `capabilities:read`; l'endpoint non è pubblico. I processi CLI/worker
 brevi possono invece scrivere atomicamente un file Prometheus alla chiusura.
 

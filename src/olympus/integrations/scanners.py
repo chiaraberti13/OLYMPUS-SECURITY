@@ -1,10 +1,10 @@
-"""Registry of the 24 AEGIS (vendored VAP) scanner integrations.
+"""Registry of the 24 THEMIS (vendored VAP) scanner integrations.
 
 This is the Olympus-native source of truth for *what each scanner needs to run
 for real*: its external executable (or API), licence, whether it is
 redistributable/installable automatically, how to install it, and whether the
-scanner-enabled container image bundles it. It drives ``olympus aegis
-scanners``, ``olympus aegis deps``, and the ``doctor`` diagnostics.
+scanner-enabled container image bundles it. It drives ``olympus themis
+scanners``, ``olympus themis deps``, and the ``doctor`` diagnostics.
 
 Important honesty note: the vendored platform ships each scanner with a
 **simulated** default mode (hard-coded educational findings) that is used unless
@@ -326,7 +326,7 @@ REGISTRY: tuple[ScannerSpec, ...] = (
     ),
 )
 
-#: The number of scanner integrations AEGIS ships (all present in REGISTRY).
+#: The number of scanner integrations THEMIS ships (all present in REGISTRY).
 SCANNER_COUNT = 24
 
 

@@ -23,9 +23,9 @@ source of truth.
 
 from __future__ import annotations
 
-from olympus.aegis.registry import implemented
 from olympus.integrations.maturity import Maturity, record_for
 from olympus.integrations.scanners import REGISTRY, ScannerSpec
+from olympus.themis.registry import implemented
 
 #: Grouping order for the table: OSS services, local binaries, then proprietary.
 _KIND_ORDER = {
@@ -35,12 +35,12 @@ _KIND_ORDER = {
     "proprietary-remote-api": 3,
 }
 
-_HEADER = """# AEGIS 24-scanner classification, dependency & execution matrix
+_HEADER = """# THEMIS 24-scanner classification, dependency & execution matrix
 
 _Generated from `olympus.integrations.scanners` (registry) and \
-`olympus.aegis.registry` (native execution adapters) by \
-`olympus aegis matrix`. Do not edit by hand — run the command. See \
-`docs/aegis-execution-evidence.md` for the real captured evidence._
+`olympus.themis.registry` (native execution adapters) by \
+`olympus themis matrix`. Do not edit by hand — run the command. See \
+`docs/themis-execution-evidence.md` for the real captured evidence._
 
 > **Correction:** OWASP **ZAP** and **OpenVAS/GVM** are open-source \
 (Apache-2.0 / GPL-2.0) and are classified as `containerised-oss-service`, NOT \
@@ -51,7 +51,7 @@ commercial. Only Nessus, Burp, and Acunetix are proprietary.
 > ProjectDiscovery probe. The adapter refuses non-probe output with an error
 > naming the collision rather than reporting a clean scan.
 
-> **Simulation is opt-in.** `olympus aegis run` never fabricates findings: a \
+> **Simulation is opt-in.** `olympus themis run` never fabricates findings: a \
 missing binary → `unavailable`, live-off → `disabled`, explicit `--simulate` → \
 `simulation`.
 """
@@ -67,7 +67,7 @@ _MATURITY_SECTION = """## Maturity, not just presence
 The "Native adapter" and "Live-verified" columns above are derived from the
 maturity ladder in `olympus.integrations.maturity` — `catalog-only` →
 `adapter-ready` → `offline-tested` → `live-tested` → `production-ready` —
-reported per engine by `olympus aegis capabilities` and cross-checked against
+reported per engine by `olympus themis capabilities` and cross-checked against
 the repository on every test run. See [`docs/scanner-maturity.md`](scanner-maturity.md).
 
 Readiness and maturity are different questions: readiness is about *this host*
@@ -93,9 +93,9 @@ vulnerability database needs a free API token.
 
 ## Unavailable-tool policy
 
-`olympus aegis run <scanner>` returns an explicit state and never fabricates \
+`olympus themis run <scanner>` returns an explicit state and never fabricates \
 findings: `unavailable` (missing binary/API, with install instructions + \
-`olympus aegis deps` diagnostic), `disabled` (live off), `failed` (real error), \
+`olympus themis deps` diagnostic), `disabled` (live off), `failed` (real error), \
 or `live`. Commercial/service engines return `unavailable` until configured. \
 Nothing is silently skipped.
 """
@@ -161,7 +161,7 @@ def _totals() -> str:
             f"- **Bundled in `docker/Dockerfile.scanners`**: {in_image}/{total}",
             f"- **Proprietary (commercial licence)**: {len(proprietary)}/{total} "
             f"({', '.join(proprietary)})",
-            f"- **Native AEGIS execution adapters implemented**: {len(adapters)}/{total} "
+            f"- **Native THEMIS execution adapters implemented**: {len(adapters)}/{total} "
             f"({', '.join(adapters)})",
             f"- **Live end-to-end verified in this environment**: {len(live)}/{total} "
             f"({', '.join(live)}) — see evidence doc",

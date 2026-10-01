@@ -12,6 +12,20 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Changed
+- **Rinominato il sottosistema AEGIS in Themis (`DEV-I`, Milestone 1).** Il
+  control plane degli scanner specialistici ora vive in `src/olympus/themis/`,
+  con comando `olympus themis` e API `olympus.themis.api`; classi, funzioni, tag
+  FastAPI, doc (`docs/themis-*.md`), servizi docker (`themis-*`) e file di test
+  sono stati migrati. `olympus aegis` resta un **alias deprecato** che emette un
+  warning e inoltra a `olympus themis` (una sola implementazione), verificato da
+  un CLI backward-compatibility test. Per non invalidare i dati persistiti, gli
+  **schema name** versionati (`olympus.aegis-*`), il valore provenance `Source`
+  `"aegis"` e le **variabili d'ambiente** `AEGIS_*` restano invariati in questa
+  milestone e migreranno in M1b con migrazione e fallback dedicati (vedi
+  `ROADMAP.md` `DEV-I`). Nessun contratto dati rotto; Ruff/Mypy/Pytest/schema
+  catalog/golden verdi.
+
 ### Added
 - **Report PDF formattato (`OPS-SCAN`)** — Vulcan rende un report PDF minimal e
   presentabile: copertina brandizzata, summary (overall risk, conteggi per

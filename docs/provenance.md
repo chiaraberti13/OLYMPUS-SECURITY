@@ -37,7 +37,7 @@ or submodules.
   text and upstream repository metadata both identify GNU GPL version 3.
   Redistribution must preserve the GPL source and notice obligations for this
   component.
-- Olympus-facing name: **AEGIS** (see `docs/vap-to-aegis-rename.md`). Native
+- Olympus-facing name: **THEMIS** (see `docs/vap-to-themis-rename.md`). Native
   entry points are `api`, `capabilities`, `jobs`, `run`, `scan`, `scanners` and
   `doctor`. `scan` submits to the authenticated native job API. The temporary
   `serve`, `migrate` and `workers` commands retain the legacy VAP web boundary
@@ -58,10 +58,10 @@ or submodules.
 ## Notes
 
 - The vendored web app keeps its upstream *simulated* scanner mode. The
-  Olympus-native execution layer (`olympus.aegis`, `olympus aegis run`) is
+  Olympus-native execution layer (`olympus.themis`, `olympus themis run`) is
   separate Olympus-owned code that runs the real external scanners with explicit
   execution states and never fabricates findings; it does not modify vendored
-  source. See `docs/scanner-matrix.md` and `docs/aegis-execution-evidence.md`.
+  source. See `docs/scanner-matrix.md` and `docs/themis-execution-evidence.md`.
 - No upstream secrets, credentials, or API keys were copied.
 - Vendored code is preserved verbatim and held to its own quality tooling, not
   Olympus's optional helpers.

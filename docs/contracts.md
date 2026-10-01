@@ -73,9 +73,9 @@ olympus core migrations
 
 | Contract | Accepted source | Current target | Deterministic action |
 | --- | --- | --- | --- |
-| AEGIS scope | headerless `allowed`/current fields | `1.0.0` | rename `allowed` to `allowed_domains` and add the complete header |
+| THEMIS scope | headerless `allowed`/current fields | `1.0.0` | rename `allowed` to `allowed_domains` and add the complete header |
 | Athena plan | headerless or integer version `1` | `1.0.0` | add/normalize only the contract header |
-| AEGIS job | headerless or `1.0.0` | `2.0.0` | replace private `scope_path` with its non-sensitive file name |
+| THEMIS job | headerless or `1.0.0` | `2.0.0` | replace private `scope_path` with its non-sensitive file name |
 | Evidence | headerless current fields | `1.0.0` | add the header; a missing SHA-256 remains an error |
 | METIS case | headerless current fields | `1.0.0` | add the header without changing CTI content |
 
@@ -116,7 +116,7 @@ The contract suite compares six committed fixtures with freshly generated output
 | --- | --- |
 | `cli-json.json` | JSON emitted by the `vulcan rank` CLI |
 | `cli-ndjson.ndjson` | NDJSON emitted by the `apollo ingest` CLI |
-| `openapi.json` | Complete AEGIS OpenAPI document |
+| `openapi.json` | Complete THEMIS OpenAPI document |
 | `sqlite.json` | Athena table definitions, columns and canonical logical rows |
 | `report.json` | Canonical Vulcan machine-readable report |
 | `report.md` | Canonical Vulcan human-readable report |

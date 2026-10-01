@@ -5,7 +5,7 @@ project rule, additions that materially expand scope are proposed here first._
 
 ## Method
 
-For each capability area we state whether the **current** Olympus/AEGIS set
+For each capability area we state whether the **current** Olympus/THEMIS set
 already covers it, and only propose an addition when it fills a genuine gap with
 complementary (not redundant) detection or validation. Each proposal lists
 maintenance, licence, install complexity, resource cost, output, integration
@@ -16,12 +16,12 @@ design, risks, and a recommendation: **default**, **optional profile**, or
 
 | Capability | Already covered by |
 | --- | --- |
-| Network discovery / service enumeration | nmap (AEGIS) |
-| Web vulnerability assessment | nikto, nuclei, wapiti, sqlmap, dalfox, xsstrike, commix, arjun, whatweb, wafw00f, ZAP, Burp/Acunetix (AEGIS); Artemis (native) |
-| TLS / crypto configuration | testssl.sh (AEGIS) |
-| DNS / subdomain analysis | subfinder, theHarvester (AEGIS); Argus dns/whois/fronting (native) |
+| Network discovery / service enumeration | nmap (THEMIS) |
+| Web vulnerability assessment | nikto, nuclei, wapiti, sqlmap, dalfox, xsstrike, commix, arjun, whatweb, wafw00f, ZAP, Burp/Acunetix (THEMIS); Artemis (native) |
+| TLS / crypto configuration | testssl.sh (THEMIS) |
+| DNS / subdomain analysis | subfinder, theHarvester (THEMIS); Argus dns/whois/fronting (native) |
 | Vulnerability correlation / dedup | Vulcan (native) |
-| Reporting / evidence export | Vulcan + AEGIS report_generator |
+| Reporting / evidence export | Vulcan + THEMIS report_generator |
 | Secrets detection (repo) | gitleaks + Hermes (native, SARIF) |
 
 ## Gaps and proposals
@@ -29,7 +29,7 @@ design, risks, and a recommendation: **default**, **optional profile**, or
 ### 1. Dependency / software-composition analysis (SCA) — **GAP**
 - No SCA today. **Propose: OSV-Scanner** (Go, Apache-2.0, Google-maintained).
 - Install: single static binary. Cost: low. Output: JSON/SARIF (maps cleanly to
-  `core.Finding`). Integration: new AEGIS adapter `osv` + optional Hermes mode.
+  `core.Finding`). Integration: new THEMIS adapter `osv` + optional Hermes mode.
 - Risks: reads dependency manifests only (no exec). **Recommendation: optional
   profile** (default-on in the scanner image is reasonable given low cost).
 
@@ -56,13 +56,13 @@ design, risks, and a recommendation: **default**, **optional profile**, or
   design; credentials + broad read access are a real operational risk).
 
 ### 6. CVE/CVSS enrichment — **PARTIAL**
-- AEGIS already parses CVE IDs; there is no authoritative enrichment.
+- THEMIS already parses CVE IDs; there is no authoritative enrichment.
 - **Propose: NVD API client** (data licence-free) or **cvss** (PyPI) for scoring.
-  Low cost, no new binary. Integration: enrichment step in Vulcan/AEGIS.
+  Low cost, no new binary. Integration: enrichment step in Vulcan/THEMIS.
 - **Recommendation: optional** (rate-limited API; cache results).
 
 ### 7. Reporting / evidence export — **COVERED**
-- Vulcan (JSON/Markdown/HTML) + AEGIS report_generator (+ reportlab PDF).
+- Vulcan (JSON/Markdown/HTML) + THEMIS report_generator (+ reportlab PDF).
 - **Recommendation: reject additions** — no gap.
 
 ### 8. Secrets detection (runtime/target) — **PARTIAL**

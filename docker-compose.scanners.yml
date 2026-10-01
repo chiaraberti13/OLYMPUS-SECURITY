@@ -6,15 +6,15 @@
 # The build context is the complete vendored VAP source; only the Dockerfile
 # changes, so the platform itself is unmodified.
 services:
-  aegis-migrate:
+  themis-migrate:
     build:
       context: ./vendor/vulnerability-assessment-platform
       dockerfile: ../../docker/Dockerfile.scanners
-  aegis-app:
+  themis-app:
     build:
       context: ./vendor/vulnerability-assessment-platform
       dockerfile: ../../docker/Dockerfile.scanners
-  aegis-worker:
+  themis-worker:
     build:
       context: ./vendor/vulnerability-assessment-platform
       dockerfile: ../../docker/Dockerfile.scanners

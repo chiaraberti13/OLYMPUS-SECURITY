@@ -134,7 +134,7 @@ jobs:
           python -c "import subprocess, sys;
           commands = [
           ['--help'], ['version'], ['config', 'validate'], ['core', '--help'],
-          ['argus', '--help'], ['athena', '--help'], ['aegis', '--help']];
+          ['argus', '--help'], ['athena', '--help'], ['themis', '--help']];
           [subprocess.check_call([sys.executable, '-m', 'olympus.cli', *args])
           for args in commands]"
 
@@ -164,10 +164,10 @@ jobs:
           "$OLYMPUS" --help
           "$OLYMPUS" version
           "$OLYMPUS" config validate
-          for module in core argus athena helios artemis proteus hermes apollo minerva vulcan metis aegis; do
+          for module in core argus athena helios artemis proteus hermes apollo minerva vulcan metis themis; do
             "$OLYMPUS" "$module" --help
           done
-          for group in "aegis jobs" "aegis identities" "aegis retention"; do
+          for group in "themis jobs" "themis identities" "themis retention"; do
             "$OLYMPUS" $group --help
           done
 
@@ -176,11 +176,11 @@ jobs:
           set -euo pipefail
           OLYMPUS=/tmp/olympus-wheel-smoke/bin/olympus
           "$OLYMPUS" doctor
-          "$OLYMPUS" aegis doctor
-          "$OLYMPUS" aegis deps
-          "$OLYMPUS" aegis info
-          "$OLYMPUS" aegis scanners
-          "$OLYMPUS" aegis capabilities
+          "$OLYMPUS" themis doctor
+          "$OLYMPUS" themis deps
+          "$OLYMPUS" themis info
+          "$OLYMPUS" themis scanners
+          "$OLYMPUS" themis capabilities
 
       - name: Generate SBOM of the installed runtime closure
         run: |

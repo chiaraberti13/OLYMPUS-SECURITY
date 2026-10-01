@@ -47,13 +47,13 @@ observability = [
     "opentelemetry-sdk>=1.27",
     "opentelemetry-exporter-otlp-proto-http>=1.27",
 ]
-# AEGIS — the vendored Vulnerability Assessment Platform (complete upstream app
+# THEMIS — the vendored Vulnerability Assessment Platform (complete upstream app
 # under vendor/vulnerability-assessment-platform). See that directory's
 # requirements.txt for the full pinned set; this extra pulls the core web/DB/
-# worker stack so `olympus aegis serve|workers` run. External scanner *binaries*
+# worker stack so `olympus themis serve|workers` run. External scanner *binaries*
 # (nmap, nuclei, sqlmap, ...) are installed separately — see
-# vendor/.../installer.sh, docker/Dockerfile.scanners, or `olympus aegis deps`.
-aegis = [
+# vendor/.../installer.sh, docker/Dockerfile.scanners, or `olympus themis deps`.
+themis = [
     "fastapi>=0.109",
     "uvicorn[standard]>=0.27",
     "jinja2>=3.1",
@@ -69,9 +69,9 @@ aegis = [
     "validators>=0.22",
     "itsdangerous>=2.1",
 ]
-# Deprecated alias for the AEGIS extra (kept for backward compatibility).
+# Deprecated alias for the THEMIS extra (kept for backward compatibility).
 vap = [
-    "olympus-security[aegis]",
+    "olympus-security[themis]",
 ]
 # Formatted PDF reports (Vulcan). ReportLab is a pure-Python engine with no
 # system binaries, so `olympus vulcan report --pdf` and `athena run --report`
@@ -161,7 +161,7 @@ source_paths = ["src/olympus"]
 only_mutate = [
     "src/olympus/athena/scope.py",
     "src/olympus/core/execution.py",
-    "src/olympus/aegis/adapters/nmap.py",
+    "src/olympus/themis/adapters/nmap.py",
     "src/olympus/core/coverage.py",
     "src/olympus/athena/cli.py",
     "src/olympus/athena/domain/assessment.py",

@@ -22,7 +22,7 @@ from collections.abc import Callable
 
 from olympus.argus.dns_records import RESOLVER_HOSTS
 from olympus.argus.whois import RDAP_HOSTS
-from olympus.athena.adapters.aegis_scan import AegisScanAdapter
+from olympus.athena.adapters.themis_scan import ThemisScanAdapter
 from olympus.athena.adapters.tools.dns_records import DnsRecordsAdapter
 from olympus.athena.adapters.tools.web_headers import WebHeadersAdapter
 from olympus.athena.adapters.tools.whois import WhoisAdapter
@@ -30,10 +30,10 @@ from olympus.athena.ports import ToolRunner
 from olympus.core.http import HttpClient
 
 
-def _aegis_scan_factory(_http: HttpClient) -> ToolRunner:
-    """Build the AEGIS scan step. It ignores the HTTP client: AEGIS scanners run
+def _themis_scan_factory(_http: HttpClient) -> ToolRunner:
+    """Build the THEMIS scan step. It ignores the HTTP client: THEMIS scanners run
     as their own scope-gated subprocess engine, not over Athena's HTTP transport."""
-    return AegisScanAdapter("nmap")
+    return ThemisScanAdapter("nmap")
 
 
 #: The fixed set of adapter factories, keyed by their stable name.
@@ -41,11 +41,11 @@ _FACTORIES: dict[str, Callable[[HttpClient], ToolRunner]] = {
     "web-headers": WebHeadersAdapter,
     "dns": DnsRecordsAdapter,
     "whois": WhoisAdapter,
-    "aegis": _aegis_scan_factory,
+    "themis": _themis_scan_factory,
 }
 
 #: Adapters that connect to the engagement's own targets.
-_TARGET_ADAPTERS = frozenset({"web-headers", "aegis"})
+_TARGET_ADAPTERS = frozenset({"web-headers", "themis"})
 
 #: Every host the service adapters are allowed to reach.
 SERVICE_HOSTS: tuple[str, ...] = tuple(sorted({*RESOLVER_HOSTS, *RDAP_HOSTS}))

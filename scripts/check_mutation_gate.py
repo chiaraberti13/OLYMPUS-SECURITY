@@ -14,7 +14,7 @@ MUTATED_FUNCTIONS = {
         "x_redact_text",
         "x_redact_mapping",
     ],
-    "src/olympus/aegis/adapters/nmap.py": ["xǁNmapAdapterǁparse"],
+    "src/olympus/themis/adapters/nmap.py": ["xǁNmapAdapterǁparse"],
     "src/olympus/core/coverage.py": ["xǁCoverageǁstatus"],
     "src/olympus/athena/cli.py": ["x__exit_code_for"],
     "src/olympus/athena/domain/assessment.py": [

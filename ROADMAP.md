@@ -43,12 +43,16 @@
 | 4 | Capability Red/Blue/Purple | `[~]` | `OPS-RED`, `OPS-BLUE`, `OPS-PURPLE`, `OPS-SCAN` |
 | 5 | Production readiness scanner | `[ ]` | `D1`, `D2` |
 | 6 | Distribuzione e osservabilità | `[~]` | `DEV-E`, `DEV-F`, `SEC-F` |
-| 7 | Rename Themis + Web control plane | `[ ]` | `DEV-I`, `WEB-A`…`WEB-H` |
+| 7 | Rename Themis + Web control plane | `[~]` | `DEV-I`, `WEB-A`…`WEB-J` |
 
-L'ordine di esecuzione concordato per la Fase 7: `DEV-I` (rename) → `WEB-B`
-(engagement) → `WEB-A` (API/SSE + web skeleton sicuro) → `WEB-D` (tools) →
-`WEB-E` (new assessment) → `WEB-C` (findings) → `WEB-F` (smart scan) →
-`WEB-H` (persistenza) → ritiro runtime VAP (`SEC-A`).
+L'ordine di esecuzione concordato per la Fase 7 mette le **fondamenta dati prima
+delle interfacce**: `DEV-I` (rename) → `WEB-B` (engagement entità di primo
+livello) → **Finding strutturato** (`WEB-C`, campi CVE/CWE/EPSS/KEV tipizzati con
+migrazione) → `WEB-A` (API/SSE + web skeleton sicuro) → `WEB-D` (tools) →
+`WEB-E` (new assessment) → `WEB-C` (findings UI) → `WEB-J`/`WEB-I` (dati e
+reporting) → `WEB-F` (smart scan) → `WEB-H` (persistenza) → ritiro runtime VAP
+(`SEC-A`). `SEC-H` (parsing input ostile) va svolto in opportunità durante il
+rename, perché non richiede un lab autorizzato.
 
 Il cruscotto va aggiornato nella stessa PR che cambia lo stato di un intervento.
 
@@ -89,7 +93,7 @@ di sicurezza forti, release riproducibili e flussi operativi comprensibili.
 | Autorizzazione | scope file + conferma esplicita prima dell'esecuzione | lo scope non è ancora un engagement manifest firmato, con scadenza e approvatore |
 | Supply chain | SBOM, hash lock, audit dipendenze e secret scan | mancano attestazioni di build, firma immagini/release e SAST CodeQL bloccante |
 | Qualità | Ruff lint/format, Mypy strict, pytest portabile 3.11–3.14, branch coverage first-party ≥75% e mutation score mirato ≥35% per funzione sono gate obbligatori; unit/contract/integration sono separate e la sandbox POSIX ha un job dedicato | CodeQL/SAST bloccante; suite container/live-lab senza casi eseguibili |
-| Input ostili | report HTML Vulcan con `html.escape`; RichLog TUI con `markup=False` | `aegis/adapters/nmap.py` parsa XML con `xml.etree` considerandolo “trusted local”, ma banner e script output sono controllati dal target; nessun fuzzing dei parser |
+| Input ostili | report HTML Vulcan con `html.escape`; RichLog TUI con `markup=False` | `themis/adapters/nmap.py` parsa XML con `xml.etree` considerandolo “trusted local”, ma banner e script output sono controllati dal target; nessun fuzzing dei parser |
 | Scanner | ledger in `integrations/maturity.py` con prove verificabili | 12 `live-tested`, 3 `offline-tested`, 0 `production-ready` |
 | TUI | esecuzione senza shell e streaming dell'output | un solo campo libero per gli argomenti, UI solo inglese, poco supporto decisionale |
 | Documentazione | README bilingue, threat model, ADR e guide operative | link interni corretti, ma manca un link checker in CI; alcuni conteggi non allineati |
@@ -128,7 +132,7 @@ vendorizzata può essere rimossa senza perdita di funzionalità dichiarata.
 
 ### Intervento B · `SEC-B` — Isolamento forte degli scanner (**P0**)
 
-`src/olympus/aegis/sandbox.py` applica già drop dei privilegi, limiti CPU/memoria/
+`src/olympus/themis/sandbox.py` applica già drop dei privilegi, limiti CPU/memoria/
 processi/file descriptor, directory temporanea privata e terminazione del process
 group. Il file dichiara correttamente ciò che manca.
 
@@ -237,11 +241,11 @@ degli scanner sono controllati dal target e possono colpire l'operatore
 markup Rich, ma la difesa non è sistematica.
 
 - [ ] Trattare ogni output scanner come input non fidato: rimuovere il commento
-  “trusted local” in `aegis/adapters/nmap.py`, adottare `defusedxml` (o un parser
+  “trusted local” in `themis/adapters/nmap.py`, adottare `defusedxml` (o un parser
   equivalente con entità disabilitate) e imporre limiti di dimensione e
   profondità prima del parsing XML/JSON.
 - [ ] Aggiungere fuzzing (Hypothesis o Atheris) per tutti i parser in
-  `aegis/adapters/`, `apollo` e `metis`, con corpus iniziale dalle fixture reali:
+  `themis/adapters/`, `apollo` e `metis`, con corpus iniziale dalle fixture reali:
   nessun input deve causare crash non gestiti, consumo illimitato o finding
   inventati.
 - [ ] Neutralizzare sequenze di escape ANSI/OSC e caratteri di controllo prima di
@@ -394,7 +398,7 @@ riavvio non duplica scansioni né perde lo stato terminale di un job.
 
 - [ ] Automatizzare versione, changelog, build, test, firma e pubblicazione PyPI
   tramite Trusted Publishing/OIDC, senza token statici.
-- [ ] Testare sia dipendenze minime sia extra (`api`, `aegis`, `dev`) e dichiarare
+- [ ] Testare sia dipendenze minime sia extra (`api`, `themis`, `dev`) e dichiarare
   chiaramente cosa è incluso nella wheel e cosa richiede binari esterni.
 - [ ] Pubblicare release candidate e procedura di rollback; evitare release se
   documentazione, schema o maturity ledger sono incoerenti.
@@ -458,28 +462,30 @@ riflette il suo ruolo di gate di governance sull'esecuzione degli strumenti. Il
 rename è un'evoluzione di naming, non una riscrittura: una sola implementazione.
 Precedente collaudato: `docs/vap-to-aegis-rename.md` (VAP → AEGIS).
 
-- [ ] Migrare gli identificatori tecnici: package/dir `aegis/` → `themis/`,
-  `athena/adapters/aegis_scan.py` → `themis_scan.py`, classi `Aegis*` →
-  `Themis*`, comando CLI `aegis` → `themis`, tag/endpoint FastAPI, doc
-  `docs/aegis-*.md` → `docs/themis-*.md`, servizi/volumi docker, stringhe audit
-  e messaggi CLI.
-- [ ] Trattare come **contract change** gli schema name versionati
-  (`olympus.aegis`, `.aegis-job`, `.aegis-result`, `.aegis-scope`,
+- [x] **Milestone 1 (fatto).** Migrati gli identificatori tecnici: package/dir
+  `aegis/` → `themis/`, `athena/adapters/aegis_scan.py` → `themis_scan.py`,
+  classi `Aegis*` → `Themis*`, comando CLI `aegis` → `themis`, tag/endpoint
+  FastAPI, doc `docs/aegis-*.md` → `docs/themis-*.md`, servizi docker
+  `aegis-*` → `themis-*`, file/fixture di test, stringhe e messaggi CLI.
+- [x] **Milestone 1 (fatto).** `olympus aegis` resta **alias deprecato** (warning
+  che indica `olympus themis`) che inoltra a `themis` senza duplicare
+  l'implementazione; un CLI backward-compatibility test lo verifica.
+- [x] **Milestone 1 (fatto).** Riferimenti **storici** preservati (`upgrade.md`,
+  `docs/vap-to-aegis-rename.md`, `CHANGELOG`, `adr-006`).
+- [ ] **Milestone 1b.** Trattare come **contract change** gli schema name
+  versionati (`olympus.aegis`, `.aegis-job`, `.aegis-result`, `.aegis-scope`,
   `.aegis-readiness`, `.aegis-capability-inventory`, `.aegis-api-identities`,
-  `.aegis-job-list`): nuovi nomi `olympus.themis*` con migrazione
-  `core/migrations` che legge i documenti storici, rigenerando schema catalog e
-  golden contract.
-- [ ] Preservare la compatibilità deployment: variabili d'ambiente `THEMIS_*`
-  con **fallback automatico** alle `AEGIS_*` per almeno una release; i nomi dei
-  file di storage restano leggibili.
-- [ ] Mantenere `olympus aegis` come **alias deprecato** (warning che indica il
-  nuovo comando) che inoltra a `themis`, senza duplicare l'implementazione; un
-  CLI backward-compatibility test verifica l'alias.
-- [ ] Distinguere i riferimenti **storici** da conservare (`upgrade.md`,
-  `docs/vap-to-aegis-rename.md`, CHANGELOG) da quelli tecnici da migrare.
+  `.aegis-job-list`) e il valore provenance `Source` `"aegis"`: nuovi nomi/valori
+  `themis` con migrazione `core/migrations` che legge i documenti storici,
+  rigenerando schema catalog e golden. *Volutamente rinviato da M1 per non
+  invalidare i dati persistiti e per isolare la migrazione.*
+- [ ] **Milestone 1b.** Variabili d'ambiente `THEMIS_*` con **fallback
+  automatico** alle `AEGIS_*` (già con fallback `VAP_*`) per almeno una release;
+  docker/docs allineati. *Rinviato con la migrazione schema.*
 
 **Criterio di completamento:** nessun identificatore tecnico `AEGIS`/`aegis`
-residuo salvo l'alias deprecato e i riferimenti storici; migrazione schema
+residuo salvo l'alias deprecato, i due contratti esterni rinviati a M1b (schema
+name/valore provenance ed env) e i riferimenti storici; migrazione schema
 testata; `olympus aegis` emette il warning e funziona; Ruff, Mypy, Pytest,
 schema-check e golden contract verdi; documentazione allineata.
 
@@ -538,9 +544,17 @@ identicamente dai quattro canali.
 - [ ] Stati `New/Confirmed/False Positive/Accepted Risk/Remediated/Retest
   Required/Closed`, suppression/accepted-risk, workflow false-positive,
   remediation tracking, deduplica cross-scanner, tagging, ricerca e filtri.
+- [ ] **Evidence browser**: navigare le evidenze collegate a un finding
+  (comando/argv redatto, output, digest, firma Ed25519) riusando Minerva e la
+  chain-of-custody, senza esporre dati redatti o segreti.
+- [ ] **Finding strutturato (fondamenta).** Promuovere CVE, CWE, EPSS e KEV da
+  testo estratto con regex a **campi opzionali tipizzati** sul contratto
+  `Finding`, con migrazione versionata. Beneficia report (PDF/HTML), deduplica,
+  correlazione e la vista web. Da fare una sola volta, prima della UI findings.
 
 **Criterio di completamento:** un finding attraversa tutto il ciclo di vita con
-audit; la deduplica non perde evidenza né remediation.
+audit; la deduplica non perde evidenza né remediation; ogni finding è navigabile
+fino alla sua evidenza verificabile.
 
 ### Intervento D · `WEB-D` — Pagina Tools dal registry reale (**P1**)
 
@@ -598,6 +612,38 @@ operativa; i flussi primari sono usabili da tastiera, in IT ed EN.
 
 **Criterio di completamento:** lo stesso codice gira su SQLite e Postgres dietro
 lo stesso port; l'utente locale non deve installare Postgres.
+
+### Intervento I · `WEB-I` — Reporting, trend e notifiche (**P2**)
+
+- [ ] **Report builder** sopra Vulcan: comporre un report (executive/tecnico/raw)
+  da un engagement scegliendo sezioni, scope e formato (JSON/MD/HTML/PDF), senza
+  duplicare la logica di rendering già esistente.
+- [ ] **Report comparison / scan diff**: confrontare due run o due report dello
+  stesso scope evidenziando finding nuovi, risolti e persistenti.
+- [ ] **Trend storici e attack-surface evolution**: andamento di finding per
+  severità nel tempo e variazione della superficie (asset/porte/servizi/subdomain)
+  tra run, riusando il diff già presente in Argus.
+- [ ] **Notifiche**: canali opzionali (webhook/e-mail) su eventi di job e finding,
+  con payload redatto e nessun segreto; disattivate di default.
+
+**Criterio di completamento:** un operatore confronta due assessment e riceve una
+notifica redatta alla chiusura di un job, senza logica di report duplicata.
+
+### Intervento J · `WEB-J` — Operabilità dei dati (**P2**)
+
+- [ ] **Backup / restore** verificabile di engagement, job, finding, evidence e
+  identità, con integrità controllabile; **data retention** applicata in modo
+  uniforme (riusa `core.retention`).
+- [ ] **Import / export** di engagement/finding/asset in formati versionati
+  (JSON/NDJSON/SARIF) per portabilità tra installazioni, senza rompere i
+  contratti dati.
+- [ ] **OpenAPI pubblicata e documentata**: esporre e versionare lo schema
+  OpenAPI del control plane (`themis.api`) come superficie di integrazione
+  stabile, con esempi.
+
+**Criterio di completamento:** un engagement esportato da un'installazione è
+reimportabile in un'altra senza perdita di dati né violazione di contratto; lo
+schema OpenAPI è versionato e verificato in CI.
 
 ## 🎨 Prospettiva Designer (UI/UX)
 
@@ -833,6 +879,27 @@ cui questo intervento *potenzia* quei due moduli, non ne crea di paralleli.
 - [⏸] **Scansioni programmate e monitoraggio.** Esecuzione ricorrente di un
   profilo su uno scope con diff dei finding tra run; differito perché richiede uno
   scheduler persistente e un lab autorizzato (prerequisito D13).
+
+#### Candidati scanner vagliati (solo se colmano una capability mancante)
+
+Regola: nessuno scanner si aggiunge perché esiste; solo se colma una capability
+reale e non duplica un adapter presente. Il valore resta orchestrazione +
+normalizzazione + scope + evidence + report, non il numero di wrapper. La recon
+attiva ProjectDiscovery/OSINT (`subfinder`, `dnsx`, `naabu`, `amass`,
+`theHarvester`) è già pianificata in `OPS-RED`; il SAST first-party (CodeQL) in
+`SEC-F`. Restano da valutare:
+
+| Tool | Capability mancante | Sovrapposizione | Priorità |
+| --- | --- | --- | --- |
+| Semgrep / Bandit | SAST del codice dell'ingaggio (oltre a CodeQL in CI) | parziale con `SEC-F` | P2 |
+| Trivy / OSV-Scanner | dependency/container/IaC e SBOM-vuln | nessuna oggi | P2 |
+| sslscan | TLS rapido e leggero | parziale con `testssl` | P3 |
+| ffuf | fuzzing web parametrico ampio | parziale con `dirsearch` | P3 |
+
+Esplicitamente **non** pianificati (sovrapposti o fuori dallo scope di prodotto:
+DoS-prone o post-exploitation/AD che eccede i guardrail): Masscan, RustScan,
+Gobuster, Feroxbuster, kiterunner, kube-bench, kube-hunter,
+BloodHound/SharpHound, NetExec, Impacket.
 
 **Criterio di completamento OPS-SCAN:** un operatore configura un profilo su un
 target autorizzato, avvia una scansione scope-safe e ottiene un report PDF

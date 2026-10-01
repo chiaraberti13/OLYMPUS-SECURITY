@@ -18,11 +18,11 @@
 /src/olympus/core/decompression.py  @chiaraberti13
 /src/olympus/core/retention.py      @chiaraberti13
 
-# --- AEGIS execution plane: sandbox isolation, scope gate, API identity. ---
-/src/olympus/aegis/sandbox.py       @chiaraberti13
-/src/olympus/aegis/scope.py         @chiaraberti13
-/src/olympus/aegis/identity.py      @chiaraberti13
-/src/olympus/aegis/base.py          @chiaraberti13
+# --- THEMIS execution plane: sandbox isolation, scope gate, API identity. ---
+/src/olympus/themis/sandbox.py       @chiaraberti13
+/src/olympus/themis/scope.py         @chiaraberti13
+/src/olympus/themis/identity.py      @chiaraberti13
+/src/olympus/themis/base.py          @chiaraberti13
 
 # --- Supply chain: SBOM, hash-pinned lock, honest maturity ledger. ---
 /src/olympus/core/sbom.py           @chiaraberti13

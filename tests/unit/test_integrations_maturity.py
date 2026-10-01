@@ -7,7 +7,6 @@ import json
 import pytest
 from typer.testing import CliRunner
 
-from olympus.aegis.registry import implemented
 from olympus.cli import app
 from olympus.core.exit_codes import ExitCode
 from olympus.integrations import maturity as maturity_module
@@ -30,6 +29,7 @@ from olympus.integrations.maturity import (
     verify_declarations,
 )
 from olympus.integrations.scanners import REGISTRY
+from olympus.themis.registry import implemented
 
 runner = CliRunner()
 
@@ -94,7 +94,7 @@ def test_guard_catches_a_claim_without_an_adapter(
     monkeypatch.setitem(
         maturity_module.DECLARED,
         "wpscan",
-        MaturityRecord("wpscan", Maturity.LIVE_TESTED, "docs/aegis-execution-evidence.md"),
+        MaturityRecord("wpscan", Maturity.LIVE_TESTED, "docs/themis-execution-evidence.md"),
     )
     assert any("no native adapter" in problem for problem in verify_declarations())
 
@@ -174,7 +174,7 @@ def test_guard_rejects_production_ready_with_an_open_blocker(
         MaturityRecord(
             "nmap",
             Maturity.PRODUCTION_READY,
-            "docs/aegis-execution-evidence.md",
+            "docs/themis-execution-evidence.md",
             "SBOM still missing",
         ),
     )
@@ -234,11 +234,11 @@ def test_capability_dict_exposes_the_maturity_axis() -> None:
         available=True,
         state=CapabilityState.READY,
         maturity=Maturity.LIVE_TESTED,
-        evidence="docs/aegis-execution-evidence.md",
+        evidence="docs/themis-execution-evidence.md",
         blocker="SBOM pending",
     ).to_dict()
     assert payload["maturity"] == "live-tested"
-    assert payload["evidence"] == "docs/aegis-execution-evidence.md"
+    assert payload["evidence"] == "docs/themis-execution-evidence.md"
     assert payload["blocker"] == "SBOM pending"
 
 
@@ -258,12 +258,12 @@ def test_count_at_least_matches_the_histogram() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# olympus aegis capabilities
+# olympus themis capabilities
 # --------------------------------------------------------------------------- #
 
 
 def test_capabilities_reports_maturity_per_engine() -> None:
-    result = runner.invoke(app, ["aegis", "capabilities"])
+    result = runner.invoke(app, ["themis", "capabilities"])
     assert result.exit_code == 0, result.output
     document = json.loads(result.stdout)
     by_name = {item["name"]: item for item in document["capabilities"]}
@@ -275,21 +275,21 @@ def test_capabilities_reports_maturity_per_engine() -> None:
 
 def test_capabilities_gate_passes_when_the_bar_is_met() -> None:
     result = runner.invoke(
-        app, ["aegis", "capabilities", "--min-maturity", "live-tested", "--count", "12"]
+        app, ["themis", "capabilities", "--min-maturity", "live-tested", "--count", "12"]
     )
     assert result.exit_code == 0, result.output
 
 
 def test_capabilities_gate_fails_when_the_bar_is_not_met() -> None:
     result = runner.invoke(
-        app, ["aegis", "capabilities", "--min-maturity", "live-tested", "--count", "13"]
+        app, ["themis", "capabilities", "--min-maturity", "live-tested", "--count", "13"]
     )
     assert result.exit_code == int(ExitCode.NOT_AUTHORIZED)
     assert "12 integration(s) reach live-tested, 13 required" in result.output
 
 
 def test_capabilities_gate_rejects_an_unknown_stage() -> None:
-    result = runner.invoke(app, ["aegis", "capabilities", "--min-maturity", "shipped"])
+    result = runner.invoke(app, ["themis", "capabilities", "--min-maturity", "shipped"])
     assert result.exit_code == int(ExitCode.USAGE)
     assert "unknown maturity stage" in result.output
 
@@ -301,8 +301,8 @@ def test_capabilities_reports_ledger_drift_as_a_usage_error(
     monkeypatch.setitem(
         maturity_module.DECLARED,
         "wpscan",
-        MaturityRecord("wpscan", Maturity.LIVE_TESTED, "docs/aegis-execution-evidence.md"),
+        MaturityRecord("wpscan", Maturity.LIVE_TESTED, "docs/themis-execution-evidence.md"),
     )
-    result = runner.invoke(app, ["aegis", "capabilities"])
+    result = runner.invoke(app, ["themis", "capabilities"])
     assert result.exit_code == int(ExitCode.USAGE)
     assert "maturity declaration drift" in result.output

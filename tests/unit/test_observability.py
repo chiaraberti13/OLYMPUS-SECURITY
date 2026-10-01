@@ -8,7 +8,6 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from olympus.aegis.api import ApiSettings, create_app
 from olympus.core.observability import (
     Correlation,
     InMemoryExporter,
@@ -16,6 +15,7 @@ from olympus.core.observability import (
     ObservabilityConfigurationError,
     observability_from_config,
 )
+from olympus.themis.api import ApiSettings, create_app
 
 
 class _ScrapeExporter(InMemoryExporter):

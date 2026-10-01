@@ -109,3 +109,19 @@ def test_config_validate_fails_closed_without_traceback(tmp_path) -> None:  # ty
     assert result.exit_code == 2
     assert "invalid configuration" in result.output
     assert "Traceback" not in result.output
+
+
+def test_themis_command_is_registered() -> None:
+    result = runner.invoke(app, ["themis", "--help"])
+    assert result.exit_code == 0
+    assert "themis" in result.stdout.lower()
+
+
+def test_aegis_is_a_deprecated_alias_for_themis() -> None:
+    # The AEGIS subsystem was renamed to Themis (ROADMAP DEV-I). The old command
+    # keeps working for one release, warns, and forwards to themis.
+    deprecated = runner.invoke(app, ["aegis", "info"])
+    current = runner.invoke(app, ["themis", "info"])
+    assert deprecated.exit_code == current.exit_code
+    assert "deprecated" in deprecated.stderr.lower()
+    assert "olympus themis" in deprecated.stderr

@@ -12,7 +12,6 @@ from tempfile import TemporaryDirectory
 
 from typer.testing import CliRunner
 
-from olympus.aegis.api import ApiSettings, create_app
 from olympus.athena.adapters.sqlite import SqliteAssessmentRepository
 from olympus.athena.domain.assessment import Assessment, Job
 from olympus.athena.domain.contracts import AssessmentResult, load_plan
@@ -21,6 +20,7 @@ from olympus.core import models as core_models
 from olympus.core.enums import AssetType, Severity, Source
 from olympus.core.fileio import atomic_write_text
 from olympus.core.models import Alert, Asset, Finding
+from olympus.themis.api import ApiSettings, create_app
 from olympus.vulcan.report import build_report_model, render_report_markdown
 
 GOLDEN_NAMES = (
@@ -119,7 +119,7 @@ def _openapi(root: Path) -> str:
     scope_directory.mkdir()
     api = create_app(
         ApiSettings(
-            database=root / "aegis.sqlite3",
+            database=root / "themis.sqlite3",
             scope_directory=scope_directory,
             api_key="golden-contract-key-32-characters",
         )

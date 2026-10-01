@@ -1,4 +1,4 @@
-"""Per-scanner diagnostics and the ``olympus aegis doctor --scanner`` command."""
+"""Per-scanner diagnostics and the ``olympus themis doctor --scanner`` command."""
 
 from __future__ import annotations
 
@@ -97,29 +97,29 @@ def test_catalog_only_engine_reports_no_adapter() -> None:
 
 
 def test_doctor_scanner_reports_one_engine() -> None:
-    result = runner.invoke(app, ["aegis", "doctor", "--scanner", "nmap"])
+    result = runner.invoke(app, ["themis", "doctor", "--scanner", "nmap"])
     assert result.exit_code == 0, result.output
     payload = json.loads(result.stdout)
-    assert payload["title"] == "aegis doctor --scanner nmap"
+    assert payload["title"] == "themis doctor --scanner nmap"
     assert any(c["name"] == "scanner:nmap:maturity" for c in payload["checks"])
 
 
 def test_doctor_scanner_all_reports_every_engine() -> None:
-    result = runner.invoke(app, ["aegis", "doctor", "--scanner", "all"])
+    result = runner.invoke(app, ["themis", "doctor", "--scanner", "all"])
     assert result.exit_code == 0, result.output
     payload = json.loads(result.stdout)
     assert len(payload["scanners"]) == len(REGISTRY)
     titles = {item["title"] for item in payload["scanners"]}
-    assert "aegis doctor --scanner nmap" in titles
+    assert "themis doctor --scanner nmap" in titles
 
 
 def test_doctor_scanner_rejects_an_unknown_name() -> None:
-    result = runner.invoke(app, ["aegis", "doctor", "--scanner", "ghost"])
+    result = runner.invoke(app, ["themis", "doctor", "--scanner", "ghost"])
     assert result.exit_code == int(ExitCode.USAGE)
     assert "unknown scanner" in result.output
 
 
 def test_doctor_without_scanner_still_diagnoses_the_runtime() -> None:
-    result = runner.invoke(app, ["aegis", "doctor"])
+    result = runner.invoke(app, ["themis", "doctor"])
     assert result.exit_code == 0, result.output
-    assert json.loads(result.stdout)["title"] == "aegis doctor"
+    assert json.loads(result.stdout)["title"] == "themis doctor"
