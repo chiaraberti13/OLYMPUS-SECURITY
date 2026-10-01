@@ -23,6 +23,7 @@ from olympus.core import config as core_config
 from olympus.core import policy as core_policy
 from olympus.core.execution import redact_mapping
 from olympus.core.exit_codes import ExitCode
+from olympus.engagements.cli import app as engagement_app
 from olympus.helios.cli import app as helios_app
 from olympus.hermes.cli import app as hermes_app
 from olympus.integrations.cli import (
@@ -433,6 +434,7 @@ def signing_verify(
 app.add_typer(core_app, name="core")
 app.add_typer(config_app, name="config")
 app.add_typer(policy_app, name="policy")
+app.add_typer(engagement_app, name="engagement")
 app.add_typer(argus_app, name="argus")
 app.add_typer(athena_app, name="athena")
 app.add_typer(helios_app, name="helios")

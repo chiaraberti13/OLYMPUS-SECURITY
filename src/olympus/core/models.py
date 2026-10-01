@@ -8,6 +8,8 @@ format negotiation. Each model declares its ``schema_name`` and
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from datetime import UTC, datetime
 from typing import Literal, Self
@@ -18,6 +20,7 @@ from olympus.core.enums import (
     AlertStatus,
     AssetType,
     Criticality,
+    EngagementStatus,
     FindingStatus,
     IncidentStatus,
     Severity,
@@ -223,3 +226,68 @@ class SecurityReport(OlympusModel):
     assets: list[Asset] = Field(default_factory=list)
     findings: list[Finding] = Field(default_factory=list)
     alerts: list[Alert] = Field(default_factory=list)
+
+
+class EngagementScope(BaseModel):
+    """The authorized perimeter of an engagement: included minus excluded.
+
+    Entries are hostnames or domains (matched like the rest of Olympus: an entry
+    covers itself and its subdomains). IP/CIDR matching is a planned extension
+    (ROADMAP ``WEB-B``); until then IPs must be listed verbatim.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    included: tuple[str, ...] = Field(min_length=1)
+    excluded: tuple[str, ...] = ()
+
+    @field_validator("included", "excluded")
+    @classmethod
+    def _normalize(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        normalized = []
+        for entry in value:
+            cleaned = entry.strip().lower().rstrip(".")
+            if not cleaned or " " in cleaned:
+                raise ValueError("scope entries must be non-empty and contain no spaces")
+            normalized.append(cleaned)
+        return tuple(normalized)
+
+    @staticmethod
+    def _matches(target: str, entries: tuple[str, ...]) -> bool:
+        return any(target == entry or target.endswith(f".{entry}") for entry in entries)
+
+    def covers(self, host: str) -> bool:
+        """Return ``True`` if ``host`` is included and not excluded."""
+        target = host.strip().lower().rstrip(".")
+        return self._matches(target, self.included) and not self._matches(target, self.excluded)
+
+
+class Engagement(OlympusModel):
+    """The top-level container that groups an authorized assessment's work.
+
+    An engagement owns its scope and authorization reference; assets, scans,
+    jobs, findings, evidence, alerts, incidents and reports are associated with
+    it by ``engagement_id``. CLI, TUI, API and Web all reference this one model
+    (ROADMAP ``WEB-B``) rather than a private per-interface notion of scope.
+    """
+
+    schema_name: Literal["olympus.engagement"] = "olympus.engagement"
+    engagement_id: str = Field(default_factory=lambda: new_id("engagement"))
+    name: str = Field(min_length=1)
+    client: str = ""
+    status: EngagementStatus = EngagementStatus.ACTIVE
+    scope: EngagementScope
+    #: An authorization reference (contract/approval id), never a secret.
+    authorization_reference: str = ""
+    created_at: datetime = Field(default_factory=_utcnow)
+    updated_at: datetime = Field(default_factory=_utcnow)
+    tags: list[str] = Field(default_factory=list)
+    metadata: dict[str, str] = Field(default_factory=dict)
+
+    def canonical_json(self) -> str:
+        """Return the deterministic JSON encoding used for digesting and storage."""
+        return json.dumps(self.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
+
+    def digest(self) -> str:
+        """Return the SHA-256 digest of the engagement's canonical encoding."""
+        return hashlib.sha256(self.canonical_json().encode("utf-8")).hexdigest()

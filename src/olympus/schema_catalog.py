@@ -23,6 +23,7 @@ from olympus.core.fileio import atomic_write_text, ensure_write_target
 from olympus.core.models import (
     Alert,
     Asset,
+    Engagement,
     Event,
     Evidence,
     Finding,
@@ -61,6 +62,7 @@ PUBLISHED_CONTRACTS = (
     PublishedContract("olympus.argus-pipeline", "output", PipelineDocument),
     PublishedContract("olympus.metis-plan", "output", EngagementPlan),
     PublishedContract("olympus.metis-case", "output", IntelCaseDocument),
+    PublishedContract("olympus.engagement", "shared", Engagement),
     PublishedContract("olympus.asset", "shared", Asset),
     PublishedContract("olympus.finding", "shared", Finding),
     PublishedContract("olympus.event", "shared", Event),

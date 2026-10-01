@@ -616,10 +616,17 @@ authz) e di job-lifecycle/cancellation passano.
 
 ### Intervento B · `WEB-B` — Engagement come entità di primo livello (**P1**)
 
-- [ ] Rendere l'Engagement il contenitore centrale di asset, scan, job, finding,
-  evidence, alert, incident, report e audit, con scope incluso/escluso.
-- [ ] CLI, TUI, API e Web referenziano lo **stesso** engagement model e lo stesso
-  database; nessun DB separato per la GUI se non strettamente necessario.
+- [~] **Slice 1 (fatto).** Contratto condiviso versionato `olympus.engagement`
+  (`core/models.py`: `Engagement` + `EngagementScope` con scope incluso/escluso e
+  `covers()`), store SQLite owner-only (`engagements/store.py`) e comandi CLI
+  `olympus engagement create|list|show` (`engagements/cli.py`), sullo **stesso**
+  modello e database per tutti i canali. Schema catalog + golden, test unit e
+  integration, `docs/engagements.md`.
+- [ ] **Slice 2.** Collegare asset, scan, job, finding, evidence, alert,
+  incident, report e audit all'`engagement_id`; Athena e Themis referenziano
+  l'engagement store condiviso.
+- [ ] **Slice 3.** Esporre gli engagement via API e Web UI (sullo stesso store),
+  con scope enforcement derivato dall'engagement.
 
 **Criterio di completamento:** lo stesso engagement è leggibile e operabile
 identicamente dai quattro canali.

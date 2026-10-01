@@ -47,6 +47,14 @@ class IncidentStatus(StrEnum):
     CLOSED = "closed"
 
 
+class EngagementStatus(StrEnum):
+    """Lifecycle state of an engagement (the top-level assessment container)."""
+
+    PLANNED = "planned"
+    ACTIVE = "active"
+    CLOSED = "closed"
+
+
 class Criticality(StrEnum):
     """Business criticality of an asset."""
 

@@ -46,6 +46,13 @@ everything below lives under **Unreleased**.
   catalog/golden verdi.
 
 ### Added
+- **Engagement come entità di primo livello (`WEB-B`, slice 1).** Nuovo
+  contratto condiviso versionato `olympus.engagement` (`Engagement` +
+  `EngagementScope` con perimetro incluso/escluso e `covers()`), store SQLite
+  owner-only e comandi `olympus engagement create|list|show`. Un solo modello e
+  un solo database per CLI/TUI/API/Web. Aggiunti schema catalog, golden, test
+  (unit + integration) e `docs/engagements.md`. Le slice successive collegano
+  asset/job/finding all'`engagement_id` ed espongono gli engagement via API/Web.
 - **Report PDF formattato (`OPS-SCAN`)** — Vulcan rende un report PDF minimal e
   presentabile: copertina brandizzata, summary (overall risk, conteggi per
   severità con barra di distribuzione, totali), una **tabella delle vulnerabilità
