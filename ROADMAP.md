@@ -45,10 +45,14 @@
 | 6 | Distribuzione e osservabilità | `[~]` | `DEV-E`, `DEV-F`, `SEC-F` |
 | 7 | Rename Themis + Web control plane | `[ ]` | `DEV-I`, `WEB-A`…`WEB-J` |
 
-L'ordine di esecuzione concordato per la Fase 7: `DEV-I` (rename) → `WEB-B`
-(engagement) → `WEB-A` (API/SSE + web skeleton sicuro) → `WEB-D` (tools) →
-`WEB-E` (new assessment) → `WEB-C` (findings) → `WEB-F` (smart scan) →
-`WEB-H` (persistenza) → ritiro runtime VAP (`SEC-A`).
+L'ordine di esecuzione concordato per la Fase 7 mette le **fondamenta dati prima
+delle interfacce**: `DEV-I` (rename) → `WEB-B` (engagement entità di primo
+livello) → **Finding strutturato** (`WEB-C`, campi CVE/CWE/EPSS/KEV tipizzati con
+migrazione) → `WEB-A` (API/SSE + web skeleton sicuro) → `WEB-D` (tools) →
+`WEB-E` (new assessment) → `WEB-C` (findings UI) → `WEB-J`/`WEB-I` (dati e
+reporting) → `WEB-F` (smart scan) → `WEB-H` (persistenza) → ritiro runtime VAP
+(`SEC-A`). `SEC-H` (parsing input ostile) va svolto in opportunità durante il
+rename, perché non richiede un lab autorizzato.
 
 Il cruscotto va aggiornato nella stessa PR che cambia lo stato di un intervento.
 
@@ -541,6 +545,10 @@ identicamente dai quattro canali.
 - [ ] **Evidence browser**: navigare le evidenze collegate a un finding
   (comando/argv redatto, output, digest, firma Ed25519) riusando Minerva e la
   chain-of-custody, senza esporre dati redatti o segreti.
+- [ ] **Finding strutturato (fondamenta).** Promuovere CVE, CWE, EPSS e KEV da
+  testo estratto con regex a **campi opzionali tipizzati** sul contratto
+  `Finding`, con migrazione versionata. Beneficia report (PDF/HTML), deduplica,
+  correlazione e la vista web. Da fare una sola volta, prima della UI findings.
 
 **Criterio di completamento:** un finding attraversa tutto il ciclo di vita con
 audit; la deduplica non perde evidenza né remediation; ogni finding è navigabile
