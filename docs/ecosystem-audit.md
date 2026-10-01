@@ -5,7 +5,7 @@ compatibility boundary, and the specialist-engine integration layer._
 
 > Method: the CLI tree was introspected live (`typer`/`click`), module sources
 > and imports were read, the 24 vendored scanners were parsed for their real
-> external binaries, and the vendored AEGIS web app was booted to confirm routes
+> external binaries, and the vendored THEMIS web app was booted to confirm routes
 > and migrations. Presence of source files is **not** treated as completeness.
 
 ## 1. Status legend
@@ -33,7 +33,7 @@ compatibility boundary, and the specialist-engine integration layer._
 | minerva | native | Incident triage & chain of custody | `olympus minerva` | ✅ | 2 files | basic execution verified |
 | vulcan | native | Aggregation, dedup, ranking, reporting | `olympus vulcan` | ✅ | 1 file | basic execution verified |
 | metis | native | Capability routing, planning, CTI cases and guided labs | `olympus metis` | ✅ | 1 file | e2e verified (offline) |
-| aegis | native + temporary VAP compatibility | Specialist-engine control plane | `olympus aegis` | ✅ | execution/jobs/capability contracts | native jobs e2e verified (offline) |
+| themis | native + temporary VAP compatibility | Specialist-engine control plane | `olympus themis` | ✅ | execution/jobs/capability contracts | native jobs e2e verified (offline) |
 
 Ruff and the complete automated test suite are blocking CI checks.
 
@@ -76,7 +76,7 @@ commands.
   blacklist and resource bounds. Active pivots require authorization and a
   scope gate.
 
-### AEGIS (native control plane + temporary VAP compatibility) — `olympus aegis`
+### THEMIS (native control plane + temporary VAP compatibility) — `olympus themis`
 
 - **Source:** `vendor/vulnerability-assessment-platform/` (upstream rev
   `6c6b395…`, GPL-3.0-only). Complete FastAPI app (~40 routes), 24 scanners, SQLAlchemy +
@@ -88,7 +88,7 @@ commands.
   audit application service as synchronous execution.
 - **Temporary compatibility CLI:** `serve, migrate, workers, scan, info` keeps
   the VAP web surface available while its required API/report contracts migrate.
-- **Deps:** `pip install -e ".[aegis]"` (or the vendored `requirements.txt`).
+- **Deps:** `pip install -e ".[themis]"` (or the vendored `requirements.txt`).
   **Services:** Redis (broker/result/cache) + Celery worker for queued scans;
   SQLite (default) or Postgres via `VAP_DATABASE_URL`. **DB:** Alembic
   migrations.
@@ -100,26 +100,26 @@ commands.
   clear "broker unreachable" warning (graceful). Docker Compose config validated
   (`docker compose config`); a live `up` was **not** run (no Docker daemon here).
 - **Docs:** README (EN/IT) native+Docker, `docs/scanner-matrix.md`,
-  `docs/install.md`, `docs/vap-to-aegis-rename.md`, `docs/provenance.md`.
+  `docs/install.md`, `docs/vap-to-themis-rename.md`, `docs/provenance.md`.
 
 ## 4. Incomplete, unverified, or simulated components (honest findings)
 
 - **The temporary vendored web app still simulates by default** (upstream behaviour,
-  preserved verbatim). **Resolved for the Olympus-native path:** `olympus aegis
+  preserved verbatim). **Resolved for the Olympus-native path:** `olympus themis
   run` is a new native execution layer with explicit states
   (`live`/`unavailable`/`failed`/`disabled`/`simulation`) that **never** emits a
   simulated finding unless `--simulate` (or `AEGIS_SIMULATION_MODE=true`) is
   explicitly given. Six scanners have real native adapters (nmap, nikto, wafw00f,
   sqlmap, whatweb, testssl); four were verified live end-to-end here against a
-  local lab (see `docs/aegis-execution-evidence.md`). The remaining 18 native
-  adapters are pending. `olympus aegis doctor`
+  local lab (see `docs/themis-execution-evidence.md`). The remaining 18 native
+  adapters are pending. `olympus themis doctor`
   reports the live-scan flag and binary availability so the operator knows which
   scanners can run for real.
 - **No scanner binaries are installed in this sandbox** and there is **no Docker
   daemon**, so **no live scan and no container `up` was executed here.** Scanner
   live execution is therefore "not executable here"; it is reproducible outside
   the sandbox via `docker-compose.scanners.yml` / the vendored `installer.sh`.
-- **`olympus aegis scan`** is an authenticated client for the native
+- **`olympus themis scan`** is an authenticated client for the native
   `/api/v1/jobs` endpoint. It requires an explicit authorization confirmation,
   a server-registered scope id and HTTPS for non-loopback servers. The API-to-
   SQLite lifecycle is verified offline; live execution still requires a ready
@@ -134,23 +134,23 @@ commands.
 
 | Need | For | How to obtain |
 | --- | --- | --- |
-| Redis | AEGIS queued scans (Celery) | `docker compose up` (bundled) or `apt-get install redis-server` |
-| Scanner binaries (19 OSS) | live AEGIS scans | `docker-compose.scanners.yml` / `installer.sh` / `olympus aegis deps` |
+| Redis | THEMIS queued scans (Celery) | `docker compose up` (bundled) or `apt-get install redis-server` |
+| Scanner binaries (19 OSS) | live THEMIS scans | `docker-compose.scanners.yml` / `installer.sh` / `olympus themis deps` |
 | Commercial engines (5) | nessus/burp/acunetix/zap/openvas | manual install + licence/API config |
 | Docker daemon | container operation | host Docker Engine (absent in this sandbox) |
-| `.[aegis]` extra | temporary VAP web/worker compatibility | `bash scripts/setup-vendored-tools.sh` |
+| `.[themis]` extra | temporary VAP web/worker compatibility | `bash scripts/setup-vendored-tools.sh` |
 
 ## 6. Verification commands run in this environment
 
 See `docs/scanner-matrix.md` for the per-scanner matrix and
-`docs/vap-to-aegis-rename.md` for the rename verification. Ecosystem-level:
+`docs/vap-to-themis-rename.md` for the rename verification. Ecosystem-level:
 
-- `python -m olympus.cli --help` / `aegis --help` — CLI tree present.
-- `olympus aegis scanners --check` — all 24 listed with binary availability.
-- `olympus doctor` / `olympus aegis doctor` / `olympus argus doctor` — real diagnostics.
+- `python -m olympus.cli --help` / `themis --help` — CLI tree present.
+- `olympus themis scanners --check` — all 24 listed with binary availability.
+- `olympus doctor` / `olympus themis doctor` / `olympus argus doctor` — real diagnostics.
 - `olympus argus phone --number +390212345678` — real offline OSINT output.
-- `olympus aegis jobs submit/list/status/cancel/work` — durable native lifecycle.
-- AEGIS web app booted + migrated + served 3 routes (HTTP 200).
+- `olympus themis jobs submit/list/status/cancel/work` — durable native lifecycle.
+- THEMIS web app booted + migrated + served 3 routes (HTTP 200).
 - `docker compose config` (both files) — valid; daemon absent so no `up`.
 - Full test suite and Ruff pass as blocking CI checks.
 

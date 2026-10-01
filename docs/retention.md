@@ -5,9 +5,9 @@ output, evidence exports, job records naming targets, and audit trails naming
 identities. `olympus.core.retention` bounds how long that is kept and removes it
 in a way that does not simply leave the plaintext on disk.
 
-Implemented in `src/olympus/core/retention.py` and `AegisJobStore.prune`;
-operated with `olympus aegis retention …` and `olympus aegis jobs prune`; tested
-in `tests/unit/test_core_retention.py` and `tests/unit/test_aegis_jobs.py`.
+Implemented in `src/olympus/core/retention.py` and `ThemisJobStore.prune`;
+operated with `olympus themis retention …` and `olympus themis jobs prune`; tested
+in `tests/unit/test_core_retention.py` and `tests/unit/test_themis_jobs.py`.
 
 ## What "secure deletion" here does and does not promise
 
@@ -36,10 +36,10 @@ considered — subdirectories and symlinks are left alone rather than followed.
 
 ```bash
 # Keep 30 days of exported results, at most 500 files, at most 2 GiB.
-olympus aegis retention prune ./evidence \
+olympus themis retention prune ./evidence \
   --pattern '*.json' --older-than-days 30 --max-files 500 --max-bytes 2147483648
 
-olympus aegis retention prune ./evidence --older-than-days 30 --dry-run
+olympus themis retention prune ./evidence --older-than-days 30 --dry-run
 ```
 
 `--dry-run` reports exactly what would be removed and deletes nothing. A policy
@@ -53,7 +53,7 @@ rather than truncated: the live file becomes `.1`, each generation shifts up,
 and anything past `--keep` is securely deleted.
 
 ```bash
-olympus aegis retention rotate-log ~/.local/state/olympus/audit/aegis-audit.ndjson \
+olympus themis retention rotate-log ~/.local/state/olympus/audit/themis-audit.ndjson \
   --max-bytes 50000000 --keep 5
 ```
 
@@ -63,7 +63,7 @@ systemd timer. `--keep 0` removes the log outright instead of keeping history.
 ## Job retention
 
 ```bash
-olympus aegis jobs prune --older-than-days 30 [--dry-run]
+olympus themis jobs prune --older-than-days 30 [--dry-run]
 ```
 
 Only **terminal** jobs are pruned. Queued and running work is never removed from

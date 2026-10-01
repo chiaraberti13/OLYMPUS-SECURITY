@@ -32,16 +32,16 @@ Every integration has separate states:
 4. **ready** — both adapter and dependency are available for a live job;
 5. **verified** — a controlled integration test has exercised the real engine.
 
-Run `olympus aegis capabilities` to obtain the versioned inventory. Automation
-can use `olympus aegis capabilities --strict` as an environment-readiness gate.
+Run `olympus themis capabilities` to obtain the versioned inventory. Automation
+can use `olympus themis capabilities --strict` as an environment-readiness gate.
 
 Simulation, fixtures and examples never count as live readiness. A missing
 engine, adapter or configuration is an explicit non-ready state, never a
 fabricated successful result.
 
-## Native AEGIS API baseline
+## Native THEMIS API baseline
 
-`olympus aegis api` exposes health, authenticated readiness/capabilities and a
+`olympus themis api` exposes health, authenticated readiness/capabilities and a
 durable job lifecycle (`submit`, `list`, `status`, `cancel`). Scope documents
 are registered by identifier in a server-owned directory, so remote callers
 cannot submit arbitrary filesystem paths. The API requires a 32-character
@@ -49,20 +49,20 @@ minimum secret from `OLYMPUS_AEGIS_API_KEY`; non-loopback binds require an
 explicit TLS certificate and key. Request bodies are bounded and operational
 responses carry no-store and browser-hardening headers.
 
-Workers execute the same persisted jobs with `olympus aegis jobs work`, through
+Workers execute the same persisted jobs with `olympus themis jobs work`, through
 the canonical native application service. API submission cannot bypass scope,
 authorization, SSRF validation, deadlines, output limits or redacted audit.
 Claims are leases renewed by a heartbeat, so a worker that dies releases its job
-instead of stranding it; see [`aegis-jobs.md`](aegis-jobs.md) for the lifecycle
+instead of stranding it; see [`themis-jobs.md`](themis-jobs.md) for the lifecycle
 states, retry budget, idempotency keys and schema migrations, and
-[`aegis-api-identities.md`](aegis-api-identities.md) for scoped API credentials,
+[`themis-api-identities.md`](themis-api-identities.md) for scoped API credentials,
 rotation, revocation, rate limits and per-request audit ids.
 
 ## Professional end-to-end workflow
 
 1. Create an engagement and an immutable authorized scope.
 2. Discover and normalize assets with Argus.
-3. Plan bounded work with Athena and select only ready AEGIS capabilities.
+3. Plan bounded work with Athena and select only ready THEMIS capabilities.
 4. Execute real specialist engines through shell-free or authenticated API
    adapters with timeouts, output limits and cancellation.
 5. Preserve raw-evidence digests and convert output to Olympus contracts.

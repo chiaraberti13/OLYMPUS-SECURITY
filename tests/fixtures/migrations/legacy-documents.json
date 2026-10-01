@@ -1,8 +1,8 @@
 {
-  "aegis_job": {
+  "themis_job": {
     "schema_name": "olympus.aegis-job",
     "schema_version": "1.0.0",
-    "job_id": "AEGIS-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "job_id": "THEMIS-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
     "idempotency_key": null,
     "scanner": "nmap",
     "target": "192.0.2.10",
@@ -23,7 +23,7 @@
     "result": null,
     "error": null
   },
-  "aegis_scope": {
+  "themis_scope": {
     "allowed": ["example.test"],
     "allowed_cidrs": ["192.0.2.0/24"]
   },

@@ -59,3 +59,5 @@ vendor/**/.venv/
 
 # Hypothesis example database (local test cache)
 .hypothesis/
+__pycache__/
+*.pyc

@@ -6,15 +6,15 @@
 #
 # Services:
 #   * redis    — broker + result backend + API cache for Celery/async scans
-#   * aegis-migrate — one-shot: applies the Alembic database migrations, then exits
-#   * aegis-app     — the complete AEGIS FastAPI web application (~40 routes, 24 scanners)
-#   * aegis-worker  — the Celery worker that actually runs queued scans
+#   * themis-migrate — one-shot: applies the Alembic database migrations, then exits
+#   * themis-app     — the complete THEMIS FastAPI web application (~40 routes, 24 scanners)
+#   * themis-worker  — the Celery worker that actually runs queued scans
 #
 # The FastAPI app and the Celery worker are built from the complete vendored
 # upstream source (vendor/vulnerability-assessment-platform) using its own
 # Dockerfile, so nothing about the tool is reduced or reimplemented here.
 #
-# `olympus aegis serve|migrate|workers|scanners|deps|doctor` remains available
+# `olympus themis serve|migrate|workers|scanners|deps|doctor` remains available
 # as the native (non-container) entry point — see README.md / README-IT.md.
 
 x-vap-build: &vap-build
@@ -77,7 +77,7 @@ services:
     volumes:
       - redis-data:/data
 
-  aegis-migrate:
+  themis-migrate:
     <<: *hardening
     build: *vap-build
     command: ["python", "-m", "alembic", "upgrade", "head"]
@@ -86,7 +86,7 @@ services:
       - vap-data:/data
     restart: "no"
 
-  aegis-app:
+  themis-app:
     <<: *hardening
     build: *vap-build
     command: ["python", "app.py"]
@@ -96,7 +96,7 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      aegis-migrate:
+      themis-migrate:
         condition: service_completed_successfully
     volumes:
       - vap-data:/data
@@ -112,7 +112,7 @@ services:
       retries: 10
       start_period: 20s
 
-  aegis-worker:
+  themis-worker:
     <<: *hardening
     build: *vap-build
     command: ["celery", "-A", "celery_app.celery_app", "worker", "--loglevel=info", "-Q", "scans"]
@@ -120,7 +120,7 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      aegis-migrate:
+      themis-migrate:
         condition: service_completed_successfully
     volumes:
       - vap-data:/data
@@ -187,7 +187,7 @@ services:
       - "8834"
     restart: unless-stopped
     # NOTE: Burp Suite Professional and Acunetix have no redistributable image;
-    # run them externally and point AEGIS at their APIs (see docs/scanner-matrix.md).
+    # run them externally and point THEMIS at their APIs (see docs/scanner-matrix.md).
 
 networks:
   # A dedicated bridge for the core control plane (broker, migrate, app, worker,

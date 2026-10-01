@@ -60,7 +60,7 @@ test-mutation:
 		"olympus.core.execution.x_redact_url*" \
 		"olympus.core.execution.x_redact_text*" \
 		"olympus.core.execution.x_redact_mapping*" \
-		"olympus.aegis.adapters.nmap.xǁNmapAdapterǁparse*" \
+		"olympus.themis.adapters.nmap.xǁNmapAdapterǁparse*" \
 		"olympus.core.coverage.xǁCoverageǁstatus*" \
 		"olympus.athena.cli.x__exit_code_for*" \
 		"olympus.athena.domain.assessment.x_advance_job*" \

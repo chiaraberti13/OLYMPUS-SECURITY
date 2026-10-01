@@ -46,7 +46,7 @@ def test_inventory_contract_counts_real_states() -> None:
 
 
 def test_capabilities_cli_is_machine_readable() -> None:
-    result = runner.invoke(app, ["aegis", "capabilities"])
+    result = runner.invoke(app, ["themis", "capabilities"])
     assert result.exit_code == 0, result.output
     document = json.loads(result.output)
     assert document["catalogued"] == 24

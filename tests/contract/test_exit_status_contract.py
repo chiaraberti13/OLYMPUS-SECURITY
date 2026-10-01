@@ -8,13 +8,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from olympus.aegis.states import ExecutionState
 from olympus.athena.application.coordinator import RunOutcome
 from olympus.athena.cli import _exit_code_for
 from olympus.athena.domain.assessment import AssessmentState
 from olympus.core.coverage import RunStatus, exit_code_for
 from olympus.core.exit_codes import ExitCode
 from olympus.integrations.cli import _job_exit_code, _scan_exit_code
+from olympus.themis.states import ExecutionState
 
 
 @pytest.mark.parametrize(
@@ -57,7 +57,7 @@ def test_athena_reduces_domain_states_to_the_shared_contract(
         (ExecutionState.SIMULATION, ExitCode.OK),
     ],
 )
-def test_aegis_reduces_execution_states_to_the_shared_contract(
+def test_themis_reduces_execution_states_to_the_shared_contract(
     state: ExecutionState, expected: ExitCode
 ) -> None:
     assert _scan_exit_code(SimpleNamespace(state=state, findings=[])) is expected
@@ -74,7 +74,7 @@ def test_aegis_reduces_execution_states_to_the_shared_contract(
         ("policy_denied", ExitCode.NOT_AUTHORIZED),
     ],
 )
-def test_aegis_jobs_reduce_lifecycle_states_to_the_shared_contract(
+def test_themis_jobs_reduce_lifecycle_states_to_the_shared_contract(
     state: str, expected: ExitCode
 ) -> None:
     job = SimpleNamespace(state=SimpleNamespace(value=state), result={"finding_count": 0})

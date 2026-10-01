@@ -1,6 +1,6 @@
 """Per-scanner diagnostics: is this one engine actually runnable, and how proven?
 
-``olympus aegis doctor`` answers a question about the whole AEGIS runtime. This
+``olympus themis doctor`` answers a question about the whole THEMIS runtime. This
 module answers it one scanner at a time — "can Olympus run *nmap* here, what
 version, and how far has the project validated it?" — which is what an operator
 needs before adding an engine to an engagement.
@@ -26,11 +26,11 @@ from __future__ import annotations
 import re
 import shutil
 
-from olympus.aegis.registry import implemented
 from olympus.integrations.capabilities import API_CONFIGURATION, inspect
 from olympus.integrations.diagnostics import Check, Report, binary_version
 from olympus.integrations.maturity import record_for
 from olympus.integrations.scanners import REGISTRY, ScannerSpec
+from olympus.themis.registry import implemented
 
 #: Version flags to try, in order. Tools disagree: nmap wants ``--version``,
 #: some Go tools want ``-version``, a few only answer ``-V``.
@@ -113,7 +113,7 @@ def scanner_report(name: str) -> Report:
     if spec is None:
         raise KeyError(name)
 
-    report = Report(f"aegis doctor --scanner {name}")
+    report = Report(f"themis doctor --scanner {name}")
     adapters = set(implemented())
     record = record_for(name)
     capability = inspect(spec)

@@ -29,7 +29,7 @@ TOOLS: tuple[ToolSpec, ...] = (
     ToolSpec("athena", "ATHENA", "ASSESS", "Assessment planning, orchestration and lifecycle."),
     ToolSpec("helios", "HELIOS", "ASSESS", "Scoped network attack-surface mapping."),
     ToolSpec("artemis", "ARTEMIS", "ASSESS", "Authorized web-application assessment."),
-    ToolSpec("aegis", "AEGIS", "ENGINES", "Specialist-engine readiness, jobs and execution."),
+    ToolSpec("themis", "THEMIS", "ENGINES", "Specialist-engine readiness, jobs and execution."),
     ToolSpec("hermes", "HERMES", "DEFEND", "Secret and sensitive-data scanning with SARIF."),
     ToolSpec("apollo", "APOLLO", "DEFEND", "Detection rules over normalized security events."),
     ToolSpec("minerva", "MINERVA", "RESPOND", "Incident triage and chain of custody."),

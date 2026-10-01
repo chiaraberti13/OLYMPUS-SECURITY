@@ -7,10 +7,10 @@
 | Access-log ingest | 1,000 records | Parse and normalize into `core.Event` models |
 | Finding deduplication | 2,000 inputs / 1,000 unique | Exact-ID deduplication and conflict-safe lookup |
 | Large report rendering | 200 assets + 1,000 findings | Build a canonical report and render escaped HTML |
-| AEGIS queue lifecycle | 50 jobs | Initialize SQLite, submit with idempotency keys, claim the queue |
+| THEMIS queue lifecycle | 50 jobs | Initialize SQLite, submit with idempotency keys, claim the queue |
 
 Inputs use fixed synthetic values and a fixed timestamp. No real target, external
-service, scanner binary, credential or repository data is used. The AEGIS case
+service, scanner binary, credential or repository data is used. The THEMIS case
 uses an isolated temporary database and loopback-only scope. Every scenario runs
 once as warm-up followed by three measured samples in the quick profile; standard
 uses ten times the record count (up to 10,000) and five times the queue job
@@ -48,7 +48,7 @@ count for larger profiles.
 | Access-log ingest | 5.0 s | 4.5 s | 128 MiB |
 | Finding deduplication | 2.5 s | 2.3 s | 64 MiB |
 | Large report rendering | 5.0 s | 4.5 s | 128 MiB |
-| AEGIS queue lifecycle | 15.0 s | 12.0 s | 128 MiB |
+| THEMIS queue lifecycle | 15.0 s | 12.0 s | 128 MiB |
 
 Record machine, Python version, profile and commit alongside benchmark JSON.
 Run the same host at least three times before changing a budget; revise a limit

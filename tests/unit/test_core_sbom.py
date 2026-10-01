@@ -33,7 +33,7 @@ def test_extra_marker_is_detected() -> None:
 def test_default_closure_excludes_extras_and_the_root() -> None:
     closure = sbom.dependency_closure()
     assert "olympus-security" not in closure
-    # A plain install pulls pydantic; the dev/aegis-only tools must not appear.
+    # A plain install pulls pydantic; the dev/themis-only tools must not appear.
     assert "pydantic" in closure
     assert "pytest" not in closure and "fastapi" not in closure
     # Deterministic ordering.
@@ -42,7 +42,7 @@ def test_default_closure_excludes_extras_and_the_root() -> None:
 
 def test_requesting_an_extra_widens_the_closure() -> None:
     base = set(sbom.dependency_closure())
-    widened = set(sbom.dependency_closure(extras=frozenset({"aegis"})))
+    widened = set(sbom.dependency_closure(extras=frozenset({"themis"})))
     assert base <= widened  # extras only add
 
 
@@ -87,9 +87,9 @@ def test_reproducible_render_omits_timestamp_and_serial() -> None:
 
 
 def test_render_records_requested_extras_as_properties() -> None:
-    document = sbom.render_sbom(extras=frozenset({"aegis"}))
+    document = sbom.render_sbom(extras=frozenset({"themis"}))
     properties = document["metadata"].get("properties", [])
-    assert {"name": "olympus:extra", "value": "aegis"} in properties
+    assert {"name": "olympus:extra", "value": "themis"} in properties
 
 
 def test_requirements_lines_are_pinned_and_scoped() -> None:
@@ -145,6 +145,6 @@ def test_sbom_command_writes_a_file(tmp_path: object) -> None:
 def test_sbom_command_extra_widens_the_component_set() -> None:
     base = json.loads(runner.invoke(app, ["core", "sbom", "--reproducible"]).stdout)
     widened = json.loads(
-        runner.invoke(app, ["core", "sbom", "--reproducible", "--extra", "aegis"]).stdout
+        runner.invoke(app, ["core", "sbom", "--reproducible", "--extra", "themis"]).stdout
     )
     assert len(widened["components"]) >= len(base["components"])

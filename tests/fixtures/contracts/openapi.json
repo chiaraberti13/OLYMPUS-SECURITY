@@ -1,7 +1,132 @@
 {
   "components": {
     "schemas": {
-      "AegisJob": {
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "JobList": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/ThemisJob"
+            },
+            "title": "Jobs",
+            "type": "array"
+          },
+          "schema_name": {
+            "const": "olympus.aegis-job-list",
+            "default": "olympus.aegis-job-list",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "2.0.0",
+            "default": "2.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "count",
+          "jobs"
+        ],
+        "title": "JobList",
+        "type": "object"
+      },
+      "JobState": {
+        "description": "Lifecycle state of one durable job.\n\nThe terminal states are deliberately distinct: collapsing them into\n``failed`` hides whether a scan broke, was refused, ran out of time, or\nnever ran at all.",
+        "enum": [
+          "queued",
+          "running",
+          "succeeded",
+          "partial",
+          "failed",
+          "timed_out",
+          "cancelled",
+          "policy_denied"
+        ],
+        "title": "JobState",
+        "type": "string"
+      },
+      "JobSubmission": {
+        "additionalProperties": false,
+        "description": "Bounded request body for one authorized job.",
+        "properties": {
+          "authorized": {
+            "title": "Authorized",
+            "type": "boolean"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "max_attempts": {
+            "default": 1,
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Max Attempts",
+            "type": "integer"
+          },
+          "scanner": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Scanner",
+            "type": "string"
+          },
+          "scope_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$",
+            "title": "Scope Id",
+            "type": "string"
+          },
+          "target": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Target",
+            "type": "string"
+          },
+          "target_kind": {
+            "default": "host",
+            "enum": [
+              "host",
+              "domain",
+              "url"
+            ],
+            "title": "Target Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scanner",
+          "target",
+          "scope_id",
+          "authorized"
+        ],
+        "title": "JobSubmission",
+        "type": "object"
+      },
+      "ThemisJob": {
         "additionalProperties": false,
         "description": "Versioned job document returned consistently by CLI, API and workers.\n\n``2.0.0`` replaces ``scope_path`` with ``scope_name``: the absolute path is\nserver-side state and never leaves the store.",
         "properties": {
@@ -74,7 +199,7 @@
             "title": "Idempotency Key"
           },
           "job_id": {
-            "pattern": "^AEGIS-[A-F0-9]{32}$",
+            "pattern": "^THEMIS-[A-F0-9]{32}$",
             "title": "Job Id",
             "type": "string"
           },
@@ -193,132 +318,7 @@
           "updated_at",
           "available_at"
         ],
-        "title": "AegisJob",
-        "type": "object"
-      },
-      "HTTPValidationError": {
-        "properties": {
-          "detail": {
-            "items": {
-              "$ref": "#/components/schemas/ValidationError"
-            },
-            "title": "Detail",
-            "type": "array"
-          }
-        },
-        "title": "HTTPValidationError",
-        "type": "object"
-      },
-      "JobList": {
-        "additionalProperties": false,
-        "properties": {
-          "count": {
-            "title": "Count",
-            "type": "integer"
-          },
-          "jobs": {
-            "items": {
-              "$ref": "#/components/schemas/AegisJob"
-            },
-            "title": "Jobs",
-            "type": "array"
-          },
-          "schema_name": {
-            "const": "olympus.aegis-job-list",
-            "default": "olympus.aegis-job-list",
-            "title": "Schema Name",
-            "type": "string"
-          },
-          "schema_version": {
-            "const": "2.0.0",
-            "default": "2.0.0",
-            "title": "Schema Version",
-            "type": "string"
-          }
-        },
-        "required": [
-          "count",
-          "jobs"
-        ],
-        "title": "JobList",
-        "type": "object"
-      },
-      "JobState": {
-        "description": "Lifecycle state of one durable job.\n\nThe terminal states are deliberately distinct: collapsing them into\n``failed`` hides whether a scan broke, was refused, ran out of time, or\nnever ran at all.",
-        "enum": [
-          "queued",
-          "running",
-          "succeeded",
-          "partial",
-          "failed",
-          "timed_out",
-          "cancelled",
-          "policy_denied"
-        ],
-        "title": "JobState",
-        "type": "string"
-      },
-      "JobSubmission": {
-        "additionalProperties": false,
-        "description": "Bounded request body for one authorized job.",
-        "properties": {
-          "authorized": {
-            "title": "Authorized",
-            "type": "boolean"
-          },
-          "idempotency_key": {
-            "anyOf": [
-              {
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Idempotency Key"
-          },
-          "max_attempts": {
-            "default": 1,
-            "maximum": 10.0,
-            "minimum": 1.0,
-            "title": "Max Attempts",
-            "type": "integer"
-          },
-          "scanner": {
-            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
-            "title": "Scanner",
-            "type": "string"
-          },
-          "scope_id": {
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$",
-            "title": "Scope Id",
-            "type": "string"
-          },
-          "target": {
-            "maxLength": 2048,
-            "minLength": 1,
-            "title": "Target",
-            "type": "string"
-          },
-          "target_kind": {
-            "default": "host",
-            "enum": [
-              "host",
-              "domain",
-              "url"
-            ],
-            "title": "Target Kind",
-            "type": "string"
-          }
-        },
-        "required": [
-          "scanner",
-          "target",
-          "scope_id",
-          "authorized"
-        ],
-        "title": "JobSubmission",
+        "title": "ThemisJob",
         "type": "object"
       },
       "ValidationError": {
@@ -372,7 +372,7 @@
   },
   "info": {
     "description": "Authorized specialist-engine orchestration and evidence lifecycle.",
-    "title": "Olympus AEGIS API",
+    "title": "Olympus THEMIS API",
     "version": "0.2.0"
   },
   "openapi": "3.1.0",
@@ -487,7 +487,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AegisJob"
+                  "$ref": "#/components/schemas/ThemisJob"
                 }
               }
             },
@@ -534,7 +534,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AegisJob"
+                  "$ref": "#/components/schemas/ThemisJob"
                 }
               }
             },
@@ -581,7 +581,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AegisJob"
+                  "$ref": "#/components/schemas/ThemisJob"
                 }
               }
             },

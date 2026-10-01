@@ -4,10 +4,6 @@ from __future__ import annotations
 
 import pytest
 
-from olympus.aegis.adapters.nmap import NmapAdapter
-from olympus.aegis.base import ParseError
-from olympus.aegis.model import ScanRequest
-from olympus.aegis.runner import CommandOutput
 from olympus.athena.application.coordinator import RunOutcome
 from olympus.athena.cli import _exit_code_for
 from olympus.athena.domain.assessment import (
@@ -22,6 +18,10 @@ from olympus.athena.scope import TargetOutOfScopeError, ensure_target_allowed
 from olympus.core.coverage import Coverage, RunStatus, exit_code_for
 from olympus.core.execution import redact_mapping, redact_text
 from olympus.core.exit_codes import ExitCode
+from olympus.themis.adapters.nmap import NmapAdapter
+from olympus.themis.base import ParseError
+from olympus.themis.model import ScanRequest
+from olympus.themis.runner import CommandOutput
 
 
 def test_scope_gate_accepts_domain_and_subdomain_but_rejects_suffix_spoof() -> None:

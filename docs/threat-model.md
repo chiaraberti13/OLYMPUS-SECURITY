@@ -51,13 +51,13 @@ Each row is a threat and the implemented control that addresses it.
 | --- | --- | --- |
 | **SSRF** — a target or a redirect resolves to loopback/private/link-local space, or to the cloud metadata endpoint | Destinations are judged after unwrapping embedded IPv4; only public addresses pass, plus operator-declared lab ranges. `is_globally_routable` is never widened by config. | `olympus.core.addresses` |
 | **DNS rebinding (TOCTOU)** | The address resolved before the request is the address connected to (IP pinning), re-validated per hop. | `olympus.core.pinning` |
-| **Scanning a third party** — action outside the authorized scope | Scope + explicit authorization gate precedes any live lookup; blocked targets are audited, never silently skipped. | `olympus.aegis.scope`, `olympus.core.execution` |
+| **Scanning a third party** — action outside the authorized scope | Scope + explicit authorization gate precedes any live lookup; blocked targets are audited, never silently skipped. | `olympus.themis.scope`, `olympus.core.execution` |
 | **Resource exhaustion / runaway scan** | Per-operation timeout, overall deadline, bounded concurrency, retry budget and jittered backoff — with compiled-in ceilings a policy file can only lower. | `olympus.core.execution`, `olympus.core.policy` |
 | **Hostile response** — an oversized or decompression-bomb body | Streamed reads with a hard byte cap; bounded decompression ratio; header/redirect/duration limits. | `olympus.core.http`, `olympus.core.decompression` |
-| **A malicious scanner target compromises the host** | Scanner processes drop to an unprivileged user, run under CPU/memory/PID/FD/file-size rlimits in a private scratch dir, and are killed by process-group escalation. | `olympus.aegis.sandbox` |
-| **Credential / finding leakage into logs** | Secret-bearing keys and URL query parameters are redacted before any audit record; raw evidence is bounded and stripped of secret assignments. | `olympus.core.execution`, `olympus.aegis.base` |
+| **A malicious scanner target compromises the host** | Scanner processes drop to an unprivileged user, run under CPU/memory/PID/FD/file-size rlimits in a private scratch dir, and are killed by process-group escalation. | `olympus.themis.sandbox` |
+| **Credential / finding leakage into logs** | Secret-bearing keys and URL query parameters are redacted before any audit record; raw evidence is bounded and stripped of secret assignments. | `olympus.core.execution`, `olympus.themis.base` |
 | **Unbounded evidence retention** | Age/count/size budgets with secure deletion and append-only audit rotation. | `olympus.core.retention` |
-| **Stolen or over-scoped API identity** | Per-route scopes, rotation with overlap, immediate revocation, expiry and per-identity rate limiting. | `olympus.aegis.identity` |
+| **Stolen or over-scoped API identity** | Per-route scopes, rotation with overlap, immediate revocation, expiry and per-identity rate limiting. | `olympus.themis.identity` |
 | **A committed secret** | gitleaks scans the working tree and the full history on `main`, blocking, with a canary test. | `.github/workflows/ci.yml` |
 | **A poisoned or substituted dependency** | A CycloneDX SBOM of the runtime closure, a `pip --require-hashes` lockfile from real PyPI hashes, and a blocking pip-audit gate on that closure. | `olympus.core.sbom`, `olympus.core.lockfile`, `.github/workflows/ci.yml` |
 | **A drifting or mutable base image** | Mandatory container images pinned by digest; Go scanners pinned to versions; a test guards against regression. | `docker/Dockerfile.scanners`, `docker-compose.yml` |
@@ -72,7 +72,7 @@ Honesty is a control here too. These are open, and tracked in
 
 - **The legacy VAP web surface (P0).** The vendored Vulnerability Assessment
   Platform still owns some HTML routes without full RBAC, fail-closed JWT, or a
-  mandatory production target allowlist. Native AEGIS does not have these gaps;
+  mandatory production target allowlist. Native THEMIS does not have these gaps;
   the vendored surface is being retired, not extended.
 - **Egress allowlist on scanner processes.** Scanner subprocesses are sandboxed
   for host isolation but do not yet run behind an egress allowlist.

@@ -206,14 +206,14 @@ def test_enrichment_ranks_kev_first_and_writes_overlay(tmp_path: Path) -> None:
 
     exploited = Finding(
         asset_id="AST-1",
-        source=Source.AEGIS,
+        source=Source.THEMIS,
         severity=Severity.HIGH,
         cvss=10.0,
         title="Service vulnerable to CVE-2021-44228",
     )
     benign = Finding(
         asset_id="AST-1",
-        source=Source.AEGIS,
+        source=Source.THEMIS,
         severity=Severity.MEDIUM,
         title="Missing security header",
     )

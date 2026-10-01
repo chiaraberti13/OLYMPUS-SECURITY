@@ -19,7 +19,7 @@ The ladder, from least to most validated:
     A :class:`~olympus.integrations.scanners.ScannerSpec` exists. Nothing
     executes. This is the honest state of most of the catalogue.
 ``adapter-ready``
-    A native adapter is registered in :mod:`olympus.aegis.registry`: Olympus can
+    A native adapter is registered in :mod:`olympus.themis.registry`: Olympus can
     build the command line and has parser code. Neither has been proven.
 ``offline-tested``
     The parser is exercised against recorded real output, so a regression in it
@@ -42,8 +42,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
-from olympus.aegis.registry import implemented
 from olympus.integrations.scanners import REGISTRY
+from olympus.themis.registry import implemented
 
 
 class Maturity(StrEnum):
@@ -96,10 +96,10 @@ class MaturityRecord:
         }
 
 
-_OFFLINE_EVIDENCE = "tests/unit/test_aegis_execution.py"
-_OFFLINE_EVIDENCE_PD = "tests/unit/test_aegis_adapters_projectdiscovery.py"
-_OFFLINE_EVIDENCE_DC = "tests/unit/test_aegis_adapters_dirsearch_commix.py"
-_LIVE_EVIDENCE = "docs/aegis-execution-evidence.md"
+_OFFLINE_EVIDENCE = "tests/unit/test_themis_execution.py"
+_OFFLINE_EVIDENCE_PD = "tests/unit/test_themis_adapters_projectdiscovery.py"
+_OFFLINE_EVIDENCE_DC = "tests/unit/test_themis_adapters_dirsearch_commix.py"
+_LIVE_EVIDENCE = "docs/themis-execution-evidence.md"
 
 #: Where parser tests live. Adapters are grouped by family rather than piled
 #: into one module, so the check scans the whole unit suite instead of pinning
@@ -219,7 +219,7 @@ def record_for(name: str) -> MaturityRecord:
         name,
         Maturity.CATALOG_ONLY,
         "",
-        "No native execution adapter in olympus.aegis.registry.",
+        "No native execution adapter in olympus.themis.registry.",
     )
 
 

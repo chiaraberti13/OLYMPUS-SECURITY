@@ -28,7 +28,7 @@
 - **[Struttura del progetto](#-struttura-del-progetto)** — com'è organizzato il repository.
 - **[Sviluppo](#-sviluppo)** — controlli CI obbligatori e comandi locali.
 - **[Modello di sicurezza](#-modello-di-sicurezza)** — scope, autorizzazione, SSRF, audit.
-- **[Migrazione](#-migrazione--motori-specialistici)** — ARGUS nativo, AEGIS e motori specialistici.
+- **[Migrazione](#-migrazione--motori-specialistici)** — ARGUS nativo, THEMIS e motori specialistici.
 - **[Licenze](#-ambito-delle-licenze)** — codice nativo MIT e licenze vendor preservate.
 - **[Uso legale ed etico](#-uso-legale-ed-etico)** — solo autorizzato, in pratica.
 
@@ -73,7 +73,7 @@ $ olympus athena run plan.json --storage ./.athena
 | **Vulcan** | `olympus vulcan` | Aggregazione, deduplica, ranking e rendering dei report. |
 | **Metis** | `olympus metis` | Routing deterministico delle competenze, piani d'ingaggio, casi CTI, correlazione IOC e report operativi. |
 | **core** | `olympus core` | Utility del contratto dati condiviso (es. `export-schemas`). |
-| **AEGIS** | `olympus aegis` | Orchestrazione scanner con scope, stato capacità, job SQLite persistenti, cancellazione, audit e stati di esecuzione espliciti. |
+| **THEMIS** | `olympus themis` | Orchestrazione scanner con scope, stato capacità, job SQLite persistenti, cancellazione, audit e stati di esecuzione espliciti. |
 | **TUI unificata** | `olympus ui` | Interfaccia da tastiera su tutti i comandi reali Olympus, con output in streaming e cancellazione del processo. |
 
 > [!TIP]
@@ -204,7 +204,7 @@ La migrazione di **ARGUS** standalone è completa. L'implementazione mantenuta �
 `src/olympus/argus/`, esposta soltanto come `olympus argus`; il sorgente
 duplicato `vendor/argus` e il passthrough `argus-native` sono stati rimossi.
 
-AEGIS sta migrando dal livello temporaneo di compatibilità con la Vulnerability
+THEMIS sta migrando dal livello temporaneo di compatibilità con la Vulnerability
 Assessment Platform vendorizzata a un control plane di proprietà Olympus. Il
 percorso nativo gestisce già scope e autorizzazione, adapter degli scanner,
 readiness delle capacità, job SQLite persistenti, cancellazione, audit e stati
@@ -220,14 +220,14 @@ motori restano quelli ufficiali.
 olympus argus --help                       # superficie OSINT/recon nativa
 olympus argus doctor                       # readiness dipendenze/configurazione
 
-olympus aegis capabilities                 # stati configured/available/ready
-olympus aegis jobs init                    # archivio job locale persistente
-olympus aegis jobs submit nmap --target example.com --scope scope.json --i-am-authorized
-olympus aegis jobs work                    # elabora un job in coda
-OLYMPUS_AEGIS_API_KEY='<32+ caratteri casuali>' olympus aegis api --scope-directory .olympus/scopes
-olympus aegis scanners                     # catalogo motori specialistici
-olympus aegis migrate                       # applica le migrazioni DB di VAP
-olympus aegis serve --host 127.0.0.1 --port 8000   # avvia la web app VAP completa
+olympus themis capabilities                 # stati configured/available/ready
+olympus themis jobs init                    # archivio job locale persistente
+olympus themis jobs submit nmap --target example.com --scope scope.json --i-am-authorized
+olympus themis jobs work                    # elabora un job in coda
+OLYMPUS_AEGIS_API_KEY='<32+ caratteri casuali>' olympus themis api --scope-directory .olympus/scopes
+olympus themis scanners                     # catalogo motori specialistici
+olympus themis migrate                       # applica le migrazioni DB di VAP
+olympus themis serve --host 127.0.0.1 --port 8000   # avvia la web app VAP completa
 ```
 
 ### Avviare la piattaforma VAP completa: nativa o Docker
@@ -235,9 +235,9 @@ olympus aegis serve --host 127.0.0.1 --port 8000   # avvia la web app VAP comple
 **Nativa (processo singolo, tramite Olympus):**
 
 ```bash
-pip install -e ".[aegis]"            # oppure: bash scripts/setup-vendored-tools.sh
-olympus aegis migrate               # applica le migrazioni del database
-olympus aegis serve --host 127.0.0.1 --port 8000
+pip install -e ".[themis]"            # oppure: bash scripts/setup-vendored-tools.sh
+olympus themis migrate               # applica le migrazioni del database
+olympus themis serve --host 127.0.0.1 --port 8000
 ```
 
 Redis è opzionale sul percorso nativo: le funzioni sincrone funzionano senza, e
@@ -268,7 +268,7 @@ docker compose -f docker-compose.yml -f docker-compose.scanners.yml up --build
 Per un deployment con HTTPS/hardening o PostgreSQL al posto di SQLite, imposta le
 variabili `VAP_*` corrispondenti (vedi `vendor/vulnerability-assessment-platform/.env.example`).
 
-**Scansioni reali, mai inventate:** `olympus aegis run <scanner> --target <t> --scope s.json --i-am-authorized` esegue uno scanner reale con stati espliciti — `live` / `unavailable` / `failed` / `disabled` / `simulation`. La simulazione è prodotta **solo** con `--simulate` (o `AEGIS_SIMULATION_MODE=true`); un binario mancante dà `unavailable`, mai un finding falso. Vedi [`docs/scanner-matrix.md`](docs/scanner-matrix.md) e [`docs/aegis-execution-evidence.md`](docs/aegis-execution-evidence.md).
+**Scansioni reali, mai inventate:** `olympus themis run <scanner> --target <t> --scope s.json --i-am-authorized` esegue uno scanner reale con stati espliciti — `live` / `unavailable` / `failed` / `disabled` / `simulation`. La simulazione è prodotta **solo** con `--simulate` (o `AEGIS_SIMULATION_MODE=true`); un binario mancante dà `unavailable`, mai un finding falso. Vedi [`docs/scanner-matrix.md`](docs/scanner-matrix.md) e [`docs/themis-execution-evidence.md`](docs/themis-execution-evidence.md).
 
 I **binari** degli scanner esterni e il runtime completo (Redis/Celery) sono
 forniti anche dallo `installer.sh` importato per un setup senza container; uno
@@ -276,7 +276,7 @@ scanner senza binario presente segnala sempre "tool non installato" invece di
 fallire in silenzio.
 
 Olympus offre implementazioni **native**: `olympus argus …` (OSINT scope-first),
-`olympus aegis …` (controllo motori specialistici) e `olympus athena …`
+`olympus themis …` (controllo motori specialistici) e `olympus athena …`
 (orchestrazione degli assessment). I loro
 contratti di capacità e la provenienza sono in [`docs/parity/`](docs/parity) e
 [`docs/provenance.md`](docs/provenance.md); l'architettura di Athena è
@@ -285,7 +285,7 @@ esaustive sono in [`docs/reference.md`](docs/reference.md).
 
 ## 📄 Ambito delle licenze
 
-Il codice nativo Olympus, inclusi ARGUS e AEGIS nativi, è MIT — vedi
+Il codice nativo Olympus, inclusi ARGUS e THEMIS nativi, è MIT — vedi
 [LICENSE](LICENSE). La Vulnerability Assessment Platform temporaneamente vendorizzata è
 **GPL-3.0-only** e conserva la propria licenza. La licenza MIT root non cambia
 la licenza del codice in `vendor/`. Vedi [note di terze parti](THIRD_PARTY_NOTICES.md)

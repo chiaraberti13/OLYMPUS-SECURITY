@@ -82,6 +82,10 @@ class Source(StrEnum):
     MINERVA = "minerva"
     VULCAN = "vulcan"
     ATHENA = "athena"
-    AEGIS = "aegis"
+    # The subsystem was renamed AEGIS -> Themis (ROADMAP DEV-I). The provenance
+    # *value* stays "aegis" so findings/alerts stored before the rename remain
+    # valid; migrating the value to "themis" is staged with the schema-name
+    # migration (DEV-I, follow-up).
+    THEMIS = "aegis"
     MARS = "mars"
     MANUAL = "manual"

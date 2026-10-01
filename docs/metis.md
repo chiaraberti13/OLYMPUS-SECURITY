@@ -37,7 +37,7 @@ olympus metis plan "scan the authorized web application" \
 ```
 
 The plan is data, not execution. Operators can review it and then invoke the
-listed Athena, AEGIS, Artemis, Helios or other commands themselves.
+listed Athena, THEMIS, Artemis, Helios or other commands themselves.
 
 ## CTI cases
 

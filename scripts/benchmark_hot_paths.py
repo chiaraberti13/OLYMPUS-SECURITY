@@ -23,10 +23,10 @@ from typing import Any
 # Keep this developer script runnable directly from a source checkout.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from olympus.aegis.jobs import AegisJobStore
 from olympus.apollo.ingest import iter_access_log
 from olympus.core.enums import AssetType, Criticality, Severity, Source
 from olympus.core.models import Asset, Event, Finding
+from olympus.themis.jobs import ThemisJobStore
 from olympus.vulcan.aggregate import dedupe_findings
 from olympus.vulcan.report import build_report_model, render_report_html
 
@@ -41,7 +41,7 @@ BUDGETS = {
     "access_log_ingest": {"wall_seconds": 5.0, "cpu_seconds": 4.5, "peak_mib": 128.0},
     "finding_deduplication": {"wall_seconds": 2.5, "cpu_seconds": 2.3, "peak_mib": 64.0},
     "large_report_render": {"wall_seconds": 5.0, "cpu_seconds": 4.5, "peak_mib": 128.0},
-    "aegis_queue_lifecycle": {"wall_seconds": 15.0, "cpu_seconds": 12.0, "peak_mib": 128.0},
+    "themis_queue_lifecycle": {"wall_seconds": 15.0, "cpu_seconds": 12.0, "peak_mib": 128.0},
 }
 
 FIXED_TIME = datetime(2026, 1, 1, tzinfo=UTC)
@@ -60,7 +60,7 @@ def _findings(unique: int) -> tuple[Finding, ...]:
         Finding(
             finding_id=f"FND-BENCH-{index:08d}",
             asset_id=f"AST-BENCH-{index % 200:06d}",
-            source=Source.AEGIS,
+            source=Source.THEMIS,
             title=f"Synthetic benchmark finding {index:08d}",
             description="Deterministic synthetic record used only for a local benchmark.",
             severity=(Severity.HIGH, Severity.MEDIUM, Severity.LOW)[index % 3],
@@ -102,7 +102,7 @@ def _measure(
 
 
 def _queue_lifecycle(jobs: int, root: Path) -> int:
-    db_path = root / "aegis-jobs.sqlite3"
+    db_path = root / "themis-jobs.sqlite3"
     scope_path = root / "scope.json"
     scope_path.write_text(
         json.dumps(
@@ -115,7 +115,7 @@ def _queue_lifecycle(jobs: int, root: Path) -> int:
         ),
         encoding="utf-8",
     )
-    store = AegisJobStore(db_path, backoff_seconds=0.0)
+    store = ThemisJobStore(db_path, backoff_seconds=0.0)
     store.initialize()
     for index in range(jobs):
         store.submit(
@@ -130,7 +130,7 @@ def _queue_lifecycle(jobs: int, root: Path) -> int:
     while store.claim_next("benchmark-worker") is not None:
         claimed += 1
     if claimed != jobs:
-        raise RuntimeError(f"AEGIS benchmark claimed {claimed} of {jobs} queued jobs")
+        raise RuntimeError(f"THEMIS benchmark claimed {claimed} of {jobs} queued jobs")
     return claimed
 
 
@@ -145,7 +145,7 @@ def _scenario_operations(records: int, jobs: int) -> dict[str, tuple[int, Callab
             asset_type=AssetType.HOST,
             hostname=f"host-{index}.example.invalid",
             criticality=Criticality.MEDIUM,
-            source=Source.AEGIS,
+            source=Source.THEMIS,
             first_seen=FIXED_TIME,
             last_seen=FIXED_TIME,
         )
@@ -179,15 +179,15 @@ def _scenario_operations(records: int, jobs: int) -> dict[str, tuple[int, Callab
             raise RuntimeError("report renderer returned an unexpectedly small document")
         return len(rendered.encode("utf-8"))
 
-    def aegis_queue() -> int:
-        with tempfile.TemporaryDirectory(prefix="olympus-bench-aegis-") as directory:
+    def themis_queue() -> int:
+        with tempfile.TemporaryDirectory(prefix="olympus-bench-themis-") as directory:
             return _queue_lifecycle(jobs, Path(directory))
 
     return {
         "access_log_ingest": (records, ingest),
         "finding_deduplication": (len(duplicate_findings), deduplicate),
         "large_report_render": (len(assets) + len(report_findings), render_report),
-        "aegis_queue_lifecycle": (jobs, aegis_queue),
+        "themis_queue_lifecycle": (jobs, themis_queue),
     }
 
 
@@ -216,7 +216,7 @@ def main() -> int:
                 "finding_deduplication": PROFILES["quick"]["records"] * 2,
                 "large_report_render": min(200, PROFILES["quick"]["records"])
                 + min(1_000, PROFILES["quick"]["records"]),
-                "aegis_queue_lifecycle": PROFILES["quick"]["jobs"],
+                "themis_queue_lifecycle": PROFILES["quick"]["jobs"],
             }
             scale = max(1.0, items / quick_counts[name])
             active_budget = {key: value * scale for key, value in budget.items()}

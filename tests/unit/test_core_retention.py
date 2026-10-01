@@ -229,7 +229,7 @@ def test_retention_cli_prunes_and_reports(tmp_path: Path) -> None:
     _artefact(tmp_path, "new.json", age_days=1)
 
     result = runner.invoke(
-        app, ["aegis", "retention", "prune", str(tmp_path), "--older-than-days", "30"]
+        app, ["themis", "retention", "prune", str(tmp_path), "--older-than-days", "30"]
     )
 
     assert result.exit_code == 0, result.output
@@ -239,7 +239,7 @@ def test_retention_cli_prunes_and_reports(tmp_path: Path) -> None:
 
 
 def test_retention_cli_requires_a_bound(tmp_path: Path) -> None:
-    result = runner.invoke(app, ["aegis", "retention", "prune", str(tmp_path)])
+    result = runner.invoke(app, ["themis", "retention", "prune", str(tmp_path)])
     assert result.exit_code == 2
     assert "must bound" in result.output
 
@@ -248,7 +248,7 @@ def test_rotate_log_cli(tmp_path: Path) -> None:
     log = _artefact(tmp_path, "audit.ndjson", content="x" * 200)
     result = runner.invoke(
         app,
-        ["aegis", "retention", "rotate-log", str(log), "--max-bytes", "100", "--keep", "1"],
+        ["themis", "retention", "rotate-log", str(log), "--max-bytes", "100", "--keep", "1"],
     )
     assert result.exit_code == 0, result.output
     assert (tmp_path / "audit.ndjson.1").exists()

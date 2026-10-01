@@ -1,9 +1,9 @@
 """Olympus CLI surface for specialist-engine integrations.
 
-* ``olympus aegis`` owns native execution, capability readiness, durable jobs
+* ``olympus themis`` owns native execution, capability readiness, durable jobs
   and an authenticated API. The older VAP web/worker commands remain a temporary
   compatibility boundary while their professional contracts migrate.
-* ``olympus vap`` is a deprecated alias that forwards to ``olympus aegis``.
+* ``olympus vap`` is a deprecated alias that forwards to ``olympus themis``.
 
 Heavy upstream dependencies are imported lazily; missing dependencies, services,
 or external scanner binaries fail gracefully with actionable guidance and are
@@ -44,7 +44,7 @@ from olympus.integrations.vendored import (
 )
 
 if TYPE_CHECKING:
-    from olympus.aegis.identity import IdentityRegister
+    from olympus.themis.identity import IdentityRegister
 
 
 def _os_environ() -> dict[str, str]:
@@ -54,17 +54,17 @@ def _os_environ() -> dict[str, str]:
 
 
 # --------------------------------------------------------------------------- #
-# AEGIS — native control plane with temporary VAP compatibility commands
+# THEMIS — native control plane with temporary VAP compatibility commands
 # --------------------------------------------------------------------------- #
-aegis_app = typer.Typer(
+themis_app = typer.Typer(
     add_completion=False,
     no_args_is_help=True,
-    help="AEGIS — Olympus vulnerability-assessment & scanner-orchestration platform.",
+    help="THEMIS — Olympus vulnerability-assessment & scanner-orchestration platform.",
 )
 jobs_app = typer.Typer(
     add_completion=False,
     no_args_is_help=True,
-    help="Durable native AEGIS job queue (SQLite, no Redis/Celery required).",
+    help="Durable native THEMIS job queue (SQLite, no Redis/Celery required).",
 )
 identities_app = typer.Typer(
     add_completion=False,
@@ -76,17 +76,17 @@ retention_app = typer.Typer(
     no_args_is_help=True,
     help="Retention and best-effort secure deletion of logs, artefacts and jobs.",
 )
-aegis_app.add_typer(jobs_app, name="jobs")
-aegis_app.add_typer(identities_app, name="identities")
-aegis_app.add_typer(retention_app, name="retention")
+themis_app.add_typer(jobs_app, name="jobs")
+themis_app.add_typer(identities_app, name="identities")
+themis_app.add_typer(retention_app, name="retention")
 
 #: Credential hashes are deployment state, not a report: they follow the
 #: state directory rather than the working directory.
-DEFAULT_IDENTITY_REGISTER = str(state_file_path("aegis-api-identities.json"))
+DEFAULT_IDENTITY_REGISTER = str(state_file_path("themis-api-identities.json"))
 
-#: AEGIS writes this audit log whether or not the operator asked for it, so it
+#: THEMIS writes this audit log whether or not the operator asked for it, so it
 #: defaults to the per-user state directory rather than the working directory.
-DEFAULT_AEGIS_AUDIT_LOG = str(audit_log_path("aegis-audit.ndjson"))
+DEFAULT_AEGIS_AUDIT_LOG = str(audit_log_path("themis-audit.ndjson"))
 
 
 def _emit_report(report: Report) -> None:
@@ -94,7 +94,7 @@ def _emit_report(report: Report) -> None:
 
 
 def _job_exit_code(job: object) -> ExitCode:
-    """Reduce an AEGIS job state to the canonical process contract."""
+    """Reduce an THEMIS job state to the canonical process contract."""
     state = getattr(getattr(job, "state", None), "value", None)
     if state == "partial":
         return exit_code_for(RunStatus.PARTIAL)
@@ -129,7 +129,7 @@ def _vendor_check() -> Check:
             f"vendor:{VAP_DIR}",
             False,
             "not installed: the vendored upstream source is not packaged in the wheel. "
-            "Native AEGIS commands work without it; 'aegis serve|migrate|workers' need "
+            "Native THEMIS commands work without it; 'themis serve|migrate|workers' need "
             "a checkout or OLYMPUS_VENDOR_DIR.",
             optional=True,
         )
@@ -137,9 +137,9 @@ def _vendor_check() -> Check:
     return Check(f"vendor:{VAP_DIR}", True, str(path), optional=True)
 
 
-@aegis_app.command("api")
-def aegis_api(
-    database: str = typer.Option(".olympus/aegis-jobs.sqlite3", "--database", "-d"),
+@themis_app.command("api")
+def themis_api(
+    database: str = typer.Option(".olympus/themis-jobs.sqlite3", "--database", "-d"),
     scope_directory: str = typer.Option(".olympus/scopes", "--scope-directory"),
     host: str = typer.Option("127.0.0.1", "--host"),
     port: int = typer.Option(8443, "--port", min=1, max=65_535),
@@ -153,7 +153,7 @@ def aegis_api(
     ssl_certfile: str = typer.Option("", "--ssl-certfile"),
     ssl_keyfile: str = typer.Option("", "--ssl-keyfile"),
 ) -> None:
-    """Serve the authenticated native AEGIS API.
+    """Serve the authenticated native THEMIS API.
 
     Non-loopback binds require both a TLS certificate and key. Credentials come
     from an identity register or a single environment variable, never from the
@@ -169,7 +169,7 @@ def aegis_api(
         loopback = host.lower() == "localhost"
     if not loopback and not (ssl_certfile and ssl_keyfile):
         typer.echo(
-            "olympus: non-loopback AEGIS API binds require TLS certificate and key",
+            "olympus: non-loopback THEMIS API binds require TLS certificate and key",
             err=True,
         )
         raise typer.Exit(code=ExitCode.USAGE)
@@ -184,7 +184,7 @@ def aegis_api(
     try:
         import uvicorn
 
-        from olympus.aegis.api import ApiSettings, create_app
+        from olympus.themis.api import ApiSettings, create_app
 
         application = create_app(
             ApiSettings(
@@ -213,8 +213,8 @@ def aegis_api(
     )
 
 
-@aegis_app.command("serve")
-def aegis_serve(
+@themis_app.command("serve")
+def themis_serve(
     host: str = typer.Option("127.0.0.1", "--host", help="Bind address for the web app."),
     port: int = typer.Option(8000, "--port", help="Port for the web app."),
     allow_legacy_web: bool = typer.Option(
@@ -229,7 +229,7 @@ def aegis_serve(
     if not allow_legacy_web:
         typer.echo(
             "olympus: legacy VAP web is quarantined; use the authenticated native "
-            "'olympus aegis api' service, or explicitly acknowledge local-only use with "
+            "'olympus themis api' service, or explicitly acknowledge local-only use with "
             "--allow-legacy-web",
             err=True,
         )
@@ -241,7 +241,7 @@ def aegis_serve(
     if not loopback:
         typer.echo(
             "olympus: legacy VAP web may only bind to a loopback address; "
-            "use 'olympus aegis api' for an authenticated network service",
+            "use 'olympus themis api' for an authenticated network service",
             err=True,
         )
         raise typer.Exit(code=ExitCode.USAGE)
@@ -255,9 +255,9 @@ def aegis_serve(
     raise typer.Exit(code=normalize_exit_code(completed.returncode))
 
 
-@aegis_app.command("migrate")
-def aegis_migrate() -> None:
-    """Run the AEGIS database migrations (alembic upgrade head)."""
+@themis_app.command("migrate")
+def themis_migrate() -> None:
+    """Run the THEMIS database migrations (alembic upgrade head)."""
     path = _require_vendored(VAP_DIR)
     completed = subprocess.run(
         [sys.executable, "-m", "alembic", "upgrade", "head"],
@@ -268,14 +268,14 @@ def aegis_migrate() -> None:
     raise typer.Exit(code=normalize_exit_code(completed.returncode))
 
 
-@aegis_app.command("workers")
-def aegis_workers(
+@themis_app.command("workers")
+def themis_workers(
     queue: str = typer.Option("scans", "--queue", help="Celery queue to consume."),
     loglevel: str = typer.Option("info", "--loglevel", help="Celery worker log level."),
 ) -> None:
-    """Start an AEGIS Celery worker that runs queued scans (Ctrl-C to stop)."""
+    """Start an THEMIS Celery worker that runs queued scans (Ctrl-C to stop)."""
     path = _require_vendored(VAP_DIR)
-    typer.echo(f"olympus: starting AEGIS Celery worker on queue '{queue}' (from {path})", err=True)
+    typer.echo(f"olympus: starting THEMIS Celery worker on queue '{queue}' (from {path})", err=True)
     completed = subprocess.run(  # noqa: S603 - fixed argv, no shell
         ["celery", "-A", "celery_app.celery_app", "worker", "-Q", queue, "--loglevel", loglevel],  # noqa: S607
         cwd=str(path),
@@ -285,13 +285,13 @@ def aegis_workers(
     raise typer.Exit(code=normalize_exit_code(completed.returncode))
 
 
-@aegis_app.command("scanners")
-def aegis_scanners(
+@themis_app.command("scanners")
+def themis_scanners(
     check: bool = typer.Option(
         False, "--check", help="Also report whether each scanner's binary is available."
     ),
 ) -> None:
-    """List the complete AEGIS scanner catalogue (all 24 integrations)."""
+    """List the complete THEMIS scanner catalogue (all 24 integrations)."""
     specs = scanner_registry.REGISTRY
     if not check:
         typer.echo(
@@ -325,8 +325,8 @@ def aegis_scanners(
     )
 
 
-@aegis_app.command("matrix")
-def aegis_matrix(
+@themis_app.command("matrix")
+def themis_matrix(
     check: bool = typer.Option(
         False,
         "--check",
@@ -361,7 +361,7 @@ def aegis_matrix(
             raise typer.Exit(code=int(ExitCode.USAGE)) from exc
         if current != rendered:
             typer.echo(
-                "olympus: docs/scanner-matrix.md is stale; run 'olympus aegis matrix --write'",
+                "olympus: docs/scanner-matrix.md is stale; run 'olympus themis matrix --write'",
                 err=True,
             )
             raise typer.Exit(code=int(ExitCode.USAGE))
@@ -376,8 +376,8 @@ def aegis_matrix(
     typer.echo(rendered, nl=False)
 
 
-@aegis_app.command("capabilities")
-def aegis_capabilities(
+@themis_app.command("capabilities")
+def themis_capabilities(
     strict: bool = typer.Option(
         False,
         "--strict",
@@ -398,7 +398,7 @@ def aegis_capabilities(
         help="How many integrations must reach --min-maturity.",
     ),
 ) -> None:
-    """Report what AEGIS can actually execute, and how far each engine is proven.
+    """Report what THEMIS can actually execute, and how far each engine is proven.
 
     Unlike ``scanners``, which is a product catalogue, this command distinguishes
     registered adapters, installed engines, configured APIs and live readiness —
@@ -445,31 +445,31 @@ def _emit_job(job: object) -> None:
     from pydantic import BaseModel
 
     if not isinstance(job, BaseModel):
-        raise TypeError("AEGIS job output must be a validated contract")
+        raise TypeError("THEMIS job output must be a validated contract")
     typer.echo(job.model_dump_json(indent=2))
 
 
 @jobs_app.command("init")
-def aegis_jobs_init(
-    database: str = typer.Option(".olympus/aegis-jobs.sqlite3", "--database", "-d"),
+def themis_jobs_init(
+    database: str = typer.Option(".olympus/themis-jobs.sqlite3", "--database", "-d"),
 ) -> None:
     """Initialize the private native job database."""
     from pathlib import Path
 
-    from olympus.aegis.jobs import AegisJobStore
+    from olympus.themis.jobs import ThemisJobStore
 
-    store = AegisJobStore(Path(database))
+    store = ThemisJobStore(Path(database))
     store.initialize()
     typer.echo(json.dumps({"database": str(store.path), "initialized": True}, indent=2))
 
 
 @jobs_app.command("submit")
-def aegis_jobs_submit(
+def themis_jobs_submit(
     scanner: str = typer.Argument(...),
     target: str = typer.Option(..., "--target"),
     kind: str = typer.Option("host", "--kind"),
     scope: str = typer.Option(..., "--scope"),
-    database: str = typer.Option(".olympus/aegis-jobs.sqlite3", "--database", "-d"),
+    database: str = typer.Option(".olympus/themis-jobs.sqlite3", "--database", "-d"),
     idempotency_key: str | None = typer.Option(
         None,
         "--idempotency-key",
@@ -483,13 +483,13 @@ def aegis_jobs_submit(
     """Persist one authorized scan job without executing it."""
     from pathlib import Path
 
-    from olympus.aegis.jobs import AegisJobStore
+    from olympus.themis.jobs import ThemisJobStore
 
     if not i_am_authorized:
         typer.echo("olympus: queued live work requires --i-am-authorized", err=True)
         raise typer.Exit(code=ExitCode.NOT_AUTHORIZED)
     try:
-        job = AegisJobStore(Path(database)).submit(
+        job = ThemisJobStore(Path(database)).submit(
             scanner=scanner,
             target=target,
             target_kind=kind,
@@ -505,22 +505,22 @@ def aegis_jobs_submit(
 
 
 @jobs_app.command("list")
-def aegis_jobs_list(
-    database: str = typer.Option(".olympus/aegis-jobs.sqlite3", "--database", "-d"),
+def themis_jobs_list(
+    database: str = typer.Option(".olympus/themis-jobs.sqlite3", "--database", "-d"),
     state: str | None = typer.Option(None, "--state"),
     limit: int = typer.Option(100, "--limit", min=1, max=1_000),
 ) -> None:
     """List durable jobs, optionally filtered by lifecycle state."""
     from pathlib import Path
 
-    from olympus.aegis.jobs import AegisJobStore, JobState
+    from olympus.themis.jobs import JobState, ThemisJobStore
 
     try:
         selected = JobState(state) if state else None
     except ValueError as exc:
         typer.echo(f"olympus: invalid job state {state!r}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
-    jobs = AegisJobStore(Path(database)).list(limit=limit, state=selected)
+    jobs = ThemisJobStore(Path(database)).list(limit=limit, state=selected)
     typer.echo(
         json.dumps(
             {
@@ -536,43 +536,43 @@ def aegis_jobs_list(
 
 
 @jobs_app.command("status")
-def aegis_jobs_status(
+def themis_jobs_status(
     job_id: str = typer.Argument(...),
-    database: str = typer.Option(".olympus/aegis-jobs.sqlite3", "--database", "-d"),
+    database: str = typer.Option(".olympus/themis-jobs.sqlite3", "--database", "-d"),
 ) -> None:
     """Return one durable job and its normalized result when complete."""
     from pathlib import Path
 
-    from olympus.aegis.jobs import AegisJobStore
+    from olympus.themis.jobs import ThemisJobStore
 
     try:
-        _emit_job(AegisJobStore(Path(database)).get(job_id))
+        _emit_job(ThemisJobStore(Path(database)).get(job_id))
     except KeyError as exc:
         typer.echo(f"olympus: {exc.args[0]}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
 
 
 @jobs_app.command("cancel")
-def aegis_jobs_cancel(
+def themis_jobs_cancel(
     job_id: str = typer.Argument(...),
-    database: str = typer.Option(".olympus/aegis-jobs.sqlite3", "--database", "-d"),
+    database: str = typer.Option(".olympus/themis-jobs.sqlite3", "--database", "-d"),
 ) -> None:
     """Cancel queued work or request cooperative cancellation of running work."""
     from pathlib import Path
 
-    from olympus.aegis.jobs import AegisJobStore
+    from olympus.themis.jobs import ThemisJobStore
 
     try:
-        _emit_job(AegisJobStore(Path(database)).cancel(job_id))
+        _emit_job(ThemisJobStore(Path(database)).cancel(job_id))
     except KeyError as exc:
         typer.echo(f"olympus: {exc.args[0]}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
 
 
 @jobs_app.command("work")
-def aegis_jobs_work(
-    database: str = typer.Option(".olympus/aegis-jobs.sqlite3", "--database", "-d"),
-    audit: str = typer.Option(".olympus/aegis-audit.ndjson", "--audit"),
+def themis_jobs_work(
+    database: str = typer.Option(".olympus/themis-jobs.sqlite3", "--database", "-d"),
+    audit: str = typer.Option(".olympus/themis-audit.ndjson", "--audit"),
     worker_id: str | None = typer.Option(
         None, "--worker-id", help="Stable identity for this worker's leases."
     ),
@@ -580,20 +580,20 @@ def aegis_jobs_work(
     """Claim and execute at most one job; safe for cron/systemd/container loops."""
     from pathlib import Path
 
-    from olympus.aegis.jobs import AegisJobStore, AegisWorker, generate_worker_id
     from olympus.core.observability import (
         ObservabilityConfigurationError,
         observability_from_config,
     )
+    from olympus.themis.jobs import ThemisJobStore, ThemisWorker, generate_worker_id
 
-    store = AegisJobStore(Path(database))
+    store = ThemisJobStore(Path(database))
     try:
         observability = observability_from_config()
     except ObservabilityConfigurationError as exc:
         typer.echo(f"olympus: {exc}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
     try:
-        worker = AegisWorker(
+        worker = ThemisWorker(
             store,
             worker_id=worker_id or generate_worker_id(),
             observability=observability,
@@ -616,19 +616,19 @@ def aegis_jobs_work(
 
 
 @jobs_app.command("prune")
-def aegis_jobs_prune(
+def themis_jobs_prune(
     older_than_days: int = typer.Option(
         30, "--older-than-days", min=0, max=3_650, help="Keep finished jobs for this long."
     ),
-    database: str = typer.Option(".olympus/aegis-jobs.sqlite3", "--database", "-d"),
+    database: str = typer.Option(".olympus/themis-jobs.sqlite3", "--database", "-d"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Report what would be deleted."),
 ) -> None:
     """Delete finished jobs past the retention window; queued/running work is kept."""
     from pathlib import Path
 
-    from olympus.aegis.jobs import AegisJobStore
+    from olympus.themis.jobs import ThemisJobStore
 
-    count, job_ids = AegisJobStore(Path(database)).prune(
+    count, job_ids = ThemisJobStore(Path(database)).prune(
         older_than_days=older_than_days, dry_run=dry_run
     )
     typer.echo(
@@ -646,15 +646,15 @@ def aegis_jobs_prune(
 
 
 @jobs_app.command("recover")
-def aegis_jobs_recover(
-    database: str = typer.Option(".olympus/aegis-jobs.sqlite3", "--database", "-d"),
+def themis_jobs_recover(
+    database: str = typer.Option(".olympus/themis-jobs.sqlite3", "--database", "-d"),
 ) -> None:
     """Requeue (or fail) jobs whose worker stopped renewing its lease."""
     from pathlib import Path
 
-    from olympus.aegis.jobs import AegisJobStore
+    from olympus.themis.jobs import ThemisJobStore
 
-    recovered = AegisJobStore(Path(database)).recover_expired_leases()
+    recovered = ThemisJobStore(Path(database)).recover_expired_leases()
     typer.echo(
         json.dumps(
             {
@@ -671,7 +671,7 @@ def aegis_jobs_recover(
 def _identity_register(path: str, *, create: bool = False) -> IdentityRegister:
     from pathlib import Path
 
-    from olympus.aegis.identity import IdentityRegister, load_register
+    from olympus.themis.identity import IdentityRegister, load_register
 
     location = Path(path)
     if not location.exists():
@@ -683,13 +683,13 @@ def _identity_register(path: str, *, create: bool = False) -> IdentityRegister:
 
 
 @identities_app.command("init")
-def aegis_identities_init(
+def themis_identities_init(
     register_path: str = typer.Option(DEFAULT_IDENTITY_REGISTER, "--file", "-f"),
 ) -> None:
     """Create an empty identity register (owner-only)."""
     from pathlib import Path
 
-    from olympus.aegis.identity import IdentityRegister, save_register
+    from olympus.themis.identity import IdentityRegister, save_register
 
     location = Path(register_path)
     if location.exists():
@@ -700,7 +700,7 @@ def aegis_identities_init(
 
 
 @identities_app.command("add")
-def aegis_identities_add(
+def themis_identities_add(
     identity_id: str = typer.Argument(..., help="Identity name, e.g. 'ops-console'."),
     scopes: str = typer.Option(
         "jobs:read", "--scopes", help="Comma-separated scopes granted to this identity."
@@ -714,7 +714,7 @@ def aegis_identities_add(
     """Add one scoped identity and print its secret exactly once."""
     from pathlib import Path
 
-    from olympus.aegis.identity import IdentityError, add_identity, save_register
+    from olympus.themis.identity import IdentityError, add_identity, save_register
 
     register = _identity_register(register_path, create=True)
     try:
@@ -733,7 +733,7 @@ def aegis_identities_add(
 
 
 @identities_app.command("rotate")
-def aegis_identities_rotate(
+def themis_identities_rotate(
     identity_id: str = typer.Argument(...),
     overlap_seconds: int = typer.Option(
         300,
@@ -747,7 +747,7 @@ def aegis_identities_rotate(
     """Issue a new secret, keeping the old one valid for a bounded overlap."""
     from pathlib import Path
 
-    from olympus.aegis.identity import IdentityError, rotate_identity, save_register
+    from olympus.themis.identity import IdentityError, rotate_identity, save_register
 
     try:
         updated, secret = rotate_identity(
@@ -763,14 +763,14 @@ def aegis_identities_rotate(
 
 
 @identities_app.command("revoke")
-def aegis_identities_revoke(
+def themis_identities_revoke(
     identity_id: str = typer.Argument(...),
     register_path: str = typer.Option(DEFAULT_IDENTITY_REGISTER, "--file", "-f"),
 ) -> None:
     """Revoke an identity immediately, including any secret still rotating."""
     from pathlib import Path
 
-    from olympus.aegis.identity import IdentityError, revoke_identity, save_register
+    from olympus.themis.identity import IdentityError, revoke_identity, save_register
 
     try:
         updated = revoke_identity(
@@ -785,7 +785,7 @@ def aegis_identities_revoke(
 
 
 @identities_app.command("list")
-def aegis_identities_list(
+def themis_identities_list(
     register_path: str = typer.Option(DEFAULT_IDENTITY_REGISTER, "--file", "-f"),
 ) -> None:
     """List identities, their scopes and status. Secrets are never stored."""
@@ -812,7 +812,7 @@ def _emit_secret(identity_id: str, secret: str, action: str) -> None:
 
 
 @retention_app.command("prune")
-def aegis_retention_prune(
+def themis_retention_prune(
     directory: str = typer.Argument(..., help="Directory of artefacts to bound."),
     pattern: str = typer.Option("*", "--pattern", help="Filename glob within that directory."),
     older_than_days: int | None = typer.Option(
@@ -853,7 +853,7 @@ def aegis_retention_prune(
 
 
 @retention_app.command("rotate-log")
-def aegis_retention_rotate_log(
+def themis_retention_rotate_log(
     path: str = typer.Argument(..., help="Append-only log to roll over."),
     max_bytes: int = typer.Option(50_000_000, "--max-bytes", min=1),
     keep: int = typer.Option(5, "--keep", min=0, max=100, help="Generations to retain."),
@@ -872,10 +872,10 @@ def aegis_retention_rotate_log(
     typer.echo(json.dumps(report.to_dict(), indent=2, sort_keys=True))
 
 
-@aegis_app.command("deps")
-def aegis_deps() -> None:
-    """Report AEGIS runtime dependencies: web stack, services, and scanner binaries."""
-    report = Report("aegis deps")
+@themis_app.command("deps")
+def themis_deps() -> None:
+    """Report THEMIS runtime dependencies: web stack, services, and scanner binaries."""
+    report = Report("themis deps")
     report.add(_vendor_check())
     for module in ("fastapi", "uvicorn", "sqlalchemy", "alembic", "celery", "redis"):
         report.add(check_python_module(module, optional=True))
@@ -885,9 +885,9 @@ def aegis_deps() -> None:
     _emit_report(report)
 
 
-@aegis_app.command("info")
-def aegis_info() -> None:
-    """Show where AEGIS lives and whether its stack is importable."""
+@themis_app.command("info")
+def themis_info() -> None:
+    """Show where THEMIS lives and whether its stack is importable."""
     import importlib.util
 
     path = optional_tool_path(VAP_DIR)
@@ -896,31 +896,31 @@ def aegis_info() -> None:
     importable = importlib.util.find_spec("fastapi") is not None
     binaries = sum(1 for s in scanner_registry.REGISTRY if s.available())
     payload = {
-        "name": "AEGIS (vendored Vulnerability Assessment Platform)",
+        "name": "THEMIS (vendored Vulnerability Assessment Platform)",
         "path": str(path) if path is not None else None,
         "vendored_source_present": path is not None,
         "scanners": len(scanner_registry.REGISTRY),
         "scanner_binaries_available": binaries,
         "web_stack_importable": importable,
-        "install_hint": 'pip install -e ".[aegis]"  (or vendor installer.sh / docker compose)',
+        "install_hint": 'pip install -e ".[themis]"  (or vendor installer.sh / docker compose)',
         "docker_compose": "docker-compose.yml (services: redis, migrate, app, worker)",
     }
     typer.echo(json.dumps(payload, indent=2, sort_keys=True))
 
 
-@aegis_app.command("scan")
-def aegis_scan(
+@themis_app.command("scan")
+def themis_scan(
     target: str = typer.Option(..., "--target", help="Authorized target to scan."),
     scanner: str = typer.Option(..., "--scanner", help="Ready specialist engine."),
     scope_id: str = typer.Option(..., "--scope-id", help="Server-registered scope identifier."),
     kind: str = typer.Option("host", "--kind", help="Target kind: host, domain or url."),
     base_url: str = typer.Option(
-        "http://127.0.0.1:8443", "--url", help="Base URL of the native AEGIS API."
+        "http://127.0.0.1:8443", "--url", help="Base URL of the native THEMIS API."
     ),
     api_key_env: str = typer.Option("OLYMPUS_AEGIS_API_KEY", "--api-key-env"),
     i_am_authorized: bool = typer.Option(False, "--i-am-authorized"),
 ) -> None:
-    """Submit authorized work to the native AEGIS API."""
+    """Submit authorized work to the native THEMIS API."""
     import ipaddress
     import os
     import urllib.error
@@ -939,14 +939,14 @@ def aegis_scan(
         raise typer.Exit(code=ExitCode.USAGE)
     parsed = urlparse(base_url)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
-        typer.echo("olympus: AEGIS API URL must be an absolute HTTP(S) URL", err=True)
+        typer.echo("olympus: THEMIS API URL must be an absolute HTTP(S) URL", err=True)
         raise typer.Exit(code=ExitCode.USAGE)
     try:
         loopback = ipaddress.ip_address(parsed.hostname).is_loopback
     except ValueError:
         loopback = parsed.hostname.lower() == "localhost"
     if parsed.scheme != "https" and not loopback:
-        typer.echo("olympus: remote AEGIS API connections require HTTPS", err=True)
+        typer.echo("olympus: remote THEMIS API connections require HTTPS", err=True)
         raise typer.Exit(code=ExitCode.USAGE)
 
     body: dict[str, object] = {
@@ -969,19 +969,19 @@ def aegis_scan(
     except urllib.error.HTTPError as exc:
         # The server rejected the request (e.g. auth/scope/schema) — surface it.
         detail = exc.read().decode("utf-8", "replace")
-        typer.echo(f"olympus: AEGIS server returned {exc.code}: {detail}", err=True)
+        typer.echo(f"olympus: THEMIS server returned {exc.code}: {detail}", err=True)
         raise typer.Exit(code=ExitCode.FINDINGS) from exc
     except urllib.error.URLError as exc:
         typer.echo(
-            f"olympus: could not reach an AEGIS server at {base_url} ({exc.reason}). "
-            "Start it with: olympus aegis api",
+            f"olympus: could not reach an THEMIS server at {base_url} ({exc.reason}). "
+            "Start it with: olympus themis api",
             err=True,
         )
         raise typer.Exit(code=ExitCode.NOT_AUTHORIZED) from exc
 
 
-@aegis_app.command("doctor")
-def aegis_doctor(
+@themis_app.command("doctor")
+def themis_doctor(
     scanner: str | None = typer.Option(
         None,
         "--scanner",
@@ -991,7 +991,7 @@ def aegis_doctor(
         ),
     ),
 ) -> None:
-    """Diagnose the AEGIS runtime, or one scanner with ``--scanner``.
+    """Diagnose the THEMIS runtime, or one scanner with ``--scanner``.
 
     Without ``--scanner`` this reports the whole runtime (web stack, DB dir,
     Redis, config). With ``--scanner <name>`` it reports that one engine: whether
@@ -1009,7 +1009,7 @@ def aegis_doctor(
         if scanner == "all":
             reports = scanner_doctor.all_scanner_reports()
             payload = {
-                "title": "aegis doctor --scanner all",
+                "title": "themis doctor --scanner all",
                 "ok": all(item.ok() for item in reports),
                 "scanners": [item.to_dict() for item in reports],
             }
@@ -1027,7 +1027,7 @@ def aegis_doctor(
         _emit_report(single)
         return
 
-    report = Report("aegis doctor")
+    report = Report("themis doctor")
     report.add(_vendor_check())
     for module in ("fastapi", "uvicorn", "sqlalchemy", "alembic", "celery", "redis"):
         report.add(check_python_module(module, optional=True))
@@ -1056,10 +1056,10 @@ def aegis_doctor(
 
 
 def sandbox_check() -> Check:
-    """Report how confined scanner processes will be (see docs/aegis-sandbox.md)."""
+    """Report how confined scanner processes will be (see docs/themis-sandbox.md)."""
     import os
 
-    from olympus.aegis.sandbox import SandboxError, SandboxPolicy
+    from olympus.themis.sandbox import SandboxError, SandboxPolicy
 
     try:
         policy = SandboxPolicy.from_environment()
@@ -1090,13 +1090,13 @@ def report_flag(name: str, ok: bool, detail: str) -> Check:
 
 
 # --------------------------------------------------------------------------- #
-# Deprecated ``olympus vap`` alias -> forwards to ``olympus aegis``
+# Deprecated ``olympus vap`` alias -> forwards to ``olympus themis``
 # --------------------------------------------------------------------------- #
 def register_vap_shim(parent: typer.Typer) -> None:
-    """Register a deprecated ``vap`` passthrough that forwards to ``aegis``.
+    """Register a deprecated ``vap`` passthrough that forwards to ``themis``.
 
     Planned removal: the ``vap`` alias will be removed in a future release. Use
-    ``olympus aegis`` instead.
+    ``olympus themis`` instead.
     """
 
     @parent.command(
@@ -1106,19 +1106,56 @@ def register_vap_shim(parent: typer.Typer) -> None:
             "ignore_unknown_options": True,
             "help_option_names": [],
         },
-        help="[DEPRECATED] Alias for 'olympus aegis' — forwards all arguments.",
+        help="[DEPRECATED] Alias for 'olympus themis' — forwards all arguments.",
     )
     def _vap(ctx: typer.Context) -> None:
         from typer.main import get_command
 
         typer.echo(
             "olympus: 'olympus vap' is deprecated and will be removed in a future release; "
-            "use 'olympus aegis' instead.",
+            "use 'olympus themis' instead.",
             err=True,
         )
-        command = get_command(aegis_app)
+        command = get_command(themis_app)
         try:
-            command.main(args=list(ctx.args), prog_name="olympus aegis", standalone_mode=False)
+            command.main(args=list(ctx.args), prog_name="olympus themis", standalone_mode=False)
+        except SystemExit as exc:  # pragma: no cover - click may raise SystemExit
+            raw_code = exc.code if isinstance(exc.code, int) else None
+            raise typer.Exit(code=normalize_exit_code(raw_code)) from exc
+
+
+# --------------------------------------------------------------------------- #
+# Deprecated ``olympus aegis`` alias -> forwards to ``olympus themis``
+# --------------------------------------------------------------------------- #
+def register_aegis_shim(parent: typer.Typer) -> None:
+    """Register a deprecated ``aegis`` passthrough that forwards to ``themis``.
+
+    The AEGIS subsystem was renamed to Themis (ROADMAP ``DEV-I``). The old
+    command keeps working for at least one release, printing a deprecation
+    warning and forwarding every argument to ``olympus themis`` — one
+    implementation, no duplicated logic.
+    """
+
+    @parent.command(
+        "aegis",
+        context_settings={
+            "allow_extra_args": True,
+            "ignore_unknown_options": True,
+            "help_option_names": [],
+        },
+        help="[DEPRECATED] Alias for 'olympus themis' — forwards all arguments.",
+    )
+    def _aegis(ctx: typer.Context) -> None:
+        from typer.main import get_command
+
+        typer.echo(
+            "olympus: 'olympus aegis' is deprecated and will be removed in a future release; "
+            "use 'olympus themis' instead.",
+            err=True,
+        )
+        command = get_command(themis_app)
+        try:
+            command.main(args=list(ctx.args), prog_name="olympus themis", standalone_mode=False)
         except SystemExit as exc:  # pragma: no cover - click may raise SystemExit
             raw_code = exc.code if isinstance(exc.code, int) else None
             raise typer.Exit(code=normalize_exit_code(raw_code)) from exc
@@ -1139,14 +1176,14 @@ def register_doctor(parent: typer.Typer) -> None:
         # Common external tooling.
         for binary in ("git", "docker", "redis-cli", "curl"):
             report.add(check_binary(binary, optional=True))
-        # ARGUS + AEGIS stacks (importable?).
+        # ARGUS + THEMIS stacks (importable?).
         report.add(check_python_module("requests", optional=True))
         report.add(check_python_module("fastapi", optional=True))
         # Scanner binary coverage.
         binaries = sum(1 for s in scanner_registry.REGISTRY if s.available())
         report.add(
             report_flag(
-                "aegis:scanner_binaries",
+                "themis:scanner_binaries",
                 binaries > 0,
                 f"{binaries}/{len(scanner_registry.REGISTRY)} scanner binaries on PATH",
             )
@@ -1159,12 +1196,12 @@ def register_doctor(parent: typer.Typer) -> None:
         _emit_report(report)
 
 
-@aegis_app.command("run")
-def aegis_run(
-    scanner: str = typer.Argument(..., help="Scanner name (see 'olympus aegis run --list')."),
+@themis_app.command("run")
+def themis_run(
+    scanner: str = typer.Argument(..., help="Scanner name (see 'olympus themis run --list')."),
     target: str = typer.Option("", "--target", help="Authorized target (host/url/domain)."),
     kind: str = typer.Option("host", "--kind", help="Target kind: host, url, or domain."),
-    scope: str = typer.Option("", "--scope", help="Versioned AEGIS scope JSON file."),
+    scope: str = typer.Option("", "--scope", help="Versioned THEMIS scope JSON file."),
     timeout: float = typer.Option(300.0, "--timeout", help="Per-process timeout in seconds."),
     deadline: float = typer.Option(600.0, "--deadline", help="Overall scan deadline in seconds."),
     max_scope_bytes: int = typer.Option(1_000_000, "--max-scope-bytes"),
@@ -1193,17 +1230,17 @@ def aegis_run(
     """
     from pathlib import Path
 
-    from olympus.aegis import config as aegis_config
-    from olympus.aegis.application import AegisApplicationService, AegisRunRequest
-    from olympus.aegis.config import AegisConfigError
-    from olympus.aegis.registry import UnknownScannerError, implemented
-    from olympus.aegis.scope import (
+    from olympus.core.execution import AuthorizationRequiredError, CancellationRequested
+    from olympus.themis import config as themis_config
+    from olympus.themis.application import ThemisApplicationService, ThemisRunRequest
+    from olympus.themis.config import ThemisConfigError
+    from olympus.themis.registry import UnknownScannerError, implemented
+    from olympus.themis.scope import (
         OutOfScopeError,
         SsrfBlockedError,
         TargetResolutionError,
         TargetValidationError,
     )
-    from olympus.core.execution import AuthorizationRequiredError, CancellationRequested
 
     if list_scanners:
         typer.echo(json.dumps({"implemented": implemented()}, indent=2, sort_keys=True))
@@ -1215,14 +1252,14 @@ def aegis_run(
         typer.echo("olympus: --scope is required for every real or simulated target", err=True)
         raise typer.Exit(code=ExitCode.USAGE)
     try:
-        result = AegisApplicationService().run(
-            AegisRunRequest(
+        result = ThemisApplicationService().run(
+            ThemisRunRequest(
                 scanner=scanner,
                 target=target,
                 target_kind=kind,
                 scope_path=Path(scope),
                 authorized=i_am_authorized,
-                live_enabled=aegis_config.live_enabled(),
+                live_enabled=themis_config.live_enabled(),
                 simulate=simulate,
                 output_path=Path(output) if output else None,
                 audit_path=Path(audit) if audit else None,
@@ -1246,10 +1283,10 @@ def aegis_run(
         typer.echo(f"olympus: {exc}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
     except CancellationRequested as exc:
-        typer.echo(f"olympus: AEGIS execution cancelled: {exc}", err=True)
+        typer.echo(f"olympus: THEMIS execution cancelled: {exc}", err=True)
         raise typer.Exit(code=ExitCode.CANCELLED) from exc
-    except (AegisConfigError, OSError, TimeoutError, ValueError) as exc:
-        typer.echo(f"olympus: AEGIS execution error: {exc}", err=True)
+    except (ThemisConfigError, OSError, TimeoutError, ValueError) as exc:
+        typer.echo(f"olympus: THEMIS execution error: {exc}", err=True)
         raise typer.Exit(code=ExitCode.FAILED) from exc
 
     typer.echo(json.dumps(result.to_dict(), indent=2, sort_keys=True))
@@ -1257,7 +1294,7 @@ def aegis_run(
 
 
 def _scan_exit_code(result: object) -> ExitCode:
-    from olympus.aegis.states import ExecutionState
+    from olympus.themis.states import ExecutionState
 
     state = getattr(result, "state", None)
     findings = getattr(result, "findings", [])
