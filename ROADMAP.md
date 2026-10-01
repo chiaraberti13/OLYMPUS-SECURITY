@@ -116,7 +116,7 @@ Legenda stato: ✅ implementata · 🟡 parziale · 🗓️ pianificata · ❌ a
 | 5 | RBAC, segreti, audit log, rate limiting | 🟡 | `themis/identity.py` (API key hashate, scopes/scadenza/limiti per identità), audit middleware `themis/api.py`, redaction `core/execution.py` | Base ✅; **RBAC/OIDC multiutente** → `WEB-H`; **SecretProvider** → `SEC-D` |
 | 6 | Arresto immediato + approvazione invasive | 🟡 | cancellation `core/execution.py`, kill del process-group `themis/sandbox.py` | **Kill switch globale**, classi PASSIVE/ACTIVE/INTRUSIVE, preview → `SEC-G`,`UX-B` |
 | 7 | Deduplicazione + ciclo di vita finding | 🟡 | `vulcan/aggregate.py` (`dedupe_findings` per ID), `FindingStatus` (7 stati) | Stati+dedup ✅; **workflow/suppression/false-positive** → `WEB-C` |
-| 8 | Severità, confidence, risk scoring contestuale | 🟡 | `Severity`, `Finding.confidence` (`WEB-C`), `vulcan/enrichment.prioritize` (KEV>EPSS>CVSS>severità) | `Finding.confidence` ✅; **risk score numerico** ❌ → sotto-punto aperto in `WEB-C` |
+| 8 | Severità, confidence, risk scoring contestuale | ✅ | `Severity`, `Finding.confidence` (`WEB-C`), `Finding.risk_score()` 0–100 (`WEB-C`), `vulcan/enrichment.prioritize` (KEV>EPSS>CVSS>severità) | Confidence + risk score numerico ✅; mantenere |
 | 9 | Mapping CVE/CWE/CVSS/MITRE ATT&CK | 🟡 | `Finding.cvss` + campi `cve`/`cwe`/`epss`/`kev` strutturati (`WEB-C`); link NVD/MITRE in `vulcan/pdf.py`; EPSS/KEV `vulcan/enrichment.py`; ATT&CK detection `apollo/attack.py`, `Alert.mitre_attack` | Campi strutturati ✅; **ATT&CK offensivo sui finding** → `OPS-RED` |
 | 10 | Inventario centralizzato asset | 🟡 | `core.Asset`, `argus/assets.py`, persistenza per-assessment in Athena; `Asset.engagement_id` opzionale (`WEB-B` slice 2) | Campo di collegamento ✅; **popolamento/query cross-engagement** da Athena/Themis → `WEB-B` slice 2 (resto) |
 | 11 | Scheduler, code, worker isolati, ripresa job | 🟡 | job store SQLite `themis/jobs.py` (stati+`recover`), `olympus themis recover`, sandbox isolato, worker Celery (vendored) | Queue+recover+sandbox ✅; **scheduler nativo** ❌ → `D13`; ritiro Celery vendored → `SEC-A` |
@@ -657,8 +657,11 @@ identicamente dai quattro canali.
   `vulcan/enrichment.extract_cves` e `vulcan/pdf.py` (tabella CVE + metadati
   finding) usano i campi tipizzati e mostrano EPSS/KEV/confidence anche **senza**
   overlay di enrichment live. Doc: [`docs/findings.md`](docs/findings.md).
-- [ ] **Risk score numerico contestuale** su `Finding` (combina
-  severity+CVSS+EPSS+KEV+confidence), riusando `vulcan/enrichment.prioritize`.
+- [x] **Risk score numerico contestuale** su `Finding`: metodo calcolato
+  `Finding.risk_score()` (0–100) che combina severity+CVSS+EPSS+KEV+confidence
+  nell'ordine di priorità di `vulcan/enrichment.prioritize` (KEV>EPSS>CVSS>
+  severità); calcolato on-demand (nessun campo stored, mai stale), esposto nei
+  metadati del finding nel report PDF. Doc: [`docs/findings.md`](docs/findings.md).
 
 **Criterio di completamento:** un finding attraversa tutto il ciclo di vita con
 audit; la deduplica non perde evidenza né remediation; ogni finding è navigabile

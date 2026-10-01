@@ -203,3 +203,43 @@ def test_scoped_model_accepts_legacy_document_without_engagement_id() -> None:
     }
     asset = Asset.model_validate(legacy)
     assert asset.engagement_id is None
+
+
+# --- WEB-C: contextual risk score -------------------------------------------- #
+
+
+def _finding(**kwargs: object) -> Finding:
+    return Finding(asset_id="AST-2026-00001", source=Source.THEMIS, title="x", **kwargs)  # type: ignore[arg-type]
+
+
+def test_risk_score_uses_severity_band_without_cvss() -> None:
+    assert _finding(severity=Severity.MEDIUM).risk_score() == 50.0
+    assert _finding(severity=Severity.CRITICAL).risk_score() == 90.0
+
+
+def test_risk_score_prefers_cvss_when_present() -> None:
+    assert _finding(severity=Severity.LOW, cvss=7.5).risk_score() == 75.0
+
+
+def test_risk_score_kev_dominates() -> None:
+    # A KEV finding is urgent even with a modest CVSS.
+    assert _finding(cvss=4.0, kev=True).risk_score() == 95.0
+    # Even a low-confidence KEV stays high (confidence only nudges).
+    assert _finding(cvss=4.0, kev=True, confidence=Confidence.LOW).risk_score() == 85.0
+
+
+def test_risk_score_epss_lifts_the_floor() -> None:
+    # A likely-exploited low-severity finding outranks a merely severe one.
+    assert _finding(severity=Severity.LOW, epss=0.9).risk_score() == 90.0
+    # A negligible EPSS does not lift a low finding.
+    assert _finding(severity=Severity.LOW, epss=0.01).risk_score() == 30.0
+
+
+def test_risk_score_confidence_is_a_mild_modifier() -> None:
+    assert _finding(severity=Severity.MEDIUM, confidence=Confidence.HIGH).risk_score() == 55.0
+    assert _finding(severity=Severity.MEDIUM, confidence=Confidence.LOW).risk_score() == 40.0
+
+
+def test_risk_score_is_clamped_to_0_100() -> None:
+    assert _finding(severity=Severity.CRITICAL, cvss=10.0, kev=True).risk_score() == 100.0
+    assert _finding(severity=Severity.INFO, confidence=Confidence.LOW).risk_score() == 0.0

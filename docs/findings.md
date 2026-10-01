@@ -66,6 +66,30 @@ while letting newer producers populate the structured fields directly.
 `cve` field is `["CVE-2021-44228"]` resolves to `["CVE-2021-44228"]`: the
 structured field wins, and the stray text id is ignored.
 
+## Contextual risk score
+
+`Finding.risk_score()` returns a single scalar in `[0, 100]` that blends the
+finding's fields in the same priority order Vulcan uses to rank findings
+(**KEV > EPSS > CVSS > severity**, see `olympus.vulcan.enrichment.prioritize`),
+so a UI or report can sort and threshold on one number:
+
+- **base** = `cvss × 10` when a CVSS is present, else a severity band
+  (`info` 10, `low` 30, `medium` 50, `high` 75, `critical` 90);
+- **CISA KEV** membership (confirmed in-the-wild exploitation) raises the score
+  to at least **95** — it dominates everything else;
+- otherwise **EPSS** (predicted exploitation probability) lifts the floor to
+  `epss × 100`, so a likely-exploited finding outranks a merely severe one;
+- **confidence** is a mild modifier only (`high` +5, `low` −10): it nudges, it
+  never decides.
+
+It is **computed on demand** from the current fields — never stored, so never
+stale, and no addition to the wire/storage contract. The PDF report shows it on
+each finding's metadata line (`Risk NN/100`).
+
+```python
+finding.risk_score()  # e.g. 95.0 for a KEV-listed CVE, 30.0 for a quiet low finding
+```
+
 ## How reports use the fields
 
 - **Vulcan enrichment** (`src/olympus/vulcan/enrichment.py`): `extract_cves()`

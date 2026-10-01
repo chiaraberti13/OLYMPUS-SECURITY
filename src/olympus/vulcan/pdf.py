@@ -385,7 +385,7 @@ def render_report_pdf(
             Paragraph(f"{_severity_tag(level, big=True)}&nbsp;&nbsp; {_safe(finding.title)}", body),
         ]
 
-        meta_bits: list[str] = []
+        meta_bits: list[str] = [f"Risk <b>{finding.risk_score():.0f}</b>/100"]
         if finding.cvss is not None:
             meta_bits.append(f"CVSS <b>{finding.cvss:.1f}</b>")
         # Prefer the live feed overlay; fall back to the finding's own structured

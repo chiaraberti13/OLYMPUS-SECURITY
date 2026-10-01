@@ -46,6 +46,14 @@ everything below lives under **Unreleased**.
   catalog/golden verdi.
 
 ### Added
+- **Risk score contestuale sui finding (`WEB-C`).** Nuovo metodo calcolato
+  `Finding.risk_score()` che restituisce un punteggio `[0, 100]` combinando
+  severity, CVSS, EPSS, KEV e confidence nell'ordine di priorità di
+  `vulcan/enrichment.prioritize` (KEV domina, poi EPSS alza il floor a
+  `epss×100`, poi CVSS/severità come base, confidence come modificatore lieve).
+  È calcolato on-demand dai campi correnti — mai stale e senza aggiunte al
+  contratto wire/storage — ed è mostrato nei metadati di ogni finding nel report
+  PDF (`Risk NN/100`). Aggiunti test e documentazione (`docs/findings.md`).
 - **Primitive di associazione all'engagement (`WEB-B`, slice 2).** Il modello
   `Engagement` espone `stamp()`/`stamp_all()` (ritornano una **copia** degli
   oggetti scoped collegata all'engagement, senza mutare l'originale e

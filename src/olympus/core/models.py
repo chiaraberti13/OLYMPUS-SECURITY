@@ -177,6 +177,46 @@ class Finding(EngagementScopedModel):
         haystack = " ".join([self.title, self.description, *self.references, *self.evidence])
         return sorted({match.group().upper() for match in _CWE_RE.finditer(haystack)})
 
+    def risk_score(self) -> float:
+        """Return a contextual risk score in ``[0, 100]`` (ROADMAP ``WEB-C``).
+
+        Risk is more than raw severity: a vulnerability's real-world urgency
+        depends on whether it is actually being exploited. The score blends the
+        finding's own fields in the same priority order Vulcan uses to rank
+        findings (KEV > EPSS > CVSS > severity; see
+        :func:`olympus.vulcan.enrichment.prioritize`), as a single scalar a UI or
+        report can sort and threshold on:
+
+        * the **base** is CVSS x10 when a CVSS is present, else a severity band;
+        * **CISA KEV** membership (confirmed in-the-wild exploitation) raises the
+          score to at least 95 - it dominates everything else;
+        * otherwise **EPSS** (predicted exploitation probability, 0-1) lifts the
+          floor to ``epss x100``, so a likely-exploited finding outranks a merely
+          severe one;
+        * **confidence** is a mild modifier only (``high`` +5, ``low`` -10): it
+          nudges, it never decides.
+
+        It is computed on demand from the current fields, so it is never stale and
+        adds nothing to the stored contract.
+        """
+        severity_base = {
+            Severity.INFO: 10.0,
+            Severity.LOW: 30.0,
+            Severity.MEDIUM: 50.0,
+            Severity.HIGH: 75.0,
+            Severity.CRITICAL: 90.0,
+        }
+        score = self.cvss * 10.0 if self.cvss is not None else severity_base[self.severity]
+        if self.kev:
+            score = max(score, 95.0)
+        elif self.epss is not None:
+            score = max(score, self.epss * 100.0)
+        if self.confidence is Confidence.HIGH:
+            score += 5.0
+        elif self.confidence is Confidence.LOW:
+            score -= 10.0
+        return round(min(100.0, max(0.0, score)), 1)
+
 
 class Event(EngagementScopedModel):
     """A normalized observable consumed by detection rules."""
