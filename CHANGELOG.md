@@ -46,6 +46,18 @@ everything below lives under **Unreleased**.
   catalog/golden verdi.
 
 ### Added
+- **Finding con intelligence strutturata (`WEB-C`, fondamenta).** Il contratto
+  `olympus.finding` acquisisce campi opzionali tipizzati — `cve`, `cwe`, `epss`,
+  `epss_percentile`, `kev` e `confidence` (nuovo enum `Confidence`) — con
+  validazione (pattern CVE/CWE, probabilità EPSS in `[0,1]`). I campi sono
+  additivi e retro-compatibili: lo schema resta `1.0.0` e i finding persistiti
+  prima di `WEB-C` validano ancora (i campi default a vuoto). Gli helper
+  `Finding.cves()`/`cwes()` preferiscono il campo strutturato e ricadono sul
+  free-text estratto via regex. `vulcan/enrichment.extract_cves` usa i campi
+  strutturati, e il report PDF (`vulcan/pdf.py`) mostra EPSS/KEV/confidence
+  nella tabella CVE e nei metadati dei finding **anche senza** overlay di
+  enrichment live (engagement offline/air-gapped). Aggiunti test (unit) e
+  `docs/findings.md`; schema catalog e golden rigenerati.
 - **Engagement come entità di primo livello (`WEB-B`, slice 1).** Nuovo
   contratto condiviso versionato `olympus.engagement` (`Engagement` +
   `EngagementScope` con perimetro incluso/escluso e `covers()`), store SQLite

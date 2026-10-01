@@ -117,11 +117,13 @@ class FindingEnrichment:
 
 
 def extract_cves(finding: Finding) -> tuple[str, ...]:
-    """Return the sorted, de-duplicated CVE ids mentioned anywhere in a finding."""
-    haystack = " ".join(
-        [finding.title, finding.description, *finding.references, *finding.evidence]
-    )
-    return tuple(sorted({match.group().upper() for match in CVE_PATTERN.finditer(haystack)}))
+    """Return the sorted, de-duplicated CVE ids attached to a finding.
+
+    Prefers the structured :attr:`Finding.cve` field (WEB-C); when it is unset the
+    helper falls back to CVE ids mentioned anywhere in the finding's free text, so
+    pre-WEB-C findings keep enriching exactly as before.
+    """
+    return tuple(finding.cves())
 
 
 def parse_kev_catalog(body: str) -> dict[str, KevEntry]:

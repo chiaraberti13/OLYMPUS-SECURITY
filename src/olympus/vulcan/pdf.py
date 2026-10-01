@@ -112,19 +112,13 @@ def _cwe_link(cwe: str) -> str:
 
 
 def _cwes_in(finding: Finding) -> list[str]:
-    """Return the distinct CWE ids mentioned anywhere in a finding."""
-    haystack = " ".join(
-        [finding.title, finding.description, *finding.references, *finding.evidence]
-    )
-    return sorted({match.group().upper() for match in _CWE_RE.finditer(haystack)})
+    """Return the distinct CWE ids of a finding (structured field, else text)."""
+    return finding.cwes()
 
 
 def _cves_in(finding: Finding) -> list[str]:
-    """Return the distinct CVE ids mentioned anywhere in a finding."""
-    haystack = " ".join(
-        [finding.title, finding.description, *finding.references, *finding.evidence]
-    )
-    return sorted({match.group().upper() for match in _CVE_RE.finditer(haystack)})
+    """Return the distinct CVE ids of a finding (structured field, else text)."""
+    return finding.cves()
 
 
 def render_report_pdf(
@@ -319,9 +313,24 @@ def render_report_pdf(
             kev_cves = {entry.cve for entry in overlay.kev} if overlay else set()
             for cve in cves:
                 score = epss_by_cve.get(cve)
-                epss_txt = f"{score.score:.5f}" if score else "—"
-                pct_txt = f"{score.percentile:.2%}" if score else "—"
-                kev_txt = "Yes" if cve in kev_cves else "—"
+                # Prefer the live feed overlay; fall back to the finding's own
+                # structured EPSS/KEV (WEB-C) so a report shows intelligence even
+                # when no live enrichment was run.
+                if score is not None:
+                    epss_txt = f"{score.score:.5f}"
+                    pct_txt = f"{score.percentile:.2%}"
+                elif finding.epss is not None:
+                    epss_txt = f"{finding.epss:.5f}"
+                    pct_txt = (
+                        f"{finding.epss_percentile:.2%}"
+                        if finding.epss_percentile is not None
+                        else "—"
+                    )
+                else:
+                    epss_txt = "—"
+                    pct_txt = "—"
+                in_kev = cve in kev_cves or finding.kev
+                kev_txt = "Yes" if in_kev else "—"
                 cvss_txt = f"{finding.cvss:.1f}" if finding.cvss is not None else "—"
                 row = [
                     Paragraph(_nvd_link(cve), cell),
@@ -332,7 +341,7 @@ def render_report_pdf(
                     Paragraph(_safe(finding.title), cell),
                 ]
                 # Prefer the row that carries an EPSS score if the CVE recurs.
-                if cve not in seen or (score is not None):
+                if cve not in seen or epss_txt != "—":
                     seen[cve] = row
         return list(seen.values())
 
@@ -379,11 +388,18 @@ def render_report_pdf(
         meta_bits: list[str] = []
         if finding.cvss is not None:
             meta_bits.append(f"CVSS <b>{finding.cvss:.1f}</b>")
+        # Prefer the live feed overlay; fall back to the finding's own structured
+        # EPSS/KEV (WEB-C) so the metadata line stays informative offline.
         if overlay and overlay.max_epss is not None:
             pct = f" ({overlay.max_epss_percentile:.0%} pct)" if overlay.max_epss_percentile else ""
             meta_bits.append(f"EPSS <b>{overlay.max_epss:.5f}</b>{pct}")
-        if overlay and overlay.in_kev:
+        elif finding.epss is not None:
+            pct = f" ({finding.epss_percentile:.0%} pct)" if finding.epss_percentile else ""
+            meta_bits.append(f"EPSS <b>{finding.epss:.5f}</b>{pct}")
+        if (overlay and overlay.in_kev) or finding.kev:
             meta_bits.append('<font color="#d03b3b"><b>KEV</b></font>')
+        if finding.confidence is not None:
+            meta_bits.append(f"confidence {_safe(finding.confidence.value)}")
         meta_bits += [
             f"asset {_safe(finding.asset_id)}",
             f"source {_safe(finding.source.value)}",

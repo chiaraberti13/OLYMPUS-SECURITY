@@ -55,6 +55,14 @@ class EngagementStatus(StrEnum):
     CLOSED = "closed"
 
 
+class Confidence(StrEnum):
+    """How confident Olympus is that a finding is a true positive."""
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
 class Criticality(StrEnum):
     """Business criticality of an asset."""
 

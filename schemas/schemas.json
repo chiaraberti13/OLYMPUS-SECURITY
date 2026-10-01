@@ -869,6 +869,16 @@
         "title": "AssetType",
         "type": "string"
       },
+      "Confidence": {
+        "description": "How confident Olympus is that a finding is a true positive.",
+        "enum": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "title": "Confidence",
+        "type": "string"
+      },
       "Criticality": {
         "description": "Business criticality of an asset.",
         "enum": [
@@ -888,6 +898,24 @@
             "title": "Asset Id",
             "type": "string"
           },
+          "confidence": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Confidence"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "cve": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Cve",
+            "type": "array"
+          },
           "cvss": {
             "anyOf": [
               {
@@ -900,10 +928,41 @@
             "default": null,
             "title": "Cvss"
           },
+          "cwe": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Cwe",
+            "type": "array"
+          },
           "description": {
             "default": "",
             "title": "Description",
             "type": "string"
+          },
+          "epss": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Epss"
+          },
+          "epss_percentile": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Epss Percentile"
           },
           "evidence": {
             "items": {
@@ -920,6 +979,11 @@
             "format": "date-time",
             "title": "First Seen",
             "type": "string"
+          },
+          "kev": {
+            "default": false,
+            "title": "Kev",
+            "type": "boolean"
           },
           "last_seen": {
             "format": "date-time",
@@ -1404,6 +1468,16 @@
   },
   "olympus.finding": {
     "$defs": {
+      "Confidence": {
+        "description": "How confident Olympus is that a finding is a true positive.",
+        "enum": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "title": "Confidence",
+        "type": "string"
+      },
       "FindingStatus": {
         "description": "Lifecycle state of a finding inside the remediation workflow.",
         "enum": [
@@ -1458,6 +1532,24 @@
         "title": "Asset Id",
         "type": "string"
       },
+      "confidence": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/Confidence"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      },
+      "cve": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Cve",
+        "type": "array"
+      },
       "cvss": {
         "anyOf": [
           {
@@ -1470,10 +1562,41 @@
         "default": null,
         "title": "Cvss"
       },
+      "cwe": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Cwe",
+        "type": "array"
+      },
       "description": {
         "default": "",
         "title": "Description",
         "type": "string"
+      },
+      "epss": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Epss"
+      },
+      "epss_percentile": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Epss Percentile"
       },
       "evidence": {
         "items": {
@@ -1490,6 +1613,11 @@
         "format": "date-time",
         "title": "First Seen",
         "type": "string"
+      },
+      "kev": {
+        "default": false,
+        "title": "Kev",
+        "type": "boolean"
       },
       "last_seen": {
         "format": "date-time",
@@ -2418,6 +2546,16 @@
         "title": "AssetType",
         "type": "string"
       },
+      "Confidence": {
+        "description": "How confident Olympus is that a finding is a true positive.",
+        "enum": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "title": "Confidence",
+        "type": "string"
+      },
       "Criticality": {
         "description": "Business criticality of an asset.",
         "enum": [
@@ -2437,6 +2575,24 @@
             "title": "Asset Id",
             "type": "string"
           },
+          "confidence": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Confidence"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "cve": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Cve",
+            "type": "array"
+          },
           "cvss": {
             "anyOf": [
               {
@@ -2449,10 +2605,41 @@
             "default": null,
             "title": "Cvss"
           },
+          "cwe": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Cwe",
+            "type": "array"
+          },
           "description": {
             "default": "",
             "title": "Description",
             "type": "string"
+          },
+          "epss": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Epss"
+          },
+          "epss_percentile": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Epss Percentile"
           },
           "evidence": {
             "items": {
@@ -2469,6 +2656,11 @@
             "format": "date-time",
             "title": "First Seen",
             "type": "string"
+          },
+          "kev": {
+            "default": false,
+            "title": "Kev",
+            "type": "boolean"
           },
           "last_seen": {
             "format": "date-time",

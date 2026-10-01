@@ -148,6 +148,47 @@ def test_enrichment_overlay_adds_epss_and_kev_without_error() -> None:
     assert b"nvd.nist.gov/vuln/detail/CVE-2021-44228" in pdf
 
 
+def test_structured_cve_renders_nvd_link_without_free_text() -> None:
+    """WEB-C: a structured ``cve`` field is rendered even when absent from text."""
+    finding = Finding(
+        asset_id="asset-1",
+        source=Source.THEMIS,
+        title="Outdated component",  # no CVE in any free-text field
+        severity=Severity.CRITICAL,
+        cvss=10.0,
+        cve=["CVE-2021-44228"],
+        cwe=["CWE-502"],
+    )
+    report = build_report_model(
+        "eng", [], [finding], [], generated_at=datetime(2026, 1, 1, tzinfo=UTC)
+    )
+    pdf = render_report_pdf(report)
+    assert b"nvd.nist.gov/vuln/detail/CVE-2021-44228" in pdf
+    assert b"cwe.mitre.org/data/definitions/502" in pdf
+
+
+def test_structured_epss_and_kev_render_without_an_overlay() -> None:
+    """WEB-C: the finding's own EPSS/KEV surface with no live enrichment run."""
+    finding = Finding(
+        asset_id="asset-1",
+        source=Source.THEMIS,
+        title="Log4Shell",
+        severity=Severity.CRITICAL,
+        cvss=10.0,
+        cve=["CVE-2021-44228"],
+        epss=0.975,
+        epss_percentile=0.999,
+        kev=True,
+    )
+    report = build_report_model(
+        "eng", [], [finding], [], generated_at=datetime(2026, 1, 1, tzinfo=UTC)
+    )
+    # No enrichments= passed: the renderer must fall back to the structured fields.
+    pdf = render_report_pdf(report)
+    assert pdf.startswith(b"%PDF-")
+    assert b"nvd.nist.gov/vuln/detail/CVE-2021-44228" in pdf
+
+
 def test_overall_risk_reflects_the_worst_finding() -> None:
     low = Finding(asset_id="a", source=Source.ARTEMIS, title="minor", severity=Severity.LOW)
     report = build_report_model("eng", [], [low], [], generated_at=datetime(2026, 1, 1, tzinfo=UTC))

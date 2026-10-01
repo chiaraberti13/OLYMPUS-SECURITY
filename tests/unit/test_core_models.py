@@ -7,7 +7,7 @@ import re
 import pytest
 from pydantic import ValidationError
 
-from olympus.core.enums import AssetType, Severity, Source
+from olympus.core.enums import AssetType, Confidence, Severity, Source
 from olympus.core.models import Asset, Finding
 
 ASSET_ID = re.compile(r"^AST-\d{4}-\d{5}$")
@@ -52,3 +52,107 @@ def test_finding_json_round_trip() -> None:
     )
     restored = Finding.model_validate_json(original.model_dump_json())
     assert restored == original
+
+
+# --- WEB-C: structured vulnerability intelligence on Finding ----------------- #
+
+
+def test_finding_structured_fields_default_empty() -> None:
+    """A finding without structured intel keeps the additive fields empty/unset."""
+    finding = Finding(asset_id="AST-2026-00001", source=Source.THEMIS, title="x")
+    assert finding.cve == []
+    assert finding.cwe == []
+    assert finding.epss is None
+    assert finding.epss_percentile is None
+    assert finding.kev is False
+    assert finding.confidence is None
+    # The schema stays at 1.0.0: the new fields are additive and backward-compatible.
+    assert finding.schema_version == "1.0.0"
+
+
+def test_finding_normalizes_and_validates_cve_cwe() -> None:
+    finding = Finding(
+        asset_id="AST-2026-00001",
+        source=Source.THEMIS,
+        title="Log4Shell",
+        cve=["cve-2021-44228"],
+        cwe=["cwe-502"],
+    )
+    assert finding.cve == ["CVE-2021-44228"]
+    assert finding.cwe == ["CWE-502"]
+
+
+@pytest.mark.parametrize("bad_cve", ["NOT-A-CVE", "CVE-21-1", "2021-44228"])
+def test_finding_rejects_malformed_cve(bad_cve: str) -> None:
+    with pytest.raises(ValidationError):
+        Finding(asset_id="AST-2026-00001", source=Source.THEMIS, title="x", cve=[bad_cve])
+
+
+@pytest.mark.parametrize("bad_cwe", ["CWE-", "79", "WEAK-79"])
+def test_finding_rejects_malformed_cwe(bad_cwe: str) -> None:
+    with pytest.raises(ValidationError):
+        Finding(asset_id="AST-2026-00001", source=Source.THEMIS, title="x", cwe=[bad_cwe])
+
+
+@pytest.mark.parametrize("field", ["epss", "epss_percentile"])
+@pytest.mark.parametrize("value", [-0.1, 1.5])
+def test_finding_rejects_epss_out_of_range(field: str, value: float) -> None:
+    with pytest.raises(ValidationError):
+        Finding(asset_id="AST-2026-00001", source=Source.THEMIS, title="x", **{field: value})
+
+
+def test_finding_cves_prefers_structured_field() -> None:
+    finding = Finding(
+        asset_id="AST-2026-00001",
+        source=Source.THEMIS,
+        title="mentions CVE-2000-1111 in text",
+        cve=["CVE-2021-44228"],
+    )
+    # The structured field wins; the free-text id is ignored when cve is set.
+    assert finding.cves() == ["CVE-2021-44228"]
+
+
+def test_finding_cves_falls_back_to_free_text() -> None:
+    finding = Finding(
+        asset_id="AST-2026-00001",
+        source=Source.THEMIS,
+        title="Log4Shell CVE-2021-44228",
+        description="related to cwe-502 deserialization",
+        references=["https://nvd.nist.gov/vuln/detail/CVE-2021-45046"],
+    )
+    assert finding.cves() == ["CVE-2021-44228", "CVE-2021-45046"]
+    assert finding.cwes() == ["CWE-502"]
+
+
+def test_finding_structured_intel_round_trips() -> None:
+    original = Finding(
+        asset_id="AST-2026-00001",
+        source=Source.THEMIS,
+        title="Log4Shell",
+        severity=Severity.CRITICAL,
+        cvss=10.0,
+        cve=["CVE-2021-44228"],
+        cwe=["CWE-502"],
+        epss=0.97,
+        epss_percentile=0.99,
+        kev=True,
+        confidence=Confidence.HIGH,
+    )
+    restored = Finding.model_validate_json(original.model_dump_json())
+    assert restored == original
+    assert restored.confidence is Confidence.HIGH
+
+
+def test_finding_accepts_legacy_document_without_structured_fields() -> None:
+    """A finding persisted before WEB-C still validates (fields default)."""
+    legacy = {
+        "schema_name": "olympus.finding",
+        "schema_version": "1.0.0",
+        "finding_id": "FND-2024-00001",
+        "asset_id": "AST-2024-00001",
+        "source": "helios",
+        "title": "Open port 22",
+    }
+    finding = Finding.model_validate(legacy)
+    assert finding.cve == []
+    assert finding.kev is False

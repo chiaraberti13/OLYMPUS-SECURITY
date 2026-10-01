@@ -100,6 +100,16 @@ def test_extract_cves_is_empty_when_none_present() -> None:
     assert extract_cves(_finding("no cve here", severity=Severity.LOW)) == ()
 
 
+def test_extract_cves_prefers_structured_field_over_text() -> None:
+    """WEB-C: a finding's structured ``cve`` field takes precedence over free text."""
+    finding = _finding(
+        "text mentions CVE-2000-1111",
+        severity=Severity.HIGH,
+        cve=["CVE-2021-44228"],
+    )
+    assert extract_cves(finding) == ("CVE-2021-44228",)
+
+
 # --- Feed parsing ------------------------------------------------------------ #
 
 

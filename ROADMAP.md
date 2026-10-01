@@ -110,14 +110,14 @@ Legenda stato: ✅ implementata · 🟡 parziale · 🗓️ pianificata · ❌ a
 | # | Funzione | Stato | Evidenza (file) | Decisione |
 | --- | --- | --- | --- | --- |
 | 1 | CLI e configurazione uniformi | ✅ | `cli.py` (Typer, 14 sub-app), `core/config.py`, `themis/config.py`, `core/output.py` (`OutputFormat`) | Estendere coerenza opzioni/errori (`UX-G`) |
-| 2 | Schema comune asset/finding/IOC/eventi/evidenze | ✅ | `core/models.py` (`Asset`,`Finding`,`Event`,`Evidence`,`Alert`,`Observation`), `core/contracts.py`, `schemas/`; IOC in `metis/models.py` | Estendere `Finding` con CVE/CWE/EPSS/KEV strutturati (`WEB-C`) |
+| 2 | Schema comune asset/finding/IOC/eventi/evidenze | ✅ | `core/models.py` (`Asset`,`Finding`,`Event`,`Evidence`,`Alert`,`Observation`), `core/contracts.py`, `schemas/`; IOC in `metis/models.py`; `Finding` con CVE/CWE/EPSS/KEV/confidence tipizzati (`WEB-C`) | Mantenere; nessun nuovo modulo |
 | 3 | Logging strutturato, timeout, retry, errori | ✅ | `core/observability.py` (OTel/Prometheus redatto), `core/execution.py` (`Deadline`, timeout, retry, cancellation), `core/errors.py`, `core/exit_codes.py` | Mantenere; nessun nuovo modulo |
 | 4 | Dry-run e controlli perimetro autorizzato | 🟡 | scope gate `themis/scope.py`,`athena/scope.py`,`core/addresses.py`+`core/pinning.py` (SSRF); autorizzazione `core/execution.ExecutionPolicy`, `--i-am-authorized` | Scope ✅; **dry-run universale** → `SEC-G` |
 | 5 | RBAC, segreti, audit log, rate limiting | 🟡 | `themis/identity.py` (API key hashate, scopes/scadenza/limiti per identità), audit middleware `themis/api.py`, redaction `core/execution.py` | Base ✅; **RBAC/OIDC multiutente** → `WEB-H`; **SecretProvider** → `SEC-D` |
 | 6 | Arresto immediato + approvazione invasive | 🟡 | cancellation `core/execution.py`, kill del process-group `themis/sandbox.py` | **Kill switch globale**, classi PASSIVE/ACTIVE/INTRUSIVE, preview → `SEC-G`,`UX-B` |
 | 7 | Deduplicazione + ciclo di vita finding | 🟡 | `vulcan/aggregate.py` (`dedupe_findings` per ID), `FindingStatus` (7 stati) | Stati+dedup ✅; **workflow/suppression/false-positive** → `WEB-C` |
-| 8 | Severità, confidence, risk scoring contestuale | 🟡 | `Severity`, `vulcan/enrichment.prioritize` (KEV>EPSS>CVSS>severità) | `Finding.confidence` e **risk score numerico** ❌ → nuovo sotto-punto in `WEB-C` |
-| 9 | Mapping CVE/CWE/CVSS/MITRE ATT&CK | 🟡 | `Finding.cvss`; CVE/CWE via regex + link NVD/MITRE in `vulcan/pdf.py`; EPSS/KEV `vulcan/enrichment.py`; ATT&CK detection `apollo/attack.py`, `Alert.mitre_attack` | Campi strutturati → `WEB-C`; **ATT&CK offensivo sui finding** → `OPS-RED` |
+| 8 | Severità, confidence, risk scoring contestuale | 🟡 | `Severity`, `Finding.confidence` (`WEB-C`), `vulcan/enrichment.prioritize` (KEV>EPSS>CVSS>severità) | `Finding.confidence` ✅; **risk score numerico** ❌ → sotto-punto aperto in `WEB-C` |
+| 9 | Mapping CVE/CWE/CVSS/MITRE ATT&CK | 🟡 | `Finding.cvss` + campi `cve`/`cwe`/`epss`/`kev` strutturati (`WEB-C`); link NVD/MITRE in `vulcan/pdf.py`; EPSS/KEV `vulcan/enrichment.py`; ATT&CK detection `apollo/attack.py`, `Alert.mitre_attack` | Campi strutturati ✅; **ATT&CK offensivo sui finding** → `OPS-RED` |
 | 10 | Inventario centralizzato asset | 🟡 | `core.Asset`, `argus/assets.py`, persistenza per-assessment in Athena | **Centralizzazione cross-engagement** → `WEB-B` (Engagement) |
 | 11 | Scheduler, code, worker isolati, ripresa job | 🟡 | job store SQLite `themis/jobs.py` (stati+`recover`), `olympus themis recover`, sandbox isolato, worker Celery (vendored) | Queue+recover+sandbox ✅; **scheduler nativo** ❌ → `D13`; ritiro Celery vendored → `SEC-A` |
 | 12 | Scansioni incrementali + confronto risultati | 🟡 | `argus/diff.py` (diff recon) | **Finding/scan diff cross-run** → `WEB-I` |
@@ -642,10 +642,16 @@ identicamente dai quattro canali.
 - [ ] **Evidence browser**: navigare le evidenze collegate a un finding
   (comando/argv redatto, output, digest, firma Ed25519) riusando Minerva e la
   chain-of-custody, senza esporre dati redatti o segreti.
-- [ ] **Finding strutturato (fondamenta).** Promuovere CVE, CWE, EPSS e KEV da
-  testo estratto con regex a **campi opzionali tipizzati** sul contratto
-  `Finding`, con migrazione versionata. Beneficia report (PDF/HTML), deduplica,
-  correlazione e la vista web. Da fare una sola volta, prima della UI findings.
+- [x] **Finding strutturato (fondamenta).** CVE, CWE, EPSS, KEV e `confidence`
+  promossi da testo-regex a **campi opzionali tipizzati** sul contratto
+  `Finding` (`core/models.py`), additivi e retro-compatibili (schema resta
+  `1.0.0`: i finding pre-`WEB-C` validano ancora, i campi default a vuoto). Helper
+  `cves()`/`cwes()` preferiscono il campo strutturato e ricadono sul free-text;
+  `vulcan/enrichment.extract_cves` e `vulcan/pdf.py` (tabella CVE + metadati
+  finding) usano i campi tipizzati e mostrano EPSS/KEV/confidence anche **senza**
+  overlay di enrichment live. Doc: [`docs/findings.md`](docs/findings.md).
+- [ ] **Risk score numerico contestuale** su `Finding` (combina
+  severity+CVSS+EPSS+KEV+confidence), riusando `vulcan/enrichment.prioritize`.
 
 **Criterio di completamento:** un finding attraversa tutto il ciclo di vita con
 audit; la deduplica non perde evidenza né remediation; ogni finding è navigabile

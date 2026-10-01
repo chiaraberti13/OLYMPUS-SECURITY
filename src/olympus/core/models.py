@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from olympus.core.enums import (
     AlertStatus,
     AssetType,
+    Confidence,
     Criticality,
     EngagementStatus,
     FindingStatus,
@@ -27,6 +28,11 @@ from olympus.core.enums import (
     Source,
 )
 from olympus.core.ids import new_id
+
+#: CVE and CWE identifier patterns, used to validate structured finding fields and
+#: to extract identifiers from free-text when the structured fields are unset.
+_CVE_RE = re.compile(r"CVE-\d{4}-\d{4,7}", re.IGNORECASE)
+_CWE_RE = re.compile(r"CWE-\d+", re.IGNORECASE)
 
 
 def _utcnow() -> datetime:
@@ -76,6 +82,15 @@ class Finding(OlympusModel):
     severity: Severity = Severity.MEDIUM
     status: FindingStatus = FindingStatus.NEW
     cvss: float | None = None
+    #: Structured vulnerability intelligence. Optional and additive: when unset,
+    #: CVE/CWE ids are still derived from the free-text fields (see :meth:`cves`
+    #: and :meth:`cwes`). EPSS/KEV are populated by the enrichment overlay.
+    cve: list[str] = Field(default_factory=list)
+    cwe: list[str] = Field(default_factory=list)
+    epss: float | None = None
+    epss_percentile: float | None = None
+    kev: bool = False
+    confidence: Confidence | None = None
     evidence: list[str] = Field(default_factory=list)
     remediation: str = ""
     first_seen: datetime = Field(default_factory=_utcnow)
@@ -89,6 +104,45 @@ class Finding(OlympusModel):
         if value is not None and not 0.0 <= value <= 10.0:
             raise ValueError("cvss must be between 0.0 and 10.0")
         return value
+
+    @field_validator("cve")
+    @classmethod
+    def _validate_cve(cls, value: list[str]) -> list[str]:
+        normalized = [item.strip().upper() for item in value]
+        for item in normalized:
+            if not _CVE_RE.fullmatch(item):
+                raise ValueError(f"invalid CVE identifier: {item!r}")
+        return normalized
+
+    @field_validator("cwe")
+    @classmethod
+    def _validate_cwe(cls, value: list[str]) -> list[str]:
+        normalized = [item.strip().upper() for item in value]
+        for item in normalized:
+            if not _CWE_RE.fullmatch(item):
+                raise ValueError(f"invalid CWE identifier: {item!r}")
+        return normalized
+
+    @field_validator("epss", "epss_percentile")
+    @classmethod
+    def _validate_probability(cls, value: float | None) -> float | None:
+        if value is not None and not 0.0 <= value <= 1.0:
+            raise ValueError("EPSS score and percentile must be between 0.0 and 1.0")
+        return value
+
+    def cves(self) -> list[str]:
+        """Return the finding's CVE ids: the structured field, or text-derived."""
+        if self.cve:
+            return sorted(set(self.cve))
+        haystack = " ".join([self.title, self.description, *self.references, *self.evidence])
+        return sorted({match.group().upper() for match in _CVE_RE.finditer(haystack)})
+
+    def cwes(self) -> list[str]:
+        """Return the finding's CWE ids: the structured field, or text-derived."""
+        if self.cwe:
+            return sorted(set(self.cwe))
+        haystack = " ".join([self.title, self.description, *self.references, *self.evidence])
+        return sorted({match.group().upper() for match in _CWE_RE.finditer(haystack)})
 
 
 class Event(OlympusModel):

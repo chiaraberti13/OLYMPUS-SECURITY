@@ -38,13 +38,19 @@
   "findings": [
     {
       "asset_id": "AST-GOLDEN-1",
+      "confidence": null,
+      "cve": [],
       "cvss": 8.2,
+      "cwe": [],
       "description": "Untrusted input is reflected into an HTML response.",
+      "epss": null,
+      "epss_percentile": null,
       "evidence": [
         "EVD-GOLDEN-1"
       ],
       "finding_id": "FND-GOLDEN-1",
       "first_seen": "2026-01-02T03:04:05Z",
+      "kev": false,
       "last_seen": "2026-01-02T03:04:05Z",
       "references": [
         "https://owasp.org/www-community/attacks/xss/"
