@@ -27,6 +27,7 @@ from olympus.vulcan.aggregate import (
     load_findings,
     rank_findings,
 )
+from olympus.vulcan.pdf import render_report_pdf
 from olympus.vulcan.report import build_report_model, render_report_html, render_report_markdown
 
 DEFAULT_MAX_OUTPUT_BYTES = 100_000_000
@@ -43,6 +44,7 @@ class VulcanReportRequest:
     min_severity: Severity | None = None
     render_markdown: bool = False
     render_html: bool = False
+    render_pdf: bool = False
     max_files: int = DEFAULT_MAX_FILES
     max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES
     max_total_input_bytes: int = DEFAULT_MAX_TOTAL_INPUT_BYTES
@@ -68,6 +70,7 @@ class VulcanReportOutcome:
     report: SecurityReport
     markdown: str | None
     html: str | None
+    pdf: bytes | None = None
 
 
 @dataclass(frozen=True)
@@ -138,7 +141,11 @@ class VulcanApplicationService:
         if html is not None:
             _ensure_output_size(html.encode(), request.max_output_bytes, "HTML")
         progress()
-        return VulcanReportOutcome(report, markdown, html)
+        pdf = render_report_pdf(report) if request.render_pdf else None
+        if pdf is not None:
+            _ensure_output_size(pdf, request.max_output_bytes, "PDF")
+        progress()
+        return VulcanReportOutcome(report, markdown, html, pdf)
 
     def rank(self, request: VulcanRankRequest) -> tuple[Finding, ...]:
         if not 1 <= request.max_files <= 1_000:

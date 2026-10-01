@@ -13,6 +13,17 @@ everything below lives under **Unreleased**.
 ## [Unreleased]
 
 ### Added
+- **Report PDF formattato (`OPS-SCAN`)** — Vulcan rende un report PDF
+  presentabile (copertina, sommario esecutivo con tabella severità, finding
+  ordinati con CVSS/evidenza/remediation/reference, inventario asset e alert)
+  dallo stesso modello canonico degli altri formati. Esposto da
+  `olympus vulcan report --pdf` e da `athena run --report` quando il piano elenca
+  `pdf` tra i `report_formats`. Il motore è ReportLab (Python puro, offline,
+  nessun binario di sistema) nell'extra opzionale `report`; senza l'extra il
+  formato PDF restituisce un errore chiaro e gli altri formati restano
+  invariati. Ogni valore proveniente dal target è XML-escapato prima di entrare
+  nel documento (`SEC-H`). Primo passo del nuovo intervento `OPS-SCAN`, che
+  allinea l'esperienza a una suite tipo pentest-tools.com.
 - **Resilience fault injection (`DEV-E`)** — integration tests now exercise a
   worker crash and restart, concurrent idempotent submissions, real SQLite writer
   contention, interrupted schema migration rollback and cancellation of an

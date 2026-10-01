@@ -48,11 +48,33 @@ olympus vulcan report --engagement ENG-2026-001 \
   --assets argus-assets.json \
   --findings helios-findings.json \
   --alerts apollo-alerts.json \
-  --output report.json --markdown report.md --html report.html
+  --output report.json --markdown report.md --html report.html --pdf report.pdf
 ```
 
-Supplying JSON plus optional Markdown/HTML is prevalidated and rendered fully
+Supplying JSON plus optional Markdown/HTML/PDF is prevalidated and rendered fully
 before the first write. The individual atomic replacements are durable, but a
 filesystem failure between separate output replacements cannot provide a
 cross-file transaction; the canonical JSON report remains the machine source
 of truth.
+
+## Formatted PDF report (`OPS-SCAN`)
+
+`--pdf` writes a formatted, presentation-ready report — a cover page, an
+executive summary with the severity breakdown, the ranked findings (severity,
+CVSS, evidence, remediation and references) and the asset/alert inventories —
+from the same canonical model as every other format. `athena run --report`
+produces it too when the plan's `output.report_formats` lists `pdf`.
+
+The renderer uses [ReportLab](https://docs.reportlab.com/), a pure-Python engine
+with no system binaries, so the PDF stays fully offline and reproducible. It ships
+in the optional `report` extra:
+
+```bash
+pip install "olympus-security[report]"
+```
+
+Without the extra the PDF format reports a clear, actionable error and the other
+formats are unaffected. Every target-controlled value (finding titles,
+descriptions, evidence, asset labels, alert text) is XML-escaped before it reaches
+the document, so a hostile banner can never inject markup or forge report
+structure (`ROADMAP.md` `SEC-H`).

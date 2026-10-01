@@ -56,6 +56,7 @@ from olympus.vulcan.enrichment import (
     parse_kev_catalog,
     prioritize,
 )
+from olympus.vulcan.pdf import PdfUnavailableError
 
 app = typer.Typer(help="Athena — assessment orchestration.", no_args_is_help=True)
 plan_app = typer.Typer(help="Plan validation utilities.", no_args_is_help=True)
@@ -269,11 +270,17 @@ def _write_report(
 ) -> None:
     telemetry = observability or Observability()
     renderer = VulcanReportRenderer(plan.engagement_id)
+    suffixes = {"markdown": "md", "html": "html", "pdf": "pdf", "json": "json"}
     for fmt in plan.output.report_formats:
-        content = renderer.render(findings, fmt)
-        suffix = "md" if fmt == "markdown" else "json"
-        target = storage / f"{assessment_id}.report.{suffix}"
-        target.write_text(content, encoding="utf-8")
+        target = storage / f"{assessment_id}.report.{suffixes.get(fmt, 'json')}"
+        if fmt == "pdf":
+            try:
+                target.write_bytes(renderer.render_pdf(findings))
+            except PdfUnavailableError as exc:
+                typer.echo(f"athena: {exc}", err=True)
+                raise typer.Exit(code=ExitCode.USAGE) from exc
+        else:
+            target.write_text(renderer.render(findings, fmt), encoding="utf-8")
         with telemetry.span(
             "athena.report",
             Correlation(assessment_id=assessment_id, report_id=target.name),
