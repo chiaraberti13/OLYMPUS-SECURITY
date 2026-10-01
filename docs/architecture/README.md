@@ -13,6 +13,8 @@ design survives after the people and the pull request that made it
 | ADR-003 | Retire the vendored VAP surface | Planned | `SEC-A`, `DEV-A` |
 | ADR-004 | Adapter SDK and plugin registry | Planned | `DEV-B` |
 | ADR-005 | Signed engagement manifest | Planned | `SEC-C` |
+| [ADR-006](adr-006-aegis-to-themis-rename.md) | Rename the AEGIS subsystem to Themis | Accepted | `DEV-I` |
+| [ADR-007](adr-007-web-control-plane.md) | Native web control plane (FastAPI + HTMX + SSE) | Accepted | `WEB-A`…`WEB-H` |
 
 ## Rules
 
