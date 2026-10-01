@@ -16,7 +16,7 @@ replaces it with a small, file-backed identity register:
   authenticates nothing, and an unreadable or malformed register authenticates
   nothing either.
 
-The register is a versioned contract (``olympus.aegis-api-identities``) written
+The register is a versioned contract (``olympus.themis-api-identities``) written
 owner-only and atomically, so a half-written file can never be observed.
 """
 
@@ -122,7 +122,7 @@ class IdentityRegister(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_name: Literal["olympus.aegis-api-identities"] = "olympus.aegis-api-identities"
+    schema_name: Literal["olympus.themis-api-identities"] = "olympus.themis-api-identities"
     schema_version: Literal["1.0.0"] = "1.0.0"
     identities: list[ApiIdentity] = Field(default_factory=list, max_length=1_000)
 
@@ -185,7 +185,7 @@ def load_register(path: Path) -> IdentityRegister:
         document = json.loads(raw)
     except json.JSONDecodeError as exc:
         raise IdentityError(f"invalid THEMIS identity register JSON: {exc.msg}") from exc
-    validate_contract_header(document, schema_name="olympus.aegis-api-identities")
+    document = validate_contract_header(document, schema_name="olympus.themis-api-identities")
     return IdentityRegister.model_validate(document).validate_entries()
 
 

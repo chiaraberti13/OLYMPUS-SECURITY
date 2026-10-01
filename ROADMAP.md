@@ -472,16 +472,17 @@ Precedente collaudato: `docs/vap-to-aegis-rename.md` (VAP → AEGIS).
   l'implementazione; un CLI backward-compatibility test lo verifica.
 - [x] **Milestone 1 (fatto).** Riferimenti **storici** preservati (`upgrade.md`,
   `docs/vap-to-aegis-rename.md`, `CHANGELOG`, `adr-006`).
-- [ ] **Milestone 1b.** Trattare come **contract change** gli schema name
-  versionati (`olympus.aegis`, `.aegis-job`, `.aegis-result`, `.aegis-scope`,
-  `.aegis-readiness`, `.aegis-capability-inventory`, `.aegis-api-identities`,
-  `.aegis-job-list`) e il valore provenance `Source` `"aegis"`: nuovi nomi/valori
-  `themis` con migrazione `core/migrations` che legge i documenti storici,
-  rigenerando schema catalog e golden. *Volutamente rinviato da M1 per non
-  invalidare i dati persistiti e per isolare la migrazione.*
-- [ ] **Milestone 1b.** Variabili d'ambiente `THEMIS_*` con **fallback
+- [x] **Milestone 1b (fatto).** Schema name versionati rinominati in
+  `olympus.themis-*` e valore provenance `Source` portato a `"themis"`: un
+  canonicalizzatore (`core.contracts.canonicalize_schema_name`, applicato in
+  `migrate_document`, `validate_contract_header` e nel load delle identità)
+  riscrive i documenti persistiti sotto i vecchi nomi `olympus.aegis-*`, e il
+  membro deprecato `Source.AEGIS = "aegis"` mantiene validi i record storici.
+  Schema catalog e golden rigenerati; test di migrazione e di provenance.
+- [ ] **Milestone 1c.** Variabili d'ambiente `THEMIS_*` con **fallback
   automatico** alle `AEGIS_*` (già con fallback `VAP_*`) per almeno una release;
-  docker/docs allineati. *Rinviato con la migrazione schema.*
+  docker/docs allineati. Isolato perché tocca molti punti di lettura env
+  (sandbox, adapter, capabilities, CLI) e beneficia di una PR dedicata.
 
 **Criterio di completamento:** nessun identificatore tecnico `AEGIS`/`aegis`
 residuo salvo l'alias deprecato, i due contratti esterni rinviati a M1b (schema

@@ -87,7 +87,7 @@ class ThemisResultDocument(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_name: Literal["olympus.aegis-result"] = "olympus.aegis-result"
+    schema_name: Literal["olympus.themis-result"] = "olympus.themis-result"
     # 1.1.0 adds the optional `termination` object; every 1.0.0 field is
     # unchanged, so a 1.0.0 reader still understands a 1.1.0 document.
     schema_version: Literal["1.1.0"] = "1.1.0"

@@ -13,6 +13,16 @@ everything below lives under **Unreleased**.
 ## [Unreleased]
 
 ### Changed
+- **Migrazione schema-name e provenance AEGIS→Themis (`DEV-I`, Milestone 1b).**
+  Gli schema name versionati sono ora `olympus.themis-*` e il valore provenance
+  `Source` è `"themis"`. Un canonicalizzatore
+  (`core.contracts.canonicalize_schema_name`, usato in `migrate_document`, in
+  `validate_contract_header` e nel caricamento delle identità) riscrive i
+  documenti persistiti sotto i vecchi nomi `olympus.aegis-*`, e il membro
+  deprecato `Source.AEGIS = "aegis"` mantiene validi i record storici: nessun
+  contratto diventa illeggibile. Schema catalog e golden rigenerati; aggiunti
+  test di migrazione e di provenance. Le variabili d'ambiente `AEGIS_*` restano
+  invariate (migrazione a `THEMIS_*` con fallback in Milestone 1c).
 - **Rinominato il sottosistema AEGIS in Themis (`DEV-I`, Milestone 1).** Il
   control plane degli scanner specialistici ora vive in `src/olympus/themis/`,
   con comando `olympus themis` e API `olympus.themis.api`; classi, funzioni, tag

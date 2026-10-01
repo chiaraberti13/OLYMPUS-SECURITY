@@ -138,7 +138,7 @@ class ThemisJob(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_name: Literal["olympus.aegis-job"] = "olympus.aegis-job"
+    schema_name: Literal["olympus.themis-job"] = "olympus.themis-job"
     schema_version: Literal["2.0.0"] = "2.0.0"
     job_id: str = Field(pattern=r"^THEMIS-[A-F0-9]{32}$")
     idempotency_key: str | None = Field(default=None, max_length=128)
@@ -164,7 +164,7 @@ class ThemisJob(BaseModel):
 
 def load_job_document(raw: object) -> ThemisJob:
     """Load a current job document or migrate a declared legacy shape."""
-    candidate = migrate_document(raw, schema_name="olympus.aegis-job", current_version="2.0.0")
+    candidate = migrate_document(raw, schema_name="olympus.themis-job", current_version="2.0.0")
     return ThemisJob.model_validate(candidate)
 
 

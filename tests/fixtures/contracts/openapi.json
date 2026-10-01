@@ -29,8 +29,8 @@
             "type": "array"
           },
           "schema_name": {
-            "const": "olympus.aegis-job-list",
-            "default": "olympus.aegis-job-list",
+            "const": "olympus.themis-job-list",
+            "default": "olympus.themis-job-list",
             "title": "Schema Name",
             "type": "string"
           },
@@ -239,8 +239,8 @@
             "type": "string"
           },
           "schema_name": {
-            "const": "olympus.aegis-job",
-            "default": "olympus.aegis-job",
+            "const": "olympus.themis-job",
+            "default": "olympus.themis-job",
             "title": "Schema Name",
             "type": "string"
           },

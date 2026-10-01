@@ -38,7 +38,7 @@ def test_api_configuration_does_not_replace_an_adapter() -> None:
 
 def test_inventory_contract_counts_real_states() -> None:
     document = capabilities.inventory_document({})
-    assert document["schema_name"] == "olympus.aegis-capability-inventory"
+    assert document["schema_name"] == "olympus.themis-capability-inventory"
     assert document["catalogued"] == 24
     assert document["adapted"] == 15
     assert 0 <= document["ready"] <= document["adapted"]

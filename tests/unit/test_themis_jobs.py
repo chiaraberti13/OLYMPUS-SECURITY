@@ -52,7 +52,7 @@ def _scope(path: Path) -> Path:
     path.write_text(
         json.dumps(
             {
-                "schema_name": "olympus.aegis-scope",
+                "schema_name": "olympus.themis-scope",
                 "schema_version": "1.0.0",
                 "allowed_hosts": ["127.0.0.1"],
                 "allowed_cidrs": ["127.0.0.0/8"],

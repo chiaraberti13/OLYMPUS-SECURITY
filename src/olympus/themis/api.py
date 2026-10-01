@@ -153,8 +153,8 @@ class JobSubmission(BaseModel):
 class JobList(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    schema_name: Literal["olympus.aegis-job-list"] = "olympus.aegis-job-list"
-    # 2.0.0 tracks the embedded olympus.aegis-job contract, which replaced
+    schema_name: Literal["olympus.themis-job-list"] = "olympus.themis-job-list"
+    # 2.0.0 tracks the embedded olympus.themis-job contract, which replaced
     # `scope_path` with `scope_name`.
     schema_version: Literal["2.0.0"] = "2.0.0"
     count: int
@@ -311,7 +311,7 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
     def ready(caller: Caller = reads_capabilities) -> dict[str, object]:
         store.initialize()
         return {
-            "schema_name": "olympus.aegis-readiness",
+            "schema_name": "olympus.themis-readiness",
             "schema_version": "1.0.0",
             "status": "ready",
             "control_plane": True,

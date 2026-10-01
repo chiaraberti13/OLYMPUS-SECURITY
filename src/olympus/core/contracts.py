@@ -15,6 +15,35 @@ from typing import Any
 CURRENT_CONTRACT_VERSION = "1.0.0"
 _SEMVER = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 
+#: Legacy schema names renamed to their current identity (ROADMAP ``DEV-I``).
+#: The AEGIS subsystem became Themis; documents persisted under the old
+#: ``olympus.aegis-*`` names are accepted and rewritten to the current name on
+#: load, so no stored contract becomes unreadable.
+RENAMED_SCHEMAS: dict[str, str] = {
+    "olympus.aegis-scope": "olympus.themis-scope",
+    "olympus.aegis-job": "olympus.themis-job",
+    "olympus.aegis-job-list": "olympus.themis-job-list",
+    "olympus.aegis-result": "olympus.themis-result",
+    "olympus.aegis-readiness": "olympus.themis-readiness",
+    "olympus.aegis-capability-inventory": "olympus.themis-capability-inventory",
+    "olympus.aegis-api-identities": "olympus.themis-api-identities",
+}
+
+
+def canonicalize_schema_name(document: dict[str, Any]) -> dict[str, Any]:
+    """Rewrite a legacy ``schema_name`` to its current identity, if renamed.
+
+    Returns the document unchanged when its name is current or absent; otherwise
+    returns a shallow copy with the canonical name, so a document stored under a
+    pre-rename contract name still loads.
+    """
+    name = document.get("schema_name")
+    if isinstance(name, str) and name in RENAMED_SCHEMAS:
+        migrated = dict(document)
+        migrated["schema_name"] = RENAMED_SCHEMAS[name]
+        return migrated
+    return document
+
 
 class ContractCompatibilityError(ValueError):
     """Raised when a persisted document is not compatible with a consumer."""
@@ -52,6 +81,7 @@ def validate_contract_header(
     """
     if not isinstance(document, dict):
         raise ContractCompatibilityError("contract document must be a JSON object")
+    document = canonicalize_schema_name(document)
     actual_name = document.get("schema_name")
     if actual_name != schema_name:
         raise ContractCompatibilityError(

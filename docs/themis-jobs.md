@@ -103,7 +103,7 @@ operator-visible at the same time:
 - **Errors** are redacted before they are stored: URL query secrets via the
   shared `redact_text`, and absolute filesystem paths reduced to
   `[path]/<name>` — an error message must not describe the server's layout.
-- **`scope_path` is server-side state.** The `olympus.aegis-job` document
+- **`scope_path` is server-side state.** The `olympus.themis-job` document
   (`2.0.0`) publishes `scope_name` only; workers read the real path through
   `execution_record()`, which no API surfaces.
 - **Targets** are published through `redact_url`, so a credential someone put
