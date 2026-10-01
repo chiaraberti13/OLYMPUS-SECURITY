@@ -14,9 +14,13 @@ everything below lives under **Unreleased**.
 
 ### Added
 - **Report PDF formattato (`OPS-SCAN`)** — Vulcan rende un report PDF
-  presentabile (copertina, sommario esecutivo con tabella severità, finding
-  ordinati con CVSS/evidenza/remediation/reference, inventario asset e alert)
-  dallo stesso modello canonico degli altri formati. Esposto da
+  presentabile e progettato: copertina con masthead brandizzato, executive
+  summary con KPI tile e barra di distribuzione delle severità con legenda,
+  finding come card (chip di severità, regola di accento colorata, box evidenza
+  monospace, callout di remediation) e inventario asset/alert, dallo stesso
+  modello canonico degli altri formati. I colori di severità sono una scala
+  ordinale validata e ogni chip sceglie il colore del testo per contrasto, così
+  il significato non è mai affidato al solo colore. Esposto da
   `olympus vulcan report --pdf` e da `athena run --report` quando il piano elenca
   `pdf` tra i `report_formats`. Il motore è ReportLab (Python puro, offline,
   nessun binario di sistema) nell'extra opzionale `report`; senza l'extra il

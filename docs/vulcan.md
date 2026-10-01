@@ -59,11 +59,18 @@ of truth.
 
 ## Formatted PDF report (`OPS-SCAN`)
 
-`--pdf` writes a formatted, presentation-ready report — a cover page, an
-executive summary with the severity breakdown, the ranked findings (severity,
-CVSS, evidence, remediation and references) and the asset/alert inventories —
-from the same canonical model as every other format. `athena run --report`
-produces it too when the plan's `output.report_formats` lists `pdf`.
+`--pdf` writes a designed, presentation-ready report — a branded cover, an
+executive summary with KPI tiles and a proportional severity-distribution bar
+with a labelled legend, the ranked findings as cards (a severity chip, a
+severity-coloured left accent rule, a monospace evidence box and a remediation
+callout) and the asset/alert inventories — from the same canonical model as
+every other format. `athena run --report` produces it too when the plan's
+`output.report_formats` lists `pdf`.
+
+Severity colour is a validated ordinal scale (critical → info). Because it is a
+status scale, every mark that carries it also carries its text label (the chip
+text, the bar and legend labels), so meaning is never colour-alone, and each
+chip's text colour is chosen by WCAG contrast against its own fill.
 
 The renderer uses [ReportLab](https://docs.reportlab.com/), a pure-Python engine
 with no system binaries, so the PDF stays fully offline and reproducible. It ships
