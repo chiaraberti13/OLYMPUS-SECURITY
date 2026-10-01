@@ -13,21 +13,26 @@ everything below lives under **Unreleased**.
 ## [Unreleased]
 
 ### Added
-- **Report PDF formattato (`OPS-SCAN`)** — Vulcan rende un report PDF
-  presentabile e progettato: copertina con masthead brandizzato, executive
-  summary con KPI tile e barra di distribuzione delle severità con legenda,
-  finding come card (chip di severità, regola di accento colorata, box evidenza
-  monospace, callout di remediation) e inventario asset/alert, dallo stesso
-  modello canonico degli altri formati. I colori di severità sono una scala
-  ordinale validata e ogni chip sceglie il colore del testo per contrasto, così
-  il significato non è mai affidato al solo colore. Esposto da
-  `olympus vulcan report --pdf` e da `athena run --report` quando il piano elenca
-  `pdf` tra i `report_formats`. Il motore è ReportLab (Python puro, offline,
-  nessun binario di sistema) nell'extra opzionale `report`; senza l'extra il
-  formato PDF restituisce un errore chiaro e gli altri formati restano
-  invariati. Ogni valore proveniente dal target è XML-escapato prima di entrare
-  nel documento (`SEC-H`). Primo passo del nuovo intervento `OPS-SCAN`, che
-  allinea l'esperienza a una suite tipo pentest-tools.com.
+- **Report PDF formattato (`OPS-SCAN`)** — Vulcan rende un report PDF minimal e
+  presentabile: copertina brandizzata, summary (overall risk, conteggi per
+  severità con barra di distribuzione, totali), una **tabella delle vulnerabilità
+  note** e i finding come blocchi tipografici puliti, più inventario asset/alert,
+  dallo stesso modello canonico degli altri formati.
+  - **Riferimenti NIST/CVE/CVSS/EPSS** — la tabella elenca una riga per CVE
+    (`CVE · CVSS · EPSS · percentile · KEV`) con link cliccabili al NIST NVD; nei
+    finding i CVE risolvono al NVD e i CWE a MITRE CWE. EPSS e KEV provengono
+    dall'overlay di enrichment, mai inventati: in `olympus vulcan report --pdf`
+    via `--kev/--epss`, e in `athena run --report` automaticamente quando la run è
+    arricchita. `FindingEnrichment` ora conserva anche l'EPSS per singolo CVE
+    (`per_cve`).
+  - I colori di severità sono una scala ordinale validata e ogni chip sceglie il
+    colore del testo per contrasto, così il significato non è mai affidato al solo
+    colore. Ogni valore proveniente dal target è XML-escapato prima di entrare nel
+    documento (`SEC-H`).
+  - Motore ReportLab (Python puro, offline, nessun binario di sistema) nell'extra
+    opzionale `report`; senza l'extra il PDF restituisce un errore chiaro e gli
+    altri formati restano invariati. Primo passo del nuovo intervento `OPS-SCAN`,
+    che allinea l'esperienza a una suite tipo pentest-tools.com.
 - **Resilience fault injection (`DEV-E`)** — integration tests now exercise a
   worker crash and restart, concurrent idempotent submissions, real SQLite writer
   contention, interrupted schema migration rollback and cancellation of an

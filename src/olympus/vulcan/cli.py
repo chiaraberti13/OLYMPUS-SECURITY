@@ -84,6 +84,14 @@ def report(
         "--pdf",
         help="If set, also write a formatted PDF report (needs the 'report' extra).",
     ),
+    kev: Path | None = typer.Option(
+        None, "--kev", help="Local CISA KEV catalogue JSON: adds KEV flags to the PDF (offline)."
+    ),
+    epss: Path | None = typer.Option(
+        None,
+        "--epss",
+        help="Local FIRST EPSS response JSON: adds EPSS scores to the PDF (offline).",
+    ),
     min_severity: Severity | None = typer.Option(
         None, "--min-severity", help="Only include findings at or above this severity."
     ),
@@ -102,6 +110,20 @@ def report(
         path for path in (output, markdown, html_output, pdf_output) if path is not None
     )
     try:
+        kev_catalog = (
+            parse_kev_catalog(
+                read_regular_text(kev, max_bytes=DEFAULT_MAX_FEED_BYTES, label="KEV feed")
+            )
+            if kev is not None
+            else {}
+        )
+        epss_scores = (
+            parse_epss_response(
+                read_regular_text(epss, max_bytes=DEFAULT_MAX_FEED_BYTES, label="EPSS feed")
+            )
+            if epss is not None
+            else {}
+        )
         outcome = VulcanApplicationService().report(
             VulcanReportRequest(
                 engagement=engagement,
@@ -113,6 +135,8 @@ def report(
                 render_markdown=markdown is not None,
                 render_html=html_output is not None,
                 render_pdf=pdf_output is not None,
+                kev_catalog=kev_catalog,
+                epss_scores=epss_scores,
                 max_files=max_files,
                 max_input_bytes=max_input_bytes,
                 max_total_input_bytes=max_total_input_bytes,

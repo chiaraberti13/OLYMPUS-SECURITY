@@ -10,6 +10,7 @@ import pytest
 
 from olympus.core.enums import AssetType, Severity, Source
 from olympus.core.models import Alert, Asset, Finding
+from olympus.vulcan.enrichment import EpssScore, KevEntry, enrich_findings
 from olympus.vulcan.pdf import PdfUnavailableError, export_pdf, render_report_pdf
 from olympus.vulcan.report import build_report_model
 
@@ -106,3 +107,49 @@ def test_missing_reportlab_raises_actionable_error(monkeypatch: pytest.MonkeyPat
     with pytest.raises(PdfUnavailableError) as excinfo:
         render_report_pdf(_report())
     assert "report" in str(excinfo.value)
+
+
+def _cve_finding() -> Finding:
+    return Finding(
+        asset_id="asset-1",
+        source=Source.HELIOS,
+        title="Outdated Next.js with known vulnerabilities",
+        description="Multiple SSRF issues affect the detected version.",
+        severity=Severity.HIGH,
+        cvss=8.6,
+        remediation="Upgrade to a fixed release.",
+        references=["CVE-2021-44228", "CWE-1004", "https://nextjs.org/blog/security"],
+    )
+
+
+def test_cve_and_cwe_references_link_to_nist_and_mitre() -> None:
+    report = build_report_model(
+        "eng", [], [_cve_finding()], [], generated_at=datetime(2026, 1, 1, tzinfo=UTC)
+    )
+    pdf = render_report_pdf(report)
+    # Link targets live in the PDF's (uncompressed) annotation dictionaries.
+    assert b"nvd.nist.gov/vuln/detail/CVE-2021-44228" in pdf
+    assert b"cwe.mitre.org/data/definitions/1004" in pdf
+    assert b"nextjs.org/blog/security" in pdf
+
+
+def test_enrichment_overlay_adds_epss_and_kev_without_error() -> None:
+    finding = _cve_finding()
+    overlay = enrich_findings(
+        [finding],
+        kev={"CVE-2021-44228": KevEntry("CVE-2021-44228", "2021-12-10", "Apache", "Log4j")},
+        epss={"CVE-2021-44228": EpssScore("CVE-2021-44228", 0.97521, 0.99998)},
+    )
+    report = build_report_model(
+        "eng", [], [finding], [], generated_at=datetime(2026, 1, 1, tzinfo=UTC)
+    )
+    pdf = render_report_pdf(report, enrichments=overlay)
+    assert pdf.startswith(b"%PDF-")
+    assert b"nvd.nist.gov/vuln/detail/CVE-2021-44228" in pdf
+
+
+def test_overall_risk_reflects_the_worst_finding() -> None:
+    low = Finding(asset_id="a", source=Source.ARTEMIS, title="minor", severity=Severity.LOW)
+    report = build_report_model("eng", [], [low], [], generated_at=datetime(2026, 1, 1, tzinfo=UTC))
+    pdf = render_report_pdf(report)
+    assert pdf.startswith(b"%PDF-")

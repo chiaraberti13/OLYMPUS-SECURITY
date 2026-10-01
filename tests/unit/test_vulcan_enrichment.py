@@ -247,3 +247,10 @@ def test_enrich_command_without_feeds_is_a_clean_no_op(tmp_path: Path) -> None:
     )
     assert result.exit_code == 0, result.output
     assert "0 in CISA KEV" in result.output  # no KEV file -> nothing flagged
+
+
+def test_enrich_finding_records_per_cve_epss() -> None:
+    epss = parse_epss_response(_EPSS_JSON)
+    overlay = enrich_finding(_finding("CVE-2021-44228", severity=Severity.HIGH), kev={}, epss=epss)
+    assert [score.cve for score in overlay.per_cve] == ["CVE-2021-44228"]
+    assert overlay.to_dict()["per_cve"][0]["cve"] == "CVE-2021-44228"

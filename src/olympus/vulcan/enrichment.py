@@ -83,6 +83,9 @@ class FindingEnrichment:
     kev: tuple[KevEntry, ...] = ()
     max_epss: float | None = None
     max_epss_percentile: float | None = None
+    #: Per-CVE EPSS scores for the CVEs that matched the feed, so a report can
+    #: show a per-CVE (EPSS score, percentile) table rather than only the maximum.
+    per_cve: tuple[EpssScore, ...] = ()
 
     @property
     def in_kev(self) -> bool:
@@ -106,6 +109,10 @@ class FindingEnrichment:
             ],
             "max_epss": self.max_epss,
             "max_epss_percentile": self.max_epss_percentile,
+            "per_cve": [
+                {"cve": score.cve, "epss": score.score, "percentile": score.percentile}
+                for score in self.per_cve
+            ],
         }
 
 
@@ -195,6 +202,7 @@ def enrich_finding(
         kev=matched_kev,
         max_epss=max_score,
         max_epss_percentile=max_percentile,
+        per_cve=tuple(sorted(matched_epss, key=lambda item: item.score, reverse=True)),
     )
 
 

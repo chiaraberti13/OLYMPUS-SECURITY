@@ -656,11 +656,13 @@ esportabile. Le fondamenta esistono già in Olympus — **Athena** orchestra la
 catena su un piano firmabile e **Vulcan** produce report JSON/Markdown/HTML — per
 cui questo intervento *potenzia* quei due moduli, non ne crea di paralleli.
 
-- [~] **Report PDF formattato.** Aggiungere a Vulcan un renderer PDF (copertina
-  con engagement e data, sommario esecutivo, tabella severità, finding ordinati
-  con severità, CVSS, evidenza, remediation e reference). L'export è esposto da
-  `vulcan report` e da `athena run --report`, mantenendo JSON/Markdown/HTML. Il
-  testo proveniente dai target è escapato (`SEC-H`). *In corso.*
+- [x] **Report PDF formattato.** Renderer PDF minimal in Vulcan: copertina
+  brandizzata, summary (overall risk, conteggi, barra severità), **tabella delle
+  vulnerabilità note** (`CVE · CVSS · EPSS · percentile · KEV` con link al NIST
+  NVD) e finding con Risk description/Recommendation/Evidence/References (link
+  NVD e CWE). EPSS/KEV dall'overlay di enrichment (mai inventati); esposto da
+  `vulcan report --pdf [--kev/--epss]` e da `athena run --report`, mantenendo
+  JSON/Markdown/HTML. Testo dei target escapato (`SEC-H`).
 - [ ] **Profili Light/Deep.** Introdurre profili di scansione nominati che
   generano il piano Athena, come il Light/Deep scan della suite: `light` passivo e
   veloce (recon + header + TLS, nessuna autenticazione), `deep` completo
@@ -829,7 +831,7 @@ committata e verificabile secondo `docs/scanner-maturity.md`.
 | Import runtime da `vendor/` | presenti (`aegis serve`, `migrate`, `workers`) | 0 | test di architettura `DEV-A` |
 | Link interni rotti | ≥ 6 file → 0 (verifica manuale del 24/09/2026) | 0, garantito dalla CI | link checker `DEV-G` |
 | Lingue dell'interfaccia | 1 (EN) | 2 (IT/EN) | cataloghi `UX-E` |
-| Formati di report Vulcan | 3 (JSON, Markdown, HTML) | 4 con PDF formattato | `src/olympus/vulcan/` + test |
+| Formati di report Vulcan | 4 (JSON, Markdown, HTML, PDF con tabella NVD/EPSS) | mantenere e arricchire | `src/olympus/vulcan/` + test |
 
 Gli indicatori si aggiornano solo dalla fonte indicata: un valore senza prova
 verificabile resta al valore precedente.
