@@ -99,6 +99,91 @@ di sicurezza forti, release riproducibili e flussi operativi comprensibili.
 | Documentazione | README bilingue, threat model, ADR e guide operative | link interni corretti, ma manca un link checker in CI; alcuni conteggi non allineati |
 | Governance | `ROADMAP.md` canonica, `upgrade.md` storico in sola aggiunta, `CONTRIBUTING.md` allineato alla CI, template issue/PR, label versionate e indice ADR | gli indicatori e la maturity table non sono ancora generati automaticamente |
 
+## 🔎 Audit di stato verificato (ottobre 2026)
+
+Verifica effettuata leggendo il codice su `main` (non la sola documentazione).
+Legenda stato: ✅ implementata · 🟡 parziale · 🗓️ pianificata · ❌ assente ·
+♻️ duplicata/sovrapposta a un modulo esistente.
+
+### A. Capability (gap analysis) — funzione → stato → evidenza → decisione
+
+| # | Funzione | Stato | Evidenza (file) | Decisione |
+| --- | --- | --- | --- | --- |
+| 1 | CLI e configurazione uniformi | ✅ | `cli.py` (Typer, 14 sub-app), `core/config.py`, `themis/config.py`, `core/output.py` (`OutputFormat`) | Estendere coerenza opzioni/errori (`UX-G`) |
+| 2 | Schema comune asset/finding/IOC/eventi/evidenze | ✅ | `core/models.py` (`Asset`,`Finding`,`Event`,`Evidence`,`Alert`,`Observation`), `core/contracts.py`, `schemas/`; IOC in `metis/models.py` | Estendere `Finding` con CVE/CWE/EPSS/KEV strutturati (`WEB-C`) |
+| 3 | Logging strutturato, timeout, retry, errori | ✅ | `core/observability.py` (OTel/Prometheus redatto), `core/execution.py` (`Deadline`, timeout, retry, cancellation), `core/errors.py`, `core/exit_codes.py` | Mantenere; nessun nuovo modulo |
+| 4 | Dry-run e controlli perimetro autorizzato | 🟡 | scope gate `themis/scope.py`,`athena/scope.py`,`core/addresses.py`+`core/pinning.py` (SSRF); autorizzazione `core/execution.ExecutionPolicy`, `--i-am-authorized` | Scope ✅; **dry-run universale** → `SEC-G` |
+| 5 | RBAC, segreti, audit log, rate limiting | 🟡 | `themis/identity.py` (API key hashate, scopes/scadenza/limiti per identità), audit middleware `themis/api.py`, redaction `core/execution.py` | Base ✅; **RBAC/OIDC multiutente** → `WEB-H`; **SecretProvider** → `SEC-D` |
+| 6 | Arresto immediato + approvazione invasive | 🟡 | cancellation `core/execution.py`, kill del process-group `themis/sandbox.py` | **Kill switch globale**, classi PASSIVE/ACTIVE/INTRUSIVE, preview → `SEC-G`,`UX-B` |
+| 7 | Deduplicazione + ciclo di vita finding | 🟡 | `vulcan/aggregate.py` (`dedupe_findings` per ID), `FindingStatus` (7 stati) | Stati+dedup ✅; **workflow/suppression/false-positive** → `WEB-C` |
+| 8 | Severità, confidence, risk scoring contestuale | 🟡 | `Severity`, `vulcan/enrichment.prioritize` (KEV>EPSS>CVSS>severità) | `Finding.confidence` e **risk score numerico** ❌ → nuovo sotto-punto in `WEB-C` |
+| 9 | Mapping CVE/CWE/CVSS/MITRE ATT&CK | 🟡 | `Finding.cvss`; CVE/CWE via regex + link NVD/MITRE in `vulcan/pdf.py`; EPSS/KEV `vulcan/enrichment.py`; ATT&CK detection `apollo/attack.py`, `Alert.mitre_attack` | Campi strutturati → `WEB-C`; **ATT&CK offensivo sui finding** → `OPS-RED` |
+| 10 | Inventario centralizzato asset | 🟡 | `core.Asset`, `argus/assets.py`, persistenza per-assessment in Athena | **Centralizzazione cross-engagement** → `WEB-B` (Engagement) |
+| 11 | Scheduler, code, worker isolati, ripresa job | 🟡 | job store SQLite `themis/jobs.py` (stati+`recover`), `olympus themis recover`, sandbox isolato, worker Celery (vendored) | Queue+recover+sandbox ✅; **scheduler nativo** ❌ → `D13`; ritiro Celery vendored → `SEC-A` |
+| 12 | Scansioni incrementali + confronto risultati | 🟡 | `argus/diff.py` (diff recon) | **Finding/scan diff cross-run** → `WEB-I` |
+| 13 | Dashboard, notifiche, report JSON/CSV/HTML/PDF/SARIF | 🟡 | report JSON/MD/HTML/PDF `vulcan/`, SARIF `hermes/sarif.py`, OCSF/ECS/NDJSON `apollo/` | **CSV** ❌ (basso costo) → `WEB-I`; **dashboard/notifiche** → `WEB-G`/`WEB-I` |
+| 14 | API, webhook, CI/CD, ticketing, SIEM, CTI | 🟡 | API tipizzata `themis/api.py`; CTI nativo Metis (`metis/misp.py`,`stix.py`) | API+CTI ✅; **webhook/ticketing/CI** → `WEB-J`; **SIEM** → `OPS-BLUE` |
+| 15 | Test unit/integration/e2e + demo sicuro | ✅ | ~132 file di test (unit/contract/integration/container/live_lab), demo `labs/mars/` | Estendere e2e Web con `WEB-A` |
+
+### B. Moduli proposti (FASE 3) — valutazione
+
+| Modulo proposto | Problema | Equivalente esistente | Decisione |
+| --- | --- | --- | --- |
+| **Hermes** (inventario asset) | asset inventory | ♻️ **conflitto di nome**: Hermes è già il **secret scanning** (`src/olympus/hermes/`) | **Scartare il nome**; inventario in `core.Asset`+`argus/assets.py`, centralizzato da `WEB-B` |
+| **Aegis** (vuln management) | vulnerability management | ♻️ è **Themis** (ex-AEGIS: `src/olympus/themis/`) | **Scartare**: già Themis; lifecycle vuln → `WEB-C` |
+| **Prometheus** (monitoraggio) | monitoring continuo | ♻️ **doppio conflitto**: il noto sistema Prometheus e il backend `observability` già chiamato `prometheus` (`core/observability.py`) | **Scartare il nome**; monitoring → estende `core/observability.py` + scheduler (`D13`) |
+| **Hestia** (secret detection) | secret detection | ♻️ è **Hermes** (nativo: regex+entropia+git history, `hermes/scanner.py`) | **Scartare**: già Hermes |
+| **Hephaestus** (supply-chain) | supply-chain security | 🟡 SBOM `core/sbom.py`, lockfile, pip-audit/gitleaks in CI; nome già **riservato** per hardening/CIS (`OPS-BLUE`) | **Integrare** in `SEC-F` (provenance/SLSA/Cosign) + candidati Trivy/OSV (`OPS-SCAN`); non un modulo nuovo |
+| **Iris** (notifiche) | notifiche | ❌ assente | **Integrare** come `WEB-I` (porta di output sul core), non modulo dominio |
+| **Chronos** (scheduler) | scheduling | ❌ assente (job store c'è) | **Integrare** come servizio di scheduling su `themis/jobs.py` (`D13`); nome solo se diventa sub-app CLI |
+| **Oracle** (risk scoring) | risk scoring | ♻️ **conflitto di nome** (Oracle DB); parziale in `vulcan/enrichment.prioritize` | **Scartare il nome**; estendere `vulcan` con risk score + confidence |
+
+**Conclusione FASE 3:** nessun nuovo modulo di dominio è necessario. Ogni proposta
+si integra in moduli esistenti (Themis, Vulcan, Argus, Metis, `core`, Web),
+evitando i conflitti di nome con prodotti noti (Prometheus, Oracle) e con i
+moduli Olympus già presenti (Hermes, Hephaestus).
+
+### C. Integrazioni (FASE 4) — stato e priorità
+
+| Tool | Utilità | Modulo responsabile | Stato | Priorità |
+| --- | --- | --- | --- | --- |
+| Nmap | discovery porte/servizi | Themis adapter | ✅ live-tested (`themis/adapters/nmap.py`) | — |
+| Nuclei | vuln templating | Themis adapter | ✅ live-tested (`themis/adapters/nuclei.py`) | — |
+| OWASP ZAP | web app scanning | Themis adapter | 🟡 a catalogo, adapter ❌ (`integrations/scanners.py`) | P2 |
+| Semgrep | SAST del codice | Themis/`SEC-F` | ❌ | P2 |
+| Trivy | container/IaC/dep + SBOM-vuln | Themis adapter | ❌ | P2 |
+| Gitleaks | secret scanning | ♻️ Hermes (nativo) + CI secret-scan | ✅ coperto | basso |
+| Checkov | IaC misconfig | Themis adapter | ❌ | P3 |
+| Syft | SBOM | `core/sbom.py` (SBOM nativo) | 🟡 opzionale | P3 |
+| Grype | vuln da SBOM | con Syft/Trivy | ❌ | P3 |
+| YARA | pattern su file/malware | Metis/Apollo | ❌ | P3 |
+| Sigma | regole detection | Apollo | ✅ import nativo (`apollo/sigma.py`) | — |
+| MISP | CTI | Metis | ✅ nativo (`metis/misp.py`) | — |
+| OpenCTI | CTI | Metis | 🟡 STIX/TAXII presenti; client OpenCTI ❌ → `D10` | P2 |
+
+Regola invariata: uno scanner si aggiunge solo se colma una capability mancante e
+non duplica un adapter presente; esecuzione sempre scope-gated e sandboxata.
+
+### D. Milestone progressive (FASE 5) — mappate agli ID stabili
+
+Gli interventi restano quelli già in roadmap (nessun ID nuovo inventato); qui sono
+riorganizzati nelle 7 milestone richieste con criteri di accettazione misurabili.
+
+| Milestone | Obiettivo | Stato verificato | Attività (ID) | Criterio di accettazione |
+| --- | --- | --- | --- | --- |
+| M1 Fondamenta | base stabile e coerente | 🟡 `DEV-I` ✅, suite/coverage ✅ | `DEV-G`,`DEV-H`,`DEV-C`,`SEC-A` | link checker in CI verde; 0 import runtime da `vendor/` |
+| M2 Sicurezza operativa | guardrail attivi | 🟡 scope/sandbox ✅ | `SEC-B`,`SEC-C`,`SEC-G`,`SEC-H`,`UX-B` | dry-run+kill switch end-to-end; parser fuzzing in CI |
+| M3 Modello dati & Finding Engine | finding ricchi e tracciabili | 🟡 stati+dedup ✅ | `WEB-C` (+`Finding.confidence`/risk score, CVE/CWE/EPSS/KEV strutturati) | lifecycle completo con audit; dedup senza perdita evidenza |
+| M4 Asset & Vulnerability management | engagement centrale | 🟡 Themis ✅, asset parziale | `WEB-B`,`WEB-D` | stesso engagement/asset da CLI/TUI/API/Web |
+| M5 Integrazioni | capability mancanti mirate | 🟡 Nmap/Nuclei/Sigma/MISP ✅ | `OPS-SCAN` (ZAP/Semgrep/Trivy), `OPS-BLUE` (SIEM/OpenCTI), `WEB-J` (webhook/CI/ticketing) | ogni integrazione scope-gated con fixture reale |
+| M6 Dashboard & Reporting | output multi-formato e UI | 🟡 JSON/MD/HTML/PDF/SARIF ✅ | `WEB-A`,`WEB-E`,`WEB-G`,`WEB-I` (+CSV, scan diff, trend) | report CSV + diff tra run; dashboard con widget operativi |
+| M7 Scalabilità & monitoraggio continuo | scheduling e osservabilità | 🟡 observability ✅, scheduler ❌ | `WEB-H` (Postgres), `D13` (scheduler), `DEV-E`/`SEC-F` | scheduler ricorrente scope-aware; stesso codice SQLite/Postgres |
+
+Elementi **esclusi**: nuovi moduli `Prometheus`/`Oracle`/`Hestia`/`Aegis`
+separati (conflitti/duplicazioni); wrapper scanner che duplicano capability
+esistenti (Gitleaks↔Hermes). Ordine di implementazione: M1→M2→M3→M4→M5→M6→M7,
+coerente con la Fase 7 del cruscotto.
+
 ## 🛡️ Prospettiva Cybersecurity (Analisi e Rinforzo)
 
 ### Stato di sicurezza attuale
