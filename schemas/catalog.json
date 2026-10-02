@@ -40,7 +40,7 @@
       "name": "olympus.athena.result",
       "path": "contracts/olympus.athena.result/1.0.0.schema.json",
       "schema_version": "1.0.0",
-      "sha256": "9a31e78a876de960dc64c13e2ed4763597c8e2a24651d5933327905be7ecdc4c"
+      "sha256": "15a6e8dc45b98fce5e00a776c93ba9478cdd44c3e9a17eb4270a800a2d164345"
     },
     {
       "direction": "shared",
@@ -68,7 +68,7 @@
       "name": "olympus.finding",
       "path": "contracts/olympus.finding/1.0.0.schema.json",
       "schema_version": "1.0.0",
-      "sha256": "54647c3f159c19902b26d67286ed0bfff1794a6d7ddc124917a093bba0ec269a"
+      "sha256": "f2bb7ceac01764c5cf4e51ee56408f66634f82fe91b703dd52b5e2f6cf4d9f23"
     },
     {
       "direction": "shared",
@@ -110,7 +110,7 @@
       "name": "olympus.security-report",
       "path": "contracts/olympus.security-report/1.0.0.schema.json",
       "schema_version": "1.0.0",
-      "sha256": "ad76b8820acf67e8bd3e0ce1c36cfddb093c954d26f9bc5c4b9a8c75f931cad5"
+      "sha256": "56e7dd645a9070347bfcb1e97d1ba96617621c11a78d75cc2e523229d6f606bf"
     }
   ],
   "schema_name": "olympus.schema-catalog",

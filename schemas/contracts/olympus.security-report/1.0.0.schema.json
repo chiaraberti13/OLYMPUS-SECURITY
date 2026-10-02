@@ -392,6 +392,13 @@
           "$ref": "#/$defs/FindingStatus",
           "default": "new"
         },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
         "title": {
           "minLength": 1,
           "title": "Title",

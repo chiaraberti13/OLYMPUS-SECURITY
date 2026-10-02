@@ -129,6 +129,20 @@ class Finding(EngagementScopedModel):
     first_seen: datetime = Field(default_factory=_utcnow)
     last_seen: datetime = Field(default_factory=_utcnow)
     references: list[str] = Field(default_factory=list)
+    #: Free-form operator labels for triage, grouping, search and filters
+    #: (ROADMAP ``WEB-C``). Additive and optional, like ``Asset.tags``.
+    tags: list[str] = Field(default_factory=list)
+
+    @field_validator("tags")
+    @classmethod
+    def _normalize_tags(cls, value: list[str]) -> list[str]:
+        """Trim tags, drop empties, and de-duplicate while preserving order."""
+        seen: dict[str, None] = {}
+        for raw in value:
+            tag = raw.strip()
+            if tag:
+                seen.setdefault(tag, None)
+        return list(seen)
 
     @field_validator("cvss")
     @classmethod

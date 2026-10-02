@@ -653,8 +653,11 @@ identicamente dai quattro canali.
   fonde i duplicati logici (stesso asset + stessa vuln via CVE o titolo) in un
   unico finding senza perdere evidenze (union di evidence/reference/CVE/CWE,
   segnale più urgente per gli scalari), nel pipeline Vulcan dopo il dedup per ID.
-  **Rimane:** persistenza dell'audit trail delle transizioni, suppression,
-  tagging, ricerca e filtri.
+  **Tagging/ricerca/filtri fatti:** campo `Finding.tags` (additivo, normalizzato)
+  e `vulcan/search.FindingFilter`/`search_findings` — criteri componibili (stato,
+  severità minima, source, engagement, KEV, has-CVE, tag case-insensitive, testo
+  libero, risk score minimo) con semantica AND, fonte unica per CLI/TUI/Web.
+  **Rimane:** persistenza dell'audit trail delle transizioni, suppression.
 - [ ] **Evidence browser**: navigare le evidenze collegate a un finding
   (comando/argv redatto, output, digest, firma Ed25519) riusando Minerva e la
   chain-of-custody, senza esporre dati redatti o segreti.

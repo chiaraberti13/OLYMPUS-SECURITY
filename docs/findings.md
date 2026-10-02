@@ -148,6 +148,44 @@ It runs in the Vulcan aggregation pipeline after the exact-id `dedupe_findings`,
 and is stable and idempotent (a finding with no duplicate passes through
 unchanged).
 
+## Tagging, search and filters
+
+Findings carry free-form `tags` (operator labels for triage and grouping —
+additive and optional, like `Asset.tags`; trimmed, de-duplicated and emptied of
+blanks on validation). `vulcan/search.py` is the single, tested place that
+decides what a filter means, so the CLI, TUI and Web UI narrow findings the same
+way.
+
+`FindingFilter` is an immutable value object; every criterion is optional and an
+unset one does not constrain the result:
+
+| Criterion | Matches when |
+| --- | --- |
+| `statuses` | the finding's `status` is in the set |
+| `sources` | the finding's `source` is in the set |
+| `min_severity` | severity ≥ the threshold |
+| `engagement_id` | the finding is linked to that engagement |
+| `kev_only` | the finding is KEV-listed |
+| `has_cve` | the finding has (or lacks) any CVE |
+| `tags` | the finding carries **all** these tags (case-insensitive) |
+| `text` | case-insensitive substring over title, description, references, CVE/CWE, tags and the asset/finding ids |
+| `min_risk_score` | `risk_score()` ≥ the threshold |
+
+```python
+from olympus.core.enums import FindingStatus, Severity
+from olympus.vulcan.search import FindingFilter, search_findings
+
+query = FindingFilter(
+    statuses=frozenset({FindingStatus.CONFIRMED}),
+    min_severity=Severity.HIGH,
+    kev_only=True,
+)
+urgent = search_findings(all_findings, query)  # AND semantics, input order kept
+```
+
+Criteria combine with **AND**; `search_findings` preserves input order (rank
+separately with `rank_findings` or `risk_score`).
+
 ## How reports use the fields
 
 - **Vulcan enrichment** (`src/olympus/vulcan/enrichment.py`): `extract_cves()`

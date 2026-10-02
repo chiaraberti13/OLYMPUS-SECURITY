@@ -1073,6 +1073,13 @@
             "$ref": "#/$defs/FindingStatus",
             "default": "new"
           },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
           "title": {
             "minLength": 1,
             "title": "Title",
@@ -1742,6 +1749,13 @@
       "status": {
         "$ref": "#/$defs/FindingStatus",
         "default": "new"
+      },
+      "tags": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Tags",
+        "type": "array"
       },
       "title": {
         "minLength": 1,
@@ -2845,6 +2859,13 @@
           "status": {
             "$ref": "#/$defs/FindingStatus",
             "default": "new"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
           },
           "title": {
             "minLength": 1,

@@ -46,6 +46,17 @@ everything below lives under **Unreleased**.
   catalog/golden verdi.
 
 ### Added
+- **Tagging, ricerca e filtri sui finding (`WEB-C`).** Nuovo campo
+  `Finding.tags` (additivo e retro-compatibile — schema resta `1.0.0` — con
+  normalizzazione: trim, scarto dei vuoti, de-duplica preservando l'ordine) e
+  nuovo modulo `vulcan/search.py` con `FindingFilter` (value object immutabile:
+  stato, source, severità minima, `engagement_id`, KEV, has-CVE, tag
+  case-insensitive "tutti", testo libero su titolo/descrizione/reference/CVE/CWE/
+  tag/id, risk score minimo) e `search_findings`. I criteri si combinano in AND,
+  i criteri non impostati non vincolano, e l'ordine d'ingresso è preservato
+  (il ranking resta separato). Fonte unica dei predicati per CLI/TUI/Web. Schema
+  catalog e golden rigenerati; aggiunti test e documentazione
+  (`docs/findings.md`).
 - **Deduplica cross-scanner lossless dei finding (`WEB-C`).**
   `vulcan/aggregate.merge_duplicate_findings` fonde i finding che descrivono la
   stessa vulnerabilità sullo stesso asset (identità: stesso `asset_id` + stesso

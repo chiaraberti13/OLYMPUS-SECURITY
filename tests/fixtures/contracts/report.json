@@ -64,6 +64,7 @@
       "severity": "high",
       "source": "artemis",
       "status": "new",
+      "tags": [],
       "title": "Reflected script injection"
     }
   ],
