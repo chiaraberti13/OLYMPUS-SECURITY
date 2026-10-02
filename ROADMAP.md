@@ -115,7 +115,7 @@ Legenda stato: ✅ implementata · 🟡 parziale · 🗓️ pianificata · ❌ a
 | 4 | Dry-run e controlli perimetro autorizzato | 🟡 | scope gate `themis/scope.py`,`athena/scope.py`,`core/addresses.py`+`core/pinning.py` (SSRF); autorizzazione `core/execution.ExecutionPolicy`, `--i-am-authorized` | Scope ✅; **dry-run universale** → `SEC-G` |
 | 5 | RBAC, segreti, audit log, rate limiting | 🟡 | `themis/identity.py` (API key hashate, scopes/scadenza/limiti per identità), audit middleware `themis/api.py`, redaction `core/execution.py` | Base ✅; **RBAC/OIDC multiutente** → `WEB-H`; **SecretProvider** → `SEC-D` |
 | 6 | Arresto immediato + approvazione invasive | 🟡 | cancellation `core/execution.py`, kill del process-group `themis/sandbox.py` | **Kill switch globale**, classi PASSIVE/ACTIVE/INTRUSIVE, preview → `SEC-G`,`UX-B` |
-| 7 | Deduplicazione + ciclo di vita finding | 🟡 | `vulcan/aggregate.py` (`dedupe_findings` per ID), `FindingStatus` (7 stati) | Stati+dedup ✅; **workflow/suppression/false-positive** → `WEB-C` |
+| 7 | Deduplicazione + ciclo di vita finding | 🟡 | `vulcan/aggregate.py` (`dedupe_findings` per ID), `FindingStatus` (7 stati), macchina a stati transizioni `core/finding_lifecycle.py` (`WEB-C`) | Workflow transizioni ✅; **audit trail/suppression/dedup cross-scanner** → `WEB-C` (resto) |
 | 8 | Severità, confidence, risk scoring contestuale | ✅ | `Severity`, `Finding.confidence` (`WEB-C`), `Finding.risk_score()` 0–100 (`WEB-C`), `vulcan/enrichment.prioritize` (KEV>EPSS>CVSS>severità) | Confidence + risk score numerico ✅; mantenere |
 | 9 | Mapping CVE/CWE/CVSS/MITRE ATT&CK | 🟡 | `Finding.cvss` + campi `cve`/`cwe`/`epss`/`kev` strutturati (`WEB-C`); link NVD/MITRE in `vulcan/pdf.py`; EPSS/KEV `vulcan/enrichment.py`; ATT&CK detection `apollo/attack.py`, `Alert.mitre_attack` | Campi strutturati ✅; **ATT&CK offensivo sui finding** → `OPS-RED` |
 | 10 | Inventario centralizzato asset | 🟡 | `core.Asset`, `argus/assets.py`, persistenza per-assessment in Athena; `Asset.engagement_id` opzionale (`WEB-B` slice 2) | Campo di collegamento ✅; **popolamento/query cross-engagement** da Athena/Themis → `WEB-B` slice 2 (resto) |
@@ -643,9 +643,15 @@ identicamente dai quattro canali.
 - [ ] Vista finding con Title, Severity, Status, Asset, Source, Scanner, CVE,
   CWE, CVSS, EPSS, CISA KEV (quando disponibili), Evidence, First/Last seen,
   Remediation, References, senza assumere che ogni dato sia sempre presente.
-- [ ] Stati `New/Confirmed/False Positive/Accepted Risk/Remediated/Retest
-  Required/Closed`, suppression/accepted-risk, workflow false-positive,
-  remediation tracking, deduplica cross-scanner, tagging, ricerca e filtri.
+- [~] Stati e ciclo di vita. **Fatto:** macchina a stati delle transizioni in
+  `core/finding_lifecycle.py` sui 7 stati `FindingStatus` (triage, confirmed,
+  false-positive, accepted-risk, in-remediation, closed, riapertura su
+  recurrence/retest), con `can_transition`/`allowed_transitions`/`transition`
+  (ritorna una copia aggiornata, rifiuta mosse illegali e no-op); nessun cambio
+  di contratto. Doc: [`docs/findings.md`](docs/findings.md). **Rimane:**
+  persistenza dell'audit trail delle transizioni, suppression, deduplica
+  cross-scanner (oltre all'attuale dedup per ID in `vulcan/aggregate.py`),
+  tagging, ricerca e filtri.
 - [ ] **Evidence browser**: navigare le evidenze collegate a un finding
   (comando/argv redatto, output, digest, firma Ed25519) riusando Minerva e la
   chain-of-custody, senza esporre dati redatti o segreti.

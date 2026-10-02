@@ -90,6 +90,43 @@ each finding's metadata line (`Risk NN/100`).
 finding.risk_score()  # e.g. 95.0 for a KEV-listed CVE, 30.0 for a quiet low finding
 ```
 
+## Lifecycle state machine
+
+A finding is not static: it is triaged, confirmed or dismissed, remediated,
+accepted as a known risk, or re-opened on recurrence. `core/finding_lifecycle.py`
+is the single source of truth for which `FindingStatus` changes are legal, so
+CLI, TUI, API and the Web UI enforce the **same** workflow rather than letting
+any code set `status` to any value.
+
+The transitions are defined over the existing seven `FindingStatus` states (no
+new states, so no schema change):
+
+| From | May move to |
+| --- | --- |
+| `new` | `triaged`, `confirmed`, `false_positive`, `accepted`, `closed` |
+| `triaged` | `confirmed`, `false_positive`, `accepted`, `closed` |
+| `confirmed` | `in_remediation`, `accepted`, `false_positive`, `closed` |
+| `false_positive` | `confirmed` (only, if it turns out real) |
+| `accepted` | `confirmed`, `closed` |
+| `in_remediation` | `closed`, `confirmed` (retest failed), `accepted` |
+| `closed` | `confirmed` (recurrence / retest required) |
+
+A transition to the **same** status is rejected, so a no-op never masquerades as
+a workflow step.
+
+```python
+from olympus.core.enums import FindingStatus
+from olympus.core.finding_lifecycle import transition, can_transition
+
+if can_transition(finding.status, FindingStatus.CONFIRMED):
+    finding = transition(finding, FindingStatus.CONFIRMED)  # returns an updated copy
+```
+
+`transition(finding, target)` returns a **copy** with the new status and a
+refreshed `last_seen` (the original is untouched); an illegal move raises
+`FindingTransitionError` naming both states. Persisting the transition history as
+an audit trail is a follow-up slice.
+
 ## How reports use the fields
 
 - **Vulcan enrichment** (`src/olympus/vulcan/enrichment.py`): `extract_cves()`

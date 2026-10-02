@@ -46,6 +46,16 @@ everything below lives under **Unreleased**.
   catalog/golden verdi.
 
 ### Added
+- **Macchina a stati del ciclo di vita dei finding (`WEB-C`).** Nuovo modulo
+  `core/finding_lifecycle.py` che definisce le transizioni legali tra i 7 stati
+  `FindingStatus` (triage, confirmed, false-positive, accepted-risk,
+  in-remediation, closed, con riapertura su recurrence/retest). Espone
+  `can_transition`/`allowed_transitions` e `transition(finding, target)`, che
+  ritorna una **copia** aggiornata (con `last_seen` rinfrescato) e rifiuta mosse
+  illegali o no-op con `FindingTransitionError`. È la fonte unica del workflow
+  per CLI/TUI/API/Web; nessun cambio di contratto (usa l'enum esistente).
+  Aggiunti test e documentazione (`docs/findings.md`). Resta da fare: persistenza
+  dell'audit trail delle transizioni e deduplica cross-scanner.
 - **Risk score contestuale sui finding (`WEB-C`).** Nuovo metodo calcolato
   `Finding.risk_score()` che restituisce un punteggio `[0, 100]` combinando
   severity, CVSS, EPSS, KEV e confidence nell'ordine di priorità di
