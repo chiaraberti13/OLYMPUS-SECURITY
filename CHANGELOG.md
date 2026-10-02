@@ -46,6 +46,17 @@ everything below lives under **Unreleased**.
   catalog/golden verdi.
 
 ### Added
+- **Deduplica cross-scanner lossless dei finding (`WEB-C`).**
+  `vulcan/aggregate.merge_duplicate_findings` fonde i finding che descrivono la
+  stessa vulnerabilità sullo stesso asset (identità: stesso `asset_id` + stesso
+  set di CVE, o titolo normalizzato quando non ci sono CVE) in un unico finding
+  **senza perdere evidenza**: evidence, reference, CVE e CWE vengono unite e per
+  ogni scalare vince il segnale più urgente (max severity/CVSS/EPSS, KEV se visto
+  da una qualsiasi fonte, confidence più alta); il rappresentante (severità più
+  alta, poi risk, poi id stabile) fornisce titolo/descrizione/remediation/stato/
+  id, e i timestamp si allargano allo span reale del gruppo. Integrata nel
+  pipeline di aggregazione Vulcan dopo il dedup per ID; stabile e idempotente.
+  Aggiunti test e documentazione (`docs/findings.md`).
 - **Macchina a stati del ciclo di vita dei finding (`WEB-C`).** Nuovo modulo
   `core/finding_lifecycle.py` che definisce le transizioni legali tra i 7 stati
   `FindingStatus` (triage, confirmed, false-positive, accepted-risk,

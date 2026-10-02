@@ -127,6 +127,27 @@ refreshed `last_seen` (the original is untouched); an illegal move raises
 `FindingTransitionError` naming both states. Persisting the transition history as
 an audit trail is a follow-up slice.
 
+## Cross-scanner deduplication
+
+Two scanners often report the *same* vulnerability on the same asset with
+different `finding_id`s. `vulcan.aggregate.merge_duplicate_findings` collapses
+those into one finding **without losing evidence** (a `WEB-C` completion
+criterion):
+
+- **Identity.** Findings are grouped by `(asset_id, vulnerability)`, where the
+  vulnerability is the set of CVEs when any are known (structured or
+  text-derived), else the normalized title. This is conservative: with no shared
+  CVE, only identical titles merge, so distinct issues are never collapsed.
+- **Lossless merge.** Evidence, references, CVE and CWE ids are unioned; the most
+  urgent signal wins for each scalar (max severity, CVSS, EPSS; KEV if any source
+  saw it; highest confidence). The representative (highest severity, then risk,
+  then stable id) supplies the title, description, remediation, status and id;
+  timestamps widen to the group's real span.
+
+It runs in the Vulcan aggregation pipeline after the exact-id `dedupe_findings`,
+and is stable and idempotent (a finding with no duplicate passes through
+unchanged).
+
 ## How reports use the fields
 
 - **Vulcan enrichment** (`src/olympus/vulcan/enrichment.py`): `extract_cves()`

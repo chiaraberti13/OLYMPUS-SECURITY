@@ -25,6 +25,7 @@ from olympus.vulcan.aggregate import (
     load_alerts,
     load_assets,
     load_findings,
+    merge_duplicate_findings,
     rank_findings,
 )
 from olympus.vulcan.enrichment import EpssScore, KevEntry, enrich_findings
@@ -102,14 +103,16 @@ class VulcanApplicationService:
                 progress_check=progress,
             )
         )
-        findings = dedupe_findings(
-            load_findings(
-                request.finding_paths,
-                max_files=request.max_files,
-                max_bytes=request.max_input_bytes,
-                max_items_per_file=request.max_items_per_file,
-                max_total_items=request.max_total_items,
-                progress_check=progress,
+        findings = merge_duplicate_findings(
+            dedupe_findings(
+                load_findings(
+                    request.finding_paths,
+                    max_files=request.max_files,
+                    max_bytes=request.max_input_bytes,
+                    max_items_per_file=request.max_items_per_file,
+                    max_total_items=request.max_total_items,
+                    progress_check=progress,
+                )
             )
         )
         alerts = dedupe_alerts(
@@ -180,7 +183,7 @@ class VulcanApplicationService:
             progress_check=progress,
         )
         progress()
-        return tuple(rank_findings(dedupe_findings(findings)))
+        return tuple(rank_findings(merge_duplicate_findings(dedupe_findings(findings))))
 
     def _progress(self, deadline_seconds: float, operation: str) -> Callable[[], None]:
         policy = ExecutionPolicy(deadline_seconds=deadline_seconds)

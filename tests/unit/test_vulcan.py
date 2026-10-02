@@ -16,6 +16,7 @@ from olympus.vulcan.aggregate import (
     dedupe_findings,
     load_assets,
     load_findings,
+    merge_duplicate_findings,
     rank_findings,
     severity_breakdown,
 )
@@ -130,6 +131,73 @@ def test_dedupe_and_rank() -> None:
     assert len(deduped) == 2
     ranked = rank_findings(deduped)
     assert ranked[0].severity is Severity.CRITICAL  # critical ranks first
+
+
+def test_merge_collapses_cross_scanner_duplicates_without_losing_evidence() -> None:
+    # Two scanners report the same CVE on the same asset with different ids.
+    nmap = Finding(
+        asset_id="AST-1",
+        source=Source.ARTEMIS,
+        title="Log4Shell (scanner A)",
+        severity=Severity.HIGH,
+        cvss=7.5,
+        cve=["CVE-2021-44228"],
+        evidence=["ev-a"],
+        references=["https://a"],
+    )
+    nuclei = Finding(
+        asset_id="AST-1",
+        source=Source.HELIOS,
+        title="Log4j RCE (scanner B)",
+        severity=Severity.CRITICAL,
+        cvss=10.0,
+        cve=["CVE-2021-44228"],
+        cwe=["CWE-502"],
+        evidence=["ev-b"],
+        references=["https://b"],
+        kev=True,
+        epss=0.97,
+    )
+    merged = merge_duplicate_findings([nmap, nuclei])
+    assert len(merged) == 1
+    result = merged[0]
+    # Most urgent signal wins for each scalar; nothing is lost.
+    assert result.severity is Severity.CRITICAL
+    assert result.cvss == 10.0
+    assert result.kev is True
+    assert result.epss == 0.97
+    assert result.cwe == ["CWE-502"]
+    assert set(result.evidence) == {"ev-a", "ev-b"}
+    assert set(result.references) == {"https://a", "https://b"}
+
+
+def test_merge_keeps_distinct_vulnerabilities_separate() -> None:
+    same_asset_other_cve = Finding(
+        asset_id="AST-1",
+        source=Source.ARTEMIS,
+        title="Other issue",
+        severity=Severity.MEDIUM,
+        cve=["CVE-2020-0001"],
+    )
+    log4shell = Finding(
+        asset_id="AST-1",
+        source=Source.ARTEMIS,
+        title="Log4Shell",
+        severity=Severity.HIGH,
+        cve=["CVE-2021-44228"],
+    )
+    other_asset = _finding("Log4Shell", Severity.HIGH, asset_id="AST-2")
+    other_asset = other_asset.model_copy(update={"cve": ["CVE-2021-44228"]})
+    merged = merge_duplicate_findings([same_asset_other_cve, log4shell, other_asset])
+    # Different CVE and different asset are never collapsed.
+    assert len(merged) == 3
+
+
+def test_merge_is_idempotent_and_passes_singletons_through() -> None:
+    findings = [_finding("solo", Severity.LOW)]
+    once = merge_duplicate_findings(findings)
+    assert once == findings
+    assert merge_duplicate_findings(once) == once
 
 
 def test_dedupe_never_discards_distinct_or_conflicting_records() -> None:

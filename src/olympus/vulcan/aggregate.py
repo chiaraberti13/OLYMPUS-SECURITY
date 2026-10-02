@@ -10,7 +10,7 @@ from typing import Literal, TypeVar
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from olympus.core.contracts import ContractCompatibilityError, validate_contract_header
-from olympus.core.enums import Severity
+from olympus.core.enums import Confidence, Severity
 from olympus.core.fileio import read_regular_text
 from olympus.core.models import Alert, Asset, Finding, Observation, ScanJob, SecurityReport
 
@@ -321,6 +321,93 @@ def _dedupe_by_id(items: Sequence[_ModelT], identifier: str, label: str) -> list
         elif prior != item:
             raise AggregationError(f"conflicting duplicate {label} ID: {value}")
     return unique
+
+
+_CONFIDENCE_ORDER: dict[Confidence, int] = {
+    Confidence.LOW: 0,
+    Confidence.MEDIUM: 1,
+    Confidence.HIGH: 2,
+}
+
+
+def _finding_fingerprint(finding: Finding) -> tuple[str, str]:
+    """Return a logical identity for a finding: same asset + same vulnerability.
+
+    Two findings from different scanners describe the *same* issue when they share
+    an asset and the same vulnerability identity — the set of CVEs when any are
+    known (structured field or text-derived), else the normalized title. This is
+    deliberately conservative: without a shared CVE we only merge identical
+    titles, so distinct issues are never collapsed.
+    """
+    cves = finding.cves()
+    identity = ",".join(cves) if cves else f"title:{finding.title.strip().casefold()}"
+    return (finding.asset_id, identity)
+
+
+def _ordered_unique(*groups: Sequence[str]) -> list[str]:
+    """Union several string sequences, preserving first-seen order."""
+    seen: dict[str, None] = {}
+    for group in groups:
+        for item in group:
+            seen.setdefault(item, None)
+    return list(seen)
+
+
+def merge_duplicate_findings(findings: Sequence[Finding]) -> list[Finding]:
+    """Merge cross-scanner duplicate findings into one, without losing evidence.
+
+    Findings sharing a :func:`_finding_fingerprint` (same asset + same
+    vulnerability) are collapsed into a single finding that keeps every scanner's
+    contribution: evidence, references, CVE and CWE ids are unioned, and the most
+    urgent signal wins for each scalar (max severity, CVSS, EPSS; KEV if any
+    source saw it; highest confidence). The representative (highest severity, then
+    risk, then stable id) supplies the title, description, remediation, status and
+    id, so the merge is deterministic. Timestamps widen to the group's real span
+    (earliest ``first_seen``, latest ``last_seen``).
+
+    Input order of the merged groups follows each group's first appearance, so the
+    operation is stable. A finding with no duplicate passes through unchanged.
+    """
+    groups: dict[tuple[str, str], list[Finding]] = {}
+    for finding in findings:
+        groups.setdefault(_finding_fingerprint(finding), []).append(finding)
+
+    merged: list[Finding] = []
+    for group in groups.values():
+        if len(group) == 1:
+            merged.append(group[0])
+            continue
+        representative = min(
+            group,
+            key=lambda f: (_SEVERITY_ORDER[f.severity], -f.risk_score(), f.finding_id),
+        )
+        cvss_values = [f.cvss for f in group if f.cvss is not None]
+        epss_values = [f.epss for f in group if f.epss is not None]
+        epss_pct_values = [f.epss_percentile for f in group if f.epss_percentile is not None]
+        confidences = [f.confidence for f in group if f.confidence is not None]
+        merged.append(
+            representative.model_copy(
+                update={
+                    "severity": min(group, key=lambda f: _SEVERITY_ORDER[f.severity]).severity,
+                    "cvss": max(cvss_values) if cvss_values else None,
+                    "cve": _ordered_unique(*(f.cves() for f in group)),
+                    "cwe": _ordered_unique(*(f.cwes() for f in group)),
+                    "epss": max(epss_values) if epss_values else None,
+                    "epss_percentile": max(epss_pct_values) if epss_pct_values else None,
+                    "kev": any(f.kev for f in group),
+                    "confidence": (
+                        max(confidences, key=lambda c: _CONFIDENCE_ORDER[c])
+                        if confidences
+                        else None
+                    ),
+                    "evidence": _ordered_unique(*(f.evidence for f in group)),
+                    "references": _ordered_unique(*(f.references for f in group)),
+                    "first_seen": min(f.first_seen for f in group),
+                    "last_seen": max(f.last_seen for f in group),
+                }
+            )
+        )
+    return merged
 
 
 def rank_findings(findings: Sequence[Finding]) -> list[Finding]:
