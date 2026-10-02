@@ -232,6 +232,34 @@ class Finding(EngagementScopedModel):
         return round(min(100.0, max(0.0, score)), 1)
 
 
+class FindingTransition(EngagementScopedModel):
+    """One immutable audit record of a finding's lifecycle status change (``WEB-C``).
+
+    The finding itself only carries its *current* status; this record is the
+    durable trail of *how it got there* — who moved it, when, from what to what,
+    and why (the rationale for a suppression or accepted-risk decision). Appended
+    to an append-only ledger, these records let a report answer "who accepted this
+    risk, and when?" without trusting the mutable finding.
+    """
+
+    schema_name: Literal["olympus.finding-transition"] = "olympus.finding-transition"
+    transition_id: str = Field(default_factory=lambda: new_id("finding_transition"))
+    finding_id: str = Field(min_length=1)
+    from_status: FindingStatus
+    to_status: FindingStatus
+    actor: str = Field(min_length=1, max_length=200)
+    reason: str = Field(default="", max_length=2_000)
+    occurred_at: datetime = Field(default_factory=_utcnow)
+
+    @field_validator("actor")
+    @classmethod
+    def _single_line_actor(cls, value: str) -> str:
+        """Actor is trimmed single-line text (no control characters)."""
+        if value != value.strip() or any(ch in value for ch in "\r\n\x00"):
+            raise ValueError("actor must be trimmed single-line text without control characters")
+        return value
+
+
 class Event(EngagementScopedModel):
     """A normalized observable consumed by detection rules."""
 

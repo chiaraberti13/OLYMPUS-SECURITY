@@ -657,7 +657,11 @@ identicamente dai quattro canali.
   e `vulcan/search.FindingFilter`/`search_findings` — criteri componibili (stato,
   severità minima, source, engagement, KEV, has-CVE, tag case-insensitive, testo
   libero, risk score minimo) con semantica AND, fonte unica per CLI/TUI/Web.
-  **Rimane:** persistenza dell'audit trail delle transizioni, suppression.
+  **Audit trail fatto:** contratto `olympus.finding-transition` (chi/quando/da→a/
+  motivo, scoped all'engagement), `core/finding_lifecycle.record_transition`
+  (applica + produce il record) e store SQLite append-only owner-only
+  (`findings/store.SqliteFindingTransitionStore`, `append`/`history`, rifiuta id
+  duplicati). **Rimane:** workflow di suppression (UI/comando) sopra l'audit.
 - [ ] **Evidence browser**: navigare le evidenze collegate a un finding
   (comando/argv redatto, output, digest, firma Ed25519) riusando Minerva e la
   chain-of-custody, senza esporre dati redatti o segreti.

@@ -124,8 +124,33 @@ if can_transition(finding.status, FindingStatus.CONFIRMED):
 
 `transition(finding, target)` returns a **copy** with the new status and a
 refreshed `last_seen` (the original is untouched); an illegal move raises
-`FindingTransitionError` naming both states. Persisting the transition history as
-an audit trail is a follow-up slice.
+`FindingTransitionError` naming both states.
+
+### Audit trail
+
+A finding carries only its *current* status; the durable trail of **how it got
+there** lives in append-only `olympus.finding-transition` records. Use
+`record_transition` to apply a move and capture its audit record together:
+
+```python
+from olympus.core.enums import FindingStatus
+from olympus.core.finding_lifecycle import record_transition
+from olympus.findings.store import SqliteFindingTransitionStore
+
+moved, record = record_transition(
+    finding, FindingStatus.ACCEPTED, actor="analyst@team", reason="accepted risk until Q3"
+)
+store = SqliteFindingTransitionStore(Path("./workspace/finding_transitions.db"))
+store.append(record)  # append-only, owner-only (0600)
+store.history(finding.finding_id)  # every transition, oldest first
+```
+
+Each `FindingTransition` records `from_status`, `to_status`, `actor`, an optional
+`reason` (the rationale for a suppression or accepted-risk decision),
+`occurred_at`, and the finding's `engagement_id`. The store is **append-only**:
+records are inserted, never replaced or deleted, so the history cannot be
+rewritten through the API (a duplicate `transition_id` is rejected). This answers
+"who accepted this risk, and when?" without trusting the mutable finding.
 
 ## Cross-scanner deduplication
 

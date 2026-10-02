@@ -38,7 +38,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from olympus.core.enums import FindingStatus
-from olympus.core.models import Finding
+from olympus.core.models import Finding, FindingTransition
 
 #: Allowed ``from -> {to, ...}`` status transitions. Every key is present so the
 #: map is exhaustive over :class:`FindingStatus`; a status with no outgoing edges
@@ -106,3 +106,33 @@ def transition(finding: Finding, target: FindingStatus) -> Finding:
             f"illegal finding transition {finding.status.value!r} -> {target.value!r}"
         )
     return finding.model_copy(update={"status": target, "last_seen": datetime.now(UTC)})
+
+
+def record_transition(
+    finding: Finding,
+    target: FindingStatus,
+    *,
+    actor: str,
+    reason: str = "",
+) -> tuple[Finding, FindingTransition]:
+    """Apply a transition and return the moved finding plus its audit record.
+
+    This is :func:`transition` with an audit trail: on a legal move it returns the
+    updated finding together with an immutable :class:`FindingTransition` capturing
+    who (`actor`) moved it from which state to which, why (`reason` — e.g. the
+    rationale for a suppression or accepted-risk decision) and when. The record
+    inherits the finding's ``engagement_id`` so it stays scoped to the same
+    engagement. An illegal move raises :class:`FindingTransitionError` and produces
+    no record.
+    """
+    moved = transition(finding, target)
+    record = FindingTransition(
+        finding_id=finding.finding_id,
+        from_status=finding.status,
+        to_status=target,
+        actor=actor,
+        reason=reason,
+        occurred_at=moved.last_seen,
+        engagement_id=finding.engagement_id,
+    )
+    return moved, record

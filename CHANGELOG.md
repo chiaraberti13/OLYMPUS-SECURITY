@@ -46,6 +46,16 @@ everything below lives under **Unreleased**.
   catalog/golden verdi.
 
 ### Added
+- **Audit trail del ciclo di vita dei finding (`WEB-C`).** Nuovo contratto
+  versionato `olympus.finding-transition` (`FindingTransition`: `from_status`,
+  `to_status`, `actor` single-line, `reason` opzionale, `occurred_at`, scoped
+  all'`engagement_id`), `core/finding_lifecycle.record_transition` che applica una
+  transizione legale e ne restituisce insieme il record immutabile, e lo store
+  SQLite **append-only** owner-only `findings/store.SqliteFindingTransitionStore`
+  (`append`/`history`, rifiuta id duplicati, valida l'header on load). Risponde a
+  "chi ha accettato questo rischio e quando?" senza fidarsi del finding mutabile.
+  Nuovo prefisso id `FTR`. Schema catalog e golden rigenerati; aggiunti test e
+  documentazione (`docs/findings.md`).
 - **Tagging, ricerca e filtri sui finding (`WEB-C`).** Nuovo campo
   `Finding.tags` (additivo e retro-compatibile — schema resta `1.0.0` — con
   normalizzazione: trim, scarto dei vuoti, de-duplica preservando l'ordine) e

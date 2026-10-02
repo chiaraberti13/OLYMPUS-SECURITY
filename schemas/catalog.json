@@ -72,6 +72,13 @@
     },
     {
       "direction": "shared",
+      "name": "olympus.finding-transition",
+      "path": "contracts/olympus.finding-transition/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "37ebc5d2762401509b9318622b3ae4e2626c61cfde2e5cf0082d055979fb4071"
+    },
+    {
+      "direction": "shared",
       "name": "olympus.incident",
       "path": "contracts/olympus.incident/1.0.0.schema.json",
       "schema_version": "1.0.0",
