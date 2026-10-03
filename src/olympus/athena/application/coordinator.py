@@ -38,7 +38,7 @@ from olympus.core.execution import (
     CancellationToken,
     ExecutionPolicy,
 )
-from olympus.core.models import Finding
+from olympus.core.models import Finding, is_canonical_engagement_id
 from olympus.core.observability import Correlation, Observability
 
 AdapterResolver = Callable[[tuple[str, ...]], dict[str, ToolRunner]]
@@ -148,6 +148,12 @@ class Coordinator:
             deadline = started_at + policy.deadline_seconds
             concurrency = policy.max_concurrency
             allowed = plan.scope.allowed_domains
+            # Link produced objects to the engagement only when the plan's
+            # engagement_id is a canonical engagement record id (ROADMAP WEB-B);
+            # a free-form plan label (e.g. "ENG-DEMO-2026") is not stamped.
+            engagement_id = (
+                plan.engagement_id if is_canonical_engagement_id(plan.engagement_id) else None
+            )
 
             pool = ThreadPoolExecutor(max_workers=concurrency)
             try:
@@ -167,6 +173,7 @@ class Coordinator:
                             findings,
                             pool,
                             deadline,
+                            engagement_id,
                         )
                     )
             finally:
@@ -207,6 +214,7 @@ class Coordinator:
         findings: list[Finding],
         pool: ThreadPoolExecutor,
         deadline: float,
+        engagement_id: str | None,
     ) -> list[Job]:
         running: list[Job] = [self._repo.transition_job(job, JobState.RUNNING) for job in batch]
         started_at = {job.job_id: self._clock.monotonic() for job in running}
@@ -233,7 +241,9 @@ class Coordinator:
             if future in done:
                 duration = self._clock.monotonic() - started_at[job.job_id]
                 results.append(
-                    self._finish(assessment_id, job, future.result(), findings, duration)
+                    self._finish(
+                        assessment_id, job, future.result(), findings, duration, engagement_id
+                    )
                 )
                 continue
             if future in pending:
@@ -283,6 +293,7 @@ class Coordinator:
         result: ToolResult,
         findings: list[Finding],
         duration_seconds: float,
+        engagement_id: str | None,
     ) -> Job:
         if not result.ok:
             updated = self._repo.transition_job(
@@ -298,11 +309,22 @@ class Coordinator:
             outcome = "cancelled" if result.error_code == "cancelled" else "failed"
             self._observability.job_finished("athena", job.adapter, outcome, duration_seconds)
             return updated
+        # Link produced objects to the engagement (ROADMAP WEB-B) when the plan
+        # carries a canonical engagement id; otherwise leave them unlinked.
+        produced_assets = result.assets
+        produced_findings = result.findings
+        if engagement_id is not None:
+            produced_assets = [
+                a.model_copy(update={"engagement_id": engagement_id}) for a in produced_assets
+            ]
+            produced_findings = [
+                f.model_copy(update={"engagement_id": engagement_id}) for f in produced_findings
+            ]
         document = AssessmentResult(
             assessment_id=assessment_id,
             job=job.to_contract(assessment_id).model_copy(update={"state": "succeeded"}),
-            assets=tuple(result.assets),
-            findings=tuple(result.findings),
+            assets=tuple(produced_assets),
+            findings=tuple(produced_findings),
         )
         result_id = self._repo.save_result(assessment_id, job.job_id, document.canonical_json())
         with self._observability.span(
@@ -314,14 +336,14 @@ class Coordinator:
             ),
         ):
             self._observability.artifact_created("athena", "evidence", "json")
-        findings.extend(result.findings)
+        findings.extend(produced_findings)
         updated = self._repo.transition_job(job, JobState.SUCCEEDED, result_id=result_id)
         self._emit(
             assessment_id,
             "job_succeeded",
             "succeeded",
             job_id=job.job_id,
-            metadata={"adapter": job.adapter, "count": str(len(result.findings))},
+            metadata={"adapter": job.adapter, "count": str(len(produced_findings))},
         )
         self._observability.job_finished("athena", job.adapter, "succeeded", duration_seconds)
         return updated

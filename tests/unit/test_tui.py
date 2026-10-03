@@ -63,7 +63,11 @@ def test_command_screen_executes_real_cli_without_shell() -> None:
             interface.push_screen(CommandScreen(command))
             await pilot.pause()
             await pilot.press("f5")
-            for _ in range(100):
+            # The command runs a real subprocess (python -m olympus.cli ...), whose
+            # cold-interpreter startup can exceed a couple of seconds when the full
+            # test suite saturates the CPU. Wait generously for completion so the
+            # assertion reflects the command's real outcome, not scheduling latency.
+            for _ in range(1500):
                 screen = interface.screen
                 if isinstance(screen, CommandScreen) and screen.process is None:
                     status = str(screen.query_one("#status-bar").render())

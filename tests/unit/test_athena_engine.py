@@ -123,6 +123,35 @@ def test_run_success(tmp_path: Path) -> None:
     repo.close()
 
 
+def _canonical_plan() -> AssessmentPlan:
+    return _plan(
+        engagement_id="ENG-2026-00001",
+        authorization={
+            "engagement_id": "ENG-2026-00001",
+            "approval_reference": "T",
+            "confirmed": True,
+        },
+    )
+
+
+def test_run_stamps_engagement_id_when_plan_id_is_canonical(tmp_path: Path) -> None:
+    # A canonical engagement id (ENG-YYYY-NNNNN) links produced findings (WEB-B).
+    runner = _Runner("a", ToolResult(ok=True, findings=[_finding()]))
+    coordinator, repo, _ = _coordinator(tmp_path, {"a": runner})
+    outcome = coordinator.run(_canonical_plan())
+    assert [f.engagement_id for f in outcome.findings] == ["ENG-2026-00001"]
+    repo.close()
+
+
+def test_run_does_not_stamp_a_free_form_plan_label(tmp_path: Path) -> None:
+    # The default plan uses a free-form label ("ENG-1"), not a canonical id: no stamp.
+    runner = _Runner("a", ToolResult(ok=True, findings=[_finding()]))
+    coordinator, repo, _ = _coordinator(tmp_path, {"a": runner})
+    outcome = coordinator.run(_plan())
+    assert [f.engagement_id for f in outcome.findings] == [None]
+    repo.close()
+
+
 def test_run_correlates_assessment_job_and_evidence_without_metric_ids(tmp_path: Path) -> None:
     exporter = InMemoryExporter()
     telemetry = Observability(exporter)

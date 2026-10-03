@@ -46,7 +46,16 @@ everything below lives under **Unreleased**.
   catalog/golden verdi.
 
 ### Added
+- **Wiring engagement_id in Athena/Themis (`WEB-B`, completa slice 2).** Il
+  coordinator Athena marca gli oggetti prodotti (asset + finding, path Themis
+  incluso) con l'`engagement_id` del piano **solo quando è un id canonico**
+  (`ENG-YYYY-NNNNN`, nuovo helper `core.models.is_canonical_engagement_id`); le
+  etichette libere dei piani (`ENG-DEMO-2026`, `ENG-1`) non vengono marcate, così
+  nessuna fixture/golden si rompe. I due namespace restano distinti per disegno:
+  l'id di piano Athena è un'etichetta locale, l'`engagement_id` core referenzia un
+  record `olympus.engagement`. Aggiunti test del coordinator e dell'helper.
 - **Audit trail del ciclo di vita dei finding (`WEB-C`).** Nuovo contratto
+  versionato `olympus.finding-transition` (`FindingTransition`: `from_status`,
   versionato `olympus.finding-transition` (`FindingTransition`: `from_status`,
   `to_status`, `actor` single-line, `reason` opzionale, `occurred_at`, scoped
   all'`engagement_id`), `core/finding_lifecycle.record_transition` che applica una
@@ -262,6 +271,14 @@ everything below lives under **Unreleased**.
   (`core lock`), a blocking pip-audit CI job, and digest-pinned container images.
 - **Governance** — CODEOWNERS on security-critical paths and a grounded threat
   model (`docs/threat-model.md`).
+
+### Fixed
+- **Flake d'ordine nel test TUI.** `test_tui.py::test_command_screen_executes_real_cli_without_shell`
+  attendeva solo ~2s il completamento di un subprocess reale
+  (`python -m olympus.cli ...`); sotto carico della suite completa l'avvio a
+  freddo dell'interprete supera i 2s e l'assert falliva. Budget d'attesa reso
+  generoso (fino a ~30s, polling invariato): l'assert riflette l'esito reale del
+  comando, non la latenza di scheduling. Nessuna modifica al prodotto.
 
 ### Testing
 - Test offline della validazione del manifest e del piano non distruttivo di

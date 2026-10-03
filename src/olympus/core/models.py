@@ -39,6 +39,18 @@ _CWE_RE = re.compile(r"CWE-\d+", re.IGNORECASE)
 _ENGAGEMENT_ID_RE = re.compile(r"ENG-\d{4}-\d{5}", re.IGNORECASE)
 
 
+def is_canonical_engagement_id(value: str | None) -> bool:
+    """Return ``True`` if ``value`` is a canonical engagement id (``ENG-YYYY-NNNNN``).
+
+    Producers that carry a free-form engagement label (for example an Athena plan
+    whose ``engagement_id`` is a human tag like ``ENG-DEMO-2026``) use this to
+    decide whether the label is a real reference to an ``olympus.engagement``
+    record — and therefore safe to stamp onto scoped objects — or just a plan-local
+    name that must not masquerade as an engagement link.
+    """
+    return value is not None and _ENGAGEMENT_ID_RE.fullmatch(value.strip()) is not None
+
+
 def _utcnow() -> datetime:
     """Return the current time as a timezone-aware UTC datetime."""
     return datetime.now(UTC)

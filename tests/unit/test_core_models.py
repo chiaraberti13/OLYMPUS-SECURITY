@@ -193,6 +193,17 @@ def test_engagement_id_round_trips() -> None:
     assert restored.engagement_id == "ENG-2026-00042"
 
 
+def test_is_canonical_engagement_id() -> None:
+    from olympus.core.models import is_canonical_engagement_id
+
+    assert is_canonical_engagement_id("ENG-2026-00001")
+    assert is_canonical_engagement_id("  eng-2026-00001  ")  # trimmed, case-insensitive
+    assert not is_canonical_engagement_id(None)
+    assert not is_canonical_engagement_id("ENG-DEMO-2026")  # free-form plan label
+    assert not is_canonical_engagement_id("ENG-1")
+    assert not is_canonical_engagement_id("")
+
+
 def test_scoped_model_accepts_legacy_document_without_engagement_id() -> None:
     """A pre-WEB-B asset (no engagement_id) still validates."""
     legacy = {

@@ -118,7 +118,7 @@ Legenda stato: ✅ implementata · 🟡 parziale · 🗓️ pianificata · ❌ a
 | 7 | Deduplicazione + ciclo di vita finding | 🟡 | `vulcan/aggregate.py` (`dedupe_findings` per ID + `merge_duplicate_findings` cross-scanner lossless), `FindingStatus` (7 stati), macchina a stati transizioni `core/finding_lifecycle.py` (`WEB-C`) | Workflow transizioni + dedup cross-scanner ✅; **audit trail/suppression/tagging/ricerca** → `WEB-C` (resto) |
 | 8 | Severità, confidence, risk scoring contestuale | ✅ | `Severity`, `Finding.confidence` (`WEB-C`), `Finding.risk_score()` 0–100 (`WEB-C`), `vulcan/enrichment.prioritize` (KEV>EPSS>CVSS>severità) | Confidence + risk score numerico ✅; mantenere |
 | 9 | Mapping CVE/CWE/CVSS/MITRE ATT&CK | 🟡 | `Finding.cvss` + campi `cve`/`cwe`/`epss`/`kev` strutturati (`WEB-C`); link NVD/MITRE in `vulcan/pdf.py`; EPSS/KEV `vulcan/enrichment.py`; ATT&CK detection `apollo/attack.py`, `Alert.mitre_attack` | Campi strutturati ✅; **ATT&CK offensivo sui finding** → `OPS-RED` |
-| 10 | Inventario centralizzato asset | 🟡 | `core.Asset`, `argus/assets.py`, persistenza per-assessment in Athena; `Asset.engagement_id` opzionale (`WEB-B` slice 2) | Campo di collegamento ✅; **popolamento/query cross-engagement** da Athena/Themis → `WEB-B` slice 2 (resto) |
+| 10 | Inventario centralizzato asset | 🟡 | `core.Asset`, `argus/assets.py`, persistenza per-assessment in Athena; `Asset.engagement_id` opzionale e stamping dal coordinator Athena per id canonici (`WEB-B` slice 2) | Collegamento + popolamento ✅; **query/aggregazione cross-engagement** (UI) → `WEB-B` slice 3 |
 | 11 | Scheduler, code, worker isolati, ripresa job | 🟡 | job store SQLite `themis/jobs.py` (stati+`recover`), `olympus themis recover`, sandbox isolato, worker Celery (vendored) | Queue+recover+sandbox ✅; **scheduler nativo** ❌ → `D13`; ritiro Celery vendored → `SEC-A` |
 | 12 | Scansioni incrementali + confronto risultati | 🟡 | `argus/diff.py` (diff recon) | **Finding/scan diff cross-run** → `WEB-I` |
 | 13 | Dashboard, notifiche, report JSON/CSV/HTML/PDF/SARIF | 🟡 | report JSON/MD/HTML/PDF `vulcan/`, SARIF `hermes/sarif.py`, OCSF/ECS/NDJSON `apollo/` | **CSV** ❌ (basso costo) → `WEB-I`; **dashboard/notifiche** → `WEB-G`/`WEB-I` |
@@ -622,16 +622,17 @@ authz) e di job-lifecycle/cancellation passano.
   `olympus engagement create|list|show` (`engagements/cli.py`), sullo **stesso**
   modello e database per tutti i canali. Schema catalog + golden, test unit e
   integration, `docs/engagements.md`.
-- [~] **Slice 2 (in corso).** Fondamenta dati fatte: campo opzionale
-  `engagement_id` sui contratti scoped (`Asset`, `Finding`, `Event`, `Evidence`,
-  `Alert`, `Incident`, `Observation`) via base condivisa `EngagementScopedModel`
-  (`core/models.py`), additivo e retro-compatibile (schema resta `1.0.0`,
-  validazione `ENG-YYYY-NNNNN`). Primitive di associazione pronte e testate:
-  `Engagement.stamp()`/`stamp_all()` (collega una copia senza mutare l'originale,
-  tipo preservato), `Engagement.covers()` (scope-check) e
-  `SqliteEngagementStore.require()` (risolve o solleva). **Rimane:** far
-  **chiamare** queste primitive a Athena/Themis al momento della produzione e
-  collegare `scan`/`job`/`report`/audit.
+- [x] **Slice 2 (fatto).** Campo opzionale `engagement_id` sui contratti scoped
+  (`Asset`, `Finding`, `Event`, `Evidence`, `Alert`, `Incident`, `Observation`)
+  via base `EngagementScopedModel` (additivo, schema `1.0.0`, validazione
+  `ENG-YYYY-NNNNN`); primitive `Engagement.stamp()`/`stamp_all()`/`covers()` e
+  `SqliteEngagementStore.require()`. **Wiring Athena/Themis fatto:** il coordinator
+  marca gli oggetti prodotti (asset+finding, path Themis incluso) con
+  l'`engagement_id` del piano **solo se canonico** (`is_canonical_engagement_id`);
+  le label libere dei piani (`ENG-DEMO-2026`, `ENG-1`) non vengono marcate, così
+  nessuna fixture si rompe. I due namespace restano distinti per disegno: l'id di
+  piano Athena è un'etichetta locale, l'`engagement_id` core referenzia un record
+  `olympus.engagement`.
 - [ ] **Slice 3.** Esporre gli engagement via API e Web UI (sullo stesso store),
   con scope enforcement derivato dall'engagement.
 
