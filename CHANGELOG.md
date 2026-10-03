@@ -46,6 +46,13 @@ everything below lives under **Unreleased**.
   catalog/golden verdi.
 
 ### Added
+- **Workflow di suppression dei finding (`WEB-C`).** `core/finding_lifecycle`
+  espone `suppress`/`unsuppress`/`is_suppressed`: sopprimere un finding
+  (accepted-risk o false-positive) **esige una motivazione non vuota** e uno stato
+  di suppression, passa comunque per la macchina a stati e produce il record
+  d'audit; `unsuppress` riapre un finding soppresso a `confirmed`. Completa il
+  ciclo di vita dei finding di `WEB-C`. Aggiunti test e documentazione
+  (`docs/findings.md`).
 - **Wiring engagement_id in Athena/Themis (`WEB-B`, completa slice 2).** Il
   coordinator Athena marca gli oggetti prodotti (asset + finding, path Themis
   incluso) con l'`engagement_id` del piano **solo quando è un id canonico**

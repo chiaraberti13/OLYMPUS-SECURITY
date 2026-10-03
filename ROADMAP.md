@@ -115,7 +115,7 @@ Legenda stato: ✅ implementata · 🟡 parziale · 🗓️ pianificata · ❌ a
 | 4 | Dry-run e controlli perimetro autorizzato | 🟡 | scope gate `themis/scope.py`,`athena/scope.py`,`core/addresses.py`+`core/pinning.py` (SSRF); autorizzazione `core/execution.ExecutionPolicy`, `--i-am-authorized` | Scope ✅; **dry-run universale** → `SEC-G` |
 | 5 | RBAC, segreti, audit log, rate limiting | 🟡 | `themis/identity.py` (API key hashate, scopes/scadenza/limiti per identità), audit middleware `themis/api.py`, redaction `core/execution.py` | Base ✅; **RBAC/OIDC multiutente** → `WEB-H`; **SecretProvider** → `SEC-D` |
 | 6 | Arresto immediato + approvazione invasive | 🟡 | cancellation `core/execution.py`, kill del process-group `themis/sandbox.py` | **Kill switch globale**, classi PASSIVE/ACTIVE/INTRUSIVE, preview → `SEC-G`,`UX-B` |
-| 7 | Deduplicazione + ciclo di vita finding | 🟡 | `vulcan/aggregate.py` (`dedupe_findings` per ID + `merge_duplicate_findings` cross-scanner lossless), `FindingStatus` (7 stati), macchina a stati transizioni `core/finding_lifecycle.py` (`WEB-C`) | Workflow transizioni + dedup cross-scanner ✅; **audit trail/suppression/tagging/ricerca** → `WEB-C` (resto) |
+| 7 | Deduplicazione + ciclo di vita finding | ✅ | `vulcan/aggregate.py` (`dedupe_findings` per ID + `merge_duplicate_findings` cross-scanner lossless), `FindingStatus` (7 stati), macchina a stati + audit trail + suppression `core/finding_lifecycle.py`/`findings/store.py` (`WEB-C`) | Transizioni, dedup, audit trail, suppression, tagging/ricerca tutti ✅ |
 | 8 | Severità, confidence, risk scoring contestuale | ✅ | `Severity`, `Finding.confidence` (`WEB-C`), `Finding.risk_score()` 0–100 (`WEB-C`), `vulcan/enrichment.prioritize` (KEV>EPSS>CVSS>severità) | Confidence + risk score numerico ✅; mantenere |
 | 9 | Mapping CVE/CWE/CVSS/MITRE ATT&CK | 🟡 | `Finding.cvss` + campi `cve`/`cwe`/`epss`/`kev` strutturati (`WEB-C`); link NVD/MITRE in `vulcan/pdf.py`; EPSS/KEV `vulcan/enrichment.py`; ATT&CK detection `apollo/attack.py`, `Alert.mitre_attack` | Campi strutturati ✅; **ATT&CK offensivo sui finding** → `OPS-RED` |
 | 10 | Inventario centralizzato asset | 🟡 | `core.Asset`, `argus/assets.py`, persistenza per-assessment in Athena; `Asset.engagement_id` opzionale e stamping dal coordinator Athena per id canonici (`WEB-B` slice 2) | Collegamento + popolamento ✅; **query/aggregazione cross-engagement** (UI) → `WEB-B` slice 3 |
@@ -644,7 +644,7 @@ identicamente dai quattro canali.
 - [ ] Vista finding con Title, Severity, Status, Asset, Source, Scanner, CVE,
   CWE, CVSS, EPSS, CISA KEV (quando disponibili), Evidence, First/Last seen,
   Remediation, References, senza assumere che ogni dato sia sempre presente.
-- [~] Stati e ciclo di vita. **Fatto:** macchina a stati delle transizioni in
+- [x] Stati e ciclo di vita. **Fatto:** macchina a stati delle transizioni in
   `core/finding_lifecycle.py` sui 7 stati `FindingStatus` (triage, confirmed,
   false-positive, accepted-risk, in-remediation, closed, riapertura su
   recurrence/retest), con `can_transition`/`allowed_transitions`/`transition`
@@ -662,7 +662,11 @@ identicamente dai quattro canali.
   motivo, scoped all'engagement), `core/finding_lifecycle.record_transition`
   (applica + produce il record) e store SQLite append-only owner-only
   (`findings/store.SqliteFindingTransitionStore`, `append`/`history`, rifiuta id
-  duplicati). **Rimane:** workflow di suppression (UI/comando) sopra l'audit.
+  duplicati). **Suppression fatta:** `finding_lifecycle.suppress`/`unsuppress`/
+  `is_suppressed` (accepted-risk o false-positive) — `suppress` esige una
+  motivazione non vuota e uno stato di suppression, passa per la macchina a stati
+  e produce il record d'audit; `unsuppress` riapre a `confirmed`. Ciclo di vita
+  finding **completo**.
 - [ ] **Evidence browser**: navigare le evidenze collegate a un finding
   (comando/argv redatto, output, digest, firma Ed25519) riusando Minerva e la
   chain-of-custody, senza esporre dati redatti o segreti.

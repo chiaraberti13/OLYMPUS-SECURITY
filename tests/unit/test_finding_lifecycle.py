@@ -63,6 +63,57 @@ def test_transition_rejects_a_no_op() -> None:
         transition(_finding(FindingStatus.CONFIRMED), FindingStatus.CONFIRMED)
 
 
+def test_suppress_requires_reason_and_records_it() -> None:
+    from olympus.core.finding_lifecycle import is_suppressed, suppress
+
+    finding = _finding(FindingStatus.CONFIRMED)
+    moved, record = suppress(finding, actor="analyst", reason="accepted until Q3")
+    assert moved.status is FindingStatus.ACCEPTED
+    assert is_suppressed(moved)
+    assert record.reason == "accepted until Q3"
+    assert record.actor == "analyst"
+    # an empty/whitespace reason is rejected
+    with pytest.raises(FindingTransitionError, match="non-empty reason"):
+        suppress(finding, actor="analyst", reason="   ")
+
+
+def test_suppress_as_false_positive() -> None:
+    from olympus.core.finding_lifecycle import suppress
+
+    moved, _ = suppress(
+        _finding(FindingStatus.CONFIRMED),
+        actor="a",
+        reason="duplicate of FND-X",
+        as_status=FindingStatus.FALSE_POSITIVE,
+    )
+    assert moved.status is FindingStatus.FALSE_POSITIVE
+
+
+def test_suppress_rejects_a_non_suppression_status() -> None:
+    from olympus.core.finding_lifecycle import suppress
+
+    with pytest.raises(FindingTransitionError, match="not a suppression status"):
+        suppress(
+            _finding(FindingStatus.CONFIRMED), actor="a", reason="x", as_status=FindingStatus.CLOSED
+        )
+
+
+def test_unsuppress_reopens_to_confirmed() -> None:
+    from olympus.core.finding_lifecycle import suppress, unsuppress
+
+    accepted, _ = suppress(_finding(FindingStatus.CONFIRMED), actor="a", reason="risk accepted")
+    reopened, record = unsuppress(accepted, actor="a", reason="resurfaced on retest")
+    assert reopened.status is FindingStatus.CONFIRMED
+    assert record.from_status is FindingStatus.ACCEPTED
+
+
+def test_unsuppress_rejects_a_finding_that_is_not_suppressed() -> None:
+    from olympus.core.finding_lifecycle import unsuppress
+
+    with pytest.raises(FindingTransitionError, match="not suppressed"):
+        unsuppress(_finding(FindingStatus.CONFIRMED), actor="a")
+
+
 def test_full_happy_path_lifecycle() -> None:
     finding = _finding(FindingStatus.NEW)
     for target in (

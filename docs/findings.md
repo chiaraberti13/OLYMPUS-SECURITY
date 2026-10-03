@@ -152,6 +152,33 @@ records are inserted, never replaced or deleted, so the history cannot be
 rewritten through the API (a duplicate `transition_id` is rejected). This answers
 "who accepted this risk, and when?" without trusting the mutable finding.
 
+### Suppression
+
+Suppressing a finding (accepting the risk, or dismissing it as a false positive)
+removes it from the active worklist, so Olympus refuses to do it silently — a
+**justification is required**:
+
+```python
+from olympus.core.enums import FindingStatus
+from olympus.core.finding_lifecycle import suppress, unsuppress, is_suppressed
+
+moved, record = suppress(finding, actor="analyst@team", reason="accepted until Q3")
+# or dismiss as a false positive:
+moved, record = suppress(
+    finding,
+    actor="analyst@team",
+    reason="duplicate of FND-X",
+    as_status=FindingStatus.FALSE_POSITIVE,
+)
+is_suppressed(moved)  # True  (status in {accepted, false_positive})
+reopened, record = unsuppress(moved, actor="analyst@team", reason="resurfaced on retest")
+```
+
+`suppress` requires a non-empty `reason` and a suppression target status
+(`accepted` or `false_positive`); `unsuppress` re-opens a suppressed finding to
+`confirmed`. Both go through the lifecycle state machine and produce an audit
+record, so a suppression is always both legal and justified.
+
 ## Cross-scanner deduplication
 
 Two scanners often report the *same* vulnerability on the same asset with

@@ -136,3 +136,62 @@ def record_transition(
         engagement_id=finding.engagement_id,
     )
     return moved, record
+
+
+#: The statuses that represent a *suppressed* finding: an accepted risk, or one
+#: dismissed as a false positive. A suppressed finding is deliberately kept out of
+#: the active worklist, which is exactly why suppressing one must be justified.
+SUPPRESSED_STATUSES: frozenset[FindingStatus] = frozenset(
+    {FindingStatus.ACCEPTED, FindingStatus.FALSE_POSITIVE}
+)
+
+
+def is_suppressed(finding: Finding) -> bool:
+    """Return ``True`` if the finding is suppressed (accepted risk or false positive)."""
+    return finding.status in SUPPRESSED_STATUSES
+
+
+def suppress(
+    finding: Finding,
+    *,
+    actor: str,
+    reason: str,
+    as_status: FindingStatus = FindingStatus.ACCEPTED,
+) -> tuple[Finding, FindingTransition]:
+    """Suppress a finding (accepted-risk or false-positive), with a required reason.
+
+    Suppression removes a finding from the active worklist, so Olympus refuses to
+    do it silently: ``reason`` must be a non-empty justification and ``as_status``
+    must be a suppression status (:data:`SUPPRESSED_STATUSES`). The move itself is
+    still validated by the lifecycle state machine, and the returned
+    :class:`FindingTransition` records who suppressed it and why. A missing reason,
+    a non-suppression target, or an illegal move raises
+    :class:`FindingTransitionError` and changes nothing.
+    """
+    if as_status not in SUPPRESSED_STATUSES:
+        raise FindingTransitionError(
+            f"{as_status.value!r} is not a suppression status; "
+            f"use one of {sorted(s.value for s in SUPPRESSED_STATUSES)}"
+        )
+    if not reason.strip():
+        raise FindingTransitionError("a suppression requires a non-empty reason")
+    return record_transition(finding, as_status, actor=actor, reason=reason)
+
+
+def unsuppress(
+    finding: Finding,
+    *,
+    actor: str,
+    reason: str = "",
+) -> tuple[Finding, FindingTransition]:
+    """Re-open a suppressed finding back to ``confirmed``.
+
+    The reverse of :func:`suppress`: an accepted risk that resurfaced, or a false
+    positive that turned out real, returns to the active worklist as ``confirmed``.
+    Raises :class:`FindingTransitionError` if the finding is not suppressed.
+    """
+    if not is_suppressed(finding):
+        raise FindingTransitionError(
+            f"finding is not suppressed (status {finding.status.value!r}); nothing to re-open"
+        )
+    return record_transition(finding, FindingStatus.CONFIRMED, actor=actor, reason=reason)
