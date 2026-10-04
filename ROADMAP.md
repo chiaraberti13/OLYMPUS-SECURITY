@@ -641,9 +641,18 @@ identicamente dai quattro canali.
 
 ### Intervento C · `WEB-C` — Finding management e lifecycle (**P1**)
 
-- [ ] Vista finding con Title, Severity, Status, Asset, Source, Scanner, CVE,
+- [x] Vista finding con Title, Severity, Status, Asset, Source, Scanner, CVE,
   CWE, CVSS, EPSS, CISA KEV (quando disponibili), Evidence, First/Last seen,
   Remediation, References, senza assumere che ogni dato sia sempre presente.
+  **Fatto:** proiezione interface-agnostica `vulcan/view.FindingView`
+  (`row`/`display_items`/`detail`, più `rank_by_risk`) — unica fonte di
+  presentazione riusata da CLI/TUI/Web, come `vulcan/search.py` lo è per i
+  filtri. Un dato assente resta `None` in `detail()` e si rende come `—`
+  (`view.ABSENT`) nelle viste umane, così "assente" non si confonde con "vuoto"
+  o con uno zero inventato; `source` è la provenienza/engine (non esiste un
+  campo *scanner* separato sul contratto). CLI `olympus vulcan findings
+  list|show` (tabella/JSON) con tutti i criteri di `FindingFilter` come flag,
+  ordinata per risk score decrescente. Doc: [`docs/findings.md`](docs/findings.md).
 - [x] Stati e ciclo di vita. **Fatto:** macchina a stati delle transizioni in
   `core/finding_lifecycle.py` sui 7 stati `FindingStatus` (triage, confirmed,
   false-positive, accepted-risk, in-remediation, closed, riapertura su

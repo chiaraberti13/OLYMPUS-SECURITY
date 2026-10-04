@@ -238,6 +238,53 @@ urgent = search_findings(all_findings, query)  # AND semantics, input order kept
 Criteria combine with **AND**; `search_findings` preserves input order (rank
 separately with `rank_findings` or `risk_score`).
 
+## Finding view
+
+Browsing findings — in the CLI, the TUI or the Web UI — must show the same
+columns, derive them the same way, and be **honest about absence**: a datum the
+finding does not carry (no CVSS yet, no EPSS overlay, no remediation written) is
+not the same as a present-but-empty one, and must never render as a fabricated
+`0` or a blank that reads like "none found". `vulcan/view.py` is the single,
+tested place that projects an `olympus.finding` into presentation-ready values
+(the same "one source of meaning" principle `search.py` applies to filtering):
+
+```python
+from olympus.vulcan.view import FindingView, rank_by_risk
+
+view = FindingView(finding)
+view.row()  # compact one-line cells for a table (LIST_COLUMNS)
+view.display_items()  # ordered (label, value) pairs for a detail view
+view.detail()  # full JSON-serialisable projection (absent scalars stay None)
+ordered = rank_by_risk(findings)  # descending risk_score, stable for ties
+```
+
+A missing scalar is kept as `None` in `detail()` (machine types preserved) and
+rendered as `—` (`view.ABSENT`) in `row()`/`display_items()`, so every interface
+can tell absent from empty. The view carries the full `WEB-C` column set — title,
+severity, status, asset, source, CVE, CWE, CVSS, EPSS, CISA KEV, confidence,
+evidence, first/last seen, remediation, references, tags — plus the contextual
+`risk_score`. There is no separate *scanner* field on the contract: `source` is a
+finding's provenance (the producing engine, e.g. `themis`), so it carries that
+column.
+
+### CLI
+
+`olympus vulcan findings` reuses the filter and the view, so the CLI narrows and
+renders findings exactly like the TUI and Web UI will:
+
+```bash
+# List, filtered and ordered by descending risk (absent data shown as "—")
+olympus vulcan findings list --findings findings.json --kev-only --min-severity high
+
+# Any FindingFilter criterion is a flag: --status, --source, --engagement,
+# --has-cve/--no-cve, --tag (repeatable), --text, --min-risk. --format json
+# emits the full detail() projection for scripting.
+olympus vulcan findings list --findings findings.json --format json
+
+# Inspect one finding with every column
+olympus vulcan findings show FND-1234 --findings findings.json
+```
+
 ## How reports use the fields
 
 - **Vulcan enrichment** (`src/olympus/vulcan/enrichment.py`): `extract_cves()`

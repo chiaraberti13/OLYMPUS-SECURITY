@@ -7,11 +7,12 @@ from pathlib import Path
 
 import typer
 
-from olympus.core.enums import Severity
+from olympus.core.enums import FindingStatus, Severity, Source
 from olympus.core.execution import CancellationRequested, ExecutionPolicyError
 from olympus.core.exit_codes import ExitCode
 from olympus.core.fileio import atomic_write_bytes, atomic_write_text, read_regular_text
-from olympus.core.output import OutputFormat, render
+from olympus.core.models import Finding
+from olympus.core.output import OutputFormat, render, render_table
 from olympus.core.paths import output_path
 from olympus.vulcan.aggregate import (
     DEFAULT_MAX_FILES,
@@ -41,6 +42,8 @@ from olympus.vulcan.enrichment import (
 )
 from olympus.vulcan.pdf import PdfUnavailableError
 from olympus.vulcan.report import export_report, export_text
+from olympus.vulcan.search import FindingFilter, search_findings
+from olympus.vulcan.view import LIST_COLUMNS, FindingView, rank_by_risk
 
 DEFAULT_REPORT_OUTPUT = output_path("vulcan-report.json")
 
@@ -299,3 +302,149 @@ def rank(
         for finding in ranked
     ]
     typer.echo(render(records, columns, output_format, title="Findings (ranked)"))
+
+
+findings_app = typer.Typer(
+    help="Browse, filter and inspect findings (ROADMAP WEB-C).",
+    no_args_is_help=True,
+)
+app.add_typer(findings_app, name="findings")
+
+
+def _load_for_view(
+    paths: list[Path],
+    *,
+    max_files: int,
+    max_input_bytes: int,
+    max_items_per_file: int,
+    max_total_items: int,
+) -> list[Finding]:
+    return load_findings(
+        paths,
+        max_files=max_files,
+        max_bytes=max_input_bytes,
+        max_items_per_file=max_items_per_file,
+        max_total_items=max_total_items,
+    )
+
+
+@findings_app.command("list")
+def findings_list(
+    findings: list[Path] = typer.Option(
+        ..., "--findings", help="core.Finding JSON file(s) to view (repeatable)."
+    ),
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.TABLE, "--format", help="Render as a table (human) or json (machine)."
+    ),
+    status: list[FindingStatus] = typer.Option(
+        [], "--status", help="Keep only findings in these statuses (repeatable)."
+    ),
+    source: list[Source] = typer.Option(
+        [], "--source", help="Keep only findings from these sources (repeatable)."
+    ),
+    min_severity: Severity | None = typer.Option(
+        None, "--min-severity", help="Keep only findings at or above this severity."
+    ),
+    engagement: str | None = typer.Option(
+        None, "--engagement", help="Keep only findings linked to this engagement id."
+    ),
+    kev_only: bool = typer.Option(False, "--kev-only", help="Keep only CISA KEV-listed findings."),
+    has_cve: bool | None = typer.Option(
+        None, "--has-cve/--no-cve", help="Keep only findings that have (or lack) any CVE."
+    ),
+    tag: list[str] = typer.Option(
+        [], "--tag", help="Require ALL of these tags, case-insensitive (repeatable)."
+    ),
+    text: str = typer.Option(
+        "", "--text", help="Case-insensitive substring across finding fields."
+    ),
+    min_risk: float | None = typer.Option(
+        None, "--min-risk", min=0.0, max=100.0, help="Keep only findings with risk score >= this."
+    ),
+    max_files: int = typer.Option(DEFAULT_MAX_FILES, "--max-files"),
+    max_input_bytes: int = typer.Option(DEFAULT_MAX_INPUT_BYTES, "--max-input-bytes"),
+    max_items_per_file: int = typer.Option(DEFAULT_MAX_ITEMS_PER_FILE, "--max-items-per-file"),
+    max_total_items: int = typer.Option(DEFAULT_MAX_TOTAL_ITEMS, "--max-total-items"),
+) -> None:
+    """List findings, filtered and ordered by descending risk.
+
+    The filter reuses ``vulcan.search.FindingFilter`` (the single place that
+    decides what each criterion means) and the rows reuse
+    ``vulcan.view.FindingView``, so the CLI narrows and renders findings exactly
+    like the TUI and Web UI will. Absent data is shown as ``—``, never a
+    fabricated zero.
+    """
+    try:
+        loaded = _load_for_view(
+            findings,
+            max_files=max_files,
+            max_input_bytes=max_input_bytes,
+            max_items_per_file=max_items_per_file,
+            max_total_items=max_total_items,
+        )
+    except _APPLICATION_ERRORS as exc:
+        typer.echo(f"vulcan: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+
+    query = FindingFilter(
+        statuses=frozenset(status),
+        sources=frozenset(source),
+        min_severity=min_severity,
+        engagement_id=engagement,
+        kev_only=kev_only,
+        has_cve=has_cve,
+        tags=frozenset(tag),
+        text=text,
+        min_risk_score=min_risk,
+    )
+    views = [FindingView(finding) for finding in rank_by_risk(search_findings(loaded, query))]
+
+    if output_format is OutputFormat.JSON:
+        typer.echo(json.dumps([view.detail() for view in views], indent=2, sort_keys=True))
+    else:
+        rows = [[view.row()[column] for column in LIST_COLUMNS] for view in views]
+        typer.echo(render_table(list(LIST_COLUMNS), rows, title="Findings"))
+    typer.echo(
+        f"vulcan: {len(views)} finding(s) matched of {len(loaded)} loaded",
+        err=True,
+    )
+
+
+@findings_app.command("show")
+def findings_show(
+    finding_id: str = typer.Argument(..., help="The finding_id to inspect."),
+    findings: list[Path] = typer.Option(
+        ..., "--findings", help="core.Finding JSON file(s) to search (repeatable)."
+    ),
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.TABLE, "--format", help="Render as a field table (human) or json (machine)."
+    ),
+    max_files: int = typer.Option(DEFAULT_MAX_FILES, "--max-files"),
+    max_input_bytes: int = typer.Option(DEFAULT_MAX_INPUT_BYTES, "--max-input-bytes"),
+    max_items_per_file: int = typer.Option(DEFAULT_MAX_ITEMS_PER_FILE, "--max-items-per-file"),
+    max_total_items: int = typer.Option(DEFAULT_MAX_TOTAL_ITEMS, "--max-total-items"),
+) -> None:
+    """Show one finding's full view, with every column and absent data as ``—``."""
+    try:
+        loaded = _load_for_view(
+            findings,
+            max_files=max_files,
+            max_input_bytes=max_input_bytes,
+            max_items_per_file=max_items_per_file,
+            max_total_items=max_total_items,
+        )
+    except _APPLICATION_ERRORS as exc:
+        typer.echo(f"vulcan: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+
+    match = next((finding for finding in loaded if finding.finding_id == finding_id), None)
+    if match is None:
+        typer.echo(f"vulcan: no finding with id {finding_id!r} in the given file(s)", err=True)
+        raise typer.Exit(code=ExitCode.USAGE)
+
+    view = FindingView(match)
+    if output_format is OutputFormat.JSON:
+        typer.echo(json.dumps(view.detail(), indent=2, sort_keys=True))
+    else:
+        rows = [[label, value] for label, value in view.display_items()]
+        typer.echo(render_table(["field", "value"], rows, title=f"Finding {finding_id}"))
