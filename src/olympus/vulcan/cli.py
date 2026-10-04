@@ -14,6 +14,17 @@ from olympus.core.fileio import atomic_write_bytes, atomic_write_text, read_regu
 from olympus.core.models import Finding
 from olympus.core.output import OutputFormat, render, render_table
 from olympus.core.paths import output_path
+from olympus.minerva.application import (
+    MinervaApplicationService,
+    MinervaLedgerRequest,
+    load_evidence,
+)
+from olympus.minerva.custody import (
+    DEFAULT_MAX_ENTRIES,
+    DEFAULT_MAX_LEDGER_BYTES,
+    CustodyRecord,
+    load_custody_key,
+)
 from olympus.vulcan.aggregate import (
     DEFAULT_MAX_FILES,
     DEFAULT_MAX_INPUT_BYTES,
@@ -39,6 +50,12 @@ from olympus.vulcan.enrichment import (
     parse_epss_response,
     parse_kev_catalog,
     prioritize,
+)
+from olympus.vulcan.evidence_view import (
+    LIST_COLUMNS as EVIDENCE_COLUMNS,
+)
+from olympus.vulcan.evidence_view import (
+    build_finding_evidence_view,
 )
 from olympus.vulcan.pdf import PdfUnavailableError
 from olympus.vulcan.report import export_report, export_text
@@ -448,3 +465,101 @@ def findings_show(
     else:
         rows = [[label, value] for label, value in view.display_items()]
         typer.echo(render_table(["field", "value"], rows, title=f"Finding {finding_id}"))
+
+
+@findings_app.command("evidence")
+def findings_evidence(
+    finding_id: str = typer.Argument(..., help="The finding_id whose evidence to browse."),
+    findings: list[Path] = typer.Option(
+        ..., "--findings", help="core.Finding JSON file(s) to search (repeatable)."
+    ),
+    ledger: Path | None = typer.Option(
+        None,
+        "--ledger",
+        help="Minerva custody ledger JSON: resolves the chain of custody for "
+        "structured EVD-* evidence (verified; HMAC checked when the key is set).",
+    ),
+    evidence: list[Path] = typer.Option(
+        [],
+        "--evidence",
+        help="core.Evidence JSON file(s) to resolve type/URI/digest (repeatable).",
+    ),
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.TABLE, "--format", help="Render as a table (human) or json (machine)."
+    ),
+    max_files: int = typer.Option(DEFAULT_MAX_FILES, "--max-files"),
+    max_input_bytes: int = typer.Option(DEFAULT_MAX_INPUT_BYTES, "--max-input-bytes"),
+    max_items_per_file: int = typer.Option(DEFAULT_MAX_ITEMS_PER_FILE, "--max-items-per-file"),
+    max_total_items: int = typer.Option(DEFAULT_MAX_TOTAL_ITEMS, "--max-total-items"),
+    max_ledger_bytes: int = typer.Option(DEFAULT_MAX_LEDGER_BYTES, "--max-ledger-bytes"),
+    max_entries: int = typer.Option(DEFAULT_MAX_ENTRIES, "--max-entries"),
+    deadline: float = typer.Option(60.0, "--deadline"),
+) -> None:
+    """Browse one finding's evidence, resolved against Minerva's chain of custody.
+
+    Each evidence reference the finding carries is classified as a structured
+    ``EVD-YYYY-NNNNN`` record or an inline snippet. Structured references are
+    resolved against an optional ``--ledger`` (the verified Minerva custody chain
+    and its signature state) and optional ``--evidence`` records (type, URI,
+    digest); inline snippets are shown redacted and stripped of terminal control
+    sequences. Raw evidence content is never read — only digests and custody
+    metadata — and absent custody renders honestly as ``no-custody`` rather than a
+    blank (ROADMAP ``WEB-C`` / ``SEC-H``).
+    """
+    try:
+        loaded = _load_for_view(
+            findings,
+            max_files=max_files,
+            max_input_bytes=max_input_bytes,
+            max_items_per_file=max_items_per_file,
+            max_total_items=max_total_items,
+        )
+    except _APPLICATION_ERRORS as exc:
+        typer.echo(f"vulcan: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+
+    match = next((finding for finding in loaded if finding.finding_id == finding_id), None)
+    if match is None:
+        typer.echo(f"vulcan: no finding with id {finding_id!r} in the given file(s)", err=True)
+        raise typer.Exit(code=ExitCode.USAGE)
+
+    custody_records: tuple[CustodyRecord, ...] = ()
+    signed = signature_verified = False
+    evidence_anchored = True
+    try:
+        if ledger is not None:
+            outcome = MinervaApplicationService().inspect(
+                MinervaLedgerRequest(
+                    ledger, max_ledger_bytes, max_entries, deadline, key=load_custody_key()
+                )
+            )
+            custody_records = outcome.entries
+            signed = outcome.signed
+            signature_verified = outcome.signature_verified
+            evidence_anchored = outcome.evidence_anchored
+        evidence_records = {
+            record.evidence_id: record for record in (load_evidence(path) for path in evidence)
+        }
+    except _APPLICATION_ERRORS as exc:
+        typer.echo(f"vulcan: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+
+    view = build_finding_evidence_view(
+        match,
+        custody_records=custody_records,
+        evidence_records=evidence_records,
+        signed=signed,
+        signature_verified=signature_verified,
+        evidence_anchored=evidence_anchored,
+    )
+
+    if output_format is OutputFormat.JSON:
+        typer.echo(json.dumps(view.detail(), indent=2, sort_keys=True))
+    else:
+        rows = [[row[column] for column in EVIDENCE_COLUMNS] for row in view.rows()]
+        typer.echo(render_table(list(EVIDENCE_COLUMNS), rows, title=f"Evidence for {finding_id}"))
+    typer.echo(
+        f"vulcan: {len(view.items)} evidence reference(s); "
+        f"custody signature: {view.custody_signature()}",
+        err=True,
+    )

@@ -676,9 +676,25 @@ identicamente dai quattro canali.
   motivazione non vuota e uno stato di suppression, passa per la macchina a stati
   e produce il record d'audit; `unsuppress` riapre a `confirmed`. Ciclo di vita
   finding **completo**.
-- [ ] **Evidence browser**: navigare le evidenze collegate a un finding
-  (comando/argv redatto, output, digest, firma Ed25519) riusando Minerva e la
-  chain-of-custody, senza esporre dati redatti o segreti.
+- [x] **Evidence browser**: navigare le evidenze collegate a un finding
+  (comando/argv redatto, output, digest, firma della chain-of-custody) riusando
+  Minerva e la chain-of-custody, senza esporre dati redatti o segreti.
+  **Fatto:** proiezione interface-agnostica `vulcan/evidence_view.FindingEvidenceView`
+  (`build_finding_evidence_view`, `rows`/`detail`/`custody_signature`) — unica
+  fonte di navigazione riusata da CLI/TUI/Web, come `vulcan/view.py` lo è per le
+  colonne. Classifica ogni riferimento in **strutturato** (`EVD-YYYY-NNNNN`) o
+  **inline** (snippet dell'adapter): i riferimenti strutturati sono risolti
+  contro la custody chain Minerva verificata (eventi collected/transferred/
+  analyzed/archived, digest SHA-256, confronto digest record↔ledger) e lo stato
+  firma del ledger (`HMAC-SHA256` verificato / SIGNED non verificato / unsigned /
+  legacy); gli snippet inline sono resi con `redact_text` e privati delle
+  sequenze di controllo del terminale (`SEC-H`). Il contenuto grezzo dell'evidenza
+  non viene mai letto né stampato (solo digest e metadati di custody) e l'assenza
+  è onesta (`no-custody`, `digest-mismatch`). CLI `olympus vulcan findings
+  evidence FND-… --findings … [--ledger …] [--evidence …]` (tabella/JSON);
+  `--ledger`/`--evidence` opzionali. Timeline custody firmabile Ed25519 via
+  `olympus minerva timeline --export --sign-key`. Doc:
+  [`docs/findings.md`](docs/findings.md).
 - [x] **Finding strutturato (fondamenta).** CVE, CWE, EPSS, KEV e `confidence`
   promossi da testo-regex a **campi opzionali tipizzati** sul contratto
   `Finding` (`core/models.py`), additivi e retro-compatibili (schema resta

@@ -285,6 +285,68 @@ olympus vulcan findings list --findings findings.json --format json
 olympus vulcan findings show FND-1234 --findings findings.json
 ```
 
+## Evidence browser
+
+A finding is only as trustworthy as the material behind it, so an operator must
+be able to walk from a finding to its evidence — and judge whether that evidence
+is tamper-evident — identically from the CLI, the TUI or the Web UI.
+`vulcan/evidence_view.py` is the single, tested place that projects a finding's
+`evidence` list into a navigable view, reusing [Minerva's chain of
+custody](minerva.md) (the same "one source of meaning" principle `view.py`
+applies to columns and `search.py` to filters).
+
+Two kinds of evidence reference can appear on a finding:
+
+- a **structured** reference `EVD-YYYY-NNNNN` that names an `olympus.evidence`
+  record and, through Minerva, a tamper-evident chain of custody — its digest,
+  the collection/transfer/analysis/archive events, and the ledger's signature
+  state;
+- an **inline** snippet an adapter attached directly (`scanner=nmap`, `url=...`),
+  which is target-influenced free text.
+
+Everything is defanged. Inline snippets and resolved URIs are stripped of
+terminal control sequences and passed through `redact_text` (so a hostile target
+cannot rewrite the operator's terminal or leak a query secret — see
+[`SEC-H`](../ROADMAP.md)), and the raw bytes an evidence reference points at are
+never read or printed — only the digest and custody metadata. Absence is told
+honestly: an evidence id with no custody record renders as `no-custody`, a
+digest that disagrees with the ledger as `digest-mismatch`, and an unsigned or
+unverified ledger says so rather than showing a reassuring blank.
+
+The chain-of-custody signature surfaced here is the Minerva ledger's
+`HMAC-SHA256` head signature; a verified custody timeline can additionally be
+exported and Ed25519-signed with `olympus minerva timeline --export --sign-key`
+for third-party verification.
+
+```python
+from olympus.vulcan.evidence_view import build_finding_evidence_view
+
+view = build_finding_evidence_view(
+    finding,
+    custody_records=ledger_entries,   # verified Minerva custody entries (optional)
+    evidence_records={evd.evidence_id: evd},  # olympus.evidence records (optional)
+    signed=True, signature_verified=True,
+)
+view.rows()               # compact table cells, one per evidence reference
+view.custody_signature()  # "HMAC-SHA256 signature verified", "unsigned", ...
+view.detail()             # full JSON-serialisable projection
+```
+
+```bash
+# Browse one finding's evidence against the verified custody ledger.
+# Set OLYMPUS_CUSTODY_HMAC_KEY to also verify a signed ledger's HMAC.
+olympus vulcan findings evidence FND-1234 \
+  --findings findings.json \
+  --ledger minerva-custody.json \
+  --evidence evidence.json
+
+# --format json emits the full detail() projection for scripting.
+olympus vulcan findings evidence FND-1234 --findings findings.json --format json
+```
+
+`--ledger` and `--evidence` are both optional: with neither, structured
+references still render honestly as `no-custody` rather than disappearing.
+
 ## How reports use the fields
 
 - **Vulcan enrichment** (`src/olympus/vulcan/enrichment.py`): `extract_cves()`
