@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Jobs · Olympus THEMIS{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Jobs</h1>
+  {% if jobs %}
+  <table>
+    <thead><tr><th>Job</th><th>Scanner</th><th>Target</th><th>Scope</th><th>State</th><th>Attempts</th></tr></thead>
+    <tbody>
+      {% for job in jobs %}
+      <tr>
+        <td><a href="/jobs/{{ job.job_id }}">{{ job.job_id }}</a></td>
+        <td>{{ job.scanner }}</td>
+        <td class="target">{{ job.target }}</td>
+        <td>{{ job.scope_name }}</td>
+        <td><span class="state state-{{ job.state }}">{{ job.state_label }}</span></td>
+        <td>{{ job.attempts }}/{{ job.max_attempts }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No jobs yet. <a href="/assessments/new">Start an assessment</a>.</p>
+  {% endif %}
+</section>
+{% endblock %}

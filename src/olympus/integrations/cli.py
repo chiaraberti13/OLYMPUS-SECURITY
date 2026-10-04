@@ -227,6 +227,83 @@ def themis_api(
     )
 
 
+@themis_app.command("web")
+def themis_web(
+    database: str = typer.Option(".olympus/themis-jobs.sqlite3", "--database", "-d"),
+    scope_directory: str = typer.Option(".olympus/scopes", "--scope-directory"),
+    host: str = typer.Option("127.0.0.1", "--host"),
+    port: int = typer.Option(8600, "--port", min=1, max=65_535),
+    api_key_env: str = typer.Option("OLYMPUS_THEMIS_API_KEY", "--api-key-env"),
+    identities: str = typer.Option(
+        "", "--identities", help="Identity register with scoped, revocable credentials."
+    ),
+    audit: str = typer.Option(
+        DEFAULT_THEMIS_AUDIT_LOG, "--audit", help="Redacted per-request audit log."
+    ),
+    ssl_certfile: str = typer.Option("", "--ssl-certfile"),
+    ssl_keyfile: str = typer.Option("", "--ssl-keyfile"),
+) -> None:
+    """Serve the native THEMIS web control plane (browser UI over the same core).
+
+    A browser-driven job is run through the identical scope gate, authorization
+    check, sandbox and redacted audit trail as the CLI. Non-loopback binds
+    require both a TLS certificate and key; credentials come from an identity
+    register or a single environment variable, never from the command line.
+    """
+    import ipaddress
+    from pathlib import Path
+
+    try:
+        loopback = ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        loopback = host.lower() == "localhost"
+    if not loopback and not (ssl_certfile and ssl_keyfile):
+        typer.echo(
+            "olympus: non-loopback THEMIS web binds require TLS certificate and key",
+            err=True,
+        )
+        raise typer.Exit(code=ExitCode.USAGE)
+    api_key = _read_api_key(api_key_env)
+    if not api_key and not identities:
+        typer.echo(
+            f"olympus: set {api_key_env} or pass --identities with a credential register",
+            err=True,
+        )
+        raise typer.Exit(code=ExitCode.USAGE)
+
+    try:
+        import uvicorn
+
+        from olympus.themis.api import ApiSettings
+        from olympus.themis.web import create_web_app
+
+        application = create_web_app(
+            ApiSettings(
+                database=Path(database),
+                scope_directory=Path(scope_directory),
+                api_key=api_key,
+                identities_path=Path(identities) if identities else None,
+                audit_path=Path(audit) if audit else None,
+            )
+        )
+    except (ImportError, OSError, ValueError, RuntimeError) as exc:
+        typer.echo(
+            f'olympus: native web unavailable: {exc}; install with pip install -e ".[api]"',
+            err=True,
+        )
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+
+    uvicorn.run(
+        application,
+        host=host,
+        port=port,
+        ssl_certfile=ssl_certfile or None,
+        ssl_keyfile=ssl_keyfile or None,
+        proxy_headers=False,
+        server_header=False,
+    )
+
+
 @themis_app.command("serve")
 def themis_serve(
     host: str = typer.Option("127.0.0.1", "--host", help="Bind address for the web app."),

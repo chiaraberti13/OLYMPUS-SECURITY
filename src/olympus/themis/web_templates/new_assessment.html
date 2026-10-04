@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}New assessment · Olympus THEMIS{% endblock %}
+{% block content %}
+<section class="card narrow">
+  <h1>New assessment</h1>
+  <p class="muted">
+    The browser submits a typed request — scanner, target and a registered
+    scope — that the server runs through the same scope gate, authorization
+    check and sandbox as the CLI. There is no free-form command line.
+  </p>
+  {% if error %}<p class="alert" role="alert">{{ error }}</p>{% endif %}
+  <form method="post" action="/jobs">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="scanner">Scanner</label>
+    <input id="scanner" name="scanner" value="{{ form.scanner or '' }}"
+           pattern="[a-z0-9][a-z0-9-]{0,63}" required>
+
+    <label for="target">Target</label>
+    <input id="target" name="target" value="{{ form.target or '' }}" maxlength="2048" required>
+
+    <label for="target_kind">Target kind</label>
+    <select id="target_kind" name="target_kind">
+      <option value="host">host</option>
+      <option value="domain">domain</option>
+      <option value="url">url</option>
+    </select>
+
+    <label for="scope_id">Registered scope</label>
+    <input id="scope_id" name="scope_id" value="{{ form.scope_id or '' }}"
+           pattern="[A-Za-z0-9][A-Za-z0-9_.-]{0,127}" required>
+
+    <label for="max_attempts">Max attempts</label>
+    <input id="max_attempts" name="max_attempts" type="number" min="1" max="5" value="1">
+
+    <label class="checkbox">
+      <input type="checkbox" name="authorized" value="on">
+      I confirm documented authorization to test this target.
+    </label>
+
+    <button type="submit">Queue scan</button>
+  </form>
+</section>
+{% endblock %}

@@ -43,7 +43,7 @@
 | 4 | Capability Red/Blue/Purple | `[~]` | `OPS-RED`, `OPS-BLUE`, `OPS-PURPLE`, `OPS-SCAN` |
 | 5 | Production readiness scanner | `[ ]` | `D1`, `D2` |
 | 6 | Distribuzione e osservabilità | `[~]` | `DEV-E`, `DEV-F`, `SEC-F` |
-| 7 | Rename Themis + Web control plane | `[~]` | `DEV-I` ✓, `WEB-A`…`WEB-J` |
+| 7 | Rename Themis + Web control plane | `[~]` | `DEV-I` ✓, `WEB-A` ✓, `WEB-B`…`WEB-J` |
 
 L'ordine di esecuzione concordato per la Fase 7 mette le **fondamenta dati prima
 delle interfacce**: `DEV-I` (rename) → `WEB-B` (engagement entità di primo
@@ -123,7 +123,7 @@ Legenda stato: ✅ implementata · 🟡 parziale · 🗓️ pianificata · ❌ a
 | 12 | Scansioni incrementali + confronto risultati | 🟡 | `argus/diff.py` (diff recon) | **Finding/scan diff cross-run** → `WEB-I` |
 | 13 | Dashboard, notifiche, report JSON/CSV/HTML/PDF/SARIF | 🟡 | report JSON/MD/HTML/PDF `vulcan/`, SARIF `hermes/sarif.py`, OCSF/ECS/NDJSON `apollo/` | **CSV** ❌ (basso costo) → `WEB-I`; **dashboard/notifiche** → `WEB-G`/`WEB-I` |
 | 14 | API, webhook, CI/CD, ticketing, SIEM, CTI | 🟡 | API tipizzata `themis/api.py`; CTI nativo Metis (`metis/misp.py`,`stix.py`) | API+CTI ✅; **webhook/ticketing/CI** → `WEB-J`; **SIEM** → `OPS-BLUE` |
-| 15 | Test unit/integration/e2e + demo sicuro | ✅ | ~132 file di test (unit/contract/integration/container/live_lab), demo `labs/mars/` | Estendere e2e Web con `WEB-A` |
+| 15 | Test unit/integration/e2e + demo sicuro | ✅ | ~132 file di test (unit/contract/integration/container/live_lab), demo `labs/mars/`; web-security + job-lifecycle della Web UI nativa (`tests/unit/test_themis_web.py`, `WEB-A`) | Estendere e2e Web sulle slice successive (`WEB-D`/`WEB-E`) |
 
 ### B. Moduli proposti (FASE 3) — valutazione
 
@@ -590,29 +590,50 @@ golden contract verdi; documentazione allineata. **`DEV-I` completo.**
 Esiste già un'API FastAPI tipizzata (`themis/api.py`, ex `aegis/api.py`) con
 autenticazione per-scope, middleware di accountability e limiti sul body,
 `/health`, `/ready`, `/metrics`, `/api/v1/capabilities` e `/api/v1/jobs`
-(submit/list/get/cancel). **Non esiste una Web UI nativa**: l'unica web è la VAP
-vendorizzata in quarantena (solo loopback), destinata al ritiro (`SEC-A`). La
-Web UI nativa va costruita sopra l'API esistente, non come piattaforma parallela.
+(submit/list/get/cancel). **Esiste ora una Web UI nativa** (`themis/web.py`,
+`olympus themis web`, `WEB-A` ✓) costruita **sopra** questa API e sullo stesso
+store, non come piattaforma parallela; la VAP vendorizzata resta in quarantena
+(solo loopback), destinata al ritiro (`SEC-A`). Le prossime slice web
+(`WEB-B` slice 3, `WEB-D`, `WEB-E`…) estendono questa UI, non la sostituiscono.
 
 ### Intervento A · `WEB-A` — Web control plane nativo (**P0/P1**)
 
-- [ ] Servire una Web UI nativa con **FastAPI + Jinja2 + HTMX + SSE** sopra
-  l'API tipizzata esistente; nessun endpoint tipo `POST /run-command` e nessuna
-  shell arbitraria — solo richieste tipizzate (`scanner`, `target`, `engagement`,
-  `profile`) che il server traduce nell'esecuzione scope/policy-gated.
-- [ ] Applicare gli stessi controlli della CLI: scope, autorizzazione, execution
+- [x] Servire una Web UI nativa sopra l'API tipizzata esistente; nessun endpoint
+  tipo `POST /run-command` e nessuna shell arbitraria — solo richieste tipizzate
+  (`scanner`, `target`, `target_kind`, `scope_id`) che il server traduce
+  nell'esecuzione scope/policy-gated. **Fatto:** `olympus.themis.web.create_web_app`
+  (FastAPI + Jinja2 + server-sent events, con enhancement progressivo via un
+  unico script same-origin invece di HTMX, per rispettare la CSP senza
+  `'unsafe-inline'`), servita da `olympus themis web`. Il submit riusa lo stesso
+  contratto `JobSubmission` dell'API. Doc: [`docs/web.md`](docs/web.md).
+- [x] Applicare gli stessi controlli della CLI: scope, autorizzazione, execution
   policy, rate limit, deadline, sandbox, audit, retention, redaction; la GUI non
-  può ridurli (**P0**).
-- [ ] Aggiungere security headers, CSP restrittiva, cookie `Secure`/`SameSite`,
+  può ridurli (**P0**). **Fatto:** la rotta di submit chiama lo **stesso**
+  `ThemisJobStore.submit` con la **stessa** risoluzione dello scope registrato
+  (`_registered_scope`) e lo stesso gate `authorized`; un job del browser è
+  verificabilmente identico via API (stesso store), e l'audit redatto è emesso
+  dallo stesso middleware di accountability.
+- [x] Aggiungere security headers, CSP restrittiva, cookie `Secure`/`SameSite`,
   CSRF dove necessario, validazione input, rate limiting, autenticazione e audit
-  trail (**P0**).
-- [ ] Streaming job via SSE/WebSocket con stati `QUEUED/STARTING/RUNNING/PARSING/
-  NORMALIZING/COMPLETED` e `FAILED/CANCELLED/PARTIAL/UNAVAILABLE/DISABLED`, output
-  redatto e pulsante **Cancel** collegato alla cancellazione reale di Olympus.
+  trail (**P0**). **Fatto:** sessione via cookie firmato HMAC
+  `HttpOnly`/`Secure`/`SameSite=Strict` emesso solo da una credenziale valida;
+  token CSRF sincronizzatore legato al nonce di sessione e confrontato in tempo
+  costante su ogni form che cambia stato; CSP `default-src 'none'` senza
+  script/stile inline più `nosniff`/`DENY`/`no-referrer`/`no-store` e body
+  limitato a 64 KiB; scope enforcement per rotta; rate limit per identità.
+- [x] Streaming job via SSE con gli stati reali dello store (`queued`, `running`,
+  `succeeded`, `partial`, `failed`, `timed_out`, `cancelled`, `policy_denied`),
+  output redatto e pulsante **Cancel** collegato alla cancellazione reale di
+  Olympus. **Fatto:** `GET /jobs/{id}/events` (`text/event-stream`) emette ogni
+  transizione fino allo stato terminale; le sotto-fasi non registrate dal worker
+  (parsing/normalizing) non sono inventate (onestà dello stato). Cancel via
+  `POST /jobs/{id}/cancel` protetto da CSRF che invoca `ThemisJobStore.cancel`.
 
-**Criterio di completamento:** un job avviato dal browser è indistinguibile, per
-policy e audit, da uno avviato in CLI; i test di web-security (headers, CSRF,
-authz) e di job-lifecycle/cancellation passano.
+**Criterio di completamento (soddisfatto):** un job avviato dal browser è
+indistinguibile, per policy e audit, da uno avviato in CLI; i test di
+web-security (headers, CSP, CSRF, authz, sessione, body limit) e di
+job-lifecycle/cancellation/SSE passano (`tests/unit/test_themis_web.py`).
+**`WEB-A` completo.**
 
 ### Intervento B · `WEB-B` — Engagement come entità di primo livello (**P1**)
 

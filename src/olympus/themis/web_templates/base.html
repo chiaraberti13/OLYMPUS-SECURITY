@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Olympus THEMIS{% endblock %}</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="topbar">
+    <span class="brand">🏛️ Olympus <strong>THEMIS</strong></span>
+    {% block nav %}
+    <nav aria-label="Primary">
+      <a href="/">Dashboard</a>
+      <a href="/jobs">Jobs</a>
+      <a href="/assessments/new">New assessment</a>
+      <form class="inline" method="post" action="/logout">
+        <button type="submit" class="link-button">Sign out</button>
+      </form>
+    </nav>
+    {% endblock %}
+  </header>
+  <main id="main">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="footer">
+    Olympus THEMIS web control plane · v{{ version }} ·
+    every action is scope-gated and audited exactly as on the command line.
+  </footer>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

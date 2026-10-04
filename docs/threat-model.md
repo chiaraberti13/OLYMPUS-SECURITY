@@ -58,6 +58,7 @@ Each row is a threat and the implemented control that addresses it.
 | **Credential / finding leakage into logs** | Secret-bearing keys and URL query parameters are redacted before any audit record; raw evidence is bounded and stripped of secret assignments. | `olympus.core.execution`, `olympus.themis.base` |
 | **Unbounded evidence retention** | Age/count/size budgets with secure deletion and append-only audit rotation. | `olympus.core.retention` |
 | **Stolen or over-scoped API identity** | Per-route scopes, rotation with overlap, immediate revocation, expiry and per-identity rate limiting. | `olympus.themis.identity` |
+| **Browser-driven privilege or CSRF abuse of the web control plane** | The native web UI reuses the same store, scope gate and audit as the CLI; sessions are `HttpOnly`/`Secure`/`SameSite=Strict` cookies minted only from a valid credential, state-changing forms carry a synchroniser CSRF token, a restrictive CSP forbids inline script/style, and per-route scopes gate submit and cancel. | `olympus.themis.web` |
 | **A committed secret** | gitleaks scans the working tree and the full history on `main`, blocking, with a canary test. | `.github/workflows/ci.yml` |
 | **A poisoned or substituted dependency** | A CycloneDX SBOM of the runtime closure, a `pip --require-hashes` lockfile from real PyPI hashes, and a blocking pip-audit gate on that closure. | `olympus.core.sbom`, `olympus.core.lockfile`, `.github/workflows/ci.yml` |
 | **A drifting or mutable base image** | Mandatory container images pinned by digest; Go scanners pinned to versions; a test guards against regression. | `docker/Dockerfile.scanners`, `docker-compose.yml` |
@@ -73,7 +74,9 @@ Honesty is a control here too. These are open, and tracked in
 - **The legacy VAP web surface (P0).** The vendored Vulnerability Assessment
   Platform still owns some HTML routes without full RBAC, fail-closed JWT, or a
   mandatory production target allowlist. Native THEMIS does not have these gaps;
-  the vendored surface is being retired, not extended.
+  the vendored surface is being retired, not extended. Its authenticated
+  replacement is the native web control plane (`olympus themis web`,
+  [`web.md`](web.md)), which reuses the same scope gate and audit as the CLI.
 - **Egress allowlist on scanner processes.** Scanner subprocesses are sandboxed
   for host isolation but do not yet run behind an egress allowlist.
 - **seccomp/AppArmor.** The sandbox drops privileges and sets rlimits but does

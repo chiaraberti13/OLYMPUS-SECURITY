@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{{ job.job_id }} · Olympus THEMIS{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Job {{ job.job_id }}</h1>
+  <p id="job-status" class="status-line"
+     data-job-id="{{ job.job_id }}"
+     data-terminal="{{ 'true' if job.is_terminal else 'false' }}">
+    <span class="state state-{{ job.state }}" id="job-state">{{ job.state_label }}</span>
+  </p>
+
+  <dl class="detail">
+    <dt>Scanner</dt><dd>{{ job.scanner }}</dd>
+    <dt>Target</dt><dd class="target">{{ job.target }} ({{ job.target_kind }})</dd>
+    <dt>Scope</dt><dd>{{ job.scope_name }}</dd>
+    <dt>Attempts</dt><dd>{{ job.attempts }}/{{ job.max_attempts }}</dd>
+    <dt>Created</dt><dd>{{ job.created_at }}</dd>
+    <dt>Updated</dt><dd>{{ job.updated_at }}</dd>
+    {% if job.finished_at %}<dt>Finished</dt><dd>{{ job.finished_at }}</dd>{% endif %}
+    {% if job.finding_count is not none %}<dt>Findings</dt><dd>{{ job.finding_count }}</dd>{% endif %}
+    {% if job.error %}<dt>Error</dt><dd class="target">{{ job.error }}</dd>{% endif %}
+  </dl>
+
+  {% if can_cancel and not job.is_terminal %}
+  <form method="post" action="/jobs/{{ job.job_id }}/cancel">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" class="danger">Cancel job</button>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}
+{% block scripts %}
+<script src="/static/app.js" defer></script>
+{% endblock %}

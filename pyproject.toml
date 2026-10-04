@@ -40,6 +40,11 @@ dev = [
 api = [
     "fastapi>=0.109",
     "uvicorn[standard]>=0.27",
+    # The native web control plane (olympus themis web) renders server-side
+    # templates and parses typed HTML forms; both ship with the API surface so
+    # `.[api]` is enough to run and test it.
+    "jinja2>=3.1",
+    "python-multipart>=0.0.6",
 ]
 observability = [
     "prometheus-client>=0.19",

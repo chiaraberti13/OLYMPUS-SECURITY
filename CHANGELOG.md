@@ -46,6 +46,24 @@ everything below lives under **Unreleased**.
   catalog/golden verdi.
 
 ### Added
+- **Web control plane nativo (`WEB-A`).** Nuova interfaccia browser
+  `olympus.themis.web` (FastAPI + Jinja2 + server-sent events) servita da
+  `olympus themis web`, costruita **sopra** l'API THEMIS esistente senza
+  duplicare logica di sicurezza: un job avviato dal browser passa per lo stesso
+  `ThemisJobStore`, la stessa risoluzione dello scope registrato, la stessa
+  execution policy, sandbox, rate limit, retention e audit trail redatto della
+  CLI — indistinguibile per policy e audit. Nessun `POST /run-command` né shell
+  arbitraria: solo richieste tipizzate (`scanner`/`target`/`scope`) validate con
+  lo stesso contratto `JobSubmission`. Hardening P0: sessione via cookie firmato
+  `HttpOnly`/`Secure`/`SameSite=Strict` emesso solo da una credenziale valida;
+  token CSRF sincronizzatore su ogni form che cambia stato; Content-Security-
+  Policy restrittiva senza script/stile inline più header di sicurezza e body
+  limitato; scope enforcement per rotta; streaming SSE degli stati del job con
+  pulsante **Cancel** collegato alla cancellazione reale. Testo influenzato dal
+  target ripulito da sequenze di controllo del terminale e segreti URL, con
+  autoescaping HTML (`SEC-H`). `jinja2`/`python-multipart` spostati nell'extra
+  `api`. Aggiunti test di web-security e job-lifecycle e `docs/web.md`;
+  threat model aggiornato.
 - **Workflow di suppression dei finding (`WEB-C`).** `core/finding_lifecycle`
   espone `suppress`/`unsuppress`/`is_suppressed`: sopprimere un finding
   (accepted-risk o false-positive) **esige una motivazione non vuota** e uno stato

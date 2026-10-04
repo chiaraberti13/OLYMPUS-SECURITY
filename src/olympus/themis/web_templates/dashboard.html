@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · Olympus THEMIS{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Dashboard</h1>
+  <p class="muted">
+    Signed in as <strong>{{ identity_id }}</strong> ·
+    scopes: {{ scopes | join(", ") }}
+  </p>
+  <div class="tiles">
+    <div class="tile"><span class="tile-value">{{ total }}</span><span class="tile-label">jobs total</span></div>
+    {% for state, count in histogram.items() %}
+    <div class="tile"><span class="tile-value">{{ count }}</span><span class="tile-label">{{ state }}</span></div>
+    {% endfor %}
+  </div>
+</section>
+<section class="card">
+  <h2>Recent jobs</h2>
+  {% if recent %}
+  <table>
+    <thead><tr><th>Job</th><th>Scanner</th><th>Target</th><th>State</th><th>Updated</th></tr></thead>
+    <tbody>
+      {% for job in recent %}
+      <tr>
+        <td><a href="/jobs/{{ job.job_id }}">{{ job.job_id }}</a></td>
+        <td>{{ job.scanner }}</td>
+        <td class="target">{{ job.target }}</td>
+        <td><span class="state state-{{ job.state }}">{{ job.state_label }}</span></td>
+        <td>{{ job.updated_at }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No jobs yet. <a href="/assessments/new">Start an assessment</a>.</p>
+  {% endif %}
+</section>
+{% endblock %}
