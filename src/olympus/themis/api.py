@@ -27,7 +27,14 @@ from starlette.responses import Response
 
 from olympus import __version__
 from olympus.core.execution import StructuredAuditRecord, append_structured_audit
+from olympus.core.models import Engagement
 from olympus.core.observability import Correlation, Observability, observability_from_config
+from olympus.engagements.resolve import (
+    EngagementStoreError,
+    engagement_covers,
+    load_engagements,
+    require_engagement,
+)
 from olympus.integrations.capabilities import inventory_document
 from olympus.themis.identity import (
     SCOPES,
@@ -66,6 +73,11 @@ class ApiSettings:
     identities_path: Path | None = None
     #: Where each authenticated request is recorded, redacted.
     audit_path: Path | None = None
+    #: The shared engagement database (ROADMAP ``WEB-B``). When set, engagements
+    #: are readable over the API/Web and a submission may be scope-checked
+    #: against one; when ``None`` those routes report the feature is not
+    #: configured rather than silently pretending there are no engagements.
+    engagements_database: Path | None = None
 
     def validate(self) -> None:
         if not self.api_key and self.identities_path is None:
@@ -142,12 +154,27 @@ class JobSubmission(BaseModel):
     target_kind: Literal["host", "domain", "url"] = "host"
     scope_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
     authorized: bool
+    #: Optional engagement this job belongs to (ROADMAP ``WEB-B``). When set, the
+    #: server resolves it from the shared engagement store and enforces that the
+    #: target falls inside the engagement's authorized perimeter before queueing.
+    engagement_id: str | None = Field(default=None, pattern=r"^ENG-\d{4}-\d{5}$")
     #: Resubmitting the same key returns the job that already exists instead of
     #: queueing a second scan of the same target.
     idempotency_key: str | None = Field(
         default=None, pattern=r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
     )
     max_attempts: int = Field(default=1, ge=1, le=MAX_ATTEMPTS_LIMIT)
+
+
+class EngagementList(BaseModel):
+    """The engagements visible over the API, newest first."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_name: Literal["olympus.themis-engagement-list"] = "olympus.themis-engagement-list"
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    count: int
+    engagements: list[Engagement]
 
 
 class JobList(BaseModel):
@@ -226,6 +253,7 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
     reads_jobs = authenticated("jobs:read")
     writes_jobs = authenticated("jobs:write")
     cancels_jobs = authenticated("jobs:cancel")
+    reads_engagements = authenticated("engagements:read")
 
     @app.middleware("http")
     async def accountability(request: Request, call_next):  # type: ignore[no-untyped-def]
@@ -330,6 +358,31 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
     def capabilities(caller: Caller = reads_capabilities) -> dict[str, object]:
         return inventory_document()
 
+    @app.get(
+        "/api/v1/engagements",
+        response_model=EngagementList,
+        tags=["engagements"],
+    )
+    def list_engagements(caller: Caller = reads_engagements) -> EngagementList:
+        database = _require_engagements_database(settings)
+        try:
+            engagements = load_engagements(database)
+        except EngagementStoreError as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+        return EngagementList(count=len(engagements), engagements=engagements)
+
+    @app.get(
+        "/api/v1/engagements/{engagement_id}",
+        response_model=Engagement,
+        tags=["engagements"],
+    )
+    def get_engagement(engagement_id: str, caller: Caller = reads_engagements) -> Engagement:
+        database = _require_engagements_database(settings)
+        try:
+            return require_engagement(database, engagement_id)
+        except EngagementStoreError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
     @app.post(
         "/api/v1/jobs",
         response_model=ThemisJob,
@@ -341,6 +394,13 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="documented authorization must be confirmed",
+            )
+        if body.engagement_id is not None:
+            _enforce_engagement_scope(
+                settings.engagements_database,
+                body.engagement_id,
+                body.target,
+                body.target_kind,
             )
         scope_path = _registered_scope(scope_root, body.scope_id)
         try:
@@ -400,6 +460,40 @@ def _trace_id(supplied: str | None, prefix: str) -> str:
     if supplied is not None and _TRACE_ID.fullmatch(supplied):
         return supplied
     return f"{prefix}-{uuid4().hex}"
+
+
+def _require_engagements_database(settings: ApiSettings) -> Path:
+    """Return the configured engagement database, or report the feature is off.
+
+    When no engagement store is wired, the honest answer is "not configured"
+    (503), never an empty list that would imply there are simply no engagements.
+    """
+    if settings.engagements_database is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="engagement store is not configured on this server",
+        )
+    return settings.engagements_database
+
+
+def _enforce_engagement_scope(
+    database: Path | None, engagement_id: str, target: str, target_kind: str
+) -> None:
+    """Reject a submission whose target falls outside the engagement's scope."""
+    if database is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="engagement_id was supplied but no engagement store is configured",
+        )
+    try:
+        engagement = require_engagement(database, engagement_id)
+    except EngagementStoreError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if not engagement_covers(engagement, target, target_kind):
+        raise HTTPException(
+            status_code=422,
+            detail="target is outside the engagement scope",
+        )
 
 
 def _registered_scope(root: Path, scope_id: str) -> Path:

@@ -29,6 +29,23 @@
     <input id="scope_id" name="scope_id" value="{{ form.scope_id or '' }}"
            pattern="[A-Za-z0-9][A-Za-z0-9_.-]{0,127}" required>
 
+    {% if engagements %}
+    <label for="engagement_id">Engagement (optional)</label>
+    <select id="engagement_id" name="engagement_id">
+      <option value="">— none —</option>
+      {% for engagement in engagements %}
+      <option value="{{ engagement.engagement_id }}"
+              {% if form.engagement_id == engagement.engagement_id %}selected{% endif %}>
+        {{ engagement.engagement_id }} — {{ engagement.name }}
+      </option>
+      {% endfor %}
+    </select>
+    <p class="muted">
+      When an engagement is chosen, the target must fall inside its authorized
+      scope or the scan is refused before it is queued.
+    </p>
+    {% endif %}
+
     <label for="max_attempts">Max attempts</label>
     <input id="max_attempts" name="max_attempts" type="number" min="1" max="5" value="1">
 

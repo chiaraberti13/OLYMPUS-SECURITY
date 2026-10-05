@@ -75,6 +75,9 @@ th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid var(--
 .state-running, .state-queued { color: var(--accent); border-color: var(--accent); }
 .state-partial, .state-timed_out { color: var(--warn); border-color: var(--warn); }
 .state-failed, .state-cancelled, .state-policy_denied { color: var(--bad); border-color: var(--bad); }
+.state-active { color: var(--ok); border-color: var(--ok); }
+.state-planned { color: var(--accent); border-color: var(--accent); }
+.state-closed { color: var(--muted); border-color: var(--muted); }
 .detail { display: grid; grid-template-columns: max-content 1fr; gap: .3rem 1rem; }
 .detail dt { color: var(--muted); }
 .detail dd { margin: 0; }

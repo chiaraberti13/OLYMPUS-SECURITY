@@ -17,6 +17,7 @@ operated with `olympus themis identities …`; tested in
 | `jobs:read` | `GET /api/v1/jobs`, `GET /api/v1/jobs/{id}` |
 | `jobs:write` | `POST /api/v1/jobs` |
 | `jobs:cancel` | `POST /api/v1/jobs/{id}/cancel` |
+| `engagements:read` | `GET /api/v1/engagements`, `GET /api/v1/engagements/{id}` |
 
 A credential without the scope a route requires gets **403**, and the response
 names the missing scope. An unknown scope in the register is refused when the

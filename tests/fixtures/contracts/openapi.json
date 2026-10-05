@@ -1,6 +1,152 @@
 {
   "components": {
     "schemas": {
+      "Engagement": {
+        "additionalProperties": false,
+        "description": "The top-level container that groups an authorized assessment's work.\n\nAn engagement owns its scope and authorization reference; assets, scans,\njobs, findings, evidence, alerts, incidents and reports are associated with\nit by ``engagement_id``. CLI, TUI, API and Web all reference this one model\n(ROADMAP ``WEB-B``) rather than a private per-interface notion of scope.",
+        "properties": {
+          "authorization_reference": {
+            "default": "",
+            "title": "Authorization Reference",
+            "type": "string"
+          },
+          "client": {
+            "default": "",
+            "title": "Client",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "engagement_id": {
+            "title": "Engagement Id",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Metadata",
+            "type": "object"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "schema_name": {
+            "const": "olympus.engagement",
+            "default": "olympus.engagement",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/EngagementScope"
+          },
+          "status": {
+            "$ref": "#/components/schemas/EngagementStatus",
+            "default": "active"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "scope"
+        ],
+        "title": "Engagement",
+        "type": "object"
+      },
+      "EngagementList": {
+        "additionalProperties": false,
+        "description": "The engagements visible over the API, newest first.",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "engagements": {
+            "items": {
+              "$ref": "#/components/schemas/Engagement"
+            },
+            "title": "Engagements",
+            "type": "array"
+          },
+          "schema_name": {
+            "const": "olympus.themis-engagement-list",
+            "default": "olympus.themis-engagement-list",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "count",
+          "engagements"
+        ],
+        "title": "EngagementList",
+        "type": "object"
+      },
+      "EngagementScope": {
+        "additionalProperties": false,
+        "description": "The authorized perimeter of an engagement: included minus excluded.\n\nEntries are hostnames or domains (matched like the rest of Olympus: an entry\ncovers itself and its subdomains). IP/CIDR matching is a planned extension\n(ROADMAP ``WEB-B``); until then IPs must be listed verbatim.",
+        "properties": {
+          "excluded": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Excluded",
+            "type": "array"
+          },
+          "included": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Included",
+            "type": "array"
+          }
+        },
+        "required": [
+          "included"
+        ],
+        "title": "EngagementScope",
+        "type": "object"
+      },
+      "EngagementStatus": {
+        "description": "Lifecycle state of an engagement (the top-level assessment container).",
+        "enum": [
+          "planned",
+          "active",
+          "closed"
+        ],
+        "title": "EngagementStatus",
+        "type": "string"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -70,6 +216,18 @@
           "authorized": {
             "title": "Authorized",
             "type": "boolean"
+          },
+          "engagement_id": {
+            "anyOf": [
+              {
+                "pattern": "^ENG-\\d{4}-\\d{5}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Engagement Id"
           },
           "idempotency_key": {
             "anyOf": [
@@ -402,6 +560,79 @@
         "summary": "Capabilities",
         "tags": [
           "capabilities"
+        ]
+      }
+    },
+    "/api/v1/engagements": {
+      "get": {
+        "operationId": "list_engagements_api_v1_engagements_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngagementList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "List Engagements",
+        "tags": [
+          "engagements"
+        ]
+      }
+    },
+    "/api/v1/engagements/{engagement_id}": {
+      "get": {
+        "operationId": "get_engagement_api_v1_engagements__engagement_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "engagement_id",
+            "required": true,
+            "schema": {
+              "title": "Engagement Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Engagement"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Get Engagement",
+        "tags": [
+          "engagements"
         ]
       }
     },

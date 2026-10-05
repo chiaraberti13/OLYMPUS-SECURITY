@@ -54,6 +54,7 @@ SCOPES: tuple[str, ...] = (
     "jobs:read",
     "jobs:write",
     "jobs:cancel",
+    "engagements:read",
 )
 
 

@@ -95,11 +95,49 @@ if engagement.covers("api.example.com"):
 `EngagementStoreError`, so an unknown id fails loudly at the source instead of
 silently stamping objects with a dangling reference.
 
+## API and Web (slice 3)
+
+The same engagements are readable over the HTTP control plane and the browser
+UI, backed by the **same** store. The shared behaviour (opening the store for a
+short-lived read, deriving the scoped host from a typed target, answering
+whether an engagement authorizes a target) lives once in
+`olympus.engagements.resolve` and both interfaces call it, so the two are
+genuinely identical rather than merely similar.
+
+Start either service with `--engagement-storage <dir>` pointing at the directory
+that holds `engagements.db`:
+
+```bash
+olympus themis api --engagement-storage ./workspace --scope-directory ./scopes
+olympus themis web --engagement-storage ./workspace --scope-directory ./scopes
+```
+
+- **API** (`engagements:read` scope): `GET /api/v1/engagements` returns the
+  `olympus.themis-engagement-list` contract; `GET /api/v1/engagements/{id}`
+  returns the `olympus.engagement` document, or `404` for an unknown id. With no
+  store configured the routes answer `503` ("not configured") rather than an
+  empty list that would falsely imply there are no engagements.
+- **Web** (`engagements:read` scope): `GET /engagements` and
+  `GET /engagements/{id}` browse the same engagements, read-only (engagements are
+  created from the CLI), with the same redaction as the rest of the UI.
+
+### Scope enforcement derived from the engagement
+
+A job submission may carry an optional `engagement_id` (canonical
+`ENG-YYYY-NNNNN`). When present, both `POST /api/v1/jobs` and the web
+new-assessment form resolve the engagement from the shared store and refuse any
+target outside its perimeter **before** the job is queued — using the
+engagement's own `covers()` logic, with the host taken from the typed target (a
+`url` target by its hostname). An out-of-scope target is `422`, an unknown
+engagement `404`, and an `engagement_id` with no store configured `400`. The
+check is identical on the API and the Web, so an engagement's scope is enforced
+the same way from every channel.
+
 ## Status
 
-The shared contract, the store, the CLI (slice 1), the optional `engagement_id`
-on the core scoped contracts and the association primitives (`stamp`/`stamp_all`/
-`covers`, `store.require`) for slice 2 are in place. Wiring Athena assessments
-and Themis jobs to **call** these primitives against the shared store at produce
-time, and exposing engagements through the API and Web UI, are the remaining
-slices — all on this one model and store.
+`WEB-B` is **complete**. The shared contract, the store and the CLI (slice 1),
+the optional `engagement_id` on the core scoped contracts with the association
+primitives and the Athena/Themis produce-time wiring (slice 2), and the API/Web
+exposure with engagement-derived scope enforcement (slice 3) are all in place —
+on this one model and store, read and operated identically from CLI, TUI, API
+and Web.

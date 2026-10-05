@@ -43,7 +43,7 @@
 | 4 | Capability Red/Blue/Purple | `[~]` | `OPS-RED`, `OPS-BLUE`, `OPS-PURPLE`, `OPS-SCAN` |
 | 5 | Production readiness scanner | `[ ]` | `D1`, `D2` |
 | 6 | Distribuzione e osservabilità | `[~]` | `DEV-E`, `DEV-F`, `SEC-F` |
-| 7 | Rename Themis + Web control plane | `[~]` | `DEV-I` ✓, `WEB-A` ✓, `WEB-B`…`WEB-J` |
+| 7 | Rename Themis + Web control plane | `[~]` | `DEV-I` ✓, `WEB-A` ✓, `WEB-B` ✓, `WEB-C`…`WEB-J` |
 
 L'ordine di esecuzione concordato per la Fase 7 mette le **fondamenta dati prima
 delle interfacce**: `DEV-I` (rename) → `WEB-B` (engagement entità di primo
@@ -118,7 +118,7 @@ Legenda stato: ✅ implementata · 🟡 parziale · 🗓️ pianificata · ❌ a
 | 7 | Deduplicazione + ciclo di vita finding | ✅ | `vulcan/aggregate.py` (`dedupe_findings` per ID + `merge_duplicate_findings` cross-scanner lossless), `FindingStatus` (7 stati), macchina a stati + audit trail + suppression `core/finding_lifecycle.py`/`findings/store.py` (`WEB-C`) | Transizioni, dedup, audit trail, suppression, tagging/ricerca tutti ✅ |
 | 8 | Severità, confidence, risk scoring contestuale | ✅ | `Severity`, `Finding.confidence` (`WEB-C`), `Finding.risk_score()` 0–100 (`WEB-C`), `vulcan/enrichment.prioritize` (KEV>EPSS>CVSS>severità) | Confidence + risk score numerico ✅; mantenere |
 | 9 | Mapping CVE/CWE/CVSS/MITRE ATT&CK | 🟡 | `Finding.cvss` + campi `cve`/`cwe`/`epss`/`kev` strutturati (`WEB-C`); link NVD/MITRE in `vulcan/pdf.py`; EPSS/KEV `vulcan/enrichment.py`; ATT&CK detection `apollo/attack.py`, `Alert.mitre_attack` | Campi strutturati ✅; **ATT&CK offensivo sui finding** → `OPS-RED` |
-| 10 | Inventario centralizzato asset | 🟡 | `core.Asset`, `argus/assets.py`, persistenza per-assessment in Athena; `Asset.engagement_id` opzionale e stamping dal coordinator Athena per id canonici (`WEB-B` slice 2) | Collegamento + popolamento ✅; **query/aggregazione cross-engagement** (UI) → `WEB-B` slice 3 |
+| 10 | Inventario centralizzato asset | 🟡 | `core.Asset`, `argus/assets.py`, persistenza per-assessment in Athena; `Asset.engagement_id` opzionale e stamping dal coordinator Athena per id canonici (`WEB-B` slice 2); engagement esposti via API/Web sullo stesso store con scope enforcement (`WEB-B` slice 3) | Engagement leggibili/operabili dai quattro canali ✅; **viste di aggregazione asset cross-engagement** (widget) → `WEB-G` |
 | 11 | Scheduler, code, worker isolati, ripresa job | 🟡 | job store SQLite `themis/jobs.py` (stati+`recover`), `olympus themis recover`, sandbox isolato, worker Celery (vendored) | Queue+recover+sandbox ✅; **scheduler nativo** ❌ → `D13`; ritiro Celery vendored → `SEC-A` |
 | 12 | Scansioni incrementali + confronto risultati | 🟡 | `argus/diff.py` (diff recon) | **Finding/scan diff cross-run** → `WEB-I` |
 | 13 | Dashboard, notifiche, report JSON/CSV/HTML/PDF/SARIF | 🟡 | report JSON/MD/HTML/PDF `vulcan/`, SARIF `hermes/sarif.py`, OCSF/ECS/NDJSON `apollo/` | **CSV** ❌ (basso costo) → `WEB-I`; **dashboard/notifiche** → `WEB-G`/`WEB-I` |
@@ -637,7 +637,7 @@ job-lifecycle/cancellation/SSE passano (`tests/unit/test_themis_web.py`).
 
 ### Intervento B · `WEB-B` — Engagement come entità di primo livello (**P1**)
 
-- [~] **Slice 1 (fatto).** Contratto condiviso versionato `olympus.engagement`
+- [x] **Slice 1 (fatto).** Contratto condiviso versionato `olympus.engagement`
   (`core/models.py`: `Engagement` + `EngagementScope` con scope incluso/escluso e
   `covers()`), store SQLite owner-only (`engagements/store.py`) e comandi CLI
   `olympus engagement create|list|show` (`engagements/cli.py`), sullo **stesso**
@@ -654,11 +654,28 @@ job-lifecycle/cancellation/SSE passano (`tests/unit/test_themis_web.py`).
   nessuna fixture si rompe. I due namespace restano distinti per disegno: l'id di
   piano Athena è un'etichetta locale, l'`engagement_id` core referenzia un record
   `olympus.engagement`.
-- [ ] **Slice 3.** Esporre gli engagement via API e Web UI (sullo stesso store),
-  con scope enforcement derivato dall'engagement.
+- [x] **Slice 3 (fatto).** Engagement esposti via API e Web UI sullo **stesso**
+  store (`engagements/resolve.py`, fonte unica per entrambe le interfacce). API:
+  `GET /api/v1/engagements` (contratto `olympus.themis-engagement-list`) e
+  `GET /api/v1/engagements/{id}` (contratto `olympus.engagement`), protetti da un
+  nuovo scope di identità `engagements:read`; store non configurato → `503`
+  onesto (mai una lista vuota che fingerebbe l'assenza di engagement). Web:
+  pagine `GET /engagements` e `GET /engagements/{id}` con lo stesso gate di scope
+  e la stessa redazione (`SEC-H`). **Scope enforcement derivato dall'engagement:**
+  `JobSubmission.engagement_id` opzionale (canonico `ENG-YYYY-NNNNN`); quando
+  presente, API e Web risolvono l'engagement dallo stesso store e rifiutano — con
+  la stessa logica `Engagement.covers()`, l'host dedotto dal target tipizzato
+  (host/domain verbatim, url per hostname) — ogni target fuori perimetro **prima**
+  di accodare il job (`422`), id sconosciuto `404`, store non configurato `400`.
+  Il form "New assessment" offre gli engagement come selezione opzionale. CLI
+  `olympus themis api|web --engagement-storage` abilita le rotte sullo stesso
+  database `engagements.db` usato da `olympus engagement`. OpenAPI golden
+  rigenerato; test web/API e di scope enforcement. Doc:
+  [`docs/web.md`](docs/web.md), [`docs/engagements.md`](docs/engagements.md).
 
-**Criterio di completamento:** lo stesso engagement è leggibile e operabile
-identicamente dai quattro canali.
+**Criterio di completamento (soddisfatto):** lo stesso engagement è leggibile e
+operabile identicamente dai quattro canali (CLI, TUI via core, API, Web), con lo
+stesso store, lo stesso modello e lo stesso scope enforcement. **`WEB-B` completo.**
 
 ### Intervento C · `WEB-C` — Finding management e lifecycle (**P1**)
 

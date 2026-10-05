@@ -73,13 +73,29 @@ as on the API.
 | `GET /login`, `POST /login`, `POST /logout` | Session lifecycle. |
 | `GET /` | Dashboard: job totals, a state histogram and the ten most recent jobs. |
 | `GET /jobs` | Every job, newest first. |
-| `GET /assessments/new`, `POST /jobs` | Typed, scope-gated job submission (requires `jobs:write`). |
+| `GET /engagements`, `GET /engagements/{id}` | The shared engagements and their scope (requires `engagements:read`); available only when the server is started with `--engagement-storage`. |
+| `GET /assessments/new`, `POST /jobs` | Typed, scope-gated job submission (requires `jobs:write`). An optional engagement scopes the target. |
 | `GET /jobs/{id}` | Job detail with a live state line and, with `jobs:cancel`, a **Cancel** button wired to real Olympus cancellation. |
 | `POST /jobs/{id}/cancel` | Cancel a job (CSRF-protected). |
 | `GET /jobs/{id}/events` | Server-sent events stream of state transitions. |
 
 Scope enforcement is per route: a `jobs:read` identity can browse but cannot open
-the new-assessment form or submit; `jobs:cancel` is required to cancel.
+the new-assessment form or submit; `jobs:cancel` is required to cancel;
+`engagements:read` is required to view engagements.
+
+## Engagements (`WEB-B`)
+
+Started with `--engagement-storage <dir>`, the web control plane reads the same
+`engagements.db` as `olympus engagement` and the same engagements as the API —
+one store, one model, no per-interface notion of scope. The engagement pages are
+read-only here (engagements are created from the CLI). When the new-assessment
+form has an engagement selected, the server resolves it from that store and
+refuses — with the engagement's own `covers()` logic, the host taken from the
+typed target (a `url` target by its hostname) — any target outside the
+authorized perimeter **before** the job is queued. The identical check runs on
+`POST /api/v1/jobs` when a submission carries an `engagement_id`, so an
+engagement's scope is enforced the same way from the browser, the API and the
+command line.
 
 ## Live job state (server-sent events)
 

@@ -165,6 +165,12 @@ def themis_api(
     audit: str = typer.Option(
         DEFAULT_THEMIS_AUDIT_LOG, "--audit", help="Redacted per-request audit log."
     ),
+    engagement_storage: str = typer.Option(
+        "",
+        "--engagement-storage",
+        help="Directory holding the shared engagements database; enables the "
+        "engagement read endpoints and engagement-derived scope enforcement.",
+    ),
     ssl_certfile: str = typer.Option("", "--ssl-certfile"),
     ssl_keyfile: str = typer.Option("", "--ssl-keyfile"),
 ) -> None:
@@ -176,6 +182,8 @@ def themis_api(
     """
     import ipaddress
     from pathlib import Path
+
+    from olympus.engagements.store import ENGAGEMENTS_DB_NAME
 
     try:
         loopback = ipaddress.ip_address(host).is_loopback
@@ -207,6 +215,9 @@ def themis_api(
                 api_key=api_key,
                 identities_path=Path(identities) if identities else None,
                 audit_path=Path(audit) if audit else None,
+                engagements_database=(
+                    Path(engagement_storage) / ENGAGEMENTS_DB_NAME if engagement_storage else None
+                ),
             )
         )
     except (ImportError, OSError, ValueError) as exc:
@@ -240,6 +251,12 @@ def themis_web(
     audit: str = typer.Option(
         DEFAULT_THEMIS_AUDIT_LOG, "--audit", help="Redacted per-request audit log."
     ),
+    engagement_storage: str = typer.Option(
+        "",
+        "--engagement-storage",
+        help="Directory holding the shared engagements database; enables the "
+        "engagement pages and engagement-derived scope enforcement.",
+    ),
     ssl_certfile: str = typer.Option("", "--ssl-certfile"),
     ssl_keyfile: str = typer.Option("", "--ssl-keyfile"),
 ) -> None:
@@ -252,6 +269,8 @@ def themis_web(
     """
     import ipaddress
     from pathlib import Path
+
+    from olympus.engagements.store import ENGAGEMENTS_DB_NAME
 
     try:
         loopback = ipaddress.ip_address(host).is_loopback
@@ -284,6 +303,9 @@ def themis_web(
                 api_key=api_key,
                 identities_path=Path(identities) if identities else None,
                 audit_path=Path(audit) if audit else None,
+                engagements_database=(
+                    Path(engagement_storage) / ENGAGEMENTS_DB_NAME if engagement_storage else None
+                ),
             )
         )
     except (ImportError, OSError, ValueError, RuntimeError) as exc:

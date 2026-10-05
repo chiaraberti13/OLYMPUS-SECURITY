@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}{{ engagement.engagement_id }} · Olympus THEMIS{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>{{ engagement.name }}</h1>
+  <p class="muted">{{ engagement.engagement_id }}</p>
+  <dl class="detail">
+    <dt>Status</dt>
+    <dd><span class="state state-{{ engagement.status }}">{{ engagement.status }}</span></dd>
+    <dt>Client</dt><dd>{{ engagement.client or '—' }}</dd>
+    <dt>Authorization reference</dt><dd>{{ engagement.authorization_reference or '—' }}</dd>
+    <dt>In scope</dt>
+    <dd>
+      {% if engagement.included %}
+      <ul>{% for entry in engagement.included %}<li>{{ entry }}</li>{% endfor %}</ul>
+      {% else %}—{% endif %}
+    </dd>
+    <dt>Out of scope</dt>
+    <dd>
+      {% if engagement.excluded %}
+      <ul>{% for entry in engagement.excluded %}<li>{{ entry }}</li>{% endfor %}</ul>
+      {% else %}—{% endif %}
+    </dd>
+    <dt>Tags</dt><dd>{{ engagement.tags | join(', ') if engagement.tags else '—' }}</dd>
+    <dt>Created</dt><dd>{{ engagement.created_at }}</dd>
+    <dt>Updated</dt><dd>{{ engagement.updated_at }}</dd>
+    <dt>Digest</dt><dd class="target">{{ engagement.digest }}</dd>
+  </dl>
+  <p class="muted">
+    A job launched against a target outside this engagement's scope is refused
+    before it is queued — the same enforcement on every interface.
+  </p>
+  <p><a href="/engagements">← All engagements</a></p>
+</section>
+{% endblock %}

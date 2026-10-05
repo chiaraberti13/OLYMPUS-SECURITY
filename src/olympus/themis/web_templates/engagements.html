@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Engagements · Olympus THEMIS{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Engagements</h1>
+  <p class="muted">
+    An engagement is the top-level container for an authorized assessment: it
+    owns the scope every job is checked against. The same engagements are read
+    here, over the API and from the CLI — one store, one model.
+  </p>
+  {% if not configured %}
+  <p class="alert" role="alert">
+    No engagement store is configured on this server. Start it with
+    <code>--engagement-storage</code> to read and scope-check engagements here.
+  </p>
+  {% elif engagements %}
+  <table>
+    <thead><tr><th>Engagement</th><th>Name</th><th>Client</th><th>Status</th><th>In scope</th></tr></thead>
+    <tbody>
+      {% for engagement in engagements %}
+      <tr>
+        <td><a href="/engagements/{{ engagement.engagement_id }}">{{ engagement.engagement_id }}</a></td>
+        <td>{{ engagement.name }}</td>
+        <td>{{ engagement.client or '—' }}</td>
+        <td><span class="state state-{{ engagement.status }}">{{ engagement.status }}</span></td>
+        <td>{{ engagement.included | join(', ') }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No engagements yet. Create one with
+    <code>olympus engagement create</code>.</p>
+  {% endif %}
+</section>
+{% endblock %}

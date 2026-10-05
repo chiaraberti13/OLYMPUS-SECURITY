@@ -54,7 +54,14 @@ from olympus.core.execution import (
     append_structured_audit,
     redact_text,
 )
+from olympus.core.models import Engagement
 from olympus.core.observability import Correlation, Observability, observability_from_config
+from olympus.engagements.resolve import (
+    EngagementStoreError,
+    engagement_covers,
+    load_engagements,
+    require_engagement,
+)
 from olympus.themis.api import (
     MAX_REQUEST_BYTES,
     ApiSettings,
@@ -143,6 +150,28 @@ def _present_job(job: ThemisJob) -> dict[str, object]:
         "finished_at": job.finished_at.isoformat() if job.finished_at else None,
         "error": _safe(job.error) if job.error else None,
         "finding_count": finding_count if isinstance(finding_count, int) else None,
+    }
+
+
+def _present_engagement(engagement: Engagement) -> dict[str, object]:
+    """Project one engagement into a redacted, interface-agnostic view.
+
+    Scope entries, name and client originate from the operator, not a target,
+    but they still pass through :func:`_safe` so the engagement list cannot be
+    used to smuggle control bytes into the operator's terminal or page.
+    """
+    return {
+        "engagement_id": engagement.engagement_id,
+        "name": _safe(engagement.name),
+        "client": _safe(engagement.client),
+        "status": engagement.status.value,
+        "included": [_safe(entry) for entry in engagement.scope.included],
+        "excluded": [_safe(entry) for entry in engagement.scope.excluded],
+        "authorization_reference": _safe(engagement.authorization_reference),
+        "tags": [_safe(tag) for tag in engagement.tags],
+        "digest": engagement.digest(),
+        "created_at": engagement.created_at.isoformat(),
+        "updated_at": engagement.updated_at.isoformat(),
     }
 
 
@@ -252,6 +281,8 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
     reads_jobs = requires("jobs:read")
     writes_jobs = requires("jobs:write")
     cancels_jobs = requires("jobs:cancel")
+    reads_engagements = requires("engagements:read")
+    engagements_database = settings.engagements_database
 
     def _check_csrf(session: WebSession, supplied: str | None) -> None:
         if supplied is None or not hmac.compare_digest(supplied, _csrf_token(session.nonce)):
@@ -416,12 +447,65 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             {"jobs": jobs, "csrf_token": _csrf_token(session.nonce)},
         )
 
+    def _engagement_options() -> list[dict[str, str]]:
+        """Offer the operator the engagements they can scope a scan to.
+
+        Best-effort: a missing or unreadable store simply offers no engagements
+        (the engagement field stays optional) rather than failing the form.
+        """
+        if engagements_database is None:
+            return []
+        try:
+            engagements = load_engagements(engagements_database)
+        except (EngagementStoreError, OSError):
+            return []
+        return [
+            {"engagement_id": item.engagement_id, "name": _safe(item.name)} for item in engagements
+        ]
+
+    @app.get("/engagements", response_class=HTMLResponse, include_in_schema=False)
+    def engagements_page(request: Request, session: WebSession = reads_engagements) -> Response:
+        if engagements_database is None:
+            return _page(request, "engagements.html", {"configured": False, "engagements": []})
+        try:
+            engagements = [
+                _present_engagement(item) for item in load_engagements(engagements_database)
+            ]
+        except (EngagementStoreError, OSError):
+            engagements = []
+        return _page(
+            request,
+            "engagements.html",
+            {"configured": True, "engagements": engagements},
+        )
+
+    @app.get("/engagements/{engagement_id}", response_class=HTMLResponse, include_in_schema=False)
+    def engagement_detail(
+        request: Request, engagement_id: str, session: WebSession = reads_engagements
+    ) -> Response:
+        if engagements_database is None:
+            return _page(request, "engagements.html", {"configured": False, "engagements": []})
+        try:
+            engagement = require_engagement(engagements_database, engagement_id)
+        except EngagementStoreError:
+            return _page(request, "not_found.html", {"job_id": _safe(engagement_id)}, code=404)
+        return _page(
+            request,
+            "engagement_detail.html",
+            {"engagement": _present_engagement(engagement)},
+        )
+
     @app.get("/assessments/new", response_class=HTMLResponse, include_in_schema=False)
     def new_assessment(request: Request, session: WebSession = writes_jobs) -> Response:
         return _page(
             request,
             "new_assessment.html",
-            {"error": None, "form": {}, "csrf_token": _csrf_token(session.nonce)},
+            {
+                "error": None,
+                "form": {},
+                "engagements": _engagement_options(),
+                "csrf_token": _csrf_token(session.nonce),
+            },
         )
 
     @app.post("/jobs", include_in_schema=False)
@@ -433,25 +517,37 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         csrf_token: Annotated[str, Form()],
         target_kind: Annotated[str, Form()] = "host",
         authorized: Annotated[str | None, Form()] = None,
+        engagement_id: Annotated[str | None, Form()] = None,
         idempotency_key: Annotated[str | None, Form()] = None,
         max_attempts: Annotated[int, Form()] = 1,
         session: WebSession = writes_jobs,
     ) -> Response:
         _check_csrf(session, csrf_token)
         _rate_limit(session)
-        form = {"scanner": scanner, "target": target, "scope_id": scope_id}
+        form = {
+            "scanner": scanner,
+            "target": target,
+            "scope_id": scope_id,
+            "engagement_id": engagement_id or "",
+        }
 
         def _error(message: str, code: int = 400) -> Response:
             return _page(
                 request,
                 "new_assessment.html",
-                {"error": message, "form": form, "csrf_token": _csrf_token(session.nonce)},
+                {
+                    "error": message,
+                    "form": form,
+                    "engagements": _engagement_options(),
+                    "csrf_token": _csrf_token(session.nonce),
+                },
                 code=code,
             )
 
         is_authorized = (authorized or "").strip().lower() in {"on", "true", "1", "yes"}
         if not is_authorized:
             return _error("Documented authorization must be confirmed before an active scan.")
+        chosen_engagement = (engagement_id or "").strip() or None
         try:
             submission = JobSubmission(
                 scanner=scanner,
@@ -459,11 +555,21 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 target_kind=target_kind,  # type: ignore[arg-type]
                 scope_id=scope_id,
                 authorized=True,
+                engagement_id=chosen_engagement,
                 idempotency_key=(idempotency_key or None),
                 max_attempts=max_attempts,
             )
         except ValidationError:
             return _error("The request is not valid; check scanner, target and scope.", code=422)
+        if submission.engagement_id is not None:
+            if engagements_database is None:
+                return _error("No engagement store is configured on this server.", code=400)
+            try:
+                engagement = require_engagement(engagements_database, submission.engagement_id)
+            except EngagementStoreError:
+                return _error("The selected engagement does not exist.", code=404)
+            if not engagement_covers(engagement, submission.target, submission.target_kind):
+                return _error("That target is outside the selected engagement's scope.", code=422)
         try:
             scope_path = _registered_scope(scope_root, submission.scope_id)
         except HTTPException as exc:

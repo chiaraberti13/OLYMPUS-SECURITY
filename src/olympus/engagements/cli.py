@@ -17,15 +17,17 @@ from pydantic import ValidationError
 from olympus.core.enums import EngagementStatus
 from olympus.core.exit_codes import ExitCode
 from olympus.core.models import Engagement, EngagementScope
-from olympus.engagements.store import EngagementStoreError, SqliteEngagementStore
+from olympus.engagements.store import (
+    ENGAGEMENTS_DB_NAME,
+    EngagementStoreError,
+    SqliteEngagementStore,
+)
 
 app = typer.Typer(help="Engagements — the top-level assessment container.", no_args_is_help=True)
 
-_DB_NAME = "engagements.db"
-
 
 def _open_store(storage: Path) -> SqliteEngagementStore:
-    return SqliteEngagementStore(storage / _DB_NAME)
+    return SqliteEngagementStore(storage / ENGAGEMENTS_DB_NAME)
 
 
 def _summary(engagement: Engagement) -> dict[str, object]:

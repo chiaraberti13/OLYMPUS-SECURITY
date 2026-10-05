@@ -268,3 +268,112 @@ def test_cli_web_requires_secret_and_tls_for_remote_bind(tmp_path: Path) -> None
     )
     assert remote.exit_code == 2
     assert "require TLS" in remote.output
+
+
+def _seed_engagement(tmp_path: Path) -> str:
+    from olympus.core.models import Engagement, EngagementScope
+    from olympus.engagements.store import ENGAGEMENTS_DB_NAME, SqliteEngagementStore
+
+    engagement = Engagement(
+        name="Acme web",
+        client="Acme",
+        scope=EngagementScope(included=("acme.test",), excluded=("vpn.acme.test",)),
+    )
+    store = SqliteEngagementStore(tmp_path / ENGAGEMENTS_DB_NAME)
+    try:
+        store.save(engagement)
+    finally:
+        store.close()
+    return engagement.engagement_id
+
+
+def _engagements_client(tmp_path: Path) -> tuple[TestClient, str]:
+    from olympus.engagements.store import ENGAGEMENTS_DB_NAME
+
+    engagement_id = _seed_engagement(tmp_path)
+    client = _client(tmp_path, engagements_database=tmp_path / ENGAGEMENTS_DB_NAME)
+    return client, engagement_id
+
+
+def test_engagements_are_browsable_in_the_web_ui(tmp_path: Path) -> None:
+    client, engagement_id = _engagements_client(tmp_path)
+    _login(client)
+    listing = client.get("/engagements")
+    assert listing.status_code == 200
+    assert engagement_id in listing.text
+    assert "acme.test" in listing.text
+    detail = client.get(f"/engagements/{engagement_id}")
+    assert detail.status_code == 200
+    assert "Acme web" in detail.text
+    assert "vpn.acme.test" in detail.text  # the excluded entry is shown
+
+
+def test_engagements_page_states_when_not_configured(tmp_path: Path) -> None:
+    client = _client(tmp_path)  # no engagement store wired
+    _login(client)
+    page = client.get("/engagements")
+    assert page.status_code == 200
+    assert "No engagement store is configured" in page.text
+
+
+def test_new_assessment_offers_engagements_and_enforces_their_scope(tmp_path: Path) -> None:
+    client, engagement_id = _engagements_client(tmp_path)
+    _login(client)
+    form = client.get("/assessments/new")
+    assert form.status_code == 200
+    assert engagement_id in form.text
+
+    csrf = _csrf(client)
+    rejected = client.post(
+        "/jobs",
+        data={
+            "scanner": "nmap",
+            "target": "evil.test",
+            "target_kind": "domain",
+            "scope_id": "engagement",
+            "engagement_id": engagement_id,
+            "authorized": "on",
+            "csrf_token": csrf,
+        },
+        follow_redirects=False,
+    )
+    assert rejected.status_code == 422
+    assert "outside the selected engagement" in rejected.text
+
+    accepted = client.post(
+        "/jobs",
+        data={
+            "scanner": "nmap",
+            "target": "www.acme.test",
+            "target_kind": "domain",
+            "scope_id": "engagement",
+            "engagement_id": engagement_id,
+            "authorized": "on",
+            "csrf_token": csrf,
+        },
+        follow_redirects=False,
+    )
+    assert accepted.status_code == 303, accepted.text
+
+
+def test_engagement_pages_require_the_engagements_scope(tmp_path: Path) -> None:
+    from olympus.engagements.store import ENGAGEMENTS_DB_NAME
+
+    _seed_engagement(tmp_path)
+    register = IdentityRegister(identities=[])
+    register, secret = add_identity(register, identity_id="runner", scopes=["jobs:read"])
+    register_path = tmp_path / "identities.json"
+    save_register(register_path, register)
+    client = TestClient(
+        create_web_app(
+            _settings(
+                tmp_path,
+                api_key="",
+                identities_path=register_path,
+                engagements_database=tmp_path / ENGAGEMENTS_DB_NAME,
+            )
+        ),
+        base_url=BASE,
+    )
+    _login(client, secret)
+    assert client.get("/engagements", follow_redirects=False).status_code == 403

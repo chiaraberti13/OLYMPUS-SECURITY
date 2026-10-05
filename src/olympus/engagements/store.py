@@ -18,6 +18,10 @@ from olympus.core.models import Engagement
 #: Guard against an oversized stored document exhausting memory on load.
 MAX_DOCUMENT_BYTES = 1_000_000
 
+#: The canonical engagement database filename inside a storage directory, shared
+#: by every interface (CLI, API, Web) so they all read the same engagements.
+ENGAGEMENTS_DB_NAME = "engagements.db"
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS engagements (
     engagement_id TEXT PRIMARY KEY,
