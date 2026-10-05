@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Tools · Olympus THEMIS{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Tools</h1>
+  <p class="muted">
+    Every card below is read from the real capability inventory — the same source
+    the CLI (<code>olympus themis capabilities</code>) and the API
+    (<code>/api/v1/capabilities</code>) use. Nothing here is a hardcoded list, so
+    a tool appears <em>Ready</em> only when Olympus has adapted it <strong>and</strong>
+    the engine is installed or configured on this host. Engine versions are
+    detected at run time, not catalogued, so they are not shown here.
+  </p>
+  <div class="tiles">
+    <div class="tile"><span class="tile-value">{{ summary.catalogued }}</span><span class="tile-label">catalogued</span></div>
+    <div class="tile"><span class="tile-value">{{ summary.adapted }}</span><span class="tile-label">adapted</span></div>
+    <div class="tile"><span class="tile-value">{{ summary.available }}</span><span class="tile-label">installed / configured</span></div>
+    <div class="tile"><span class="tile-value">{{ summary.ready }}</span><span class="tile-label">ready to run</span></div>
+  </div>
+</section>
+
+{% if capabilities %}
+<div class="tool-grid">
+  {% for tool in capabilities %}
+  <article class="card tool-card" aria-label="{{ tool.name }}">
+    <header class="tool-head">
+      <h2 class="tool-name">{{ tool.name }}</h2>
+      <span class="state cap-{{ tool.state }}">{{ tool.state_label }}</span>
+    </header>
+    <p class="tool-category">{{ tool.category }}</p>
+    <p class="tool-purpose">{{ tool.purpose }}</p>
+    <dl class="detail tool-detail">
+      <dt>Deployment</dt><dd>{{ tool.kind }}</dd>
+      <dt>Licence</dt><dd>{{ tool.licence }}</dd>
+      <dt>Olympus maturity</dt><dd>{{ tool.maturity }}</dd>
+      <dt>Adapter</dt><dd>{{ 'yes' if tool.adapted else 'no' }}</dd>
+      <dt>Installed / configured</dt><dd>{{ 'yes' if tool.available else 'no' }}</dd>
+      <dt>Runnable here</dt>
+      <dd>
+        {% if tool.ready %}
+        <span class="cap-flag cap-flag-yes">yes</span>
+        {% else %}
+        <span class="cap-flag cap-flag-no">no</span>
+        {% endif %}
+      </dd>
+    </dl>
+    {% if tool.missing %}
+    <p class="tool-missing">
+      <strong>Requires:</strong> {{ tool.missing | join(', ') }}
+    </p>
+    {% endif %}
+    {% if tool.blocker %}
+    <p class="muted tool-blocker">Next step: {{ tool.blocker }}</p>
+    {% endif %}
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<section class="card">
+  <p class="muted">The capability inventory is empty.</p>
+</section>
+{% endif %}
+{% endblock %}

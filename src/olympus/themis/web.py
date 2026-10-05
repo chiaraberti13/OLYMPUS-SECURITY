@@ -62,6 +62,7 @@ from olympus.engagements.resolve import (
     load_engagements,
     require_engagement,
 )
+from olympus.integrations.capabilities import Capability, CapabilityState, inventory
 from olympus.themis.api import (
     MAX_REQUEST_BYTES,
     ApiSettings,
@@ -175,6 +176,44 @@ def _present_engagement(engagement: Engagement) -> dict[str, object]:
     }
 
 
+#: Human, non-alarming labels for each operational readiness state. The state
+#: itself is computed by the capability system, never by the GUI, so the page
+#: cannot make a non-adapted scanner look executable.
+_CAPABILITY_STATE_LABELS: dict[CapabilityState, str] = {
+    CapabilityState.READY: "Ready",
+    CapabilityState.ADAPTER_MISSING: "No Olympus adapter",
+    CapabilityState.DEPENDENCY_MISSING: "Engine not installed",
+    CapabilityState.CONFIGURATION_MISSING: "Not configured",
+}
+
+
+def _present_capability(capability: Capability) -> dict[str, object]:
+    """Project one capability record into an interface-agnostic view for the UI.
+
+    Every field is taken verbatim from the capability/registry system
+    (:func:`olympus.integrations.capabilities.inventory`) — the same source the
+    CLI (``olympus themis capabilities``) and the API (``/api/v1/capabilities``)
+    read. Nothing is hardcoded in the GUI, so an engine that is catalogued but
+    not adapted is shown with its honest state and never as runnable.
+    """
+    return {
+        "name": capability.name,
+        "category": capability.category,
+        "purpose": capability.purpose,
+        "kind": capability.kind,
+        "licence": capability.licence,
+        "adapted": capability.adapted,
+        "available": capability.available,
+        "ready": capability.ready,
+        "state": capability.state.value,
+        "state_label": _CAPABILITY_STATE_LABELS.get(capability.state, capability.state.value),
+        "missing": list(capability.missing),
+        "maturity": capability.maturity.value,
+        "evidence": capability.evidence,
+        "blocker": capability.blocker,
+    }
+
+
 def create_web_app(settings: ApiSettings, observability: Observability | None = None) -> FastAPI:
     """Build the fail-closed native web control plane over the canonical store."""
     settings.validate()
@@ -282,6 +321,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
     writes_jobs = requires("jobs:write")
     cancels_jobs = requires("jobs:cancel")
     reads_engagements = requires("engagements:read")
+    reads_capabilities = requires("capabilities:read")
     engagements_database = settings.engagements_database
 
     def _check_csrf(session: WebSession, supplied: str | None) -> None:
@@ -493,6 +533,29 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             request,
             "engagement_detail.html",
             {"engagement": _present_engagement(engagement)},
+        )
+
+    @app.get("/tools", response_class=HTMLResponse, include_in_schema=False)
+    def tools_page(request: Request, session: WebSession = reads_capabilities) -> Response:
+        """Render the tool catalogue straight from the real capability inventory.
+
+        The page is a faithful projection of
+        :func:`olympus.integrations.capabilities.inventory`; it never hardcodes a
+        tool list, so it reflects exactly what THEMIS has adapted, what is
+        installed/configured on this host, and what is therefore runnable.
+        """
+        del session
+        capabilities = [_present_capability(item) for item in inventory()]
+        summary = {
+            "catalogued": len(capabilities),
+            "adapted": sum(1 for item in capabilities if item["adapted"]),
+            "available": sum(1 for item in capabilities if item["available"]),
+            "ready": sum(1 for item in capabilities if item["ready"]),
+        }
+        return _page(
+            request,
+            "tools.html",
+            {"capabilities": capabilities, "summary": summary},
         )
 
     @app.get("/assessments/new", response_class=HTMLResponse, include_in_schema=False)

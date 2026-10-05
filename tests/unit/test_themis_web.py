@@ -356,6 +356,43 @@ def test_new_assessment_offers_engagements_and_enforces_their_scope(tmp_path: Pa
     assert accepted.status_code == 303, accepted.text
 
 
+def test_tools_page_reflects_the_real_capability_inventory(tmp_path: Path) -> None:
+    """The Tools page is a faithful projection of the capability system."""
+    from olympus.integrations.capabilities import CapabilityState, inventory
+
+    client = _client(tmp_path)
+    _login(client)
+    page = client.get("/tools")
+    assert page.status_code == 200
+
+    expected = inventory()
+    # Every catalogued engine is rendered — the list is not hardcoded in the GUI.
+    for capability in expected:
+        assert capability.name in page.text
+
+    ready = sum(1 for item in expected if item.ready)
+    adapter_missing = sum(1 for item in expected if item.state is CapabilityState.ADAPTER_MISSING)
+    # Exactly the ready engines carry the "runnable here: yes" flag, and every
+    # non-adapted engine is labelled as such: a non-adapted scanner can never
+    # appear executable (ROADMAP WEB-D acceptance criterion).
+    assert page.text.count("cap-flag-yes") == ready
+    assert page.text.count("No Olympus adapter") == adapter_missing
+    assert ">" + str(len(expected)) + "<" in page.text  # catalogued count tile
+
+
+def test_tools_page_requires_the_capabilities_scope(tmp_path: Path) -> None:
+    register = IdentityRegister(identities=[])
+    register, secret = add_identity(register, identity_id="runner", scopes=["jobs:read"])
+    register_path = tmp_path / "identities.json"
+    save_register(register_path, register)
+    client = TestClient(
+        create_web_app(_settings(tmp_path, api_key="", identities_path=register_path)),
+        base_url=BASE,
+    )
+    _login(client, secret)
+    assert client.get("/tools", follow_redirects=False).status_code == 403
+
+
 def test_engagement_pages_require_the_engagements_scope(tmp_path: Path) -> None:
     from olympus.engagements.store import ENGAGEMENTS_DB_NAME
 

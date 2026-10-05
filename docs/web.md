@@ -74,6 +74,7 @@ as on the API.
 | `GET /` | Dashboard: job totals, a state histogram and the ten most recent jobs. |
 | `GET /jobs` | Every job, newest first. |
 | `GET /engagements`, `GET /engagements/{id}` | The shared engagements and their scope (requires `engagements:read`); available only when the server is started with `--engagement-storage`. |
+| `GET /tools` | The tool catalogue, read straight from the real capability inventory (requires `capabilities:read`). |
 | `GET /assessments/new`, `POST /jobs` | Typed, scope-gated job submission (requires `jobs:write`). An optional engagement scopes the target. |
 | `GET /jobs/{id}` | Job detail with a live state line and, with `jobs:cancel`, a **Cancel** button wired to real Olympus cancellation. |
 | `POST /jobs/{id}/cancel` | Cancel a job (CSRF-protected). |
@@ -81,7 +82,31 @@ as on the API.
 
 Scope enforcement is per route: a `jobs:read` identity can browse but cannot open
 the new-assessment form or submit; `jobs:cancel` is required to cancel;
-`engagements:read` is required to view engagements.
+`engagements:read` is required to view engagements; `capabilities:read` is
+required to view the tools page.
+
+## Tools (`WEB-D`)
+
+`GET /tools` renders one card per catalogued engine **straight from the real
+capability inventory** — the same `olympus.integrations.capabilities.inventory()`
+that backs `olympus themis capabilities` and `GET /api/v1/capabilities`. The GUI
+never hardcodes a tool list, so the page shows exactly what this host knows:
+
+- **name, category and a plain-language purpose** for each engine;
+- its **deployment class** (local OSS binary, containerised OSS service,
+  proprietary remote API) and **licence**;
+- the honest **readiness state** — `Ready`, `No Olympus adapter`,
+  `Engine not installed` or `Not configured` — and the separate `adapted`,
+  `installed/configured` and `runnable here` facts;
+- the **Olympus maturity** stage (how far the project has validated the
+  integration) and the next step that would advance it;
+- the **requirements** still missing before the engine can run.
+
+Because readiness is computed by the capability system and only an *adapted* and
+*available* engine is `Ready`, a catalogued-but-unadapted scanner (for example an
+API engine without an Olympus adapter) can never appear runnable. The page makes
+no network request and executes no engine, so an engine's installed version is
+detected at run time, not catalogued, and is deliberately not shown.
 
 ## Engagements (`WEB-B`)
 

@@ -43,7 +43,7 @@
 | 4 | Capability Red/Blue/Purple | `[~]` | `OPS-RED`, `OPS-BLUE`, `OPS-PURPLE`, `OPS-SCAN` |
 | 5 | Production readiness scanner | `[ ]` | `D1`, `D2` |
 | 6 | Distribuzione e osservabilità | `[~]` | `DEV-E`, `DEV-F`, `SEC-F` |
-| 7 | Rename Themis + Web control plane | `[~]` | `DEV-I` ✓, `WEB-A` ✓, `WEB-B` ✓, `WEB-C`…`WEB-J` |
+| 7 | Rename Themis + Web control plane | `[~]` | `DEV-I` ✓, `WEB-A` ✓, `WEB-B` ✓, `WEB-C` ✓, `WEB-D` ✓, `WEB-E`…`WEB-J` |
 
 L'ordine di esecuzione concordato per la Fase 7 mette le **fondamenta dati prima
 delle interfacce**: `DEV-I` (rename) → `WEB-B` (engagement entità di primo
@@ -123,7 +123,7 @@ Legenda stato: ✅ implementata · 🟡 parziale · 🗓️ pianificata · ❌ a
 | 12 | Scansioni incrementali + confronto risultati | 🟡 | `argus/diff.py` (diff recon) | **Finding/scan diff cross-run** → `WEB-I` |
 | 13 | Dashboard, notifiche, report JSON/CSV/HTML/PDF/SARIF | 🟡 | report JSON/MD/HTML/PDF `vulcan/`, SARIF `hermes/sarif.py`, OCSF/ECS/NDJSON `apollo/` | **CSV** ❌ (basso costo) → `WEB-I`; **dashboard/notifiche** → `WEB-G`/`WEB-I` |
 | 14 | API, webhook, CI/CD, ticketing, SIEM, CTI | 🟡 | API tipizzata `themis/api.py`; CTI nativo Metis (`metis/misp.py`,`stix.py`) | API+CTI ✅; **webhook/ticketing/CI** → `WEB-J`; **SIEM** → `OPS-BLUE` |
-| 15 | Test unit/integration/e2e + demo sicuro | ✅ | ~132 file di test (unit/contract/integration/container/live_lab), demo `labs/mars/`; web-security + job-lifecycle della Web UI nativa (`tests/unit/test_themis_web.py`, `WEB-A`) | Estendere e2e Web sulle slice successive (`WEB-D`/`WEB-E`) |
+| 15 | Test unit/integration/e2e + demo sicuro | ✅ | ~132 file di test (unit/contract/integration/container/live_lab), demo `labs/mars/`; web-security + job-lifecycle della Web UI nativa e tools page dal capability inventory (`tests/unit/test_themis_web.py`, `WEB-A`/`WEB-D`) | Estendere e2e Web sulle slice successive (`WEB-E`) |
 
 ### B. Moduli proposti (FASE 3) — valutazione
 
@@ -600,7 +600,7 @@ autenticazione per-scope, middleware di accountability e limiti sul body,
 `olympus themis web`, `WEB-A` ✓) costruita **sopra** questa API e sullo stesso
 store, non come piattaforma parallela; la VAP vendorizzata resta in quarantena
 (solo loopback), destinata al ritiro (`SEC-A`). Le prossime slice web
-(`WEB-B` slice 3, `WEB-D`, `WEB-E`…) estendono questa UI, non la sostituiscono.
+(`WEB-E`, `WEB-G`…) estendono questa UI, non la sostituiscono.
 
 ### Intervento A · `WEB-A` — Web control plane nativo (**P0/P1**)
 
@@ -759,13 +759,28 @@ fino alla sua evidenza verificabile.
 
 ### Intervento D · `WEB-D` — Pagina Tools dal registry reale (**P1**)
 
-- [ ] Card per ogni strumento con nome, categoria, descrizione non eccessivamente
-  tecnica, stato, versione, maturity Olympus, capability, requisiti,
-  installato/configurato/ready — **derivati dal registry/capability system reale**
-  (`themis capabilities`), mai da un elenco hardcoded nella GUI.
+- [x] Card per ogni strumento con nome, categoria, descrizione non eccessivamente
+  tecnica, stato, maturity Olympus, capability (classe di deployment e licenza),
+  requisiti e i fatti separati installato/configurato/ready — **derivati dal
+  registry/capability system reale**, mai da un elenco hardcoded nella GUI.
+  **Fatto:** rotta `GET /tools` (`themis/web.py`, scope `capabilities:read`) che
+  proietta `olympus.integrations.capabilities.inventory()` — la **stessa** fonte
+  usata da `olympus themis capabilities` (CLI) e da `GET /api/v1/capabilities`
+  (API). Lo stato di prontezza (`Ready`, `No Olympus adapter`, `Engine not
+  installed`, `Not configured`) è calcolato dal capability system, non dalla GUI:
+  un motore catalogato ma **non adattato** mostra lo stato onesto e non appare
+  mai eseguibile (il flag "runnable here: yes" marca solo i motori `ready`, cioè
+  adattati **e** disponibili). La versione installata del motore non è catalogata
+  (richiederebbe l'esecuzione del tool, che l'inventario rifiuta per disegno) e
+  quindi non viene inventata. Template `web_templates/tools.html`, stili
+  same-origin (CSP senza inline), test `tests/unit/test_themis_web.py`
+  (`test_tools_page_reflects_the_real_capability_inventory`,
+  `test_tools_page_requires_the_capabilities_scope`). Doc:
+  [`docs/web.md`](docs/web.md).
 
-**Criterio di completamento:** la pagina riflette esattamente il
+**Criterio di completamento (soddisfatto):** la pagina riflette esattamente il
 registry/capability inventory; uno scanner non adattato non appare eseguibile.
+**`WEB-D` completo.**
 
 ### Intervento E · `WEB-E` — New Assessment guidato (**P1**)
 
