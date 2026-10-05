@@ -26,8 +26,11 @@ A terminal state answers "what happened", not just "did it work".
 | `cancelled` | Cancellation was requested and honoured |
 | `policy_denied` | Authorization, scope or SSRF policy refused the work before any traffic |
 
-`olympus themis jobs work` exits `4` for `failed`, `timed_out` and
-`policy_denied`; `partial` and `succeeded` exit `0`.
+`olympus themis jobs work` and `workers --once` use canonical exit codes:
+`0` empty/clean, `1` findings, `4` policy denied, `5` partial coverage,
+`6` failed/timed out and `7` cancelled. The continuous `workers` service
+keeps consuming after a job outcome and stops cooperatively on SIGINT/SIGTERM;
+see [`themis-runtime.md`](themis-runtime.md) for deployment and migration.
 
 ## Leases, heartbeats and orphan recovery
 

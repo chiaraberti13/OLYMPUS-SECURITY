@@ -1,137 +1,127 @@
-# Root-level orchestration for the COMPLETE Vulnerability Assessment Platform.
-#
-# One command brings up the whole stack:
-#
-#     docker compose up --build
-#
-# Services:
-#   * redis    — broker + result backend + API cache for Celery/async scans
-#   * themis-migrate — one-shot: applies the Alembic database migrations, then exits
-#   * themis-app     — the complete THEMIS FastAPI web application (~40 routes, 24 scanners)
-#   * themis-worker  — the Celery worker that actually runs queued scans
-#
-# The FastAPI app and the Celery worker are built from the complete vendored
-# upstream source (vendor/vulnerability-assessment-platform) using its own
-# Dockerfile, so nothing about the tool is reduced or reimplemented here.
-#
-# `olympus themis serve|migrate|workers|scanners|deps|doctor` remains available
-# as the native (non-container) entry point — see README.md / README-IT.md.
+# Native THEMIS control plane. See docs/themis-runtime.md for mandatory setup.
+# TLS certificates, scoped identity register and registered scopes are mounted
+# read-only; live scanning is disabled by default. No vendor/ or broker.
+x-themis-build: &themis-build
+  context: .
+  dockerfile: docker/Dockerfile
 
-x-vap-build: &vap-build
-  context: ./vendor/vulnerability-assessment-platform
-  dockerfile: Dockerfile
+x-themis-env: &themis-env
+  THEMIS_ENABLE_LIVE_SCANS: "${THEMIS_ENABLE_LIVE_SCANS:-false}"
 
-x-vap-env: &vap-env
-  # Database: a single SQLite file shared across services on the data volume.
-  # For higher concurrency, point VAP_DATABASE_URL at PostgreSQL instead.
-  VAP_DATABASE_URL: "sqlite:////data/vap.db"
-  VAP_REPORTS_DIR: "/data/reports"
-  # Redis wiring (broker db 0, results db 1, API cache db 2).
-  VAP_CELERY_BROKER_URL: "redis://redis:6379/0"
-  VAP_CELERY_RESULT_BACKEND: "redis://redis:6379/1"
-  VAP_API_CACHE_ENABLED: "true"
-  VAP_API_CACHE_REDIS_URL: "redis://redis:6379/2"
-  # The container listens on all interfaces inside its isolated network, while
-  # the host publication below is deliberately loopback-only. The legacy VAP
-  # web surface must not be exposed directly to a LAN or the Internet.
-  VAP_HOST: "0.0.0.0"
-  VAP_PORT: "8000"
-  VAP_REQUIRE_HTTPS: "false"
-  # Live scans stay OFF by default (safe default). Set to "true" only with
-  # documented authorization and the scanner binaries installed.
-  VAP_ENABLE_LIVE_SCANS: "${VAP_ENABLE_LIVE_SCANS:-false}"
+x-themis-volumes: &themis-volumes
+  - themis-data:/data
+  - ./.olympus/scopes:/scopes:ro
+  - ./.olympus/config:/run/themis-config:ro
+  - ./.olympus/tls:/run/themis-tls:ro
 
-# Baseline container hardening applied to every service (roadmap §5.3). These are
-# the runtime-safe controls: no privilege escalation, all Linux capabilities
-# dropped (a Python web app / broker needs none to bind its high ports), and
-# conservative memory/PID caps so one runaway container cannot starve the host.
-# NOTE: read_only rootfs and a non-root `user:` are deliberately NOT set here —
-# they require validation against the vendored VAP image's writable paths and
-# volume ownership on a real Docker host, which is tracked as open in
-# ROADMAP.md (SEC-B, prerequisite D11). Everything below is safe without that validation.
 x-hardening: &hardening
+  user: "10001:10001"
+  read_only: true
   security_opt:
     - "no-new-privileges:true"
   cap_drop:
     - "ALL"
   pids_limit: 512
   mem_limit: 1g
-  networks:
-    - backend
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=128m,mode=1777
 
 services:
-  redis:
-    <<: *hardening
-    # Mandatory broker, pinned by digest for a reproducible stack.
-    # Refresh with: docker manifest inspect redis:7-alpine
-    image: redis:7-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf
-    restart: unless-stopped
-    # Not published to the host by default (keeps the broker off your LAN).
-    expose:
-      - "6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-    volumes:
-      - redis-data:/data
-
   themis-migrate:
     <<: *hardening
-    build: *vap-build
-    command: ["python", "-m", "alembic", "upgrade", "head"]
-    environment: *vap-env
-    volumes:
-      - vap-data:/data
+    build: *themis-build
+    command: ["themis", "migrate", "--database", "/data/themis-jobs.sqlite3"]
+    volumes: *themis-volumes
+    network_mode: none
     restart: "no"
+
+  themis-api:
+    <<: *hardening
+    networks:
+      - backend
+    build: *themis-build
+    environment: *themis-env
+    command:
+      - themis
+      - api
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8443"
+      - --database
+      - /data/themis-jobs.sqlite3
+      - --scope-directory
+      - /scopes
+      - --identities
+      - /run/themis-config/themis-api-identities.json
+      - --audit
+      - /data/themis-audit.ndjson
+      - --ssl-certfile
+      - /run/themis-tls/cert.pem
+      - --ssl-keyfile
+      - /run/themis-tls/key.pem
+    ports:
+      - "127.0.0.1:${THEMIS_API_PORT:-8443}:8443"
+    depends_on:
+      themis-migrate:
+        condition: service_completed_successfully
+    volumes: *themis-volumes
+    restart: unless-stopped
 
   themis-app:
     <<: *hardening
-    build: *vap-build
-    command: ["python", "app.py"]
-    environment: *vap-env
+    networks:
+      - backend
+    build: *themis-build
+    environment: *themis-env
+    command:
+      - themis
+      - serve
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8600"
+      - --database
+      - /data/themis-jobs.sqlite3
+      - --scope-directory
+      - /scopes
+      - --identities
+      - /run/themis-config/themis-api-identities.json
+      - --audit
+      - /data/themis-audit.ndjson
+      - --ssl-certfile
+      - /run/themis-tls/cert.pem
+      - --ssl-keyfile
+      - /run/themis-tls/key.pem
     ports:
-      - "127.0.0.1:${VAP_PORT:-8000}:8000"
+      - "127.0.0.1:${THEMIS_WEB_PORT:-8600}:8600"
     depends_on:
-      redis:
-        condition: service_healthy
       themis-migrate:
         condition: service_completed_successfully
-    volumes:
-      - vap-data:/data
+    volumes: *themis-volumes
     restart: unless-stopped
-    healthcheck:
-      test:
-        - "CMD"
-        - "python"
-        - "-c"
-        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health',timeout=5).status==200 else 1)"
-      interval: 15s
-      timeout: 5s
-      retries: 10
-      start_period: 20s
 
   themis-worker:
     <<: *hardening
-    build: *vap-build
-    command: ["celery", "-A", "celery_app.celery_app", "worker", "--loglevel=info", "-Q", "scans"]
-    environment: *vap-env
+    networks:
+      - backend
+    build: *themis-build
+    environment: *themis-env
+    command:
+      - themis
+      - workers
+      - --database
+      - /data/themis-jobs.sqlite3
+      - --audit
+      - /data/themis-audit.ndjson
     depends_on:
-      redis:
-        condition: service_healthy
       themis-migrate:
         condition: service_completed_successfully
     volumes:
-      - vap-data:/data
+      - themis-data:/data
+      - ./.olympus/scopes:/scopes:ro
+    stop_grace_period: 15s
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "celery", "-A", "celery_app.celery_app", "inspect", "ping", "-d", "celery@$${HOSTNAME}"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
-
 
   # The optional engines below start ONLY under an explicit --profile, so their
   # floating tags never affect the default stack; pin them in your own deployment
@@ -190,15 +180,9 @@ services:
     # run them externally and point THEMIS at their APIs (see docs/scanner-matrix.md).
 
 networks:
-  # A dedicated bridge for the core control plane (broker, migrate, app, worker,
-  # and the ZAP engine) so it is isolated from other Compose projects' default
-  # network. Full control-plane / scan-plane segmentation across the scanner
-  # overlay (docker-compose.scanners.yml) still needs validation on a Docker host
-  # — see ROADMAP.md, SEC-B.
   backend:
     driver: bridge
 
 volumes:
-  vap-data:
-  redis-data:
+  themis-data:
   gvm-data:

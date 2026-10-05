@@ -37,7 +37,7 @@
 | Fase | Focus | Stato | Interventi principali |
 | --- | --- | --- | --- |
 | 0 | Baseline e coerenza documentale | `[~]` | `DEV-G`, `DEV-H`, `DEV-C` (suite e coverage) |
-| 1 | Security hardening (**P0**) | `[ ]` | `SEC-A`, `SEC-B`, `SEC-C`, `SEC-H`, `UX-B` |
+| 1 | Security hardening (**P0**) | `[~]` | `SEC-A`, `SEC-B`, `SEC-C`, `SEC-H`, `UX-B` |
 | 2 | Architettura e qualità di release | `[~]` | `DEV-A`, `DEV-B`, `DEV-C`, `DEV-D`, `DEV-E`, `SEC-F` |
 | 3 | UX operativa bilingue | `[ ]` | `UX-A`, `UX-C`, `UX-D`, `UX-E`, `UX-F`, `UX-G` |
 | 4 | Capability Red/Blue/Purple | `[~]` | `OPS-RED`, `OPS-BLUE`, `OPS-PURPLE`, `OPS-SCAN` |
@@ -87,12 +87,12 @@ di sicurezza forti, release riproducibili e flussi operativi comprensibili.
 
 | Area | Evidenza nel repository | Gap da chiudere |
 | --- | --- | --- |
-| Architettura | `src/olympus/` contiene moduli separati e un contratto dati comune | `aegis serve`, `migrate` e `workers` dipendono ancora dal VAP in `vendor/` |
+| Architettura | `src/olympus/` contiene moduli separati e un contratto dati comune | runtime `themis api/serve/migrate/workers` nativo e testato dalla wheel; resta la parità completa endpoint/dati legacy (`SEC-A`) |
 | Sicurezza runtime | `core.execution`, `core.http`, `core.pinning`, `aegis.sandbox` | manca un egress allowlist per gli scanner e non sono applicati seccomp/AppArmor |
 | Credenziali | i segreti first-party sono letti dall'ambiente e redatti | manca un backend opzionale per secret manager e una policy uniforme di rotazione |
 | Autorizzazione | scope file + conferma esplicita prima dell'esecuzione | lo scope non è ancora un engagement manifest firmato, con scadenza e approvatore |
 | Supply chain | SBOM, hash lock, audit dipendenze e secret scan | mancano attestazioni di build, firma immagini/release e SAST CodeQL bloccante |
-| Qualità | Ruff lint/format, Mypy strict, pytest portabile 3.11–3.14, branch coverage first-party ≥75% e mutation score mirato ≥35% per funzione sono gate obbligatori; unit/contract/integration sono separate e la sandbox POSIX ha un job dedicato | CodeQL/SAST bloccante; suite container/live-lab senza casi eseguibili |
+| Qualità | Ruff lint/format, Mypy strict, pytest portabile 3.11–3.14, branch coverage first-party ≥75% e mutation score mirato ≥35% per funzione sono gate obbligatori; unit/contract/integration sono separate e la sandbox POSIX ha un job dedicato | CodeQL/SAST bloccante; live-lab senza casi eseguibili. La suite container nativa SEC-A è eseguibile e collegata alla CI |
 | Input ostili | report HTML Vulcan con `html.escape`; RichLog TUI con `markup=False` | `themis/adapters/nmap.py` parsa XML con `xml.etree` considerandolo “trusted local”, ma banner e script output sono controllati dal target; nessun fuzzing dei parser |
 | Scanner | ledger in `integrations/maturity.py` con prove verificabili | 12 `live-tested`, 3 `offline-tested`, 0 `production-ready` |
 | TUI | esecuzione senza shell e streaming dell'output | un solo campo libero per gli argomenti, UI solo inglese, poco supporto decisionale |
@@ -113,13 +113,13 @@ Legenda stato: ✅ implementata · 🟡 parziale · 🗓️ pianificata · ❌ a
 | 2 | Schema comune asset/finding/IOC/eventi/evidenze | ✅ | `core/models.py` (`Asset`,`Finding`,`Event`,`Evidence`,`Alert`,`Observation`), `core/contracts.py`, `schemas/`; IOC in `metis/models.py`; `Finding` con CVE/CWE/EPSS/KEV/confidence tipizzati (`WEB-C`) | Mantenere; nessun nuovo modulo |
 | 3 | Logging strutturato, timeout, retry, errori | ✅ | `core/observability.py` (OTel/Prometheus redatto), `core/execution.py` (`Deadline`, timeout, retry, cancellation), `core/errors.py`, `core/exit_codes.py` | Mantenere; nessun nuovo modulo |
 | 4 | Dry-run e controlli perimetro autorizzato | 🟡 | scope gate `themis/scope.py`,`athena/scope.py`,`core/addresses.py`+`core/pinning.py` (SSRF); autorizzazione `core/execution.ExecutionPolicy`, `--i-am-authorized` | Scope ✅; **dry-run universale** → `SEC-G` |
-| 5 | RBAC, segreti, audit log, rate limiting | 🟡 | `themis/identity.py` (API key hashate, scopes/scadenza/limiti per identità), audit middleware `themis/api.py`, redaction `core/execution.py` | Base ✅; **RBAC/OIDC multiutente** → `WEB-H`; **SecretProvider** → `SEC-D` |
+| 5 | RBAC, segreti, audit log, rate limiting | 🟡 | `themis/identity.py` (hash delle credenziali, permessi/scadenza/limiti per identità), audit middleware `themis/api.py`, redaction `core/execution.py` | Base ✅; **RBAC/OIDC multiutente** → `WEB-H`; **SecretProvider** → `SEC-D` |
 | 6 | Arresto immediato + approvazione invasive | 🟡 | cancellation `core/execution.py`, kill del process-group `themis/sandbox.py` | **Kill switch globale**, classi PASSIVE/ACTIVE/INTRUSIVE, preview → `SEC-G`,`UX-B` |
 | 7 | Deduplicazione + ciclo di vita finding | ✅ | `vulcan/aggregate.py` (`dedupe_findings` per ID + `merge_duplicate_findings` cross-scanner lossless), `FindingStatus` (7 stati), macchina a stati + audit trail + suppression `core/finding_lifecycle.py`/`findings/store.py` (`WEB-C`) | Transizioni, dedup, audit trail, suppression, tagging/ricerca tutti ✅ |
 | 8 | Severità, confidence, risk scoring contestuale | ✅ | `Severity`, `Finding.confidence` (`WEB-C`), `Finding.risk_score()` 0–100 (`WEB-C`), `vulcan/enrichment.prioritize` (KEV>EPSS>CVSS>severità) | Confidence + risk score numerico ✅; mantenere |
 | 9 | Mapping CVE/CWE/CVSS/MITRE ATT&CK | 🟡 | `Finding.cvss` + campi `cve`/`cwe`/`epss`/`kev` strutturati (`WEB-C`); link NVD/MITRE in `vulcan/pdf.py`; EPSS/KEV `vulcan/enrichment.py`; ATT&CK detection `apollo/attack.py`, `Alert.mitre_attack` | Campi strutturati ✅; **ATT&CK offensivo sui finding** → `OPS-RED` |
 | 10 | Inventario centralizzato asset | 🟡 | `core.Asset`, `argus/assets.py`, persistenza per-assessment in Athena; `Asset.engagement_id` opzionale e stamping dal coordinator Athena per id canonici (`WEB-B` slice 2); engagement esposti via API/Web sullo stesso store con scope enforcement (`WEB-B` slice 3) | Engagement leggibili/operabili dai quattro canali ✅; **viste di aggregazione asset cross-engagement** (widget) → `WEB-G` |
-| 11 | Scheduler, code, worker isolati, ripresa job | 🟡 | job store SQLite `themis/jobs.py` (stati+`recover`), `olympus themis recover`, sandbox isolato, worker Celery (vendored) | Queue+recover+sandbox ✅; **scheduler nativo** ❌ → `D13`; ritiro Celery vendored → `SEC-A` |
+| 11 | Scheduler, code, worker isolati, ripresa job | 🟡 | job store SQLite `themis/jobs.py` (stati+`recover`), `olympus themis jobs recover`, sandbox e worker continuo nativo (`SEC-A`) | Queue+recover+sandbox ✅; **scheduler nativo** ❌ → `D13`; runtime Celery ritirato ✅; parità dati/route legacy → `SEC-A` |
 | 12 | Scansioni incrementali + confronto risultati | 🟡 | `argus/diff.py` (diff recon) | **Finding/scan diff cross-run** → `WEB-I` |
 | 13 | Dashboard, notifiche, report JSON/CSV/HTML/PDF/SARIF | 🟡 | report JSON/MD/HTML/PDF `vulcan/`, SARIF `hermes/sarif.py`, OCSF/ECS/NDJSON `apollo/` | **CSV** ❌ (basso costo) → `WEB-I`; **dashboard/notifiche** → `WEB-G`/`WEB-I` |
 | 14 | API, webhook, CI/CD, ticketing, SIEM, CTI | 🟡 | API tipizzata `themis/api.py`; CTI nativo Metis (`metis/misp.py`,`stix.py`) | API+CTI ✅; **webhook/ticketing/CI** → `WEB-J`; **SIEM** → `OPS-BLUE` |
@@ -194,16 +194,21 @@ d'ambiente; i moduli che richiedono token usano variabili dedicate. La CI esegue
 inoltre `gitleaks` sul working tree e, su `main`, sull'intera history, con un canary
 che verifica che lo scanner sia realmente funzionante.
 
-Il rischio maggiore non è quindi una singola credenziale in chiaro, ma il confine
-tra il control plane nativo e la superficie VAP vendorizzata, seguito
-dall'isolamento di rete dei processi scanner e dalla forza probatoria dello scope e
-delle evidenze.
+Restano da verificare la parità completa dei dati/endpoint VAP e il loro piano
+di migrazione, l'isolamento di rete dei processi scanner e la forza probatoria
+dello scope e delle evidenze. Il runtime mantenuto è ora interamente nativo.
 
 ### Intervento A · `SEC-A` — Ritirare la superficie VAP vendorizzata (**P0**)
 
-- [ ] Reimplementare nativamente le funzioni ancora delegate da
+- [x] Reimplementare nativamente le funzioni ancora delegate da
   `src/olympus/integrations/cli.py` a `vendor/vulnerability-assessment-platform`:
-  API/web app, migrazioni e worker.
+  API/web app, migrazioni e worker. `serve`/`web` condividono la Web UI nativa,
+  `migrate` aggiorna soltanto il database job nativo e `workers` consuma la coda
+  SQLite con cancellazione SIGINT/SIGTERM, senza Redis/Celery/Alembic o import
+  VAP. Immagini native dalla wheel, smoke API/Web HTTPS/worker, test di lifecycle
+  e CI container; guida IT/EN e rollback in
+  [`docs/themis-runtime.md`](docs/themis-runtime.md). Il sorgente legacy resta
+  archiviato; import di `vap.db` e parità completa sono il punto successivo.
 - [ ] Definire una matrice di parità per endpoint, job state, persistenza, audit,
   report e cancellazione prima di rimuovere il codice legacy.
 - [ ] Rendere il control plane nativo fail-closed: autenticazione obbligatoria,
@@ -416,8 +421,9 @@ senza modificare il core, ma non può bypassare scope, policy, audit o sandbox.
   aumentare la soglia progressivamente quando la baseline cresce.
 - [x] Separare unit, contract e integration con directory, marker e job CI
   indipendenti; container e live-lab hanno selezione esplicita e opt-in, e una
-  suite vuota fallisce come “no tests collected”. Le suite container/live-lab
-  non contengono ancora casi: non attestano isolamento o scanner live.
+  suite vuota fallisce come “no tests collected”. La suite container SEC-A ha
+  un caso eseguibile in CI; la suite live-lab resta senza casi e non attesta
+  scanner live o isolamento egress.
 - [x] Aggiungere mutation test mirati a scope gate, redaction, parser, exit code e
   state machine dei job: la suite dedicata e un gate CI Linux selezionano le
   funzioni critiche; il checker richiede almeno il 35% di mutazioni uccise per
@@ -1155,14 +1161,15 @@ l'operatore tramite output, log o report.
 
 ### Fase 2 — Architettura e qualità di release (4–8 settimane)
 
-- [ ] Completare control plane AEGIS nativo e rimuovere la dipendenza runtime da
-  `vendor/`.
+- [~] Runtime Themis API/Web/migrazione/worker nativo e indipendente da `vendor/`
+  (`SEC-A`, primo punto); restano parità completa endpoint/dati legacy e rimozione
+  fisica del sorgente archiviato.
 - [ ] Pubblicare SDK/contract test per adapter.
 - [x] Attivare matrice Python, branch coverage gate e suite unit/contract/integration
   separate; POSIX resta in un job dedicato.
 - [x] Aggiungere mutation test mirati e il gate minimo per funzione.
-- [ ] Aggiungere CodeQL; le suite container/live-lab restano esplicitamente non
-  validate finché non esistono casi e relative prove.
+- [ ] Aggiungere CodeQL; la suite container nativa SEC-A è eseguibile in CI,
+  mentre live-lab e isolamento egress degli scanner richiedono ancora prove.
 - [ ] Stabilizzare schema, migrazioni, exit code e recovery dei job.
 - [x] Registrare baseline di performance offline e budget iniziali per le
   operazioni critiche (`DEV-E`); il gate resta manuale fino alla raccolta di
@@ -1246,7 +1253,7 @@ committata e verificabile secondo `docs/scanner-maturity.md`.
 | Versioni Python testate in CI | 4 (3.11–3.14) | mantenere tutte le versioni dichiarate | `.github/workflows/ci.yml` |
 | Gate statici bloccanti | Ruff lint/format, Mypy, pytest, pip-audit, gitleaks | + CodeQL, link checker | `.github/workflows/ci.yml` |
 | Parser coperti da fuzzing | 0 | 100% degli adapter dichiarati | suite `SEC-H` |
-| Import runtime da `vendor/` | presenti (`aegis serve`, `migrate`, `workers`) | 0 | test di architettura `DEV-A` |
+| Import runtime da `vendor/` | 0 nel runtime mantenuto (`SEC-A`, primo punto) | mantenere 0 | `tests/contract/test_themis_native_deployment.py` + smoke wheel/container |
 | Link interni rotti | ≥ 6 file → 0 (verifica manuale del 24/09/2026) | 0, garantito dalla CI | link checker `DEV-G` |
 | Lingue dell'interfaccia | 1 (EN) | 2 (IT/EN) | cataloghi `UX-E` |
 | Formati di report Vulcan | 4 (JSON, Markdown, HTML, PDF con tabella NVD/EPSS) | mantenere e arricchire | `src/olympus/vulcan/` + test |

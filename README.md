@@ -256,16 +256,13 @@ The standalone **ARGUS** migration is complete. Its maintained implementation is
 `src/olympus/argus/`, exposed only as `olympus argus`; the duplicated
 `vendor/argus` source and the `argus-native` passthrough have been removed.
 
-THEMIS is **still being migrated** from the temporary vendored Vulnerability
-Assessment Platform compatibility layer to an Olympus-owned control plane; it is
-not finished. The native path already owns scope and authorization gates,
-scanner adapters, capability readiness, durable SQLite jobs, cancellation, audit
-and explicit execution states, and `olympus themis doctor`, `deps`, `info`,
-`scanners` and `capabilities` all run without the vendored tree. What is *not*
-native yet: `themis serve`, `themis migrate` and `themis workers` still require
-`vendor/` and exit with code `2` without it, and the legacy web surface remains
-temporary until its API, persistence and report contracts are replaced and
-verified.
+THEMIS now runs its API, Web UI (`serve`/`web`), schema migrations and continuous
+workers from the installed native wheel. Scope, authorization, adapters, durable
+SQLite jobs, cancellation and redacted audit share one implementation, without
+Redis/Celery or runtime imports from `vendor/`. The archived VAP source remains
+for the pending full endpoint/data parity review (`SEC-A`); legacy database import
+and advanced Web milestones are separate roadmap work. See the bilingual
+[native runtime guide](docs/themis-runtime.md) for configuration and rollback.
 
 **How much of the catalogue actually executes.** The 24-scanner registry is a
 catalogue, not an implementation claim. Today:
@@ -309,49 +306,46 @@ olympus themis migrate                       # apply the VAP database migrations
 olympus themis serve --host 127.0.0.1 --port 8000   # serve the full VAP web app
 ```
 
-### Running the complete VAP platform: native or Docker
-
-**Native (single process, via Olympus):**
+### Running the native control plane
 
 ```bash
-pip install -e ".[themis]"            # or: bash scripts/setup-vendored-tools.sh
-olympus themis migrate               # apply the database migrations
-olympus themis serve --host 127.0.0.1 --port 8000
+pip install -e ".[themis]"
+olympus themis migrate --database .olympus/themis-jobs.sqlite3
+# Configure the API credential/identity register and registered scopes first:
+olympus themis api --scope-directory .olympus/scopes
+olympus themis serve --scope-directory .olympus/scopes \
+  --ssl-certfile cert.pem --ssl-keyfile key.pem
+olympus themis workers --database .olympus/themis-jobs.sqlite3
 ```
 
-Redis is optional on the native path: synchronous features work without it, and
-queued scans are disabled with a clear warning until Redis is running.
+`serve` and `web` are identical. Browser sessions use HTTPS. Every queued job
+still needs explicit authorization and scope; live scans default to disabled.
+`workers --once` preserves canonical job exit codes, while the continuous worker
+continues after individual failures and handles SIGINT/SIGTERM cooperatively.
 
-**Docker (full stack, one command):**
+After preparing scopes, scoped identities and TLS files as described in
+[`docs/themis-runtime.md`](docs/themis-runtime.md):
 
 ```bash
-docker compose up --build         # redis + migrate + app + worker
-docker compose down               # stop
-docker compose down -v            # stop and remove the data volumes
-# ...with the open-source scanner binaries baked in:
+docker compose up --build
 docker compose -f docker-compose.yml -f docker-compose.scanners.yml up --build
+docker compose down
 ```
 
-| Aspect | What the root `docker-compose.yml` provides |
+| Aspect | Native deployment |
 | --- | --- |
-| **Services** | `redis` (broker + result backend + API cache), `migrate` (one-shot Alembic), `app` (FastAPI web app), `worker` (Celery scan worker) |
-| **Ports** | app on `http://localhost:8000` (override with `VAP_PORT`); Redis is **not** published to the host |
-| **Volumes** | `vap-data` → `/data` (SQLite DB + generated reports), `redis-data` |
-| **Initialization / migrations** | `migrate` runs `alembic upgrade head` and must finish (`service_completed_successfully`) before `app` and `worker` start; the app also self-migrates on boot |
-| **Health checks** | app `GET /health`, `redis-cli ping`, `celery inspect ping` (with `depends_on: condition: service_healthy`) |
-| **Environment** | `VAP_PORT`, `VAP_ENABLE_LIVE_SCANS` (default `false`), `VAP_REQUIRE_HTTPS`, `VAP_DATABASE_URL`, `VAP_CELERY_*`, `VAP_API_CACHE_*`, and secrets `VAP_API_KEY` / `VAP_JWT_SECRET` / `VAP_CSRF_SECRET` — documented in [`.env.docker.example`](.env.docker.example) |
-| **Scanner dependencies** | The default image is Python-only, so a scanner whose binary is absent reports a clear "tool not installed" state. `docker-compose.scanners.yml` + [`docker/Dockerfile.scanners`](docker/Dockerfile.scanners) add the reliably-installable open-source scanners (nmap, nikto, whatweb, sqlmap, wafw00f, arjun, wapiti); Go-based (nuclei, httpx, katana, subfinder, dalfox), Ruby (wpscan), and commercial engines (burp, acunetix, nessus, openvas) are installed separately per their own licences |
-| **Safe defaults** | live scanning off, HTTPS enforcement configurable, Redis unpublished, secrets blank by default |
-
-For a hardened/HTTPS deployment or PostgreSQL instead of SQLite, set the
-corresponding `VAP_*` variables (see `vendor/vulnerability-assessment-platform/.env.example`).
+| Services | `themis-migrate`, `themis-api`, `themis-app`, `themis-worker`; SQLite, no broker |
+| Ports | API `https://localhost:8443`, Web `https://localhost:8600`; published only on host loopback |
+| Storage | `themis-data`; keep legacy VAP data separate, native migration refuses foreign databases |
+| Security | Mandatory identities/TLS, non-root, read-only rootfs, capabilities dropped, live scans disabled |
+| Scanners | Optional scanner image only on the worker; missing dependencies produce explicit partial coverage |
+| Validation | Clean-wheel smoke plus an executable container suite in CI; all checks use loopback without live scans |
 
 **Real scans, never fabricated:** `olympus themis run <scanner> --target <t> --scope s.json --i-am-authorized` runs a real scanner with explicit states — `live` / `unavailable` / `failed` / `disabled` / `simulation`. Simulation is produced **only** with `--simulate` (or `THEMIS_SIMULATION_MODE=true`); a missing binary yields `unavailable`, never a fake finding. See [`docs/scanner-matrix.md`](docs/scanner-matrix.md) and [`docs/themis-execution-evidence.md`](docs/themis-execution-evidence.md).
 
-External scanner **binaries** and the full runtime (Redis/Celery) are also
-provisioned by the vendored `installer.sh` for a non-container setup; a scanner
-with no binary present always reports "tool not installed" rather than failing
-silently.
+External scanner **binaries** are installed independently or through the
+optional native worker image. The maintained runtime does not use the archived
+VAP installer or its Redis/Celery stack.
 
 Olympus ships **native** implementations: `olympus argus …` (scope-first OSINT),
 `olympus themis …` (specialist-engine control) and `olympus athena …`

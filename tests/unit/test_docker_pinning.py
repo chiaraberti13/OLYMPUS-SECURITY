@@ -6,8 +6,8 @@ floating tag on a later edit — the same drift discipline used for the scanner
 matrix and the maturity ledger.
 
 The distinction the roadmap draws is deliberate and encoded here: the *mandatory*
-components (the base image the scanner image builds from, the Redis broker the
-stack requires) must be digest-pinned; the *best-effort* scanner installs keep
+components (the base images for the scanner and native control-plane images)
+must be digest-pinned; the *best-effort* scanner installs keep
 their ``|| true`` so one unavailable tool never fails the build, but must not
 track ``@latest``.
 """
@@ -38,12 +38,11 @@ def test_scanner_image_base_is_pinned_by_digest() -> None:
         assert ":latest" not in line
 
 
-def test_redis_broker_is_pinned_by_digest() -> None:
-    """The broker is a mandatory service, so its image must be digest-pinned."""
-    redis_images = [ln for ln in _lines(_COMPOSE) if "image:" in ln and "redis" in ln]
-    assert redis_images, "no redis image line found in docker-compose.yml"
-    for line in redis_images:
-        assert _DIGEST.search(line), f"redis image is not digest-pinned: {line!r}"
+def test_native_control_plane_image_is_pinned_by_digest() -> None:
+    dockerfile = _ROOT / "docker" / "Dockerfile"
+    from_lines = [line for line in _lines(dockerfile) if line.startswith("FROM ")]
+    assert from_lines
+    assert all(_DIGEST.search(line) for line in from_lines)
 
 
 def test_go_scanner_installs_are_version_pinned_not_latest() -> None:

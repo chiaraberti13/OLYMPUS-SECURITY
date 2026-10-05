@@ -19,7 +19,7 @@ type:
 	$(PYTHON) -m mypy --strict src/olympus
 
 test:
-	$(PYTHON) -m pytest
+	$(PYTHON) -m pytest -m "not container and not live_lab"
 
 test-unit:
 	$(PYTHON) -m pytest -m "unit and not posix_only"
@@ -40,7 +40,7 @@ test-live-lab:
 	OLYMPUS_RUN_LIVE_LAB_TESTS=1 $(PYTHON) -m pytest -m live_lab
 
 test-portable:
-	$(PYTHON) -m pytest -m "not posix_only"
+	$(PYTHON) -m pytest -m "not posix_only and not container and not live_lab"
 
 test-posix:
 	$(PYTHON) -m pytest -m posix_only

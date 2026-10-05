@@ -48,24 +48,6 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
             if marker_name:
                 item.add_marker(getattr(pytest.mark, marker_name))
 
-    selected_suites = {
-        suite for item in items for suite in suite_directories if item.get_closest_marker(suite)
-    }
-    if "container" in selected_suites and os.getenv("OLYMPUS_RUN_CONTAINER_TESTS") != "1":
-        raise pytest.UsageError(
-            "container tests require explicit opt-in: OLYMPUS_RUN_CONTAINER_TESTS=1"
-        )
-    if "live_lab" in selected_suites:
-        if os.getenv("OLYMPUS_RUN_LIVE_LAB_TESTS") != "1":
-            raise pytest.UsageError(
-                "live-lab tests require explicit opt-in: OLYMPUS_RUN_LIVE_LAB_TESTS=1"
-            )
-        if os.getenv("OLYMPUS_LIVE_LAB_AUTHORIZATION") != "I_HAVE_AUTHORIZATION":
-            raise pytest.UsageError(
-                "live-lab tests require OLYMPUS_LIVE_LAB_AUTHORIZATION="
-                "I_HAVE_AUTHORIZATION after verifying the target scope"
-            )
-
     if os.name != "posix":
         skip = pytest.mark.skip(reason="requires POSIX process isolation")
         for item in items:
@@ -83,3 +65,27 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
         for item in items:
             if item.get_closest_marker("root_only"):
                 item.add_marker(skip)
+
+
+def pytest_collection_finish(session: pytest.Session) -> None:
+    """Enforce opt-in only after marker/keyword deselection has finished."""
+    selected_suites = {
+        suite
+        for item in session.items
+        for suite in ("container", "live_lab")
+        if item.get_closest_marker(suite)
+    }
+    if "container" in selected_suites and os.getenv("OLYMPUS_RUN_CONTAINER_TESTS") != "1":
+        raise pytest.UsageError(
+            "container tests require explicit opt-in: OLYMPUS_RUN_CONTAINER_TESTS=1"
+        )
+    if "live_lab" in selected_suites:
+        if os.getenv("OLYMPUS_RUN_LIVE_LAB_TESTS") != "1":
+            raise pytest.UsageError(
+                "live-lab tests require explicit opt-in: OLYMPUS_RUN_LIVE_LAB_TESTS=1"
+            )
+        if os.getenv("OLYMPUS_LIVE_LAB_AUTHORIZATION") != "I_HAVE_AUTHORIZATION":
+            raise pytest.UsageError(
+                "live-lab tests require OLYMPUS_LIVE_LAB_AUTHORIZATION="
+                "I_HAVE_AUTHORIZATION after verifying the target scope"
+            )

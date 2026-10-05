@@ -1,8 +1,8 @@
-"""Temporary compatibility tests for the legacy vendored VAP boundary.
+"""Archived VAP source provenance and native catalogue/compatibility wiring.
 
-ARGUS has completed its native migration and is covered by
-``test_argus_native_replacement.py``.  These tests remain only until the VAP
-runtime surface is replaced by the native THEMIS control plane.
+The legacy source is retained for the pending full parity review (SEC-A), but
+all executable runtime entry points are native. Runtime regression coverage
+lives in test_themis_native_runtime.py.
 """
 
 from __future__ import annotations
@@ -103,23 +103,20 @@ def test_themis_info_command() -> None:
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     assert payload["scanners"] == 24
-    assert "path" in payload
+    assert payload["vendor_required"] is False
     assert "install_hint" in payload
 
 
-def test_legacy_web_requires_explicit_acknowledgement() -> None:
+def test_serve_requires_native_authentication() -> None:
     result = runner.invoke(app, ["themis", "serve"])
     assert result.exit_code == 2
-    assert "quarantined" in result.output.lower()
+    assert "credential register" in result.output
 
 
-def test_legacy_web_rejects_non_loopback_bind() -> None:
-    result = runner.invoke(
-        app,
-        ["themis", "serve", "--allow-legacy-web", "--host", "192.0.2.10"],
-    )
+def test_serve_rejects_non_loopback_bind_without_tls() -> None:
+    result = runner.invoke(app, ["themis", "serve", "--host", "192.0.2.10"])
     assert result.exit_code == 2
-    assert "loopback" in result.output.lower()
+    assert "TLS" in result.output
 
 
 def test_themis_and_vap_compatibility_are_registered() -> None:
@@ -159,33 +156,9 @@ def test_diagnostics_work_from_an_installation_without_the_vendored_tree(
         assert json.loads(result.output)["checks"]
 
     reported = json.loads(runner.invoke(app, ["themis", "doctor"]).output)
-    vendor = next(item for item in reported["checks"] if item["name"].startswith("vendor:"))
-    assert vendor["ok"] is False and vendor["optional"] is True
-    assert "not installed" in vendor["detail"]
-
+    native = next(item for item in reported["checks"] if item["name"] == "runtime:native")
+    assert native["ok"] is True
+    assert not any(item["name"].startswith("vendor:") for item in reported["checks"])
     info = json.loads(runner.invoke(app, ["themis", "info"]).output)
-    assert info["vendored_source_present"] is False
-    assert info["path"] is None
-
-
-def test_commands_that_need_the_vendored_tree_fail_with_a_reason(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("OLYMPUS_VENDOR_DIR", str(tmp_path))
-
-    # `serve` is quarantined behind its own opt-in, which it checks first.
-    for argv in (
-        ["themis", "migrate"],
-        ["themis", "workers"],
-        ["themis", "serve", "--allow-legacy-web"],
-    ):
-        result = runner.invoke(app, argv)
-        assert result.exit_code == 2, (argv, result.output)
-        assert "OLYMPUS_VENDOR_DIR" in result.output
-        assert result.exception is None or isinstance(result.exception, SystemExit)
-
-
-def test_diagnostics_find_the_vendored_tree_in_a_checkout() -> None:
-    reported = json.loads(runner.invoke(app, ["themis", "doctor"]).output)
-    vendor = next(item for item in reported["checks"] if item["name"].startswith("vendor:"))
-    assert vendor["ok"] is True, "the checkout ships the vendored tree"
+    assert info["runtime"] == "native"
+    assert info["vendor_required"] is False

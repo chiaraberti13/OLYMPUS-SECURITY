@@ -204,12 +204,13 @@ La migrazione di **ARGUS** standalone è completa. L'implementazione mantenuta �
 `src/olympus/argus/`, esposta soltanto come `olympus argus`; il sorgente
 duplicato `vendor/argus` e il passthrough `argus-native` sono stati rimossi.
 
-THEMIS sta migrando dal livello temporaneo di compatibilità con la Vulnerability
-Assessment Platform vendorizzata a un control plane di proprietà Olympus. Il
-percorso nativo gestisce già scope e autorizzazione, adapter degli scanner,
-readiness delle capacità, job SQLite persistenti, cancellazione, audit e stati
-di esecuzione espliciti. La superficie web legacy resta temporaneamente finché
-API, persistenza e report necessari non saranno sostituiti e verificati.
+THEMIS esegue ora API, Web UI (`serve`/`web`), migrazioni e worker continui dalla
+wheel nativa. Scope, autorizzazione, adapter, job SQLite, cancellazione e audit
+redatto condividono una sola implementazione, senza Redis/Celery né import
+runtime da `vendor/`. Il sorgente VAP resta un archivio per la futura verifica
+completa della parità endpoint/dati (`SEC-A`); import dei database legacy e
+milestone Web avanzate restano punti distinti. Configurazione e rollback sono
+nella [guida al runtime nativo](docs/themis-runtime.md), bilingue IT/EN.
 
 I motori di scansione specialistici sono **integrati e governati, non copiati**.
 Olympus ne rileva versioni e configurazione, li esegue entro lo scope autorizzato,
@@ -226,54 +227,50 @@ olympus themis jobs submit nmap --target example.com --scope scope.json --i-am-a
 olympus themis jobs work                    # elabora un job in coda
 OLYMPUS_THEMIS_API_KEY='<32+ caratteri casuali>' olympus themis api --scope-directory .olympus/scopes
 olympus themis scanners                     # catalogo motori specialistici
-olympus themis migrate                       # applica le migrazioni DB di VAP
-olympus themis serve --host 127.0.0.1 --port 8000   # avvia la web app VAP completa
+olympus themis migrate                       # migrazioni del database job nativo
+olympus themis workers                       # worker nativo continuo
 ```
 
-### Avviare la piattaforma VAP completa: nativa o Docker
-
-**Nativa (processo singolo, tramite Olympus):**
+### Avviare il control plane nativo
 
 ```bash
-pip install -e ".[themis]"            # oppure: bash scripts/setup-vendored-tools.sh
-olympus themis migrate               # applica le migrazioni del database
-olympus themis serve --host 127.0.0.1 --port 8000
+pip install -e ".[themis]"
+olympus themis migrate --database .olympus/themis-jobs.sqlite3
+# Configurare prima credenziali/registro identità e scope autorizzati:
+olympus themis api --scope-directory .olympus/scopes
+olympus themis serve --scope-directory .olympus/scopes \
+  --ssl-certfile cert.pem --ssl-keyfile key.pem
+olympus themis workers --database .olympus/themis-jobs.sqlite3
 ```
 
-Redis è opzionale sul percorso nativo: le funzioni sincrone funzionano senza, e
-le scansioni in coda restano disabilitate con un avviso chiaro finché Redis non
-è avviato.
+`serve` e `web` sono identici. Le sessioni browser usano HTTPS. Ogni job in
+coda richiede autorizzazione esplicita e scope; le scansioni live sono
+normalmente disabilitate. `workers --once` mantiene gli exit code canonici;
+il worker continuo prosegue dopo singoli fallimenti e gestisce SIGINT/SIGTERM.
 
-**Docker (stack completo, un solo comando):**
+Dopo aver preparato scope, identità e TLS secondo la
+[`guida al runtime`](docs/themis-runtime.md):
 
 ```bash
-docker compose up --build         # redis + migrate + app + worker
-docker compose down               # ferma
-docker compose down -v            # ferma e rimuove i volumi dati
-# ...con i binari open-source degli scanner inclusi:
+docker compose up --build
 docker compose -f docker-compose.yml -f docker-compose.scanners.yml up --build
+docker compose down
 ```
 
-| Aspetto | Cosa fornisce il `docker-compose.yml` di root |
+| Aspetto | Deployment nativo |
 | --- | --- |
-| **Servizi** | `redis` (broker + backend risultati + cache API), `migrate` (Alembic one-shot), `app` (web app FastAPI), `worker` (worker Celery per le scansioni) |
-| **Porte** | app su `http://localhost:8000` (override con `VAP_PORT`); Redis **non** è esposto sull'host |
-| **Volumi** | `vap-data` → `/data` (DB SQLite + report generati), `redis-data` |
-| **Inizializzazione / migrazioni** | `migrate` esegue `alembic upgrade head` e deve completare (`service_completed_successfully`) prima che `app` e `worker` partano; l'app si auto-migra anche all'avvio |
-| **Health check** | app `GET /health`, `redis-cli ping`, `celery inspect ping` (con `depends_on: condition: service_healthy`) |
-| **Ambiente** | `VAP_PORT`, `VAP_ENABLE_LIVE_SCANS` (default `false`), `VAP_REQUIRE_HTTPS`, `VAP_DATABASE_URL`, `VAP_CELERY_*`, `VAP_API_CACHE_*`, e i segreti `VAP_API_KEY` / `VAP_JWT_SECRET` / `VAP_CSRF_SECRET` — documentati in [`.env.docker.example`](.env.docker.example) |
-| **Dipendenze scanner** | L'immagine predefinita è solo-Python: uno scanner senza binario segnala "tool non installato". `docker-compose.scanners.yml` + [`docker/Dockerfile.scanners`](docker/Dockerfile.scanners) aggiungono gli scanner open-source installabili in modo affidabile (nmap, nikto, whatweb, sqlmap, wafw00f, arjun, wapiti); quelli in Go (nuclei, httpx, katana, subfinder, dalfox), Ruby (wpscan) e commerciali (burp, acunetix, nessus, openvas) si installano a parte secondo le rispettive licenze |
-| **Default sicuri** | scansioni live disattivate, HTTPS configurabile, Redis non esposto, segreti vuoti di default |
-
-Per un deployment con HTTPS/hardening o PostgreSQL al posto di SQLite, imposta le
-variabili `VAP_*` corrispondenti (vedi `vendor/vulnerability-assessment-platform/.env.example`).
+| Servizi | `themis-migrate`, `themis-api`, `themis-app`, `themis-worker`; SQLite senza broker |
+| Porte | API `https://localhost:8443`, Web `https://localhost:8600`; pubblicate solo su loopback host |
+| Archivio | `themis-data`; dati VAP separati, la migrazione nativa rifiuta database estranei |
+| Sicurezza | Identità/TLS obbligatori, non-root, rootfs read-only, capability rimosse, live disabilitato |
+| Scanner | Immagine opzionale soltanto sul worker; dipendenze assenti producono coverage parziale esplicita |
+| Verifiche | Smoke della wheel e suite container eseguibile in CI, su loopback senza scansioni live |
 
 **Scansioni reali, mai inventate:** `olympus themis run <scanner> --target <t> --scope s.json --i-am-authorized` esegue uno scanner reale con stati espliciti — `live` / `unavailable` / `failed` / `disabled` / `simulation`. La simulazione è prodotta **solo** con `--simulate` (o `THEMIS_SIMULATION_MODE=true`); un binario mancante dà `unavailable`, mai un finding falso. Vedi [`docs/scanner-matrix.md`](docs/scanner-matrix.md) e [`docs/themis-execution-evidence.md`](docs/themis-execution-evidence.md).
 
-I **binari** degli scanner esterni e il runtime completo (Redis/Celery) sono
-forniti anche dallo `installer.sh` importato per un setup senza container; uno
-scanner senza binario presente segnala sempre "tool non installato" invece di
-fallire in silenzio.
+I **binari** degli scanner esterni si installano separatamente o tramite
+l'immagine opzionale del worker nativo. Il runtime mantenuto non usa l'installer
+VAP archiviato o il relativo stack Redis/Celery.
 
 Olympus offre implementazioni **native**: `olympus argus …` (OSINT scope-first),
 `olympus themis …` (controllo motori specialistici) e `olympus athena …`

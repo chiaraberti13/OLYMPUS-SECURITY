@@ -1,7 +1,10 @@
 # Container test suite
 
-Reserved for tests that exercise actual container-runtime or kernel isolation
-behavior. Static Dockerfile/Compose checks remain contract or unit tests. This
-suite currently has no executable cases; add a test marked `container` and run
-it explicitly with `make test-container`. Do not claim scanner containment from
-configuration-only tests.
+`test_themis_native_image.py` builds the native wheel-based image and exercises
+migration, a real loopback API, HTTPS Web and a native worker with live scanning
+disabled. It runs non-root, read-only, with dropped capabilities and no external
+network. Run explicitly with `make test-container` on a Docker host; CI runs it
+in `native-container`. Static deployment checks remain contract/unit tests.
+
+This verifies the native runtime boundary (SEC-A); it does not claim scanner
+egress confinement or completed seccomp/AppArmor isolation (SEC-B).

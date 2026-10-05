@@ -49,7 +49,8 @@ minimum secret from `OLYMPUS_THEMIS_API_KEY`; non-loopback binds require an
 explicit TLS certificate and key. Request bodies are bounded and operational
 responses carry no-store and browser-hardening headers.
 
-Workers execute the same persisted jobs with `olympus themis jobs work`, through
+Workers execute the same persisted jobs with `olympus themis workers` (or the
+one-job `jobs work` command), through
 the canonical native application service. API submission cannot bypass scope,
 authorization, SSRF validation, deadlines, output limits or redacted audit.
 Claims are leases renewed by a heartbeat, so a worker that dies releases its job
@@ -74,4 +75,6 @@ The supported professional release must demonstrate this vertical path against
 an explicitly authorized lab and must not rely on the vendored ARGUS or
 Vulnerability Assessment Platform codebases. Removal of those legacy trees and
 replacement of their runtime surfaces is tracked as a migration requirement,
-not described as already complete.
+not described as already complete. The native runtime entry points are now
+independent of vendor sources; full legacy endpoint/data parity and source
+removal remain separate. See [`themis-runtime.md`](themis-runtime.md).

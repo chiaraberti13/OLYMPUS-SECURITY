@@ -17,6 +17,7 @@ htmlcov/
 .env
 *.pem
 *.key
+/.olympus/
 
 # Engagement-local execution policy (bounds, declared scope and lab ranges).
 # It describes one engagement's authorized surface: it belongs to the operator,

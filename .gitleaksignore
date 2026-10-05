@@ -1,0 +1,4 @@
+# Historical false positive: ROADMAP documentation describes hashed API
+# credentials and the literal text "scopes/scadenza/limiti"; it is not a secret.
+# Only this exact historical finding is ignored. Current wording is corrected.
+35c935dcd67a5e21df96519f93aa932581be1e57:ROADMAP.md:generic-api-key:116

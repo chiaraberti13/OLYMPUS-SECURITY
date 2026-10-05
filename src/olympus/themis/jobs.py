@@ -42,6 +42,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from olympus.core.execution import (
     Cancellation,
     CancellationRequested,
+    NeverCancelled,
     redact_text,
     redact_url,
 )
@@ -230,6 +231,15 @@ class ThemisJobStore:
         # acquires the serialized write lock.
         with self._reading() as db:
             version = int(db.execute("PRAGMA user_version").fetchone()[0])
+            tables = {
+                str(row[0])
+                for row in db.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+                if not str(row[0]).startswith("sqlite_")
+            }
+            if tables and tables != {"themis_jobs"}:
+                raise SchemaVersionError("not a native THEMIS job database; migration refused")
+            if version == SCHEMA_VERSION and "themis_jobs" not in tables:
+                raise SchemaVersionError("THEMIS job schema is missing; migration refused")
         if version > SCHEMA_VERSION:
             raise SchemaVersionError(
                 f"THEMIS job database is at schema {version}, but this release understands "
@@ -255,6 +265,8 @@ class ThemisJobStore:
         self.path.chmod(0o600)
 
     def _migrate(self, db: sqlite3.Connection, version: int) -> None:
+        if version not in {0, SCHEMA_VERSION}:
+            raise SchemaVersionError(f"unsupported THEMIS job schema {version}; migration refused")
         legacy = db.execute(
             "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'themis_jobs'"
         ).fetchone()
@@ -790,9 +802,14 @@ class _JobCancellation(Cancellation):
     store: ThemisJobStore
     job_id: str
     lease_lost: threading.Event = field(default_factory=threading.Event)
+    shutdown: Cancellation = field(default_factory=NeverCancelled)
 
     def is_cancelled(self) -> bool:
-        return self.lease_lost.is_set() or self.store.cancellation_requested(self.job_id)
+        return (
+            self.shutdown.is_cancelled()
+            or self.lease_lost.is_set()
+            or self.store.cancellation_requested(self.job_id)
+        )
 
 
 class _Heartbeat:
@@ -848,22 +865,33 @@ class ThemisWorker:
     heartbeat_seconds: float = DEFAULT_HEARTBEAT_SECONDS
     observability: Observability = field(default_factory=Observability)
 
-    def run_next(self, *, audit_path: Path | None = None) -> ThemisJob | None:
+    def __post_init__(self) -> None:
+        _validated_worker_id(self.worker_id)
+
+    def run_next(
+        self,
+        *,
+        audit_path: Path | None = None,
+        cancellation: Cancellation | None = None,
+    ) -> ThemisJob | None:
         """Claim one job, execute it under a renewed lease, and record its outcome."""
+        shutdown = cancellation or NeverCancelled()
+        if shutdown.is_cancelled():
+            return None
         job = self.store.claim_next(self.worker_id)
         if job is None:
             return None
         started_at = time.monotonic()
         correlation = Correlation(job_id=job.job_id)
         with self.observability.span("themis.job", correlation):
-            if self.store.cancellation_requested(job.job_id):
+            if shutdown.is_cancelled() or self.store.cancellation_requested(job.job_id):
                 settled = self._settle(job.job_id, JobState.CANCELLED)
                 return self._observed(job.scanner, settled, started_at)
             record = self.store.execution_record(job.job_id)
-            cancellation = _JobCancellation(self.store, job.job_id)
+            job_cancellation = _JobCancellation(self.store, job.job_id, shutdown=shutdown)
             try:
                 with _Heartbeat(
-                    self.store, job.job_id, self.worker_id, cancellation, self.heartbeat_seconds
+                    self.store, job.job_id, self.worker_id, job_cancellation, self.heartbeat_seconds
                 ):
                     result = self.application.run(
                         ThemisRunRequest(
@@ -876,13 +904,17 @@ class ThemisWorker:
                                 live_enabled() if self.live_scans is None else self.live_scans
                             ),
                             audit_path=audit_path,
-                            cancellation=cancellation,
+                            cancellation=job_cancellation,
                         )
                     )
             except BaseException as exc:
-                settled = self._record_exception(job.job_id, exc)
+                settled = (
+                    self._settle(job.job_id, JobState.CANCELLED)
+                    if shutdown.is_cancelled()
+                    else self._record_exception(job.job_id, exc)
+                )
                 return self._observed(job.scanner, settled, started_at)
-            if self.store.cancellation_requested(job.job_id):
+            if job_cancellation.is_cancelled():
                 settled = self._settle(job.job_id, JobState.CANCELLED)
                 return self._observed(job.scanner, settled, started_at)
             state, error = classify_result(result)

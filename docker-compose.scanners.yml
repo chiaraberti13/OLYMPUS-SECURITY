@@ -1,20 +1,8 @@
-# Override: build the app/worker/migrate images WITH open-source scanner
-# binaries (docker/Dockerfile.scanners) instead of the python-only default.
-#
-#     docker compose -f docker-compose.yml -f docker-compose.scanners.yml up --build
-#
-# The build context is the complete vendored VAP source; only the Dockerfile
-# changes, so the platform itself is unmodified.
+# Native worker image with best-effort scanner binaries. The API/Web image
+# remains minimal and never receives scanner executables or legacy code.
+# docker compose -f docker-compose.yml -f docker-compose.scanners.yml up --build
 services:
-  themis-migrate:
-    build:
-      context: ./vendor/vulnerability-assessment-platform
-      dockerfile: ../../docker/Dockerfile.scanners
-  themis-app:
-    build:
-      context: ./vendor/vulnerability-assessment-platform
-      dockerfile: ../../docker/Dockerfile.scanners
   themis-worker:
     build:
-      context: ./vendor/vulnerability-assessment-platform
-      dockerfile: ../../docker/Dockerfile.scanners
+      context: .
+      dockerfile: docker/Dockerfile.scanners

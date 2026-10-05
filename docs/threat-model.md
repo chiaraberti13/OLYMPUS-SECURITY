@@ -66,17 +66,35 @@ Each row is a threat and the implemented control that addresses it.
 | **Tampering with the custody ledger (truncation / full rewrite)** | The chain of custody can be HMAC-SHA256 signed with an operator key; the signature commits to the entry count and the chain head, so dropping entries or rewriting the ledger without the key is rejected on verify. The bare hash chain already catches reorder, deletion and fork. | `olympus.minerva.custody` |
 | **Disputed provenance of an exported artifact** | Any artifact (ledger, evidence, SBOM, report) can be Ed25519 signed; a third party verifies with the operator's public key alone, and verification is pinned to that trusted key so a forgery re-signed under a different key is rejected. | `olympus.core.signing` |
 
+## SEC-A runtime migration review (2026-10-05)
+
+The maintained entry points and wheel/container never import or execute VAP.
+Removing diagnostic `sys.path` injection also prevents a local archived module
+from shadowing installed dependencies. API/Web retain their existing auth,
+registered-scope resolution, CSRF, CSP and redacted audit; workers use the same
+application service with live scanning off by default. Every worker process
+has one active job, leased atomically; SIGINT/SIGTERM propagate cancellation to
+that execution and prevent a new claim. A lost lease cannot overwrite its new
+owner's result.
+
+Migration inspects existing databases read-only, refuses foreign/future/unknown
+schemas and applies supported native DDL/version changes transactionally.
+Existing VAP volumes remain separate, with rollback described in the runtime
+guide. Default containers run non-root with read-only rootfs, no capabilities,
+resource caps and read-only credential/scope/TLS mounts; worker mounts exclude
+API identities and TLS private keys. Container smoke runs with no external
+network and no live scanner job. These controls do not claim SEC-B completion.
+
 ## What is NOT yet covered
 
 Honesty is a control here too. These are open, and tracked in
 [`ROADMAP.md`](../ROADMAP.md) (`SEC-A`, `SEC-B`, `SEC-E`):
 
-- **The legacy VAP web surface (P0).** The vendored Vulnerability Assessment
-  Platform still owns some HTML routes without full RBAC, fail-closed JWT, or a
-  mandatory production target allowlist. Native THEMIS does not have these gaps;
-  the vendored surface is being retired, not extended. Its authenticated
-  replacement is the native web control plane (`olympus themis web`,
-  [`web.md`](web.md)), which reuses the same scope gate and audit as the CLI.
+- **Full VAP endpoint/data parity (SEC-A).** The legacy source is an archive;
+  native API/Web/migration/worker entry points and default containers no longer
+  launch it or add its path to imports. Full legacy data conversion, advanced
+  endpoint parity and physical source removal remain separate milestones. The
+  supported native runtime is documented in [`themis-runtime.md`](themis-runtime.md).
 - **Egress allowlist on scanner processes.** Scanner subprocesses are sandboxed
   for host isolation but do not yet run behind an egress allowlist.
 - **seccomp/AppArmor.** The sandbox drops privileges and sets rlimits but does

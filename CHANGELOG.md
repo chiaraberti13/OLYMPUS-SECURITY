@@ -13,6 +13,18 @@ everything below lives under **Unreleased**.
 ## [Unreleased]
 
 ### Changed
+- **Runtime THEMIS nativo (`SEC-A`, primo punto).** `serve`/`web` avviano la stessa
+  Web UI autenticata; `migrate` aggiorna il database job nativo con rifiuto di
+  database legacy/estranei e versioni non supportate; `workers` usa SQLite,
+  lease e cancellazione SIGINT/SIGTERM senza Redis/Celery/Alembic. Diagnostica
+  senza modifiche a `sys.path`, extra `themis` ridotto al web stack nativo.
+  Docker/Compose distribuiscono la wheel senza `vendor/`, con utente non-root,
+  rootfs read-only e TLS/identità obbligatori. Smoke wheel e container in CI,
+  test del lifecycle condiviso e guida IT/EN con backup/rollback.
+  Il sorgente VAP resta archiviato per la successiva matrice completa di parità;
+  `vap.db` non viene convertito e i vecchi flag Celery/web legacy sono rimossi.
+  Corretto un falso positivo documentale del secret scan storico tramite il
+  fingerprint esatto del finding; nessuna allowlist generale aggiunta.
 - **Variabili d'ambiente THEMIS_* con fallback (`DEV-I`, Milestone 1c).** Le
   variabili di configurazione sono ora canonicamente `THEMIS_*`, con risoluzione
   centralizzata `THEMIS_*` → `AEGIS_*` → `VAP_*` in `olympus.themis.config`

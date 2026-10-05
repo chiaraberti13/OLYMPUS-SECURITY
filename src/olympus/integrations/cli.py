@@ -1,11 +1,10 @@
 """Olympus CLI surface for specialist-engine integrations.
 
-* ``olympus themis`` owns native execution, capability readiness, durable jobs
-  and an authenticated API. The older VAP web/worker commands remain a temporary
-  compatibility boundary while their professional contracts migrate.
+* ``olympus themis`` owns native execution, capability readiness, durable jobs,
+  authenticated API/web services, schema migrations and workers.
 * ``olympus vap`` is a deprecated alias that forwards to ``olympus themis``.
 
-Heavy upstream dependencies are imported lazily; missing dependencies, services,
+Optional web dependencies are imported lazily; missing dependencies, services,
 or external scanner binaries fail gracefully with actionable guidance and are
 never reported as working.
 """
@@ -13,8 +12,6 @@ never reported as working.
 from __future__ import annotations
 
 import json
-import subprocess
-import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -29,28 +26,14 @@ from olympus.integrations.diagnostics import (
     Check,
     Report,
     check_binary,
-    check_env_set,
     check_python_module,
-    check_tcp,
     check_writable_dir,
 )
 from olympus.integrations.maturity import LADDER, Maturity, verify_declarations
-from olympus.integrations.vendored import (
-    VAP_DIR,
-    VendoredToolNotFoundError,
-    ensure_on_path,
-    optional_tool_path,
-    tool_path,
-)
 
 if TYPE_CHECKING:
     from olympus.themis.identity import IdentityRegister
-
-
-def _os_environ() -> dict[str, str]:
-    import os
-
-    return dict(os.environ)
+    from olympus.themis.jobs import ThemisJob
 
 
 def _read_api_key(api_key_env: str) -> str:
@@ -69,7 +52,7 @@ def _read_api_key(api_key_env: str) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# THEMIS — native control plane with temporary VAP compatibility commands
+# THEMIS — native control plane
 # --------------------------------------------------------------------------- #
 themis_app = typer.Typer(
     add_completion=False,
@@ -125,31 +108,6 @@ def _job_exit_code(job: object) -> ExitCode:
         count = findings if isinstance(findings, int) and not isinstance(findings, bool) else 0
         return exit_code_for(classify_run_status(count))
     return ExitCode.OK
-
-
-def _require_vendored(name: str) -> Path:
-    """Return a vendored tool's root, or exit with the reason it is unavailable."""
-    try:
-        return tool_path(name)
-    except VendoredToolNotFoundError as exc:
-        typer.echo(f"olympus: {exc}", err=True)
-        raise typer.Exit(code=ExitCode.USAGE) from exc
-
-
-def _vendor_check() -> Check:
-    """Report whether the vendored upstream tree this command can use is present."""
-    path = optional_tool_path(VAP_DIR)
-    if path is None:
-        return Check(
-            f"vendor:{VAP_DIR}",
-            False,
-            "not installed: the vendored upstream source is not packaged in the wheel. "
-            "Native THEMIS commands work without it; 'themis serve|migrate|workers' need "
-            "a checkout or OLYMPUS_VENDOR_DIR.",
-            optional=True,
-        )
-    ensure_on_path(VAP_DIR)
-    return Check(f"vendor:{VAP_DIR}", True, str(path), optional=True)
 
 
 @themis_app.command("api")
@@ -238,6 +196,7 @@ def themis_api(
     )
 
 
+@themis_app.command("serve")
 @themis_app.command("web")
 def themis_web(
     database: str = typer.Option(".olympus/themis-jobs.sqlite3", "--database", "-d"),
@@ -326,76 +285,95 @@ def themis_web(
     )
 
 
-@themis_app.command("serve")
-def themis_serve(
-    host: str = typer.Option("127.0.0.1", "--host", help="Bind address for the web app."),
-    port: int = typer.Option(8000, "--port", help="Port for the web app."),
-    allow_legacy_web: bool = typer.Option(
-        False,
-        "--allow-legacy-web",
-        help="Acknowledge that the legacy VAP web surface is temporary and local-only.",
-    ),
-) -> None:
-    """Serve the quarantined legacy VAP web application on loopback only."""
-    import ipaddress
-
-    if not allow_legacy_web:
-        typer.echo(
-            "olympus: legacy VAP web is quarantined; use the authenticated native "
-            "'olympus themis api' service, or explicitly acknowledge local-only use with "
-            "--allow-legacy-web",
-            err=True,
-        )
-        raise typer.Exit(code=ExitCode.USAGE)
-    try:
-        loopback = ipaddress.ip_address(host).is_loopback
-    except ValueError:
-        loopback = host.lower() == "localhost"
-    if not loopback:
-        typer.echo(
-            "olympus: legacy VAP web may only bind to a loopback address; "
-            "use 'olympus themis api' for an authenticated network service",
-            err=True,
-        )
-        raise typer.Exit(code=ExitCode.USAGE)
-    path = _require_vendored(VAP_DIR)
-    env = {**_os_environ(), "VAP_HOST": host, "VAP_PORT": str(port)}
-    typer.echo(
-        f"olympus: starting quarantined legacy VAP web app on http://{host}:{port} (from {path})",
-        err=True,
-    )
-    completed = subprocess.run([sys.executable, "app.py"], cwd=str(path), env=env, check=False)
-    raise typer.Exit(code=normalize_exit_code(completed.returncode))
-
-
 @themis_app.command("migrate")
-def themis_migrate() -> None:
-    """Run the THEMIS database migrations (alembic upgrade head)."""
-    path = _require_vendored(VAP_DIR)
-    completed = subprocess.run(
-        [sys.executable, "-m", "alembic", "upgrade", "head"],
-        cwd=str(path),
-        env=_os_environ(),
-        check=False,
-    )
-    raise typer.Exit(code=normalize_exit_code(completed.returncode))
+def themis_migrate(
+    database: str = typer.Option(".olympus/themis-jobs.sqlite3", "--database", "-d"),
+) -> None:
+    """Create or upgrade the native SQLite job schema without losing jobs."""
+    import sqlite3
+
+    from olympus.themis.jobs import JobStoreError
+    from olympus.themis.runtime import migrate_jobs
+
+    try:
+        result = migrate_jobs(Path(database))
+    except (OSError, sqlite3.Error, ValueError, JobStoreError) as exc:
+        typer.echo(f"olympus: native migration refused: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    typer.echo(json.dumps(result.to_dict(), indent=2, sort_keys=True))
 
 
 @themis_app.command("workers")
 def themis_workers(
-    queue: str = typer.Option("scans", "--queue", help="Celery queue to consume."),
-    loglevel: str = typer.Option("info", "--loglevel", help="Celery worker log level."),
+    database: str = typer.Option(".olympus/themis-jobs.sqlite3", "--database", "-d"),
+    audit: str = typer.Option(DEFAULT_THEMIS_AUDIT_LOG, "--audit"),
+    worker_id: str | None = typer.Option(None, "--worker-id", help="Stable lease owner."),
+    poll_interval: float = typer.Option(1.0, "--poll-interval", min=0.05, max=30.0),
+    once: bool = typer.Option(False, "--once", help="Process at most one job and exit."),
 ) -> None:
-    """Start an THEMIS Celery worker that runs queued scans (Ctrl-C to stop)."""
-    path = _require_vendored(VAP_DIR)
-    typer.echo(f"olympus: starting THEMIS Celery worker on queue '{queue}' (from {path})", err=True)
-    completed = subprocess.run(  # noqa: S603 - fixed argv, no shell
-        ["celery", "-A", "celery_app.celery_app", "worker", "-Q", queue, "--loglevel", loglevel],  # noqa: S607
-        cwd=str(path),
-        env=_os_environ(),
-        check=False,
-    )
-    raise typer.Exit(code=normalize_exit_code(completed.returncode))
+    """Run the native worker; SIGINT/SIGTERM cancel the active scan and stop."""
+    import sqlite3
+
+    from olympus.core.observability import observability_from_config
+    from olympus.themis.config import live_enabled
+    from olympus.themis.jobs import JobStoreError, ThemisJobStore, ThemisWorker, generate_worker_id
+    from olympus.themis.runtime import WorkerStop, migrate_jobs, work_queue, worker_signals
+
+    try:
+        migrate_jobs(Path(database))
+        live = live_enabled()
+        telemetry = observability_from_config()
+    except (OSError, sqlite3.Error, ValueError, JobStoreError) as exc:
+        typer.echo(f"olympus: native worker unavailable: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+
+    stop = WorkerStop()
+
+    def emit_job(job: ThemisJob) -> None:
+        typer.echo(json.dumps(job.model_dump(mode="json"), sort_keys=True))
+
+    try:
+        worker = ThemisWorker(
+            ThemisJobStore(Path(database)),
+            live_scans=live,
+            observability=telemetry,
+            worker_id=generate_worker_id() if worker_id is None else worker_id,
+        )
+    except ValueError as exc:
+        telemetry.shutdown()
+        typer.echo(f"olympus: invalid worker settings: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    try:
+        with worker_signals(stop):
+            if not once:
+                typer.echo(
+                    json.dumps(
+                        {"ready": True, "worker_id": worker.worker_id, "live_scans": live},
+                        sort_keys=True,
+                    )
+                )
+            result = work_queue(
+                worker,
+                stop,
+                audit_path=Path(audit) if audit else None,
+                poll_seconds=poll_interval,
+                once=once,
+                on_job=emit_job,
+            )
+    except (OSError, sqlite3.Error, ValueError, JobStoreError) as exc:
+        typer.echo(f"olympus: native worker failed: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.FAILED) from exc
+    finally:
+        telemetry.shutdown()
+    if result.stopped:
+        typer.echo(json.dumps({"stopped": True, "processed": result.processed}, sort_keys=True))
+        raise typer.Exit(code=ExitCode.CANCELLED)
+    if result.last_job is None:
+        typer.echo(json.dumps({"claimed": False, "reason": "queue-empty"}, sort_keys=True))
+        return
+    code = _job_exit_code(result.last_job)
+    if code is not ExitCode.OK:
+        raise typer.Exit(code=code)
 
 
 @themis_app.command("scanners")
@@ -989,8 +967,7 @@ def themis_retention_rotate_log(
 def themis_deps() -> None:
     """Report THEMIS runtime dependencies: web stack, services, and scanner binaries."""
     report = Report("themis deps")
-    report.add(_vendor_check())
-    for module in ("fastapi", "uvicorn", "sqlalchemy", "alembic", "celery", "redis"):
+    for module in ("fastapi", "uvicorn", "jinja2", "multipart"):
         report.add(check_python_module(module, optional=True))
     for spec in scanner_registry.REGISTRY:
         if spec.binary:
@@ -1003,20 +980,22 @@ def themis_info() -> None:
     """Show where THEMIS lives and whether its stack is importable."""
     import importlib.util
 
-    path = optional_tool_path(VAP_DIR)
-    if path is not None:
-        ensure_on_path(VAP_DIR)
+    from olympus.themis.jobs import SCHEMA_VERSION
+
     importable = importlib.util.find_spec("fastapi") is not None
     binaries = sum(1 for s in scanner_registry.REGISTRY if s.available())
     payload = {
-        "name": "THEMIS (vendored Vulnerability Assessment Platform)",
-        "path": str(path) if path is not None else None,
-        "vendored_source_present": path is not None,
+        "name": "THEMIS (native Olympus control plane)",
+        "runtime": "native",
+        "vendor_required": False,
+        "job_schema_version": SCHEMA_VERSION,
+        "queue_backend": "sqlite",
         "scanners": len(scanner_registry.REGISTRY),
         "scanner_binaries_available": binaries,
         "web_stack_importable": importable,
-        "install_hint": 'pip install -e ".[themis]"  (or vendor installer.sh / docker compose)',
-        "docker_compose": "docker-compose.yml (services: redis, migrate, app, worker)",
+        "install_hint": 'pip install "olympus-security[themis]"',
+        "docker_compose": "docker-compose.yml (services: themis-migrate, themis-api, "
+        "themis-app, themis-worker)",
     }
     typer.echo(json.dumps(payload, indent=2, sort_keys=True))
 
@@ -1113,8 +1092,6 @@ def themis_doctor(
     ``--scanner all`` reports every catalogued engine. Exit code ``2`` for an
     unknown scanner name.
     """
-    import os
-
     if scanner is not None:
         from olympus.integrations import scanner_doctor
 
@@ -1140,21 +1117,30 @@ def themis_doctor(
         return
 
     report = Report("themis doctor")
-    report.add(_vendor_check())
-    for module in ("fastapi", "uvicorn", "sqlalchemy", "alembic", "celery", "redis"):
+    for module in ("fastapi", "uvicorn", "jinja2", "multipart"):
         report.add(check_python_module(module, optional=True))
-    # Redis reachability (parsed from the broker URL host/port, best effort).
-    broker = os.environ.get("VAP_CELERY_BROKER_URL", "redis://localhost:6379/0")
-    host, port = _redis_host_port(broker)
-    report.add(check_tcp(host, port, name="service:redis", optional=True))
-    report.add(check_writable_dir(os.environ.get("VAP_REPORTS_DIR", "reports"), optional=True))
-    live = os.environ.get("VAP_ENABLE_LIVE_SCANS", "false").lower() == "true"
-    live_detail = (
-        "live scans ENABLED" if live else "live scans disabled (scanners run in simulated mode)"
+    from olympus.themis.config import ThemisConfigError, live_enabled
+
+    report.add(Check("runtime:native", True, "SQLite jobs; no vendor, Redis or Celery"))
+    try:
+        live = live_enabled()
+        report.add(
+            report_flag(
+                "config:THEMIS_ENABLE_LIVE_SCANS",
+                live,
+                "live scans ENABLED" if live else "live scans disabled (no live traffic)",
+            )
+        )
+    except ThemisConfigError as exc:
+        report.add(Check("config:THEMIS_ENABLE_LIVE_SCANS", False, str(exc)))
+    credential_set = bool(_read_api_key("OLYMPUS_THEMIS_API_KEY"))
+    report.add(
+        report_flag(
+            "config:api-credential",
+            credential_set,
+            "credential is set" if credential_set else "set a credential or pass --identities",
+        )
     )
-    report.add(report_flag("config:VAP_ENABLE_LIVE_SCANS", live, live_detail))
-    for secret in ("VAP_API_KEY", "VAP_JWT_SECRET", "VAP_CSRF_SECRET"):
-        report.add(check_env_set(secret, optional=True, secret=True))
     binaries = sum(1 for s in scanner_registry.REGISTRY if s.available())
     report.add(
         report_flag(
@@ -1187,13 +1173,6 @@ def sandbox_check() -> Check:
         confined, detail = True, "parent process is already unprivileged"
     limits = ", ".join(f"{name}={value}" for name, value in sorted(policy.describe().items()))
     return Check("sandbox:isolation", confined, f"{detail}; limits {limits}", optional=True)
-
-
-def _redis_host_port(url: str) -> tuple[str, int]:
-    from urllib.parse import urlparse
-
-    parsed = urlparse(url)
-    return (parsed.hostname or "localhost", parsed.port or 6379)
 
 
 def report_flag(name: str, ok: bool, detail: str) -> Check:
@@ -1300,8 +1279,6 @@ def register_doctor(parent: typer.Typer) -> None:
                 f"{binaries}/{len(scanner_registry.REGISTRY)} scanner binaries on PATH",
             )
         )
-        # Redis (default local).
-        report.add(check_tcp("localhost", 6379, name="service:redis", optional=True))
         import tempfile
 
         report.add(check_writable_dir(tempfile.gettempdir(), optional=True))

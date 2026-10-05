@@ -1,6 +1,6 @@
-# AEGIS image WITH the open-source scanner binaries baked in.
+# Native THEMIS worker image WITH the open-source scanner binaries baked in.
 #
-# The default stack (docker-compose.yml) builds the vendored, python-only AEGIS
+# The default stack (docker-compose.yml) builds the native, Python-only THEMIS
 # image; a scanner whose external binary is absent reports "tool not installed"
 # and everything else works. This image adds every *redistributable* scanner so
 # those integrations run end to end inside the container. Use it with:
@@ -16,10 +16,10 @@
 #   gem      : wpscan            (WPScan Public Source licence; free API token
 #                                 required for the vulnerability database)
 #   API/daemon or commercial (NOT installable here — see docs/scanner-matrix.md
-#   and `olympus aegis deps`): zap, openvas, nessus, burp, acunetix.
+#   and `olympus themis deps`): zap, openvas, nessus, burp, acunetix.
 #
 # Every extra *scanner* install is best-effort ("|| true") so a single
-# unavailable tool never fails the image build; `olympus aegis deps` reports what
+# unavailable tool never fails the image build; `olympus themis deps` reports what
 # is actually present at runtime. The mandatory base image and the Go toolchain
 # targets, by contrast, are pinned: the base by digest and the Go scanners to
 # exact versions, so a rebuild is reproducible instead of tracking a moving tag.
@@ -44,8 +44,9 @@ RUN apt-get update \
 WORKDIR /app
 
 # Python scanners (best-effort).
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt \
+COPY pyproject.toml README.md LICENSE ./
+COPY src ./src
+RUN pip install --no-cache-dir ".[api,report]" \
     && (pip install --no-cache-dir \
           sqlmap wafw00f arjun wapiti3 dirsearch commix theHarvester || true)
 
@@ -75,7 +76,11 @@ RUN set -eux; \
 # WordPress scanner (Ruby gem; needs a free WPScan API token for the vuln DB).
 RUN gem install wpscan || true
 
-COPY . .
-
-EXPOSE 8000
-CMD ["python", "app.py"]
+RUN groupadd --gid 10001 olympus \
+    && useradd --uid 10001 --gid 10001 --no-create-home olympus \
+    && mkdir /data && chown 10001:10001 /data
+ENV OLYMPUS_STATE_DIR=/data/state
+USER 10001:10001
+WORKDIR /data
+ENTRYPOINT ["olympus"]
+CMD ["themis", "workers", "--database", "/data/themis-jobs.sqlite3", "--audit", "/data/themis-audit.ndjson"]

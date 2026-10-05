@@ -153,7 +153,7 @@ jobs:
       - name: Install wheel in a clean environment
         run: |
           python -m venv /tmp/olympus-wheel-smoke
-          /tmp/olympus-wheel-smoke/bin/python -m pip install dist/*.whl
+          python -c "import glob, subprocess; wheels = glob.glob('dist/*.whl'); assert len(wheels) == 1; subprocess.check_call(['/tmp/olympus-wheel-smoke/bin/python', '-m', 'pip', 'install', wheels[0] + '[api]'])"
       # The wheel does not package the vendored upstream tree, so these run in
       # exactly the environment a user installing from PyPI would have. A
       # command that only works inside a checkout fails here.
@@ -190,11 +190,31 @@ jobs:
           # Fail early if the document is not valid CycloneDX JSON.
           python -c "import json,sys; d=json.load(open(sys.argv[1])); assert d['bomFormat']=='CycloneDX'; print(len(d['components']), 'components')" "$RUNNER_TEMP/olympus-sbom.json"
 
+      - name: Exercise native migration, API, HTTPS Web and worker without vendor
+        run: /tmp/olympus-wheel-smoke/bin/python scripts/smoke_native_runtime.py
+
       - name: Publish SBOM as a build artifact
         uses: actions/upload-artifact@v7
         with:
           name: olympus-sbom
           path: ${{ runner.temp }}/olympus-sbom.json
+
+  native-container:
+    name: native THEMIS container · no vendor · no live traffic
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: Install test tools
+        run: python -m pip install -e ".[dev,api]"
+      - name: Validate Compose with deployment placeholders
+        env:
+          THEMIS_ZAP_API_KEY: ci-placeholder-for-unused-zap-profile
+        run: docker compose config --quiet
+      - name: Run the isolated native-image runtime test
+        run: make test-container
 
   dependency-audit:
     name: pip-audit (blocking · runtime closure)
@@ -278,6 +298,7 @@ jobs:
             -v "$RUNNER_TEMP/gitleaks-reports:/reports" \
             "$GITLEAKS_IMAGE" \
             detect --source=/repo --no-git --config=/repo/.gitleaks.toml \
+            --gitleaks-ignore-path=/repo/.gitleaksignore \
             --redact --exit-code=1 --report-format=sarif \
             --report-path=/reports/gitleaks-worktree.sarif
 
@@ -291,6 +312,7 @@ jobs:
             -v "$RUNNER_TEMP/gitleaks-reports:/reports" \
             "$GITLEAKS_IMAGE" \
             detect --source=/repo --config=/repo/.gitleaks.toml \
+            --gitleaks-ignore-path=/repo/.gitleaksignore \
             --redact --exit-code=1 --report-format=sarif \
             --report-path=/reports/gitleaks-history.sarif
 

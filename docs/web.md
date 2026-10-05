@@ -121,7 +121,8 @@ the browser.
 
 ## Relationship to the legacy VAP web
 
-The vendored Vulnerability Assessment Platform web surface
-(`olympus themis serve`) remains quarantined to loopback and is being retired
-(`SEC-A`). The native web control plane here is its authenticated, scope-gated
-replacement and does not depend on `vendor/`.
+`olympus themis serve` now launches the same authenticated, scope-gated native
+Web UI as `olympus themis web`. The legacy source remains an archive for the
+pending full SEC-A parity review; Olympus does not launch it or import it.
+See [`themis-runtime.md`](themis-runtime.md) for native migration, workers,
+Docker deployment and rollback.
