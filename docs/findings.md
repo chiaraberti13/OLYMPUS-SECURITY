@@ -323,13 +323,14 @@ from olympus.vulcan.evidence_view import build_finding_evidence_view
 
 view = build_finding_evidence_view(
     finding,
-    custody_records=ledger_entries,   # verified Minerva custody entries (optional)
+    custody_records=ledger_entries,  # verified Minerva custody entries (optional)
     evidence_records={evd.evidence_id: evd},  # olympus.evidence records (optional)
-    signed=True, signature_verified=True,
+    signed=True,
+    signature_verified=True,
 )
-view.rows()               # compact table cells, one per evidence reference
+view.rows()  # compact table cells, one per evidence reference
 view.custody_signature()  # "HMAC-SHA256 signature verified", "unsigned", ...
-view.detail()             # full JSON-serialisable projection
+view.detail()  # full JSON-serialisable projection
 ```
 
 ```bash
