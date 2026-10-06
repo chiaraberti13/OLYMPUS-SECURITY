@@ -1,8 +1,12 @@
 # Unified installation & operation
 
-Olympus-native ARGUS and THEMIS, the temporary VAP web compatibility layer, and
-the specialist-engine catalogue from one checkout. Linux (Debian/Ubuntu shown;
-adapt the package manager for RHEL/Arch).
+Olympus-native ARGUS and THEMIS and the specialist-engine catalogue from one
+checkout. Linux (Debian/Ubuntu shown; adapt the package manager for RHEL/Arch).
+
+THEMIS runs on the Olympus-owned native control plane (SQLite job store, native
+migration and worker services): **no Redis, Celery or Alembic**. The mandatory
+scope, identity and TLS setup lives in `docs/themis-runtime.md`; this page is the
+install and day-to-day operation overview.
 
 ## 1. Base install (Olympus + native modules)
 
@@ -14,25 +18,28 @@ olympus --version
 olympus doctor            # environment diagnostics (binaries, services, deps)
 ```
 
-## 2. Native ARGUS and temporary VAP dependencies
+## 2. Native ARGUS and THEMIS dependencies
 
 ```bash
 olympus argus --help                      # already installed by the base package
-bash scripts/setup-vendored-tools.sh      # installs .[themis,dev] + temporary VAP pins
+bash scripts/setup-vendored-tools.sh      # installs the native .[themis,dev] runtime
 # or:
-pip install -e ".[themis]"                # temporary VAP web/DB/worker stack
+pip install -e ".[themis]"                # native THEMIS API/Web/worker stack
 ```
 
 ## 3. THEMIS — native operation (single host)
 
-The Olympus-owned control plane needs no Redis or Celery:
+The Olympus-owned control plane needs no Redis or Celery. See
+`docs/themis-runtime.md` for the full scope/identity/TLS setup and the migration
+and rollback procedure.
 
 ```bash
 mkdir -p .olympus/scopes
 # Place validated scope documents here as <scope-id>.json
 export OLYMPUS_THEMIS_API_KEY='<at least 32 random characters>'
-olympus themis api --scope-directory .olympus/scopes       # terminal 1
-olympus themis jobs work                                  # terminal 2 / supervisor
+olympus themis migrate --database .olympus/themis-jobs.sqlite3   # create/upgrade the native job DB
+olympus themis api --scope-directory .olympus/scopes             # terminal 1
+olympus themis workers --database .olympus/themis-jobs.sqlite3   # terminal 2 / supervisor
 olympus themis scan --scanner nmap --target example.com \
   --kind domain --scope-id customer-1 --i-am-authorized
 ```
@@ -40,42 +47,50 @@ olympus themis scan --scanner nmap --target example.com \
 Use `--ssl-certfile` and `--ssl-keyfile` to bind the API outside localhost;
 remote plaintext HTTP is rejected by the server and client.
 
-### Temporary VAP compatibility stack
+### Native web control plane
 
 ```bash
-# System services (Debian/Ubuntu):
-sudo apt-get update && sudo apt-get install -y redis-server
-sudo systemctl enable --now redis-server
-
-olympus themis migrate                      # initialize / upgrade the database
-olympus themis doctor                       # check web stack, Redis, reports dir, scanners
-olympus themis serve --host 127.0.0.1 --port 8000   # web app  (terminal 1)
-olympus themis workers                      # Celery scan worker (terminal 2)
+olympus themis migrate --database .olympus/themis-jobs.sqlite3   # initialize / upgrade the native job DB
+olympus themis doctor                        # check web stack, DB, live-scan flag, secrets, scanners
+olympus themis serve --host 127.0.0.1 --port 8600 \
+  --scope-directory .olympus/scopes \
+  --ssl-certfile cert.pem --ssl-keyfile key.pem   # web app  (terminal 1)
+olympus themis workers --database .olympus/themis-jobs.sqlite3   # native scan worker (terminal 2)
 ```
 
-Shutdown: Ctrl-C each process. Reset (native): stop them, delete the SQLite DB
-(`vendor/vulnerability-assessment-platform/vap.db`) and the reports dir.
+The web UI sets `Secure` cookies, so use HTTPS even for a local browser session.
+Shutdown: Ctrl-C each process (`SIGINT`/`SIGTERM` cancel the active scan and
+stop). Reset: stop them, delete the SQLite DB (`.olympus/themis-jobs.sqlite3`)
+and the reports dir.
 
-## 4. THEMIS — Docker operation (full stack, one command)
+## 4. THEMIS — Docker operation (full stack)
+
+The Compose stack is native and broker-free: `themis-migrate` (native SQLite
+migration), `themis-api` (HTTPS API), `themis-app` (HTTPS web) and
+`themis-worker` (native SQLite worker). TLS certificates, the scoped identity
+register and the registered scopes are mounted read-only and **must be prepared
+before startup** — see `docs/themis-runtime.md` for the required files under
+`.olympus/`.
 
 ```bash
-docker compose up --build                  # redis + themis-migrate + themis-app + themis-worker
+docker compose up --build                  # themis-migrate + themis-api + themis-app + themis-worker
 docker compose ps                          # health status
 docker compose logs -f themis-app           # follow logs
 docker compose down                        # stop
-docker compose down -v                     # STOP + reset (removes vap-data / redis-data volumes)
+docker compose down -v                     # STOP + reset (removes the themis-data volume)
 docker compose pull && docker compose up --build -d   # update
 
-# With open-source scanner binaries baked in (19/24):
+# With open-source scanner binaries baked into the worker image:
 docker compose -f docker-compose.yml -f docker-compose.scanners.yml up --build
 ```
 
-Env: copy `.env.docker.example` → `.env` to override `VAP_PORT`,
-`VAP_ENABLE_LIVE_SCANS`, secrets, etc. Ports: app on `:8000` (or `VAP_PORT`);
-Redis is internal-only. Volumes: `vap-data` (`/data`: SQLite DB + reports),
-`redis-data`. Health checks: app `GET /health`, `redis-cli ping`, `celery
-inspect ping`. Migrations: the `themis-migrate` one-shot runs `alembic upgrade
-head` before app/worker start.
+Env: copy `.env.docker.example` → `.env` to override `THEMIS_API_PORT`,
+`THEMIS_WEB_PORT`, `THEMIS_ENABLE_LIVE_SCANS` and the optional
+`THEMIS_ZAP_API_KEY`. Ports: API on `127.0.0.1:${THEMIS_API_PORT:-8443}`, web on
+`127.0.0.1:${THEMIS_WEB_PORT:-8600}`. Volume: `themis-data` (`/data`: SQLite DB,
+audit log and reports). The `themis-migrate` one-shot runs the native
+`themis migrate` before the API, web and worker start. Avoid `docker compose
+down -v` if you want to preserve evidence and jobs.
 
 ## 5. Scanner binaries
 
@@ -88,17 +103,17 @@ olympus themis deps                  # web stack + every scanner binary + versio
 ```
 
 The 5 API/commercial engines (zap, openvas, nessus, burp, acunetix) require
-manual install and licence/API configuration via their `VAP_*` settings — see
+manual install and licence/API configuration via their `THEMIS_*` settings — see
 `docs/scanner-matrix.md`. Live scanning also requires
-`VAP_ENABLE_LIVE_SCANS=true` and explicit authorization/scope; otherwise
+`THEMIS_ENABLE_LIVE_SCANS=true` and explicit authorization/scope; otherwise
 the native execution path refuses the run or returns an explicit unavailable /
 disabled state. Simulation occurs only when the operator explicitly requests it.
 
 ## 6. Diagnostics
 
 ```bash
-olympus doctor           # ecosystem-wide: python deps, git/docker/redis-cli, redis, scanners
-olympus themis doctor     # THEMIS: web stack, Redis, DB/reports dir, live-scan flag, secrets(set?), scanners
+olympus doctor           # ecosystem-wide: python deps, git/docker/curl, scanners
+olympus themis doctor     # THEMIS: web stack, DB/reports dir, live-scan flag, secrets(set?), scanners
 olympus argus doctor     # ARGUS: dnspython/phonenumbers, optional API keys (set?)
 ```
 
@@ -109,8 +124,7 @@ All `doctor` output is secret-safe: it reports whether a secret env var is
 
 | Dependency | Needed for | Install |
 | --- | --- | --- |
-| redis-server | queued THEMIS scans | `apt-get install redis-server` or the Docker `redis` service |
-| 19 OSS scanners | live THEMIS scans | `docker-compose.scanners.yml` or `vendor/.../installer.sh` |
+| 19 OSS scanners | live THEMIS scans | `docker-compose.scanners.yml` or `docker/Dockerfile.scanners` |
 | OWASP ZAP | `zap` scanner | ZAP daemon/docker image + API config |
 | OpenVAS/GVM | `openvas` scanner | Greenbone GVM stack (docker/manual) |
 | Nessus / Burp / Acunetix | those scanners | vendor installer + commercial licence + API config |
