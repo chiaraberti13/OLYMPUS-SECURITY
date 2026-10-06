@@ -102,4 +102,19 @@ th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid var(--
 .detail dt { color: var(--muted); }
 .detail dd { margin: 0; }
 .status-line { font-size: 1.1rem; }
+/* New Assessment guided flow (WEB-E). */
+details.advanced { margin-top: 1rem; border: 1px solid var(--line); border-radius: 8px; padding: .4rem .8rem; }
+details.advanced summary { cursor: pointer; font-weight: 600; color: var(--accent); }
+.risk-banner { padding: .6rem .8rem; border-radius: 8px; border: 1px solid var(--line); }
+.risk-passive { background: rgba(63, 185, 80, .12); border-color: var(--ok); }
+.risk-active { background: rgba(210, 153, 34, .12); border-color: var(--warn); }
+.risk-intrusive { background: rgba(248, 81, 73, .15); border-color: var(--bad); }
+.preview { display: grid; grid-template-columns: max-content 1fr; gap: .4rem 1rem; margin: 1rem 0; }
+.preview dt { color: var(--muted); }
+.preview dd { margin: 0; word-break: break-word; }
+.actions { display: flex; gap: .8rem; align-items: center; margin-top: 1.1rem; }
+.button-link { color: var(--accent); text-decoration: none; }
+.button-link:hover { text-decoration: underline; }
+ul.plain { padding-left: 1.1rem; }
+ul.plain li { margin: .5rem 0; }
 .footer { max-width: 960px; margin: 0 auto; padding: 1rem; color: var(--muted); font-size: .85rem; }

@@ -12,6 +12,21 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added
+- **Wizard New Assessment guidato (`WEB-E`).** La Web UI THEMIS espone un flusso
+  activity-first (`GET /assessments/new`): engagement → target → scope → tipo di
+  attività (recon/network/web/vulnerability) → tool o **Automatic** → anteprima
+  "Olympus is about to run" (`POST /assessments/preview`, che non accoda nulla e
+  ri-valida scope ed engagement) con classe di rischio `PASSIVE`/`ACTIVE`/
+  `INTRUSIVE` → autorizzazione → launch (`POST /jobs`) → stato SSE reale. Secret
+  Scan/Detection/Full sono dichiarate oneste come gestite da altri moduli con
+  hint CLI, mai simulate; Automatic rifiuta se nessun tool è `ready`. Nuova
+  classificazione interface-agnostica `olympus.integrations.activity` (attività
+  dalla categoria del registry, rischio da mappa revisionata con default sicuro
+  `ACTIVE`, riassunti in linguaggio semplice), modalità Advanced e enhancement
+  progressivo conforme alla CSP. Doc [`docs/web.md`](docs/web.md); test
+  `tests/unit/test_scanner_activity.py` e `tests/unit/test_themis_web.py`.
+
 ### Changed
 - **Runtime THEMIS nativo (`SEC-A`, primo punto).** `serve`/`web` avviano la stessa
   Web UI autenticata; `migrate` aggiorna il database job nativo con rifiuto di

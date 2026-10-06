@@ -75,7 +75,9 @@ as on the API.
 | `GET /jobs` | Every job, newest first. |
 | `GET /engagements`, `GET /engagements/{id}` | The shared engagements and their scope (requires `engagements:read`); available only when the server is started with `--engagement-storage`. |
 | `GET /tools` | The tool catalogue, read straight from the real capability inventory (requires `capabilities:read`). |
-| `GET /assessments/new`, `POST /jobs` | Typed, scope-gated job submission (requires `jobs:write`). An optional engagement scopes the target. |
+| `GET /assessments/new` | Guided New Assessment wizard (requires `jobs:write`): engagement → target → scope → activity → tool or automatic. |
+| `POST /assessments/preview` | Renders the "Olympus is about to run" preview with the `PASSIVE`/`ACTIVE`/`INTRUSIVE` risk level; queues nothing (requires `jobs:write`, CSRF-protected). |
+| `POST /jobs` | Typed, scope-gated job submission from the preview's launch form (requires `jobs:write`). An optional engagement scopes the target. |
 | `GET /jobs/{id}` | Job detail with a live state line and, with `jobs:cancel`, a **Cancel** button wired to real Olympus cancellation. |
 | `POST /jobs/{id}/cancel` | Cancel a job (CSRF-protected). |
 | `GET /jobs/{id}/events` | Server-sent events stream of state transitions. |
@@ -84,6 +86,45 @@ Scope enforcement is per route: a `jobs:read` identity can browse but cannot ope
 the new-assessment form or submit; `jobs:cancel` is required to cancel;
 `engagements:read` is required to view engagements; `capabilities:read` is
 required to view the tools page.
+
+## New assessment (`WEB-E`)
+
+`GET /assessments/new` is a guided, activity-first wizard for an operator who
+does not remember the CLI flags. It walks one path:
+
+1. **Engagement** (optional) → **target** and **target kind** → **registered
+   scope**.
+2. **Activity** — *Reconnaissance*, *Network*, *Web application* or
+   *Vulnerability assessment*. These are the activities that run as a THEMIS
+   scanner job; *Secret scan*, *Detection engineering* and *Full assessment* are
+   listed honestly as living in other modules (with their CLI command) rather
+   than faked here.
+3. **Tool** — *Automatic* (Olympus picks a ready tool for the activity) or a
+   specific scanner. Each tool shows a plain-language summary and its risk
+   badge; a catalogued-but-not-ready tool is shown disabled, never as runnable.
+4. **Preview** (`POST /assessments/preview`) — an "Olympus is about to run"
+   screen that re-validates the scope and engagement, resolves the scanner
+   (honouring automatic mode), and states the **risk class**:
+   - `PASSIVE` — observes public information, little or no traffic to the target;
+   - `ACTIVE` — sends requests directly to enumerate and probe, non-destructive;
+   - `INTRUSIVE` — attempts injection/exploitation, authorization mandatory.
+   Nothing is queued by previewing.
+5. **Authorize and launch** — the preview's launch form posts to `POST /jobs`.
+   Documented authorization is **always** required (the GUI cannot weaken the
+   CLI's gate); for an `ACTIVE` or `INTRUSIVE` operation the preview adds a
+   prominent warning naming the target.
+
+The classification itself carries no GUI logic: the activity type is derived
+from each scanner's registry category and the risk class from a single reviewed
+map in `olympus.integrations.activity` (an unmapped scanner defaults to
+`ACTIVE`, never `PASSIVE`), so the web, and any future CLI/TUI wizard, read the
+same answers. Automatic mode refuses honestly when no scanner for the activity
+is ready on the host rather than queueing a job that cannot run.
+
+Progressive enhancement only: the wizard works without JavaScript (every option
+is present and the server re-validates the activity/tool pairing on preview); a
+same-origin `assessment.js` simply filters the tool list to the chosen activity
+and shows the live hint.
 
 ## Tools (`WEB-D`)
 

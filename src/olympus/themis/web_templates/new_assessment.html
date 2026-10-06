@@ -4,30 +4,15 @@
 <section class="card narrow">
   <h1>New assessment</h1>
   <p class="muted">
-    The browser submits a typed request — scanner, target and a registered
-    scope — that the server runs through the same scope gate, authorization
-    check and sandbox as the CLI. There is no free-form command line.
+    A guided flow: choose an engagement and target, pick the kind of work, and
+    let Olympus pick the tool — or choose your own. The next screen previews
+    exactly what will run, with its risk level, before you authorize it. There
+    is no free-form command line.
   </p>
   {% if error %}<p class="alert" role="alert">{{ error }}</p>{% endif %}
-  <form method="post" action="/jobs">
+
+  <form method="post" action="/assessments/preview">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <label for="scanner">Scanner</label>
-    <input id="scanner" name="scanner" value="{{ form.scanner or '' }}"
-           pattern="[a-z0-9][a-z0-9-]{0,63}" required>
-
-    <label for="target">Target</label>
-    <input id="target" name="target" value="{{ form.target or '' }}" maxlength="2048" required>
-
-    <label for="target_kind">Target kind</label>
-    <select id="target_kind" name="target_kind">
-      <option value="host">host</option>
-      <option value="domain">domain</option>
-      <option value="url">url</option>
-    </select>
-
-    <label for="scope_id">Registered scope</label>
-    <input id="scope_id" name="scope_id" value="{{ form.scope_id or '' }}"
-           pattern="[A-Za-z0-9][A-Za-z0-9_.-]{0,127}" required>
 
     {% if engagements %}
     <label for="engagement_id">Engagement (optional)</label>
@@ -41,20 +26,92 @@
       {% endfor %}
     </select>
     <p class="muted">
-      When an engagement is chosen, the target must fall inside its authorized
+      With an engagement chosen, the target must fall inside its authorized
       scope or the scan is refused before it is queued.
     </p>
     {% endif %}
 
-    <label for="max_attempts">Max attempts</label>
-    <input id="max_attempts" name="max_attempts" type="number" min="1" max="5" value="1">
+    <label for="target">Target</label>
+    <input id="target" name="target" value="{{ form.target or '' }}" maxlength="2048" required>
 
-    <label class="checkbox">
-      <input type="checkbox" name="authorized" value="on">
-      I confirm documented authorization to test this target.
-    </label>
+    <label for="target_kind">Target kind</label>
+    <select id="target_kind" name="target_kind">
+      {% for kind in ("host", "domain", "url") %}
+      <option value="{{ kind }}" {% if form.target_kind == kind %}selected{% endif %}>{{ kind }}</option>
+      {% endfor %}
+    </select>
 
-    <button type="submit">Queue scan</button>
+    <label for="scope_id">Registered scope</label>
+    <input id="scope_id" name="scope_id" value="{{ form.scope_id or '' }}"
+           pattern="[A-Za-z0-9][A-Za-z0-9_.-]{0,127}" required>
+
+    <label for="activity">Activity</label>
+    <select id="activity" name="activity" required>
+      {% for activity in activities %}
+      <option value="{{ activity.value }}" data-summary="{{ activity.summary }}"
+              {% if form.activity == activity.value %}selected{% endif %}>
+        {{ activity.title }}
+      </option>
+      {% endfor %}
+    </select>
+    <p class="muted" id="activity-hint"></p>
+
+    <label for="scanner">Tool</label>
+    <select id="scanner" name="scanner">
+      <option value="">Automatic — recommended tool for the activity</option>
+      {% for activity in activities %}
+      <optgroup label="{{ activity.title }}" data-activity="{{ activity.value }}">
+        {% for scanner in scanners if scanner.activity == activity.value %}
+        <option value="{{ scanner.name }}"
+                data-activity="{{ scanner.activity }}"
+                data-risk="{{ scanner.risk }}"
+                data-risk-label="{{ scanner.risk_label }}"
+                data-summary="{{ scanner.summary }}"
+                {% if not scanner.ready %}disabled{% endif %}
+                {% if form.scanner == scanner.name %}selected{% endif %}>
+          {{ scanner.name }} — {{ scanner.risk_label }}{% if not scanner.ready %} (not ready){% endif %}
+        </option>
+        {% endfor %}
+      </optgroup>
+      {% endfor %}
+    </select>
+    <p class="muted" id="scanner-hint">
+      Automatic mode picks a ready tool for the chosen activity. Tools marked
+      <em>not ready</em> are catalogued but not runnable on this host — see the
+      <a href="/tools">Tools</a> page.
+    </p>
+
+    <details class="advanced">
+      <summary>Advanced options</summary>
+      <label for="max_attempts">Max attempts</label>
+      <input id="max_attempts" name="max_attempts" type="number" min="1" max="5"
+             value="{{ form.max_attempts or 1 }}">
+      <label for="idempotency_key">Idempotency key (optional)</label>
+      <input id="idempotency_key" name="idempotency_key" value="{{ form.idempotency_key or '' }}"
+             pattern="[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}" maxlength="128">
+    </details>
+
+    <button type="submit">Preview</button>
   </form>
 </section>
+
+{% if other_activities %}
+<section class="card narrow">
+  <h2>Also available from the command line</h2>
+  <p class="muted">
+    These activities are run by other Olympus modules and are not submitted as
+    web scanner jobs yet. They are listed here so the catalogue stays honest.
+  </p>
+  <ul class="plain">
+    {% for activity in other_activities %}
+    <li><strong>{{ activity.title }}</strong> — {{ activity.summary }}
+      {% if activity.cli_hint %}<br><code>{{ activity.cli_hint }}</code>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script src="/static/assessment.js"></script>
 {% endblock %}

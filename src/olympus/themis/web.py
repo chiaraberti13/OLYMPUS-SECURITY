@@ -62,6 +62,16 @@ from olympus.engagements.resolve import (
     load_engagements,
     require_engagement,
 )
+from olympus.integrations.activity import (
+    ACTIVITY_CATALOGUE,
+    RISK_EXPLANATION,
+    ActivityType,
+    RiskClass,
+    activity_info,
+    profile,
+    recommended_scanner,
+    scanners_for_activity,
+)
 from olympus.integrations.capabilities import Capability, CapabilityState, inventory
 from olympus.themis.api import (
     MAX_REQUEST_BYTES,
@@ -212,6 +222,66 @@ def _present_capability(capability: Capability) -> dict[str, object]:
         "evidence": capability.evidence,
         "blocker": capability.blocker,
     }
+
+
+#: Short, non-alarming label per risk class for badges in the guided flow.
+_RISK_LABELS: dict[RiskClass, str] = {
+    RiskClass.PASSIVE: "Passive",
+    RiskClass.ACTIVE: "Active",
+    RiskClass.INTRUSIVE: "Intrusive",
+}
+
+
+def _native_activities() -> list[dict[str, str]]:
+    """Return the activities that run as a THEMIS job, for the run form select."""
+    return [
+        {"value": info.activity.value, "title": info.title, "summary": info.summary}
+        for info in ACTIVITY_CATALOGUE
+        if info.themis_native
+    ]
+
+
+def _other_activities() -> list[dict[str, str]]:
+    """Return the activities handled by other modules, surfaced honestly with a hint."""
+    return [
+        {
+            "title": info.title,
+            "summary": info.summary,
+            "cli_hint": info.cli_hint or "",
+        }
+        for info in ACTIVITY_CATALOGUE
+        if not info.themis_native
+    ]
+
+
+def _scanner_choices(ready: set[str]) -> list[dict[str, object]]:
+    """Project every scanner into a guided-flow choice tagged with readiness.
+
+    Activity and risk come from :mod:`olympus.integrations.activity`; readiness
+    comes from the capability inventory. The GUI never decides either, so a
+    non-adapted or uninstalled scanner is shown but honestly marked not-ready.
+    """
+    choices: list[dict[str, object]] = []
+    for info in ACTIVITY_CATALOGUE:
+        if not info.themis_native:
+            continue
+        for item in scanners_for_activity(info.activity):
+            choices.append(
+                {
+                    "name": item.name,
+                    "activity": item.activity.value,
+                    "risk": item.risk.value,
+                    "risk_label": _RISK_LABELS[item.risk],
+                    "summary": item.summary,
+                    "ready": item.name in ready,
+                }
+            )
+    return choices
+
+
+def _ready_scanner_names() -> set[str]:
+    """Return the set of scanners that are runnable (adapted and available) here."""
+    return {item.name for item in inventory() if item.ready}
 
 
 def create_web_app(settings: ApiSettings, observability: Observability | None = None) -> FastAPI:
@@ -558,15 +628,143 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             {"capabilities": capabilities, "summary": summary},
         )
 
+    def _assessment_context(
+        session: WebSession, form: dict[str, str] | None = None, error: str | None = None
+    ) -> dict[str, object]:
+        """Shared context for the guided New Assessment form (step 1)."""
+        ready = _ready_scanner_names()
+        return {
+            "error": error,
+            "form": form or {},
+            "engagements": _engagement_options(),
+            "activities": _native_activities(),
+            "other_activities": _other_activities(),
+            "scanners": _scanner_choices(ready),
+            "ready_count": len(ready),
+            "csrf_token": _csrf_token(session.nonce),
+        }
+
     @app.get("/assessments/new", response_class=HTMLResponse, include_in_schema=False)
     def new_assessment(request: Request, session: WebSession = writes_jobs) -> Response:
+        return _page(request, "new_assessment.html", _assessment_context(session))
+
+    @app.post("/assessments/preview", response_class=HTMLResponse, include_in_schema=False)
+    def preview_assessment(
+        request: Request,
+        activity: Annotated[str, Form()],
+        target: Annotated[str, Form()],
+        scope_id: Annotated[str, Form()],
+        csrf_token: Annotated[str, Form()],
+        target_kind: Annotated[str, Form()] = "host",
+        scanner: Annotated[str, Form()] = "",
+        engagement_id: Annotated[str | None, Form()] = None,
+        idempotency_key: Annotated[str | None, Form()] = None,
+        max_attempts: Annotated[int, Form()] = 1,
+        session: WebSession = writes_jobs,
+    ) -> Response:
+        """Render the "Olympus is about to run" preview before any launch.
+
+        Nothing is queued here: the step re-validates the scope and engagement,
+        resolves the scanner (honouring automatic mode), and shows the risk
+        class. Only the explicit launch form on this page submits to ``/jobs``.
+        """
+        _check_csrf(session, csrf_token)
+        form = {
+            "scanner": scanner,
+            "target": target,
+            "target_kind": target_kind,
+            "scope_id": scope_id,
+            "activity": activity,
+            "engagement_id": engagement_id or "",
+        }
+
+        def _back(message: str, code: int = 400) -> Response:
+            return _page(
+                request, "new_assessment.html", _assessment_context(session, form, message), code
+            )
+
+        try:
+            chosen_activity = ActivityType(activity)
+        except ValueError:
+            return _back("Choose a valid activity type.", code=422)
+        if not activity_info(chosen_activity).themis_native:
+            hint = activity_info(chosen_activity).cli_hint or "the relevant Olympus module"
+            return _back(f"That activity is not run from the web yet; use {hint}.", code=422)
+
+        ready = _ready_scanner_names()
+        resolved = scanner.strip() or recommended_scanner(chosen_activity, ready)
+        if resolved is None:
+            return _back(
+                "No scanner for this activity is ready on this host. "
+                "Check the Tools page for what is missing.",
+                code=422,
+            )
+        scanner_profile = profile(resolved)
+        if scanner_profile is None:
+            return _back("Unknown scanner.", code=422)
+        if scanner_profile.activity is not chosen_activity:
+            return _back("That scanner does not belong to the chosen activity.", code=422)
+        if resolved not in ready:
+            return _back(
+                f"'{resolved}' is not ready on this host; pick a ready tool or automatic mode.",
+                code=422,
+            )
+
+        chosen_engagement = (engagement_id or "").strip() or None
+        try:
+            submission = JobSubmission(
+                scanner=resolved,
+                target=target,
+                target_kind=target_kind,  # type: ignore[arg-type]
+                scope_id=scope_id,
+                authorized=True,
+                engagement_id=chosen_engagement,
+                idempotency_key=(idempotency_key or None),
+                max_attempts=max_attempts,
+            )
+        except ValidationError:
+            return _back("The request is not valid; check target, scope and options.", code=422)
+
+        engagement_name: str | None = None
+        if submission.engagement_id is not None:
+            if engagements_database is None:
+                return _back("No engagement store is configured on this server.", code=400)
+            try:
+                engagement = require_engagement(engagements_database, submission.engagement_id)
+            except EngagementStoreError:
+                return _back("The selected engagement does not exist.", code=404)
+            if not engagement_covers(engagement, submission.target, submission.target_kind):
+                return _back("That target is outside the selected engagement's scope.", code=422)
+            engagement_name = _safe(engagement.name)
+
+        try:
+            _registered_scope(scope_root, submission.scope_id)
+        except HTTPException as exc:
+            return _back(f"Scope rejected: {exc.detail}", code=exc.status_code)
+
+        needs_confirmation = scanner_profile.risk is not RiskClass.PASSIVE
         return _page(
             request,
-            "new_assessment.html",
+            "assessment_preview.html",
             {
-                "error": None,
-                "form": {},
-                "engagements": _engagement_options(),
+                "scanner": resolved,
+                "automatic": not scanner.strip(),
+                "summary": scanner_profile.summary,
+                "activity_title": activity_info(chosen_activity).title,
+                "risk": scanner_profile.risk.value,
+                "risk_label": _RISK_LABELS[scanner_profile.risk],
+                "risk_explanation": RISK_EXPLANATION[scanner_profile.risk],
+                "needs_confirmation": needs_confirmation,
+                # The raw target is what the launch form must resubmit (and what
+                # /jobs re-validates); the safe copy is only ever displayed.
+                "target": submission.target,
+                "target_display": _safe(submission.target),
+                "target_kind": submission.target_kind,
+                "scope_id": submission.scope_id,
+                "engagement_id": submission.engagement_id or "",
+                "engagement_name": engagement_name,
+                "idempotency_key": submission.idempotency_key or "",
+                "max_attempts": submission.max_attempts,
                 "csrf_token": _csrf_token(session.nonce),
             },
         )

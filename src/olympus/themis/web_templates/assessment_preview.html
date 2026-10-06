@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Preview · Olympus THEMIS{% endblock %}
+{% block content %}
+<section class="card narrow">
+  <h1>Olympus is about to run</h1>
+  <p class="muted">
+    Nothing has run yet. Review exactly what will happen, then authorize and
+    launch. The scan goes through the same scope gate, authorization check and
+    sandbox as the command line.
+  </p>
+
+  <p class="risk-banner risk-{{ risk }}">
+    <strong>{{ risk_label }}</strong> — {{ risk_explanation }}
+  </p>
+
+  <dl class="preview">
+    <dt>Activity</dt>
+    <dd>{{ activity_title }}</dd>
+    <dt>Tool</dt>
+    <dd>
+      <code>{{ scanner }}</code>{% if automatic %} <span class="muted">(chosen automatically)</span>{% endif %}
+      <br><span class="muted">{{ summary }}</span>
+    </dd>
+    <dt>Target</dt>
+    <dd><code>{{ target_display }}</code> <span class="muted">({{ target_kind }})</span></dd>
+    <dt>Registered scope</dt>
+    <dd><code>{{ scope_id }}</code></dd>
+    {% if engagement_id %}
+    <dt>Engagement</dt>
+    <dd><code>{{ engagement_id }}</code>{% if engagement_name %} — {{ engagement_name }}{% endif %}
+      <br><span class="muted">The target was verified inside this engagement's authorized scope.</span>
+    </dd>
+    {% endif %}
+    <dt>Max attempts</dt>
+    <dd>{{ max_attempts }}</dd>
+  </dl>
+
+  <form method="post" action="/jobs">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="scanner" value="{{ scanner }}">
+    <input type="hidden" name="target" value="{{ target }}">
+    <input type="hidden" name="target_kind" value="{{ target_kind }}">
+    <input type="hidden" name="scope_id" value="{{ scope_id }}">
+    {% if engagement_id %}<input type="hidden" name="engagement_id" value="{{ engagement_id }}">{% endif %}
+    {% if idempotency_key %}<input type="hidden" name="idempotency_key" value="{{ idempotency_key }}">{% endif %}
+    <input type="hidden" name="max_attempts" value="{{ max_attempts }}">
+
+    {% if needs_confirmation %}
+    <p class="alert" role="alert">
+      This is an <strong>{{ risk_label|lower }}</strong> operation against
+      <code>{{ target_display }}</code>. Only continue if you hold documented
+      authorization to test this target.
+    </p>
+    {% endif %}
+    <label class="checkbox">
+      <input type="checkbox" name="authorized" value="on" required>
+      I confirm documented authorization to run this scan against
+      <code>{{ target_display }}</code>.
+    </label>
+
+    <div class="actions">
+      <button type="submit">Launch scan</button>
+      <a class="button-link" href="/assessments/new">Back</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

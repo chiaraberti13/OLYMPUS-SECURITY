@@ -12,6 +12,8 @@ import json
 import re
 from pathlib import Path
 
+import httpx
+import pytest
 from fastapi.testclient import TestClient
 from typer.testing import CliRunner
 
@@ -414,3 +416,198 @@ def test_engagement_pages_require_the_engagements_scope(tmp_path: Path) -> None:
     )
     _login(client, secret)
     assert client.get("/engagements", follow_redirects=False).status_code == 403
+
+
+# --- Guided New Assessment flow (ROADMAP WEB-E) -----------------------------
+
+
+def _preview(client: TestClient, csrf: str, **overrides: str) -> httpx.Response:
+    payload = {
+        "activity": "network",
+        "target": "127.0.0.1",
+        "target_kind": "host",
+        "scope_id": "engagement",
+        "scanner": "",
+        "csrf_token": csrf,
+    }
+    payload.update(overrides)
+    return client.post("/assessments/preview", data=payload, follow_redirects=False)
+
+
+def test_new_assessment_is_a_guided_flow_with_activities_and_tools(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    page = client.get("/assessments/new")
+    assert page.status_code == 200
+    # Activity-first wizard, not a single scanner field.
+    assert 'name="activity"' in page.text
+    assert "Automatic" in page.text
+    # Non-native activities are surfaced honestly with a CLI hint, not faked.
+    assert "olympus hermes scan" in page.text
+    assert "olympus athena run" in page.text
+    # The flow previews before launching; no direct queue from this form.
+    assert 'action="/assessments/preview"' in page.text
+
+
+def test_preview_shows_risk_and_does_not_queue_until_launch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import olympus.themis.web as web
+
+    monkeypatch.setattr(web, "_ready_scanner_names", lambda: {"nmap"})
+    client = _client(tmp_path)
+    _login(client)
+    csrf = _csrf(client)
+    preview = _preview(client, csrf, activity="network", scanner="")
+    assert preview.status_code == 200, preview.text
+    assert "Olympus is about to run" in preview.text
+    assert "nmap" in preview.text
+    assert "Active" in preview.text  # the risk class is shown
+    # Nothing was queued by previewing.
+    jobs = client.get("/jobs")
+    assert "nmap" not in jobs.text or "No jobs" in jobs.text
+    # The launch form on the preview submits to /jobs and actually queues.
+    job_id = _submit(client, csrf, scanner="nmap", target="127.0.0.1")
+    assert client.get(f"/jobs/{job_id}").status_code == 200
+
+
+def test_passive_activity_completes_end_to_end(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import olympus.themis.web as web
+
+    monkeypatch.setattr(web, "_ready_scanner_names", lambda: {"subfinder"})
+    client = _client(tmp_path)
+    _login(client)
+    csrf = _csrf(client)
+    preview = _preview(client, csrf, activity="recon", scanner="")
+    assert preview.status_code == 200, preview.text
+    assert "subfinder" in preview.text  # automatic picked the ready recon tool
+    assert "Passive" in preview.text
+    job_id = _submit(client, csrf, scanner="subfinder", target="127.0.0.1")
+    assert client.get(f"/jobs/{job_id}").status_code == 200
+
+
+def test_intrusive_tool_preview_demands_authorization(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import olympus.themis.web as web
+
+    monkeypatch.setattr(web, "_ready_scanner_names", lambda: {"sqlmap"})
+    client = _client(tmp_path)
+    _login(client)
+    csrf = _csrf(client)
+    preview = _preview(client, csrf, activity="web", scanner="sqlmap", target="127.0.0.1")
+    assert preview.status_code == 200, preview.text
+    assert "Intrusive" in preview.text
+    assert "documented authorization" in preview.text
+
+
+def test_preview_refuses_when_no_tool_is_ready(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import olympus.themis.web as web
+
+    monkeypatch.setattr(web, "_ready_scanner_names", lambda: set())
+    client = _client(tmp_path)
+    _login(client)
+    csrf = _csrf(client)
+    preview = _preview(client, csrf, activity="network", scanner="")
+    assert preview.status_code == 422
+    assert "No scanner" in preview.text
+
+
+def test_preview_rejects_a_tool_outside_the_chosen_activity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import olympus.themis.web as web
+
+    monkeypatch.setattr(web, "_ready_scanner_names", lambda: {"nmap", "nuclei"})
+    client = _client(tmp_path)
+    _login(client)
+    csrf = _csrf(client)
+    preview = _preview(client, csrf, activity="web", scanner="nmap")
+    assert preview.status_code == 422
+    assert "does not belong" in preview.text
+
+
+def test_preview_rejects_a_not_ready_specific_tool(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import olympus.themis.web as web
+
+    monkeypatch.setattr(web, "_ready_scanner_names", lambda: set())
+    client = _client(tmp_path)
+    _login(client)
+    csrf = _csrf(client)
+    preview = _preview(client, csrf, activity="network", scanner="nmap")
+    assert preview.status_code == 422
+    assert "not ready" in preview.text
+
+
+def test_preview_rejects_a_non_native_activity(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    csrf = _csrf(client)
+    preview = _preview(client, csrf, activity="secret", scanner="")
+    assert preview.status_code == 422
+    assert "not run from the web" in preview.text
+
+
+def test_preview_requires_a_valid_csrf_token(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    preview = _preview(client, "deadbeef", activity="network", scanner="")
+    assert preview.status_code == 403
+
+
+def test_preview_enforces_engagement_scope(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import olympus.themis.web as web
+
+    monkeypatch.setattr(web, "_ready_scanner_names", lambda: {"nmap"})
+    client, engagement_id = _engagements_client(tmp_path)
+    _login(client)
+    csrf = _csrf(client)
+    preview = _preview(
+        client,
+        csrf,
+        activity="network",
+        scanner="nmap",
+        target="evil.test",
+        target_kind="domain",
+        engagement_id=engagement_id,
+    )
+    assert preview.status_code == 422
+    assert "outside the selected engagement" in preview.text
+
+
+def test_preview_keeps_the_raw_target_but_displays_a_redacted_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The launch form must resubmit the real target; only the display is redacted.
+
+    A URL target carrying a query secret would scan the wrong thing if the
+    redacted display value were put into the hidden field (SEC-H must not change
+    the operation).
+    """
+    import olympus.themis.web as web
+
+    monkeypatch.setattr(web, "_ready_scanner_names", lambda: {"nuclei"})
+    client = _client(tmp_path)
+    _login(client)
+    csrf = _csrf(client)
+    url = "http://127.0.0.1/?token=supersecretvalue"
+    preview = _preview(
+        client, csrf, activity="web", scanner="nuclei", target=url, target_kind="url"
+    )
+    assert preview.status_code == 200, preview.text
+    # The secret is redacted wherever the target is shown to the operator.
+    assert "supersecretvalue" not in _visible_text(preview.text)
+    assert "[REDACTED]" in preview.text
+    # But the hidden field that the launch form resubmits carries the real URL.
+    assert f'name="target" value="{url}"' in preview.text
+
+
+def _visible_text(html: str) -> str:
+    """Strip hidden input values so a redaction check tests only shown text."""
+    return re.sub(r'<input[^>]*type="hidden"[^>]*>', "", html)

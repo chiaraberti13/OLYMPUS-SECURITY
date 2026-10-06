@@ -43,13 +43,13 @@
 | 4 | Capability Red/Blue/Purple | `[~]` | `OPS-RED`, `OPS-BLUE`, `OPS-PURPLE`, `OPS-SCAN` |
 | 5 | Production readiness scanner | `[ ]` | `D1`, `D2` |
 | 6 | Distribuzione e osservabilità | `[~]` | `DEV-E`, `DEV-F`, `SEC-F` |
-| 7 | Rename Themis + Web control plane | `[~]` | `DEV-I` ✓, `WEB-A` ✓, `WEB-B` ✓, `WEB-C` ✓, `WEB-D` ✓, `WEB-E`…`WEB-J` |
+| 7 | Rename Themis + Web control plane | `[~]` | `DEV-I` ✓, `WEB-A` ✓, `WEB-B` ✓, `WEB-C` ✓, `WEB-D` ✓, `WEB-E` ✓, `WEB-F`…`WEB-J` |
 
 L'ordine di esecuzione concordato per la Fase 7 mette le **fondamenta dati prima
 delle interfacce**: `DEV-I` (rename) → `WEB-B` (engagement entità di primo
 livello) → **Finding strutturato** (`WEB-C`, campi CVE/CWE/EPSS/KEV tipizzati con
 migrazione) → `WEB-A` (API/SSE + web skeleton sicuro) → `WEB-D` (tools) →
-`WEB-E` (new assessment) → `WEB-C` (findings UI) → `WEB-J`/`WEB-I` (dati e
+`WEB-E` (new assessment) ✓ → `WEB-C` (findings UI) → `WEB-J`/`WEB-I` (dati e
 reporting) → `WEB-F` (smart scan) → `WEB-H` (persistenza) → ritiro runtime VAP
 (`SEC-A`). `SEC-H` (parsing input ostile) va svolto in opportunità durante il
 rename, perché non richiede un lab autorizzato.
@@ -123,7 +123,7 @@ Legenda stato: ✅ implementata · 🟡 parziale · 🗓️ pianificata · ❌ a
 | 12 | Scansioni incrementali + confronto risultati | 🟡 | `argus/diff.py` (diff recon) | **Finding/scan diff cross-run** → `WEB-I` |
 | 13 | Dashboard, notifiche, report JSON/CSV/HTML/PDF/SARIF | 🟡 | report JSON/MD/HTML/PDF `vulcan/`, SARIF `hermes/sarif.py`, OCSF/ECS/NDJSON `apollo/` | **CSV** ❌ (basso costo) → `WEB-I`; **dashboard/notifiche** → `WEB-G`/`WEB-I` |
 | 14 | API, webhook, CI/CD, ticketing, SIEM, CTI | 🟡 | API tipizzata `themis/api.py`; CTI nativo Metis (`metis/misp.py`,`stix.py`) | API+CTI ✅; **webhook/ticketing/CI** → `WEB-J`; **SIEM** → `OPS-BLUE` |
-| 15 | Test unit/integration/e2e + demo sicuro | ✅ | ~132 file di test (unit/contract/integration/container/live_lab), demo `labs/mars/`; web-security + job-lifecycle della Web UI nativa e tools page dal capability inventory (`tests/unit/test_themis_web.py`, `WEB-A`/`WEB-D`) | Estendere e2e Web sulle slice successive (`WEB-E`) |
+| 15 | Test unit/integration/e2e + demo sicuro | ✅ | ~132 file di test (unit/contract/integration/container/live_lab), demo `labs/mars/`; web-security + job-lifecycle della Web UI nativa e tools page dal capability inventory e wizard New Assessment guidato con anteprima di rischio (`tests/unit/test_themis_web.py`, `tests/unit/test_scanner_activity.py`, `WEB-A`/`WEB-D`/`WEB-E`) | Estendere e2e Web sulle slice successive (`WEB-F`/`WEB-G`) |
 
 ### B. Moduli proposti (FASE 3) — valutazione
 
@@ -600,7 +600,7 @@ autenticazione per-scope, middleware di accountability e limiti sul body,
 `olympus themis web`, `WEB-A` ✓) costruita **sopra** questa API e sullo stesso
 store, non come piattaforma parallela; la VAP vendorizzata resta in quarantena
 (solo loopback), destinata al ritiro (`SEC-A`). Le prossime slice web
-(`WEB-E`, `WEB-G`…) estendono questa UI, non la sostituiscono.
+(`WEB-G`, `WEB-I`…) estendono questa UI, non la sostituiscono.
 
 ### Intervento A · `WEB-A` — Web control plane nativo (**P0/P1**)
 
@@ -784,17 +784,34 @@ registry/capability inventory; uno scanner non adattato non appare eseguibile.
 
 ### Intervento E · `WEB-E` — New Assessment guidato (**P1**)
 
-- [ ] Flusso: scegli engagement → target → controllo scope → tipo attività
+- [x] Flusso: scegli engagement → target → controllo scope → tipo attività
   (Recon / Network / Web / Vulnerability Assessment / Secret Scan / Detection /
   Full) → tool o modalità automatica → **anteprima "Olympus sta per eseguire"**
   con livello `PASSIVE/ACTIVE/INTRUSIVE` → autorizzazione quando necessaria →
-  avvio → progress → risultati → evidenze → finding → report.
-- [ ] Spiegazioni brevi non tecniche per ogni strumento e una modalità
-  **Advanced** per utenti esperti; onboarding guidato.
+  avvio → progress → risultati. **Fatto:** wizard activity-first `GET
+  /assessments/new` → `POST /assessments/preview` (anteprima che non accoda
+  nulla e ri-valida scope ed engagement) → `POST /jobs` (launch) → `GET
+  /jobs/{id}` con SSE di stato reale e Cancel (già `WEB-A`). Le quattro attività
+  THEMIS (recon/network/web/vulnerability) accodano un job scanner; Secret
+  Scan / Detection / Full sono dichiarate oneste come gestite da altri moduli
+  (hint CLI `olympus hermes`/`apollo`/`athena`), mai simulate. La modalità
+  **Automatic** sceglie un tool `ready` per l'attività e **rifiuta** onestamente
+  se nessuno è disponibile sull'host. Evidenze/finding/report restano navigabili
+  da Vulcan (`WEB-C`) e dal reporting (`WEB-I`).
+- [x] Spiegazioni brevi non tecniche per ogni strumento e una modalità
+  **Advanced** per utenti esperti; onboarding guidato. **Fatto:** classificazione
+  interface-agnostica `olympus.integrations.activity` (attività derivata dalla
+  categoria del registry, classe di rischio da una mappa unica revisionata con
+  default sicuro `ACTIVE`, riassunti in linguaggio semplice) riusabile da ogni
+  interfaccia; sezione `<details>` **Advanced** per `max_attempts`/idempotency
+  key; enhancement progressivo (`assessment.js`) senza violare la CSP. Test
+  `tests/unit/test_scanner_activity.py` e flusso web in
+  `tests/unit/test_themis_web.py`. Doc: [`docs/web.md`](docs/web.md).
 
-**Criterio di completamento:** un utente che non ricorda i flag CLI completa un
-assessment passivo end-to-end; nessuna operazione attiva parte senza preview e
-autorizzazione.
+**Criterio di completamento (soddisfatto):** un utente che non ricorda i flag CLI
+completa un assessment passivo end-to-end; nessuna operazione attiva parte senza
+preview e autorizzazione (la GUI non indebolisce mai il gate di autorizzazione
+della CLI). **`WEB-E` completo.**
 
 ### Intervento F · `WEB-F` — Smart Scan (pipeline proposta) (**P2**)
 
