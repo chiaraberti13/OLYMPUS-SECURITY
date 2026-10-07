@@ -9,7 +9,7 @@
   <img src="https://img.shields.io/badge/category-CYBERSECURITY-22D3EE?style=flat-square" alt="CYBERSECURITY">
   <img src="https://img.shields.io/badge/stack-Python%203.11%2B-8B949E?style=flat-square" alt="Python 3.11+">
   <img src="https://img.shields.io/badge/languages-EN%20%7C%20IT-8B5CF6?style=flat-square" alt="English and Italian">
-  <img src="https://img.shields.io/badge/licence-Multi-licence-2EA043?style=flat-square" alt="Multi-licence">
+  <img src="https://img.shields.io/badge/licence-GPL--3.0-2EA043?style=flat-square" alt="GPL-3.0 + third-party licences">
 </p>
 
 > One scope-safe CLI for security assessment, detection, evidence collection and reporting.
@@ -29,7 +29,7 @@
 - **[Development](#-development)** — required CI checks and local commands.
 - **[Security model](#-security-model)** — scope, authorization, SSRF, audit.
 - **[Migration](#-migration--specialist-engines)** — native ARGUS, THEMIS and specialist engines.
-- **[Licences](#-licence-scope)** — MIT native code plus preserved vendored licences.
+- **[Licences](#-licence-scope)** — GPL-3.0 native code plus preserved third-party licences.
 - **[Legal & ethical use](#-legal--ethical-use)** — authorized-only, in practice.
 
 ---
@@ -359,7 +359,7 @@ Exhaustive walkthroughs live in [`docs/reference.md`](docs/reference.md).
 
 Olympus-native code, including native ARGUS and THEMIS, is MIT — see
 [LICENSE](LICENSE). The temporarily vendored Vulnerability Assessment Platform is **GPL-3.0-only** and
-retains its own licence. The root MIT licence does not relicense vendored code.
+retains its own licence. The root GNU GPL-3.0 licence does not relicense vendored code.
 See [third-party notices](THIRD_PARTY_NOTICES.md) and
 [provenance](docs/provenance.md).
 
