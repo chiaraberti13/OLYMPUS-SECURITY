@@ -282,10 +282,9 @@ esaustive sono in [`docs/reference.md`](docs/reference.md).
 
 ## 📄 Ambito delle licenze
 
-Il codice nativo Olympus, inclusi ARGUS e THEMIS nativi, è MIT — vedi
-[LICENSE](LICENSE). La Vulnerability Assessment Platform temporaneamente vendorizzata è
-**GPL-3.0-only** e conserva la propria licenza. La licenza GNU GPL-3.0 root non cambia
-la licenza del codice in `vendor/`. Vedi [note di terze parti](THIRD_PARTY_NOTICES.md)
+Il codice nativo Olympus, inclusi ARGUS e THEMIS nativi, è distribuito con licenza **GNU GPL-3.0** — vedi
+[LICENSE](LICENSE). I componenti vendorizzati e di terze parti mantengono le rispettive licenze
+applicabili; la licenza root non sovrascrive i termini di licenza di terze parti. Vedi [note di terze parti](THIRD_PARTY_NOTICES.md)
 e [provenienza](docs/provenance.md).
 
 ## ⚠️ Uso legale ed etico
