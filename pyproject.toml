@@ -8,7 +8,7 @@ version = "0.2.0"
 description = "Olympus — an offensive-security platform (Red + Blue) with a shared data contract."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = { text = "GPL-3.0-only" }
 authors = [{ name = "Olympus Security" }]
 dependencies = [
     # The TUI traverses the Click command tree emitted by Typer; keep this
