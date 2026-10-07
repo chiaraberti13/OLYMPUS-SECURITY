@@ -357,9 +357,9 @@ Exhaustive walkthroughs live in [`docs/reference.md`](docs/reference.md).
 
 ## 📄 Licence scope
 
-Olympus-native code, including native ARGUS and THEMIS, is MIT — see
-[LICENSE](LICENSE). The temporarily vendored Vulnerability Assessment Platform is **GPL-3.0-only** and
-retains its own licence. The root GNU GPL-3.0 licence does not relicense vendored code.
+Olympus-native code, including native ARGUS and THEMIS, is licensed under **GNU GPL-3.0** — see
+[LICENSE](LICENSE). Vendored and third-party components retain their own applicable licences; the
+root licence does not overwrite third-party licensing terms.
 See [third-party notices](THIRD_PARTY_NOTICES.md) and
 [provenance](docs/provenance.md).
 
