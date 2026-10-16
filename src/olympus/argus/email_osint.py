@@ -87,7 +87,9 @@ def analyze_email(raw_email: str) -> EmailReport:
     local, _, domain = email.partition("@")
     # Gravatar keys avatars on the MD5 of the address; it is not used as a
     # security primitive here, only to reproduce the public avatar URL.
-    md5 = hashlib.md5(email.encode("utf-8")).hexdigest()  # noqa: S324
+    # usedforsecurity=False states that intent to the hashlib backend and
+    # static analysers (Bandit B324 / Ruff S324) alike.
+    md5 = hashlib.md5(email.encode("utf-8"), usedforsecurity=False).hexdigest()
     sha256 = hashlib.sha256(email.encode("utf-8")).hexdigest()
     return EmailReport(
         email=email,
