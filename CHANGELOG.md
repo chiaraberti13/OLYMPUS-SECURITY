@@ -72,6 +72,27 @@ everything below lives under **Unreleased**.
   `ROADMAP.md` `DEV-I`). Nessun contratto dati rotto; Ruff/Mypy/Pytest/schema
   catalog/golden verdi.
 
+### Fixed
+- **Test deadline/timeout del coordinator Athena reso deterministico
+  (`fix(verify)`).** Il runner di test `_Runner(block=True)` dormiva per un tempo
+  fisso (1.2s) che correva contro la finestra di attesa del coordinator (~1.0s):
+  con un margine di 0.2s, una macchina sotto carico poteva far terminare il
+  worker *prima* che `wait()` scadesse, così il job veniva classificato come
+  `SUCCEEDED`/`TIMED_OUT` per completamento invece di esercitare il percorso di
+  cancellazione per deadline sotto test (flakiness osservata in
+  `test_deadline_limits_running_batch`). Ora il runner finto rispetta il token di
+  cancellazione cooperativa (con un tetto di sicurezza), eliminando la race e
+  modellando un adapter ben educato. Nessuna modifica al codice di produzione: il
+  coordinator resta corretto. Test: `tests/unit/test_athena_engine.py`.
+
+### Security
+- **Hash Gravatar MD5 marcato `usedforsecurity=False` in `argus.email_osint`
+  (`fix(verify)`).** L'MD5 serve solo a ricostruire l'URL pubblico dell'avatar
+  Gravatar, non come primitiva di sicurezza. Dichiararlo esplicitamente comunica
+  l'intento al backend `hashlib` e agli analizzatori statici, azzerando l'unico
+  finding Bandit di severità *High* (B324) sull'albero sorgente senza alterare il
+  digest prodotto. Test invariati: `tests/unit/test_argus_email.py`.
+
 ### Added
 - **Web control plane nativo (`WEB-A`).** Nuova interfaccia browser
   `olympus.themis.web` (FastAPI + Jinja2 + server-sent events) servita da
