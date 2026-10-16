@@ -71,7 +71,21 @@ class _Runner:
     def run(self, request: ToolRequest, cancellation: Cancellation) -> ToolResult:
         self.calls += 1
         if self._block:
-            self._event.wait(timeout=1.2)
+            # Block until the coordinator cooperatively cancels this job (the
+            # deadline/timeout paths both cancel the job's token), with a
+            # generous safety ceiling so a wedged test can never hang CI.
+            #
+            # A fixed sleep here raced the coordinator's wait budget: the block
+            # was 1.2s while the budget was ~1.0s, a 0.2s margin. On a loaded
+            # machine the worker could finish its sleep before the coordinator's
+            # wait() returned, so the future landed in `done` and the job was
+            # scored SUCCEEDED/TIMED_OUT by completion instead of exercising the
+            # deadline/timeout cancellation path under test. Honouring the
+            # cancellation token removes the race and models a well-behaved
+            # adapter that observes cooperative cancellation.
+            deadline = time.monotonic() + 10.0
+            while not cancellation.is_cancelled() and time.monotonic() < deadline:
+                self._event.wait(timeout=0.01)
         return self._result
 
 
