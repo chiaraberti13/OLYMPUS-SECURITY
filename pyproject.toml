@@ -24,6 +24,9 @@ dependencies = [
     # A vetted library, not hand-rolled crypto: Fernet (AES-128-CBC + HMAC) with
     # an scrypt KDF.
     "cryptography>=42.0",
+    # Scanner output is untrusted XML; defusedxml disables entity expansion
+    # and external references at the parser boundary.
+    "defusedxml>=0.7.1",
 ]
 
 [project.optional-dependencies]
@@ -37,6 +40,7 @@ dev = [
     "pyyaml>=6.0",  # Validate native deployment contracts without a Docker daemon.
     "hypothesis>=6.98",
     "mutmut>=3.5,<4",
+    "types-defusedxml>=0.7.0",
 ]
 api = [
     "fastapi>=0.109",

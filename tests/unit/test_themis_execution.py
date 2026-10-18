@@ -25,7 +25,11 @@ from olympus.core.execution import (
     CancellationToken,
 )
 from olympus.themis.adapters.nikto import NiktoAdapter
-from olympus.themis.adapters.nmap import NmapAdapter
+from olympus.themis.adapters.nmap import (
+    MAX_NMAP_XML_BYTES,
+    MAX_NMAP_XML_ELEMENTS,
+    NmapAdapter,
+)
 from olympus.themis.adapters.sqlmap import SqlmapAdapter
 from olympus.themis.adapters.testssl import TestsslAdapter
 from olympus.themis.adapters.wafw00f import Wafw00fAdapter
@@ -205,6 +209,38 @@ def test_nmap_parser() -> None:
 def test_nmap_parser_rejects_garbage() -> None:
     with pytest.raises(ParseError):
         NmapAdapter().parse(_out("not xml"), "127.0.0.1", _req())
+
+
+@pytest.mark.parametrize(
+    "entity_declaration",
+    ['<!ENTITY x "expanded">', '<!ENTITY x SYSTEM "file:///does-not-exist.xml">'],
+)
+def test_nmap_parser_rejects_entity_expansion(entity_declaration: str) -> None:
+    payload = (
+        f"<!DOCTYPE nmaprun [{entity_declaration}]>"
+        '<nmaprun><host><ports><port portid="80" protocol="tcp">'
+        '<state state="open"/><service name="&x;"/>'
+        "</port></ports></host></nmaprun>"
+    )
+    with pytest.raises(ParseError, match="nmap XML unparseable"):
+        NmapAdapter().parse(_out(payload), "127.0.0.1", _req())
+
+
+def test_nmap_parser_rejects_oversized_xml_before_parsing() -> None:
+    with pytest.raises(ParseError, match="byte limit"):
+        NmapAdapter().parse(_out(" " * (MAX_NMAP_XML_BYTES + 1)), "127.0.0.1", _req())
+
+
+def test_nmap_parser_rejects_excessive_xml_depth() -> None:
+    nested = "<a>" * 65 + "</a>" * 65
+    with pytest.raises(ParseError, match="depth limit"):
+        NmapAdapter().parse(_out(nested), "127.0.0.1", _req())
+
+
+def test_nmap_parser_rejects_excessive_xml_element_count() -> None:
+    siblings = "<a/>" * MAX_NMAP_XML_ELEMENTS
+    with pytest.raises(ParseError, match="element limit"):
+        NmapAdapter().parse(_out(f"<root>{siblings}</root>"), "127.0.0.1", _req())
 
 
 def test_nikto_parser_skips_metadata() -> None:

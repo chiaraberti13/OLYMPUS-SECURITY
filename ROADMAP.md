@@ -332,10 +332,10 @@ degli scanner sono controllati dal target e possono colpire l'operatore
 (“attacco al pentester”). Oggi Vulcan esegue `html.escape` e la TUI disabilita il
 markup Rich, ma la difesa non è sistematica.
 
-- [ ] Trattare ogni output scanner come input non fidato: rimuovere il commento
-  “trusted local” in `themis/adapters/nmap.py`, adottare `defusedxml` (o un parser
-  equivalente con entità disabilitate) e imporre limiti di dimensione e
-  profondità prima del parsing XML/JSON.
+- [~] Trattare ogni output scanner come input non fidato: il parser Nmap usa
+  `defusedxml`, disabilita entità e riferimenti esterni, e applica limiti di
+  dimensione, profondità e numero di elementi durante il parsing. Restano da
+  estendere gli stessi limiti agli altri parser XML/JSON.
 - [ ] Aggiungere fuzzing (Hypothesis o Atheris) per tutti i parser in
   `themis/adapters/`, `apollo` e `metis`, con corpus iniziale dalle fixture reali:
   nessun input deve causare crash non gestiti, consumo illimitato o finding
@@ -354,6 +354,13 @@ markup Rich, ma la difesa non è sistematica.
 **Criterio di completamento:** un target controllato dall'attaccante non può
 eseguire codice, alterare la visualizzazione, iniettare contenuto nei report o
 esaurire le risorse dell'host che esegue Olympus; ogni regressione fa fallire la CI.
+
+**Avanzamento verificato (2026-10-18):** il parser Nmap ora usa `defusedxml`,
+rifiuta espansione di entità e riferimenti esterni preservando il `DOCTYPE`
+innocuo emesso da Nmap, limita l'input a 4 MiB e la profondità a 64 livelli.
+Test offline coprono entity declaration, input sovradimensionato e nesting
+eccessivo. `SEC-H` resta `[~]`: fuzzing degli altri parser, neutralizzazione
+ANSI/OSC e escaping contestuale degli export non sono ancora completati.
 
 ### Intervento I · `SEC-I` — Security operations del progetto (**P2**)
 
