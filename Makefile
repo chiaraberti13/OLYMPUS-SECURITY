@@ -59,6 +59,7 @@ test-mutation:
 		"olympus.core.execution.x__sensitive_key*" \
 		"olympus.core.execution.x_redact_url*" \
 		"olympus.core.execution.x_redact_text*" \
+		"olympus.core.execution.x_safe_terminal_text*" \
 		"olympus.core.execution.x_redact_mapping*" \
 		"olympus.themis.adapters.nmap.xǁNmapAdapterǁparse*" \
 		"olympus.core.coverage.xǁCoverageǁstatus*" \

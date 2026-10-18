@@ -16,6 +16,7 @@ from olympus.vulcan.evidence_view import (
     EVIDENCE_ID_RE,
     build_finding_evidence_view,
 )
+from olympus.vulcan.view import finding_views
 
 runner = CliRunner()
 
@@ -74,6 +75,19 @@ def test_inline_snippet_is_redacted_and_defanged() -> None:
     assert "supersecret" not in item.label
     assert "[REDACTED]" in item.label
     assert "\x1b" not in item.label
+
+
+def test_finding_terminal_projection_defangs_target_control_sequences() -> None:
+    finding = _finding(["https://t.example/p?token=secret\x1b[2J\r\nfake line"])
+    finding.title = "banner\x1b]0;owned\x07\nsecond line"
+
+    view = finding_views([finding])[0]
+
+    assert view.row()["title"] == "banner]0;owned second line"
+    assert all("\x1b" not in value and "\n" not in value for _, value in view.display_items())
+    assert "secret" not in dict(view.display_items())["Evidence"]
+    # Presentation safety must not rewrite the forensic source value.
+    assert finding.evidence[0].endswith("fake line")
 
 
 def test_structured_reference_anchored_when_digest_matches() -> None:

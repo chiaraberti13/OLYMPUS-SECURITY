@@ -22,6 +22,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from olympus.core.execution import safe_terminal_text
 from olympus.core.models import Finding
 
 #: Rendered in a cell for a datum the finding does not carry, so an operator can
@@ -42,13 +43,13 @@ LIST_COLUMNS: tuple[str, ...] = (
 
 
 def _scalar(value: object) -> str:
-    """Render one optional scalar: absent values become :data:`ABSENT`."""
-    return ABSENT if value is None else str(value)
+    """Render one optional scalar safely: absent values become :data:`ABSENT`."""
+    return ABSENT if value is None else safe_terminal_text(str(value))
 
 
 def _sequence(values: Sequence[str]) -> str:
-    """Render a list field: joined when present, :data:`ABSENT` when empty."""
-    return ", ".join(values) if values else ABSENT
+    """Render a list field safely: joined when present, :data:`ABSENT` when empty."""
+    return ", ".join(safe_terminal_text(value) for value in values) if values else ABSENT
 
 
 @dataclass(frozen=True)
@@ -86,8 +87,8 @@ class FindingView:
             "risk": f"{self.risk_score:g}",
             "severity": finding.severity.value,
             "status": finding.status.value,
-            "title": finding.title,
-            "asset": finding.asset_id,
+            "title": safe_terminal_text(finding.title),
+            "asset": safe_terminal_text(finding.asset_id),
             "source": finding.source.value,
             "cve": _sequence(self.cves),
             "kev": "yes" if finding.kev else ABSENT,
@@ -102,12 +103,12 @@ class FindingView:
         finding = self.finding
         confidence = finding.confidence.value if finding.confidence is not None else None
         return [
-            ("Finding", finding.finding_id),
-            ("Title", finding.title),
+            ("Finding", safe_terminal_text(finding.finding_id)),
+            ("Title", safe_terminal_text(finding.title)),
             ("Severity", finding.severity.value),
             ("Status", finding.status.value),
             ("Risk", f"{self.risk_score:g}/100"),
-            ("Asset", finding.asset_id),
+            ("Asset", safe_terminal_text(finding.asset_id)),
             ("Source", finding.source.value),
             ("Engagement", _scalar(finding.engagement_id)),
             ("CVSS", _scalar(finding.cvss)),
@@ -122,7 +123,7 @@ class FindingView:
             ("Tags", _sequence(finding.tags)),
             ("References", _sequence(finding.references)),
             ("Evidence", _sequence(finding.evidence)),
-            ("Remediation", finding.remediation or ABSENT),
+            ("Remediation", _scalar(finding.remediation or None)),
         ]
 
     def detail(self) -> dict[str, object]:

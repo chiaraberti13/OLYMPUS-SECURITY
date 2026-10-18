@@ -52,7 +52,7 @@ from olympus import __version__
 from olympus.core.execution import (
     StructuredAuditRecord,
     append_structured_audit,
-    redact_text,
+    safe_terminal_text,
 )
 from olympus.core.models import Engagement
 from olympus.core.observability import Correlation, Observability, observability_from_config
@@ -98,15 +98,6 @@ STATIC_DIR = _PACKAGE_ROOT / "web_static"
 SESSION_COOKIE = "olympus_session"
 #: A browser session is deliberately short-lived; it is re-minted on login.
 SESSION_TTL_SECONDS = 8 * 60 * 60
-#: Control bytes a hostile target could smuggle into a banner, hostname or
-#: scanner error to corrupt the operator's terminal or forge a log line.
-_CONTROL_CHARACTERS = "".join(
-    chr(code)
-    for code in range(0x00, 0xA0)
-    if code < 0x09 or (0x0B <= code <= 0x1F) or code == 0x7F or 0x80 <= code <= 0x9F
-)
-_CONTROL_TABLE = {ord(character): None for character in _CONTROL_CHARACTERS}
-
 #: Human labels for the job lifecycle. Sub-phases the store does not record
 #: (parsing/normalising) are not invented here: an honest state never implies
 #: coverage the worker has not reported.
@@ -132,13 +123,12 @@ class WebSession:
 
 
 def _safe(text: str) -> str:
-    """Render target-influenced text safely: no control bytes, URL secrets redacted.
+    """Render target-influenced text safely for a one-line web field.
 
-    Control bytes are stripped first so a smuggled escape cannot split a URL away
-    from the redactor, then URL query secrets are redacted. Jinja2 autoescaping
-    then neutralises any HTML before it reaches the page.
+    URL secrets and control characters are defanged centrally; Jinja2
+    autoescaping then neutralises HTML before it reaches the page.
     """
-    return redact_text(text.translate(_CONTROL_TABLE)).strip()
+    return safe_terminal_text(text)
 
 
 def _present_job(job: ThemisJob) -> dict[str, object]:

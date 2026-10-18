@@ -39,7 +39,7 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
-from olympus.core.execution import redact_text
+from olympus.core.execution import safe_terminal_text
 from olympus.core.models import Evidence, Finding
 from olympus.minerva.custody import CustodyEntry, CustodyRecord
 from olympus.vulcan.view import ABSENT
@@ -47,20 +47,10 @@ from olympus.vulcan.view import ABSENT
 #: A finding evidence reference that names a structured Evidence record.
 EVIDENCE_ID_RE = re.compile(r"^EVD-\d{4}-\d{5}$")
 
-#: Control characters a hostile target could smuggle into an inline evidence
-#: snippet or a URI to corrupt a terminal or forge a log line (mirrors
-#: :data:`olympus.helios.scanner._CONTROL_CHARACTERS`).
-_CONTROL_CHARACTERS = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
-
 
 def _safe(text: str) -> str:
-    """Render target-influenced text safely: no control bytes, URL secrets redacted.
-
-    The order matters: control bytes are removed first so a smuggled escape can
-    neither split a URL away from :func:`redact_text` nor survive into the
-    output, then URL query secrets are redacted.
-    """
-    return redact_text(_CONTROL_CHARACTERS.sub("", text)).strip()
+    """Render target-influenced text safely for a one-line terminal field."""
+    return safe_terminal_text(text)
 
 
 def _custody_digest(record: CustodyRecord) -> str | None:

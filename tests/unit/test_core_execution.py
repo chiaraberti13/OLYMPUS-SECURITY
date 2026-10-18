@@ -20,7 +20,24 @@ from olympus.core.execution import (
     append_structured_audit,
     interruptible_sleep,
     redact_mapping,
+    safe_terminal_text,
 )
+
+
+def test_safe_terminal_text_removes_ansi_osc_controls_and_forged_lines() -> None:
+    hostile = "scan\x1b]0;owned title\x07\r\nforged\x9d2;clipboard\x9c"
+
+    safe = safe_terminal_text(hostile)
+
+    assert safe == "scan]0;owned title forged2;clipboard"
+    assert not any(ord(character) < 0x20 or 0x7F <= ord(character) <= 0x9F for character in safe)
+
+
+def test_safe_terminal_text_removes_inserted_controls_before_secret_redaction() -> None:
+    safe = safe_terminal_text("https://example.test/?api\x1b_key=secret123")
+
+    assert "secret123" not in safe
+    assert "[REDACTED]" in safe
 
 
 @pytest.mark.parametrize(

@@ -28,6 +28,19 @@ MAX_BACKOFF_SECONDS = 60.0
 MAX_MIN_INTERVAL_SECONDS = 60.0
 MAX_JITTER_RATIO = 1.0
 
+# C0/C1 controls include ESC, BEL, CR and the C1 forms of ANSI/OSC. Removing
+# them before redaction prevents a target from splitting a URL around a control
+# byte; converting line separators to spaces prevents forged terminal/log lines.
+_TERMINAL_CONTROLS = str.maketrans(
+    "",
+    "",
+    "".join(
+        chr(code)
+        for code in range(0x00, 0xA0)
+        if code < 0x20 or code == 0x7F or 0x80 <= code <= 0x9F
+    ),
+)
+
 _SENSITIVE_KEY_PARTS = (
     "authorization",
     "cookie",
@@ -281,6 +294,19 @@ def redact_text(value: str) -> str:
     goes through this instead.
     """
     return _URL_IN_TEXT.sub(lambda match: redact_url(match.group(0)), value)
+
+
+def safe_terminal_text(value: str) -> str:
+    """Return one-line, redacted text safe to display in a terminal or log.
+
+    This is for presentation only: callers must retain original bytes when
+    collecting evidence. ANSI/OSC and C0/C1 controls are removed before URL
+    redaction so inserted controls cannot hide query credentials. Newlines and
+    tabs are then collapsed to spaces so untrusted text cannot forge log lines.
+    """
+    line_safe = value.replace("\r", " ").replace("\n", " ").replace("\t", " ")
+    without_controls = line_safe.translate(_TERMINAL_CONTROLS)
+    return " ".join(redact_text(without_controls).split())
 
 
 def _redact_value(item: Any) -> Any:

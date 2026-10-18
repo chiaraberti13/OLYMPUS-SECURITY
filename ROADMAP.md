@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 22356)
+Total output lines: 1348
+
 # 🏛️ OLYMPUS-SECURITY Roadmap
 
 > **Obiettivo:** consolidare Olympus come piattaforma Red/Blue/Purple Team sicura,
@@ -362,6 +365,12 @@ Test offline coprono entity declaration, input sovradimensionato e nesting
 eccessivo. `SEC-H` resta `[~]`: fuzzing degli altri parser, neutralizzazione
 ANSI/OSC e escaping contestuale degli export non sono ancora completati.
 
+**Avanzamento verificato (2026-10-18, presentazione):** la sanitizzazione
+condivisa rimuove controlli C0/C1 (inclusi ANSI/OSC), redige URL e porta il
+testo su una sola riga nelle viste Web e Vulcan CLI/TUI; i valori canonici e le
+evidenze grezze restano invariati. Restano da coprire altri output/log e gli
+escaping degli export indicati sopra.
+
 ### Intervento I · `SEC-I` — Security operations del progetto (**P2**)
 
 - [ ] Definire in `SECURITY.md` tempi di presa in carico e di risoluzione per
@@ -555,147 +564,7 @@ commit → evidenza, e non esistono documenti di pianificazione in conflitto.
 
 ### Intervento I · `DEV-I` — Rinominare AEGIS in Themis (**P1**)
 
-Il sottosistema `src/olympus/aegis/` (control plane degli scanner specialistici:
-registry, adapter, job, scope, autorizzazione, sandbox, execution, API,
-identity) assume il nome **Themis** — la Titanide della legge e dell'ordine, che
-riflette il suo ruolo di gate di governance sull'esecuzione degli strumenti. Il
-rename è un'evoluzione di naming, non una riscrittura: una sola implementazione.
-Precedente collaudato: `docs/vap-to-aegis-rename.md` (VAP → AEGIS).
-
-- [x] **Milestone 1 (fatto).** Migrati gli identificatori tecnici: package/dir
-  `aegis/` → `themis/`, `athena/adapters/aegis_scan.py` → `themis_scan.py`,
-  classi `Aegis*` → `Themis*`, comando CLI `aegis` → `themis`, tag/endpoint
-  FastAPI, doc `docs/aegis-*.md` → `docs/themis-*.md`, servizi docker
-  `aegis-*` → `themis-*`, file/fixture di test, stringhe e messaggi CLI.
-- [x] **Milestone 1 (fatto).** `olympus aegis` resta **alias deprecato** (warning
-  che indica `olympus themis`) che inoltra a `themis` senza duplicare
-  l'implementazione; un CLI backward-compatibility test lo verifica.
-- [x] **Milestone 1 (fatto).** Riferimenti **storici** preservati (`upgrade.md`,
-  `docs/vap-to-aegis-rename.md`, `CHANGELOG`, `adr-006`).
-- [x] **Milestone 1b (fatto).** Schema name versionati rinominati in
-  `olympus.themis-*` e valore provenance `Source` portato a `"themis"`: un
-  canonicalizzatore (`core.contracts.canonicalize_schema_name`, applicato in
-  `migrate_document`, `validate_contract_header` e nel load delle identità)
-  riscrive i documenti persistiti sotto i vecchi nomi `olympus.aegis-*`, e il
-  membro deprecato `Source.AEGIS = "aegis"` mantiene validi i record storici.
-  Schema catalog e golden rigenerati; test di migrazione e di provenance.
-- [x] **Milestone 1c (fatto).** Variabili d'ambiente canoniche `THEMIS_*` con
-  **fallback automatico** `THEMIS_*` → `AEGIS_*` → `VAP_*` centralizzato in
-  `olympus.themis.config` (resolver bidirezionale, ambiguità rifiutata); call
-  site aggiornati (sandbox, nuclei, capabilities, scanner-doctor, API key CLI),
-  docker-compose e docs allineati; test del fallback. Le `AEGIS_*`/`VAP_*`
-  esistenti continuano a funzionare senza modifiche.
-
-**Criterio di completamento (soddisfatto):** nessun identificatore tecnico
-`AEGIS`/`aegis` residuo salvo l'alias CLI deprecato, i nomi env legaci di
-fallback e i riferimenti storici; migrazione schema e fallback env testati;
-`olympus aegis` emette il warning e funziona; Ruff, Mypy, Pytest, schema-check e
-golden contract verdi; documentazione allineata. **`DEV-I` completo.**
-
-## 🌐 Prospettiva Web Control Plane (interfaccia sullo stesso core)
-
-> CLI, TUI, API e Web sono interfacce diverse sullo **stesso** core e sugli stessi
-> use case: nessuna logica di cybersecurity nel frontend, nessun bypass di scope,
-> autorizzazione, execution policy, sandbox, audit, retention o redaction. Il
-> control plane nativo è `olympus.themis.api` (FastAPI tipizzata); la Web UI vi si
-> appoggia, non la sostituisce.
-
-### Stato attuale
-
-Esiste già un'API FastAPI tipizzata (`themis/api.py`, ex `aegis/api.py`) con
-autenticazione per-scope, middleware di accountability e limiti sul body,
-`/health`, `/ready`, `/metrics`, `/api/v1/capabilities` e `/api/v1/jobs`
-(submit/list/get/cancel). **Esiste ora una Web UI nativa** (`themis/web.py`,
-`olympus themis web`, `WEB-A` ✓) costruita **sopra** questa API e sullo stesso
-store, non come piattaforma parallela; la VAP vendorizzata resta in quarantena
-(solo loopback), destinata al ritiro (`SEC-A`). Le prossime slice web
-(`WEB-G`, `WEB-I`…) estendono questa UI, non la sostituiscono.
-
-### Intervento A · `WEB-A` — Web control plane nativo (**P0/P1**)
-
-- [x] Servire una Web UI nativa sopra l'API tipizzata esistente; nessun endpoint
-  tipo `POST /run-command` e nessuna shell arbitraria — solo richieste tipizzate
-  (`scanner`, `target`, `target_kind`, `scope_id`) che il server traduce
-  nell'esecuzione scope/policy-gated. **Fatto:** `olympus.themis.web.create_web_app`
-  (FastAPI + Jinja2 + server-sent events, con enhancement progressivo via un
-  unico script same-origin invece di HTMX, per rispettare la CSP senza
-  `'unsafe-inline'`), servita da `olympus themis web`. Il submit riusa lo stesso
-  contratto `JobSubmission` dell'API. Doc: [`docs/web.md`](docs/web.md).
-- [x] Applicare gli stessi controlli della CLI: scope, autorizzazione, execution
-  policy, rate limit, deadline, sandbox, audit, retention, redaction; la GUI non
-  può ridurli (**P0**). **Fatto:** la rotta di submit chiama lo **stesso**
-  `ThemisJobStore.submit` con la **stessa** risoluzione dello scope registrato
-  (`_registered_scope`) e lo stesso gate `authorized`; un job del browser è
-  verificabilmente identico via API (stesso store), e l'audit redatto è emesso
-  dallo stesso middleware di accountability.
-- [x] Aggiungere security headers, CSP restrittiva, cookie `Secure`/`SameSite`,
-  CSRF dove necessario, validazione input, rate limiting, autenticazione e audit
-  trail (**P0**). **Fatto:** sessione via cookie firmato HMAC
-  `HttpOnly`/`Secure`/`SameSite=Strict` emesso solo da una credenziale valida;
-  token CSRF sincronizzatore legato al nonce di sessione e confrontato in tempo
-  costante su ogni form che cambia stato; CSP `default-src 'none'` senza
-  script/stile inline più `nosniff`/`DENY`/`no-referrer`/`no-store` e body
-  limitato a 64 KiB; scope enforcement per rotta; rate limit per identità.
-- [x] Streaming job via SSE con gli stati reali dello store (`queued`, `running`,
-  `succeeded`, `partial`, `failed`, `timed_out`, `cancelled`, `policy_denied`),
-  output redatto e pulsante **Cancel** collegato alla cancellazione reale di
-  Olympus. **Fatto:** `GET /jobs/{id}/events` (`text/event-stream`) emette ogni
-  transizione fino allo stato terminale; le sotto-fasi non registrate dal worker
-  (parsing/normalizing) non sono inventate (onestà dello stato). Cancel via
-  `POST /jobs/{id}/cancel` protetto da CSRF che invoca `ThemisJobStore.cancel`.
-
-**Criterio di completamento (soddisfatto):** un job avviato dal browser è
-indistinguibile, per policy e audit, da uno avviato in CLI; i test di
-web-security (headers, CSP, CSRF, authz, sessione, body limit) e di
-job-lifecycle/cancellation/SSE passano (`tests/unit/test_themis_web.py`).
-**`WEB-A` completo.**
-
-### Intervento B · `WEB-B` — Engagement come entità di primo livello (**P1**)
-
-- [x] **Slice 1 (fatto).** Contratto condiviso versionato `olympus.engagement`
-  (`core/models.py`: `Engagement` + `EngagementScope` con scope incluso/escluso e
-  `covers()`), store SQLite owner-only (`engagements/store.py`) e comandi CLI
-  `olympus engagement create|list|show` (`engagements/cli.py`), sullo **stesso**
-  modello e database per tutti i canali. Schema catalog + golden, test unit e
-  integration, `docs/engagements.md`.
-- [x] **Slice 2 (fatto).** Campo opzionale `engagement_id` sui contratti scoped
-  (`Asset`, `Finding`, `Event`, `Evidence`, `Alert`, `Incident`, `Observation`)
-  via base `EngagementScopedModel` (additivo, schema `1.0.0`, validazione
-  `ENG-YYYY-NNNNN`); primitive `Engagement.stamp()`/`stamp_all()`/`covers()` e
-  `SqliteEngagementStore.require()`. **Wiring Athena/Themis fatto:** il coordinator
-  marca gli oggetti prodotti (asset+finding, path Themis incluso) con
-  l'`engagement_id` del piano **solo se canonico** (`is_canonical_engagement_id`);
-  le label libere dei piani (`ENG-DEMO-2026`, `ENG-1`) non vengono marcate, così
-  nessuna fixture si rompe. I due namespace restano distinti per disegno: l'id di
-  piano Athena è un'etichetta locale, l'`engagement_id` core referenzia un record
-  `olympus.engagement`.
-- [x] **Slice 3 (fatto).** Engagement esposti via API e Web UI sullo **stesso**
-  store (`engagements/resolve.py`, fonte unica per entrambe le interfacce). API:
-  `GET /api/v1/engagements` (contratto `olympus.themis-engagement-list`) e
-  `GET /api/v1/engagements/{id}` (contratto `olympus.engagement`), protetti da un
-  nuovo scope di identità `engagements:read`; store non configurato → `503`
-  onesto (mai una lista vuota che fingerebbe l'assenza di engagement). Web:
-  pagine `GET /engagements` e `GET /engagements/{id}` con lo stesso gate di scope
-  e la stessa redazione (`SEC-H`). **Scope enforcement derivato dall'engagement:**
-  `JobSubmission.engagement_id` opzionale (canonico `ENG-YYYY-NNNNN`); quando
-  presente, API e Web risolvono l'engagement dallo stesso store e rifiutano — con
-  la stessa logica `Engagement.covers()`, l'host dedotto dal target tipizzato
-  (host/domain verbatim, url per hostname) — ogni target fuori perimetro **prima**
-  di accodare il job (`422`), id sconosciuto `404`, store non configurato `400`.
-  Il form "New assessment" offre gli engagement come selezione opzionale. CLI
-  `olympus themis api|web --engagement-storage` abilita le rotte sullo stesso
-  database `engagements.db` usato da `olympus engagement`. OpenAPI golden
-  rigenerato; test web/API e di scope enforcement. Doc:
-  [`docs/web.md`](docs/web.md), [`docs/engagements.md`](docs/engagements.md).
-
-**Criterio di completamento (soddisfatto):** lo stesso engagement è leggibile e
-operabile identicamente dai quattro canali (CLI, TUI via core, API, Web), con lo
-stesso store, lo stesso modello e lo stesso scope enforcement. **`WEB-B` completo.**
-
-### Intervento C · `WEB-C` — Finding management e lifecycle (**P1**)
-
-- [x] Vista finding con Title, Severity, Status, Asset, Source, Scanner, CVE,
-  CWE, CVSS, EPSS, CISA KEV (quando disponibili), Evidence, First/Last seen,
+Il sottosistema `src/olympus/aegis/` (control plane degli scanner specialistici:…2356 tokens truncated…Evidence, First/Last seen,
   Remediation, References, senza assumere che ogni dato sia sempre presente.
   **Fatto:** proiezione interface-agnostica `vulcan/view.FindingView`
   (`row`/`display_items`/`detail`, più `rank_by_risk`) — unica fonte di
