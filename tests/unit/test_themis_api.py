@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -10,6 +12,7 @@ from olympus.cli import app
 from olympus.core.models import Engagement, EngagementScope
 from olympus.engagements.store import ENGAGEMENTS_DB_NAME, SqliteEngagementStore
 from olympus.themis.api import ApiSettings, create_app
+from olympus.themis.jobs import ThemisJobStore
 
 API_KEY = "a" * 32
 AUTH = {"X-Olympus-API-Key": API_KEY}
@@ -89,6 +92,70 @@ def test_health_is_public_but_operational_routes_require_auth(tmp_path: Path) ->
     ready = client.get("/ready", headers=AUTH)
     assert ready.status_code == 200
     assert ready.json()["control_plane"] is True
+
+
+def test_api_rejects_excess_concurrent_requests_and_audits_them(
+    tmp_path: Path, monkeypatch
+) -> None:
+    scopes = tmp_path / "scopes"
+    _scope(scopes)
+    audit_path = tmp_path / "api-audit.jsonl"
+    client = TestClient(
+        create_app(
+            ApiSettings(
+                database=tmp_path / "jobs.sqlite3",
+                scope_directory=scopes,
+                api_key=API_KEY,
+                audit_path=audit_path,
+                max_concurrent_requests=1,
+            )
+        )
+    )
+    entered = threading.Event()
+    release = threading.Event()
+    original_submit = ThemisJobStore.submit
+
+    def delayed_submit(self, **kwargs):
+        entered.set()
+        assert release.wait(timeout=5)
+        return original_submit(self, **kwargs)
+
+    monkeypatch.setattr(ThemisJobStore, "submit", delayed_submit)
+    payload = {
+        "scanner": "nmap",
+        "target": "127.0.0.1",
+        "scope_id": "engagement",
+        "authorized": True,
+    }
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(client.post, "/api/v1/jobs", headers=AUTH, json=payload)
+        assert entered.wait(timeout=5)
+        overloaded = client.post("/api/v1/jobs", headers=AUTH, json=payload)
+        assert overloaded.status_code == 503
+        assert overloaded.headers["retry-after"] == "1"
+        assert overloaded.headers["x-request-id"]
+        release.set()
+        accepted = first.result(timeout=5)
+
+    assert accepted.status_code == 201
+    audit = [json.loads(line) for line in audit_path.read_text(encoding="utf-8").splitlines()]
+    assert any(record["outcome"] == "503" for record in audit)
+
+
+def test_api_concurrency_limit_is_bounded_and_rejects_booleans(tmp_path: Path) -> None:
+    for invalid in (0, -1, 4_097, True):
+        settings = ApiSettings(
+            database=tmp_path / "jobs.sqlite3",
+            scope_directory=tmp_path,
+            api_key=API_KEY,
+            max_concurrent_requests=invalid,
+        )
+        try:
+            settings.validate()
+        except ValueError as exc:
+            assert "max_concurrent_requests" in str(exc)
+        else:
+            raise AssertionError(f"accepted invalid concurrency limit {invalid!r}")
 
 
 def test_authenticated_job_lifecycle_uses_registered_scope(tmp_path: Path) -> None:

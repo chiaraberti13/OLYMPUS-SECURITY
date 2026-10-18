@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import json
 import re
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import httpx
@@ -20,6 +22,7 @@ from typer.testing import CliRunner
 from olympus.cli import app
 from olympus.themis.api import ApiSettings, create_app
 from olympus.themis.identity import IdentityRegister, add_identity, save_register
+from olympus.themis.jobs import ThemisJobStore
 from olympus.themis.web import SESSION_COOKIE, create_web_app
 
 API_KEY = "a" * 32
@@ -108,6 +111,40 @@ def test_security_headers_and_csp_are_restrictive(tmp_path: Path) -> None:
     assert response.headers["x-frame-options"] == "DENY"
     assert response.headers["referrer-policy"] == "no-referrer"
     assert response.headers["cache-control"] == "no-store"
+
+
+def test_web_rejects_and_audits_requests_over_the_concurrency_limit(
+    tmp_path: Path, monkeypatch
+) -> None:
+    client = _client(tmp_path, max_concurrent_requests=1)
+    _login(client)
+    entered = threading.Event()
+    release = threading.Event()
+    original_list = ThemisJobStore.list
+
+    def delayed_list(self, *, limit=100, state=None):
+        entered.set()
+        assert release.wait(timeout=5)
+        return original_list(self, limit=limit, state=state)
+
+    monkeypatch.setattr(ThemisJobStore, "list", delayed_list)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(client.get, "/jobs")
+        assert entered.wait(timeout=5)
+        overloaded = client.get("/jobs")
+        assert overloaded.status_code == 503
+        assert overloaded.headers["retry-after"] == "1"
+        assert overloaded.headers["x-request-id"]
+        assert "default-src 'none'" in overloaded.headers["content-security-policy"]
+        release.set()
+        accepted = first.result(timeout=5)
+
+    assert accepted.status_code == 200
+    audit = [
+        json.loads(line)
+        for line in (tmp_path / "audit.log").read_text(encoding="utf-8").splitlines()
+    ]
+    assert any(record["outcome"] == "503" for record in audit)
 
 
 def test_login_sets_a_hardened_session_cookie_and_rejects_bad_credentials(

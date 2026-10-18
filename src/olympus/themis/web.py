@@ -77,6 +77,7 @@ from olympus.themis.api import (
     MAX_REQUEST_BYTES,
     ApiSettings,
     JobSubmission,
+    RequestConcurrencyGate,
     _registered_scope,
     _RegisterSource,
     _trace_id,
@@ -287,6 +288,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
     scope_root = settings.scope_directory.resolve()
     registers = _RegisterSource(settings)
     limiter = RateLimiter()
+    concurrency = RequestConcurrencyGate(settings.max_concurrent_requests)
     # A per-process secret: restarting the server invalidates every session,
     # which is the safe default. It never leaves the process.
     session_secret = secrets.token_bytes(32)
@@ -468,6 +470,50 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers.setdefault("Cache-Control", "no-store")
         return response
+
+    @app.middleware("http")
+    async def concurrency_boundary(
+        request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
+        """Bound in-flight requests before buffering their bodies or dispatching them."""
+        started_at = time.monotonic()
+        request_id = _trace_id(request.headers.get("x-request-id"), "web")
+        if not concurrency.try_acquire():
+            telemetry.api_request(
+                "themis-web", request.method, "overloaded", 503, time.monotonic() - started_at
+            )
+            if settings.audit_path is not None:
+                append_structured_audit(
+                    settings.audit_path,
+                    StructuredAuditRecord(
+                        timestamp=datetime.now(UTC).isoformat(),
+                        execution_id=request_id,
+                        action=f"themis.web {request.method} request-overload",
+                        outcome="503",
+                        metadata={"identity": "anonymous", "status": 503},
+                    ),
+                )
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"detail": "THEMIS Web concurrency limit reached"},
+                headers={
+                    "Retry-After": "1",
+                    "X-Request-ID": request_id,
+                    "Cache-Control": "no-store",
+                    "X-Content-Type-Options": "nosniff",
+                    "X-Frame-Options": "DENY",
+                    "Referrer-Policy": "no-referrer",
+                    "Content-Security-Policy": (
+                        "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; "
+                        "connect-src 'self'; form-action 'self'; base-uri 'none'; "
+                        "frame-ancestors 'none'"
+                    ),
+                },
+            )
+        try:
+            return await call_next(request)
+        finally:
+            concurrency.release()
 
     def _page(request: Request, name: str, context: dict[str, object], code: int = 200) -> Response:
         payload: dict[str, object] = {"version": __version__, **context}

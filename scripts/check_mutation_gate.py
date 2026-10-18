@@ -20,6 +20,7 @@ MUTATED_FUNCTIONS = {
         "xǁSignedEngagementManifestǁauthorize",
     ],
     "src/olympus/themis/adapters/nmap.py": ["xǁNmapAdapterǁparse"],
+    "src/olympus/themis/api.py": ["xǁRequestConcurrencyGateǁtry_acquire"],
     "src/olympus/core/coverage.py": ["xǁCoverageǁstatus"],
     "src/olympus/athena/cli.py": ["x__exit_code_for"],
     "src/olympus/athena/domain/assessment.py": [

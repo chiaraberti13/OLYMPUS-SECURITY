@@ -116,6 +116,7 @@ def themis_api(
     scope_directory: str = typer.Option(".olympus/scopes", "--scope-directory"),
     host: str = typer.Option("127.0.0.1", "--host"),
     port: int = typer.Option(8443, "--port", min=1, max=65_535),
+    max_concurrent_requests: int = typer.Option(64, "--max-concurrent-requests", min=1, max=4_096),
     api_key_env: str = typer.Option("OLYMPUS_THEMIS_API_KEY", "--api-key-env"),
     identities: str = typer.Option(
         "", "--identities", help="Identity register with scoped, revocable credentials."
@@ -176,6 +177,7 @@ def themis_api(
                 engagements_database=(
                     Path(engagement_storage) / ENGAGEMENTS_DB_NAME if engagement_storage else None
                 ),
+                max_concurrent_requests=max_concurrent_requests,
             )
         )
     except (ImportError, OSError, ValueError) as exc:
@@ -203,6 +205,7 @@ def themis_web(
     scope_directory: str = typer.Option(".olympus/scopes", "--scope-directory"),
     host: str = typer.Option("127.0.0.1", "--host"),
     port: int = typer.Option(8600, "--port", min=1, max=65_535),
+    max_concurrent_requests: int = typer.Option(64, "--max-concurrent-requests", min=1, max=4_096),
     api_key_env: str = typer.Option("OLYMPUS_THEMIS_API_KEY", "--api-key-env"),
     identities: str = typer.Option(
         "", "--identities", help="Identity register with scoped, revocable credentials."
@@ -265,6 +268,7 @@ def themis_web(
                 engagements_database=(
                     Path(engagement_storage) / ENGAGEMENTS_DB_NAME if engagement_storage else None
                 ),
+                max_concurrent_requests=max_concurrent_requests,
             )
         )
     except (ImportError, OSError, ValueError, RuntimeError) as exc:

@@ -29,6 +29,10 @@ Il worker continuo stampa una riga JSON quando è pronto e una per ogni job
 terminato. Una singola scansione fallita/parziale non interrompe il servizio.
 Ogni processo esegue un job alla volta; processi distinti condividono i claim
 atomici e i lease SQLite. `--poll-interval` è limitato a 0,05–30 secondi.
+API e Web limitano le richieste concorrenti a 64 per processo per default; il
+limite si può regolare con `--max-concurrent-requests` (1–4096). Le richieste
+oltre soglia ricevono `503` e `Retry-After: 1`, senza accodamento interno; il
+limite è per processo, non un coordinamento globale tra repliche.
 `SIGINT`/`SIGTERM` interrompono anche l'attesa a coda vuota, propagano la
 cancellazione allo scanner attivo e impediscono nuovi claim. Il servizio
 termina con codice `7`; `--once` restituisce il codice canonico del job
@@ -117,6 +121,10 @@ or disabled engines. `serve` and `web` are the same command implementation.
 Use HTTPS for browser sessions (`Secure` cookies); non-loopback binds require
 a certificate and private key. Set a random 32+ character API credential or
 provide an identity register; scopes and per-job authorization stay mandatory.
+API and Web cap concurrent requests at 64 per process by default; tune with
+`--max-concurrent-requests` (1–4096). Excess requests receive `503` with
+`Retry-After: 1` instead of being queued in an unbounded application backlog.
+This is a per-process bound, not a cluster-wide limit across replicas.
 
 The continuous worker emits NDJSON readiness/completion records, runs one job
 at a time and continues after individual job failures. Separate processes

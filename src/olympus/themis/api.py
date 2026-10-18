@@ -15,6 +15,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from threading import Lock
 from typing import Annotated, Literal, cast
 from uuid import uuid4
 
@@ -54,6 +55,8 @@ from olympus.themis.jobs import (
 )
 
 MAX_REQUEST_BYTES = 64 * 1024
+DEFAULT_MAX_CONCURRENT_REQUESTS = 64
+MAX_CONCURRENT_REQUESTS_LIMIT = 4_096
 _API_KEY_HEADER = APIKeyHeader(name="X-Olympus-API-Key", auto_error=False)
 
 #: A caller-supplied trace identifier is echoed, so it must be inert text.
@@ -78,8 +81,20 @@ class ApiSettings:
     #: against one; when ``None`` those routes report the feature is not
     #: configured rather than silently pretending there are no engagements.
     engagements_database: Path | None = None
+    #: Bound in-flight ASGI requests; excess work is rejected rather than queued
+    #: in an unbounded server backlog. This limit is per API process.
+    max_concurrent_requests: int = DEFAULT_MAX_CONCURRENT_REQUESTS
 
     def validate(self) -> None:
+        if (
+            isinstance(self.max_concurrent_requests, bool)
+            or not isinstance(self.max_concurrent_requests, int)
+            or not 1 <= self.max_concurrent_requests <= MAX_CONCURRENT_REQUESTS_LIMIT
+        ):
+            raise ValueError(
+                "THEMIS API max_concurrent_requests must be an integer between 1 and "
+                f"{MAX_CONCURRENT_REQUESTS_LIMIT}"
+            )
         if not self.api_key and self.identities_path is None:
             raise ValueError("THEMIS API needs either an API key or an identity register")
         if self.api_key and len(self.api_key) < 32:
@@ -144,6 +159,28 @@ class Caller:
     scopes: tuple[str, ...]
 
 
+class RequestConcurrencyGate:
+    """A non-blocking per-process cap for concurrent control-plane requests."""
+
+    def __init__(self, limit: int) -> None:
+        self._limit = limit
+        self._active = 0
+        self._lock = Lock()
+
+    def try_acquire(self) -> bool:
+        with self._lock:
+            if self._active >= self._limit:
+                return False
+            self._active += 1
+            return True
+
+    def release(self) -> None:
+        with self._lock:
+            if self._active <= 0:
+                raise RuntimeError("THEMIS API concurrency gate released without acquisition")
+            self._active -= 1
+
+
 class JobSubmission(BaseModel):
     """Bounded request body for one authorized job."""
 
@@ -198,6 +235,7 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
     scope_root = settings.scope_directory.resolve()
     registers = _RegisterSource(settings)
     limiter = RateLimiter()
+    concurrency = RequestConcurrencyGate(settings.max_concurrent_requests)
 
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
@@ -324,6 +362,47 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "no-referrer"
         return response
+
+    @app.middleware("http")
+    async def concurrency_boundary(
+        request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
+        """Bound in-flight requests before buffering their bodies or dispatching them."""
+        started_at = time.monotonic()
+        request_id = _trace_id(request.headers.get("x-request-id"), "req")
+        correlation_id = _trace_id(request.headers.get("x-correlation-id"), "cor")
+        if not concurrency.try_acquire():
+            telemetry.api_request(
+                "themis", request.method, "overloaded", 503, time.monotonic() - started_at
+            )
+            if settings.audit_path is not None:
+                append_structured_audit(
+                    settings.audit_path,
+                    StructuredAuditRecord(
+                        timestamp=datetime.now(UTC).isoformat(),
+                        execution_id=request_id,
+                        action=f"themis.api {request.method} request-overload",
+                        outcome="503",
+                        metadata={"identity": "anonymous", "correlation_id": correlation_id},
+                    ),
+                )
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"detail": "THEMIS API concurrency limit reached"},
+                headers={
+                    "Retry-After": "1",
+                    "X-Request-ID": request_id,
+                    "X-Correlation-ID": correlation_id,
+                    "Cache-Control": "no-store",
+                    "X-Content-Type-Options": "nosniff",
+                    "X-Frame-Options": "DENY",
+                    "Referrer-Policy": "no-referrer",
+                },
+            )
+        try:
+            return await call_next(request)
+        finally:
+            concurrency.release()
 
     @app.get("/health", tags=["operations"])
     def health() -> dict[str, str]:

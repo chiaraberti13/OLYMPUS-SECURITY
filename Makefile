@@ -64,6 +64,7 @@ test-mutation:
 		"olympus.engagements.manifest.xǁEngagementManifestǁauthorizes*" \
 		"olympus.engagements.manifest.xǁSignedEngagementManifestǁauthorize*" \
 		"olympus.themis.adapters.nmap.xǁNmapAdapterǁparse*" \
+		"olympus.themis.api.xǁRequestConcurrencyGateǁtry_acquire*" \
 		"olympus.core.coverage.xǁCoverageǁstatus*" \
 		"olympus.athena.cli.x__exit_code_for*" \
 		"olympus.athena.domain.assessment.x_advance_job*" \

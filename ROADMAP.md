@@ -213,14 +213,24 @@ dello scope e delle evidenze. Il runtime mantenuto è ora interamente nativo.
   sorgente restano lavoro SEC-A.
 - [x] Definire una matrice di parità per endpoint, job state, persistenza, audit,
   report e cancellazione prima di rimuovere il codice legacy.
-- [ ] Rendere il control plane nativo fail-closed: autenticazione obbligatoria,
+- [~] Rendere il control plane nativo fail-closed: autenticazione obbligatoria,
   autorizzazioni minime per rotta, scope registrati, limiti di concorrenza e live
-  scan disabilitate di default.
+  scan disabilitate di default. API e Web ora applicano un limite di richieste
+  simultanee per processo (default 64, configurabile 1–4096); l'overflow è
+  respinto con 503 e Retry-After, ed è auditato. Autenticazione obbligatoria,
+  scope per rotta e live scan disabilitate per default erano già presenti.
 - [ ] Eseguire una threat-model review prima di ogni milestone di migrazione.
 
 **Criterio di completamento:** wheel e container eseguono API, worker e migrazioni
 senza importare `vendor/`; i test di parità e regressione sono verdi; la directory
 vendorizzata può essere rimossa senza perdita di funzionalità dichiarata.
+
+**Avanzamento verificato (2026-10-19):** il control plane nativo rifiuta in modo
+non bloccante le richieste oltre il limite concorrente di ciascun processo API o
+Web. La risposta `503` è registrata nell'audit redatto e conserva gli header di
+sicurezza. Il limite non coordina più processi o repliche; autenticazione
+multiutente minima e limiti di concorrenza worker/distribuiti restano da
+verificare prima di completare `SEC-A`.
 
 ### Intervento B · `SEC-B` — Isolamento forte degli scanner (**P0**)
 

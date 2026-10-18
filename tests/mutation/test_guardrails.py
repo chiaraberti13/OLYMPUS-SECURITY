@@ -29,9 +29,20 @@ from olympus.engagements.manifest import (
     SignedEngagementManifest,
 )
 from olympus.themis.adapters.nmap import NmapAdapter
+from olympus.themis.api import RequestConcurrencyGate
 from olympus.themis.base import ParseError
 from olympus.themis.model import ScanRequest
 from olympus.themis.runner import CommandOutput
+
+
+def test_api_concurrency_gate_rejects_overflow_and_recovers_after_release() -> None:
+    gate = RequestConcurrencyGate(1)
+
+    assert gate.try_acquire() is True
+    assert gate.try_acquire() is False
+    gate.release()
+    assert gate.try_acquire() is True
+    gate.release()
 
 
 def test_scope_gate_accepts_domain_and_subdomain_but_rejects_suffix_spoof() -> None:
