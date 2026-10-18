@@ -98,3 +98,19 @@ class NmapAdapter(ScannerAdapter):
                 evidence.append(f"banner={banner}")
             self.add_finding(
                 findings,
+                Finding(
+                    asset_id=asset_id,
+                    source=Source.THEMIS,
+                    title=f"Open port {portid}/{proto} ({svc_name})"
+                    + (f" — {banner}" if banner else ""),
+                    description=(
+                        f"nmap found TCP port {portid} open running '{svc_name}'"
+                        + (f" ({banner})." if banner else ".")
+                    ),
+                    severity=severity,
+                    evidence=evidence,
+                    remediation="Confirm the service is intended to be exposed; restrict access.",
+                ),
+                request,
+            )
+        return findings
