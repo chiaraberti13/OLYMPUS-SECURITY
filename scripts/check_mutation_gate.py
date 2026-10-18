@@ -12,7 +12,12 @@ MUTATED_FUNCTIONS = {
         "x__sensitive_key",
         "x_redact_url",
         "x_redact_text",
+        "x_safe_terminal_text",
         "x_redact_mapping",
+    ],
+    "src/olympus/engagements/manifest.py": [
+        "xǁEngagementManifestǁauthorizes",
+        "xǁSignedEngagementManifestǁauthorize",
     ],
     "src/olympus/themis/adapters/nmap.py": ["xǁNmapAdapterǁparse"],
     "src/olympus/core/coverage.py": ["xǁCoverageǁstatus"],

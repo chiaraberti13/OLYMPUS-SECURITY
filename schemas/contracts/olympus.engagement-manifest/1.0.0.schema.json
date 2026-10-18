@@ -1,0 +1,137 @@
+{
+  "$defs": {
+    "EngagementScope": {
+      "additionalProperties": false,
+      "description": "The authorized perimeter of an engagement: included minus excluded.\n\nEntries are hostnames or domains (matched like the rest of Olympus: an entry\ncovers itself and its subdomains). IP/CIDR matching is a planned extension\n(ROADMAP ``WEB-B``); until then IPs must be listed verbatim.",
+      "properties": {
+        "excluded": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Excluded",
+          "type": "array"
+        },
+        "included": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Included",
+          "type": "array"
+        }
+      },
+      "required": [
+        "included"
+      ],
+      "title": "EngagementScope",
+      "type": "object"
+    }
+  },
+  "$id": "urn:olympus:schema:olympus.engagement-manifest:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Immutable authorization boundary for one time-limited engagement.",
+  "properties": {
+    "allowed_techniques": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 128,
+      "minItems": 1,
+      "title": "Allowed Techniques",
+      "type": "array"
+    },
+    "approver": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Approver",
+      "type": "string"
+    },
+    "client": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Client",
+      "type": "string"
+    },
+    "contract_id": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Contract Id",
+      "type": "string"
+    },
+    "engagement_id": {
+      "title": "Engagement Id",
+      "type": "string"
+    },
+    "expires_at": {
+      "format": "date-time",
+      "title": "Expires At",
+      "type": "string"
+    },
+    "manifest_id": {
+      "title": "Manifest Id",
+      "type": "string"
+    },
+    "max_concurrency": {
+      "default": 1,
+      "maximum": 64,
+      "minimum": 1,
+      "title": "Max Concurrency",
+      "type": "integer"
+    },
+    "max_runtime_seconds": {
+      "default": 300,
+      "maximum": 86400,
+      "minimum": 1,
+      "title": "Max Runtime Seconds",
+      "type": "integer"
+    },
+    "max_targets": {
+      "default": 1,
+      "maximum": 10000,
+      "minimum": 1,
+      "title": "Max Targets",
+      "type": "integer"
+    },
+    "owner": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Owner",
+      "type": "string"
+    },
+    "schema_name": {
+      "const": "olympus.engagement-manifest",
+      "default": "olympus.engagement-manifest",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scope": {
+      "$ref": "#/$defs/EngagementScope"
+    },
+    "valid_from": {
+      "format": "date-time",
+      "title": "Valid From",
+      "type": "string"
+    }
+  },
+  "required": [
+    "engagement_id",
+    "client",
+    "owner",
+    "approver",
+    "contract_id",
+    "scope",
+    "valid_from",
+    "expires_at",
+    "allowed_techniques"
+  ],
+  "title": "EngagementManifest",
+  "type": "object"
+}

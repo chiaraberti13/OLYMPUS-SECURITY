@@ -33,6 +33,7 @@ from olympus.core.models import (
     ScanJob,
     SecurityReport,
 )
+from olympus.engagements.manifest import EngagementManifest, SignedEngagementManifest
 from olympus.metis.models import EngagementPlan, IntelCaseDocument
 
 CATALOG_SCHEMA_NAME = "olympus.schema-catalog"
@@ -64,6 +65,8 @@ PUBLISHED_CONTRACTS = (
     PublishedContract("olympus.metis-plan", "output", EngagementPlan),
     PublishedContract("olympus.metis-case", "output", IntelCaseDocument),
     PublishedContract("olympus.engagement", "shared", Engagement),
+    PublishedContract("olympus.engagement-manifest", "input", EngagementManifest),
+    PublishedContract("olympus.signed-engagement-manifest", "input", SignedEngagementManifest),
     PublishedContract("olympus.asset", "shared", Asset),
     PublishedContract("olympus.finding", "shared", Finding),
     PublishedContract("olympus.finding-transition", "shared", FindingTransition),

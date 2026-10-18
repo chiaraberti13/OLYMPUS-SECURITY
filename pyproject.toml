@@ -158,6 +158,7 @@ source_paths = ["src/olympus"]
 only_mutate = [
     "src/olympus/athena/scope.py",
     "src/olympus/core/execution.py",
+    "src/olympus/engagements/manifest.py",
     "src/olympus/themis/adapters/nmap.py",
     "src/olympus/core/coverage.py",
     "src/olympus/athena/cli.py",

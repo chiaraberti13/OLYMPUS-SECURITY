@@ -249,15 +249,25 @@ automatizzate e allegate come evidenza di release.
 un `approval_reference`, ma una conferma booleana non prova chi abbia autorizzato
 cosa e per quanto tempo.
 
-- [ ] Introdurre `EngagementManifest` versionato con cliente/owner, approvatore,
+- [x] Introdurre `EngagementManifest` versionato con cliente/owner, approvatore,
   target inclusi ed esclusi, finestre temporali, tecniche consentite, limiti,
   identificativo del contratto e data di scadenza.
-- [ ] Firmare il manifest con Ed25519 riusando `olympus.core.signing` e verificarlo
-  prima di qualsiasi operazione attiva.
+- [~] Firmare il manifest con Ed25519 riusando `olympus.core.signing`; il
+  verificatore a chiave pubblica fissata controlla digest, target, tecnica e
+  finestra, ma non è ancora collegato a tutti i percorsi attivi.
 - [ ] Legare ogni job all'hash del manifest e registrarlo in audit, report ed
   evidenze; impedire il riuso dopo revoca o scadenza.
 - [ ] Prevedere un profilo lab separato, esplicito e limitato a reti dichiarate,
   senza scorciatoie globali come “allow all”.
+
+**Avanzamento verificato (2026-10-19):** aggiunti i contratti versionati
+`olympus.engagement-manifest` e `olympus.signed-engagement-manifest`, con firma
+Ed25519 sul JSON canonico e verifica che richiede la chiave pubblica fidata del
+verificatore. La funzione di autorizzazione controlla l'intervallo temporale,
+scope incluso/escluso e tecnica richiesta. Il controllo non è ancora integrato
+nei percorsi attivi, non esiste un registro di revoca e i job non persistono
+l'hash del manifest: SEC-C non è completato e il manifest da solo non abilita
+una scansione.
 
 **Criterio di completamento:** nessuna live scan può partire con un semplice flag;
 il report consente di dimostrare manifest, firma, scope e policy effettivi usati.

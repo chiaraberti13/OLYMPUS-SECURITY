@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,13 @@ from pydantic import ValidationError
 
 from olympus.core.enums import AssetType, EngagementStatus, Source
 from olympus.core.models import Asset, Engagement, EngagementScope, Finding
+from olympus.core.signing import generate_keypair
+from olympus.engagements.manifest import (
+    EngagementManifest,
+    ManifestAuthorizationError,
+    ManifestVerificationError,
+    SignedEngagementManifest,
+)
 from olympus.engagements.store import EngagementStoreError, SqliteEngagementStore
 
 
@@ -139,3 +147,99 @@ def test_store_rejects_a_tampered_document(tmp_path: Path) -> None:
             reopened.list()
     finally:
         reopened.close()
+
+
+def _manifest() -> EngagementManifest:
+    start = datetime(2026, 10, 19, 0, 0, tzinfo=UTC)
+    return EngagementManifest(
+        engagement_id="ENG-2026-00001",
+        client="Example Client",
+        owner="Security Owner",
+        approver="Authorized Approver",
+        contract_id="CONTRACT-2026-01",
+        scope=EngagementScope(included=("example.com",), excluded=("admin.example.com",)),
+        valid_from=start,
+        expires_at=start + timedelta(hours=8),
+        allowed_techniques=("nmap", "httpx"),
+        max_targets=20,
+        max_concurrency=2,
+        max_runtime_seconds=1800,
+    )
+
+
+def test_signed_manifest_is_canonical_pinned_and_operation_scoped() -> None:
+    private_key, public_key = generate_keypair()
+    signed = SignedEngagementManifest.sign_manifest(_manifest(), private_key_pem=private_key)
+    reloaded = SignedEngagementManifest.model_validate_json(signed.model_dump_json())
+
+    verified = reloaded.authorize(
+        trusted_public_key_pem=public_key,
+        target="www.example.com",
+        technique="nmap",
+        now=datetime(2026, 10, 19, 1, 0, tzinfo=UTC),
+    )
+
+    assert verified.engagement_id == "ENG-2026-00001"
+    assert signed.manifest_sha256 == verified.digest()
+    assert signed.manifest.manifest_id.startswith("MAN-")
+
+
+@pytest.mark.parametrize(
+    ("target", "technique", "now"),
+    [
+        ("outside.example.net", "nmap", datetime(2026, 10, 19, 1, 0, tzinfo=UTC)),
+        ("admin.example.com", "nmap", datetime(2026, 10, 19, 1, 0, tzinfo=UTC)),
+        ("www.example.com", "sqlmap", datetime(2026, 10, 19, 1, 0, tzinfo=UTC)),
+        ("www.example.com", "nmap", datetime(2026, 10, 20, 0, 0, tzinfo=UTC)),
+    ],
+)
+def test_signed_manifest_denies_out_of_scope_operation(
+    target: str, technique: str, now: datetime
+) -> None:
+    private_key, public_key = generate_keypair()
+    signed = SignedEngagementManifest.sign_manifest(_manifest(), private_key_pem=private_key)
+
+    with pytest.raises(ManifestAuthorizationError):
+        signed.authorize(
+            trusted_public_key_pem=public_key,
+            target=target,
+            technique=technique,
+            now=now,
+        )
+
+
+def test_signed_manifest_rejects_tampering_and_untrusted_signer() -> None:
+    private_key, public_key = generate_keypair()
+    other_private_key, other_public_key = generate_keypair()
+    signed = SignedEngagementManifest.sign_manifest(_manifest(), private_key_pem=private_key)
+    changed_manifest = signed.manifest.model_copy(update={"client": "Attacker"})
+    tampered = signed.model_copy(update={"manifest": changed_manifest})
+
+    with pytest.raises(ManifestVerificationError, match="digest"):
+        tampered.authorize(
+            trusted_public_key_pem=public_key,
+            target="www.example.com",
+            technique="nmap",
+            now=datetime(2026, 10, 19, 1, 0, tzinfo=UTC),
+        )
+    with pytest.raises(ManifestVerificationError, match="signature verification"):
+        signed.authorize(
+            trusted_public_key_pem=other_public_key,
+            target="www.example.com",
+            technique="nmap",
+            now=datetime(2026, 10, 19, 1, 0, tzinfo=UTC),
+        )
+    assert other_private_key != private_key
+
+
+def test_manifest_rejects_naive_or_inverted_authorization_window() -> None:
+    from pydantic import ValidationError
+
+    naive_window = _manifest().model_dump()
+    naive_window["valid_from"] = datetime(2026, 10, 19)
+    with pytest.raises(ValidationError, match="timezone"):
+        EngagementManifest(**naive_window)
+    inverted_window = _manifest().model_dump()
+    inverted_window["expires_at"] = datetime(2026, 10, 18, tzinfo=UTC)
+    with pytest.raises(ValidationError, match="expires_at"):
+        EngagementManifest(**inverted_window)

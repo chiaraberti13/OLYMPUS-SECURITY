@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
 
 from olympus.athena.application.coordinator import RunOutcome
@@ -16,8 +18,16 @@ from olympus.athena.domain.assessment import (
 )
 from olympus.athena.scope import TargetOutOfScopeError, ensure_target_allowed
 from olympus.core.coverage import Coverage, RunStatus, exit_code_for
-from olympus.core.execution import redact_mapping, redact_text
+from olympus.core.execution import redact_mapping, redact_text, safe_terminal_text
 from olympus.core.exit_codes import ExitCode
+from olympus.core.models import EngagementScope
+from olympus.core.signing import generate_keypair
+from olympus.engagements.manifest import (
+    EngagementManifest,
+    ManifestAuthorizationError,
+    ManifestVerificationError,
+    SignedEngagementManifest,
+)
 from olympus.themis.adapters.nmap import NmapAdapter
 from olympus.themis.base import ParseError
 from olympus.themis.model import ScanRequest
@@ -63,6 +73,69 @@ def test_redaction_covers_nested_sensitive_keys_and_url_queries() -> None:
     assert "hidden-token" not in redacted_text
     assert "[REDACTED]" in redacted_text
     assert "page=2" in redacted_text
+
+
+def test_terminal_text_removes_control_sequences_and_redacts_secrets() -> None:
+    safe = safe_terminal_text("ok\x1b]0;title\x07\r\nhttps://x.test/?token=secret")
+
+    assert "\x1b" not in safe and "\n" not in safe
+    assert "secret" not in safe and "[REDACTED]" in safe
+
+
+def _signed_manifest() -> tuple[SignedEngagementManifest, str, datetime]:
+    private_key, public_key = generate_keypair()
+    valid_from = datetime(2026, 10, 19, tzinfo=UTC)
+    manifest = EngagementManifest(
+        engagement_id="ENG-2026-00001",
+        client="Example Client",
+        owner="Security Owner",
+        approver="Authorized Approver",
+        contract_id="CONTRACT-2026-01",
+        scope=EngagementScope(included=("example.com",), excluded=("admin.example.com",)),
+        valid_from=valid_from,
+        expires_at=valid_from + timedelta(hours=8),
+        allowed_techniques=("nmap",),
+    )
+    return (
+        SignedEngagementManifest.sign_manifest(manifest, private_key_pem=private_key),
+        public_key,
+        valid_from,
+    )
+
+
+def test_signed_manifest_gate_enforces_trusted_signature_and_scope() -> None:
+    signed, public_key, valid_from = _signed_manifest()
+    authorized = signed.authorize(
+        trusted_public_key_pem=public_key,
+        target="www.example.com",
+        technique="nmap",
+        now=valid_from,
+    )
+    assert authorized.engagement_id == "ENG-2026-00001"
+
+    with pytest.raises(ManifestAuthorizationError):
+        signed.authorize(
+            trusted_public_key_pem=public_key,
+            target="admin.example.com",
+            technique="nmap",
+            now=valid_from,
+        )
+    with pytest.raises(ManifestAuthorizationError):
+        signed.authorize(
+            trusted_public_key_pem=public_key,
+            target="www.example.com",
+            technique="nmap",
+            now=signed.manifest.expires_at,
+        )
+
+    _other_private, other_public = generate_keypair()
+    with pytest.raises(ManifestVerificationError):
+        signed.authorize(
+            trusted_public_key_pem=other_public,
+            target="www.example.com",
+            technique="nmap",
+            now=valid_from,
+        )
 
 
 def test_nmap_parser_emits_only_open_ports_and_flags_high_risk_port() -> None:

@@ -50,6 +50,13 @@
       "sha256": "dc33512c942fbbc1a13e2ac68f70ca61f9911680bea35d4e21f7e4e1f31ade02"
     },
     {
+      "direction": "input",
+      "name": "olympus.engagement-manifest",
+      "path": "contracts/olympus.engagement-manifest/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "da2c321ef16381f77455b5573c68e5f460678ef02f15e3172e38485024692fc7"
+    },
+    {
       "direction": "shared",
       "name": "olympus.event",
       "path": "contracts/olympus.event/1.0.0.schema.json",
@@ -118,6 +125,13 @@
       "path": "contracts/olympus.security-report/1.0.0.schema.json",
       "schema_version": "1.0.0",
       "sha256": "56e7dd645a9070347bfcb1e97d1ba96617621c11a78d75cc2e523229d6f606bf"
+    },
+    {
+      "direction": "input",
+      "name": "olympus.signed-engagement-manifest",
+      "path": "contracts/olympus.signed-engagement-manifest/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "4bda7ef18a3abc0e9f3b8375d61b4ba10f40cc36ccb3527c6e6fcfad6312c649"
     }
   ],
   "schema_name": "olympus.schema-catalog",

@@ -61,6 +61,8 @@ test-mutation:
 		"olympus.core.execution.x_redact_text*" \
 		"olympus.core.execution.x_safe_terminal_text*" \
 		"olympus.core.execution.x_redact_mapping*" \
+		"olympus.engagements.manifest.xǁEngagementManifestǁauthorizes*" \
+		"olympus.engagements.manifest.xǁSignedEngagementManifestǁauthorize*" \
 		"olympus.themis.adapters.nmap.xǁNmapAdapterǁparse*" \
 		"olympus.core.coverage.xǁCoverageǁstatus*" \
 		"olympus.athena.cli.x__exit_code_for*" \
