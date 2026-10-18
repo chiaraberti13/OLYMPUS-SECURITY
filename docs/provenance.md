@@ -1,8 +1,8 @@
 # Provenance and upstream attribution
 
-This file records completed source migrations and the one remaining temporary
-vendored compatibility boundary. Olympus does not use runtime Git dependencies
-or submodules.
+This file records completed source migrations and archived source retained for
+provenance and parity review. Olympus does not use runtime Git dependencies or
+submodules, and native THEMIS does not load or execute the archived VAP runtime.
 
 ## ARGUS (OSINT & reconnaissance toolkit)
 
@@ -38,35 +38,34 @@ or submodules.
   Redistribution must preserve the GPL source and notice obligations for this
   component.
 - Olympus-facing name: **THEMIS** (see `docs/vap-to-themis-rename.md`). Native
-  entry points are `api`, `capabilities`, `jobs`, `run`, `scan`, `scanners` and
-  `doctor`. `scan` submits to the authenticated native job API. The temporary
-  `serve`, `migrate` and `workers` commands retain the legacy VAP web boundary
-  during migration; `olympus vap` remains a deprecated alias.
+  entry points include `api`, `capabilities`, `jobs`, `run`, `scan`, `scanners`,
+  `serve`, `web`, `migrate`, `workers` and `doctor`. They use the authenticated
+  native SQLite job store and do not load VAP, Redis, Celery or Alembic. The
+  deprecated `olympus vap` command remains an alias for the native THEMIS CLI.
+  Route, lifecycle, persistence, audit, report and cancellation decisions are
+  tracked in `docs/parity/themis-vap-runtime.json`; legacy database conversion
+  and source removal are still open SEC-A work.
 
-## Running the vendored tools
+## Archived VAP source
 
-- `bash scripts/setup-vendored-tools.sh` installs the temporary VAP Python
-  dependencies into one checkout.
-- `pip install -e ".[vap]"` installs the legacy web extra;
-  Python extras; the authoritative VAP pin set is its own `requirements.txt`.
-- External scanner **binaries** (nmap, nuclei, sqlmap, wpscan, …) and the full
-  runtime (Redis/Celery) are provisioned reproducibly by the vendored
-  `installer.sh` and `docker-compose.yml`. When a binary is absent, the scanner
-  reports a clear "tool not installed" state instead of failing silently — this
-  is upstream behaviour and a sandbox limitation, never a removed feature.
+The archived tree is retained for provenance and migration review; it is not a
+supported Olympus runtime. Do not launch its web app or worker as a substitute
+for the native runtime. Legacy database import is not implemented. Native
+`themis migrate` rejects VAP/foreign databases; preserve and back up those files
+until an explicit read-only importer and rollback procedure are completed.
 
 ## Notes
 
-- The vendored web app keeps its upstream *simulated* scanner mode. The
-  Olympus-native execution layer (`olympus.themis`, `olympus themis run`) is
-  separate Olympus-owned code that runs the real external scanners with explicit
-  execution states and never fabricates findings; it does not modify vendored
-  source. See `docs/scanner-matrix.md` and `docs/themis-execution-evidence.md`.
+- Olympus-native execution (`olympus themis run`) uses explicit execution states
+  and never fabricates findings. External scanner live operation is separately
+  scope-gated and disabled by default. See `docs/scanner-matrix.md` and
+  `docs/themis-execution-evidence.md`.
 - No upstream secrets, credentials, or API keys were copied.
 - Vendored code is preserved verbatim and held to its own quality tooling, not
   Olympus's optional helpers.
-- Native replacement tests cover ARGUS. Temporary VAP compatibility tests remain
-  until its API, persistence and report surfaces are fully migrated.
+- Contract tests pin the complete archived VAP route inventory against the
+  route-by-route parity matrix. They do not certify data import or scanner live
+  readiness.
 
 ## Repository licence scope
 

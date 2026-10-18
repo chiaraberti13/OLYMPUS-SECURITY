@@ -99,10 +99,13 @@ quel profilo non viene avviato.
 - CI: lo smoke della wheel gira in un ambiente pulito; il job
   `native-container` valida Compose ed esegue la suite container.
 
-Il sorgente VAP resta un archivio per provenance e confronto. La matrice di
-parità per tutte le sue route, l'import dei dati legacy e il ritiro fisico del
-sorgente restano punti separati della roadmap; non sono capacità dichiarate
-di questo runtime.
+Il sorgente VAP resta un archivio per provenance e confronto. La matrice route
+per route e dei contratti di lifecycle è mantenuta in
+[`docs/parity/themis-vap-runtime.json`](parity/themis-vap-runtime.json) e
+verificata contro i router sorgente da
+`tests/contract/test_themis_vap_parity.py`. La conversione dei database VAP e il
+ritiro fisico del sorgente restano punti separati della roadmap; non sono
+capacità dichiarate di questo runtime.
 
 ## English
 
@@ -145,8 +148,13 @@ scanner overlay changes only the worker image. Non-root, read-only rootfs,
 dropped capabilities, no-new-privileges and resource limits are explicit.
 Scanner egress/seccomp/AppArmor completion remains SEC-B.
 
+The route-by-route legacy/native inventory and lifecycle/data gaps are tracked in
+[`docs/parity/themis-vap-runtime.json`](parity/themis-vap-runtime.json) and
+contract-tested against both source trees. This inventory does not implement VAP
+database import or claim complete runtime parity; those remain SEC-A work.
+
 Run `make check`, `python scripts/smoke_native_runtime.py` and, on a Docker host,
 `make test-container`. CI exercises clean-wheel and isolated-container startup
 with real API/HTTPS Web servers and a disabled scanner job. These tests require
-no external target. VAP source remains an archive pending the complete route
-parity review and legacy data-import/removal milestones.
+no external target. VAP source remains archived pending review of each recorded
+gap, legacy data-import and physical source-removal milestones.

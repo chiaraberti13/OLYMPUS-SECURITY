@@ -1,0 +1,562 @@
+{
+  "schema_version": 1,
+  "roadmap_id": "SEC-A",
+  "priority": "P0",
+  "title": "Native THEMIS versus archived VAP runtime parity",
+  "baseline": {
+    "legacy_repository_revision": "6c6b395d79f358372e028fe7094cc673374dd88f",
+    "legacy_route_source": "vendor/vulnerability-assessment-platform/app.py",
+    "legacy_source_commit": "0bfc465a51d8c571f56c177e61ee38a55b56baed",
+    "native_sources": [
+      "src/olympus/themis/api.py",
+      "src/olympus/themis/web.py"
+    ],
+    "reviewed_against": "origin/main at 4f715fd",
+    "legacy_app_sha256": "1df54b7b8f0656e470b31b8e6c47476c920428860642a245f9b32847c370d66a"
+  },
+  "status_values": [
+    "implemented",
+    "partial",
+    "missing"
+  ],
+  "legacy_routes": [
+    {
+      "method": "GET",
+      "path": "/",
+      "handler": "index",
+      "status": "implemented",
+      "native": "GET /",
+      "decision": "Native dashboard over durable Olympus jobs."
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/audit/events",
+      "handler": "list_audit_events",
+      "status": "partial",
+      "native": "audit NDJSON file",
+      "decision": "Native audit is append-only and redacted; no query API equivalent."
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/consents",
+      "handler": "record_consent_api",
+      "status": "missing",
+      "native": null,
+      "decision": "VAP consent collection is not migrated; Olympus requires explicit engagement authorization and does not collect educational consent records."
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/feeds/refresh",
+      "handler": "refresh_feeds_endpoint",
+      "status": "partial",
+      "native": "olympus metis",
+      "decision": "No equivalent VAP feed-refresh HTTP operation; Metis import remains operator-driven."
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/feeds/status",
+      "handler": "get_feeds_status_endpoint",
+      "status": "partial",
+      "native": "olympus metis",
+      "decision": "Local CTI feed operations exist in Metis; endpoint and data model differ."
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/gdpr/delete",
+      "handler": "delete_gdpr_data",
+      "status": "missing",
+      "native": null,
+      "decision": "Subject export/deletion APIs are not migrated; Olympus retention and privacy controls are separate and do not claim VAP subject-data parity."
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/gdpr/export",
+      "handler": "export_gdpr_data",
+      "status": "missing",
+      "native": null,
+      "decision": "Subject export/deletion APIs are not migrated; Olympus retention and privacy controls are separate and do not claim VAP subject-data parity."
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/learning-feedback",
+      "handler": "submit_learning_feedback",
+      "status": "missing",
+      "native": null,
+      "decision": "Learning/education telemetry is outside the Olympus security-assessment control plane."
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/learning-kpis",
+      "handler": "get_learning_kpis",
+      "status": "missing",
+      "native": null,
+      "decision": "Learning/education telemetry is outside the Olympus security-assessment control plane."
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/learning-progress",
+      "handler": "list_learning_progress",
+      "status": "missing",
+      "native": null,
+      "decision": "Learning/education telemetry is outside the Olympus security-assessment control plane."
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/learning-progress",
+      "handler": "upsert_learning_progress",
+      "status": "missing",
+      "native": null,
+      "decision": "Learning/education telemetry is outside the Olympus security-assessment control plane."
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/learning-quiz-attempts",
+      "handler": "submit_learning_quiz_attempt",
+      "status": "missing",
+      "native": null,
+      "decision": "Learning/education telemetry is outside the Olympus security-assessment control plane."
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/scan-catalog",
+      "handler": "get_scan_catalog_endpoint",
+      "status": "partial",
+      "native": "GET /api/v1/capabilities",
+      "decision": "Capability inventory, not a VAP scan-type catalog."
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/scan-config/presets",
+      "handler": "list_scan_configuration_presets",
+      "status": "missing",
+      "native": null,
+      "decision": "VAP configuration presets/schema lifecycle has no native persisted contract yet."
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/scan-config/presets",
+      "handler": "create_scan_configuration_preset",
+      "status": "missing",
+      "native": null,
+      "decision": "VAP configuration presets/schema lifecycle has no native persisted contract yet."
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/scan-config/presets/{preset_id}",
+      "handler": "delete_scan_configuration_preset",
+      "status": "missing",
+      "native": null,
+      "decision": "VAP configuration presets/schema lifecycle has no native persisted contract yet."
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/scan-config/presets/{preset_id}/lifecycle",
+      "handler": "update_scan_configuration_preset_lifecycle",
+      "status": "missing",
+      "native": null,
+      "decision": "VAP configuration presets/schema lifecycle has no native persisted contract yet."
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/scan-config/schema",
+      "handler": "get_scan_config_schema_endpoint",
+      "status": "missing",
+      "native": null,
+      "decision": "VAP configuration presets/schema lifecycle has no native persisted contract yet."
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/scans",
+      "handler": "list_scans",
+      "status": "implemented",
+      "native": "GET /api/v1/jobs",
+      "decision": "Native job listing with different filters and response schema."
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/scans",
+      "handler": "create_scan",
+      "status": "implemented",
+      "native": "POST /api/v1/jobs",
+      "decision": "Typed native job submission; request/response schema differs."
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/scans/{scan_id}",
+      "handler": "soft_delete_scan",
+      "status": "missing",
+      "native": null,
+      "decision": "VAP soft-delete lifecycle is not equivalent to Olympus evidence/job retention; no destructive scan-delete route is exposed."
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/scans/{scan_id}/cancel",
+      "handler": "cancel_scan",
+      "status": "implemented",
+      "native": "POST /api/v1/jobs/{job_id}/cancel",
+      "decision": "Native cancellation with cooperative process termination and canonical state."
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/scans/{scan_id}/configuration",
+      "handler": "get_scan_configuration_snapshot",
+      "status": "partial",
+      "native": "GET /api/v1/capabilities",
+      "decision": "Readiness/capability data exists; immutable per-run configuration snapshot does not."
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/scans/{scan_id}/report/download",
+      "handler": "download_report",
+      "status": "partial",
+      "native": "olympus vulcan report",
+      "decision": "Report generation exists in Vulcan, but no authenticated HTTP download route."
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/scans/{scan_id}/status",
+      "handler": "scan_status",
+      "status": "implemented",
+      "native": "GET /api/v1/jobs/{job_id}",
+      "decision": "Native lifecycle state; schema and identifier differ."
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/scans/{scan_id}/task",
+      "handler": "scan_task_status",
+      "status": "partial",
+      "native": "GET /api/v1/jobs/{job_id}",
+      "decision": "Job state is visible; Celery task ID/status contract is intentionally absent."
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/telemetry/scan-builder",
+      "handler": "collect_scan_builder_telemetry",
+      "status": "missing",
+      "native": null,
+      "decision": "Product analytics collection is intentionally absent from the offline-first native runtime."
+    },
+    {
+      "method": "POST",
+      "path": "/auth/token",
+      "handler": "issue_token",
+      "status": "partial",
+      "native": "POST /login",
+      "decision": "Native Web session login exists; no OAuth/JWT token issuance endpoint."
+    },
+    {
+      "method": "GET",
+      "path": "/guida",
+      "handler": "guide",
+      "status": "missing",
+      "native": null,
+      "decision": "VAP public informational page is not part of the native operator control plane; product documentation is maintained under docs/."
+    },
+    {
+      "method": "GET",
+      "path": "/health",
+      "handler": "health_check",
+      "status": "implemented",
+      "native": "GET /health",
+      "decision": "Health probe with native service identity."
+    },
+    {
+      "method": "GET",
+      "path": "/metrics",
+      "handler": "metrics",
+      "status": "implemented",
+      "native": "GET /metrics",
+      "decision": "Metrics endpoint is optional and authenticated."
+    },
+    {
+      "method": "GET",
+      "path": "/privacy-policy",
+      "handler": "privacy_policy",
+      "status": "missing",
+      "native": null,
+      "decision": "VAP public informational page is not part of the native operator control plane; product documentation is maintained under docs/."
+    },
+    {
+      "method": "GET",
+      "path": "/ready",
+      "handler": "readiness_check",
+      "status": "implemented",
+      "native": "GET /ready",
+      "decision": "Authenticated readiness and capability inventory."
+    },
+    {
+      "method": "GET",
+      "path": "/scans",
+      "handler": "scans_list",
+      "status": "implemented",
+      "native": "GET /jobs",
+      "decision": "Native job list; response contract and IDs differ."
+    },
+    {
+      "method": "POST",
+      "path": "/scans",
+      "handler": "create_scan_form",
+      "status": "implemented",
+      "native": "GET+POST /assessments/new; POST /jobs",
+      "decision": "Guided native assessment form and job submission; route and request contract differ."
+    },
+    {
+      "method": "GET",
+      "path": "/scans/{scan_id}",
+      "handler": "scan_detail",
+      "status": "implemented",
+      "native": "GET /jobs/{job_id}",
+      "decision": "Native job detail; identifiers and presentation differ."
+    },
+    {
+      "method": "GET",
+      "path": "/scans/{scan_id}/report/download",
+      "handler": "download_report_ui",
+      "status": "partial",
+      "native": "olympus vulcan report",
+      "decision": "Report generation exists in Vulcan, but no authenticated Web download route."
+    },
+    {
+      "method": "GET",
+      "path": "/terms-of-service",
+      "handler": "terms_of_service",
+      "status": "missing",
+      "native": null,
+      "decision": "VAP public informational page is not part of the native operator control plane; product documentation is maintained under docs/."
+    },
+    {
+      "method": "WS",
+      "path": "/ws",
+      "handler": "websocket_endpoint",
+      "status": "partial",
+      "native": "GET /jobs/{job_id}/events",
+      "decision": "Native bounded Server-Sent Events stream; protocol and payload differ."
+    }
+  ],
+  "native_routes": [
+    {
+      "surface": "api",
+      "method": "GET",
+      "path": "/api/v1/capabilities",
+      "handler": "capabilities"
+    },
+    {
+      "surface": "api",
+      "method": "GET",
+      "path": "/api/v1/engagements",
+      "handler": "list_engagements"
+    },
+    {
+      "surface": "api",
+      "method": "GET",
+      "path": "/api/v1/engagements/{engagement_id}",
+      "handler": "get_engagement"
+    },
+    {
+      "surface": "api",
+      "method": "GET",
+      "path": "/api/v1/jobs",
+      "handler": "list_jobs"
+    },
+    {
+      "surface": "api",
+      "method": "POST",
+      "path": "/api/v1/jobs",
+      "handler": "submit"
+    },
+    {
+      "surface": "api",
+      "method": "GET",
+      "path": "/api/v1/jobs/{job_id}",
+      "handler": "get_job"
+    },
+    {
+      "surface": "api",
+      "method": "POST",
+      "path": "/api/v1/jobs/{job_id}/cancel",
+      "handler": "cancel_job"
+    },
+    {
+      "surface": "api",
+      "method": "GET",
+      "path": "/health",
+      "handler": "health"
+    },
+    {
+      "surface": "api",
+      "method": "GET",
+      "path": "/metrics",
+      "handler": "metrics"
+    },
+    {
+      "surface": "api",
+      "method": "GET",
+      "path": "/ready",
+      "handler": "ready"
+    },
+    {
+      "surface": "web",
+      "method": "GET",
+      "path": "/",
+      "handler": "dashboard"
+    },
+    {
+      "surface": "web",
+      "method": "GET",
+      "path": "/assessments/new",
+      "handler": "new_assessment"
+    },
+    {
+      "surface": "web",
+      "method": "POST",
+      "path": "/assessments/preview",
+      "handler": "preview_assessment"
+    },
+    {
+      "surface": "web",
+      "method": "GET",
+      "path": "/engagements",
+      "handler": "engagements_page"
+    },
+    {
+      "surface": "web",
+      "method": "GET",
+      "path": "/engagements/{engagement_id}",
+      "handler": "engagement_detail"
+    },
+    {
+      "surface": "web",
+      "method": "GET",
+      "path": "/health",
+      "handler": "health"
+    },
+    {
+      "surface": "web",
+      "method": "GET",
+      "path": "/jobs",
+      "handler": "jobs_page"
+    },
+    {
+      "surface": "web",
+      "method": "POST",
+      "path": "/jobs",
+      "handler": "submit_job"
+    },
+    {
+      "surface": "web",
+      "method": "GET",
+      "path": "/jobs/{job_id}",
+      "handler": "job_detail"
+    },
+    {
+      "surface": "web",
+      "method": "POST",
+      "path": "/jobs/{job_id}/cancel",
+      "handler": "cancel_job"
+    },
+    {
+      "surface": "web",
+      "method": "GET",
+      "path": "/jobs/{job_id}/events",
+      "handler": "job_events"
+    },
+    {
+      "surface": "web",
+      "method": "GET",
+      "path": "/login",
+      "handler": "login_form"
+    },
+    {
+      "surface": "web",
+      "method": "POST",
+      "path": "/login",
+      "handler": "login"
+    },
+    {
+      "surface": "web",
+      "method": "POST",
+      "path": "/logout",
+      "handler": "logout"
+    },
+    {
+      "surface": "web",
+      "method": "GET",
+      "path": "/tools",
+      "handler": "tools_page"
+    }
+  ],
+  "data_contracts": {
+    "job_states": {
+      "legacy": [
+        "queued",
+        "running",
+        "completed",
+        "failed",
+        "canceled",
+        "report_failed",
+        "deleted",
+        "archived"
+      ],
+      "native": [
+        "queued",
+        "running",
+        "succeeded",
+        "partial",
+        "failed",
+        "timed_out",
+        "cancelled",
+        "policy_denied"
+      ],
+      "mapping": {
+        "queued": "queued",
+        "running": "running",
+        "completed": "succeeded",
+        "failed": "failed",
+        "canceled": "cancelled"
+      },
+      "unmapped_legacy": [
+        "report_failed",
+        "deleted",
+        "archived"
+      ],
+      "unmapped_native": [
+        "partial",
+        "timed_out",
+        "policy_denied"
+      ],
+      "status": "partial",
+      "decision": "Do not collapse partial, timeout or policy denial into clean/completed. VAP report_failed and deleted require explicit import semantics before a converter can be specified."
+    },
+    "persistence": {
+      "legacy": "VAP SQLAlchemy/Alembic database (SQLite by default; optional Postgres), scans and VAP-specific user/consent/config/feed tables.",
+      "native": "Themis versioned SQLite job store; separate native engagement store; no VAP/SQLAlchemy/Alembic import at runtime.",
+      "status": "partial",
+      "migration": "No VAP database importer exists. Native migrate rejects foreign/VAP databases. Preserve the old database and do not point native migrate at vap.db."
+    },
+    "audit": {
+      "legacy": "VAP database audit events and route-specific records, including actor/subject and product data.",
+      "native": "Redacted append-only structured NDJSON audit for native API/Web/job operations; no legacy audit import or query endpoint.",
+      "status": "partial",
+      "migration": "No lossless VAP audit converter or provenance mapping has been verified."
+    },
+    "reports": {
+      "legacy": "Per-scan PDF download from UI and API routes.",
+      "native": "Vulcan JSON/Markdown/HTML/PDF report generation from Olympus contracts; no native authenticated HTTP download route.",
+      "status": "partial",
+      "migration": "Report schema, stored files, access policy and download audit are not imported or route-compatible."
+    },
+    "cancellation": {
+      "legacy": "Celery revoke with terminate=true for parent and child tasks; database state becomes canceled.",
+      "native": "Durable job cancellation with cooperative cancellation, process-group termination, recovery and canonical cancelled state.",
+      "status": "partial",
+      "migration": "Native cancellation is verified for native jobs only; no conversion of live VAP/Celery task IDs or queued work."
+    }
+  },
+  "retirement_gate": [
+    "Review every missing and partial route with product owner before removing the archived VAP source.",
+    "Specify and test a read-only legacy database importer with source backup, counts, deterministic IDs, provenance and rollback before enabling conversion.",
+    "Do not import consent or product analytics records into Olympus without a separate purpose and privacy review.",
+    "Run API/Web route, job-state, persistence, audit, report and cancellation contract tests on the source and native implementation before source removal.",
+    "No scanner live traffic or production readiness is inferred from this offline parity inventory."
+  ]
+}

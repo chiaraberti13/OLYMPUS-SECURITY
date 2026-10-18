@@ -208,8 +208,10 @@ dello scope e delle evidenze. Il runtime mantenuto è ora interamente nativo.
   VAP. Immagini native dalla wheel, smoke API/Web HTTPS/worker, test di lifecycle
   e CI container; guida IT/EN e rollback in
   [`docs/themis-runtime.md`](docs/themis-runtime.md). Il sorgente legacy resta
-  archiviato; import di `vap.db` e parità completa sono il punto successivo.
-- [ ] Definire una matrice di parità per endpoint, job state, persistenza, audit,
+  archiviato; la matrice route/dati è in `docs/parity/themis-vap-runtime.json`.
+  Import di `vap.db`, verifica funzionale delle lacune e ritiro fisico del
+  sorgente restano lavoro SEC-A.
+- [x] Definire una matrice di parità per endpoint, job state, persistenza, audit,
   report e cancellazione prima di rimuovere il codice legacy.
 - [ ] Rendere il control plane nativo fail-closed: autenticazione obbligatoria,
   autorizzazioni minime per rotta, scope registrati, limiti di concorrenza e live

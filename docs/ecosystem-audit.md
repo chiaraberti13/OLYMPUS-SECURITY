@@ -1,7 +1,15 @@
 # Olympus ecosystem audit
 
-_Audit date: 2026-08-27. Scope: every Olympus-native module, the temporary VAP
-compatibility boundary, and the specialist-engine integration layer._
+_Historical audit date: 2026-08-27. The THEMIS runtime, deployment and parity
+sections below were rechecked against main on 2026-10-18; the other module
+snapshots and verification claims remain historical._
+
+> **Current THEMIS status:** API, Web, migrations and workers run from the native
+> wheel. The VAP tree is archived and is not a supported runtime. Its route and
+> data-contract differences are tracked in
+> [`parity/themis-vap-runtime.json`](parity/themis-vap-runtime.json). Do not use
+> this historical audit as evidence that legacy VAP was booted or that scanner
+> live execution was verified in the current environment.
 
 > Method: the CLI tree was introspected live (`typer`/`click`), module sources
 > and imports were read, the 24 vendored scanners were parsed for their real
@@ -33,7 +41,7 @@ compatibility boundary, and the specialist-engine integration layer._
 | minerva | native | Incident triage & chain of custody | `olympus minerva` | ✅ | 2 files | basic execution verified |
 | vulcan | native | Aggregation, dedup, ranking, reporting | `olympus vulcan` | ✅ | 1 file | basic execution verified |
 | metis | native | Capability routing, planning, CTI cases and guided labs | `olympus metis` | ✅ | 1 file | e2e verified (offline) |
-| themis | native + temporary VAP compatibility | Specialist-engine control plane | `olympus themis` | ✅ | execution/jobs/capability contracts | native jobs e2e verified (offline) |
+| themis | native; archived VAP source | Specialist-engine control plane | `olympus themis` | ✅ | execution/jobs/capability contracts and VAP parity inventory | native jobs e2e covered by CI; no live scanner claim |
 
 Ruff and the complete automated test suite are blocking CI checks.
 
@@ -76,37 +84,36 @@ commands.
   blacklist and resource bounds. Active pivots require authorization and a
   scope gate.
 
-### THEMIS (native control plane + temporary VAP compatibility) — `olympus themis`
+### THEMIS (native control plane; archived VAP source) — `olympus themis`
 
 - **Source:** `vendor/vulnerability-assessment-platform/` (upstream rev
   `6c6b395…`, GPL-3.0-only). Complete FastAPI app (~40 routes), 24 scanners, SQLAlchemy +
   3 Alembic migrations, Celery/Redis, report generator, templates, static,
   assets, tests.
-- **Native CLI:** capability readiness, real scanner execution and durable job
-  operations (`init`, `submit`, `list`, `status`, `cancel`, `work`). Every
-  worker job passes through the same scope, authorization, SSRF, bounds and
-  audit application service as synchronous execution.
-- **Temporary compatibility CLI:** `serve, migrate, workers, scan, info` keeps
-  the VAP web surface available while its required API/report contracts migrate.
-- **Deps:** `pip install -e ".[themis]"` (or the vendored `requirements.txt`).
-  **Services:** Redis (broker/result/cache) + Celery worker for queued scans;
-  SQLite (default) or Postgres via `VAP_DATABASE_URL`. **DB:** Alembic
-  migrations.
-- **Config/env:** `VAP_*` (host/port, DB URL, Celery URLs, reports dir, live
-  scans, HTTPS, secrets). Documented in `.env.docker.example` and
-  `vendor/.../.env.example`.
-- **Verified here:** the web app **booted**, auto-ran all 3 migrations, and
-  served `/`, `/api/v1/scan-catalog`, `/api/v1/scans` (HTTP 200); Redis absent →
-  clear "broker unreachable" warning (graceful). Docker Compose config validated
-  (`docker compose config`); a live `up` was **not** run (no Docker daemon here).
-- **Docs:** README (EN/IT) native+Docker, `docs/scanner-matrix.md`,
-  `docs/install.md`, `docs/vap-to-themis-rename.md`, `docs/provenance.md`.
+- **Native runtime:** `api`, `serve`/`web`, `migrate` and `workers` use the same
+  authenticated native application, scope registry, redacted audit and SQLite
+  job store. Live scans are disabled by default; outcomes remain partial or
+  failed when a scanner is unavailable. Native jobs retain queued/running,
+  succeeded/partial/failed/timed-out/cancelled/policy-denied states.
+- **Archived source:** the GPL-3.0 VAP web app, scanner catalogue and database
+  are preserved for provenance. The native wheel and containers do not load or
+  execute it. Legacy database import and full route/data parity are not
+  implemented; see `docs/parity/themis-vap-runtime.json`.
+- **Dependencies:** `pip install -e ".[themis]"` installs the native API/Web
+  runtime. Native migrations use SQLite and do not require Redis, Celery,
+  SQLAlchemy or Alembic. External scanner binaries are installed separately.
+- **Security boundary:** API and Web require credentials, registered scope and
+  HTTPS for browser sessions. The worker shares only the job store and scope
+  configuration; Docker egress allowlisting, seccomp and AppArmor remain open in
+  `SEC-B`.
+- **Verification references:** `tests/integration/test_themis_native_runtime.py`,
+  `scripts/smoke_native_runtime.py`, the native container suite and CI. No live
+  scan or production-ready scanner status is inferred here.
 
 ## 4. Incomplete, unverified, or simulated components (honest findings)
 
-- **The temporary vendored web app still simulates by default** (upstream behaviour,
-  preserved verbatim). **Resolved for the Olympus-native path:** `olympus themis
-  run` is a new native execution layer with explicit states
+- **The archived vendored web app is not a supported runtime.** The native
+  `olympus themis run` path uses explicit states
   (`live`/`unavailable`/`failed`/`disabled`/`simulation`) that **never** emits a
   simulated finding unless `--simulate` (or `THEMIS_SIMULATION_MODE=true`) is
   explicitly given. Six scanners have real native adapters (nmap, nikto, wafw00f,
@@ -134,13 +141,12 @@ commands.
 
 | Need | For | How to obtain |
 | --- | --- | --- |
-| Redis | THEMIS queued scans (Celery) | `docker compose up` (bundled) or `apt-get install redis-server` |
 | Scanner binaries (19 OSS) | live THEMIS scans | `docker-compose.scanners.yml` / `installer.sh` / `olympus themis deps` |
 | Commercial engines (5) | nessus/burp/acunetix/zap/openvas | manual install + licence/API config |
-| Docker daemon | container operation | host Docker Engine (absent in this sandbox) |
-| `.[themis]` extra | temporary VAP web/worker compatibility | `bash scripts/setup-vendored-tools.sh` |
+| Docker daemon | native container suite and deployment | host Docker Engine |
+| VAP tools/runtime | no native operation; archived source only | not required or supported by Olympus |
 
-## 6. Verification commands run in this environment
+## 6. Historical verification and current references
 
 See `docs/scanner-matrix.md` for the per-scanner matrix and
 `docs/vap-to-themis-rename.md` for the rename verification. Ecosystem-level:
@@ -150,8 +156,10 @@ See `docs/scanner-matrix.md` for the per-scanner matrix and
 - `olympus doctor` / `olympus themis doctor` / `olympus argus doctor` — real diagnostics.
 - `olympus argus phone --number +390212345678` — real offline OSINT output.
 - `olympus themis jobs submit/list/status/cancel/work` — durable native lifecycle.
-- THEMIS web app booted + migrated + served 3 routes (HTTP 200).
-- `docker compose config` (both files) — valid; daemon absent so no `up`.
+- Native THEMIS route parity is contract-tested against both source trees.
+- `python scripts/smoke_native_runtime.py` and `make test-container` are the
+  documented native runtime checks; execute them in the current host/CI before
+  claiming they pass for a new revision. Docker is not assumed present here.
 - Full test suite and Ruff pass as blocking CI checks.
 
 ## 7. Confirmation
