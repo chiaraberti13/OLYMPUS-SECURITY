@@ -8,6 +8,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
+from olympus.core.execution import safe_terminal_text
 from olympus.core.fileio import atomic_write_text
 from olympus.core.models import Alert, Asset, Finding, ReportSummary, SecurityReport
 from olympus.vulcan.aggregate import rank_findings, severity_breakdown
@@ -145,14 +146,14 @@ def render_report_html(report: SecurityReport) -> str:
     parts: list[str] = [
         "<!doctype html><html lang='en'><head><meta charset='utf-8'>",
         f'<meta http-equiv="Content-Security-Policy" content="{_REPORT_CSP}">',
-        f"<title>Security report — {html.escape(report.engagement)}</title>",
+        f"<title>Security report — {_html_text(report.engagement)}</title>",
         "<style>body{font-family:system-ui,sans-serif;max-width:60rem;margin:2rem auto;"
         "padding:0 1rem;color:#111}h1{margin-bottom:0}.meta{color:#666}"
         ".sev{display:inline-block;padding:.1rem .5rem;border-radius:.3rem;color:#fff;"
         "font-size:.8rem}.card{border:1px solid #ddd;border-radius:.5rem;padding:1rem;"
         "margin:.75rem 0}table{border-collapse:collapse}td,th{border:1px solid #ddd;"
         "padding:.3rem .6rem;text-align:left}</style></head><body>",
-        f"<h1>Security report — {html.escape(report.engagement)}</h1>",
+        f"<h1>Security report — {_html_text(report.engagement)}</h1>",
         f"<p class='meta'>Generated {generated} by Olympus Vulcan · "
         f"{len(report.assets)} assets · {len(report.findings)} findings · "
         f"{len(report.alerts)} alerts</p>",
@@ -170,8 +171,8 @@ def render_report_html(report: SecurityReport) -> str:
         for asset in report.assets:
             label = asset.hostname or ", ".join(asset.ip_addresses) or asset.asset_id
             parts.append(
-                f"<li>{html.escape(asset.asset_id)} — {html.escape(label)} "
-                f"({html.escape(asset.asset_type.value)}, {html.escape(asset.source.value)})</li>"
+                f"<li>{_html_text(asset.asset_id)} — {_html_text(label)} "
+                f"({_html_text(asset.asset_type.value)}, {_html_text(asset.source.value)})</li>"
             )
         parts.append("</ul>")
     parts.append("<h2>Findings (ranked)</h2>")
@@ -182,14 +183,14 @@ def render_report_html(report: SecurityReport) -> str:
         parts.append(
             f"<div class='card'><span class='sev' style='background:{color}'>"
             f"{finding.severity.value.upper()}</span> "
-            f"<strong>{html.escape(finding.title)}</strong>"
-            f"<p class='meta'>{html.escape(finding.finding_id)} · "
-            f"{html.escape(finding.source.value)} · {html.escape(finding.asset_id)}"
+            f"<strong>{_html_text(finding.title)}</strong>"
+            f"<p class='meta'>{_html_text(finding.finding_id)} · "
+            f"{_html_text(finding.source.value)} · {_html_text(finding.asset_id)}"
             + (f" · CVSS {finding.cvss}" if finding.cvss is not None else "")
             + "</p>"
-            + (f"<p>{html.escape(finding.description)}</p>" if finding.description else "")
+            + (f"<p>{_html_text(finding.description)}</p>" if finding.description else "")
             + (
-                f"<p><strong>Remediation:</strong> {html.escape(finding.remediation)}</p>"
+                f"<p><strong>Remediation:</strong> {_html_text(finding.remediation)}</p>"
                 if finding.remediation
                 else ""
             )
@@ -204,8 +205,8 @@ def render_report_html(report: SecurityReport) -> str:
             provenance += "; MITRE " + ", ".join(alert.mitre_attack)
         parts.append(
             f"<div class='card'><strong>[{alert.severity.value.upper()}] "
-            f"{html.escape(alert.title)}</strong><p class='meta'>{html.escape(alert.alert_id)} · "
-            f"{html.escape(alert.source.value)} · {html.escape(provenance)}</p></div>"
+            f"{_html_text(alert.title)}</strong><p class='meta'>{_html_text(alert.alert_id)} · "
+            f"{_html_text(alert.source.value)} · {_html_text(provenance)}</p></div>"
         )
     parts.append("</body></html>")
     return "".join(parts)
@@ -234,9 +235,19 @@ def export_markdown(markdown: str, path: Path) -> None:
     export_text(markdown, path)
 
 
+def _html_text(value: str) -> str:
+    """HTML-escape text that may be attacker-controlled, after neutralizing
+    terminal control sequences (ANSI/OSC, C0/C1). ``html.escape`` alone leaves
+    ESC/BEL and other controls intact, so a finding title carrying escape codes
+    would reach an operator who opens or ``cat``s the exported report."""
+    return html.escape(safe_terminal_text(value))
+
+
 def _markdown_text(value: str) -> str:
-    compact = " ".join(value.split())
-    escaped = compact.replace("\\", "\\\\")
+    # safe_terminal_text strips terminal control sequences and collapses the
+    # value onto one line; Markdown metacharacters are then escaped so target
+    # text cannot forge structure in the rendered report.
+    escaped = safe_terminal_text(value).replace("\\", "\\\\")
     for character in "`*_[]<>|":
         escaped = escaped.replace(character, f"\\{character}")
     return escaped

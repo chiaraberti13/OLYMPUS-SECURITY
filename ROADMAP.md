@@ -451,6 +451,23 @@ Hypothesis) e che ciascuno dei sette adapter rifiuti l'annidamento eccessivo con
 `ParseError`. Nessuna scansione eseguita. Restano aperti il fuzzing sistematico di
 tutti i parser, l'escaping degli export (Markdown/SARIF) e le restanti voci SEC-H.
 
+**Avanzamento verificato (2026-10-19, neutralizzazione controlli negli export):**
+i renderer di report HTML e Markdown di Vulcan (`render_report_html`,
+`render_report_markdown`) instradano ora ogni testo controllabile dal target
+attraverso `olympus.core.execution.safe_terminal_text` prima dell'escaping
+HTML/Markdown. Finora l'escaping (`html.escape`, metacaratteri Markdown)
+lasciava intatti ESC, BEL e gli altri controlli C0/C1 (incluse le sequenze
+ANSI/OSC): un titolo o una descrizione di finding provenienti da banner o output
+scanner potevano quindi iniettare sequenze terminale quando un operatore apriva o
+eseguiva `cat` del report esportato (terminal injection, falsificazione di righe
+di log). La stessa sanitizzazione condivisa era già applicata alle viste Web e
+Vulcan CLI/TUI; ora copre anche gli export testuali. L'export JSON canonico resta
+invariato perché `json.dumps` già neutralizza i controlli come sequenze `\uXXXX`
+inerti. Un test offline verifica che né l'HTML né il Markdown contengano più
+ESC/BEL/DEL/BS pur conservando il testo stampabile. Restano aperti l'export SARIF,
+la protezione da formula injection per eventuali export tabellari, il fuzzing dei
+parser e le restanti voci SEC-H.
+
 ### Intervento I · `SEC-I` — Security operations del progetto (**P2**)
 
 - [ ] Definire in `SECURITY.md` tempi di presa in carico e di risoluzione per

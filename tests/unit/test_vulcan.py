@@ -336,6 +336,29 @@ def test_render_html_sets_restrictive_csp() -> None:
     assert "http://" not in html_doc and "https://" not in html_doc
 
 
+def test_report_exports_neutralize_terminal_control_sequences() -> None:
+    """Target-controlled text cannot smuggle ANSI/OSC/C0 controls into a report."""
+    hostile = "clear\x1b[2J\x1b]0;pwn\x07 then\x7f\x08more"
+    asset = Asset(asset_type=AssetType.HOST, hostname=hostile, source=Source.ARGUS)
+    finding = Finding(
+        asset_id="AST-1",
+        source=Source.ARTEMIS,
+        title=hostile,
+        severity=Severity.HIGH,
+        description=hostile,
+        remediation=hostile,
+    )
+    alert = Alert(alert_id="ALT-1", event_id="EVT-1", title=hostile, source=Source.APOLLO)
+
+    control_bytes = ("\x1b", "\x07", "\x7f", "\x08")
+    for render in (render_html, render_markdown):
+        rendered = render("eng", [asset], [finding], [alert])
+        for byte in control_bytes:
+            assert byte not in rendered
+        # The surrounding, printable text survives sanitization.
+        assert "clear" in rendered and "more" in rendered
+
+
 def test_cli_report_html_and_min_severity(tmp_path: Path) -> None:
     findings_path = _write(
         tmp_path / "f.json", [_finding("low", Severity.LOW), _finding("crit", Severity.CRITICAL)]
