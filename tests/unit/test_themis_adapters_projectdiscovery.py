@@ -205,6 +205,31 @@ def test_nuclei_parser_rejects_non_jsonl_output() -> None:
         )
 
 
+def test_nuclei_parser_rejects_oversized_jsonl_record() -> None:
+    line = (
+        '{"template-id":"t","info":{"name":"'
+        + ("€" * (nuclei_module.MAX_NUCLEI_JSONL_LINE_BYTES // 3 + 1))
+        + '"}}'
+    )
+    with pytest.raises(ParseError, match="byte limit"):
+        NucleiAdapter().parse(_out(line), "127.0.0.1", _req())
+
+
+def test_nuclei_parser_rejects_excessive_json_nesting() -> None:
+    depth = nuclei_module.MAX_NUCLEI_JSON_DEPTH + 1
+    line = (
+        '{"template-id":"t","info":{"name":"n","extra":' + ("[" * depth + "0" + "]" * depth) + "}}"
+    )
+    with pytest.raises(ParseError, match="depth limit"):
+        NucleiAdapter().parse(_out(line), "127.0.0.1", _req())
+
+
+def test_nuclei_parser_does_not_count_brackets_in_json_strings() -> None:
+    line = '{"template-id":"t","info":{"name":"[[]]\\"{}"}}'
+    findings = NucleiAdapter().parse(_out(line), "127.0.0.1", _req())
+    assert len(findings) == 1
+
+
 @given(
     entry=st.recursive(
         st.one_of(st.none(), st.booleans(), st.integers(), st.text(max_size=64)),

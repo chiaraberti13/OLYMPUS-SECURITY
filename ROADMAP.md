@@ -413,8 +413,11 @@ record JSONL oggetto con `template-id` non vuoto e `info` oggetto; record JSON
 validi ma estranei allo schema non vengono più trasformati in finding sintetici.
 Un test Hypothesis genera valori JSON arbitrari e verifica che siano rifiutati
 con `ParseError` oppure producano un solo finding correttamente attribuito.
-Restano aperti fuzzing degli altri parser, limiti per JSON annidato, escaping
-degli export e gli altri criteri SEC-H.
+Il parser inoltre limita ciascuna riga JSONL a 1 MiB e la profondità JSON a 64
+livelli prima del decoding ricorsivo; `RecursionError` è normalizzato in
+`ParseError`. Test offline coprono record sovradimensionati, nesting oltre il
+limite e delimitatori tra virgolette. Restano aperti fuzzing degli altri parser,
+escaping degli export e gli altri criteri SEC-H.
 
 **Avanzamento verificato (2026-10-19, CSP export HTML):** il report HTML
 autoconsistente di Vulcan (`render_report_html`) incorpora ora una

@@ -48,6 +48,38 @@ _SEVERITY: dict[str, Severity] = {
 #: the sandbox user's ``$HOME`` is not the operator's.
 TEMPLATES_VARIABLE = "THEMIS_NUCLEI_TEMPLATES"
 
+# The process runner caps the whole stream, but the parser is also used directly
+# (for example on imported evidence). Bound each record and its structural depth
+# before handing untrusted text to Python's recursive JSON decoder.
+MAX_NUCLEI_JSONL_LINE_BYTES = 1 * 1024 * 1024
+MAX_NUCLEI_JSON_DEPTH = 64
+
+
+def _check_json_depth(line: str) -> None:
+    """Reject deeply nested JSON without counting delimiters inside strings."""
+    depth = 0
+    in_string = False
+    escaped = False
+    for char in line:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+        elif char in "[{":
+            depth += 1
+            if depth > MAX_NUCLEI_JSON_DEPTH:
+                raise ParseError(
+                    f"nuclei JSONL record exceeds the {MAX_NUCLEI_JSON_DEPTH}-level depth limit"
+                )
+        elif char in "]}":
+            depth -= 1
+
 
 class NucleiAdapter(ScannerAdapter):
     name = "nuclei"
@@ -97,9 +129,18 @@ class NucleiAdapter(ScannerAdapter):
             line = line.strip()
             if not line or not line.startswith("{"):
                 continue
+            if len(line) > MAX_NUCLEI_JSONL_LINE_BYTES:
+                raise ParseError(
+                    f"nuclei JSONL line exceeds the {MAX_NUCLEI_JSONL_LINE_BYTES}-byte limit"
+                )
+            if len(line.encode("utf-8")) > MAX_NUCLEI_JSONL_LINE_BYTES:
+                raise ParseError(
+                    f"nuclei JSONL line exceeds the {MAX_NUCLEI_JSONL_LINE_BYTES}-byte limit"
+                )
+            _check_json_depth(line)
             try:
                 entry = json.loads(line)
-            except json.JSONDecodeError as exc:
+            except (json.JSONDecodeError, RecursionError) as exc:
                 raise ParseError(f"nuclei emitted an unparseable JSONL line: {exc}") from exc
             if not isinstance(entry, dict):
                 raise ParseError("nuclei JSONL record must be an object")
