@@ -807,8 +807,14 @@ da artifact firmato e smoke test completo fuori dal checkout.
 - [ ] Allineare README e `integrations/maturity.py`: il
   ledger attuale dichiara 12 adapter `live-tested`, 3 `offline-tested` incluso
   Wapiti e nessun `production-ready`.
-- [ ] Aggiungere un link checker, esempi eseguibili e test che rigenerino tabelle
-  di capacità/maturità dal registry invece di mantenerle a mano.
+- [~] Aggiungere un link checker, esempi eseguibili e test che rigenerino tabelle
+  di capacità/maturità dal registry invece di mantenerle a mano. Link checker
+  implementato: `scripts/check_doc_links.py` verifica tutti i Markdown first-party
+  (esclusa `vendor/`), validando l'esistenza dei file linkati e gli anchor
+  (slug stile GitHub, ignorando le heading dentro i fence di codice); è eseguito a
+  ogni run CI tramite `tests/unit/test_doc_links.py`, che fallisce su qualunque
+  link interno rotto (64 file, 0 rotti alla verifica). Restano gli esempi eseguibili
+  e la rigenerazione automatica delle tabelle di maturità dal registry.
 - [x] Consolidare il backlog tecnico e strategico in questo unico `ROADMAP.md`,
   eliminando roadmap parallele che potrebbero divergere.
 
