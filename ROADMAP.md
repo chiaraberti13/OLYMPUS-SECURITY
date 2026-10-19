@@ -376,7 +376,11 @@ markup Rich, ma la difesa non è sistematica.
   inventati. Tutti i 15 parser degli adapter `themis` sono ora coperti da una
   suite property-based che genera output ostile JSON/JSONL/testo e verifica
   l'invariante «lista di `Finding` oppure `ParseError`/`ValueError` gestito, mai
-  eccezione non gestita». Restano da coprire i parser di `apollo` e `metis`.
+  eccezione non gestita». I parser di ingest `apollo` (access-log, Sigma) e `metis`
+  (bundle STIX, evento MISP) sono ora coperti da una suite analoga con l'invariante
+  «risultato valido oppure `ValueError` gestito» (`StixError`, `MispError`,
+  `SigmaImportError` sono sottoclassi di `ValueError`). Resta da seedare il corpus
+  iniziale dalle fixture reali e da estendere ai normalizzatori ECS/OCSF.
 - [ ] Neutralizzare sequenze di escape ANSI/OSC e caratteri di controllo prima di
   mostrarle in CLI, TUI e log (terminal injection, falsificazione di righe di log).
 - [ ] Garantire escaping contestuale in tutti gli export: HTML con Content Security
@@ -480,8 +484,19 @@ l'invariante: `parse()` restituisce una lista di `Finding` oppure solleva
 `ParseError`/`ValueError` (che `ScannerAdapter.run` converte in stato FAILED
 pulito), mai un'eccezione non gestita che farebbe crashare il job. Un test di
 guardia impedisce che la parametrizzazione collassi a vuoto. Nessuno scanner è
-eseguito. La voce resta `[~]`: i parser di `apollo` e `metis` non sono ancora
-coperti.
+eseguito.
+
+**Avanzamento verificato (2026-10-19, fuzzing parser Apollo/Metis):** aggiunta
+`tests/unit/test_cti_parser_fuzz.py` che sottopone a fuzzing Hypothesis i parser
+di input non fidato di Apollo e Metis — `bundle_to_indicators` (STIX),
+`event_to_indicators` (MISP), `parse_sigma_yaml` e `parse_access_log` — con feed
+ostili JSON/JSONL/testo (controlli C0/C1 e unicode). L'invariante verificato: ogni
+parser restituisce un risultato valido oppure solleva un `ValueError` gestito
+(`StixError`/`MispError`/`SigmaImportError` ne sono sottoclassi), mai un'eccezione
+non gestita; `parse_access_log` non solleva mai sui contenuti (le righe non
+interpretabili finiscono in `skipped`). Analisi preliminare: 0 crash non gestiti su
+migliaia di esempi generati. Restano da seedare il corpus dalle fixture reali e da
+coprire i normalizzatori ECS/OCSF prima di spuntare la voce.
 
 ### Intervento I · `SEC-I` — Security operations del progetto (**P2**)
 
