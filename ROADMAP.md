@@ -379,8 +379,11 @@ markup Rich, ma la difesa non è sistematica.
   eccezione non gestita». I parser di ingest `apollo` (access-log, Sigma) e `metis`
   (bundle STIX, evento MISP) sono ora coperti da una suite analoga con l'invariante
   «risultato valido oppure `ValueError` gestito» (`StixError`, `MispError`,
-  `SigmaImportError` sono sottoclassi di `ValueError`). Resta da seedare il corpus
-  iniziale dalle fixture reali e da estendere ai normalizzatori ECS/OCSF.
+  `SigmaImportError` sono sottoclassi di `ValueError`). Il corpus iniziale dalle
+  fixture reali è ora usato: una suite di mutation fuzzing parte dall'output reale
+  catturato in `tests/fixtures/themis/live/` (nmap, wafw00f, testssl, wapiti,
+  whatweb) e vi applica mutazioni byte-level, verificando lo stesso invariante.
+  Resta da estendere il fuzzing ai normalizzatori ECS/OCSF.
 - [~] Neutralizzare sequenze di escape ANSI/OSC e caratteri di controllo prima di
   mostrarle in CLI, TUI e log (terminal injection, falsificazione di righe di log).
 - [ ] Garantire escaping contestuale in tutti gli export: HTML con Content Security
@@ -551,6 +554,18 @@ target host e URL su tutti e 15 gli adapter. Insieme al rifiuto dei nomi file co
 traversal da parte di `output_path`/`state_file_path`/`audit_log_path` (già
 coperto), la voce passa a `[~]`; resta da auditare la SSRF di secondo ordine sugli
 URL di follow-up costruiti da output dello scanner nei flussi di ricognizione.
+
+**Avanzamento verificato (2026-10-19, fuzzing seedato dal corpus reale):** aggiunta
+`tests/unit/test_themis_parser_corpus_fuzz.py`, mutation fuzzing che parte
+dall'output reale catturato in `tests/fixtures/themis/live/` (nmap, wafw00f,
+testssl, wapiti, whatweb) e applica mutazioni byte-level (troncamento, iniezione di
+controlli/ANSI, cancellazione di slice, duplicazione di righe, sostituzione di un
+carattere), verificando lo stesso invariante «lista di `Finding` oppure
+`ParseError`/`ValueError` gestito, mai eccezione non gestita». Partire da output
+valido spinge le mutazioni nei percorsi reali del parser; un'ancora senza mutazioni
+verifica che il seed stesso sia robusto. 0 crash non gestiti su centinaia di
+esempi. Questo soddisfa la clausola «corpus iniziale dalle fixture reali» della
+voce fuzzing (che resta `[~]` per i normalizzatori ECS/OCSF).
 
 ### Intervento I · `SEC-I` — Security operations del progetto (**P2**)
 
