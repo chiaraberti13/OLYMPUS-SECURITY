@@ -65,6 +65,14 @@ def test_nmap_rejects_over_deep_xml() -> None:
         NmapAdapter().parse(_out(_fixture("nmap_deep_nesting.xml")), "127.0.0.1", _req())
 
 
+def test_nmap_normalizes_unknown_declared_encoding() -> None:
+    # A malformed encoding declaration makes ElementTree raise LookupError,
+    # not ParseError. Keep that decoder detail inside the adapter boundary.
+    hostile_xml = '<?xml version="1.0" encoding="XTF-8"?><nmaprun />'
+    with pytest.raises(ParseError, match="unparseable"):
+        NmapAdapter().parse(_out(hostile_xml), "127.0.0.1", _req())
+
+
 def test_nuclei_rejects_over_deep_jsonl() -> None:
     with pytest.raises(ParseError, match="depth limit"):
         NucleiAdapter().parse(_out(_fixture("nuclei_deep_nesting.jsonl")), "127.0.0.1", _req())

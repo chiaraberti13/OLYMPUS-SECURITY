@@ -310,8 +310,11 @@ il report consente di dimostrare manifest, firma, scope e policy effettivi usati
   deployment multiutente; mantenere permessi per azione e revoca immediata.
 - [ ] Rendere uniforme la rotazione: overlap breve, scadenza obbligatoria, audit
   dell'identità e mai del segreto.
-- [ ] Aggiungere property-based test alla redazione in `core.execution` per query
-  URL, header, mapping annidati, output scanner, Unicode e chiavi inattese.
+- [x] Aggiungere property-based test alla redazione in `core.execution` per query
+  URL, header, mapping annidati, output scanner, Unicode e chiavi inattese
+  (`tests/unit/test_property_security.py`); i casi generati verificano la rimozione
+  del token, la conservazione dei campi diagnostici non sensibili e il trattamento
+  di URL embedded in output scanner Unicode.
 
 **Criterio di completamento:** nessun segreto compare in log, eccezioni, report,
 telemetria o file temporanei nei test canary; tutte le credenziali di servizio sono
@@ -608,6 +611,14 @@ errori di contratto/migrazione sono sottoclassi — o `pydantic.ValidationError`
 mai un'eccezione non gestita. 0 crash su centinaia di esempi. Con questo la
 copertura di fuzzing dei parser di `themis/adapters`, `apollo` e `metis` è completa
 e la voce passa a `[x]`.
+
+**Avanzamento verificato (2026-10-19, encoding XML ostile):** la suite di
+mutation fuzzing ha riprodotto un'eccezione `LookupError` non gestita quando un
+input Nmap dichiarava un encoding inesistente. `NmapAdapter` converte ora gli
+errori di encoding del decoder in `ParseError`, mantenendo il fallimento confinato
+al parser; `test_nmap_normalizes_unknown_declared_encoding` copre la regressione
+offline. Nessuno scanner è stato eseguito; `SEC-H` resta aperto per i controlli
+residui su escaping degli export e URL di follow-up.
 
 ### Intervento I · `SEC-I` — Security operations del progetto (**P2**)
 

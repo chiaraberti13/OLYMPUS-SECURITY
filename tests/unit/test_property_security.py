@@ -27,7 +27,12 @@ from olympus.core.addresses import (
     is_globally_routable,
     parse_address,
 )
-from olympus.core.execution import _SENSITIVE_KEY_PARTS, redact_mapping, redact_url
+from olympus.core.execution import (
+    _SENSITIVE_KEY_PARTS,
+    redact_mapping,
+    redact_text,
+    redact_url,
+)
 
 #: Either IP address flavour, aliased to keep the fuzz signatures readable.
 _IP = ipaddress.IPv4Address | ipaddress.IPv6Address
@@ -149,6 +154,11 @@ _secrets = st.text(
 ).map(lambda token: "SEKRET" + token)
 
 
+def _is_unexpected_safe_key(value: str) -> bool:
+    candidate = ("x-custom-" + value).lower()
+    return not any(part in candidate for part in _SENSITIVE_KEY_PARTS)
+
+
 @given(key=st.sampled_from(_SENSITIVE_KEYS), secret=_secrets)
 @settings(max_examples=300)
 def test_a_secret_key_value_never_survives_redaction(key: str, secret: str) -> None:
@@ -183,3 +193,53 @@ def test_redact_url_is_total_and_idempotent(raw: str) -> None:
     # Redaction must never raise on arbitrary text and must be stable: running
     # it again changes nothing (no half-redacted state a second pass would fix).
     assert redact_url(once) == once
+
+
+@given(secret=_secrets, unicode_text=st.text(max_size=64))
+@settings(max_examples=250)
+def test_scanner_output_redacts_embedded_url_secrets_without_losing_unicode(
+    secret: str, unicode_text: str
+) -> None:
+    # Scanner diagnostics are free text, not necessarily a URL by themselves.
+    # The marker in the URL must be removed while unrelated Unicode survives.
+    scanner_output = (
+        f"{unicode_text} request failed at https://scanner.example/check?token={secret}&page=2"
+    )
+    redacted = redact_text(scanner_output)
+    assert secret not in redacted
+    assert "[REDACTED]" in redacted
+    assert "page=2" in redacted
+    assert unicode_text in redacted
+
+
+@given(
+    secret=_secrets,
+    unknown_key=st.text(
+        alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-",
+        min_size=1,
+        max_size=40,
+    ).filter(_is_unexpected_safe_key),
+)
+@settings(max_examples=250)
+def test_nested_header_redaction_preserves_unexpected_non_secret_fields(
+    secret: str, unknown_key: str
+) -> None:
+    # Header names arrive in varied casing and punctuation, and real scanner
+    # metadata often nests them below request/response objects. Unknown keys
+    # must remain visible for diagnostics rather than being discarded wholesale.
+    safe_key = unknown_key or "diagnostic"
+    metadata = {
+        "request": {
+            "headers": {
+                "Authorization": f"Bearer {secret}",
+                "X-Trace": "trace-123",
+            },
+            "scanner-output": {safe_key: "diagnostic-value"},
+        }
+    }
+    redacted = redact_mapping(metadata)
+    serialized = json.dumps(redacted, ensure_ascii=False)
+    assert secret not in serialized
+    assert redacted["request"]["headers"]["Authorization"] == "[REDACTED]"
+    assert redacted["request"]["headers"]["X-Trace"] == "trace-123"
+    assert redacted["request"]["scanner-output"][safe_key] == "diagnostic-value"

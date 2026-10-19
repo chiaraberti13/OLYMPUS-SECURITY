@@ -77,7 +77,7 @@ class NmapAdapter(ScannerAdapter):
                     depth -= 1
             if root is None:
                 raise ParseError("nmap XML has no root element")
-        except (ET.ParseError, DefusedXmlException) as exc:
+        except (ET.ParseError, DefusedXmlException, LookupError, UnicodeError) as exc:
             raise ParseError(f"nmap XML unparseable: {exc}") from exc
         asset_id = self.asset_id(host)
         findings: list[Finding] = []
