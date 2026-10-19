@@ -89,6 +89,15 @@ def test_threat_model_admits_open_gaps() -> None:
     assert "seccomp" in text  # a known, named open item
 
 
+def test_sec_a_control_plane_review_records_default_scope_and_process_limit() -> None:
+    text = _THREAT_MODEL.read_text(encoding="utf-8")
+    review = text.split("## SEC-A control-plane threat-model review", 1)[1].split("##", 1)[0]
+    assert "`capabilities:read`" in review
+    assert "`jobs:write`" in review
+    assert "process-local" in review
+    assert "SEC-B remains open" in review
+
+
 # --- CODEOWNERS ------------------------------------------------------------- #
 
 

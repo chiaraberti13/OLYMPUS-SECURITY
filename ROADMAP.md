@@ -221,7 +221,9 @@ dello scope e delle evidenze. Il runtime mantenuto è ora interamente nativo.
   simultanee per processo (default 64, configurabile 1–4096); l'overflow è
   respinto con 503 e Retry-After, ed è auditato. Autenticazione obbligatoria,
   scope per rotta e live scan disabilitate per default erano già presenti.
-- [ ] Eseguire una threat-model review prima di ogni milestone di migrazione.
+- [x] Eseguire la threat-model review per la milestone di controllo API/Web del
+  2026-10-19; ripeterla prima di ogni successiva milestone di migrazione. Esito e
+  rischi residui in [`docs/threat-model.md`](docs/threat-model.md).
 
 **Criterio di completamento:** wheel e container eseguono API, worker e migrazioni
 senza importare `vendor/`; i test di parità e regressione sono verdi; la directory
@@ -251,6 +253,12 @@ group. Il file dichiara correttamente ciò che manca.
   dichiarate e redirect fuori scope anche dal network namespace dello scanner.
 - [ ] Aggiungere test di fuga: scrittura fuori scratch, fork bomb, accesso a file
   sensibili, connessione a target fuori scope e timeout non cooperativo.
+
+**Blocco verificato (2026-10-19):** Docker e Podman non sono installati nel
+runner locale e `unshare -n true` fallisce con `Operation not permitted`; non è
+possibile produrre qui prove valide di isolamento namespace/egress. SEC-B resta
+aperto. Eseguire test container e verifiche kernel su un host Linux autorizzato
+prima di spuntare criteri o dichiarare isolamento effettivo.
 
 **Criterio di completamento:** un adapter compromesso non può leggere il filesystem
 host, elevare privilegi o raggiungere un indirizzo non autorizzato; le prove sono

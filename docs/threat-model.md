@@ -57,7 +57,7 @@ Each row is a threat and the implemented control that addresses it.
 | **A malicious scanner target compromises the host** | Scanner processes drop to an unprivileged user, run under CPU/memory/PID/FD/file-size rlimits in a private scratch dir, and are killed by process-group escalation. | `olympus.themis.sandbox` |
 | **Credential / finding leakage into logs** | Secret-bearing keys and URL query parameters are redacted before any audit record; raw evidence is bounded and stripped of secret assignments. | `olympus.core.execution`, `olympus.themis.base` |
 | **Unbounded evidence retention** | Age/count/size budgets with secure deletion and append-only audit rotation. | `olympus.core.retention` |
-| **Stolen or over-scoped API identity** | Per-route scopes, rotation with overlap, immediate revocation, expiry and per-identity rate limiting. | `olympus.themis.identity` |
+| **Stolen or over-scoped API identity** | Per-route scopes, rotation with overlap, immediate revocation, expiry and per-identity rate limiting. A shared-key fallback defaults to `capabilities:read`; additional permissions are opt-in and validated. | `olympus.themis.identity`, `olympus.themis.api` |
 | **Browser-driven privilege or CSRF abuse of the web control plane** | The native web UI reuses the same store, scope gate and audit as the CLI; sessions are `HttpOnly`/`Secure`/`SameSite=Strict` cookies minted only from a valid credential, state-changing forms carry a synchroniser CSRF token, a restrictive CSP forbids inline script/style, and per-route scopes gate submit and cancel. | `olympus.themis.web` |
 | **A committed secret** | gitleaks scans the working tree and the full history on `main`, blocking, with a canary test. | `.github/workflows/ci.yml` |
 | **A poisoned or substituted dependency** | A CycloneDX SBOM of the runtime closure, a `pip --require-hashes` lockfile from real PyPI hashes, and a blocking pip-audit gate on that closure. | `olympus.core.sbom`, `olympus.core.lockfile`, `.github/workflows/ci.yml` |
@@ -84,6 +84,29 @@ guide. Default containers run non-root with read-only rootfs, no capabilities,
 resource caps and read-only credential/scope/TLS mounts; worker mounts exclude
 API identities and TLS private keys. Container smoke runs with no external
 network and no live scanner job. These controls do not claim SEC-B completion.
+
+## SEC-A control-plane threat-model review (2026-10-19)
+
+**Scope reviewed:** native API/Web authentication and route scopes, the shared-key
+least-privilege default, the request-concurrency boundary and audit behavior.
+Evidence: `ApiSettings.validate`, `_RegisterSource`, the `authenticated` route
+dependencies and `concurrency_boundary` in `olympus.themis.api`;
+`tests/unit/test_themis_api.py` and `tests/unit/test_themis_identity.py` exercise
+default denial and explicit grants.
+
+| Threat / abuse case | Current control | Residual risk / decision |
+| --- | --- | --- |
+| A stolen shared key submits or cancels jobs | The default grants only `capabilities:read`; unknown, empty and malformed grants fail startup. Route dependencies return 403 without the required scope. | Explicit `jobs:write` or `jobs:cancel` still makes a shared key powerful. Treat it as a single-operator fallback; prefer named, scoped, expiring and revocable identities for multi-user or remote operation. |
+| A shared key is compromised and must be revoked | The secret is read from server-side environment configuration, never from a command-line argument. | The static identity has no independent expiry or live revocation; rotate the environment secret and restart each API/Web process. Use the named identity register for independent rotation and revocation. |
+| Request bursts exhaust a control-plane process | API/Web reject excess in-flight requests with 503/`Retry-After`; rejections are audited. Default maximum is 64 per process. | The cap is process-local and does not bound aggregate work across replicas. Multi-replica deployments need a trusted upstream limit; worker concurrency remains a separate SEC-A item. |
+| Audit records disclose credentials or personal data | Accountability records identity, route, status and request/correlation ids, not credentials; serialization is redacted. | The audit file still requires operator-controlled permissions, retention and backup. Cross-replica audit aggregation is not provided. |
+| A scanner escapes the current process sandbox | Existing privilege drop, resource limits and private scratch directory still apply. | This review produced no evidence of namespaces, read-only rootfs, seccomp or egress enforcement. SEC-B remains open; API scopes are not scan-plane containment. |
+
+**Disposition:** acceptable as a transitional control-plane milestone, not as a
+claim of multi-user or distributed isolation. Keep SEC-A `[~]` until runtime
+parity and worker/distributed bounds are addressed. For non-loopback access,
+require TLS and prefer the named identity register. Repeat this review whenever
+the trust boundary or deployment model changes.
 
 ## What is NOT yet covered
 
