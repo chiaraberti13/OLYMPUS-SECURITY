@@ -15,6 +15,7 @@ from typer.testing import CliRunner
 
 from olympus.cli import app
 from olympus.themis.api import ApiSettings, create_app
+from olympus.themis.identity import SCOPES
 from olympus.themis.jobs import SCHEMA_VERSION
 
 runner = CliRunner()
@@ -48,7 +49,12 @@ def test_api_submission_native_worker_and_cancellation_share_the_store(
     isolated_runtime: Path,
 ) -> None:
     database = tmp_path / "jobs.sqlite3"
-    settings = ApiSettings(database=database, scope_directory=isolated_runtime, api_key="x" * 40)
+    settings = ApiSettings(
+        database=database,
+        scope_directory=isolated_runtime,
+        api_key="x" * 40,
+        api_key_scopes=SCOPES,
+    )
     headers = {"X-Olympus-API-Key": settings.api_key}
     body = {
         "scanner": "nmap",

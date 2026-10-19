@@ -2,8 +2,9 @@
 
 The native THEMIS API authenticates a **named identity**, checks that identity's
 **scopes** and **rate limit**, and records the request with an id that is echoed
-back to the caller. One shared key with implicit full access is still supported
-for a single-operator deployment, but it is no longer the only option.
+back to the caller. A legacy shared key remains supported, but its default scope
+is only `capabilities:read`; any additional permission must be explicitly
+granted with `--api-key-scopes` or, preferably, a named identity.
 
 Implemented in `src/olympus/themis/identity.py` and `src/olympus/themis/api.py`;
 operated with `olympus themis identities …`; tested in
@@ -98,6 +99,8 @@ accepted as a command-line argument.
 
 ```bash
 OLYMPUS_THEMIS_API_KEY=… olympus themis api            # loopback, single key
+OLYMPUS_THEMIS_API_KEY=… olympus themis api \
+  --api-key-scopes capabilities:read,jobs:read,jobs:write
 olympus themis api --identities ~/.local/state/olympus/themis-api-identities.json \
   --host 10.0.0.5 --ssl-certfile server.crt --ssl-keyfile server.key
 ```

@@ -12,6 +12,7 @@ from olympus.cli import app
 from olympus.core.models import Engagement, EngagementScope
 from olympus.engagements.store import ENGAGEMENTS_DB_NAME, SqliteEngagementStore
 from olympus.themis.api import ApiSettings, create_app
+from olympus.themis.identity import SCOPES
 from olympus.themis.jobs import ThemisJobStore
 
 API_KEY = "a" * 32
@@ -43,6 +44,7 @@ def _engagements_client(tmp_path: Path) -> tuple[TestClient, Engagement]:
                 database=tmp_path / "jobs.sqlite3",
                 scope_directory=scopes,
                 api_key=API_KEY,
+                api_key_scopes=SCOPES,
                 engagements_database=tmp_path / ENGAGEMENTS_DB_NAME,
             )
         )
@@ -76,6 +78,7 @@ def _client(tmp_path: Path) -> TestClient:
                 database=tmp_path / "jobs.sqlite3",
                 scope_directory=scopes,
                 api_key=API_KEY,
+                api_key_scopes=SCOPES,
             )
         )
     )
@@ -94,6 +97,33 @@ def test_health_is_public_but_operational_routes_require_auth(tmp_path: Path) ->
     assert ready.json()["control_plane"] is True
 
 
+def test_shared_key_defaults_to_capabilities_read_only(tmp_path: Path) -> None:
+    scopes = tmp_path / "scopes"
+    _scope(scopes)
+    client = TestClient(
+        create_app(
+            ApiSettings(
+                database=tmp_path / "jobs.sqlite3",
+                scope_directory=scopes,
+                api_key=API_KEY,
+            )
+        )
+    )
+    assert client.get("/api/v1/capabilities", headers=AUTH).status_code == 200
+    denied = client.post(
+        "/api/v1/jobs",
+        headers=AUTH,
+        json={
+            "scanner": "nmap",
+            "target": "127.0.0.1",
+            "scope_id": "engagement",
+            "authorized": True,
+        },
+    )
+    assert denied.status_code == 403
+    assert "jobs:write" in denied.json()["detail"]
+
+
 def test_api_rejects_excess_concurrent_requests_and_audits_them(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -106,6 +136,7 @@ def test_api_rejects_excess_concurrent_requests_and_audits_them(
                 database=tmp_path / "jobs.sqlite3",
                 scope_directory=scopes,
                 api_key=API_KEY,
+                api_key_scopes=SCOPES,
                 audit_path=audit_path,
                 max_concurrent_requests=1,
             )
@@ -156,6 +187,22 @@ def test_api_concurrency_limit_is_bounded_and_rejects_booleans(tmp_path: Path) -
             assert "max_concurrent_requests" in str(exc)
         else:
             raise AssertionError(f"accepted invalid concurrency limit {invalid!r}")
+
+
+def test_shared_key_scopes_reject_empty_or_unknown_grants(tmp_path: Path) -> None:
+    for invalid in ((), ("jobs:admin",), (42,)):
+        settings = ApiSettings(
+            database=tmp_path / "jobs.sqlite3",
+            scope_directory=tmp_path,
+            api_key=API_KEY,
+            api_key_scopes=invalid,
+        )
+        try:
+            settings.validate()
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"accepted invalid shared-key scopes {invalid!r}")
 
 
 def test_authenticated_job_lifecycle_uses_registered_scope(tmp_path: Path) -> None:

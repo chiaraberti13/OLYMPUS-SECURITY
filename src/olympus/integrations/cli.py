@@ -118,6 +118,11 @@ def themis_api(
     port: int = typer.Option(8443, "--port", min=1, max=65_535),
     max_concurrent_requests: int = typer.Option(64, "--max-concurrent-requests", min=1, max=4_096),
     api_key_env: str = typer.Option("OLYMPUS_THEMIS_API_KEY", "--api-key-env"),
+    api_key_scopes: str = typer.Option(
+        "capabilities:read",
+        "--api-key-scopes",
+        help="Comma-separated permissions for the shared API key (default: capabilities:read).",
+    ),
     identities: str = typer.Option(
         "", "--identities", help="Identity register with scoped, revocable credentials."
     ),
@@ -172,6 +177,9 @@ def themis_api(
                 database=Path(database),
                 scope_directory=Path(scope_directory),
                 api_key=api_key,
+                api_key_scopes=tuple(
+                    scope.strip() for scope in api_key_scopes.split(",") if scope.strip()
+                ),
                 identities_path=Path(identities) if identities else None,
                 audit_path=Path(audit) if audit else None,
                 engagements_database=(
@@ -207,6 +215,11 @@ def themis_web(
     port: int = typer.Option(8600, "--port", min=1, max=65_535),
     max_concurrent_requests: int = typer.Option(64, "--max-concurrent-requests", min=1, max=4_096),
     api_key_env: str = typer.Option("OLYMPUS_THEMIS_API_KEY", "--api-key-env"),
+    api_key_scopes: str = typer.Option(
+        "capabilities:read",
+        "--api-key-scopes",
+        help="Comma-separated permissions for the shared API key (default: capabilities:read).",
+    ),
     identities: str = typer.Option(
         "", "--identities", help="Identity register with scoped, revocable credentials."
     ),
@@ -263,6 +276,9 @@ def themis_web(
                 database=Path(database),
                 scope_directory=Path(scope_directory),
                 api_key=api_key,
+                api_key_scopes=tuple(
+                    scope.strip() for scope in api_key_scopes.split(",") if scope.strip()
+                ),
                 identities_path=Path(identities) if identities else None,
                 audit_path=Path(audit) if audit else None,
                 engagements_database=(

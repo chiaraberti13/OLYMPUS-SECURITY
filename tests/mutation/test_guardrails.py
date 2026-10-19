@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 
@@ -29,7 +30,7 @@ from olympus.engagements.manifest import (
     SignedEngagementManifest,
 )
 from olympus.themis.adapters.nmap import NmapAdapter
-from olympus.themis.api import RequestConcurrencyGate
+from olympus.themis.api import ApiSettings, RequestConcurrencyGate
 from olympus.themis.base import ParseError
 from olympus.themis.model import ScanRequest
 from olympus.themis.runner import CommandOutput
@@ -43,6 +44,31 @@ def test_api_concurrency_gate_rejects_overflow_and_recovers_after_release() -> N
     gate.release()
     assert gate.try_acquire() is True
     gate.release()
+
+
+def test_api_settings_default_shared_key_scope_is_minimum_and_validated(tmp_path: Path) -> None:
+    settings = ApiSettings(
+        database=tmp_path / "jobs.sqlite3",
+        scope_directory=tmp_path,
+        api_key="a" * 32,
+    )
+    settings.validate()
+    assert settings.api_key_scopes == ("capabilities:read",)
+
+    with pytest.raises(ValueError, match="unknown THEMIS API key scopes"):
+        ApiSettings(
+            database=tmp_path / "jobs.sqlite3",
+            scope_directory=tmp_path,
+            api_key="a" * 32,
+            api_key_scopes=("jobs:admin",),
+        ).validate()
+    with pytest.raises(ValueError, match="scopes must be strings"):
+        ApiSettings(
+            database=tmp_path / "jobs.sqlite3",
+            scope_directory=tmp_path,
+            api_key="a" * 32,
+            api_key_scopes=(42,),  # type: ignore[arg-type]
+        ).validate()
 
 
 def test_scope_gate_accepts_domain_and_subdomain_but_rejects_suffix_spoof() -> None:

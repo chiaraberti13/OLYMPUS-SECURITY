@@ -57,6 +57,7 @@ from olympus.themis.jobs import (
 MAX_REQUEST_BYTES = 64 * 1024
 DEFAULT_MAX_CONCURRENT_REQUESTS = 64
 MAX_CONCURRENT_REQUESTS_LIMIT = 4_096
+DEFAULT_API_KEY_SCOPES = ("capabilities:read",)
 _API_KEY_HEADER = APIKeyHeader(name="X-Olympus-API-Key", auto_error=False)
 
 #: A caller-supplied trace identifier is echoed, so it must be inert text.
@@ -69,9 +70,11 @@ class ApiSettings:
 
     database: Path
     scope_directory: Path
-    #: Single shared credential. Kept for single-operator deployments; it
-    #: becomes an implicit identity holding every scope.
+    #: Single shared credential. Kept for single-operator deployments; by
+    #: default it can only inspect capabilities. Additional scopes must be
+    #: explicitly granted, or managed as named identities instead.
     api_key: str = ""
+    api_key_scopes: tuple[str, ...] = DEFAULT_API_KEY_SCOPES
     #: Register of named identities with their own scopes, expiry and limits.
     identities_path: Path | None = None
     #: Where each authenticated request is recorded, redacted.
@@ -99,6 +102,14 @@ class ApiSettings:
             raise ValueError("THEMIS API needs either an API key or an identity register")
         if self.api_key and len(self.api_key) < 32:
             raise ValueError("THEMIS API key must contain at least 32 characters")
+        if self.api_key:
+            if not isinstance(self.api_key_scopes, tuple) or not self.api_key_scopes:
+                raise ValueError("THEMIS API key must have at least one explicitly granted scope")
+            if any(not isinstance(scope, str) for scope in self.api_key_scopes):
+                raise ValueError("THEMIS API key scopes must be strings")
+            unknown_scopes = sorted(set(self.api_key_scopes) - set(SCOPES))
+            if unknown_scopes:
+                raise ValueError(f"unknown THEMIS API key scopes: {', '.join(unknown_scopes)}")
         if self.identities_path is not None:
             # Fail at startup rather than on the first request.
             load_register(self.identities_path)
@@ -124,7 +135,7 @@ class _RegisterSource:
                     ApiIdentity(
                         identity_id="default",
                         secret_sha256=hash_secret(settings.api_key),
-                        scopes=list(SCOPES),
+                        scopes=list(settings.api_key_scopes),
                         created_at=datetime.now(UTC),
                     )
                 ]

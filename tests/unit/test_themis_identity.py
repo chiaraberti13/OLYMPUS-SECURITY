@@ -263,7 +263,7 @@ def test_the_api_enforces_the_identity_rate_limit(tmp_path: Path) -> None:
     assert int(throttled.headers["retry-after"]) >= 1
 
 
-def test_a_single_api_key_still_works_and_holds_every_scope(tmp_path: Path) -> None:
+def test_a_single_api_key_can_explicitly_receive_additional_scopes(tmp_path: Path) -> None:
     key = "k" * 40
     client = TestClient(
         create_app(
@@ -271,6 +271,7 @@ def test_a_single_api_key_still_works_and_holds_every_scope(tmp_path: Path) -> N
                 database=tmp_path / "jobs.sqlite3",
                 scope_directory=_scopes_directory(tmp_path),
                 api_key=key,
+                api_key_scopes=SCOPES,
             )
         )
     )

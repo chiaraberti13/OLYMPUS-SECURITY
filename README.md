@@ -312,6 +312,7 @@ olympus themis serve --host 127.0.0.1 --port 8000   # serve the full VAP web app
 pip install -e ".[themis]"
 olympus themis migrate --database .olympus/themis-jobs.sqlite3
 # Configure the API credential/identity register and registered scopes first:
+# The shared key defaults to capabilities:read only.
 olympus themis api --scope-directory .olympus/scopes
 olympus themis serve --scope-directory .olympus/scopes \
   --ssl-certfile cert.pem --ssl-keyfile key.pem

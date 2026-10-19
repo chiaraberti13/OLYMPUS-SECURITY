@@ -19,7 +19,10 @@ olympus themis workers --once --database .olympus/themis-jobs.sqlite3
 
 Prima di avviare API/Web, creare la directory degli scope e configurare
 `OLYMPUS_THEMIS_API_KEY` (almeno 32 caratteri casuali) oppure `--identities` con
-un registro di identità. Il flag `--i-am-authorized` e il controllo di scope
+un registro di identità. La chiave condivisa concede per default solo
+`capabilities:read`; altri permessi si configurano esplicitamente con
+`--api-key-scopes` (preferire identità nominate con privilegi minimi). Il flag
+`--i-am-authorized` e il controllo di scope
 restano necessari per ogni job. `THEMIS_ENABLE_LIVE_SCANS` resta `false` per
 default: una scansione disabilitata o un binario assente produce `partial`,
 senza finding inventati. La Web UI usa cookie `Secure`: usare HTTPS anche per
@@ -120,7 +123,9 @@ with live scans disabled by default and explicit partial coverage for missing
 or disabled engines. `serve` and `web` are the same command implementation.
 Use HTTPS for browser sessions (`Secure` cookies); non-loopback binds require
 a certificate and private key. Set a random 32+ character API credential or
-provide an identity register; scopes and per-job authorization stay mandatory.
+provide an identity register. A shared key defaults to `capabilities:read`;
+grant additional permissions explicitly with `--api-key-scopes` (prefer named,
+least-privilege identities). Scopes and per-job authorization stay mandatory.
 API and Web cap concurrent requests at 64 per process by default; tune with
 `--max-concurrent-requests` (1–4096). Excess requests receive `503` with
 `Retry-After: 1` instead of being queued in an unbounded application backlog.

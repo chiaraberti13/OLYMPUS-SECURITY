@@ -237,6 +237,7 @@ olympus themis workers                       # worker nativo continuo
 pip install -e ".[themis]"
 olympus themis migrate --database .olympus/themis-jobs.sqlite3
 # Configurare prima credenziali/registro identità e scope autorizzati:
+# La chiave condivisa concede solo capabilities:read per default.
 olympus themis api --scope-directory .olympus/scopes
 olympus themis serve --scope-directory .olympus/scopes \
   --ssl-certfile cert.pem --ssl-keyfile key.pem

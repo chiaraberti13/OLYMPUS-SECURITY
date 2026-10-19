@@ -21,7 +21,7 @@ from typer.testing import CliRunner
 
 from olympus.cli import app
 from olympus.themis.api import ApiSettings, create_app
-from olympus.themis.identity import IdentityRegister, add_identity, save_register
+from olympus.themis.identity import SCOPES, IdentityRegister, add_identity, save_register
 from olympus.themis.jobs import ThemisJobStore
 from olympus.themis.web import SESSION_COOKIE, create_web_app
 
@@ -53,6 +53,7 @@ def _settings(tmp_path: Path, **overrides: object) -> ApiSettings:
         "database": tmp_path / "jobs.sqlite3",
         "scope_directory": scopes,
         "api_key": API_KEY,
+        "api_key_scopes": SCOPES,
         "audit_path": tmp_path / "audit.log",
     }
     base.update(overrides)

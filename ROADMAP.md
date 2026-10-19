@@ -215,7 +215,9 @@ dello scope e delle evidenze. Il runtime mantenuto è ora interamente nativo.
   report e cancellazione prima di rimuovere il codice legacy.
 - [~] Rendere il control plane nativo fail-closed: autenticazione obbligatoria,
   autorizzazioni minime per rotta, scope registrati, limiti di concorrenza e live
-  scan disabilitate di default. API e Web ora applicano un limite di richieste
+  scan disabilitate di default. La chiave condivisa legacy ora concede per
+  default solo `capabilities:read`; ulteriori scope richiedono un opt-in esplicito
+  (`--api-key-scopes`), mentre sono preferibili identità nominate. API e Web ora applicano un limite di richieste
   simultanee per processo (default 64, configurabile 1–4096); l'overflow è
   respinto con 503 e Retry-After, ed è auditato. Autenticazione obbligatoria,
   scope per rotta e live scan disabilitate per default erano già presenti.
@@ -229,8 +231,9 @@ vendorizzata può essere rimossa senza perdita di funzionalità dichiarata.
 non bloccante le richieste oltre il limite concorrente di ciascun processo API o
 Web. La risposta `503` è registrata nell'audit redatto e conserva gli header di
 sicurezza. Il limite non coordina più processi o repliche; autenticazione
-multiutente minima e limiti di concorrenza worker/distribuiti restano da
-verificare prima di completare `SEC-A`.
+multiutente minima, privilegi di default ora ridotti per la chiave condivisa, e
+limiti di concorrenza worker/distribuiti restano da verificare prima di
+completare `SEC-A`.
 
 ### Intervento B · `SEC-B` — Isolamento forte degli scanner (**P0**)
 
