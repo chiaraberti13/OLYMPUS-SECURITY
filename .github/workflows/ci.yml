@@ -241,10 +241,20 @@ jobs:
           set -euo pipefail
           python -c "from olympus.core.sbom import requirements_lines; print('\n'.join(requirements_lines()))" > "$RUNNER_TEMP/closure.txt"
           cat "$RUNNER_TEMP/closure.txt"
+      - name: Validate the time-boxed audit-exception registry
+        # Fails if any waiver is expired or malformed, so a forgotten exception
+        # breaks the build instead of silently becoming a permanent allowlist.
+        run: python scripts/check_audit_exceptions.py
       - name: Audit the runtime closure against the PyPA advisory database
         run: |
           set -euo pipefail
-          pip-audit -r "$RUNNER_TEMP/closure.txt" --progress-spinner off
+          # Any ignores come only from the registry above (empty by default, so
+          # this runs as an unfiltered audit).
+          ignore_args=()
+          while IFS= read -r vuln_id; do
+            [ -n "$vuln_id" ] && ignore_args+=(--ignore-vuln "$vuln_id")
+          done < <(python scripts/check_audit_exceptions.py --emit-ignores)
+          pip-audit -r "$RUNNER_TEMP/closure.txt" --progress-spinner off "${ignore_args[@]}"
 
   secret-scan:
     name: gitleaks (blocking working-tree + history scan)

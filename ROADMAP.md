@@ -618,8 +618,17 @@ e la voce passa a `[x]`.
   carico, decisione di triage, obiettivo di fix) e il canale privato esplicito
   (Security → Advisories → Report a vulnerability), in parità IT/EN; corrette anche
   due sezioni italiane rimaste in inglese (Ambito, Requisiti di sicurezza).
-- [ ] Collegare Dependabot a una SLA di aggiornamento per le dipendenze con CVE
+- [x] Collegare Dependabot a una SLA di aggiornamento per le dipendenze con CVE
   note e registrare le eccezioni motivate con scadenza, mai allowlist permanenti.
+  Dependabot (pip + github-actions, settimanale) è già attivo; `SECURITY.md`
+  (IT/EN) collega ora le vulnerabilità segnalate dal gate bloccante `pip-audit`
+  ai **Tempi di risposta** per severità. Le deroghe passano solo per il registro
+  a scadenza [`.github/audit-exceptions.toml`](.github/audit-exceptions.toml)
+  (motivazione, owner, data, scadenza); `scripts/check_audit_exceptions.py`
+  valida il registro in CI e fa fallire la build su deroghe scadute o malformate,
+  mentre il job `pip-audit` deriva gli `--ignore-vuln` solo dalle voci attive
+  (registro vuoto di default ⇒ audit non filtrato). Coperto da
+  `tests/unit/test_audit_exceptions.py`.
 - [x] Redigere un runbook di incident response per compromissione di chiavi di
   firma, token CI o API key AEGIS: revoca, rotazione, re-firma e comunicazione.
   Aggiunto [`docs/incident-response.md`](docs/incident-response.md) (bilingue IT/EN)

@@ -30,6 +30,9 @@ Test only systems, data, devices and networks you own or are explicitly authoriz
 ### Security requirements
 Keep secrets outside source control; validate untrusted input; preserve authorization/scope checks; review dependency and CI changes; prefer reproducible builds; never present partial or unverified evidence as a confirmed fact. Reports involving scope bypass, SSRF, command execution, sandbox escape, secret leakage, evidence tampering or authorization failure are especially important.
 
+### Dependency & supply-chain updates
+Dependencies are updated weekly through Dependabot (pip and GitHub Actions). A vulnerability that the blocking `pip-audit` gate reports against the runtime closure is treated as a security issue and fixed within the **Response targets** above, by severity. There is no permanent allowlist: a vulnerability may be waived only through the time-boxed registry at [`.github/audit-exceptions.toml`](.github/audit-exceptions.toml), where each entry records a motivation, an owner, the date added and an expiry. `scripts/check_audit_exceptions.py` fails CI when any waiver is expired or malformed, so an exception cannot silently become permanent.
+
 ### Disclosure
 Allow reasonable remediation time and coordinate publication of exploit-enabling details.
 
@@ -60,6 +63,9 @@ Esegui test solo su sistemi, dati, dispositivi e reti propri o esplicitamente au
 
 ### Requisiti di sicurezza
 Mantieni i segreti fuori dal repository; valida gli input; conserva i controlli di autorizzazione/scope; controlla dipendenze e CI; preferisci build riproducibili; non presentare evidenze parziali o non verificate come fatti confermati. Sono particolarmente importanti le segnalazioni che riguardano bypass dello scope, SSRF, command execution, evasione della sandbox, leak di segreti, manomissione delle evidenze o fallimento dell'autorizzazione.
+
+### Aggiornamenti delle dipendenze e supply chain
+Le dipendenze sono aggiornate settimanalmente tramite Dependabot (pip e GitHub Actions). Una vulnerabilità segnalata dal gate bloccante `pip-audit` sulla closure di runtime è trattata come problema di sicurezza e corretta entro i **Tempi di risposta** sopra, per severità. Non esiste alcuna allowlist permanente: una vulnerabilità può essere derogata solo tramite il registro a scadenza [`.github/audit-exceptions.toml`](.github/audit-exceptions.toml), dove ogni voce registra motivazione, owner, data di inserimento e scadenza. `scripts/check_audit_exceptions.py` fa fallire la CI se una deroga è scaduta o malformata, così un'eccezione non può diventare silenziosamente permanente.
 
 ### Divulgazione
 Concedi tempo ragionevole per la correzione e coordina la pubblicazione di dettagli sfruttabili.

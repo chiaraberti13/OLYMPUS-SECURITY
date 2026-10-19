@@ -1,0 +1,23 @@
+# Time-boxed pip-audit exception registry (SEC-I).
+#
+# This file is the ONLY place a dependency vulnerability may be temporarily
+# waived. It is deliberately empty by default: with no entries, `pip-audit`
+# runs unfiltered and any vulnerability in the runtime closure fails CI.
+#
+# A waiver is permitted only when no fixed version exists yet, and only as a
+# time-boxed exception — never a permanent allowlist. Each entry must carry a
+# motivation, an owner and an expiry; `scripts/check_audit_exceptions.py`
+# fails CI if any entry is expired or malformed, so a forgotten waiver breaks
+# the build instead of silently lingering. Review and remove entries at or
+# before their expiry.
+#
+# Example (remove the leading '#' to activate, and keep it only as long as
+# strictly necessary):
+#
+# [[exception]]
+# id = "GHSA-xxxx-xxxx-xxxx"   # the id pip-audit reports (GHSA / PYSEC / CVE)
+# package = "example-package"
+# reason = "No fixed release yet; the affected code path is not reachable in Olympus."
+# owner = "security-maintainers"
+# added = "2026-10-19"
+# expires = "2026-11-30"
