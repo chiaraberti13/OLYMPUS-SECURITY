@@ -376,7 +376,7 @@ markup Rich, ma la difesa non è sistematica.
   condividono ora `olympus.themis.base.check_json_depth`, che rifiuta l'annidamento
   eccessivo prima di invocare il decoder ricorsivo di Python. Restano da coprire
   eventuali ulteriori confini di parsing non-JSON e il fuzzing sistematico.
-- [~] Aggiungere fuzzing (Hypothesis o Atheris) per tutti i parser in
+- [x] Aggiungere fuzzing (Hypothesis o Atheris) per tutti i parser in
   `themis/adapters/`, `apollo` e `metis`, con corpus iniziale dalle fixture reali:
   nessun input deve causare crash non gestiti, consumo illimitato o finding
   inventati. Tutti i 15 parser degli adapter `themis` sono ora coperti da una
@@ -391,8 +391,10 @@ markup Rich, ma la difesa non è sistematica.
   whatweb) e vi applica mutazioni byte-level, verificando lo stesso invariante.
   Anche i normalizzatori ECS/OCSF di Apollo sono ora sotto fuzzing: alert con testo
   ostile producono mapping JSON-serializzabili e NDJSON valido senza byte di
-  controllo grezzi. Restano fuori solo parser secondari (es. `metis` cases/labs,
-  `apollo` rules/attack layer).
+  controllo grezzi. Infine i parser di file non fidati residui — `metis`
+  `load_case_document` (caso portatile) e `apollo` `load_rule` (regola di
+  detection) — sono coperti con l'invariante «modello valido oppure `ValueError`
+  / `ValidationError` gestito». La copertura di fuzzing dei parser è ora completa.
 - [~] Neutralizzare sequenze di escape ANSI/OSC e caratteri di controllo prima di
   mostrarle in CLI, TUI e log (terminal injection, falsificazione di righe di log).
 - [ ] Garantire escaping contestuale in tutti gli export: HTML con Content Security
@@ -594,6 +596,18 @@ ogni riga come documento JSON valido senza byte di controllo grezzi (`json.dumps
 li codifica come `\uXXXX`), così l'output non può iniettare sequenze terminale né
 righe contraffatte in un SIEM a valle. Resta fuori solo qualche parser secondario
 (`metis` cases/labs, `apollo` rules/attack layer); la voce fuzzing resta `[~]`.
+
+**Avanzamento verificato (2026-10-19, fuzzing parser di file residui):** aggiunta
+`tests/unit/test_secondary_parser_fuzz.py` che sottopone a fuzzing gli ultimi
+parser di file non fidati — `olympus.metis.models.load_case_document` (caso
+portatile importato) con oggetti JSON arbitrari, e `olympus.apollo.rules.load_rule`
+(regola di detection) con testo arbitrario scritto su file temporaneo. Invariante:
+ogni parser restituisce il modello validato (`IntelCaseDocument` / `DetectionRule`)
+oppure solleva un errore gestito (`ValueError` — di cui `SigmaImportError` e gli
+errori di contratto/migrazione sono sottoclassi — o `pydantic.ValidationError`),
+mai un'eccezione non gestita. 0 crash su centinaia di esempi. Con questo la
+copertura di fuzzing dei parser di `themis/adapters`, `apollo` e `metis` è completa
+e la voce passa a `[x]`.
 
 ### Intervento I · `SEC-I` — Security operations del progetto (**P2**)
 
