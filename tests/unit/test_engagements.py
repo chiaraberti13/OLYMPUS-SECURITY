@@ -14,6 +14,7 @@ from olympus.core.signing import generate_keypair
 from olympus.engagements.manifest import (
     EngagementManifest,
     ManifestAuthorizationError,
+    ManifestRevocationError,
     ManifestVerificationError,
     SignedEngagementManifest,
 )
@@ -230,6 +231,57 @@ def test_signed_manifest_rejects_tampering_and_untrusted_signer() -> None:
             now=datetime(2026, 10, 19, 1, 0, tzinfo=UTC),
         )
     assert other_private_key != private_key
+
+
+def _signed_and_keys() -> tuple[SignedEngagementManifest, str]:
+    private_key, public_key = generate_keypair()
+    signed = SignedEngagementManifest.sign_manifest(_manifest(), private_key_pem=private_key)
+    return signed, public_key
+
+
+def _authorize(signed: SignedEngagementManifest, public_key: str, **extra: object) -> object:
+    return signed.authorize(
+        trusted_public_key_pem=public_key,
+        target="www.example.com",
+        technique="nmap",
+        now=datetime(2026, 10, 19, 1, 0, tzinfo=UTC),
+        **extra,  # type: ignore[arg-type]
+    )
+
+
+def test_authorize_ignores_an_empty_or_unrelated_revocation_list() -> None:
+    signed, public_key = _signed_and_keys()
+    # No revocations, and a revocation list that names other engagements, both pass.
+    assert _authorize(signed, public_key).engagement_id == "ENG-2026-00001"  # type: ignore[attr-defined]
+    assert _authorize(signed, public_key, revoked=("ENG-2026-99999", "deadbeef")) is not None
+
+
+def test_authorize_rejects_a_manifest_revoked_by_digest() -> None:
+    signed, public_key = _signed_and_keys()
+    with pytest.raises(ManifestRevocationError, match="revoked"):
+        _authorize(signed, public_key, revoked=(signed.manifest_sha256,))
+
+
+def test_authorize_rejects_a_manifest_revoked_by_engagement_or_manifest_id() -> None:
+    signed, public_key = _signed_and_keys()
+    with pytest.raises(ManifestRevocationError):
+        _authorize(signed, public_key, revoked=(signed.manifest.engagement_id,))
+    with pytest.raises(ManifestRevocationError):
+        _authorize(signed, public_key, revoked=(signed.manifest.manifest_id,))
+    # Revocation is a kind of authorization failure, so callers catching the base
+    # class still see it.
+    assert issubclass(ManifestRevocationError, ManifestAuthorizationError)
+
+
+def test_revocation_never_masks_a_tampered_manifest() -> None:
+    signed, public_key = _signed_and_keys()
+    tampered = signed.model_copy(
+        update={"manifest": signed.manifest.model_copy(update={"client": "Attacker"})}
+    )
+    # Even if the (stale) digest is on the revocation list, integrity is checked
+    # first: the caller learns the manifest was tampered, not merely revoked.
+    with pytest.raises(ManifestVerificationError, match="digest"):
+        _authorize(tampered, public_key, revoked=(signed.manifest_sha256,))
 
 
 def test_manifest_rejects_naive_or_inverted_authorization_window() -> None:

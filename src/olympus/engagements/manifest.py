@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Collection
 from datetime import UTC, datetime
 from typing import Literal
 
@@ -30,6 +31,10 @@ class ManifestAuthorizationError(ValueError):
 
 class ManifestVerificationError(ValueError):
     """Raised when a manifest signature, digest, or trusted key is invalid."""
+
+
+class ManifestRevocationError(ManifestAuthorizationError):
+    """Raised when an otherwise-valid manifest has been revoked and must not be reused."""
 
 
 class EngagementManifest(OlympusModel):
@@ -125,8 +130,17 @@ class SignedEngagementManifest(OlympusModel):
         target: str,
         technique: str,
         now: datetime,
+        revoked: Collection[str] = (),
     ) -> EngagementManifest:
-        """Verify signature and enforce the requested operation's manifest bounds."""
+        """Verify signature and enforce the requested operation's manifest bounds.
+
+        ``revoked`` is the operator's revocation list: a manifest is rejected when
+        any of its identifiers — the signed digest, the ``manifest_id`` or the
+        ``engagement_id`` — appears in it, so a revoked authorization cannot be
+        reused even while still inside its time window. Revocation is checked only
+        after signature and digest verification, so it never masks a tampered or
+        unsigned manifest.
+        """
         if self.manifest.digest() != self.manifest_sha256:
             raise ManifestVerificationError("manifest digest does not match its signed content")
         try:
@@ -139,6 +153,11 @@ class SignedEngagementManifest(OlympusModel):
             raise ManifestVerificationError("manifest signature verification failed") from exc
         if not signature_valid:
             raise ManifestVerificationError("manifest signature is invalid")
+        identifiers = {self.manifest_sha256, self.manifest.manifest_id, self.manifest.engagement_id}
+        if identifiers & set(revoked):
+            raise ManifestRevocationError(
+                "manifest has been revoked and cannot authorize operations"
+            )
         if not self.manifest.authorizes(target=target, technique=technique, now=now):
             raise ManifestAuthorizationError(
                 "manifest does not authorize this target, technique, or time"

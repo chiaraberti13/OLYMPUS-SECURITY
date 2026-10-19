@@ -282,8 +282,15 @@ cosa e per quanto tempo.
 - [~] Firmare il manifest con Ed25519 riusando `olympus.core.signing`; il
   verificatore a chiave pubblica fissata controlla digest, target, tecnica e
   finestra, ma non è ancora collegato a tutti i percorsi attivi.
-- [ ] Legare ogni job all'hash del manifest e registrarlo in audit, report ed
-  evidenze; impedire il riuso dopo revoca o scadenza.
+- [~] Legare ogni job all'hash del manifest e registrarlo in audit, report ed
+  evidenze; impedire il riuso dopo revoca o scadenza. La scadenza è già imposta
+  dalla finestra temporale di `authorizes`; la **revoca** è ora applicata da
+  `SignedEngagementManifest.authorize(..., revoked=...)`, che rifiuta con
+  `ManifestRevocationError` (sottoclasse di `ManifestAuthorizationError`) un
+  manifest il cui digest, `manifest_id` o `engagement_id` compaia nella lista di
+  revoca — controllata **dopo** la verifica di firma/digest, così non maschera
+  mai un manifest manomesso. Restano il legame di ogni job all'hash del manifest
+  e la registrazione in audit/report/evidenze (wiring nei percorsi attivi).
 - [ ] Prevedere un profilo lab separato, esplicito e limitato a reti dichiarate,
   senza scorciatoie globali come “allow all”.
 
