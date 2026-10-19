@@ -620,8 +620,14 @@ e la voce passa a `[x]`.
   due sezioni italiane rimaste in inglese (Ambito, Requisiti di sicurezza).
 - [ ] Collegare Dependabot a una SLA di aggiornamento per le dipendenze con CVE
   note e registrare le eccezioni motivate con scadenza, mai allowlist permanenti.
-- [ ] Redigere un runbook di incident response per compromissione di chiavi di
+- [x] Redigere un runbook di incident response per compromissione di chiavi di
   firma, token CI o API key AEGIS: revoca, rotazione, re-firma e comunicazione.
+  Aggiunto [`docs/incident-response.md`](docs/incident-response.md) (bilingue IT/EN)
+  con tre playbook — chiave di firma Ed25519 (`olympus core keygen`/`sign`/`verify`),
+  token CI / secret GitHub Actions, e API key AEGIS/Themis
+  (`olympus themis identities revoke`/`rotate`) — ciascuno con contenimento, revoca,
+  rotazione, re-firma/ricostruzione, verifica e comunicazione, più passi
+  post-incidente. Collegato da `SECURITY.md` in entrambe le lingue.
 - [ ] Pianificare una review di sicurezza esterna o un bug bounty privato prima
   della prima release dichiarata `production-ready`.
 

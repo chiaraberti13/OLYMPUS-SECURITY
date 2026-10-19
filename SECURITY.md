@@ -22,7 +22,7 @@ These are good-faith targets for this project, measured from a triaged, reproduc
 | Medium | 7 days | 14 days | 90 days |
 | Low / informational | 14 days | 30 days | next scheduled release |
 
-If a fix cannot meet the target, the reporter is told the reason, the interim mitigation and the revised date. Coordinated disclosure follows the **Disclosure** section below.
+If a fix cannot meet the target, the reporter is told the reason, the interim mitigation and the revised date. Coordinated disclosure follows the **Disclosure** section below. For compromise of signing keys, CI tokens or AEGIS/Themis API keys, follow the [incident-response runbook](docs/incident-response.md).
 
 ### Responsible testing
 Test only systems, data, devices and networks you own or are explicitly authorized to assess. No denial of service, destructive actions, persistence, social engineering, unauthorized interception or third-party access.
@@ -53,7 +53,7 @@ Sono obiettivi in buona fede del progetto, misurati da una segnalazione triage e
 | Media | 7 giorni | 14 giorni | 90 giorni |
 | Bassa / informativa | 14 giorni | 30 giorni | prossima release pianificata |
 
-Se un fix non può rispettare l'obiettivo, al segnalante vengono comunicati il motivo, la mitigazione provvisoria e la nuova data. La divulgazione coordinata segue la sezione **Divulgazione**.
+Se un fix non può rispettare l'obiettivo, al segnalante vengono comunicati il motivo, la mitigazione provvisoria e la nuova data. La divulgazione coordinata segue la sezione **Divulgazione**. Per la compromissione di chiavi di firma, token CI o API key AEGIS/Themis, segui il [runbook di incident response](docs/incident-response.md).
 
 ### Test responsabili
 Esegui test solo su sistemi, dati, dispositivi e reti propri o esplicitamente autorizzati. Sono esclusi DoS, azioni distruttive, persistenza, social engineering, intercettazioni non autorizzate e accessi a terzi.
