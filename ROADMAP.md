@@ -389,8 +389,13 @@ markup Rich, ma la difesa non è sistematica.
 - [ ] Vietare che valori provenienti dal target diventino path, argv, URL di
   follow-up o nomi file senza passare per validazione e scope gate (path traversal,
   SSRF di secondo ordine, argument injection).
-- [ ] Creare fixture “malevole” versionate (XML bomb, banner con escape ANSI,
-  payload XSS nel titolo, nomi file con `../`) eseguite a ogni run di CI.
+- [x] Creare fixture “malevole” versionate (XML bomb, banner con escape ANSI,
+  payload XSS nel titolo, nomi file con `../`) eseguite a ogni run di CI. Il corpus
+  vive in `tests/fixtures/malicious/` (con README) ed è esercitato dalla suite
+  unitaria `tests/unit/test_malicious_fixtures.py`, parte della CI: ogni voce
+  verifica la difesa corrispondente (rifiuto entità/profondità XML e JSON,
+  neutralizzazione ANSI/OSC negli export, escaping XSS + CSP, rifiuto dei nomi file
+  con traversal da parte di `output_path`).
 
 **Criterio di completamento:** un target controllato dall'attaccante non può
 eseguire codice, alterare la visualizzazione, iniettare contenuto nei report o
@@ -497,6 +502,19 @@ non gestita; `parse_access_log` non solleva mai sui contenuti (le righe non
 interpretabili finiscono in `skipped`). Analisi preliminare: 0 crash non gestiti su
 migliaia di esempi generati. Restano da seedare il corpus dalle fixture reali e da
 coprire i normalizzatori ECS/OCSF prima di spuntare la voce.
+
+**Avanzamento verificato (2026-10-19, corpus di fixture malevole in CI):** creato
+il corpus versionato `tests/fixtures/malicious/` (con README) e la suite unitaria
+`tests/unit/test_malicious_fixtures.py`, eseguita a ogni run di CI, che mette ogni
+fixture di fronte alla difesa reale: bomba di entità XML (rifiutata da
+`defusedxml`), XML e JSONL oltre il limite di profondità (`ParseError`), banner
+ANSI/OSC (controlli rimossi dagli export HTML/Markdown), payload XSS in un titolo
+di finding (escaping + CSP restrittiva nell'export HTML) e nomi file con `../`,
+assoluti o con separatori (rifiutati da `output_path`). Un test di guardia impedisce
+che il corpus sparisca lasciando passare la suite in silenzio. La sotto-voce è ora
+`[x]`; `SEC-H` resta `[~]` per le voci ancora aperte (escaping SARIF, formula
+injection per export tabellari, seeding del corpus di fuzzing, normalizzatori
+ECS/OCSF).
 
 ### Intervento I · `SEC-I` — Security operations del progetto (**P2**)
 
