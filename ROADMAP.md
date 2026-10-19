@@ -611,9 +611,13 @@ e la voce passa a `[x]`.
 
 ### Intervento I · `SEC-I` — Security operations del progetto (**P2**)
 
-- [ ] Definire in `SECURITY.md` tempi di presa in carico e di risoluzione per
+- [x] Definire in `SECURITY.md` tempi di presa in carico e di risoluzione per
   severità (es. critica: triage 48 h, fix 7 giorni) e un canale di segnalazione
-  privato (GitHub Private Vulnerability Reporting).
+  privato (GitHub Private Vulnerability Reporting). `SECURITY.md` ha ora una sezione
+  «Response targets»/«Tempi di risposta» con tabella SLA per severità (presa in
+  carico, decisione di triage, obiettivo di fix) e il canale privato esplicito
+  (Security → Advisories → Report a vulnerability), in parità IT/EN; corrette anche
+  due sezioni italiane rimaste in inglese (Ambito, Requisiti di sicurezza).
 - [ ] Collegare Dependabot a una SLA di aggiornamento per le dipendenze con CVE
   note e registrare le eccezioni motivate con scadenza, mai allowlist permanenti.
 - [ ] Redigere un runbook di incident response per compromissione di chiavi di
