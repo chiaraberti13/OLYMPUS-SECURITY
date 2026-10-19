@@ -383,7 +383,10 @@ markup Rich, ma la difesa non è sistematica.
   fixture reali è ora usato: una suite di mutation fuzzing parte dall'output reale
   catturato in `tests/fixtures/themis/live/` (nmap, wafw00f, testssl, wapiti,
   whatweb) e vi applica mutazioni byte-level, verificando lo stesso invariante.
-  Resta da estendere il fuzzing ai normalizzatori ECS/OCSF.
+  Anche i normalizzatori ECS/OCSF di Apollo sono ora sotto fuzzing: alert con testo
+  ostile producono mapping JSON-serializzabili e NDJSON valido senza byte di
+  controllo grezzi. Restano fuori solo parser secondari (es. `metis` cases/labs,
+  `apollo` rules/attack layer).
 - [~] Neutralizzare sequenze di escape ANSI/OSC e caratteri di controllo prima di
   mostrarle in CLI, TUI e log (terminal injection, falsificazione di righe di log).
 - [ ] Garantire escaping contestuale in tutti gli export: HTML con Content Security
@@ -566,6 +569,16 @@ valido spinge le mutazioni nei percorsi reali del parser; un'ancora senza mutazi
 verifica che il seed stesso sia robusto. 0 crash non gestiti su centinaia di
 esempi. Questo soddisfa la clausola «corpus iniziale dalle fixture reali» della
 voce fuzzing (che resta `[~]` per i normalizzatori ECS/OCSF).
+
+**Avanzamento verificato (2026-10-19, fuzzing normalizzatori ECS/OCSF):** aggiunta
+`tests/unit/test_apollo_normalizer_fuzz.py` che sottopone a fuzzing gli esportatori
+`alert_to_ecs`/`alert_to_ocsf` e `alerts_to_ndjson` di Apollo con alert dal testo
+ostile (titolo/event_id con controlli C0/C1, ANSI/OSC e unicode). Invariante
+verificato: ogni normalizzatore produce un mapping JSON-serializzabile e l'NDJSON ha
+ogni riga come documento JSON valido senza byte di controllo grezzi (`json.dumps`
+li codifica come `\uXXXX`), così l'output non può iniettare sequenze terminale né
+righe contraffatte in un SIEM a valle. Resta fuori solo qualche parser secondario
+(`metis` cases/labs, `apollo` rules/attack layer); la voce fuzzing resta `[~]`.
 
 ### Intervento I · `SEC-I` — Security operations del progetto (**P2**)
 
