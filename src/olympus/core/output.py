@@ -13,6 +13,9 @@ from enum import StrEnum
 
 from rich.console import Console
 from rich.table import Table
+from rich.text import Text
+
+from olympus.core.execution import safe_terminal_text
 
 
 class OutputFormat(StrEnum):
@@ -24,11 +27,14 @@ class OutputFormat(StrEnum):
 
 def render_table(columns: list[str], rows: list[list[str]], *, title: str | None = None) -> str:
     """Render ``rows`` as a plain-text table (no ANSI), suitable for any stream."""
-    table = Table(title=title, show_lines=False)
+    safe_title = Text(safe_terminal_text(title)) if title is not None else None
+    table = Table(title=safe_title, show_lines=False)
     for column in columns:
         table.add_column(column, overflow="fold")
     for row in rows:
-        table.add_row(*row)
+        # Text renderables bypass Rich's markup parser; scanner-controlled values
+        # such as ``[link=...]`` must remain literal, inert table content.
+        table.add_row(*(Text(safe_terminal_text(value)) for value in row))
     buffer = io.StringIO()
     Console(file=buffer, force_terminal=False, no_color=True, width=100).print(table)
     return buffer.getvalue()

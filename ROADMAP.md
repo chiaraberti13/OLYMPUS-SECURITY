@@ -381,7 +381,7 @@ markup Rich, ma la difesa non è sistematica.
   «risultato valido oppure `ValueError` gestito» (`StixError`, `MispError`,
   `SigmaImportError` sono sottoclassi di `ValueError`). Resta da seedare il corpus
   iniziale dalle fixture reali e da estendere ai normalizzatori ECS/OCSF.
-- [ ] Neutralizzare sequenze di escape ANSI/OSC e caratteri di controllo prima di
+- [~] Neutralizzare sequenze di escape ANSI/OSC e caratteri di controllo prima di
   mostrarle in CLI, TUI e log (terminal injection, falsificazione di righe di log).
 - [ ] Garantire escaping contestuale in tutti gli export: HTML con Content Security
   Policy restrittiva e nessuno script inline, Markdown, SARIF e CSV/XLSX con
@@ -515,6 +515,14 @@ che il corpus sparisca lasciando passare la suite in silenzio. La sotto-voce è 
 `[x]`; `SEC-H` resta `[~]` per le voci ancora aperte (escaping SARIF, formula
 injection per export tabellari, seeding del corpus di fuzzing, normalizzatori
 ECS/OCSF).
+
+**Avanzamento verificato (2026-10-19, tabelle CLI):** il renderer condiviso
+`core.output.render_table` neutralizza ora controlli C0/C1, righe e query URL
+sensibili, e passa celle e titolo a Rich come `Text` anziché come markup. I
+valori non fidati non possono quindi attivare markup Rich né iniettare sequenze
+ANSI o righe contraffatte nelle tabelle. Il JSON macchina resta invariato. La
+voce di neutralizzazione resta parziale: mancano ancora la revisione delle
+stampe testuali dirette e degli eventuali log fuori dal renderer condiviso.
 
 ### Intervento I · `SEC-I` — Security operations del progetto (**P2**)
 
