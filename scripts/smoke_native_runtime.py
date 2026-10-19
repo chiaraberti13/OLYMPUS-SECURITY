@@ -175,7 +175,16 @@ def main() -> None:
         port = _port()
         url = f"http://127.0.0.1:{port}"
         with _serve(
-            ["api", *common, "--scope-directory", str(scopes), "--port", str(port)],
+            [
+                "api",
+                *common,
+                "--scope-directory",
+                str(scopes),
+                "--port",
+                str(port),
+                "--api-key-scopes",
+                "capabilities:read,jobs:read,jobs:write",
+            ],
             environment,
             url,
         ):

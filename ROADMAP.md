@@ -237,6 +237,12 @@ multiutente minima, privilegi di default ora ridotti per la chiave condivisa, e
 limiti di concorrenza worker/distribuiti restano da verificare prima di
 completare `SEC-A`.
 
+**Avanzamento verificato (2026-10-19, smoke runtime):** il test della wheel e
+dell'immagine container assegna esplicitamente alla chiave sintetica i permessi
+minimi necessari al submit/lettura job (`capabilities:read`, `jobs:read`,
+`jobs:write`). Il default read-only resta invariato; il test non dipende da
+privilegi impliciti della chiave.
+
 ### Intervento B · `SEC-B` — Isolamento forte degli scanner (**P0**)
 
 `src/olympus/themis/sandbox.py` applica già drop dei privilegi, limiti CPU/memoria/
