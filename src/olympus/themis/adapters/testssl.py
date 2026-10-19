@@ -6,7 +6,7 @@ import json
 
 from olympus.core.enums import Severity, Source
 from olympus.core.models import Finding
-from olympus.themis.base import ParseError, ScannerAdapter
+from olympus.themis.base import ParseError, ScannerAdapter, check_json_depth
 from olympus.themis.model import ScanRequest
 from olympus.themis.runner import CommandOutput
 
@@ -45,6 +45,7 @@ class TestsslAdapter(ScannerAdapter):
         start = text.find("[")
         if start == -1:
             raise ParseError("testssl produced no JSON output")
+        check_json_depth(text[start:], scanner="testssl")
         try:
             entries = json.loads(text[start:])
         except json.JSONDecodeError as exc:

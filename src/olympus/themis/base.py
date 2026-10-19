@@ -32,6 +32,44 @@ class ParseError(RuntimeError):
     """Raised by an adapter when the scanner's output cannot be parsed."""
 
 
+#: Maximum structural nesting accepted from any scanner's JSON output. CPython's
+#: ``json`` decoder recurses on nested arrays and objects, so an adversarial
+#: report with thousands of nested containers can exhaust the interpreter stack
+#: (``RecursionError``) or burn CPU before a single finding is produced. Every
+#: JSON/JSONL adapter shares this bound so the limit cannot drift between them.
+MAX_JSON_DEPTH = 64
+
+
+def check_json_depth(text: str, *, limit: int = MAX_JSON_DEPTH, scanner: str = "scanner") -> None:
+    """Reject structurally deep JSON before it reaches Python's recursive decoder.
+
+    Only brackets *outside* string literals are counted, so a value that merely
+    contains ``[`` or ``{`` characters is never mistaken for nesting. Treating
+    scanner output as hostile, this runs ahead of :func:`json.loads` to bound the
+    work regardless of what a compromised or malicious target emits.
+    """
+    depth = 0
+    in_string = False
+    escaped = False
+    for char in text:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+        elif char in "[{":
+            depth += 1
+            if depth > limit:
+                raise ParseError(f"{scanner} JSON exceeds the {limit}-level depth limit")
+        elif char in "]}":
+            depth -= 1
+
+
 class ScannerAdapter(ABC):
     """Abstract external-CLI scanner adapter."""
 

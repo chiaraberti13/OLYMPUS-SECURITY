@@ -365,8 +365,11 @@ markup Rich, ma la difesa non è sistematica.
 
 - [~] Trattare ogni output scanner come input non fidato: il parser Nmap usa
   `defusedxml`, disabilita entità e riferimenti esterni, e applica limiti di
-  dimensione, profondità e numero di elementi durante il parsing. Restano da
-  estendere gli stessi limiti agli altri parser XML/JSON.
+  dimensione, profondità e numero di elementi durante il parsing. Tutti i parser
+  JSON/JSONL (nuclei, katana, httpx, wapiti, dalfox, wafw00f, testssl)
+  condividono ora `olympus.themis.base.check_json_depth`, che rifiuta l'annidamento
+  eccessivo prima di invocare il decoder ricorsivo di Python. Restano da coprire
+  eventuali ulteriori confini di parsing non-JSON e il fuzzing sistematico.
 - [ ] Aggiungere fuzzing (Hypothesis o Atheris) per tutti i parser in
   `themis/adapters/`, `apollo` e `metis`, con corpus iniziale dalle fixture reali:
   nessun input deve causare crash non gestiti, consumo illimitato o finding
@@ -433,6 +436,20 @@ nessun tag `<script>` venga mai emesso. La sotto-voce dell'escaping contestuale
 degli export resta `[ ]`: mancano ancora la protezione da formula injection per
 eventuali export tabellari (CSV/XLSX, non ancora presenti) e la revisione
 sistematica di Markdown e SARIF.
+
+**Avanzamento verificato (2026-10-19, limite di profondità JSON condiviso):** il
+limite di annidamento, finora presente solo nel parser Nuclei, è stato estratto
+in `olympus.themis.base.check_json_depth` (`MAX_JSON_DEPTH = 64`, conteggio dei
+soli delimitatori fuori dalle stringhe) e applicato prima di `json.loads` in tutti
+gli adapter che decodificano JSON/JSONL: `katana`, `httpx`, `wapiti`, `dalfox`,
+`wafw00f`, `testssl`, con Nuclei refattorizzato per riusare lo stesso helper senza
+duplicazione. Questo impedisce che output di scanner ostile con migliaia di
+container annidati esaurisca lo stack dell'interprete (`RecursionError`) o la CPU
+prima di produrre un finding. Nuovi test offline (`tests/unit/test_themis_json_depth.py`)
+verificano l'helper (inclusa l'immunità ai delimitatori nelle stringhe e un test
+Hypothesis) e che ciascuno dei sette adapter rifiuti l'annidamento eccessivo con
+`ParseError`. Nessuna scansione eseguita. Restano aperti il fuzzing sistematico di
+tutti i parser, l'escaping degli export (Markdown/SARIF) e le restanti voci SEC-H.
 
 ### Intervento I · `SEC-I` — Security operations del progetto (**P2**)
 

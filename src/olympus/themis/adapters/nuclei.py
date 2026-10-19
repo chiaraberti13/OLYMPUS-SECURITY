@@ -28,7 +28,7 @@ import json
 
 from olympus.core.enums import AssetType, Severity, Source
 from olympus.core.models import Asset, Finding
-from olympus.themis.base import ParseError, ScannerAdapter
+from olympus.themis.base import MAX_JSON_DEPTH, ParseError, ScannerAdapter, check_json_depth
 from olympus.themis.config import get as get_env
 from olympus.themis.model import ScanRequest
 from olympus.themis.runner import CommandOutput
@@ -52,33 +52,9 @@ TEMPLATES_VARIABLE = "THEMIS_NUCLEI_TEMPLATES"
 # (for example on imported evidence). Bound each record and its structural depth
 # before handing untrusted text to Python's recursive JSON decoder.
 MAX_NUCLEI_JSONL_LINE_BYTES = 1 * 1024 * 1024
-MAX_NUCLEI_JSON_DEPTH = 64
-
-
-def _check_json_depth(line: str) -> None:
-    """Reject deeply nested JSON without counting delimiters inside strings."""
-    depth = 0
-    in_string = False
-    escaped = False
-    for char in line:
-        if in_string:
-            if escaped:
-                escaped = False
-            elif char == "\\":
-                escaped = True
-            elif char == '"':
-                in_string = False
-            continue
-        if char == '"':
-            in_string = True
-        elif char in "[{":
-            depth += 1
-            if depth > MAX_NUCLEI_JSON_DEPTH:
-                raise ParseError(
-                    f"nuclei JSONL record exceeds the {MAX_NUCLEI_JSON_DEPTH}-level depth limit"
-                )
-        elif char in "]}":
-            depth -= 1
+#: Kept as a module alias so existing callers/tests stay valid; the bound itself
+#: is the shared one every JSON/JSONL adapter enforces.
+MAX_NUCLEI_JSON_DEPTH = MAX_JSON_DEPTH
 
 
 class NucleiAdapter(ScannerAdapter):
@@ -137,7 +113,7 @@ class NucleiAdapter(ScannerAdapter):
                 raise ParseError(
                     f"nuclei JSONL line exceeds the {MAX_NUCLEI_JSONL_LINE_BYTES}-byte limit"
                 )
-            _check_json_depth(line)
+            check_json_depth(line, limit=MAX_NUCLEI_JSON_DEPTH, scanner="nuclei")
             try:
                 entry = json.loads(line)
             except (json.JSONDecodeError, RecursionError) as exc:

@@ -6,7 +6,7 @@ import json
 
 from olympus.core.enums import AssetType, Severity, Source
 from olympus.core.models import Asset, Finding
-from olympus.themis.base import ParseError, ScannerAdapter
+from olympus.themis.base import ParseError, ScannerAdapter, check_json_depth
 from olympus.themis.model import ScanRequest
 from olympus.themis.runner import CommandOutput
 
@@ -35,6 +35,7 @@ class Wafw00fAdapter(ScannerAdapter):
         start = text.find("[")
         if start == -1:
             raise ParseError("wafw00f produced no JSON array")
+        check_json_depth(text[start:], scanner="wafw00f")
         try:
             entries = json.loads(text[start:])
         except json.JSONDecodeError as exc:

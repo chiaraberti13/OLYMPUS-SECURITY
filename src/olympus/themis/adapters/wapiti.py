@@ -14,7 +14,7 @@ import json
 
 from olympus.core.enums import AssetType, Severity, Source
 from olympus.core.models import Asset, Finding
-from olympus.themis.base import ParseError, ScannerAdapter
+from olympus.themis.base import ParseError, ScannerAdapter, check_json_depth
 from olympus.themis.model import ScanRequest
 from olympus.themis.runner import CommandOutput
 
@@ -67,6 +67,7 @@ class WapitiAdapter(ScannerAdapter):
         start = text.find("{")
         if start == -1:
             raise ParseError("wapiti produced no JSON report")
+        check_json_depth(text[start:], scanner="wapiti")
         try:
             report = json.loads(text[start:])
         except json.JSONDecodeError as exc:

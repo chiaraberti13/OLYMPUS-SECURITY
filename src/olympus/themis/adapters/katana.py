@@ -20,7 +20,7 @@ from urllib.parse import urlsplit
 
 from olympus.core.enums import AssetType, Severity, Source
 from olympus.core.models import Asset, Finding
-from olympus.themis.base import ParseError, ScannerAdapter
+from olympus.themis.base import ParseError, ScannerAdapter, check_json_depth
 from olympus.themis.model import ScanRequest
 from olympus.themis.runner import CommandOutput
 
@@ -88,6 +88,7 @@ class KatanaAdapter(ScannerAdapter):
             line = line.strip()
             if not line or not line.startswith("{"):
                 continue
+            check_json_depth(line, scanner="katana")
             try:
                 entry = json.loads(line)
             except json.JSONDecodeError as exc:
