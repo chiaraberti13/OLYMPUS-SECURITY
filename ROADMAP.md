@@ -370,10 +370,13 @@ markup Rich, ma la difesa non è sistematica.
   condividono ora `olympus.themis.base.check_json_depth`, che rifiuta l'annidamento
   eccessivo prima di invocare il decoder ricorsivo di Python. Restano da coprire
   eventuali ulteriori confini di parsing non-JSON e il fuzzing sistematico.
-- [ ] Aggiungere fuzzing (Hypothesis o Atheris) per tutti i parser in
+- [~] Aggiungere fuzzing (Hypothesis o Atheris) per tutti i parser in
   `themis/adapters/`, `apollo` e `metis`, con corpus iniziale dalle fixture reali:
   nessun input deve causare crash non gestiti, consumo illimitato o finding
-  inventati.
+  inventati. Tutti i 15 parser degli adapter `themis` sono ora coperti da una
+  suite property-based che genera output ostile JSON/JSONL/testo e verifica
+  l'invariante «lista di `Finding` oppure `ParseError`/`ValueError` gestito, mai
+  eccezione non gestita». Restano da coprire i parser di `apollo` e `metis`.
 - [ ] Neutralizzare sequenze di escape ANSI/OSC e caratteri di controllo prima di
   mostrarle in CLI, TUI e log (terminal injection, falsificazione di righe di log).
 - [ ] Garantire escaping contestuale in tutti gli export: HTML con Content Security
@@ -467,6 +470,18 @@ inerti. Un test offline verifica che né l'HTML né il Markdown contengano più
 ESC/BEL/DEL/BS pur conservando il testo stampabile. Restano aperti l'export SARIF,
 la protezione da formula injection per eventuali export tabellari, il fuzzing dei
 parser e le restanti voci SEC-H.
+
+**Avanzamento verificato (2026-10-19, fuzzing dei parser adapter):** aggiunta la
+suite property-based `tests/unit/test_themis_parser_fuzz.py` che, enumerando gli
+adapter dal registry (`olympus.themis.registry.implemented`, 15 scanner), genera
+con Hypothesis output ostile nelle tre forme realmente prodotte dai tool — JSON,
+JSONL e testo libero con controlli C0/C1 e unicode — e verifica per ciascun parser
+l'invariante: `parse()` restituisce una lista di `Finding` oppure solleva
+`ParseError`/`ValueError` (che `ScannerAdapter.run` converte in stato FAILED
+pulito), mai un'eccezione non gestita che farebbe crashare il job. Un test di
+guardia impedisce che la parametrizzazione collassi a vuoto. Nessuno scanner è
+eseguito. La voce resta `[~]`: i parser di `apollo` e `metis` non sono ancora
+coperti.
 
 ### Intervento I · `SEC-I` — Security operations del progetto (**P2**)
 
