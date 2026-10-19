@@ -399,6 +399,13 @@ testo su una sola riga nelle viste Web e Vulcan CLI/TUI; i valori canonici e le
 evidenze grezze restano invariati. Restano da coprire altri output/log e gli
 escaping degli export indicati sopra.
 
+**Avanzamento verificato (2026-10-19, parsing Nmap):** il parser ora rifiuta
+esplicitamente attributi `portid` mancanti, non numerici o fuori dall'intervallo
+valido 1–65535, producendo `ParseError` invece di propagare `ValueError` o
+creare finding su porte impossibili. Test offline di regressione coprono i
+formati malformati e i limiti numerici; la revisione non esegue scansioni. Il fuzzing degli altri parser,
+l'escaping completo degli export e le restanti voci SEC-H restano aperti.
+
 ### Intervento I · `SEC-I` — Security operations del progetto (**P2**)
 
 - [ ] Definire in `SECURITY.md` tempi di presa in carico e di risoluzione per

@@ -211,6 +211,18 @@ def test_nmap_parser_rejects_garbage() -> None:
         NmapAdapter().parse(_out("not xml"), "127.0.0.1", _req())
 
 
+@pytest.mark.parametrize("portid", [None, "not-a-port", "+80", "8_0", "80 ", "0", "65536"])
+def test_nmap_parser_rejects_invalid_port_ids(portid: str | None) -> None:
+    attribute = "" if portid is None else f' portid="{portid}"'
+    xml = (
+        "<nmaprun><host><ports><port"
+        f'{attribute} protocol="tcp"><state state="open"/>'
+        '<service name="http"/></port></ports></host></nmaprun>'
+    )
+    with pytest.raises(ParseError, match="port id"):
+        NmapAdapter().parse(_out(xml), "127.0.0.1", _req())
+
+
 @pytest.mark.parametrize(
     "entity_declaration",
     ['<!ENTITY x "expanded">', '<!ENTITY x SYSTEM "file:///does-not-exist.xml">'],

@@ -82,10 +82,15 @@ class NmapAdapter(ScannerAdapter):
         asset_id = self.asset_id(host)
         findings: list[Finding] = []
         for port in root.iter("port"):
+            portid_value = port.get("portid")
+            if portid_value is None or not portid_value.isascii() or not portid_value.isdecimal():
+                raise ParseError("nmap XML contains a non-numeric port id")
+            portid = int(portid_value)
+            if not 1 <= portid <= 65_535:
+                raise ParseError("nmap XML contains a port id outside 1-65535")
             state = port.find("state")
             if state is None or state.get("state") != "open":
                 continue
-            portid = int(port.get("portid", "0"))
             proto = port.get("protocol", "tcp")
             service = port.find("service")
             svc_name = service.get("name", "unknown") if service is not None else "unknown"
