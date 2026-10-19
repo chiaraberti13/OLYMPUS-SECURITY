@@ -408,6 +408,14 @@ input arbitrari per l'attributo. La revisione non esegue scansioni. Il fuzzing
 degli altri parser, l'escaping completo degli export e le restanti voci SEC-H
 restano aperti.
 
+**Avanzamento verificato (2026-10-19, JSONL Nuclei):** il parser ora richiede
+record JSONL oggetto con `template-id` non vuoto e `info` oggetto; record JSON
+validi ma estranei allo schema non vengono più trasformati in finding sintetici.
+Un test Hypothesis genera valori JSON arbitrari e verifica che siano rifiutati
+con `ParseError` oppure producano un solo finding correttamente attribuito.
+Restano aperti fuzzing degli altri parser, limiti per JSON annidato, escaping
+degli export e gli altri criteri SEC-H.
+
 ### Intervento I · `SEC-I` — Security operations del progetto (**P2**)
 
 - [ ] Definire in `SECURITY.md` tempi di presa in carico e di risoluzione per

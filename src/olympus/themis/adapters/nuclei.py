@@ -102,12 +102,16 @@ class NucleiAdapter(ScannerAdapter):
             except json.JSONDecodeError as exc:
                 raise ParseError(f"nuclei emitted an unparseable JSONL line: {exc}") from exc
             if not isinstance(entry, dict):
-                continue
+                raise ParseError("nuclei JSONL record must be an object")
             saw_object = True
 
+            template_id = entry.get("template-id")
             info = entry.get("info")
-            info = info if isinstance(info, dict) else {}
-            template = str(entry.get("template-id") or "unknown-template")
+            if not isinstance(template_id, str) or not template_id.strip():
+                raise ParseError("nuclei JSONL record has no valid template-id")
+            if not isinstance(info, dict):
+                raise ParseError("nuclei JSONL record has no valid info object")
+            template = template_id
             title = str(info.get("name") or template)
             severity = _SEVERITY.get(str(info.get("severity", "")).lower(), Severity.INFO)
             matched = str(entry.get("matched-at") or entry.get("host") or host)

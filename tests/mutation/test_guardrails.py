@@ -30,6 +30,7 @@ from olympus.engagements.manifest import (
     SignedEngagementManifest,
 )
 from olympus.themis.adapters.nmap import NmapAdapter
+from olympus.themis.adapters.nuclei import NucleiAdapter
 from olympus.themis.api import ApiSettings, RequestConcurrencyGate
 from olympus.themis.base import ParseError
 from olympus.themis.model import ScanRequest
@@ -200,6 +201,39 @@ def test_nmap_parser_emits_only_open_ports_and_flags_high_risk_port() -> None:
         NmapAdapter().parse(
             CommandOutput(exit_code=0, stdout="<broken", stderr=""), "127.0.0.1", request
         )
+
+
+@pytest.mark.parametrize(
+    "record",
+    [
+        "[]",
+        "{}",
+        '{"info":{}}',
+        '{"template-id":"t"}',
+        '{"template-id":"t","info":[]}',
+        '{"template-id":"","info":{}}',
+    ],
+)
+def test_nuclei_parser_rejects_json_without_required_record_fields(record: str) -> None:
+    request = ScanRequest(scanner="nuclei", target="127.0.0.1", allowed=("127.0.0.1",))
+    output = CommandOutput(exit_code=0, stdout=record, stderr="")
+
+    with pytest.raises(ParseError):
+        NucleiAdapter().parse(output, "127.0.0.1", request)
+
+
+def test_nuclei_parser_accepts_a_structurally_valid_finding() -> None:
+    request = ScanRequest(scanner="nuclei", target="127.0.0.1", allowed=("127.0.0.1",))
+    output = CommandOutput(
+        exit_code=0,
+        stdout='{"template-id":"lab-template","info":{"name":"Lab finding"}}',
+        stderr="",
+    )
+
+    findings = NucleiAdapter().parse(output, "127.0.0.1", request)
+
+    assert len(findings) == 1
+    assert findings[0].title == "Lab finding (lab-template)"
 
 
 @pytest.mark.parametrize(

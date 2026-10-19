@@ -9,7 +9,11 @@ invented; see ``docs/themis-execution-evidence.md``.
 
 from __future__ import annotations
 
+import json
+
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from olympus.core.enums import Severity
 from olympus.themis.adapters import nuclei as nuclei_module
@@ -199,6 +203,34 @@ def test_nuclei_parser_rejects_non_jsonl_output() -> None:
         NucleiAdapter().parse(
             _out("[FTL] Could not run nuclei: no templates provided\n"), "127.0.0.1", _req()
         )
+
+
+@given(
+    entry=st.recursive(
+        st.one_of(st.none(), st.booleans(), st.integers(), st.text(max_size=64)),
+        lambda children: st.one_of(
+            st.lists(children, max_size=4),
+            st.dictionaries(st.text(max_size=16), children, max_size=4),
+        ),
+        max_leaves=12,
+    )
+)
+def test_nuclei_parser_classifies_arbitrary_jsonl_records(entry: object) -> None:
+    line = json.dumps(entry, ensure_ascii=True)
+    valid_record = (
+        isinstance(entry, dict)
+        and isinstance(entry.get("template-id"), str)
+        and bool(entry["template-id"].strip())
+        and isinstance(entry.get("info"), dict)
+    )
+    if not valid_record:
+        with pytest.raises(ParseError):
+            NucleiAdapter().parse(_out(line), "127.0.0.1", _req())
+        return
+
+    findings = NucleiAdapter().parse(_out(line), "127.0.0.1", _req())
+    assert len(findings) == 1
+    assert findings[0].source.value == "themis"
 
 
 def test_nuclei_argv_keeps_raw_pairs_out_of_evidence() -> None:
