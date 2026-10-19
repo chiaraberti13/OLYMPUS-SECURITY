@@ -403,8 +403,10 @@ escaping degli export indicati sopra.
 esplicitamente attributi `portid` mancanti, non numerici o fuori dall'intervallo
 valido 1–65535, producendo `ParseError` invece di propagare `ValueError` o
 creare finding su porte impossibili. Test offline di regressione coprono i
-formati malformati e i limiti numerici; la revisione non esegue scansioni. Il fuzzing degli altri parser,
-l'escaping completo degli export e le restanti voci SEC-H restano aperti.
+formati malformati e i limiti numerici; un test Hypothesis classifica inoltre
+input arbitrari per l'attributo. La revisione non esegue scansioni. Il fuzzing
+degli altri parser, l'escaping completo degli export e le restanti voci SEC-H
+restano aperti.
 
 ### Intervento I · `SEC-I` — Security operations del progetto (**P2**)
 

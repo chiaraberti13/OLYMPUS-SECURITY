@@ -13,8 +13,11 @@ import json
 import stat
 import sys
 from pathlib import Path
+from xml.sax.saxutils import quoteattr
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 from typer.testing import CliRunner
 
 from olympus.cli import app
@@ -221,6 +224,22 @@ def test_nmap_parser_rejects_invalid_port_ids(portid: str | None) -> None:
     )
     with pytest.raises(ParseError, match="port id"):
         NmapAdapter().parse(_out(xml), "127.0.0.1", _req())
+
+
+@given(portid=st.text(max_size=128))
+def test_nmap_parser_classifies_arbitrary_port_id_text(portid: str) -> None:
+    xml = (
+        "<nmaprun><host><ports><port"
+        f' portid={quoteattr(portid)} protocol="tcp"><state state="open"/>'
+        '<service name="http"/></port></ports></host></nmaprun>'
+    )
+    valid_port = portid.isascii() and portid.isdecimal() and 1 <= int(portid) <= 65_535
+    if valid_port:
+        findings = NmapAdapter().parse(_out(xml), "127.0.0.1", _req())
+        assert len(findings) == 1
+    else:
+        with pytest.raises(ParseError):
+            NmapAdapter().parse(_out(xml), "127.0.0.1", _req())
 
 
 @pytest.mark.parametrize(
