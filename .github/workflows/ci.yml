@@ -82,7 +82,10 @@ jobs:
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          # The 'api' extra is required: the mutation gate targets
+          # olympus.themis.api, and tests/mutation imports it (which imports
+          # FastAPI), so mutmut's baseline stats run fails to collect without it.
+          pip install -e ".[dev,api]"
       - name: Mutate scope, redaction, parser, exit-code and job-state rules
         run: make test-mutation
 

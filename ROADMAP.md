@@ -671,6 +671,17 @@ senza modificare il core, ma non può bypassare scope, policy, audit o sandbox.
   funzioni critiche; il checker richiede almeno il 35% di mutazioni uccise per
   ciascuna funzione, blocca gli esiti non verificati e segnala i mutanti superstiti.
 
+**Fix verificato (2026-10-19, job CI mutation):** il job `security-boundary
+mutation tests` falliva stabilmente con «failed to collect stats. runner
+returned 2» perché installava solo l'extra `.[dev]`, mentre il gate muta
+`olympus.themis.api` e `tests/mutation/test_guardrails.py` lo importa (quindi
+importa FastAPI): senza l'extra `api`, la raccolta pytest della baseline mutmut
+usciva con codice 2. Il job ora installa `.[dev,api]` come gli altri job di test.
+Riproduzione: in un venv con solo `.[dev]`, `pytest tests/mutation/` esce 2 con
+`ModuleNotFoundError: fastapi`; con `.[dev,api]` la raccolta passa (25 test) e la
+fase di stats di mutmut termina con successo. Il gate completo resta verde
+(273/485 mutanti uccisi, 56,3%).
+
 **Criterio di completamento:** matrice supportata dichiarata uguale a quella
 effettivamente testata; regressioni dei guardrail provocano sempre un fallimento.
 
