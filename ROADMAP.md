@@ -546,6 +546,15 @@ schema `file:`, backslash, UNC, percorsi Windows assoluti e sequenze CR/LF
 codificate. SEC-H resta `[~]`: ciò non completa la revisione di ogni consumer
 SARIF né gli altri escaping degli export o la protezione da formula injection.
 
+**Avanzamento verificato (2026-10-19, output Hermes):** il CLI Hermes usa ora
+`safe_terminal_text` per ogni messaggio umano, compresi finding, percorsi,
+errori e scansioni parziali. Il test
+`test_pre_commit_terminal_sanitizes_untrusted_finding_text` inietta path e testo
+mascherato con newline, ANSI e OSC tramite il confine applicativo, verificando
+che il terminale riceva soltanto output monoriga privo di sequenze di controllo.
+La neutralizzazione globale resta `[~]`: gli altri comandi e logger devono
+ancora essere auditati.
+
 **Avanzamento verificato (2026-10-19, anti argument-injection):** aggiunta la
 suite `tests/unit/test_argument_injection_guards.py` che blinda l'invariante «un
 valore dal target non diventa un flag dello scanner né un argomento shell».

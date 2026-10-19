@@ -10,7 +10,7 @@ import typer
 
 from olympus.core.contracts import ContractCompatibilityError
 from olympus.core.coverage import RunStatus, classify_run_status, exit_code_for
-from olympus.core.execution import CancellationRequested, ExecutionPolicyError
+from olympus.core.execution import CancellationRequested, ExecutionPolicyError, safe_terminal_text
 from olympus.core.exit_codes import ExitCode
 from olympus.core.paths import output_path
 from olympus.hermes.application import SecretScanRequest, SecretScanService
@@ -26,6 +26,11 @@ from olympus.hermes.scanner import (
 
 app = typer.Typer(help="Hermes — secret and configuration scanner.", no_args_is_help=True)
 DEFAULT_OUTPUT = output_path("hermes-results.sarif")
+
+
+def _echo_safe(message: str, *, err: bool = False) -> None:
+    """Print human-readable Hermes output without terminal/log injection."""
+    typer.echo(safe_terminal_text(message), err=err)
 
 
 def _staged_files() -> list[Path]:
@@ -94,7 +99,7 @@ def scan(
             write_baseline(findings, write_baseline_path)
         write_sarif(findings, output)
     except CancellationRequested as exc:
-        typer.echo(f"hermes: scan cancelled: {exc}", err=True)
+        _echo_safe(f"hermes: scan cancelled: {exc}", err=True)
         raise typer.Exit(code=ExitCode.CANCELLED) from exc
     except (
         ContractCompatibilityError,
@@ -105,20 +110,20 @@ def scan(
         TimeoutError,
         ValueError,
     ) as exc:
-        typer.echo(f"hermes: scan error: {exc}", err=True)
+        _echo_safe(f"hermes: scan error: {exc}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
 
     if write_baseline_path is not None:
-        typer.echo(
+        _echo_safe(
             f"hermes: wrote baseline ({len(findings)} fingerprint(s)) to {write_baseline_path}"
         )
-    typer.echo(
+    _echo_safe(
         f"hermes: {len(findings)} potential secret(s) in {outcome.scanned_files} text file(s); "
         f"ignored {len(outcome.ignored_files)}; SARIF: {output}"
     )
     if outcome.partial_errors:
         for error in outcome.partial_errors:
-            typer.echo(f"hermes: partial scan: {error.path}: {error.reason}", err=True)
+            _echo_safe(f"hermes: partial scan: {error.path}: {error.reason}", err=True)
         raise typer.Exit(code=exit_code_for(RunStatus.PARTIAL))
     if findings:
         raise typer.Exit(code=exit_code_for(classify_run_status(len(findings))))
@@ -146,7 +151,7 @@ def pre_commit(
         targets = list(paths) if paths else _staged_files()
         targets = [path for path in targets if path.is_file() and not path.is_symlink()]
         if not targets:
-            typer.echo("hermes: no staged text files to scan", err=True)
+            _echo_safe("hermes: no staged text files to scan", err=True)
             return
         outcome = SecretScanService().run(
             SecretScanRequest(
@@ -160,7 +165,7 @@ def pre_commit(
             )
         )
     except CancellationRequested as exc:
-        typer.echo(f"hermes: pre-commit cancelled: {exc}", err=True)
+        _echo_safe(f"hermes: pre-commit cancelled: {exc}", err=True)
         raise typer.Exit(code=ExitCode.CANCELLED) from exc
     except (
         ContractCompatibilityError,
@@ -171,18 +176,18 @@ def pre_commit(
         TimeoutError,
         ValueError,
     ) as exc:
-        typer.echo(f"hermes: pre-commit error: {exc}", err=True)
+        _echo_safe(f"hermes: pre-commit error: {exc}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
 
     for finding in outcome.findings:
-        typer.echo(f"hermes: {finding.rule} in {finding.path}:{finding.line} ({finding.masked})")
+        _echo_safe(f"hermes: {finding.rule} in {finding.path}:{finding.line} ({finding.masked})")
     if outcome.partial_errors:
         for error in outcome.partial_errors:
-            typer.echo(f"hermes: partial scan: {error.path}: {error.reason}", err=True)
+            _echo_safe(f"hermes: partial scan: {error.path}: {error.reason}", err=True)
         raise typer.Exit(code=exit_code_for(RunStatus.PARTIAL))
     if outcome.findings:
-        typer.echo(
+        _echo_safe(
             f"hermes: {len(outcome.findings)} potential secret(s) found — commit blocked", err=True
         )
         raise typer.Exit(code=exit_code_for(classify_run_status(len(outcome.findings))))
-    typer.echo(f"hermes: clean ({outcome.scanned_files} file(s) scanned)")
+    _echo_safe(f"hermes: clean ({outcome.scanned_files} file(s) scanned)")

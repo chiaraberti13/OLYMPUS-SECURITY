@@ -13,7 +13,7 @@ from typer.testing import CliRunner
 
 from olympus.cli import app
 from olympus.core.execution import CancellationRequested, CancellationToken, ExecutionPolicy
-from olympus.hermes.application import SecretScanRequest, SecretScanService
+from olympus.hermes.application import SecretScanOutcome, SecretScanRequest, SecretScanService
 from olympus.hermes.sarif import to_sarif
 from olympus.hermes.scanner import (
     ALLOWLIST_SCHEMA_NAME,
@@ -415,6 +415,41 @@ def test_pre_commit_scans_given_paths_and_blocks_on_a_secret(tmp_path: Path) -> 
     assert result.exit_code == 1
     assert "commit blocked" in result.output
     assert SYNTHETIC_KEY not in result.output  # masked
+
+
+def test_pre_commit_terminal_sanitizes_untrusted_finding_text(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    source = tmp_path / "safe.txt"
+    source.write_text("synthetic safe source", encoding="utf-8")
+    finding = SecretFinding(
+        rule="synthetic-rule",
+        path="name\nhermes: forged\x1b]0;owned\x07.txt",
+        line=1,
+        masked="****\nforged\x1b[31m",
+        fingerprint="synthetic-fingerprint",
+    )
+    outcome = SecretScanOutcome(
+        findings=(finding,),
+        scanned_files=1,
+        ignored_files=(),
+        partial_errors=(),
+        history_scanned=False,
+    )
+
+    class FakeService:
+        def run(self, request: SecretScanRequest) -> SecretScanOutcome:
+            del request
+            return outcome
+
+    monkeypatch.setattr("olympus.hermes.cli.SecretScanService", FakeService)
+    result = runner.invoke(app, ["hermes", "pre-commit", str(source)])
+
+    assert result.exit_code == 1
+    assert "\x1b" not in result.output
+    assert "\x07" not in result.output
+    assert len(result.output.splitlines()) == 2
+    assert "****" in result.output
 
 
 def test_pre_commit_is_clean_for_a_safe_file(tmp_path: Path) -> None:
