@@ -315,6 +315,27 @@ def test_render_html_is_self_contained() -> None:
     assert "APL-ONE" in markdown
 
 
+def test_render_html_sets_restrictive_csp() -> None:
+    """The exported report ships a script-forbidding Content-Security-Policy."""
+    html_doc = render_html(
+        "eng",
+        [Asset(asset_type=AssetType.HOST, hostname="host", source=Source.ARGUS)],
+        [_finding("finding", Severity.HIGH)],
+        [],
+    )
+    # The policy keywords use single quotes, so the meta attribute must be
+    # double-quoted; otherwise the value would truncate at the first keyword.
+    assert '<meta http-equiv="Content-Security-Policy" content="' in html_doc
+    assert "default-src 'none'" in html_doc  # scripts/objects/frames forbidden by default
+    assert "style-src 'unsafe-inline'" in html_doc  # only the renderer's inline styling
+    assert "base-uri 'none'" in html_doc and "form-action 'none'" in html_doc
+    assert "frame-ancestors 'none'\">" in html_doc  # attribute closes cleanly, not truncated
+    # No executable script surface is ever emitted, escaped or not.
+    assert "<script" not in html_doc.lower()
+    # The policy itself introduces no external origin.
+    assert "http://" not in html_doc and "https://" not in html_doc
+
+
 def test_cli_report_html_and_min_severity(tmp_path: Path) -> None:
     findings_path = _write(
         tmp_path / "f.json", [_finding("low", Severity.LOW), _finding("crit", Severity.CRITICAL)]

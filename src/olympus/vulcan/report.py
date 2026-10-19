@@ -126,6 +126,17 @@ _SEVERITY_COLORS = {
     "info": "#374151",
 }
 
+# A restrictive Content-Security-Policy embedded in the exported report. The
+# document is self-contained (inline ``<style>`` and ``style=`` attributes, no
+# scripts, no external assets), so ``default-src 'none'`` forbids script, object
+# and frame execution while ``style-src 'unsafe-inline'`` permits only the inline
+# styling this renderer emits. Even if attacker-controlled finding text ever
+# escaped HTML escaping, the browser would refuse to execute injected scripts.
+_REPORT_CSP = (
+    "default-src 'none'; style-src 'unsafe-inline'; img-src 'none'; "
+    "base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+)
+
 
 def render_report_html(report: SecurityReport) -> str:
     """Render a self-contained, escaped HTML view of every report section."""
@@ -133,6 +144,7 @@ def render_report_html(report: SecurityReport) -> str:
     generated = report.generated_at.astimezone(UTC).strftime("%Y-%m-%d %H:%M UTC")
     parts: list[str] = [
         "<!doctype html><html lang='en'><head><meta charset='utf-8'>",
+        f'<meta http-equiv="Content-Security-Policy" content="{_REPORT_CSP}">',
         f"<title>Security report — {html.escape(report.engagement)}</title>",
         "<style>body{font-family:system-ui,sans-serif;max-width:60rem;margin:2rem auto;"
         "padding:0 1rem;color:#111}h1{margin-bottom:0}.meta{color:#666}"

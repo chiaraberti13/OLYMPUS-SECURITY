@@ -416,6 +416,21 @@ con `ParseError` oppure producano un solo finding correttamente attribuito.
 Restano aperti fuzzing degli altri parser, limiti per JSON annidato, escaping
 degli export e gli altri criteri SEC-H.
 
+**Avanzamento verificato (2026-10-19, CSP export HTML):** il report HTML
+autoconsistente di Vulcan (`render_report_html`) incorpora ora una
+Content-Security-Policy restrittiva via `<meta http-equiv>`: `default-src
+'none'` vieta script, oggetti e frame, `style-src 'unsafe-inline'` ammette solo
+lo stile inline emesso dal renderer, e `base-uri`/`form-action`/`frame-ancestors`
+sono azzerati. Anche se un valore controllato dal target eludesse l'escaping
+`html.escape`, il browser rifiuterebbe comunque l'esecuzione di script iniettati.
+L'attributo è a doppi apici perché le direttive CSP usano apici singoli, così il
+valore non viene troncato alla prima parola chiave. Un test unitario offline
+verifica la presenza, la restrittività e la chiusura corretta della policy, e che
+nessun tag `<script>` venga mai emesso. La sotto-voce dell'escaping contestuale
+degli export resta `[ ]`: mancano ancora la protezione da formula injection per
+eventuali export tabellari (CSV/XLSX, non ancora presenti) e la revisione
+sistematica di Markdown e SARIF.
+
 ### Intervento I · `SEC-I` — Security operations del progetto (**P2**)
 
 - [ ] Definire in `SECURITY.md` tempi di presa in carico e di risoluzione per
