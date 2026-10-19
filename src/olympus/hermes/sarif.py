@@ -8,8 +8,25 @@ import tempfile
 from contextlib import suppress
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from olympus.hermes.scanner import SecretFinding
+
+
+def _artifact_uri(path: str) -> str:
+    """Encode an untrusted local path as a URI reference, not a URI scheme."""
+    normalized = path.replace("\\", "/")
+    if len(normalized) >= 3 and normalized[0].isalpha() and normalized[1:3] == ":/":
+        # Preserve absolute Windows paths without treating the drive letter as
+        # an arbitrary URI scheme.
+        drive = normalized[:2]
+        remainder = quote(normalized[3:], safe="/-._~")
+        return f"file:///{drive}/{remainder}"
+    if normalized.startswith("//"):
+        # A leading double slash is a URI network-path reference (authority).
+        # Encode its first slash so untrusted filenames cannot link externally.
+        return "%2F" + quote(normalized[1:], safe="/-._~")
+    return quote(normalized, safe="/-._~")
 
 
 def to_sarif(findings: list[SecretFinding]) -> dict[str, Any]:
@@ -34,7 +51,7 @@ def to_sarif(findings: list[SecretFinding]) -> dict[str, Any]:
                         "locations": [
                             {
                                 "physicalLocation": {
-                                    "artifactLocation": {"uri": finding.path},
+                                    "artifactLocation": {"uri": _artifact_uri(finding.path)},
                                     "region": {"startLine": finding.line},
                                 }
                             }

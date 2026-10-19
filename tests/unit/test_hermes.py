@@ -6,6 +6,7 @@ import shutil
 import stat
 import subprocess
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import pytest
 from typer.testing import CliRunner
@@ -109,6 +110,48 @@ def test_sarif_contains_mask_only() -> None:
     assert sarif["version"] == "2.1.0"
     assert SYNTHETIC_KEY not in serialized
     assert sarif["runs"][0]["results"][0]["ruleId"] == "aws-access-key"
+
+
+def test_sarif_encodes_untrusted_artifact_path_as_uri_reference() -> None:
+    finding = SecretFinding(
+        rule="synthetic-rule",
+        path="repo\\file://attacker.invalid\\..\\report%0d%0a.txt",
+        line=1,
+        masked="****",
+        fingerprint="synthetic-fingerprint",
+    )
+
+    location = to_sarif([finding])["runs"][0]["results"][0]["locations"][0]
+    uri = location["physicalLocation"]["artifactLocation"]["uri"]
+
+    assert uri == "repo/file%3A//attacker.invalid/../report%250d%250a.txt"
+    assert urlsplit(uri).scheme == ""
+    assert urlsplit(uri).netloc == ""
+    assert "\r" not in uri and "\n" not in uri
+
+    unc_path = SecretFinding(
+        rule="synthetic-rule",
+        path="\\\\attacker.invalid\\share\\finding.txt",
+        line=1,
+        masked="****",
+        fingerprint="synthetic-fingerprint",
+    )
+    unc_uri = to_sarif([unc_path])["runs"][0]["results"][0]["locations"][0]["physicalLocation"][
+        "artifactLocation"
+    ]["uri"]
+    assert urlsplit(unc_uri).netloc == ""
+
+    windows_path = SecretFinding(
+        rule="synthetic-rule",
+        path="C:\\repo\\findings #1.txt",
+        line=1,
+        masked="****",
+        fingerprint="synthetic-fingerprint",
+    )
+    windows_uri = to_sarif([windows_path])["runs"][0]["results"][0]["locations"][0][
+        "physicalLocation"
+    ]["artifactLocation"]["uri"]
+    assert windows_uri == "file:///C:/repo/findings%20%231.txt"
 
 
 def test_git_history_scan_finds_removed_synthetic_secret(tmp_path: Path) -> None:

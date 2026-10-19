@@ -524,6 +524,15 @@ ANSI o righe contraffatte nelle tabelle. Il JSON macchina resta invariato. La
 voce di neutralizzazione resta parziale: mancano ancora la revisione delle
 stampe testuali dirette e degli eventuali log fuori dal renderer condiviso.
 
+**Avanzamento verificato (2026-10-19, URI SARIF Hermes):** i percorsi degli
+artifact vengono serializzati come URI reference: i separatori diventano `/`,
+mentre caratteri di controllo, delimitatori URI, backslash e `%` sono
+percent-encoded. Questo impedisce che un nome file ostile introduca uno schema
+URI esterno o alteri la location nei consumer SARIF. Un test offline copre
+schema `file:`, backslash, UNC, percorsi Windows assoluti e sequenze CR/LF
+codificate. SEC-H resta `[~]`: ciò non completa la revisione di ogni consumer
+SARIF né gli altri escaping degli export o la protezione da formula injection.
+
 ### Intervento I · `SEC-I` — Security operations del progetto (**P2**)
 
 - [ ] Definire in `SECURITY.md` tempi di presa in carico e di risoluzione per
