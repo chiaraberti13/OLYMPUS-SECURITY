@@ -386,9 +386,16 @@ markup Rich, ma la difesa non è sistematica.
 - [ ] Garantire escaping contestuale in tutti gli export: HTML con Content Security
   Policy restrittiva e nessuno script inline, Markdown, SARIF e CSV/XLSX con
   protezione da formula injection (`=`, `+`, `-`, `@` in testa alla cella).
-- [ ] Vietare che valori provenienti dal target diventino path, argv, URL di
+- [~] Vietare che valori provenienti dal target diventino path, argv, URL di
   follow-up o nomi file senza passare per validazione e scope gate (path traversal,
-  SSRF di secondo ordine, argument injection).
+  SSRF di secondo ordine, argument injection). Argument injection e path traversal
+  sono ora bloccati e verificati: `host_of`/`_normalize_host` rifiutano host
+  flag-like (label con `-` iniziale), metacaratteri URL/shell e spazi e accettano
+  solo URL http/https validi; ogni adapter costruisce un argv `list[str]` (mai una
+  stringa shell), quindi un token derivato dal target non può essere interpretato
+  come flag; `output_path`/`state_file_path`/`audit_log_path` rifiutano i nomi file
+  con traversal/separatori. Resta da auditare formalmente la SSRF di secondo ordine
+  (URL di follow-up costruiti da output dello scanner nei flussi di ricognizione).
 - [x] Creare fixture “malevole” versionate (XML bomb, banner con escape ANSI,
   payload XSS nel titolo, nomi file con `../`) eseguite a ogni run di CI. Il corpus
   vive in `tests/fixtures/malicious/` (con README) ed è esercitato dalla suite
@@ -532,6 +539,18 @@ URI esterno o alteri la location nei consumer SARIF. Un test offline copre
 schema `file:`, backslash, UNC, percorsi Windows assoluti e sequenze CR/LF
 codificate. SEC-H resta `[~]`: ciò non completa la revisione di ogni consumer
 SARIF né gli altri escaping degli export o la protezione da formula injection.
+
+**Avanzamento verificato (2026-10-19, anti argument-injection):** aggiunta la
+suite `tests/unit/test_argument_injection_guards.py` che blinda l'invariante «un
+valore dal target non diventa un flag dello scanner né un argomento shell».
+`host_of`/`_normalize_host` rifiutano host flag-like (label con `-` iniziale),
+metacaratteri URL/shell e spazi, e accettano solo URL `http`/`https` con host
+valido; ogni adapter del registry costruisce un argv `list[str]` (mai una stringa
+shell) in cui il token derivato dal target non è mai option-like, verificato per
+target host e URL su tutti e 15 gli adapter. Insieme al rifiuto dei nomi file con
+traversal da parte di `output_path`/`state_file_path`/`audit_log_path` (già
+coperto), la voce passa a `[~]`; resta da auditare la SSRF di secondo ordine sugli
+URL di follow-up costruiti da output dello scanner nei flussi di ricognizione.
 
 ### Intervento I · `SEC-I` — Security operations del progetto (**P2**)
 
