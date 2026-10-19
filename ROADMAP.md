@@ -289,7 +289,10 @@ cosa e per quanto tempo.
   `ManifestRevocationError` (sottoclasse di `ManifestAuthorizationError`) un
   manifest il cui digest, `manifest_id` o `engagement_id` compaia nella lista di
   revoca — controllata **dopo** la verifica di firma/digest, così non maschera
-  mai un manifest manomesso. Restano il legame di ogni job all'hash del manifest
+  mai un manifest manomesso. L'argomento `revoked` rifiuta inoltre fail-closed
+  input scalari, collezioni non-stringa o identificatori vuoti, così un singolo
+  ID passato per errore come stringa non viene interpretato come lista di
+  caratteri. Restano il legame di ogni job all'hash del manifest
   e la registrazione in audit/report/evidenze (wiring nei percorsi attivi).
 - [ ] Prevedere un profilo lab separato, esplicito e limitato a reti dichiarate,
   senza scorciatoie globali come “allow all”.

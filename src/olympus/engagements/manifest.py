@@ -153,6 +153,16 @@ class SignedEngagementManifest(OlympusModel):
             raise ManifestVerificationError("manifest signature verification failed") from exc
         if not signature_valid:
             raise ManifestVerificationError("manifest signature is invalid")
+        if (
+            not isinstance(revoked, Collection)
+            or isinstance(revoked, str)
+            or any(
+                not isinstance(identifier, str) or not identifier.strip() for identifier in revoked
+            )
+        ):
+            raise ManifestAuthorizationError(
+                "revocation identifiers must be supplied as a collection of non-empty strings"
+            )
         identifiers = {self.manifest_sha256, self.manifest.manifest_id, self.manifest.engagement_id}
         if identifiers & set(revoked):
             raise ManifestRevocationError(

@@ -273,6 +273,13 @@ def test_authorize_rejects_a_manifest_revoked_by_engagement_or_manifest_id() -> 
     assert issubclass(ManifestRevocationError, ManifestAuthorizationError)
 
 
+@pytest.mark.parametrize("revoked", ["ENG-2026-00001", None, ("",), (None,)])
+def test_authorize_rejects_malformed_revocation_collections(revoked: object) -> None:
+    signed, public_key = _signed_and_keys()
+    with pytest.raises(ManifestAuthorizationError, match="revocation identifiers"):
+        _authorize(signed, public_key, revoked=revoked)
+
+
 def test_revocation_never_masks_a_tampered_manifest() -> None:
     signed, public_key = _signed_and_keys()
     tampered = signed.model_copy(
