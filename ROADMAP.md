@@ -804,17 +804,24 @@ da artifact firmato e smoke test completo fuori dal checkout.
   (`§3.0`, `§5.3`, `§5.4` sostituiti). Corretti anche i percorsi relativi di
   `docs/reference.md` verso `LICENSE` e `labs/mars/README.md`. Verifica eseguita
   su tutti i Markdown first-party (esclusa `vendor/`): 0 link relativi rotti.
-- [ ] Allineare README e `integrations/maturity.py`: il
+- [x] Allineare README e `integrations/maturity.py`: il
   ledger attuale dichiara 12 adapter `live-tested`, 3 `offline-tested` incluso
-  Wapiti e nessun `production-ready`.
+  Wapiti e nessun `production-ready`. `README.md` e `docs/scanner-maturity.md`
+  riportavano ancora `catalog-only 10` e `offline-tested 2` (senza Wapiti):
+  corretti a `9`/`3` (`testssl, whatweb, wapiti`) in linea con
+  `maturity.summary()` (9/0/3/12/0 sul catalogo di 24). `tests/unit/test_maturity_docs.py`
+  estrae i conteggi dai due documenti e li confronta con il ledger vivo, così la
+  tabella non può più divergere.
 - [~] Aggiungere un link checker, esempi eseguibili e test che rigenerino tabelle
   di capacità/maturità dal registry invece di mantenerle a mano. Link checker
   implementato: `scripts/check_doc_links.py` verifica tutti i Markdown first-party
   (esclusa `vendor/`), validando l'esistenza dei file linkati e gli anchor
   (slug stile GitHub, ignorando le heading dentro i fence di codice); è eseguito a
   ogni run CI tramite `tests/unit/test_doc_links.py`, che fallisce su qualunque
-  link interno rotto (64 file, 0 rotti alla verifica). Restano gli esempi eseguibili
-  e la rigenerazione automatica delle tabelle di maturità dal registry.
+  link interno rotto (64 file, 0 rotti alla verifica). Le tabelle di maturità sono
+  ora **validate** contro il registry da `tests/unit/test_maturity_docs.py`;
+  restano gli esempi eseguibili e la *rigenerazione* automatica (anziché sola
+  validazione) delle tabelle.
 - [x] Consolidare il backlog tecnico e strategico in questo unico `ROADMAP.md`,
   eliminando roadmap parallele che potrebbero divergere.
 

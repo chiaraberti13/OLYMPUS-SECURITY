@@ -269,9 +269,9 @@ catalogue, not an implementation claim. Today:
 
 | Maturity | Count | Meaning |
 | --- | --- | --- |
-| `catalog-only` | 10 | Registry entry only; nothing executes. |
+| `catalog-only` | 9 | Registry entry only; nothing executes. |
 | `adapter-ready` | 0 | Adapter registered, parser unproven. |
-| `offline-tested` | 2 | Parser proven against recorded output (`testssl`, `whatweb`). |
+| `offline-tested` | 3 | Parser proven against recorded output (`testssl`, `whatweb`, `wapiti`). |
 | `live-tested` | 12 | Run end to end against a real engine (`nmap`, `nikto`, `sqlmap`, `wafw00f`, `httpx`, `nuclei`, `katana`, `dalfox`, `dirsearch`, `commix`, `arjun`, `xsstrike`). |
 | **`production-ready`** | **0** | Live-tested **and** the full Definition of Done met. |
 

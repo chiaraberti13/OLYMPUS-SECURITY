@@ -49,9 +49,9 @@ sbagliato non deve mai risultare una scansione pulita.
 ## Lo stato oggi
 
 ```text
-catalog-only     10
+catalog-only      9
 adapter-ready     0
-offline-tested    2   testssl, whatweb
+offline-tested    3   testssl, whatweb, wapiti
 live-tested      12   nmap, nikto, sqlmap, wafw00f, httpx, nuclei, katana,
                       dalfox, dirsearch, commix, arjun, xsstrike
 production-ready  0
