@@ -4,17 +4,19 @@
 >
 > **Snapshot:** 20 ottobre 2026. Gli stati riprendono il cruscotto della roadmap precedente; prima di iniziare ogni issue il team verifica il codice e aggiorna lo stato con prove. La presenza di un modulo o di un adapter non dimostra che sia pronto per uso operativo.
 
-## Decisione di prodotto e stack
+## Mandato di valutazione architetturale
 
-Olympus **ha già** CLI e TUI, API FastAPI e web control plane THEMIS basato su Jinja2, con aggiornamenti SSE. Il wizard, le pagine di gestione e i controlli di sessione, CSRF e autorizzazione esistono già in parte. Il lavoro non parte da un foglio bianco.
+Il repository contiene già CLI, TUI, API FastAPI e web control plane THEMIS/Jinja2 con aggiornamenti SSE. Queste sono prove dello stato attuale, non vincoli sulla soluzione futura.
 
-La scelta iniziale del team è mantenere Python per dominio, API e runtime scanner, riusare i modelli Pydantic versionati e far evolvere la web app esistente. Jinja2 e HTMX possono coprire i flussi interattivi attuali; una SPA TypeScript è una decisione futura, da motivare con requisiti UX misurabili e un confronto documentato su costo, accessibilità, sicurezza e manutenzione. Non migrare linguaggio o riscrivere il core per aggiungere una UI.
+Il team deve stabilire quale prodotto e architettura servono meglio agli utenti e agli obiettivi di sicurezza. Può raccomandare di mantenere e migliorare l'impianto, migrare gradualmente, sostituire linguaggi e framework, oppure riprogettare il prodotto e ricostruirne parti da zero. Nessuna opzione è esclusa in partenza.
 
-CLI e TUI restano interfacce supportate e automatizzabili. La web UI è il punto d'ingresso visuale per utenti che devono gestire engagement, autorizzazioni, esecuzioni, risultati e report senza costruire comandi a mano.
+La decisione deve confrontare alternative concrete rispetto a requisiti e prove: sicurezza e isolamento, esperienza d'uso web, accessibilità e localizzazione, funzionalità desktop/CLI, prestazioni, facilità di installazione e aggiornamento, manutenzione, competenze disponibili, costo e rischio della migrazione, integrazione degli scanner e qualità dei test. Motivare la scelta, riportare trade-off e condizioni che potrebbero farla cambiare.
+
+Gli obiettivi di prodotto restano: consentire a un utente autorizzato di gestire engagement, scope, asset, valutazioni, job, risultati ed evidenze tramite una UI comprensibile, conservando interfacce automatizzabili quando sono utili.
 
 ## Regole per mantenere questa roadmap
 
-- Gli identificativi esistenti `SEC-*`, `DEV-*`, `WEB-*`, `UX-*), `OPS-*) restano stabili per issue, PR e changelog. Nessuna attività si considera conclusa solo perché è descritta o compare nell'interfaccia.
+- Gli ID `SEC-*`, `DEV-*`, `WEB-*`, `UX-*`, `OPS-*` tracciano il lavoro esistente. Il team può mantenerli, accorparli o sostituirli se la soluzione lo richiede, documentando la corrispondenza e conservando la storia.
 - Lo stato iniziale del vecchio cruscotto era: Baseline/qualità parziali; Security hardening parziale; architettura/release parziali; UX operativa aperta; capability Red/Blue/Purple parziali; production readiness scanner aperta; distribuzione/observability parziali; fase Web in corso, con `WEB-A`…`WEB-E` indicate completate e `WEB-F`…`WEB-J` residue. Verificare l'effettivo stato di ciascun intervento contro `main` prima di pianificarlo.
 - `[x]` richiede prove nel codice, test e documentazione; `[~]` indica un risultato parziale con gap esplicito; `[ ]` non implementato; `[⏸]` bloccato da prerequisito nominato.
 - Ogni attività deve avere scope, dipendenze, criteri d'accettazione osservabili e piano di test. Aggiornare dashboard e descrizione nella stessa PR.
@@ -61,15 +63,16 @@ Uso mobile: consultazione e monitoraggio responsive. Configurazione di assessmen
 
 **Accettazione:** test avversari provano out-of-scope, redirect/DNS rebinding, input malevolo, output eccessivo, timeout, annullamento e revoca. Nessuna interfaccia può aggirare policy o scope.
 
-### Fase 2 — Fondamenta dati e runtime nativo `[~] P0/P1`
+### Fase 2 — Architettura e fondamenta di prodotto `[~] P0/P1`
 
 **Riferimenti:** `DEV-A`, `DEV-D`, `DEV-I`, `WEB-B`, `WEB-C`, `WEB-H`, `SEC-A`.
 
-- Mantenere il core applicativo indipendente da CLI, TUI, HTTP e rendering; API e pagine chiamano casi d'uso tipizzati, mai un endpoint generico di esecuzione comandi.
-- Consolidare engagement, scope, asset, job, findings ed evidenze con ID, provenienza e migrazioni versionate.
-- Rendere le migrazioni ripetibili, testate su database vuoto e su versioni supportate, con backup e percorso di recupero.
-- Concludere la parità del runtime nativo rispetto ai flussi legacy che si decide di supportare; rimuovere il codice vendor solo dopo test di parità e migrazione documentati.
-- Usare SQLite per installazione semplice e singolo nodo; aggiungere Postgres solo quando il prodotto richiede accesso concorrente multiutente o distribuzione e i test lo giustificano.
+- Definire requisiti funzionali e non funzionali prima di scegliere confini, linguaggi, framework, database, modello di deployment e architettura.
+- Confrontare: evoluzione dell'impianto corrente, migrazione significativa e riprogettazione/riscrittura mirata o completa. Stimare costi, tempi, rischi, debito tecnico, sicurezza e transizione.
+- Progettare il modello dati per engagement, scope, asset, job, findings ed evidenze, con provenienza, migrazioni e recupero; riusare i contratti correnti solo se soddisfano i requisiti.
+- Stabilire i confini tra interfacce, dominio, API e runtime; evitare endpoint generici che eseguono comandi arbitrari.
+- Scegliere storage e distribuzione sulla base di concorrenza, affidabilità, installazione e operatività misurate, non sulla familiarità con lo stack esistente.
+- Definire un percorso per migrare o sostituire gli elementi esistenti e criteri di ritiro verificabili.
 
 **Accettazione:** percorso end-to-end testato attraverso API/web e CLI sullo stesso store e gli stessi servizi; nessuna perdita di scope, audit o versionamento nei passaggi.
 
