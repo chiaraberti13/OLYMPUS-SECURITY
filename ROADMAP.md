@@ -650,6 +650,15 @@ il testo venga reso innocuo mantenendo exit code `FAILED` (6). È una copertura
 mirata: SEC-H resta `[~]` finché non termina la revisione degli altri output
 testuali e logger.
 
+**Avanzamento verificato (2026-10-20, diagnostica Minerva):** i messaggi CLI di
+errore e i percorsi/identificativi stampati da Minerva sono ora passati da
+`safe_terminal_text`, neutralizzando controlli terminale, sequenze ANSI/OSC,
+newline contraffatte e parametri URL sensibili senza alterare i contratti JSON o
+gli exit code. Un test CLI offline inietta un errore sintetico con ANSI e una
+riga contraffatta e verifica che resti un singolo messaggio con exit code 2.
+SEC-H resta `[~]`: la revisione delle altre superfici CLI/log e dei formati
+strutturati non è completata.
+
 **Avanzamento verificato (2026-10-19, anti argument-injection):** aggiunta la
 suite `tests/unit/test_argument_injection_guards.py` che blinda l'invariante «un
 valore dal target non diventa un flag dello scanner né un argomento shell».

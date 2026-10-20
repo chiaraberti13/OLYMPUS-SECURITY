@@ -87,6 +87,32 @@ def test_load_alerts_and_cli_export_round_trip(tmp_path: Path) -> None:
     assert incident.severity is Severity.CRITICAL
 
 
+def test_cli_sanitizes_hostile_triage_error(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    def fail_triage(self: MinervaApplicationService, request: MinervaTriageRequest) -> Incident:
+        raise ValueError("invalid \x1b[31mrecord\x1b[0m\nforged: clean")
+
+    monkeypatch.setattr(MinervaApplicationService, "triage", fail_triage)
+    result = runner.invoke(
+        app,
+        [
+            "minerva",
+            "triage",
+            str(tmp_path / "alerts.json"),
+            "--title",
+            "Synthetic incident",
+            "--output",
+            str(tmp_path / "incident.json"),
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert "\x1b" not in result.output
+    assert "forged: clean" in result.output
+    assert result.output.count("\n") == 1
+
+
 def test_export_incident_is_atomic_shape(tmp_path: Path) -> None:
     incident = triage_alerts([_alert("ALT-2026-00001", Severity.MEDIUM, [])], "Synthetic incident")
     output = tmp_path / "incident.json"
