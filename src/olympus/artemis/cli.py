@@ -45,6 +45,7 @@ from olympus.core.execution import (
     CancellationRequested,
     ExecutionPolicy,
     ExecutionPolicyError,
+    safe_terminal_text,
 )
 from olympus.core.exit_codes import ExitCode
 from olympus.core.models import Asset, Finding
@@ -96,7 +97,7 @@ def _finish(command: str, findings: list[Finding], coverage: Coverage) -> None:
     status = coverage.status(len(findings))
     typer.echo(f"artemis: {command} {summarize(status, coverage, len(findings))}", err=True)
     for sample in coverage.errors:
-        typer.echo(f"artemis: {command} could not check {sample}", err=True)
+        typer.echo(safe_terminal_text(f"artemis: {command} could not check {sample}"), err=True)
     raise typer.Exit(code=exit_code_for(status))
 
 

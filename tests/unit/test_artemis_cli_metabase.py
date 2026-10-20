@@ -74,3 +74,23 @@ def test_metabase_unreachable_target_exits_failed(monkeypatch: pytest.MonkeyPatc
 
     assert result.exit_code == 6, result.output
     assert "status=failed" in result.output
+
+
+def test_metabase_transport_error_cannot_inject_terminal_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _HostileTransport:
+        def get(
+            self, url: str, addresses: tuple[str, ...], timeout: float, max_bytes: int
+        ) -> HttpResponse:
+            del url, addresses, timeout, max_bytes
+            raise HttpClientError("reset\x1b[2J\nforged diagnostic")
+
+    monkeypatch.setattr(artemis_cli, "SocketResolver", _Resolver)
+    monkeypatch.setattr(artemis_cli, "PinnedTransport", _HostileTransport)
+    result = runner.invoke(app, ["artemis", "metabase", "--url", URL, "--i-am-authorized"])
+
+    assert result.exit_code == 6, result.output
+    assert "\x1b" not in result.output
+    assert "\nforged diagnostic" not in result.output
+    assert "reset[2J forged diagnostic" in result.output

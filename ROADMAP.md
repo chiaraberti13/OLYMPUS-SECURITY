@@ -588,6 +588,15 @@ va verificato dopo la pubblicazione. Questa è una correzione mirata: SEC-H rest
 `[~]` perché l'audit degli altri output testuali diretti e dei logger non è
 concluso.
 
+**Intervento implementato (2026-10-20, errori di trasporto Artemis):** i
+campioni di errore mostrati dal CLI attraverso il report di coverage passano ora
+da `safe_terminal_text`. Il messaggio ricevuto da un trasporto ostile non può
+più iniettare controlli ANSI/OSC o righe aggiuntive nella diagnostica. È stato
+aggiunto un test CLI offline con trasporto fittizio che restituisce un errore
+contenente ESC e newline; l'esito pytest locale è indisponibile in questo runner
+perché manca `pytest`, quindi resta da confermare in CI. La correzione copre
+questo percorso, non l'audit completo degli altri messaggi dinamici e logger.
+
 **Avanzamento verificato (2026-10-19, anti argument-injection):** aggiunta la
 suite `tests/unit/test_argument_injection_guards.py` che blinda l'invariante «un
 valore dal target non diventa un flag dello scanner né un argomento shell».
