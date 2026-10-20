@@ -659,6 +659,14 @@ riga contraffatta e verifica che resti un singolo messaggio con exit code 2.
 SEC-H resta `[~]`: la revisione delle altre superfici CLI/log e dei formati
 strutturati non è completata.
 
+**Avanzamento verificato (2026-10-20, output CLI Apollo):** le stampe testuali
+dirette di Apollo ora passano da un helper che applica `safe_terminal_text` a
+errori, diagnostica, riepiloghi e percorsi; l'output JSON macchina resta
+inalterato. Un test CLI offline usa un percorso mancante con ANSI e newline
+contraffatta e verifica che l'errore resti su una sola riga con exit code `2`.
+SEC-H resta `[~]`: le altre superfici e l'escaping completo degli export non sono
+stati verificati.
+
 **Avanzamento verificato (2026-10-19, anti argument-injection):** aggiunta la
 suite `tests/unit/test_argument_injection_guards.py` che blinda l'invariante «un
 valore dal target non diventa un flag dello scanner né un argomento shell».

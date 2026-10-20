@@ -43,6 +43,11 @@ DEFAULT_OUTPUT = output_path("apollo-alerts.json")
 DEFAULT_RULES_DIR = Path("examples/input/apollo-ad")
 
 
+def _echo_terminal(message: str, *, err: bool = False) -> None:
+    """Print one-line-safe text; inputs, paths and diagnostics may be hostile."""
+    typer.echo(safe_terminal_text(message), err=err)
+
+
 @app.command()
 def test(
     rule: Path,
@@ -76,7 +81,7 @@ def test(
         if ocsf is not None:
             export_alerts_ocsf(outcome.alerts, ocsf)
     except CancellationRequested as exc:
-        typer.echo(f"apollo: evaluation cancelled: {exc}", err=True)
+        _echo_terminal(f"apollo: evaluation cancelled: {exc}", err=True)
         raise typer.Exit(code=ExitCode.CANCELLED) from exc
     except (
         ContractCompatibilityError,
@@ -85,9 +90,9 @@ def test(
         TimeoutError,
         ValueError,
     ) as exc:
-        typer.echo(f"apollo: invalid input or execution limit: {exc}", err=True)
+        _echo_terminal(f"apollo: invalid input or execution limit: {exc}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
-    typer.echo(f"apollo: {len(outcome.alerts)} alert(s); output: {output}")
+    _echo_terminal(f"apollo: {len(outcome.alerts)} alert(s); output: {output}")
 
 
 @app.command()
@@ -137,7 +142,7 @@ def run(
         if ocsf is not None:
             export_alerts_ocsf(outcome.alerts, ocsf)
     except CancellationRequested as exc:
-        typer.echo(f"apollo: run cancelled: {exc}", err=True)
+        _echo_terminal(f"apollo: run cancelled: {exc}", err=True)
         raise typer.Exit(code=ExitCode.CANCELLED) from exc
     except (
         ContractCompatibilityError,
@@ -146,21 +151,18 @@ def run(
         TimeoutError,
         ValueError,
     ) as exc:
-        typer.echo(f"apollo: input or execution error: {exc}", err=True)
+        _echo_terminal(f"apollo: input or execution error: {exc}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
 
     for error in outcome.input_errors:
-        typer.echo(
-            f"apollo: malformed event on line {error.line}: {safe_terminal_text(error.message)}",
-            err=True,
-        )
+        _echo_terminal(f"apollo: malformed event on line {error.line}: {error.message}", err=True)
     if outcome.input_error_count > len(outcome.input_errors):
-        typer.echo(
+        _echo_terminal(
             "apollo: suppressed "
             f"{outcome.input_error_count - len(outcome.input_errors)} additional input error(s)",
             err=True,
         )
-    typer.echo(
+    _echo_terminal(
         f"apollo: {len(outcome.rules)} rule(s) x {outcome.events} event(s) -> "
         f"{len(outcome.alerts)} alert(s); duplicates={outcome.duplicates}; {output}"
     )
@@ -189,7 +191,7 @@ def rules(
             deadline_seconds=deadline,
         )
     except (ContractCompatibilityError, OSError, TimeoutError, ValueError) as exc:
-        typer.echo(f"apollo: rule error: {exc}", err=True)
+        _echo_terminal(f"apollo: rule error: {exc}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
     records: list[dict[str, object]] = [
         {
@@ -231,7 +233,7 @@ def ingest(
     consumed directly by ``apollo run --events``.
     """
     if telemetry_format != "access-log":
-        typer.echo(
+        _echo_terminal(
             f"apollo: unsupported ingest format: {telemetry_format} (supported: access-log)",
             err=True,
         )
@@ -239,7 +241,7 @@ def ingest(
     try:
         source_tag = Source(source)
     except ValueError:
-        typer.echo(f"apollo: unknown source '{source}'", err=True)
+        _echo_terminal(f"apollo: unknown source '{source}'", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from None
     try:
         records = iter_regular_utf8_lines(
@@ -258,16 +260,16 @@ def ingest(
                     continue
                 skipped += 1
                 if skipped <= max_skip_details:
-                    typer.echo(f"apollo: skipped line {item.line}: {item.reason}", err=True)
+                    _echo_terminal(f"apollo: skipped line {item.line}: {item.reason}", err=True)
     except (IngestError, OSError, ValueError) as exc:
-        typer.echo(f"apollo: ingest error: {exc}", err=True)
+        _echo_terminal(f"apollo: ingest error: {exc}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
     if skipped > max_skip_details:
-        typer.echo(
+        _echo_terminal(
             f"apollo: suppressed {skipped - max_skip_details} additional skipped-line detail(s)",
             err=True,
         )
-    typer.echo(f"apollo: ingested {ingested} event(s), skipped {skipped} -> {dst}")
+    _echo_terminal(f"apollo: ingested {ingested} event(s), skipped {skipped} -> {dst}")
 
 
 @app.command("sigma-import")
@@ -286,9 +288,11 @@ def sigma_import(
         rule = sigma_to_rule(read_regular_text(sigma, max_bytes=max_bytes, label="Sigma rule"))
         atomic_write_text(output, rule.model_dump_json(indent=2) + "\n", mode=0o600)
     except (SigmaImportError, OSError, ValueError) as exc:
-        typer.echo(f"apollo: sigma-import error: {exc}", err=True)
+        _echo_terminal(f"apollo: sigma-import error: {exc}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
-    typer.echo(f"apollo: imported {rule.rule_id} ({len(rule.conditions)} condition(s)) -> {output}")
+    _echo_terminal(
+        f"apollo: imported {rule.rule_id} ({len(rule.conditions)} condition(s)) -> {output}"
+    )
 
 
 @app.command("attack-layer")
@@ -316,8 +320,8 @@ def attack_layer(
         layer = build_navigator_layer(counts, name=name)
         atomic_write_text(output, json.dumps(layer, indent=2, sort_keys=True) + "\n", mode=0o600)
     except (ContractCompatibilityError, OSError, TimeoutError, ValueError) as exc:
-        typer.echo(f"apollo: attack-layer error: {exc}", err=True)
+        _echo_terminal(f"apollo: attack-layer error: {exc}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
-    typer.echo(
+    _echo_terminal(
         f"apollo: {len(layer['techniques'])} technique(s) from {len(rule_set)} rule(s) -> {output}"
     )

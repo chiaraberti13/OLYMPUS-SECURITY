@@ -226,6 +226,25 @@ def test_run_sanitizes_untrusted_validation_diagnostics(tmp_path: Path) -> None:
     assert "\nforged" not in result.output
 
 
+def test_sigma_import_sanitizes_hostile_path_diagnostic(tmp_path: Path) -> None:
+    hostile_path = tmp_path / "missing-\x1b[2J\nforged.yaml"
+    result = runner.invoke(
+        app,
+        [
+            "apollo",
+            "sigma-import",
+            str(hostile_path),
+            "--output",
+            str(tmp_path / "rule.json"),
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert "\x1b" not in result.output
+    assert "forged.yaml" in result.output
+    assert result.output.count("\n") == 1
+
+
 def test_application_deduplicates_events_and_enforces_product_and_cancellation(
     tmp_path: Path,
 ) -> None:
