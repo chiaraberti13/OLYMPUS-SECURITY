@@ -415,8 +415,10 @@ markup Rich, ma la difesa non è sistematica.
   essere controllati dall'input importato. Il test offline verifica la rimozione
   di ANSI e la prevenzione di righe CLI falsificate; anche il dettaglio di errore
   restituito dal server remoto nel client `olympus themis scan` è sanitizzato e
-  coperto da test HTTP mockato offline. Altri output CLI dinamici restano da
-  rivedere.
+  coperto da test HTTP mockato offline. Inoltre i warning dinamici dei comandi
+  Argus (provider OSINT, risultati parziali e pivot) vengono sanitizzati; un test
+  CLI offline inietta ANSI e newline nel warning del provider. Altri output CLI
+  dinamici restano da rivedere.
 - [ ] Garantire escaping contestuale in tutti gli export: HTML con Content Security
   Policy restrittiva e nessuno script inline, Markdown, SARIF e CSV/XLSX con
   protezione da formula injection (`=`, `+`, `-`, `@` in testa alla cella).

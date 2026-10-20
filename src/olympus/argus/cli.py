@@ -113,6 +113,7 @@ from olympus.argus.whois import (
     build_whois_asset,
     export_whois_report,
 )
+from olympus.core.execution import safe_terminal_text
 from olympus.core.exit_codes import ExitCode
 from olympus.core.fileio import atomic_write_text, read_regular_text
 from olympus.core.http import UrllibHttpClient
@@ -322,7 +323,7 @@ def phone(
         if number is not None:
             outcome = service.run(request_for(number))
             for warning in outcome.warnings:
-                typer.echo(f"argus: warning: {warning}", err=True)
+                typer.echo(safe_terminal_text(f"argus: warning: {warning}"), err=True)
             typer.echo(json.dumps(outcome.intel.to_dict(), indent=2, sort_keys=True))
             if output is not None:
                 export_phone_intel(outcome.intel, output)
@@ -348,7 +349,7 @@ def phone(
         raise typer.Exit(code=ExitCode.USAGE) from exc
 
     for warning in batch.warnings:
-        typer.echo(f"argus: {warning}", err=True)
+        typer.echo(safe_terminal_text(f"argus: {warning}"), err=True)
     payload = [intel.to_dict() for intel in batch.intels]
     typer.echo(json.dumps(payload, indent=2, sort_keys=True))
     if output is not None:
@@ -425,7 +426,7 @@ def accounts(
             )
             intels = batch.intels
             for warning in batch.warnings:
-                typer.echo(f"argus: {warning}", err=True)
+                typer.echo(safe_terminal_text(f"argus: {warning}"), err=True)
     except AuthorizationRequiredError as exc:
         typer.echo(f"argus: {_METADATA_DISCLAIMER}", err=True)
         raise typer.Exit(code=ExitCode.NOT_AUTHORIZED) from exc
@@ -502,7 +503,7 @@ def ip(
         if ip_address is not None:
             outcome = service.run(request_for(ip_address))
             for warning in outcome.warnings:
-                typer.echo(f"argus: warning: {warning}", err=True)
+                typer.echo(safe_terminal_text(f"argus: warning: {warning}"), err=True)
             typer.echo(json.dumps(outcome.intel.to_dict(), indent=2, sort_keys=True))
             if output is not None:
                 export_ip_intel(outcome.intel, output)
@@ -528,7 +529,7 @@ def ip(
         raise typer.Exit(code=ExitCode.USAGE) from exc
 
     for warning in batch.warnings:
-        typer.echo(f"argus: {warning}", err=True)
+        typer.echo(safe_terminal_text(f"argus: {warning}"), err=True)
     payload = [intel.to_dict() for intel in batch.intels]
     typer.echo(json.dumps(payload, indent=2, sort_keys=True))
     if output is not None:
@@ -627,7 +628,7 @@ def investigate(
 
     graph = outcome.graph
     for warning in outcome.warnings:
-        typer.echo(f"argus: {warning}", err=True)
+        typer.echo(safe_terminal_text(f"argus: {warning}"), err=True)
 
     typer.echo(json.dumps(graph.to_dict(), indent=2, sort_keys=True))
     export_investigation(graph, output)

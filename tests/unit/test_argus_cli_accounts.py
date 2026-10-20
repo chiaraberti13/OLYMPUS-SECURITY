@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from typer.testing import CliRunner
@@ -175,3 +176,38 @@ def test_accounts_batch_skips_out_of_scope(tmp_path: Path, monkeypatch: pytest.M
     payload = json.loads(json_text)
     assert len(payload) == 1  # only the in-scope handle
     assert "skipping out-of-scope" in result.output
+
+
+def test_accounts_sanitizes_provider_warning(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class _WarningService:
+        def __init__(self, *args: object) -> None:
+            pass
+
+        def run_many(self, requests: tuple[object, ...]) -> SimpleNamespace:
+            return SimpleNamespace(
+                intels=(), warnings=("provider\x1b[2J warning\nforged terminal line",)
+            )
+
+    monkeypatch.setattr(argus_cli, "AccountEnumerationService", _WarningService)
+    handles = tmp_path / "handles.txt"
+    handles.write_text("olympus_demo\n", encoding="utf-8")
+    result = runner.invoke(
+        app,
+        [
+            "argus",
+            "accounts",
+            "--input",
+            str(handles),
+            "--scope",
+            str(_scope(tmp_path)),
+            "--sites",
+            str(_sites(tmp_path)),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "argus: provider[2J warning forged terminal line" in result.output
+    assert "\x1b" not in result.output
+    assert "\nforged terminal line" not in result.output
