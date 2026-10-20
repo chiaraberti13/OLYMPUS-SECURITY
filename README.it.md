@@ -255,7 +255,9 @@ Il control plane via browser copre anche la **fase di analisi** del ciclo: con
 `--findings-storage` un operatore può gestirne il ciclo di vita (confermare,
 accettare-con-motivazione, chiudere, riaprire) dal browser, con un audit trail
 append-only — lo stesso workflow, vista ed evidence browser della CLI
-(`olympus vulcan findings`). Vedi [`docs/web.md`](docs/web.md).
+(`olympus vulcan findings`). La vista filtrata esporta anche un report Vulcan
+(Markdown/HTML/JSON) con un clic, riusando lo stesso renderer della CLI
+(`WEB-I` slice 1). Vedi [`docs/web.md`](docs/web.md).
 
 Dopo aver preparato scope, identità e TLS secondo la
 [`guida al runtime`](docs/themis-runtime.md):

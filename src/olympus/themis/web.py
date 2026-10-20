@@ -31,6 +31,8 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import hmac
+import json
+import re
 import secrets
 import time
 from collections.abc import AsyncIterator
@@ -39,6 +41,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, cast
+from urllib.parse import urlencode
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
@@ -103,6 +106,11 @@ from olympus.themis.jobs import (
 )
 from olympus.vulcan.aggregate import AggregationError, load_findings
 from olympus.vulcan.evidence_view import build_finding_evidence_view
+from olympus.vulcan.report import (
+    build_report_model,
+    render_report_html,
+    render_report_markdown,
+)
 from olympus.vulcan.search import FindingFilter, search_findings
 from olympus.vulcan.view import FindingView, rank_by_risk
 
@@ -367,6 +375,53 @@ def _present_finding_row(view: FindingView) -> dict[str, object]:
         "cve": row["cve"],
         "kev": finding.kev,
     }
+
+
+def _finding_filter_from_params(
+    *,
+    status_filter: str,
+    severity: str,
+    source: str,
+    text: str,
+    kev_only: str,
+    has_cve: str,
+    min_risk: str,
+) -> tuple[FindingFilter, dict[str, str]]:
+    """Build a :class:`FindingFilter` from raw query params, plus an echo dict.
+
+    The single place the browser turns filter query parameters into the shared
+    filter, so the findings list and the exported report narrow a finding set
+    *identically* — a report is always exactly what the filtered table showed.
+    Unrecognised enum values and an out-of-range risk simply do not constrain.
+    """
+    status_value = _as_finding_status(status_filter)
+    source_value = _as_source(source)
+    min_severity = _as_severity(severity)
+    try:
+        min_risk_value: float | None = float(min_risk) if min_risk.strip() else None
+    except ValueError:
+        min_risk_value = None
+    if min_risk_value is not None and not 0.0 <= min_risk_value <= 100.0:
+        min_risk_value = None
+    query = FindingFilter(
+        statuses=frozenset({status_value}) if status_value is not None else frozenset(),
+        sources=frozenset({source_value}) if source_value is not None else frozenset(),
+        min_severity=min_severity,
+        kev_only=bool(kev_only),
+        has_cve=True if has_cve else None,
+        text=text.strip(),
+        min_risk_score=min_risk_value,
+    )
+    echo = {
+        "status": status_filter,
+        "severity": severity,
+        "source": source,
+        "text": text,
+        "kev_only": "on" if kev_only else "",
+        "has_cve": "on" if has_cve else "",
+        "min_risk": min_risk,
+    }
+    return query, echo
 
 
 def _finding_filter_options() -> dict[str, list[dict[str, str]]]:
@@ -1103,15 +1158,15 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         result set the operator would get from ``olympus vulcan findings list``.
         Unrecognised filter values simply do not constrain the result.
         """
-        filters = {
-            "status": status_filter,
-            "severity": severity,
-            "source": source,
-            "text": text,
-            "kev_only": "on" if kev_only else "",
-            "has_cve": "on" if has_cve else "",
-            "min_risk": min_risk,
-        }
+        query, filters = _finding_filter_from_params(
+            status_filter=status_filter,
+            severity=severity,
+            source=source,
+            text=text,
+            kev_only=kev_only,
+            has_cve=has_cve,
+            min_risk=min_risk,
+        )
         base_context: dict[str, object] = {
             "configured": findings_directory is not None,
             "filters": filters,
@@ -1121,6 +1176,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             "matched": 0,
             "error": None,
             "lifecycle_enabled": findings_database is not None,
+            "report_query": urlencode({k: v for k, v in filters.items() if v}),
         }
         if findings_directory is None:
             return _page(request, "findings.html", base_context)
@@ -1128,25 +1184,6 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             catalogue = _load_findings_catalogue()
         except _FindingsUnavailable as exc:
             return _page(request, "findings.html", {**base_context, "error": exc.detail})
-
-        status_value = _as_finding_status(status_filter)
-        min_severity = _as_severity(severity)
-        source_value = _as_source(source)
-        try:
-            min_risk_value = float(min_risk) if min_risk.strip() else None
-        except ValueError:
-            min_risk_value = None
-        if min_risk_value is not None and not 0.0 <= min_risk_value <= 100.0:
-            min_risk_value = None
-        query = FindingFilter(
-            statuses=frozenset({status_value}) if status_value is not None else frozenset(),
-            sources=frozenset({source_value}) if source_value is not None else frozenset(),
-            min_severity=min_severity,
-            kev_only=bool(kev_only),
-            has_cve=True if has_cve else None,
-            text=text.strip(),
-            min_risk_score=min_risk_value,
-        )
 
         store = _open_transition_store()
         try:
@@ -1164,6 +1201,84 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 "findings": rows,
                 "total": len(catalogue),
                 "matched": len(rows),
+            },
+        )
+
+    @app.get("/findings/report", include_in_schema=False)
+    def findings_report(
+        request: Request,
+        format: str = "md",
+        engagement: str = "",
+        status_filter: str = "",
+        severity: str = "",
+        source: str = "",
+        text: str = "",
+        kev_only: str = "",
+        has_cve: str = "",
+        min_risk: str = "",
+        session: WebSession = reads_findings,
+    ) -> Response:
+        """Export a Vulcan report of the *currently filtered* findings (ROADMAP ``WEB-I``).
+
+        The report builder composes over Vulcan without duplicating any rendering
+        logic: it narrows the catalogue with the **same** filter the table uses
+        (:func:`_finding_filter_from_params`), builds the canonical
+        :class:`~olympus.core.models.SecurityReport` with
+        :func:`build_report_model`, and renders it with the existing
+        :func:`render_report_markdown` / :func:`render_report_html` / the model's
+        own JSON dump. The result is served as a download so what reaches the
+        browser is a report, not a page.
+        """
+        chosen = format.strip().lower()
+        renderers = {"json", "md", "markdown", "html"}
+        if chosen not in renderers:
+            raise HTTPException(status_code=422, detail="format must be one of json, md, html")
+        if findings_directory is None:
+            raise HTTPException(status_code=400, detail="no findings directory is configured")
+        try:
+            catalogue = _load_findings_catalogue()
+        except _FindingsUnavailable as exc:
+            raise HTTPException(status_code=503, detail=exc.detail) from exc
+
+        query, _ = _finding_filter_from_params(
+            status_filter=status_filter,
+            severity=severity,
+            source=source,
+            text=text,
+            kev_only=kev_only,
+            has_cve=has_cve,
+            min_risk=min_risk,
+        )
+        store = _open_transition_store()
+        try:
+            effective = [_effective_finding(finding, store) for finding in catalogue]
+        finally:
+            if store is not None:
+                store.close()
+        matched = rank_by_risk(search_findings(effective, query))
+
+        # The engagement is a human label for the report header; sanitise it and
+        # derive a filesystem-safe slug so it cannot inject into the download name
+        # or the Content-Disposition header.
+        label = _safe(engagement.strip()) or "olympus-findings"
+        slug = re.sub(r"[^A-Za-z0-9._-]+", "-", label).strip("-")[:64] or "olympus-findings"
+        report = build_report_model(label, [], matched, [])
+
+        if chosen == "json":
+            body = json.dumps(report.model_dump(mode="json"), indent=2, sort_keys=True) + "\n"
+            media_type, extension = "application/json", "json"
+        elif chosen in {"md", "markdown"}:
+            body = render_report_markdown(report)
+            media_type, extension = "text/markdown; charset=utf-8", "md"
+        else:
+            body = render_report_html(report)
+            media_type, extension = "text/html; charset=utf-8", "html"
+        return Response(
+            content=body,
+            media_type=media_type,
+            headers={
+                "Content-Disposition": f'attachment; filename="olympus-report-{slug}.{extension}"',
+                "Cache-Control": "no-store",
             },
         )
 

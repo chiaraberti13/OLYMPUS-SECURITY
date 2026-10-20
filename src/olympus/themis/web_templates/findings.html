@@ -66,6 +66,13 @@
 
   <p class="muted" aria-live="polite">{{ matched }} of {{ total }} finding(s) shown, ranked by risk.</p>
 
+  <nav class="report-export" aria-label="Export report">
+    <span class="muted">Export this view as a Vulcan report:</span>
+    <a class="button-link" href="/findings/report?format=md{% if report_query %}&{{ report_query }}{% endif %}">Markdown</a>
+    <a class="button-link" href="/findings/report?format=html{% if report_query %}&{{ report_query }}{% endif %}">HTML</a>
+    <a class="button-link" href="/findings/report?format=json{% if report_query %}&{{ report_query }}{% endif %}">JSON</a>
+  </nav>
+
   {% if findings %}
   <table>
     <thead>

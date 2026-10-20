@@ -136,4 +136,5 @@ ul.plain li { margin: .5rem 0; }
 .filter-wide { grid-column: 1 / -1; }
 .filter-checks { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: .6rem; }
 .filter-checks label.checkbox { margin: 0; }
+.report-export { display: flex; flex-wrap: wrap; gap: .8rem; align-items: center; margin: 0 0 1rem; }
 .footer { max-width: 960px; margin: 0 auto; padding: 1rem; color: var(--muted); font-size: .85rem; }

@@ -1294,9 +1294,18 @@ lo stesso port; l'utente locale non deve installare Postgres.
 
 ### Intervento I · `WEB-I` — Reporting, trend e notifiche (**P2**)
 
-- [ ] **Report builder** sopra Vulcan: comporre un report (executive/tecnico/raw)
-  da un engagement scegliendo sezioni, scope e formato (JSON/MD/HTML/PDF), senza
-  duplicare la logica di rendering già esistente.
+- [x] **Report builder (slice 1 — export dal browser).** Dalla vista findings
+  (`WEB-C`) l'operatore scarica un report Vulcan della selezione corrente in
+  `md`/`html`/`json` via `GET /findings/report` (scope `findings:read`), con lo
+  **stesso** filtro della tabella (`_finding_filter_from_params` →
+  `FindingFilter`) e i renderer esistenti (`build_report_model` +
+  `render_report_markdown`/`render_report_html`/JSON dump): nessuna logica di
+  rendering duplicata, quindi il report dal browser è identico a quello della
+  CLI per lo stesso set. Servito come download (`Content-Disposition: attachment`);
+  etichetta engagement sanitizzata (`SEC-H`) e slug per il filename. Test
+  `tests/unit/test_themis_web.py`; doc [`docs/web.md`](docs/web.md). **Resta da
+  fare:** sezioni executive/tecnico selezionabili, PDF dal browser (oggi CLI-only
+  `olympus vulcan report --pdf`).
 - [ ] **Report comparison / scan diff**: confrontare due run o due report dello
   stesso scope evidenziando finding nuovi, risolti e persistenti.
 - [ ] **Trend storici e attack-surface evolution**: andamento di finding per
