@@ -59,7 +59,7 @@ case_app = typer.Typer(help="Local-first cyber threat-intelligence cases.", no_a
 
 
 def _fail(exc: Exception) -> None:
-    typer.echo(f"metis: {exc}", err=True)
+    typer.echo(safe_terminal_text(f"metis: {exc}"), err=True)
     raise typer.Exit(code=ExitCode.USAGE) from exc
 
 

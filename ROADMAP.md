@@ -611,6 +611,16 @@ va verificato dopo la pubblicazione. Questa è una correzione mirata: SEC-H rest
 `[~]` perché l'audit degli altri output testuali diretti e dei logger non è
 concluso.
 
+**Avanzamento verificato (2026-10-20, errori CLI Metis):** il gestore comune
+`metis._fail` passa ora ogni eccezione operativa/di validazione da
+`safe_terminal_text` prima di scriverla su stderr. Questo copre i percorsi e i
+messaggi derivati da database, artefatti e bundle CTI, neutralizzando controlli
+ANSI/OSC, righe contraffatte e query URL sensibili senza alterare il codice di
+uscita `USAGE`. Un test offline sostituisce lo store SQLite con un errore
+sintetico contenente ESC e newline e verifica l'output CLI monoriga. Nessun input
+è stato inviato a sistemi remoti. SEC-H resta `[~]`: altri output testuali
+dinamici e logger devono ancora essere auditati.
+
 **Intervento implementato (2026-10-20, errori di trasporto Artemis):** i
 campioni di errore mostrati dal CLI attraverso il report di coverage passano ora
 da `safe_terminal_text`. Il messaggio ricevuto da un trasporto ostile non può

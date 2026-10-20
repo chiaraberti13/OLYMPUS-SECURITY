@@ -10,6 +10,7 @@ import pytest
 from typer.testing import CliRunner
 
 from olympus.cli import app
+from olympus.metis import cli as metis_cli
 from olympus.metis.cases import CaseStore, export_report, extract_indicators
 from olympus.metis.catalog import CAPABILITIES, recommend
 from olympus.metis.models import IndicatorType, OperatingMode
@@ -151,6 +152,19 @@ def test_metis_cli_roundtrip(tmp_path: Path) -> None:
     shown = runner.invoke(app, ["metis", "case", "show", str(database), case_id])
     assert shown.exit_code == 0
     assert json.loads(shown.stdout)["schema_name"] == "olympus.metis-case"
+
+
+def test_metis_cli_failure_sanitizes_terminal_controls(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fail_case_store(_database: Path) -> CaseStore:
+        raise OSError("invalid path: sample\x1b[2J\nforged-diagnostic")
+
+    monkeypatch.setattr(metis_cli, "CaseStore", fail_case_store)
+    result = runner.invoke(app, ["metis", "case", "init", "synthetic.db"])
+
+    assert result.exit_code == 2
+    assert "\x1b" not in result.output
+    assert "\nforged-diagnostic" not in result.output
+    assert "forged-diagnostic" in result.output
 
 
 # --- Backup / restore of the case store (roadmap §2 Metis) ------------------- #
