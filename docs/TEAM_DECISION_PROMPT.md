@@ -17,17 +17,17 @@ Agisci come un team interdisciplinare senior incaricato di portare OLYMPUS-SECUR
 1. Esamina `ROADMAP.md`, README IT/EN, pyproject, CI, codice, test, architettura, deployment e stato delle issue. Non dedurre capacità dal nome di un modulo: collega ogni affermazione a file, test o prova live.
 2. Descrivi lo stato reale di CLI, TUI, API e web app. Olympus ha già un web control plane THEMIS: valuta quello che esiste prima di proporre nuove schermate o una riscrittura.
 3. Definisci utenti e casi d'uso prioritari, in particolare il flusso end-to-end senza terminale: engagement e autorizzazione → scope/asset → scelta capability pronta → preview impatto → conferma → job e cancellazione → findings/evidenze → report/audit.
-4. Proponi architettura e stack solo dopo l'audit. Mantieni i contratti e il core Python come ipotesi di partenza. Confronta in modo esplicito:
+4. Proponi architettura e stack solo dopo l'audit. Non privilegiare lo stack o l'architettura correnti. Confronta in modo esplicito:
    - web server-rendered FastAPI/Jinja2/HTMX riusando la base esistente;
    - SPA TypeScript collegata alla stessa API, se esigenze dimostrate la giustificano;
-   - altre opzioni solo con vantaggi, rischi, costi di migrazione, gestione delle dipendenze e impatto sulla sicurezza.
-   Non scegliere un nuovo linguaggio per moda e non sostituire il core senza un requisito misurabile.
+   - altre opzioni adeguate, inclusi stack e architetture diversi o una riscrittura, quando portano vantaggi dimostrabili.
+   Valuta sicurezza, UX, accessibilità, installazione, prestazioni, competenze, costo totale, migrazione e rischi operativi. Nessuna scelta è favorita per moda o inerzia: motivala con requisiti e prove, riportando svantaggi e condizioni di revisione.
 5. Fai discutere le discipline: rendi espliciti i disaccordi, i compromessi e la decisione finale motivata. Il responsabile sicurezza può bloccare una soluzione che aggira scope, autorizzazione, audit, limiti o sandbox.
-6. Riscrivi `ROADMAP.md` in modo leggibile e attuabile: conserva gli ID stabili esistenti (`SEC-*`, `DEV-*`, `WEB-*`, `UX-*`, `OPS-*`), gli stati completati solo se verificati, le evidenze utili e gli item ancora validi. Accorpa duplicati, rimuovi claim scaduti e riordina le dipendenze. Non cancellare lavoro funzionante né descrivere funzioni pianificate come già implementate.
+6. Riscrivi `ROADMAP.md` in modo leggibile e attuabile: mantieni gli ID e il lavoro esistente quando sono utili alla soluzione raccomandata; rimappali, accorpali o sostituiscili se il team sceglie un cambio d'architettura o una ricostruzione. Conserva la storia e le prove valide, rimuovi claim scaduti, ordina le dipendenze e non descrivere funzioni pianificate come già implementate.
 7. Per ogni fase e attività specifica priorità, stato con prova, responsabile per ruolo, dipendenze, risultato atteso, criteri d'accettazione testabili e test di sicurezza/UX. Distingui backlog, prerequisiti esterni e release blocker.
 8. Mantieni le interfacce equivalenti sul piano delle policy: nessun endpoint per shell/comandi arbitrari, nessuna funzione che amplia automaticamente scope o attiva scansioni senza autorizzazione.
 9. Includi verifiche per: annullamento job, coverage parziale, parser di output ostile, XSS/CSRF/sessioni, egress, rate/risorse, audit, redazione, accessibilità, IT/EN, migrazioni, backup/restore e affidabilità degli adapter.
-10. Lavora per slice verticali piccole: proponi prima le modifiche documentali e il piano; poi implementa l'item successivo con codice, test e docs nella stessa iterazione. Non fare una riscrittura massiva del runtime per ottenere una demo.
+10. Lavora per slice verticali piccole: proponi prima le modifiche documentali e il piano; poi implementa l'item successivo con codice, test e docs nella stessa iterazione. La strategia può essere una migrazione graduale o una ricostruzione, purché ne espliciti rischi e verifiche.
 
 ## Formato della decisione
 
