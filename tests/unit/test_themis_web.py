@@ -840,3 +840,73 @@ def test_transition_without_a_lifecycle_store_is_refused(tmp_path: Path) -> None
     )
     assert response.status_code == 400
     assert "lifecycle store" in response.text
+
+
+# ---------------------------------------------------------------------------
+# Report builder over Vulcan (ROADMAP WEB-I slice 1)
+# ---------------------------------------------------------------------------
+
+_LOW_FINDING = {
+    **_FINDING,
+    "finding_id": "FND-2026-00002",
+    "title": "Server banner disclosed",
+    "severity": "info",
+}
+
+
+def test_report_requires_the_findings_read_scope(tmp_path: Path) -> None:
+    client = _client(
+        tmp_path,
+        api_key_scopes=("jobs:read",),
+        findings_directory=_findings_dir(tmp_path),
+    )
+    _login(client)
+    assert client.get("/findings/report", params={"format": "md"}).status_code == 403
+
+
+def test_report_renders_in_each_format_as_a_download(tmp_path: Path) -> None:
+    client = _findings_client(tmp_path, _FINDING, _LOW_FINDING)
+    _login(client)
+    for fmt, content_type in (
+        ("md", "text/markdown"),
+        ("html", "text/html"),
+        ("json", "application/json"),
+    ):
+        response = client.get("/findings/report", params={"format": fmt, "engagement": "Demo 2026"})
+        assert response.status_code == 200, response.text
+        assert content_type in response.headers["content-type"]
+        assert "attachment" in response.headers["content-disposition"]
+        assert "olympus-report-Demo-2026." in response.headers["content-disposition"]
+        assert "Reflected XSS in search" in response.text
+
+
+def test_report_reflects_the_same_filter_as_the_table(tmp_path: Path) -> None:
+    client = _findings_client(tmp_path, _FINDING, _LOW_FINDING)
+    _login(client)
+    report = client.get("/findings/report", params={"format": "md", "severity": "high"})
+    assert report.status_code == 200
+    # Only the high finding survives the min-severity filter — exactly the table.
+    assert "Reflected XSS in search" in report.text
+    assert "Server banner disclosed" not in report.text
+
+
+def test_report_rejects_an_unknown_format(tmp_path: Path) -> None:
+    client = _findings_client(tmp_path)
+    _login(client)
+    assert client.get("/findings/report", params={"format": "pdf"}).status_code == 422
+
+
+def test_report_is_honest_when_no_directory_is_configured(tmp_path: Path) -> None:
+    client = _client(tmp_path)  # no findings_directory
+    _login(client)
+    response = client.get("/findings/report", params={"format": "md"})
+    assert response.status_code == 400
+
+
+def test_report_route_does_not_shadow_a_finding_detail(tmp_path: Path) -> None:
+    client = _findings_client(tmp_path)
+    _login(client)
+    # 'report' is a dedicated route, and a real finding detail still resolves.
+    assert client.get("/findings/FND-2026-00001").status_code == 200
+    # The findings list offers the export links for the current view.
+    assert "/findings/report?format=md" in client.get("/findings").text

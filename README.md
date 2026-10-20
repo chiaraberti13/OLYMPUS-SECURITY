@@ -330,7 +330,9 @@ The browser control plane also covers the **analysis end** of the cycle: with
 `--findings-storage` an operator can triage a finding through its lifecycle
 (confirm, accept-with-reason, close, re-open) from the browser, with an
 append-only audit trail — the same workflow, view and evidence browser the CLI
-exposes (`olympus vulcan findings`). See [`docs/web.md`](docs/web.md).
+exposes (`olympus vulcan findings`). The filtered view also exports a Vulcan
+report (Markdown/HTML/JSON) with one click, reusing the same renderer as the CLI
+(`WEB-I` slice 1). See [`docs/web.md`](docs/web.md).
 
 After preparing scopes, scoped identities and TLS files as described in
 [`docs/themis-runtime.md`](docs/themis-runtime.md):

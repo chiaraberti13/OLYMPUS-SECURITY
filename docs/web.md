@@ -79,6 +79,7 @@ as on the API.
 | `GET /` | Dashboard: job totals, a state histogram and the ten most recent jobs. |
 | `GET /jobs` | Every job, newest first. |
 | `GET /findings` | Findings, filtered and ranked by risk exactly as the CLI does (requires `findings:read`); available only with `--findings-directory`. |
+| `GET /findings/report` | Download a Vulcan report of the currently filtered findings as Markdown, HTML or JSON (requires `findings:read`). |
 | `GET /findings/{id}` | Finding detail, evidence chain and lifecycle history (requires `findings:read`). |
 | `POST /findings/{id}/transition` | Record a lifecycle transition for one finding (requires `findings:write`, CSRF-protected); available only with `--findings-storage`. |
 | `GET /engagements`, `GET /engagements/{id}` | The shared engagements and their scope (requires `engagements:read`); available only when the server is started with `--engagement-storage`. |
@@ -130,6 +131,23 @@ CLI uses — no security or presentation logic is re-implemented in the page:
 Without `--findings-directory` the pages state plainly that the feature is not
 configured; without `--findings-storage` findings are shown read-only. Both
 degrade honestly rather than pretending there are no findings.
+
+### Report export (`WEB-I`)
+
+The findings view offers a one-click **Vulcan report** of exactly what is on
+screen. `GET /findings/report` takes the same filter query parameters as
+`GET /findings` plus `format` (`md`, `html` or `json`) and an optional
+`engagement` label, narrows the catalogue with the identical
+`vulcan.search.FindingFilter`, builds the canonical `SecurityReport` with
+`vulcan.report.build_report_model`, and renders it with the **existing**
+`render_report_markdown` / `render_report_html` / the model's JSON dump — no
+rendering logic is duplicated in the web layer, so a report from the browser is
+byte-for-byte what the CLI produces for the same finding set. The response is a
+download (`Content-Disposition: attachment`), so what reaches the browser is a
+report, not a page. The `engagement` label is sanitised (`SEC-H`) and slugified
+for the filename. PDF stays CLI-only for now (`olympus vulcan report --pdf`,
+optional `report` extra); report comparison, trends and notifications are the
+remaining `WEB-I` slices.
 
 ## New assessment (`WEB-E`)
 
