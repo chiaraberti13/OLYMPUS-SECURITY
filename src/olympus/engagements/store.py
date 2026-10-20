@@ -10,10 +10,12 @@ from __future__ import annotations
 import contextlib
 import json
 import sqlite3
+from datetime import UTC, datetime
 from pathlib import Path
 
 from olympus.core.contracts import validate_contract_header
 from olympus.core.models import Engagement
+from olympus.engagements.manifest import EngagementManifest, SignedEngagementManifest
 
 #: Guard against an oversized stored document exhausting memory on load.
 MAX_DOCUMENT_BYTES = 1_000_000
@@ -28,6 +30,10 @@ CREATE TABLE IF NOT EXISTS engagements (
     document TEXT NOT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS manifest_revocations (
+    identifier TEXT PRIMARY KEY,
+    revoked_at TEXT NOT NULL
 );
 """
 
@@ -101,6 +107,45 @@ class SqliteEngagementStore:
             "SELECT document FROM engagements ORDER BY created_at DESC, engagement_id"
         ).fetchall()
         return [self._load(row["document"]) for row in rows]
+
+    def revoke_manifest(
+        self, signed_manifest: SignedEngagementManifest, *, trusted_public_key_pem: str
+    ) -> frozenset[str]:
+        """Persist revocation identifiers only after verifying the signed manifest."""
+        signed_manifest.verify_signature(trusted_public_key_pem=trusted_public_key_pem)
+        identifiers = frozenset(
+            {signed_manifest.manifest_sha256, signed_manifest.manifest.manifest_id}
+        )
+        revoked_at = datetime.now(UTC).isoformat()
+        with self._conn:
+            self._conn.executemany(
+                "INSERT OR IGNORE INTO manifest_revocations (identifier, revoked_at) VALUES (?, ?)",
+                ((identifier, revoked_at) for identifier in identifiers),
+            )
+        return identifiers
+
+    def revoked_manifest_identifiers(self) -> frozenset[str]:
+        """Return the durable revocation set for ``SignedEngagementManifest.authorize``."""
+        rows = self._conn.execute("SELECT identifier FROM manifest_revocations").fetchall()
+        return frozenset(str(row["identifier"]) for row in rows)
+
+    def authorize_manifest(
+        self,
+        signed_manifest: SignedEngagementManifest,
+        *,
+        trusted_public_key_pem: str,
+        target: str,
+        technique: str,
+        now: datetime,
+    ) -> EngagementManifest:
+        """Authorize against this store's persistent revocation register."""
+        return signed_manifest.authorize(
+            trusted_public_key_pem=trusted_public_key_pem,
+            target=target,
+            technique=technique,
+            now=now,
+            revoked=self.revoked_manifest_identifiers(),
+        )
 
     @staticmethod
     def _load(document: str) -> Engagement:

@@ -292,8 +292,11 @@ cosa e per quanto tempo.
   mai un manifest manomesso. L'argomento `revoked` rifiuta inoltre fail-closed
   input scalari, collezioni non-stringa o identificatori vuoti, così un singolo
   ID passato per errore come stringa non viene interpretato come lista di
-  caratteri. Restano il legame di ogni job all'hash del manifest
-  e la registrazione in audit/report/evidenze (wiring nei percorsi attivi).
+  caratteri. Il database SQLite engagements ora persiste digest e `manifest_id`
+  solo dopo la verifica della firma e offre `authorize_manifest`, che carica il
+  registro prima di delegare i controlli. Restano il legame di ogni job all'hash
+  del manifest e la registrazione in audit/report/evidenze (wiring nei percorsi
+  attivi).
 - [ ] Prevedere un profilo lab separato, esplicito e limitato a reti dichiarate,
   senza scorciatoie globali come “allow all”.
 
@@ -301,10 +304,18 @@ cosa e per quanto tempo.
 `olympus.engagement-manifest` e `olympus.signed-engagement-manifest`, con firma
 Ed25519 sul JSON canonico e verifica che richiede la chiave pubblica fidata del
 verificatore. La funzione di autorizzazione controlla l'intervallo temporale,
-scope incluso/escluso e tecnica richiesta. Il controllo non è ancora integrato
-nei percorsi attivi, non esiste un registro di revoca e i job non persistono
-l'hash del manifest: SEC-C non è completato e il manifest da solo non abilita
-una scansione.
+scope incluso/escluso e tecnica richiesta. Al 2026-10-19 il controllo non era
+integrato nei percorsi attivi, mancava un registro di revoca e i job non
+persistevano l'hash del manifest; SEC-C non era completato e il manifest da solo
+non abilitava una scansione.
+
+**Avanzamento verificato (2026-10-20, registro revoche):** lo store SQLite
+engagement registra digest e `manifest_id` di un manifest solo dopo aver
+verificato digest e firma con la chiave pubblica fidata. Il metodo
+`authorize_manifest` rilegge le revoche persistenti e rifiuta il riuso; test
+offline coprono firma non attendibile, riapertura del database e rifiuto. Il
+registro locale non è tamper-evident o distribuito e non è ancora collegato ai
+percorsi attivi di submit job: `SEC-C` resta incompleto.
 
 **Criterio di completamento:** nessuna live scan può partire con un semplice flag;
 il report consente di dimostrare manifest, firma, scope e policy effettivi usati.

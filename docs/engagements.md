@@ -95,6 +95,16 @@ if engagement.covers("api.example.com"):
 `EngagementStoreError`, so an unknown id fails loudly at the source instead of
 silently stamping objects with a dangling reference.
 
+### Signed manifest revocation (SEC-C)
+
+The shared SQLite store also persists signed-manifest revocations. Call
+`revoke_manifest(signed_manifest, trusted_public_key_pem=...)` to verify the
+manifest digest and signature before recording its digest and manifest id.
+`authorize_manifest(...)` loads that durable revocation set and
+delegates target, technique, and time checks to the signed-manifest verifier.
+The database is local owner-only state, not a tamper-evident or distributed
+revocation service; active job submission paths are not yet wired to it.
+
 ## API and Web (slice 3)
 
 The same engagements are readable over the HTTP control plane and the browser

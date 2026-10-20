@@ -141,18 +141,7 @@ class SignedEngagementManifest(OlympusModel):
         after signature and digest verification, so it never masks a tampered or
         unsigned manifest.
         """
-        if self.manifest.digest() != self.manifest_sha256:
-            raise ManifestVerificationError("manifest digest does not match its signed content")
-        try:
-            signature_valid = verify(
-                self.manifest.canonical_json().encode("utf-8"),
-                self.signature_envelope,
-                public_pem=trusted_public_key_pem,
-            )
-        except SigningError as exc:
-            raise ManifestVerificationError("manifest signature verification failed") from exc
-        if not signature_valid:
-            raise ManifestVerificationError("manifest signature is invalid")
+        self.verify_signature(trusted_public_key_pem=trusted_public_key_pem)
         if (
             not isinstance(revoked, Collection)
             or isinstance(revoked, str)
@@ -173,3 +162,18 @@ class SignedEngagementManifest(OlympusModel):
                 "manifest does not authorize this target, technique, or time"
             )
         return self.manifest
+
+    def verify_signature(self, *, trusted_public_key_pem: str) -> None:
+        """Verify content integrity and the signature against a pinned public key."""
+        if self.manifest.digest() != self.manifest_sha256:
+            raise ManifestVerificationError("manifest digest does not match its signed content")
+        try:
+            signature_valid = verify(
+                self.manifest.canonical_json().encode("utf-8"),
+                self.signature_envelope,
+                public_pem=trusted_public_key_pem,
+            )
+        except SigningError as exc:
+            raise ManifestVerificationError("manifest signature verification failed") from exc
+        if not signature_valid:
+            raise ManifestVerificationError("manifest signature is invalid")

@@ -291,6 +291,48 @@ def test_revocation_never_masks_a_tampered_manifest() -> None:
         _authorize(tampered, public_key, revoked=(signed.manifest_sha256,))
 
 
+def test_sqlite_manifest_revocation_is_verified_and_persistent(tmp_path: Path) -> None:
+    private_key, public_key = generate_keypair()
+    signed = SignedEngagementManifest.sign_manifest(_manifest(), private_key_pem=private_key)
+    path = tmp_path / "engagements.db"
+    store = SqliteEngagementStore(path)
+    identifiers = store.revoke_manifest(signed, trusted_public_key_pem=public_key)
+
+    assert identifiers == {
+        signed.manifest_sha256,
+        signed.manifest.manifest_id,
+    }
+    assert store.revoked_manifest_identifiers() == identifiers
+    store.close()
+
+    reopened = SqliteEngagementStore(path)
+    try:
+        assert reopened.revoked_manifest_identifiers() == identifiers
+        with pytest.raises(ManifestRevocationError):
+            reopened.authorize_manifest(
+                signed,
+                trusted_public_key_pem=public_key,
+                target="www.example.com",
+                technique="nmap",
+                now=datetime(2026, 10, 19, 1, 0, tzinfo=UTC),
+            )
+    finally:
+        reopened.close()
+
+
+def test_sqlite_manifest_revocation_rejects_untrusted_signature(tmp_path: Path) -> None:
+    private_key, _ = generate_keypair()
+    _, other_public_key = generate_keypair()
+    signed = SignedEngagementManifest.sign_manifest(_manifest(), private_key_pem=private_key)
+    store = SqliteEngagementStore(tmp_path / "engagements.db")
+    try:
+        with pytest.raises(ManifestVerificationError):
+            store.revoke_manifest(signed, trusted_public_key_pem=other_public_key)
+        assert store.revoked_manifest_identifiers() == frozenset()
+    finally:
+        store.close()
+
+
 def test_manifest_rejects_naive_or_inverted_authorization_window() -> None:
     from pydantic import ValidationError
 
