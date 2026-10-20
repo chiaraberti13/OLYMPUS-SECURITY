@@ -216,5 +216,6 @@ def test_cli_misp_import_sanitizes_skipped_untrusted_values(tmp_path: Path) -> N
     assert result.exit_code == 0, result.output
     assert json.loads(result.stdout)["skipped"] == 1
     assert "\x1b" not in result.output
-    assert "forged log line" not in result.output
-    assert "firstred forged log line" in result.output
+    assert "\r" not in result.output
+    assert "first[31mred[0m forged log line" in result.output
+    assert "\nforged log line" not in result.output
