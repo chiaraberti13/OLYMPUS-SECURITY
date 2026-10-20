@@ -31,6 +31,11 @@ The web plane shares its command surface with `olympus themis api`:
   [`themis-api-identities.md`](themis-api-identities.md)).
 - **Same durable store.** `--database` and `--scope-directory` point at the same
   SQLite job store and registered scopes the CLI and API use.
+- **Optional findings review.** `--findings-directory` points at a folder of
+  `core.Finding` JSON bundles — the same read-only producer artifacts
+  `olympus vulcan findings` consumes — and enables the **Findings** pages;
+  `--findings-storage` points at the append-only lifecycle store so triage
+  decisions made in the browser are recorded (and audited) there.
 
 ## Authentication and session
 
@@ -73,6 +78,9 @@ as on the API.
 | `GET /login`, `POST /login`, `POST /logout` | Session lifecycle. |
 | `GET /` | Dashboard: job totals, a state histogram and the ten most recent jobs. |
 | `GET /jobs` | Every job, newest first. |
+| `GET /findings` | Findings, filtered and ranked by risk exactly as the CLI does (requires `findings:read`); available only with `--findings-directory`. |
+| `GET /findings/{id}` | Finding detail, evidence chain and lifecycle history (requires `findings:read`). |
+| `POST /findings/{id}/transition` | Record a lifecycle transition for one finding (requires `findings:write`, CSRF-protected); available only with `--findings-storage`. |
 | `GET /engagements`, `GET /engagements/{id}` | The shared engagements and their scope (requires `engagements:read`); available only when the server is started with `--engagement-storage`. |
 | `GET /tools` | The tool catalogue, read straight from the real capability inventory (requires `capabilities:read`). |
 | `GET /assessments/new` | Guided New Assessment wizard (requires `jobs:write`): engagement → target → scope → activity → tool or automatic. |
@@ -85,7 +93,43 @@ as on the API.
 Scope enforcement is per route: a `jobs:read` identity can browse but cannot open
 the new-assessment form or submit; `jobs:cancel` is required to cancel;
 `engagements:read` is required to view engagements; `capabilities:read` is
-required to view the tools page.
+required to view the tools page; `findings:read` is required to browse findings
+and `findings:write` to record a lifecycle transition.
+
+## Findings (`WEB-C`)
+
+`GET /findings` surfaces the findings/verification end of the cycle in the
+browser, so an operator no longer has to drop to the terminal to review results.
+It is a faithful projection of the same interface-agnostic building blocks the
+CLI uses — no security or presentation logic is re-implemented in the page:
+
+- **Source.** Findings are loaded from `--findings-directory` with the identical
+  strict, bounded `load_findings` the CLI uses. The bundles are **read-only
+  producer artifacts**; the page never rewrites them.
+- **List and filter.** The filter form reuses `vulcan.search.FindingFilter`
+  (status, minimum severity, source, CISA KEV, has-CVE, free text, minimum risk)
+  and the result is ranked by `vulcan.view.rank_by_risk`, so the browser produces
+  the same set an operator gets from `olympus vulcan findings list`.
+- **Detail.** The detail cells come from `FindingView.display_items`, honest
+  about absence (a datum the finding does not carry renders as `—`, never a
+  fabricated `0`). The **evidence** table comes from
+  `vulcan.evidence_view.build_finding_evidence_view`; with no custody ledger
+  wired in, a structured reference is shown honestly as `no-custody` rather than
+  disappearing, and inline snippets are redacted (`SEC-H`).
+- **Lifecycle.** The transition choices are exactly
+  `core.finding_lifecycle.allowed_transitions` of the finding's current status —
+  the page cannot invent an illegal workflow edge. Recording a transition writes
+  an immutable `olympus.finding-transition` record to the append-only
+  `--findings-storage` store (who/when/from→to/why), and the **effective** status
+  of a finding is folded from that history over the bundle's base status, so a
+  decision made here is reflected everywhere the finding is shown without
+  touching the producer artifact. Accepting a risk or marking a false positive
+  requires a non-empty reason, mirroring
+  `core.finding_lifecycle.suppress`.
+
+Without `--findings-directory` the pages state plainly that the feature is not
+configured; without `--findings-storage` findings are shown read-only. Both
+degrade honestly rather than pretending there are no findings.
 
 ## New assessment (`WEB-E`)
 

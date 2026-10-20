@@ -649,3 +649,194 @@ def test_preview_keeps_the_raw_target_but_displays_a_redacted_one(
 def _visible_text(html: str) -> str:
     """Strip hidden input values so a redaction check tests only shown text."""
     return re.sub(r'<input[^>]*type="hidden"[^>]*>', "", html)
+
+
+# ---------------------------------------------------------------------------
+# Findings review and triage (ROADMAP WEB-C wired into the browser)
+# ---------------------------------------------------------------------------
+
+_FINDING = {
+    "schema_name": "olympus.finding",
+    "schema_version": "1.0.0",
+    "finding_id": "FND-2026-00001",
+    "title": "Reflected XSS in search",
+    "description": "User input reflected without encoding.",
+    "severity": "high",
+    "source": "artemis",
+    "status": "new",
+    "asset_id": "AST-2026-00001",
+    "first_seen": "2026-08-14T07:43:32.267724Z",
+    "last_seen": "2026-08-14T07:43:32.267733Z",
+    "evidence": ["EVD-2026-00001", "http://127.0.0.1/?q=<script>"],
+    "references": [],
+    "remediation": "",
+}
+
+
+def _findings_dir(tmp_path: Path, *findings: dict[str, object]) -> Path:
+    directory = tmp_path / "findings"
+    directory.mkdir(parents=True, exist_ok=True)
+    for index, finding in enumerate(findings or (_FINDING,)):
+        (directory / f"bundle-{index}.json").write_text(json.dumps(finding), encoding="utf-8")
+    return directory
+
+
+def _findings_client(
+    tmp_path: Path, *findings: dict[str, object], **overrides: object
+) -> TestClient:
+    return _client(
+        tmp_path,
+        findings_directory=_findings_dir(tmp_path, *findings),
+        findings_database=tmp_path / "finding-transitions.sqlite3",
+        **overrides,
+    )
+
+
+def _findings_csrf(client: TestClient, finding_id: str = "FND-2026-00001") -> str:
+    page = client.get(f"/findings/{finding_id}")
+    assert page.status_code == 200, page.text
+    match = re.search(r'name="csrf_token" value="([0-9a-f]+)"', page.text)
+    assert match is not None, page.text
+    return match.group(1)
+
+
+def test_findings_list_requires_the_findings_read_scope(tmp_path: Path) -> None:
+    client = _client(
+        tmp_path,
+        api_key_scopes=("jobs:read",),
+        findings_directory=_findings_dir(tmp_path),
+    )
+    _login(client)
+    assert client.get("/findings").status_code == 403
+
+
+def test_findings_page_is_honest_when_no_directory_is_configured(tmp_path: Path) -> None:
+    client = _client(tmp_path)  # no findings_directory
+    _login(client)
+    page = client.get("/findings")
+    assert page.status_code == 200
+    assert "No findings directory is configured" in page.text
+
+
+def test_findings_list_renders_and_filters_like_the_cli(tmp_path: Path) -> None:
+    low = {**_FINDING, "finding_id": "FND-2026-00002", "title": "Info banner", "severity": "info"}
+    client = _findings_client(tmp_path, _FINDING, low)
+    _login(client)
+
+    page = client.get("/findings")
+    assert page.status_code == 200
+    assert "Reflected XSS in search" in page.text
+    assert "Info banner" in page.text
+    assert "2 of 2" in page.text
+
+    # The minimum-severity filter reuses FindingFilter; only the high stays.
+    filtered = client.get("/findings", params={"severity": "high"})
+    assert "Reflected XSS in search" in filtered.text
+    assert "Info banner" not in filtered.text
+    assert "1 of 2" in filtered.text
+
+
+def test_finding_detail_shows_lifecycle_and_evidence(tmp_path: Path) -> None:
+    client = _findings_client(tmp_path)
+    _login(client)
+    page = client.get("/findings/FND-2026-00001")
+    assert page.status_code == 200
+    assert "Lifecycle" in page.text
+    assert "Evidence" in page.text
+    # A structured reference with no ledger wired in is honestly "no custody".
+    assert "no-custody" in page.text
+    # The inline, non-structured reference is redacted (SEC-H), never raw script.
+    assert "<script>" not in page.text
+
+
+def test_finding_detail_404_for_unknown_id(tmp_path: Path) -> None:
+    client = _findings_client(tmp_path)
+    _login(client)
+    assert client.get("/findings/FND-2026-09999").status_code == 404
+
+
+def test_a_transition_is_recorded_and_updates_the_effective_status(tmp_path: Path) -> None:
+    client = _findings_client(tmp_path)
+    _login(client)
+    csrf = _findings_csrf(client)
+    moved = client.post(
+        "/findings/FND-2026-00001/transition",
+        data={"target": "confirmed", "reason": "exploited in a lab", "csrf_token": csrf},
+        follow_redirects=False,
+    )
+    assert moved.status_code == 303
+    assert moved.headers["location"] == "/findings/FND-2026-00001"
+    # The effective status is folded from the append-only store, not the bundle.
+    page = client.get("/findings/FND-2026-00001")
+    assert "Confirmed" in page.text
+    assert "exploited in a lab" in page.text
+    # The immutable producer bundle is never rewritten.
+    bundle = json.loads((tmp_path / "findings" / "bundle-0.json").read_text())
+    assert bundle["status"] == "new"
+
+
+def test_a_transition_requires_a_valid_csrf_token(tmp_path: Path) -> None:
+    client = _findings_client(tmp_path)
+    _login(client)
+    response = client.post(
+        "/findings/FND-2026-00001/transition",
+        data={"target": "confirmed", "csrf_token": "wrong"},
+    )
+    assert response.status_code == 403
+
+
+def test_a_transition_requires_the_findings_write_scope(tmp_path: Path) -> None:
+    client = _client(
+        tmp_path,
+        api_key_scopes=("findings:read",),
+        findings_directory=_findings_dir(tmp_path),
+        findings_database=tmp_path / "ft.sqlite3",
+    )
+    _login(client)
+    response = client.post(
+        "/findings/FND-2026-00001/transition",
+        data={"target": "confirmed", "csrf_token": "anything"},
+    )
+    assert response.status_code == 403
+
+
+def test_an_illegal_transition_is_rejected_and_records_nothing(tmp_path: Path) -> None:
+    client = _findings_client(tmp_path)
+    _login(client)
+    csrf = _findings_csrf(client)
+    # new -> in_remediation is not a legal edge in the shared state machine.
+    bad = client.post(
+        "/findings/FND-2026-00001/transition",
+        data={"target": "in_remediation", "reason": "x", "csrf_token": csrf},
+    )
+    assert bad.status_code == 422
+    # Nothing was recorded, so the finding is still New.
+    assert "New" in client.get("/findings/FND-2026-00001").text
+
+
+def test_suppressing_a_finding_requires_a_reason(tmp_path: Path) -> None:
+    client = _findings_client(tmp_path)
+    _login(client)
+    csrf = _findings_csrf(client)
+    response = client.post(
+        "/findings/FND-2026-00001/transition",
+        data={"target": "accepted", "reason": "   ", "csrf_token": csrf},
+    )
+    assert response.status_code == 422
+    assert "reason is required" in response.text
+
+
+def test_transition_without_a_lifecycle_store_is_refused(tmp_path: Path) -> None:
+    client = _client(
+        tmp_path,
+        api_key_scopes=SCOPES,
+        findings_directory=_findings_dir(tmp_path),
+    )  # findings_database is None
+    _login(client)
+    csrf = _csrf(client)
+    response = client.post(
+        "/findings/FND-2026-00001/transition",
+        data={"target": "confirmed", "reason": "x", "csrf_token": csrf},
+    )
+    assert response.status_code == 400
+    assert "lifecycle store" in response.text

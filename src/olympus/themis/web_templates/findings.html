@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Findings · Olympus THEMIS{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Findings</h1>
+  {% if not configured %}
+  <p class="muted">
+    No findings directory is configured on this server. Start the control plane
+    with <code>--findings-directory</code> pointing at a folder of
+    <code>core.Finding</code> JSON bundles (the same artifacts
+    <code>olympus vulcan findings</code> consumes) to review and triage findings
+    here.
+  </p>
+  {% else %}
+  {% if error %}<p class="alert" role="alert">Findings could not be read: {{ error }}</p>{% endif %}
+
+  <form class="filters" method="get" action="/findings">
+    <div class="filter-grid">
+      <div>
+        <label for="status_filter">Status</label>
+        <select id="status_filter" name="status_filter">
+          <option value="">Any</option>
+          {% for option in options.statuses %}
+          <option value="{{ option.value }}" {% if filters.status == option.value %}selected{% endif %}>{{ option.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="severity">Minimum severity</label>
+        <select id="severity" name="severity">
+          <option value="">Any</option>
+          {% for option in options.severities %}
+          <option value="{{ option.value }}" {% if filters.severity == option.value %}selected{% endif %}>{{ option.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="source">Source</label>
+        <select id="source" name="source">
+          <option value="">Any</option>
+          {% for option in options.sources %}
+          <option value="{{ option.value }}" {% if filters.source == option.value %}selected{% endif %}>{{ option.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="min_risk">Minimum risk (0–100)</label>
+        <input id="min_risk" name="min_risk" type="number" min="0" max="100" step="1"
+               value="{{ filters.min_risk }}" inputmode="numeric">
+      </div>
+      <div class="filter-wide">
+        <label for="text">Text search</label>
+        <input id="text" name="text" type="text" value="{{ filters.text }}"
+               placeholder="title, asset, CVE, tag…">
+      </div>
+    </div>
+    <div class="filter-checks">
+      <label class="checkbox"><input type="checkbox" name="kev_only" value="on" {% if filters.kev_only %}checked{% endif %}> CISA KEV only</label>
+      <label class="checkbox"><input type="checkbox" name="has_cve" value="on" {% if filters.has_cve %}checked{% endif %}> Has a CVE</label>
+    </div>
+    <div class="actions">
+      <button type="submit">Apply filters</button>
+      <a class="button-link" href="/findings">Clear</a>
+    </div>
+  </form>
+
+  <p class="muted" aria-live="polite">{{ matched }} of {{ total }} finding(s) shown, ranked by risk.</p>
+
+  {% if findings %}
+  <table>
+    <thead>
+      <tr><th scope="col">Risk</th><th scope="col">Severity</th><th scope="col">Status</th><th scope="col">Title</th><th scope="col">Asset</th><th scope="col">Source</th><th scope="col">CVE</th><th scope="col">KEV</th></tr>
+    </thead>
+    <tbody>
+      {% for finding in findings %}
+      <tr>
+        <td>{{ finding.risk }}</td>
+        <td><span class="severity severity-{{ finding.severity }}">{{ finding.severity_label }}</span></td>
+        <td>{{ finding.status_label }}</td>
+        <td><a href="/findings/{{ finding.finding_id }}">{{ finding.title }}</a></td>
+        <td class="target">{{ finding.asset }}</td>
+        <td>{{ finding.source }}</td>
+        <td class="target">{{ finding.cve }}</td>
+        <td>{% if finding.kev %}<span class="severity severity-critical">KEV</span>{% else %}—{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No findings match. {% if total %}Adjust the filters above.{% else %}No bundles were found in the configured directory.{% endif %}</p>
+  {% endif %}
+  {% endif %}
+</section>
+{% endblock %}

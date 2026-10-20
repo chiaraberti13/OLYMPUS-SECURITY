@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}{{ finding_id if finding_id else "Finding" }} · Olympus THEMIS{% endblock %}
+{% block content %}
+{% if not configured %}
+<section class="card">
+  <h1>Findings</h1>
+  <p class="muted">No findings directory is configured on this server.</p>
+</section>
+{% elif error %}
+<section class="card">
+  <h1>Finding</h1>
+  <p class="alert" role="alert">Findings could not be read: {{ error }}</p>
+</section>
+{% else %}
+<section class="card">
+  <h1>{{ title }}</h1>
+  <p class="status-line">
+    <span class="severity severity-{{ severity }}">{{ severity }}</span>
+    <span class="state state-finding">{{ status_label }}</span>
+  </p>
+  {% if description %}<p>{{ description }}</p>{% endif %}
+  <dl class="detail">
+    {% for label, value in items %}
+    <dt>{{ label }}</dt><dd class="target">{{ value }}</dd>
+    {% endfor %}
+  </dl>
+</section>
+
+<section class="card">
+  <h2>Lifecycle</h2>
+  {% if not lifecycle_enabled %}
+  <p class="muted">
+    This finding is read-only: no lifecycle store is configured
+    (<code>--findings-storage</code>), so triage decisions cannot be recorded here.
+  </p>
+  {% elif not can_transition %}
+  <p class="muted">Your session is not granted the <code>findings:write</code> scope.</p>
+  {% elif transitions %}
+  <form method="post" action="/findings/{{ finding_id }}/transition">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="target">Move to</label>
+    <select id="target" name="target" required>
+      {% for option in transitions %}
+      <option value="{{ option.value }}">{{ option.label }}</option>
+      {% endfor %}
+    </select>
+    <label for="reason">Reason <span class="muted">(required to accept a risk or mark a false positive)</span></label>
+    <input id="reason" name="reason" type="text" maxlength="2000"
+           placeholder="why this decision was made">
+    <button type="submit">Record transition</button>
+  </form>
+  {% else %}
+  <p class="muted">No further transitions are allowed from <strong>{{ status_label }}</strong>.</p>
+  {% endif %}
+
+  {% if history %}
+  <h3>History</h3>
+  <table>
+    <thead><tr><th scope="col">When</th><th scope="col">From</th><th scope="col">To</th><th scope="col">By</th><th scope="col">Reason</th></tr></thead>
+    <tbody>
+      {% for record in history %}
+      <tr>
+        <td>{{ record.occurred_at }}</td>
+        <td>{{ record.from }}</td>
+        <td>{{ record.to }}</td>
+        <td>{{ record.actor }}</td>
+        <td>{{ record.reason if record.reason else "—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Evidence</h2>
+  <p class="muted">Chain-of-custody signature: {{ custody_signature }}</p>
+  {% if evidence_rows %}
+  <table>
+    <thead><tr><th scope="col">Kind</th><th scope="col">Reference</th><th scope="col">Type</th><th scope="col">Digest</th><th scope="col">Custody</th><th scope="col">Integrity</th></tr></thead>
+    <tbody>
+      {% for row in evidence_rows %}
+      <tr>
+        <td>{{ row.kind }}</td>
+        <td class="target">{{ row.reference }}</td>
+        <td>{{ row.type }}</td>
+        <td class="target">{{ row.digest }}</td>
+        <td>{{ row.custody }}</td>
+        <td>{{ row.integrity }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">This finding carries no evidence references.</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

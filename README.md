@@ -315,7 +315,8 @@ olympus themis migrate --database .olympus/themis-jobs.sqlite3
 # The shared key defaults to capabilities:read only.
 olympus themis api --scope-directory .olympus/scopes
 olympus themis serve --scope-directory .olympus/scopes \
-  --ssl-certfile cert.pem --ssl-keyfile key.pem
+  --ssl-certfile cert.pem --ssl-keyfile key.pem \
+  --findings-directory .olympus/findings --findings-storage .olympus/finding-transitions.sqlite3
 olympus themis workers --database .olympus/themis-jobs.sqlite3
 ```
 
@@ -323,6 +324,13 @@ olympus themis workers --database .olympus/themis-jobs.sqlite3
 still needs explicit authorization and scope; live scans default to disabled.
 `workers --once` preserves canonical job exit codes, while the continuous worker
 continues after individual failures and handles SIGINT/SIGTERM cooperatively.
+
+The browser control plane also covers the **analysis end** of the cycle: with
+`--findings-directory` it lists, filters and ranks findings by risk, and with
+`--findings-storage` an operator can triage a finding through its lifecycle
+(confirm, accept-with-reason, close, re-open) from the browser, with an
+append-only audit trail — the same workflow, view and evidence browser the CLI
+exposes (`olympus vulcan findings`). See [`docs/web.md`](docs/web.md).
 
 After preparing scopes, scoped identities and TLS files as described in
 [`docs/themis-runtime.md`](docs/themis-runtime.md):

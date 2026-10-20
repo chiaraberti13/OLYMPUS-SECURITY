@@ -117,4 +117,23 @@ details.advanced summary { cursor: pointer; font-weight: 600; color: var(--accen
 .button-link:hover { text-decoration: underline; }
 ul.plain { padding-left: 1.1rem; }
 ul.plain li { margin: .5rem 0; }
+/* Findings review and triage (WEB-C). */
+.severity {
+  padding: .15rem .5rem; border-radius: 999px; font-size: .8rem;
+  border: 1px solid var(--line); font-weight: 600;
+}
+.severity-critical { color: var(--bad); border-color: var(--bad); }
+.severity-high { color: #ff9d73; border-color: #ff9d73; }
+.severity-medium { color: var(--warn); border-color: var(--warn); }
+.severity-low { color: var(--accent); border-color: var(--accent); }
+.severity-info { color: var(--muted); border-color: var(--muted); }
+.state-finding { color: var(--accent); border-color: var(--accent); }
+.filters { margin: 0 0 1.2rem; }
+.filter-grid {
+  display: grid; gap: .4rem 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+}
+.filter-wide { grid-column: 1 / -1; }
+.filter-checks { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: .6rem; }
+.filter-checks label.checkbox { margin: 0; }
 .footer { max-width: 960px; margin: 0 auto; padding: 1rem; color: var(--muted); font-size: .85rem; }

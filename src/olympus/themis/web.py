@@ -49,18 +49,29 @@ from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import JSONResponse, Response
 
 from olympus import __version__
+from olympus.core.enums import FindingStatus, Severity, Source
 from olympus.core.execution import (
     StructuredAuditRecord,
     append_structured_audit,
     safe_terminal_text,
 )
-from olympus.core.models import Engagement
+from olympus.core.finding_lifecycle import (
+    SUPPRESSED_STATUSES,
+    FindingTransitionError,
+    allowed_transitions,
+    record_transition,
+)
+from olympus.core.models import Engagement, Finding
 from olympus.core.observability import Correlation, Observability, observability_from_config
 from olympus.engagements.resolve import (
     EngagementStoreError,
     engagement_covers,
     load_engagements,
     require_engagement,
+)
+from olympus.findings.store import (
+    FindingTransitionStoreError,
+    SqliteFindingTransitionStore,
 )
 from olympus.integrations.activity import (
     ACTIVITY_CATALOGUE,
@@ -90,6 +101,10 @@ from olympus.themis.jobs import (
     ThemisJob,
     ThemisJobStore,
 )
+from olympus.vulcan.aggregate import AggregationError, load_findings
+from olympus.vulcan.evidence_view import build_finding_evidence_view
+from olympus.vulcan.search import FindingFilter, search_findings
+from olympus.vulcan.view import FindingView, rank_by_risk
 
 #: Where bundled templates and static assets live, next to this module.
 _PACKAGE_ROOT = Path(__file__).resolve().parent
@@ -275,6 +290,107 @@ def _ready_scanner_names() -> set[str]:
     return {item.name for item in inventory() if item.ready}
 
 
+#: Human labels for each severity, for a badge in the findings view.
+_SEVERITY_LABELS: dict[Severity, str] = {
+    Severity.CRITICAL: "Critical",
+    Severity.HIGH: "High",
+    Severity.MEDIUM: "Medium",
+    Severity.LOW: "Low",
+    Severity.INFO: "Info",
+}
+#: Human labels for each lifecycle status (ROADMAP ``WEB-C``). The workflow and
+#: its legal transitions are owned by :mod:`olympus.core.finding_lifecycle`; the
+#: page only renders these labels, it never decides what a transition means.
+_FINDING_STATUS_LABELS: dict[FindingStatus, str] = {
+    FindingStatus.NEW: "New",
+    FindingStatus.TRIAGED: "Triaged",
+    FindingStatus.CONFIRMED: "Confirmed",
+    FindingStatus.FALSE_POSITIVE: "False positive",
+    FindingStatus.ACCEPTED: "Accepted risk",
+    FindingStatus.IN_REMEDIATION: "In remediation",
+    FindingStatus.CLOSED: "Closed",
+}
+
+
+class _FindingsUnavailable(Exception):
+    """A findings bundle could not be read; the detail is already a safe string."""
+
+    def __init__(self, detail: str) -> None:
+        super().__init__(detail)
+        self.detail = detail
+
+
+def _as_finding_status(value: str) -> FindingStatus | None:
+    """Parse a status filter value, returning ``None`` for anything unrecognised."""
+    try:
+        return FindingStatus(value)
+    except ValueError:
+        return None
+
+
+def _as_severity(value: str) -> Severity | None:
+    """Parse a severity filter value, returning ``None`` for anything unrecognised."""
+    try:
+        return Severity(value)
+    except ValueError:
+        return None
+
+
+def _as_source(value: str) -> Source | None:
+    """Parse a source filter value, returning ``None`` for anything unrecognised."""
+    try:
+        return Source(value)
+    except ValueError:
+        return None
+
+
+def _present_finding_row(view: FindingView) -> dict[str, object]:
+    """Project one finding into a redacted, interface-agnostic list row.
+
+    The compact cells come from :meth:`FindingView.row` (the single tested place
+    that renders list columns), so the browser shows the same risk, severity,
+    status, asset, source, CVE and KEV values as the CLI and never re-derives
+    them. ``title``/``asset`` are already terminal-safe from the view.
+    """
+    finding = view.finding
+    row = view.row()
+    return {
+        "finding_id": finding.finding_id,
+        "risk": row["risk"],
+        "severity": finding.severity.value,
+        "severity_label": _SEVERITY_LABELS.get(finding.severity, finding.severity.value),
+        "status": finding.status.value,
+        "status_label": _FINDING_STATUS_LABELS.get(finding.status, finding.status.value),
+        "title": row["title"],
+        "asset": row["asset"],
+        "source": finding.source.value,
+        "cve": row["cve"],
+        "kev": finding.kev,
+    }
+
+
+def _finding_filter_options() -> dict[str, list[dict[str, str]]]:
+    """Offer the selectable filter values, drawn from the real contract enums."""
+    return {
+        "statuses": [
+            {"value": status.value, "label": _FINDING_STATUS_LABELS[status]}
+            for status in FindingStatus
+        ],
+        "severities": [
+            {"value": severity.value, "label": _SEVERITY_LABELS[severity]}
+            # Critical-first mirrors the risk ordering operators think in.
+            for severity in (
+                Severity.CRITICAL,
+                Severity.HIGH,
+                Severity.MEDIUM,
+                Severity.LOW,
+                Severity.INFO,
+            )
+        ],
+        "sources": [{"value": source.value, "label": source.value} for source in Source],
+    }
+
+
 def create_web_app(settings: ApiSettings, observability: Observability | None = None) -> FastAPI:
     """Build the fail-closed native web control plane over the canonical store."""
     settings.validate()
@@ -384,7 +500,57 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
     cancels_jobs = requires("jobs:cancel")
     reads_engagements = requires("engagements:read")
     reads_capabilities = requires("capabilities:read")
+    reads_findings = requires("findings:read")
+    writes_findings = requires("findings:write")
     engagements_database = settings.engagements_database
+    findings_directory = settings.findings_directory
+    findings_database = settings.findings_database
+
+    def _load_findings_catalogue() -> list[Finding]:
+        """Load every ``*.json`` finding bundle in the configured directory, bounded.
+
+        The bundles are the same read-only producer artifacts the CLI consumes
+        (``olympus vulcan findings``), loaded through the identical strict,
+        bounded :func:`load_findings`. A bundle that cannot be read or parsed
+        raises :class:`_FindingsUnavailable` so the page is honest about a broken
+        input rather than silently showing fewer findings than exist.
+        """
+        assert findings_directory is not None  # noqa: S101 - callers guard on configuration
+        root = findings_directory.resolve()
+        try:
+            paths = sorted(path for path in root.glob("*.json") if path.is_file())
+        except OSError as exc:
+            raise _FindingsUnavailable("the findings directory could not be read") from exc
+        if not paths:
+            return []
+        try:
+            return load_findings(paths)
+        except AggregationError as exc:
+            raise _FindingsUnavailable(_safe(str(exc))) from exc
+        except OSError as exc:
+            raise _FindingsUnavailable("a findings bundle could not be read") from exc
+
+    def _open_transition_store() -> SqliteFindingTransitionStore | None:
+        """Open the append-only lifecycle store, or ``None`` when not configured."""
+        if findings_database is None:
+            return None
+        return SqliteFindingTransitionStore(findings_database)
+
+    def _effective_finding(finding: Finding, store: SqliteFindingTransitionStore | None) -> Finding:
+        """Return ``finding`` with its *current* status folded from recorded history.
+
+        The bundle carries the status at production time; the durable lifecycle
+        lives in the append-only transition store. The latest recorded transition
+        is the finding's effective status, so a triage decision made in the
+        browser is reflected everywhere the finding is shown — without ever
+        rewriting the immutable producer artifact.
+        """
+        if store is None:
+            return finding
+        history = store.history(finding.finding_id)
+        if not history:
+            return finding
+        return finding.model_copy(update={"status": history[-1].to_status})
 
     def _check_csrf(session: WebSession, supplied: str | None) -> None:
         if supplied is None or not hmac.compare_digest(supplied, _csrf_token(session.nonce)):
@@ -917,6 +1083,226 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         except KeyError:
             return _page(request, "not_found.html", {"job_id": _safe(job_id)}, code=404)
         return RedirectResponse(f"/jobs/{job_id}", status_code=status.HTTP_303_SEE_OTHER)
+
+    @app.get("/findings", response_class=HTMLResponse, include_in_schema=False)
+    def findings_page(
+        request: Request,
+        status_filter: str = "",
+        severity: str = "",
+        source: str = "",
+        text: str = "",
+        kev_only: str = "",
+        has_cve: str = "",
+        min_risk: str = "",
+        session: WebSession = reads_findings,
+    ) -> Response:
+        """List findings, filtered and ranked exactly as the CLI does.
+
+        Narrowing reuses :class:`FindingFilter`/:func:`search_findings` and the
+        ordering reuses :func:`rank_by_risk`, so the browser produces the same
+        result set the operator would get from ``olympus vulcan findings list``.
+        Unrecognised filter values simply do not constrain the result.
+        """
+        filters = {
+            "status": status_filter,
+            "severity": severity,
+            "source": source,
+            "text": text,
+            "kev_only": "on" if kev_only else "",
+            "has_cve": "on" if has_cve else "",
+            "min_risk": min_risk,
+        }
+        base_context: dict[str, object] = {
+            "configured": findings_directory is not None,
+            "filters": filters,
+            "options": _finding_filter_options(),
+            "findings": [],
+            "total": 0,
+            "matched": 0,
+            "error": None,
+            "lifecycle_enabled": findings_database is not None,
+        }
+        if findings_directory is None:
+            return _page(request, "findings.html", base_context)
+        try:
+            catalogue = _load_findings_catalogue()
+        except _FindingsUnavailable as exc:
+            return _page(request, "findings.html", {**base_context, "error": exc.detail})
+
+        status_value = _as_finding_status(status_filter)
+        min_severity = _as_severity(severity)
+        source_value = _as_source(source)
+        try:
+            min_risk_value = float(min_risk) if min_risk.strip() else None
+        except ValueError:
+            min_risk_value = None
+        if min_risk_value is not None and not 0.0 <= min_risk_value <= 100.0:
+            min_risk_value = None
+        query = FindingFilter(
+            statuses=frozenset({status_value}) if status_value is not None else frozenset(),
+            sources=frozenset({source_value}) if source_value is not None else frozenset(),
+            min_severity=min_severity,
+            kev_only=bool(kev_only),
+            has_cve=True if has_cve else None,
+            text=text.strip(),
+            min_risk_score=min_risk_value,
+        )
+
+        store = _open_transition_store()
+        try:
+            effective = [_effective_finding(finding, store) for finding in catalogue]
+        finally:
+            if store is not None:
+                store.close()
+        matched = rank_by_risk(search_findings(effective, query))
+        rows = [_present_finding_row(FindingView(finding)) for finding in matched]
+        return _page(
+            request,
+            "findings.html",
+            {
+                **base_context,
+                "findings": rows,
+                "total": len(catalogue),
+                "matched": len(rows),
+            },
+        )
+
+    @app.get("/findings/{finding_id}", response_class=HTMLResponse, include_in_schema=False)
+    def finding_detail(
+        request: Request, finding_id: str, session: WebSession = reads_findings
+    ) -> Response:
+        """Show one finding's detail, evidence chain and lifecycle history.
+
+        The detail cells come from :meth:`FindingView.display_items` and the
+        evidence browser from :func:`build_finding_evidence_view` (custody is
+        rendered honestly as "no custody record" when no ledger is wired in).
+        The transition choices are exactly :func:`allowed_transitions` of the
+        finding's effective status — the GUI never invents a workflow edge.
+        """
+        if findings_directory is None:
+            return _page(request, "finding_detail.html", {"configured": False})
+        try:
+            catalogue = _load_findings_catalogue()
+        except _FindingsUnavailable as exc:
+            return _page(
+                request, "finding_detail.html", {"configured": True, "error": exc.detail}, code=200
+            )
+        base = next((item for item in catalogue if item.finding_id == finding_id), None)
+        if base is None:
+            return _page(request, "not_found.html", {"job_id": _safe(finding_id)}, code=404)
+
+        store = _open_transition_store()
+        try:
+            finding = _effective_finding(base, store)
+            history = store.history(finding.finding_id) if store is not None else []
+        finally:
+            if store is not None:
+                store.close()
+
+        view = FindingView(finding)
+        evidence = build_finding_evidence_view(finding)
+        transitions = [
+            {"value": target.value, "label": _FINDING_STATUS_LABELS[target]}
+            for target in sorted(allowed_transitions(finding.status), key=lambda item: item.value)
+        ]
+        history_rows = [
+            {
+                "from": _FINDING_STATUS_LABELS.get(record.from_status, record.from_status.value),
+                "to": _FINDING_STATUS_LABELS.get(record.to_status, record.to_status.value),
+                "actor": _safe(record.actor),
+                "reason": _safe(record.reason) if record.reason else None,
+                "occurred_at": record.occurred_at.isoformat(),
+            }
+            for record in history
+        ]
+        return _page(
+            request,
+            "finding_detail.html",
+            {
+                "configured": True,
+                "error": None,
+                "finding_id": finding.finding_id,
+                "title": _safe(finding.title),
+                "description": _safe(finding.description) if finding.description else None,
+                "status": finding.status.value,
+                "status_label": _FINDING_STATUS_LABELS.get(finding.status, finding.status.value),
+                "severity": finding.severity.value,
+                "items": view.display_items(),
+                "evidence_rows": evidence.rows(),
+                "custody_signature": evidence.custody_signature(),
+                "transitions": transitions,
+                "suppression_values": sorted(item.value for item in SUPPRESSED_STATUSES),
+                "lifecycle_enabled": findings_database is not None,
+                "can_transition": "findings:write" in session.scopes,
+                "history": history_rows,
+                "csrf_token": _csrf_token(session.nonce),
+            },
+        )
+
+    @app.post("/findings/{finding_id}/transition", include_in_schema=False)
+    def transition_finding(
+        request: Request,
+        finding_id: str,
+        target: Annotated[str, Form()],
+        csrf_token: Annotated[str, Form()],
+        reason: Annotated[str, Form()] = "",
+        session: WebSession = writes_findings,
+    ) -> Response:
+        """Record a lifecycle transition for one finding, with audit.
+
+        The move is validated by the shared state machine
+        (:func:`record_transition`) against the finding's *effective* status and
+        appended to the append-only store — the immutable bundle is never
+        rewritten. Suppressing a finding (accepted-risk / false-positive) requires
+        a non-empty reason, mirroring :func:`olympus.core.finding_lifecycle.suppress`.
+        """
+        _check_csrf(session, csrf_token)
+        _rate_limit(session)
+        if findings_directory is None:
+            raise HTTPException(status_code=400, detail="no findings directory is configured")
+        if findings_database is None:
+            raise HTTPException(
+                status_code=400, detail="no finding lifecycle store is configured on this server"
+            )
+        try:
+            catalogue = _load_findings_catalogue()
+        except _FindingsUnavailable as exc:
+            raise HTTPException(status_code=503, detail=exc.detail) from exc
+        base = next((item for item in catalogue if item.finding_id == finding_id), None)
+        if base is None:
+            return _page(request, "not_found.html", {"job_id": _safe(finding_id)}, code=404)
+
+        target_status = _as_finding_status(target)
+        if target_status is None:
+            raise HTTPException(status_code=422, detail="unknown target status")
+        if target_status in SUPPRESSED_STATUSES and not reason.strip():
+            raise HTTPException(
+                status_code=422,
+                detail="a reason is required to accept or dismiss a finding",
+            )
+
+        store = _open_transition_store()
+        assert store is not None  # noqa: S101 - guarded by the findings_database check above
+        try:
+            finding = _effective_finding(base, store)
+            try:
+                _, record = record_transition(
+                    finding,
+                    target_status,
+                    actor=session.identity_id,
+                    reason=reason.strip(),
+                )
+            except (FindingTransitionError, ValidationError) as exc:
+                raise HTTPException(status_code=422, detail=_safe(str(exc))) from exc
+            try:
+                store.append(record)
+            except FindingTransitionStoreError as exc:
+                raise HTTPException(status_code=409, detail=_safe(str(exc))) from exc
+        finally:
+            store.close()
+        return RedirectResponse(
+            f"/findings/{finding.finding_id}", status_code=status.HTTP_303_SEE_OTHER
+        )
 
     @app.get("/jobs/{job_id}/events", include_in_schema=False)
     def job_events(job_id: str, session: WebSession = reads_jobs) -> Response:
