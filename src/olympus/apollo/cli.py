@@ -26,7 +26,7 @@ from olympus.apollo.sigma import SigmaImportError, sigma_to_rule
 from olympus.core.contracts import ContractCompatibilityError
 from olympus.core.coverage import RunStatus, classify_run_status, exit_code_for
 from olympus.core.enums import Source
-from olympus.core.execution import CancellationRequested, ExecutionPolicyError
+from olympus.core.execution import CancellationRequested, ExecutionPolicyError, safe_terminal_text
 from olympus.core.exit_codes import ExitCode
 from olympus.core.fileio import (
     atomic_text_writer,
@@ -150,7 +150,10 @@ def run(
         raise typer.Exit(code=ExitCode.USAGE) from exc
 
     for error in outcome.input_errors:
-        typer.echo(f"apollo: malformed event on line {error.line}: {error.message}", err=True)
+        typer.echo(
+            f"apollo: malformed event on line {error.line}: {safe_terminal_text(error.message)}",
+            err=True,
+        )
     if outcome.input_error_count > len(outcome.input_errors):
         typer.echo(
             "apollo: suppressed "

@@ -410,6 +410,11 @@ markup Rich, ma la difesa non è sistematica.
   / `ValidationError` gestito». La copertura di fuzzing dei parser è ora completa.
 - [~] Neutralizzare sequenze di escape ANSI/OSC e caratteri di controllo prima di
   mostrarle in CLI, TUI e log (terminal injection, falsificazione di righe di log).
+  I diagnostici di evento malformato stampati da `apollo run` passano ora da
+  `safe_terminal_text`, perché i nomi delle chiavi JSON non supportate possono
+  essere controllati dall'input importato. Il test offline verifica la rimozione
+  di ANSI e la prevenzione di righe CLI falsificate; altri output CLI dinamici
+  restano da rivedere.
 - [ ] Garantire escaping contestuale in tutti gli export: HTML con Content Security
   Policy restrittiva e nessuno script inline, Markdown, SARIF e CSV/XLSX con
   protezione da formula injection (`=`, `+`, `-`, `@` in testa alla cella).

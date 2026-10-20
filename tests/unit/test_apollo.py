@@ -186,6 +186,46 @@ def test_run_over_rule_dir_and_event_stream(tmp_path: Path) -> None:
     assert payload["alerts"][0]["rule_id"] == "APL-DEMO"
 
 
+def test_run_sanitizes_untrusted_validation_diagnostics(tmp_path: Path) -> None:
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    _rule(rules_dir / "r.yaml")
+    events = tmp_path / "events.ndjson"
+    hostile_key = "forged\n\x1b[2J"
+    events.write_text(
+        json.dumps(
+            {
+                "schema_name": "olympus.event",
+                "schema_version": "1.0.0",
+                hostile_key: "untrusted",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "apollo",
+            "run",
+            "--rules",
+            str(rules_dir),
+            "--events",
+            str(events),
+            "--output",
+            str(tmp_path / "alerts.json"),
+        ],
+    )
+
+    assert result.exit_code == 5
+    assert "malformed event" in result.output
+    assert "forged" in result.output
+    assert "\x1b" not in result.output
+    assert "\n\x1b[2J" not in result.output
+    assert "\nforged" not in result.output
+
+
 def test_application_deduplicates_events_and_enforces_product_and_cancellation(
     tmp_path: Path,
 ) -> None:
