@@ -359,6 +359,23 @@ def test_report_exports_neutralize_terminal_control_sequences() -> None:
         assert "clear" in rendered and "more" in rendered
 
 
+def test_markdown_report_defangs_target_controlled_bare_urls() -> None:
+    """A report must not turn attacker-controlled target text into a link."""
+    finding = Finding(
+        asset_id="AST-1",
+        source=Source.ARTEMIS,
+        title="endpoint observed",
+        description="redirect target https://tracker.invalid/path?token=secret",
+        severity=Severity.HIGH,
+    )
+
+    markdown = render_markdown("eng", [], [finding], [])
+
+    assert "https://tracker.invalid" not in markdown
+    assert "https&#58;//tracker.invalid" in markdown
+    assert "token=secret" not in markdown
+
+
 def test_cli_report_html_and_min_severity(tmp_path: Path) -> None:
     findings_path = _write(
         tmp_path / "f.json", [_finding("low", Severity.LOW), _finding("crit", Severity.CRITICAL)]

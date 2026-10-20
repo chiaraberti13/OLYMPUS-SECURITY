@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import html
 import json
+import re
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
@@ -250,4 +251,10 @@ def _markdown_text(value: str) -> str:
     escaped = safe_terminal_text(value).replace("\\", "\\\\")
     for character in "`*_[]<>|":
         escaped = escaped.replace(character, f"\\{character}")
+    # CommonMark/GFM may turn bare URLs in ordinary text into clickable links.
+    # Reports are often opened in a browser; keep target-controlled URLs visible
+    # without making them navigation or tracking links.
+    escaped = re.sub(
+        r"(?i)\bhttps?://", lambda match: match.group(0).replace("://", "&#58;//"), escaped
+    )
     return escaped

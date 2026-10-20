@@ -433,6 +433,9 @@ markup Rich, ma la difesa non è sistematica.
 - [ ] Garantire escaping contestuale in tutti gli export: HTML con Content Security
   Policy restrittiva e nessuno script inline, Markdown, SARIF e CSV/XLSX con
   protezione da formula injection (`=`, `+`, `-`, `@` in testa alla cella).
+  Nell'export Markdown Vulcan i link letterali `http(s)://` provenienti da testo
+  del target vengono ora defangati per evitare autolink cliccabili; restano da
+  verificare altri campi/export e la protezione spreadsheet se si aggiungerà CSV/XLSX.
 - [~] Vietare che valori provenienti dal target diventino path, argv, URL di
   follow-up o nomi file senza passare per validazione e scope gate (path traversal,
   SSRF di secondo ordine, argument injection). Argument injection e path traversal
@@ -679,6 +682,14 @@ errori di encoding del decoder in `ParseError`, mantenendo il fallimento confina
 al parser; `test_nmap_normalizes_unknown_declared_encoding` copre la regressione
 offline. Nessuno scanner è stato eseguito; `SEC-H` resta aperto per i controlli
 residui su escaping degli export e URL di follow-up.
+
+**Avanzamento verificato (2026-10-20, link Markdown):** Vulcan defanga ora gli
+schemi letterali `http(s)://` inclusi nei campi testuali del report Markdown, così
+un viewer CommonMark/GFM non trasforma testo controllato dal target in un link
+cliccabile. `safe_terminal_text` continua a redigere i parametri URL sensibili
+prima della serializzazione. Un test offline verifica URL non attivo e redazione
+del token. SEC-H resta `[~]`: revisione SARIF, spreadsheet/export futuri e altre
+superfici di output rimangono da completare.
 
 ### Intervento I · `SEC-I` — Security operations del progetto (**P2**)
 
