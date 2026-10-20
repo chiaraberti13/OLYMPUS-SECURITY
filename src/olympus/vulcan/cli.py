@@ -8,7 +8,7 @@ from pathlib import Path
 import typer
 
 from olympus.core.enums import FindingStatus, Severity, Source
-from olympus.core.execution import CancellationRequested, ExecutionPolicyError
+from olympus.core.execution import CancellationRequested, ExecutionPolicyError, safe_terminal_text
 from olympus.core.exit_codes import ExitCode
 from olympus.core.fileio import atomic_write_bytes, atomic_write_text, read_regular_text
 from olympus.core.models import Finding
@@ -174,10 +174,10 @@ def report(
         if pdf_output is not None and outcome.pdf is not None:
             atomic_write_bytes(pdf_output, outcome.pdf, mode=0o600)
     except PdfUnavailableError as exc:
-        typer.echo(f"vulcan: {exc}", err=True)
+        typer.echo(safe_terminal_text(f"vulcan: {exc}"), err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
     except _APPLICATION_ERRORS as exc:
-        typer.echo(f"vulcan: {exc}", err=True)
+        typer.echo(safe_terminal_text(f"vulcan: {exc}"), err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
 
     typer.echo(json.dumps(outcome.report.summary.model_dump(mode="json"), indent=2, sort_keys=True))
@@ -251,7 +251,7 @@ def enrich(
         overlay = [enrichment.to_dict() for _, enrichment in ranked]
         atomic_write_text(output, json.dumps(overlay, indent=2, sort_keys=True) + "\n", mode=0o600)
     except _APPLICATION_ERRORS as exc:
-        typer.echo(f"vulcan: {exc}", err=True)
+        typer.echo(safe_terminal_text(f"vulcan: {exc}"), err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
 
     columns = ["kev", "epss", "cvss", "severity", "cves", "title"]
@@ -305,7 +305,7 @@ def rank(
             )
         )
     except _APPLICATION_ERRORS as exc:
-        typer.echo(f"vulcan: {exc}", err=True)
+        typer.echo(safe_terminal_text(f"vulcan: {exc}"), err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
     columns = ["severity", "title", "source", "asset_id", "finding_id"]
     records: list[dict[str, object]] = [
@@ -400,7 +400,7 @@ def findings_list(
             max_total_items=max_total_items,
         )
     except _APPLICATION_ERRORS as exc:
-        typer.echo(f"vulcan: {exc}", err=True)
+        typer.echo(safe_terminal_text(f"vulcan: {exc}"), err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
 
     query = FindingFilter(
@@ -451,12 +451,15 @@ def findings_show(
             max_total_items=max_total_items,
         )
     except _APPLICATION_ERRORS as exc:
-        typer.echo(f"vulcan: {exc}", err=True)
+        typer.echo(safe_terminal_text(f"vulcan: {exc}"), err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
 
     match = next((finding for finding in loaded if finding.finding_id == finding_id), None)
     if match is None:
-        typer.echo(f"vulcan: no finding with id {finding_id!r} in the given file(s)", err=True)
+        typer.echo(
+            safe_terminal_text(f"vulcan: no finding with id {finding_id!r} in the given file(s)"),
+            err=True,
+        )
         raise typer.Exit(code=ExitCode.USAGE)
 
     view = FindingView(match)
@@ -515,12 +518,15 @@ def findings_evidence(
             max_total_items=max_total_items,
         )
     except _APPLICATION_ERRORS as exc:
-        typer.echo(f"vulcan: {exc}", err=True)
+        typer.echo(safe_terminal_text(f"vulcan: {exc}"), err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
 
     match = next((finding for finding in loaded if finding.finding_id == finding_id), None)
     if match is None:
-        typer.echo(f"vulcan: no finding with id {finding_id!r} in the given file(s)", err=True)
+        typer.echo(
+            safe_terminal_text(f"vulcan: no finding with id {finding_id!r} in the given file(s)"),
+            err=True,
+        )
         raise typer.Exit(code=ExitCode.USAGE)
 
     custody_records: tuple[CustodyRecord, ...] = ()
@@ -541,7 +547,7 @@ def findings_evidence(
             record.evidence_id: record for record in (load_evidence(path) for path in evidence)
         }
     except _APPLICATION_ERRORS as exc:
-        typer.echo(f"vulcan: {exc}", err=True)
+        typer.echo(safe_terminal_text(f"vulcan: {exc}"), err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
 
     view = build_finding_evidence_view(

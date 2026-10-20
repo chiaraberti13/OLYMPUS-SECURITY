@@ -284,6 +284,28 @@ def test_cli_report_bad_input(tmp_path: Path) -> None:
     assert result.exit_code == 2
 
 
+def test_vulcan_cli_errors_neutralize_terminal_controls(tmp_path: Path) -> None:
+    """Dynamic paths and identifiers in CLI diagnostics are not terminal commands."""
+    hostile_path = tmp_path / "\x1b[31mforged\nwarning.json"
+    result = runner.invoke(
+        app,
+        ["vulcan", "findings", "list", "--findings", str(hostile_path)],
+    )
+    assert result.exit_code == 2
+    assert "\x1b" not in result.output
+    assert "\nwarning" not in result.output
+
+    valid_path = _write(tmp_path / "findings.json", [_finding("present", Severity.LOW)])
+    hostile_id = "\x1b[31mforged\nwarning"
+    result = runner.invoke(
+        app,
+        ["vulcan", "findings", "show", hostile_id, "--findings", str(valid_path)],
+    )
+    assert result.exit_code == 2
+    assert "\x1b" not in result.output
+    assert "\nwarning" not in result.output
+
+
 def test_filter_min_severity() -> None:
     from olympus.vulcan.aggregate import filter_min_severity
 

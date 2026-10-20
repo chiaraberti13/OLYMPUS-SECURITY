@@ -691,6 +691,13 @@ prima della serializzazione. Un test offline verifica URL non attivo e redazione
 del token. SEC-H resta `[~]`: revisione SARIF, spreadsheet/export futuri e altre
 superfici di output rimangono da completare.
 
+**Avanzamento verificato (2026-10-20, diagnostica Vulcan):** i rami CLI Vulcan
+che mostrano eccezioni applicative o identificativi/path non trovati passano ora
+da `safe_terminal_text`, neutralizzando ANSI/OSC e newline contraffatte. Un test
+offline verifica sia un percorso inesistente ostile sia un ID di finding ostile;
+gli exit code di errore restano invariati. È una correzione circoscritta: SEC-H
+resta `[~]` finché non termina l'audit degli altri output CLI e logger.
+
 ### Intervento I · `SEC-I` — Security operations del progetto (**P2**)
 
 - [x] Definire in `SECURITY.md` tempi di presa in carico e di risoluzione per
