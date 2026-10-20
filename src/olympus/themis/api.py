@@ -84,6 +84,19 @@ class ApiSettings:
     #: against one; when ``None`` those routes report the feature is not
     #: configured rather than silently pretending there are no engagements.
     engagements_database: Path | None = None
+    #: Directory of ``core.Finding`` JSON bundles the Web UI reviews (ROADMAP
+    #: ``WEB-C``). When set, the browser can browse, filter and triage findings
+    #: produced by any module; when ``None`` the findings pages report the
+    #: feature is not configured rather than pretending there are no findings.
+    #: The bundles are read-only producer artifacts — the lifecycle lives in the
+    #: append-only transition store below, never by rewriting them.
+    findings_directory: Path | None = None
+    #: The append-only finding lifecycle store
+    #: (:class:`~olympus.findings.store.SqliteFindingTransitionStore`). When set,
+    #: a browser triage decision is recorded here with who/when/from→to/why, and
+    #: the effective status of a finding is folded from this history over the
+    #: bundle's base status. Without it, the Web UI shows findings read-only.
+    findings_database: Path | None = None
     #: Bound in-flight ASGI requests; excess work is rejected rather than queued
     #: in an unbounded server backlog. This limit is per API process.
     max_concurrent_requests: int = DEFAULT_MAX_CONCURRENT_REQUESTS
@@ -116,6 +129,13 @@ class ApiSettings:
         root = self.scope_directory.resolve()
         if not root.exists() or not root.is_dir() or root.is_symlink():
             raise ValueError("THEMIS scope directory must be an existing non-symlink directory")
+        if self.findings_directory is not None:
+            findings_root = self.findings_directory.resolve()
+            missing = not findings_root.exists() or not findings_root.is_dir()
+            if missing or findings_root.is_symlink():
+                raise ValueError(
+                    "THEMIS findings directory must be an existing non-symlink directory"
+                )
 
 
 class _RegisterSource:

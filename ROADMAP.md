@@ -123,7 +123,7 @@ Legenda stato: ✅ implementata · 🟡 parziale · 🗓️ pianificata · ❌ a
 | 12 | Scansioni incrementali + confronto risultati | 🟡 | `argus/diff.py` (diff recon) | **Finding/scan diff cross-run** → `WEB-I` |
 | 13 | Dashboard, notifiche, report JSON/CSV/HTML/PDF/SARIF | 🟡 | report JSON/MD/HTML/PDF `vulcan/`, SARIF `hermes/sarif.py`, OCSF/ECS/NDJSON `apollo/` | **CSV** ❌ (basso costo) → `WEB-I`; **dashboard/notifiche** → `WEB-G`/`WEB-I` |
 | 14 | API, webhook, CI/CD, ticketing, SIEM, CTI | 🟡 | API tipizzata `themis/api.py`; CTI nativo Metis (`metis/misp.py`,`stix.py`) | API+CTI ✅; **webhook/ticketing/CI** → `WEB-J`; **SIEM** → `OPS-BLUE` |
-| 15 | Test unit/integration/e2e + demo sicuro | ✅ | ~132 file di test (unit/contract/integration/container/live_lab), demo `labs/mars/`; web-security + job-lifecycle della Web UI nativa e tools page dal capability inventory e wizard New Assessment guidato con anteprima di rischio (`tests/unit/test_themis_web.py`, `tests/unit/test_scanner_activity.py`, `WEB-A`/`WEB-D`/`WEB-E`) | Estendere e2e Web sulle slice successive (`WEB-F`/`WEB-G`) |
+| 15 | Test unit/integration/e2e + demo sicuro | ✅ | ~132 file di test (unit/contract/integration/container/live_lab), demo `labs/mars/`; web-security + job-lifecycle della Web UI nativa, tools page dal capability inventory, wizard New Assessment guidato con anteprima di rischio e findings review/triage nel browser con audit (`tests/unit/test_themis_web.py`, `tests/unit/test_scanner_activity.py`, `WEB-A`/`WEB-C`/`WEB-D`/`WEB-E`) | Estendere e2e Web sulle slice successive (`WEB-F`/`WEB-G`) |
 
 ### B. Moduli proposti (FASE 3) — valutazione
 
@@ -1170,10 +1170,30 @@ stesso store, lo stesso modello e lo stesso scope enforcement. **`WEB-B` complet
   nell'ordine di priorità di `vulcan/enrichment.prioritize` (KEV>EPSS>CVSS>
   severità); calcolato on-demand (nessun campo stored, mai stale), esposto nei
   metadati del finding nel report PDF. Doc: [`docs/findings.md`](docs/findings.md).
+- [x] **Findings nel browser (wiring Web UI).** Le fondamenta interface-agnostic
+  sopra (view, search/filtri, lifecycle, evidence browser, transition store)
+  sono ora collegate alla Web UI, così la fase di analisi/verifica del ciclo non
+  richiede più il terminale. Rotte `GET /findings` (lista filtrata e ordinata per
+  rischio riusando `FindingFilter`/`search_findings`/`rank_by_risk`, scope
+  `findings:read`), `GET /findings/{id}` (dettaglio via `FindingView.display_items`,
+  evidence browser via `build_finding_evidence_view` con custody onesta
+  `no-custody` quando nessun ledger è collegato, storico transizioni) e
+  `POST /findings/{id}/transition` (scope `findings:write`, CSRF, rate limit) che
+  registra la transizione nello store append-only `olympus.finding-transition`
+  via la **stessa** macchina a stati (`record_transition`); lo stato *effettivo*
+  del finding è ricavato ripiegando lo storico sulla base del bundle, senza mai
+  riscrivere l'artefatto immutabile del produttore. I bundle sono letti con lo
+  stesso `load_findings` strict/bounded della CLI; fonti non configurate degradano
+  onestamente (`--findings-directory`/`--findings-storage`). Nuovi scope identità
+  `findings:read`/`findings:write`. Template `web_templates/findings.html` +
+  `finding_detail.html`, stili same-origin (CSP senza inline), test in
+  `tests/unit/test_themis_web.py`. Doc: [`docs/web.md`](docs/web.md).
 
-**Criterio di completamento:** un finding attraversa tutto il ciclo di vita con
-audit; la deduplica non perde evidenza né remediation; ogni finding è navigabile
-fino alla sua evidenza verificabile.
+**Criterio di completamento (soddisfatto):** un finding attraversa tutto il ciclo
+di vita con audit; la deduplica non perde evidenza né remediation; ogni finding è
+navigabile fino alla sua evidenza verificabile — ora anche da browser, con lo
+stesso workflow, le stesse viste e lo stesso scope enforcement della CLI.
+**`WEB-C` completo.**
 
 ### Intervento D · `WEB-D` — Pagina Tools dal registry reale (**P1**)
 

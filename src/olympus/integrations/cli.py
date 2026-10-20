@@ -233,6 +233,18 @@ def themis_web(
         help="Directory holding the shared engagements database; enables the "
         "engagement pages and engagement-derived scope enforcement.",
     ),
+    findings_directory: str = typer.Option(
+        "",
+        "--findings-directory",
+        help="Directory of core.Finding JSON bundles to review in the browser; "
+        "enables the Findings pages (read-only producer artifacts).",
+    ),
+    findings_storage: str = typer.Option(
+        "",
+        "--findings-storage",
+        help="Append-only SQLite finding-lifecycle store; enables recording "
+        "triage decisions (status transitions) from the browser.",
+    ),
     ssl_certfile: str = typer.Option("", "--ssl-certfile"),
     ssl_keyfile: str = typer.Option("", "--ssl-keyfile"),
 ) -> None:
@@ -285,6 +297,8 @@ def themis_web(
                 engagements_database=(
                     Path(engagement_storage) / ENGAGEMENTS_DB_NAME if engagement_storage else None
                 ),
+                findings_directory=Path(findings_directory) if findings_directory else None,
+                findings_database=Path(findings_storage) if findings_storage else None,
                 max_concurrent_requests=max_concurrent_requests,
             )
         )

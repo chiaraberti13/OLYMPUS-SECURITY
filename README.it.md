@@ -240,7 +240,8 @@ olympus themis migrate --database .olympus/themis-jobs.sqlite3
 # La chiave condivisa concede solo capabilities:read per default.
 olympus themis api --scope-directory .olympus/scopes
 olympus themis serve --scope-directory .olympus/scopes \
-  --ssl-certfile cert.pem --ssl-keyfile key.pem
+  --ssl-certfile cert.pem --ssl-keyfile key.pem \
+  --findings-directory .olympus/findings --findings-storage .olympus/finding-transitions.sqlite3
 olympus themis workers --database .olympus/themis-jobs.sqlite3
 ```
 
@@ -248,6 +249,13 @@ olympus themis workers --database .olympus/themis-jobs.sqlite3
 coda richiede autorizzazione esplicita e scope; le scansioni live sono
 normalmente disabilitate. `workers --once` mantiene gli exit code canonici;
 il worker continuo prosegue dopo singoli fallimenti e gestisce SIGINT/SIGTERM.
+
+Il control plane via browser copre anche la **fase di analisi** del ciclo: con
+`--findings-directory` elenca, filtra e ordina i finding per rischio e con
+`--findings-storage` un operatore può gestirne il ciclo di vita (confermare,
+accettare-con-motivazione, chiudere, riaprire) dal browser, con un audit trail
+append-only — lo stesso workflow, vista ed evidence browser della CLI
+(`olympus vulcan findings`). Vedi [`docs/web.md`](docs/web.md).
 
 Dopo aver preparato scope, identità e TLS secondo la
 [`guida al runtime`](docs/themis-runtime.md):

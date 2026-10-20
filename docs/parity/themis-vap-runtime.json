@@ -427,6 +427,24 @@
     {
       "surface": "web",
       "method": "GET",
+      "path": "/findings",
+      "handler": "findings_page"
+    },
+    {
+      "surface": "web",
+      "method": "GET",
+      "path": "/findings/{finding_id}",
+      "handler": "finding_detail"
+    },
+    {
+      "surface": "web",
+      "method": "POST",
+      "path": "/findings/{finding_id}/transition",
+      "handler": "transition_finding"
+    },
+    {
+      "surface": "web",
+      "method": "GET",
       "path": "/health",
       "handler": "health"
     },
