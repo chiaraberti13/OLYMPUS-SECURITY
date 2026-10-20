@@ -128,10 +128,10 @@ def fetch(
         typer.echo(f"artemis: {_ACTIVE_DISCLAIMER}", err=True)
         raise typer.Exit(code=ExitCode.NOT_AUTHORIZED) from exc
     except OutOfScopeError as exc:
-        typer.echo(f"artemis: blocked, out of scope: {exc}", err=True)
+        typer.echo(safe_terminal_text(f"artemis: blocked, out of scope: {exc}"), err=True)
         raise typer.Exit(code=ExitCode.OUT_OF_SCOPE) from exc
     except ScopeError as exc:
-        typer.echo(f"artemis: scope error: {exc}", err=True)
+        typer.echo(safe_terminal_text(f"artemis: scope error: {exc}"), err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
     except CancellationRequested as exc:
         typer.echo("artemis: fetch cancelled", err=True)
@@ -181,10 +181,10 @@ def fingerprint(
         typer.echo(f"artemis: {_ACTIVE_DISCLAIMER}", err=True)
         raise typer.Exit(code=ExitCode.NOT_AUTHORIZED) from exc
     except OutOfScopeError as exc:
-        typer.echo(f"artemis: blocked, out of scope: {exc}", err=True)
+        typer.echo(safe_terminal_text(f"artemis: blocked, out of scope: {exc}"), err=True)
         raise typer.Exit(code=ExitCode.OUT_OF_SCOPE) from exc
     except ScopeError as exc:
-        typer.echo(f"artemis: scope error: {exc}", err=True)
+        typer.echo(safe_terminal_text(f"artemis: scope error: {exc}"), err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
     except CancellationRequested as exc:
         typer.echo("artemis: fingerprint cancelled", err=True)
@@ -199,7 +199,7 @@ def fingerprint(
     findings = fingerprints_to_findings(asset_id, result.response.url, fingerprints)
     _emit(findings, output)
     products = ", ".join(f.product for f in fingerprints) or "no known technology"
-    typer.echo(f"artemis: fingerprint identified {products}", err=True)
+    typer.echo(safe_terminal_text(f"artemis: fingerprint identified {products}"), err=True)
     tracker = CoverageTracker(1)
     tracker.complete()
     _finish("fingerprint", findings, tracker.build())
@@ -245,7 +245,7 @@ def content(
     try:
         words = load_wordlist(wordlist)
     except WordlistError as exc:
-        typer.echo(f"artemis: {exc}", err=True)
+        typer.echo(safe_terminal_text(f"artemis: {exc}"), err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
 
     try:
@@ -267,7 +267,7 @@ def content(
             policy=policy,
         )
     except ExecutionPolicyError as exc:
-        typer.echo(f"artemis: invalid execution policy: {exc}", err=True)
+        typer.echo(safe_terminal_text(f"artemis: invalid execution policy: {exc}"), err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
     except CancellationRequested as exc:
         typer.echo("artemis: content discovery cancelled", err=True)
@@ -305,12 +305,14 @@ def check_scope(
     try:
         approved = enforce_scope(url, scope, log)
     except ScopeError as exc:
-        typer.echo(f"artemis: scope error: {exc}", err=True)
+        typer.echo(safe_terminal_text(f"artemis: scope error: {exc}"), err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
     except OutOfScopeError as exc:
-        typer.echo(f"artemis: blocked, out of scope: {exc}", err=True)
+        typer.echo(safe_terminal_text(f"artemis: blocked, out of scope: {exc}"), err=True)
         raise typer.Exit(code=ExitCode.OUT_OF_SCOPE) from exc
-    typer.echo(f"artemis: authorized {approved.url} (no network request performed)")
+    typer.echo(
+        safe_terminal_text(f"artemis: authorized {approved.url} (no network request performed)")
+    )
 
 
 @app.command()

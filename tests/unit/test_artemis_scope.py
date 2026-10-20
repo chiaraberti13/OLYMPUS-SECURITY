@@ -103,3 +103,25 @@ def test_cli_block_and_demo_are_network_free(
     )
     assert authorized.exit_code == 0
     assert "no network request performed" in authorized.stdout
+
+
+def test_cli_scope_file_error_cannot_inject_terminal_lines(tmp_path: Path) -> None:
+    hostile_scope = tmp_path / "scope-\x1b[2J\nforged-diagnostic.json"
+    result = runner.invoke(
+        app,
+        [
+            "artemis",
+            "check-scope",
+            "--url",
+            "https://portal.olympusdemocorp.example/app",
+            "--scope",
+            str(hostile_scope),
+            "--log",
+            str(tmp_path / "blocked.log"),
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert "\x1b" not in result.output
+    assert "\nforged-diagnostic" not in result.output
+    assert "forged-diagnostic.json" in result.output

@@ -620,6 +620,17 @@ contenente ESC e newline; l'esito pytest locale è indisponibile in questo runne
 perché manca `pytest`, quindi resta da confermare in CI. La correzione copre
 questo percorso, non l'audit completo degli altri messaggi dinamici e logger.
 
+**Avanzamento verificato (2026-10-20, diagnostica Artemis):** le uscite CLI che
+interpolano URL approvati/bloccati, errori di scope o di policy, percorsi
+wordlist e nomi di tecnologie rilevate passano ora da
+`safe_terminal_text`. Questo neutralizza ANSI/OSC e controlli C0/C1, collassa
+newline contraffatte e applica la redazione degli URL prima della visualizzazione;
+il JSON dei finding resta invariato. Un test offline usa un percorso scope
+inesistente con ESC e newline e verifica che non possa falsificare una riga CLI.
+Sono stati eseguiti solo test con fixture/mock, nessuna richiesta live. La voce
+di neutralizzazione resta `[~]`: gli altri output CLI diretti e log devono ancora
+essere revisionati sistematicamente.
+
 **Intervento implementato (2026-10-20, errori diretti Artemis):** i comandi
 `fetch` e `fingerprint` neutralizzano ora con `safe_terminal_text` anche il
 messaggio diretto dell'eccezione di trasporto. In precedenza questi due rami
