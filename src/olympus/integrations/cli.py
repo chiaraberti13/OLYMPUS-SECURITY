@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 import typer
 
 from olympus.core.coverage import RunStatus, classify_run_status, exit_code_for
+from olympus.core.execution import safe_terminal_text
 from olympus.core.exit_codes import ExitCode, normalize_exit_code
 from olympus.core.paths import audit_log_path, state_file_path
 from olympus.integrations import scanners as scanner_registry
@@ -1080,7 +1081,10 @@ def themis_scan(
     except urllib.error.HTTPError as exc:
         # The server rejected the request (e.g. auth/scope/schema) — surface it.
         detail = exc.read().decode("utf-8", "replace")
-        typer.echo(f"olympus: THEMIS server returned {exc.code}: {detail}", err=True)
+        typer.echo(
+            safe_terminal_text(f"olympus: THEMIS server returned {exc.code}: {detail}"),
+            err=True,
+        )
         raise typer.Exit(code=ExitCode.FINDINGS) from exc
     except urllib.error.URLError as exc:
         typer.echo(

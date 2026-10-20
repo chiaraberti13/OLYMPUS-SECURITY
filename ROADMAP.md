@@ -413,8 +413,10 @@ markup Rich, ma la difesa non è sistematica.
   I diagnostici di evento malformato stampati da `apollo run` passano ora da
   `safe_terminal_text`, perché i nomi delle chiavi JSON non supportate possono
   essere controllati dall'input importato. Il test offline verifica la rimozione
-  di ANSI e la prevenzione di righe CLI falsificate; altri output CLI dinamici
-  restano da rivedere.
+  di ANSI e la prevenzione di righe CLI falsificate; anche il dettaglio di errore
+  restituito dal server remoto nel client `olympus themis scan` è sanitizzato e
+  coperto da test HTTP mockato offline. Altri output CLI dinamici restano da
+  rivedere.
 - [ ] Garantire escaping contestuale in tutti gli export: HTML con Content Security
   Policy restrittiva e nessuno script inline, Markdown, SARIF e CSV/XLSX con
   protezione da formula injection (`=`, `+`, `-`, `@` in testa alla cella).

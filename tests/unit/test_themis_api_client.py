@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import io
 import json
+import urllib.error
 import urllib.request
 
 from typer.testing import CliRunner
@@ -77,3 +79,38 @@ def test_scan_client_requires_authorization_secret_and_remote_tls() -> None:
     )
     assert remote.exit_code == 2
     assert "require HTTPS" in remote.output
+
+
+def test_scan_client_sanitizes_remote_http_error(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    def fake_urlopen(request: urllib.request.Request, timeout: int):  # type: ignore[no-untyped-def]
+        raise urllib.error.HTTPError(
+            request.full_url,
+            403,
+            "Forbidden",
+            {},
+            io.BytesIO(b"denied\x1b[2J\nforged remote line"),
+        )
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    result = CliRunner().invoke(
+        app,
+        [
+            "themis",
+            "scan",
+            "--scanner",
+            "nmap",
+            "--target",
+            "example.com",
+            "--kind",
+            "domain",
+            "--scope-id",
+            "customer-1",
+            "--i-am-authorized",
+        ],
+        env={"OLYMPUS_AEGIS_API_KEY": "k" * 32},
+    )
+
+    assert result.exit_code == 1
+    assert "THEMIS server returned 403: denied[2J forged remote line" in result.output
+    assert "\x1b" not in result.output
+    assert "\nforged remote line" not in result.output
