@@ -1,6 +1,6 @@
 # Roadmap di prodotto — OLYMPUS-SECURITY
 
-> **Direzione:** evolvere Olympus in una piattaforma Red/Blue/Purple Team autorizzata, usabile via CLI, TUI e web. Le tre interfacce devono invocare gli stessi casi d'uso e rispettare gli stessi contratti, controlli di scope, autorizzazione, audit e policy di esecuzione.
+> **Direzione:** evolvere Olympus in una piattaforma Red/Blue/Purple Team autorizzata, usabile via CLI, TUI e web. Le interfacce che la valutazione sceglierà di mantenere devono rispettare gli stessi requisiti di sicurezza, autorizzazione, scope, audit e qualità dei risultati.
 >
 > **Snapshot:** 20 ottobre 2026. Gli stati riprendono il cruscotto della roadmap precedente; prima di iniziare ogni issue il team verifica il codice e aggiorna lo stato con prove. La presenza di un modulo o di un adapter non dimostra che sia pronto per uso operativo.
 
