@@ -13,7 +13,7 @@ from olympus.artemis.fingerprint import (
     fingerprint_response,
     fingerprints_to_findings,
 )
-from olympus.artemis.http import HttpResponse
+from olympus.artemis.http import HttpClientError, HttpResponse
 from olympus.cli import app
 
 runner = CliRunner()
@@ -84,6 +84,14 @@ class _Transport:
         return HttpResponse(url, 200, {"Server": "nginx/1.25.3", "X-Powered-By": "Express"}, b"")
 
 
+class _HostileTransport:
+    def get(
+        self, url: str, addresses: tuple[str, ...], timeout: float, max_bytes: int
+    ) -> HttpResponse:
+        del url, addresses, timeout, max_bytes
+        raise HttpClientError("reset\x1b[2J\nforged diagnostic")
+
+
 def test_cli_fingerprint_reports_detected_stack(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -109,6 +117,22 @@ def test_cli_fingerprint_reports_detected_stack(
     products = {f["title"] for f in findings}
     assert any("nginx" in p for p in products)
     assert any("Express" in p for p in products)
+
+
+def test_cli_fingerprint_sanitizes_transport_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(artemis_cli, "SocketResolver", _Resolver)
+    monkeypatch.setattr(artemis_cli, "PinnedTransport", _HostileTransport)
+    result = runner.invoke(
+        app,
+        ["artemis", "fingerprint", "--url", URL, "--i-am-authorized"],
+    )
+
+    assert result.exit_code == 6, result.output
+    assert "\x1b" not in result.output
+    assert "\nforged diagnostic" not in result.output
+    assert "fingerprint failed: reset[2J forged diagnostic" in result.output
 
 
 def test_cli_fingerprint_blocks_out_of_scope(tmp_path: Path) -> None:

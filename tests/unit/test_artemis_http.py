@@ -431,6 +431,39 @@ def test_fetch_cli_prints_metadata_only(tmp_path: Path, monkeypatch: pytest.Monk
     assert "BODY-CONTENT" not in result.stdout
 
 
+def test_fetch_cli_sanitizes_transport_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class _HostileTransport:
+        def get(
+            self, url: str, addresses: tuple[str, ...], timeout: float, max_bytes: int
+        ) -> HttpResponse:
+            del url, addresses, timeout, max_bytes
+            raise HttpClientError("reset\x1b[2J\nforged diagnostic")
+
+    monkeypatch.setattr(artemis_cli, "PinnedTransport", _HostileTransport)
+    monkeypatch.setattr(artemis_cli, "SocketResolver", FakeResolver)
+    result = runner.invoke(
+        app,
+        [
+            "artemis",
+            "fetch",
+            "--url",
+            "https://portal.olympusdemocorp.example/app",
+            "--scope",
+            str(_scope(tmp_path / "scope.json")),
+            "--log",
+            str(tmp_path / "log"),
+            "--i-am-authorized",
+        ],
+    )
+
+    assert result.exit_code == 6, result.output
+    assert "\x1b" not in result.output
+    assert "\nforged diagnostic" not in result.output
+    assert "fetch failed: reset[2J forged diagnostic" in result.output
+
+
 def test_fetch_cli_requires_authorization_before_adapters(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

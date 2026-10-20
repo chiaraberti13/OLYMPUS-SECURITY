@@ -606,6 +606,15 @@ contenente ESC e newline; l'esito pytest locale è indisponibile in questo runne
 perché manca `pytest`, quindi resta da confermare in CI. La correzione copre
 questo percorso, non l'audit completo degli altri messaggi dinamici e logger.
 
+**Intervento implementato (2026-10-20, errori diretti Artemis):** i comandi
+`fetch` e `fingerprint` neutralizzano ora con `safe_terminal_text` anche il
+messaggio diretto dell'eccezione di trasporto. In precedenza questi due rami
+stampavano `HttpClientError` senza sanitizer, prima della classificazione della
+coverage. Test CLI offline iniettano ESC e newline contraffatte e verificano che
+il testo venga reso innocuo mantenendo exit code `FAILED` (6). È una copertura
+mirata: SEC-H resta `[~]` finché non termina la revisione degli altri output
+testuali e logger.
+
 **Avanzamento verificato (2026-10-19, anti argument-injection):** aggiunta la
 suite `tests/unit/test_argument_injection_guards.py` che blinda l'invariante «un
 valore dal target non diventa un flag dello scanner né un argomento shell».

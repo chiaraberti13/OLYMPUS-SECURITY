@@ -139,7 +139,7 @@ def fetch(
     except (HttpClientError, ValueError) as exc:
         # The single request this command exists to make did not happen, so the
         # run failed; it is not a usage mistake by the operator.
-        typer.echo(f"artemis: fetch failed: {exc}", err=True)
+        typer.echo(safe_terminal_text(f"artemis: fetch failed: {exc}"), err=True)
         raise typer.Exit(code=ExitCode.FAILED) from exc
     metadata = {
         "body_bytes": len(result.response.body),
@@ -190,7 +190,7 @@ def fingerprint(
         typer.echo("artemis: fingerprint cancelled", err=True)
         raise typer.Exit(code=ExitCode.CANCELLED) from exc
     except (HttpClientError, ValueError) as exc:
-        typer.echo(f"artemis: fingerprint failed: {exc}", err=True)
+        typer.echo(safe_terminal_text(f"artemis: fingerprint failed: {exc}"), err=True)
         tracker = CoverageTracker(1)
         tracker.fail(classify_fetch_error(exc), str(exc))
         _finish("fingerprint", [], tracker.build())
