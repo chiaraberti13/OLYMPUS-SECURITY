@@ -231,6 +231,11 @@ olympus themis migrate                       # migrazioni del database job nativ
 olympus themis workers                       # worker nativo continuo
 ```
 
+Per richiedere manifest di autorizzazione firmati in ogni submit API, fissa la
+chiave dell'approvatore lato server e usa il registro revoche engagement
+condiviso: `olympus themis api --engagement-storage .olympus/engagements
+--manifest-public-key approver-ed25519-public.pem`.
+
 ### Avviare il control plane nativo
 
 ```bash

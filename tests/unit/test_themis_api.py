@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -10,6 +11,8 @@ from typer.testing import CliRunner
 
 from olympus.cli import app
 from olympus.core.models import Engagement, EngagementScope
+from olympus.core.signing import generate_keypair
+from olympus.engagements.manifest import EngagementManifest, SignedEngagementManifest
 from olympus.engagements.store import ENGAGEMENTS_DB_NAME, SqliteEngagementStore
 from olympus.themis.api import ApiSettings, create_app
 from olympus.themis.identity import SCOPES
@@ -441,3 +444,106 @@ def test_submission_is_scope_checked_against_its_engagement(tmp_path: Path) -> N
         json={**base, "engagement_id": "ENG-2000-00000", "target": "www.acme.test"},
     )
     assert unknown.status_code == 404
+
+
+def test_api_requires_verifies_and_binds_signed_manifest(tmp_path: Path) -> None:
+    scopes = tmp_path / "scopes"
+    _scope(scopes)
+    engagement = _seed_engagement(tmp_path)
+    private_key, public_key = generate_keypair()
+    now = datetime.now(UTC)
+    manifest = EngagementManifest(
+        engagement_id=engagement.engagement_id,
+        client="Acme",
+        owner="Security Owner",
+        approver="Authorized Approver",
+        contract_id="CONTRACT-API-01",
+        scope=engagement.scope,
+        valid_from=now - timedelta(minutes=1),
+        expires_at=now + timedelta(hours=1),
+        allowed_techniques=("nmap",),
+    )
+    signed = SignedEngagementManifest.sign_manifest(manifest, private_key_pem=private_key)
+    client = TestClient(
+        create_app(
+            ApiSettings(
+                database=tmp_path / "jobs.sqlite3",
+                scope_directory=scopes,
+                api_key=API_KEY,
+                api_key_scopes=SCOPES,
+                engagements_database=tmp_path / ENGAGEMENTS_DB_NAME,
+                trusted_manifest_public_key_pem=public_key,
+            )
+        )
+    )
+    payload = {
+        "scanner": "nmap",
+        "target": "www.acme.test",
+        "target_kind": "domain",
+        "scope_id": "engagement",
+        "authorized": True,
+        "engagement_id": engagement.engagement_id,
+    }
+    missing = client.post("/api/v1/jobs", headers=AUTH, json=payload)
+    assert missing.status_code == 403
+    accepted = client.post(
+        "/api/v1/jobs",
+        headers=AUTH,
+        json={**payload, "signed_manifest": signed.model_dump(mode="json")},
+    )
+    assert accepted.status_code == 201, accepted.text
+    assert accepted.json()["manifest_sha256"] == signed.manifest_sha256
+
+    revocations = SqliteEngagementStore(tmp_path / ENGAGEMENTS_DB_NAME)
+    try:
+        revocations.revoke_manifest(signed, trusted_public_key_pem=public_key)
+    finally:
+        revocations.close()
+    revoked = client.post(
+        "/api/v1/jobs",
+        headers=AUTH,
+        json={**payload, "signed_manifest": signed.model_dump(mode="json")},
+    )
+    assert revoked.status_code == 403
+    assert "revoked" in revoked.json()["detail"]
+
+    wrong_scanner = client.post(
+        "/api/v1/jobs",
+        headers=AUTH,
+        json={**payload, "scanner": "nuclei", "signed_manifest": signed.model_dump(mode="json")},
+    )
+    assert wrong_scanner.status_code == 403
+
+
+def test_api_rejects_manifest_when_no_trusted_key_is_configured(tmp_path: Path) -> None:
+    client, engagement = _engagements_client(tmp_path)
+    private_key, _ = generate_keypair()
+    now = datetime.now(UTC)
+    signed = SignedEngagementManifest.sign_manifest(
+        EngagementManifest(
+            engagement_id=engagement.engagement_id,
+            client="Acme",
+            owner="Owner",
+            approver="Approver",
+            contract_id="CONTRACT-API-02",
+            scope=engagement.scope,
+            valid_from=now - timedelta(minutes=1),
+            expires_at=now + timedelta(hours=1),
+            allowed_techniques=("nmap",),
+        ),
+        private_key_pem=private_key,
+    )
+    response = client.post(
+        "/api/v1/jobs",
+        headers=AUTH,
+        json={
+            "scanner": "nmap",
+            "target": "www.acme.test",
+            "target_kind": "domain",
+            "scope_id": "engagement",
+            "authorized": True,
+            "engagement_id": engagement.engagement_id,
+            "signed_manifest": signed.model_dump(mode="json"),
+        },
+    )
+    assert response.status_code == 400

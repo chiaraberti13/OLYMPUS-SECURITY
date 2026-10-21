@@ -30,12 +30,18 @@ from olympus import __version__
 from olympus.core.execution import StructuredAuditRecord, append_structured_audit
 from olympus.core.models import Engagement
 from olympus.core.observability import Correlation, Observability, observability_from_config
+from olympus.engagements.manifest import (
+    ManifestAuthorizationError,
+    ManifestVerificationError,
+    SignedEngagementManifest,
+)
 from olympus.engagements.resolve import (
     EngagementStoreError,
     engagement_covers,
     load_engagements,
     require_engagement,
 )
+from olympus.engagements.store import SqliteEngagementStore
 from olympus.integrations.capabilities import inventory_document
 from olympus.themis.identity import (
     SCOPES,
@@ -103,6 +109,10 @@ class ApiSettings:
     #: the effective status of a finding is folded from this history over the
     #: bundle's base status. Without it, the Web UI shows findings read-only.
     findings_database: Path | None = None
+    #: Pinned Ed25519 approver key. When configured, every API job submission
+    #: must carry a signed manifest and is rejected unless it authorizes the
+    #: exact engagement, scanner, target and current time.
+    trusted_manifest_public_key_pem: str | None = None
     #: Bound in-flight ASGI requests; excess work is rejected rather than queued
     #: in an unbounded server backlog. This limit is per API process.
     max_concurrent_requests: int = DEFAULT_MAX_CONCURRENT_REQUESTS
@@ -132,6 +142,11 @@ class ApiSettings:
         if self.identities_path is not None:
             # Fail at startup rather than on the first request.
             load_register(self.identities_path)
+        if self.trusted_manifest_public_key_pem is not None:
+            if not self.trusted_manifest_public_key_pem.strip():
+                raise ValueError("THEMIS trusted manifest public key must not be empty")
+            if self.engagements_database is None:
+                raise ValueError("THEMIS signed manifests require an engagement database")
         root = self.scope_directory.resolve()
         if not root.exists() or not root.is_dir() or root.is_symlink():
             raise ValueError("THEMIS scope directory must be an existing non-symlink directory")
@@ -237,6 +252,7 @@ class JobSubmission(BaseModel):
     #: server resolves it from the shared engagement store and enforces that the
     #: target falls inside the engagement's authorized perimeter before queueing.
     engagement_id: str | None = Field(default=None, pattern=r"^ENG-\d{4}-\d{5}$")
+    signed_manifest: SignedEngagementManifest | None = None
     #: Resubmitting the same key returns the job that already exists instead of
     #: queueing a second scan of the same target.
     idempotency_key: str | None = Field(
@@ -522,6 +538,7 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
                 body.target,
                 body.target_kind,
             )
+        manifest_sha256 = _authorize_submission_manifest(settings, body)
         scope_path = _registered_scope(scope_root, body.scope_id)
         try:
             job = store.submit(
@@ -530,6 +547,7 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
                 target_kind=body.target_kind,
                 scope_path=scope_path,
                 authorized=True,
+                manifest_sha256=manifest_sha256,
                 idempotency_key=body.idempotency_key,
                 max_attempts=body.max_attempts,
             )
@@ -614,6 +632,39 @@ def _enforce_engagement_scope(
             status_code=422,
             detail="target is outside the engagement scope",
         )
+
+
+def _authorize_submission_manifest(settings: ApiSettings, body: JobSubmission) -> str | None:
+    """Verify and bind the configured signed authorization, fail-closed."""
+    trusted_key = settings.trusted_manifest_public_key_pem
+    if trusted_key is None:
+        if body.signed_manifest is not None:
+            raise HTTPException(
+                status_code=400,
+                detail="signed manifest supplied but no trusted approver key is configured",
+            )
+        return None
+    if body.signed_manifest is None:
+        raise HTTPException(status_code=403, detail="a signed engagement manifest is required")
+    if body.engagement_id is None:
+        raise HTTPException(status_code=422, detail="signed manifest requires engagement_id")
+    if body.signed_manifest.manifest.engagement_id != body.engagement_id:
+        raise HTTPException(status_code=422, detail="manifest engagement does not match submission")
+    database = _require_engagements_database(settings)
+    store = SqliteEngagementStore(database)
+    try:
+        store.authorize_manifest(
+            body.signed_manifest,
+            trusted_public_key_pem=trusted_key,
+            target=body.target,
+            technique=body.scanner,
+            now=datetime.now(UTC),
+        )
+    except (ManifestAuthorizationError, ManifestVerificationError) as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    finally:
+        store.close()
+    return body.signed_manifest.manifest_sha256
 
 
 def _registered_scope(root: Path, scope_id: str) -> Path:

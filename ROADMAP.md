@@ -324,6 +324,14 @@ idempotente. La migrazione v2→v3 mantiene i job esistenti senza inventare una
 provenienza di autorizzazione. API, Web e CLI non impongono ancora il manifest
 firmato in ogni submit e SEC-C resta quindi `[~]`.
 
+**Avanzamento verificato (2026-10-21, gate API):** quando il server configura
+la chiave pubblica Ed25519 fidata, `POST /api/v1/jobs` richiede un manifest
+firmato, verifica firma/digest, revoche persistenti, finestra, engagement,
+target e scanner, quindi lega il digest al job. Un manifest inviato senza una
+chiave fidata server-side viene rifiutato. Web e CLI non applicano ancora lo
+stesso gate e la verifica va ripetuta dal worker immediatamente prima
+dell'esecuzione: SEC-C resta `[~]`.
+
 **Criterio di completamento:** nessuna live scan può partire con un semplice flag;
 il report consente di dimostrare manifest, firma, scope e policy effettivi usati.
 

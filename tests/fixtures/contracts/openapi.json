@@ -110,6 +110,112 @@
         "title": "EngagementList",
         "type": "object"
       },
+      "EngagementManifest": {
+        "additionalProperties": false,
+        "description": "Immutable authorization boundary for one time-limited engagement.",
+        "properties": {
+          "allowed_techniques": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 128,
+            "minItems": 1,
+            "title": "Allowed Techniques",
+            "type": "array"
+          },
+          "approver": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Approver",
+            "type": "string"
+          },
+          "client": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Client",
+            "type": "string"
+          },
+          "contract_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Contract Id",
+            "type": "string"
+          },
+          "engagement_id": {
+            "title": "Engagement Id",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "manifest_id": {
+            "title": "Manifest Id",
+            "type": "string"
+          },
+          "max_concurrency": {
+            "default": 1,
+            "maximum": 64.0,
+            "minimum": 1.0,
+            "title": "Max Concurrency",
+            "type": "integer"
+          },
+          "max_runtime_seconds": {
+            "default": 300,
+            "maximum": 86400.0,
+            "minimum": 1.0,
+            "title": "Max Runtime Seconds",
+            "type": "integer"
+          },
+          "max_targets": {
+            "default": 1,
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Max Targets",
+            "type": "integer"
+          },
+          "owner": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Owner",
+            "type": "string"
+          },
+          "schema_name": {
+            "const": "olympus.engagement-manifest",
+            "default": "olympus.engagement-manifest",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/EngagementScope"
+          },
+          "valid_from": {
+            "format": "date-time",
+            "title": "Valid From",
+            "type": "string"
+          }
+        },
+        "required": [
+          "engagement_id",
+          "client",
+          "owner",
+          "approver",
+          "contract_id",
+          "scope",
+          "valid_from",
+          "expires_at",
+          "allowed_techniques"
+        ],
+        "title": "EngagementManifest",
+        "type": "object"
+      },
       "EngagementScope": {
         "additionalProperties": false,
         "description": "The authorized perimeter of an engagement: included minus excluded.\n\nEntries are hostnames or domains (matched like the rest of Olympus: an entry\ncovers itself and its subdomains). IP/CIDR matching is a planned extension\n(ROADMAP ``WEB-B``); until then IPs must be listed verbatim.",
@@ -258,6 +364,16 @@
             "title": "Scope Id",
             "type": "string"
           },
+          "signed_manifest": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignedEngagementManifest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "target": {
             "maxLength": 2048,
             "minLength": 1,
@@ -282,6 +398,45 @@
           "authorized"
         ],
         "title": "JobSubmission",
+        "type": "object"
+      },
+      "SignedEngagementManifest": {
+        "additionalProperties": false,
+        "description": "A manifest plus its detached Ed25519 signature and pinned digest.",
+        "properties": {
+          "manifest": {
+            "$ref": "#/components/schemas/EngagementManifest"
+          },
+          "manifest_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Manifest Sha256",
+            "type": "string"
+          },
+          "schema_name": {
+            "const": "olympus.signed-engagement-manifest",
+            "default": "olympus.signed-engagement-manifest",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "signature_envelope": {
+            "maxLength": 10000,
+            "minLength": 1,
+            "title": "Signature Envelope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "manifest",
+          "manifest_sha256",
+          "signature_envelope"
+        ],
+        "title": "SignedEngagementManifest",
         "type": "object"
       },
       "ThemisJob": {

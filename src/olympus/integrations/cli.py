@@ -136,6 +136,12 @@ def themis_api(
         help="Directory holding the shared engagements database; enables the "
         "engagement read endpoints and engagement-derived scope enforcement.",
     ),
+    manifest_public_key: str = typer.Option(
+        "",
+        "--manifest-public-key",
+        help="Pinned Ed25519 approver public key; requires --engagement-storage and "
+        "signed manifests on API job submissions.",
+    ),
     ssl_certfile: str = typer.Option("", "--ssl-certfile"),
     ssl_keyfile: str = typer.Option("", "--ssl-keyfile"),
 ) -> None:
@@ -185,6 +191,11 @@ def themis_api(
                 audit_path=Path(audit) if audit else None,
                 engagements_database=(
                     Path(engagement_storage) / ENGAGEMENTS_DB_NAME if engagement_storage else None
+                ),
+                trusted_manifest_public_key_pem=(
+                    Path(manifest_public_key).read_text(encoding="utf-8")
+                    if manifest_public_key
+                    else None
                 ),
                 max_concurrent_requests=max_concurrent_requests,
             )

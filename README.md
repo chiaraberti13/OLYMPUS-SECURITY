@@ -306,6 +306,11 @@ olympus themis migrate                       # apply the VAP database migrations
 olympus themis serve --host 127.0.0.1 --port 8000   # serve the full VAP web app
 ```
 
+To require signed authorization manifests on every API job submission, pin the
+approver key server-side and use the shared engagement revocation store:
+`olympus themis api --engagement-storage .olympus/engagements
+--manifest-public-key approver-ed25519-public.pem`.
+
 ### Running the native control plane
 
 ```bash
