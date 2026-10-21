@@ -61,6 +61,7 @@ from olympus.vulcan.evidence_view import (
 from olympus.vulcan.pdf import PdfUnavailableError
 from olympus.vulcan.report import export_report, export_text
 from olympus.vulcan.search import FindingFilter, search_findings
+from olympus.vulcan.trend import build_finding_trend
 from olympus.vulcan.view import LIST_COLUMNS, FindingView, rank_by_risk
 
 DEFAULT_REPORT_OUTPUT = output_path("vulcan-report.json")
@@ -405,6 +406,73 @@ def diff(
         err=True,
     )
     raise typer.Exit(code=ExitCode.FINDINGS if result.has_regressions else ExitCode.OK)
+
+
+@app.command("trend")
+def trend(
+    snapshot: list[Path] = typer.Option(
+        ...,
+        "--snapshot",
+        help="A core.Finding JSON bundle for one run, oldest first (repeatable, min 2).",
+    ),
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.TABLE, "--format", help="Render as a table (human) or json (machine)."
+    ),
+    max_files: int = typer.Option(DEFAULT_MAX_FILES, "--max-files"),
+    max_input_bytes: int = typer.Option(DEFAULT_MAX_INPUT_BYTES, "--max-input-bytes"),
+    max_items_per_file: int = typer.Option(DEFAULT_MAX_ITEMS_PER_FILE, "--max-items-per-file"),
+    max_total_items: int = typer.Option(DEFAULT_MAX_TOTAL_ITEMS, "--max-total-items"),
+) -> None:
+    """Show the finding severity trend across an ordered series of runs.
+
+    Each ``--snapshot`` is one run's finding bundle, given oldest first. The trend
+    reuses ``vulcan.trend.build_finding_trend`` — which in turn reuses the shared
+    diff and severity breakdown — so the CLI and any report agree. Exit code ``1``
+    when the most recent snapshot introduced any new finding (a regression), ``0``
+    otherwise.
+    """
+    if len(snapshot) < 2:
+        typer.echo("vulcan: trend needs at least two --snapshot bundles", err=True)
+        raise typer.Exit(code=ExitCode.USAGE)
+    try:
+        snapshots = [
+            (
+                path.stem,
+                _load_for_view(
+                    [path],
+                    max_files=max_files,
+                    max_input_bytes=max_input_bytes,
+                    max_items_per_file=max_items_per_file,
+                    max_total_items=max_total_items,
+                ),
+            )
+            for path in snapshot
+        ]
+    except _APPLICATION_ERRORS as exc:
+        typer.echo(safe_terminal_text(f"vulcan: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+
+    result = build_finding_trend(snapshots)
+    if output_format is OutputFormat.JSON:
+        typer.echo(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    else:
+        columns = ["run", "total", "critical", "high", "medium", "low", "info", "new", "resolved"]
+        rows = [
+            [
+                safe_terminal_text(point.label),
+                str(point.total),
+                str(point.severity_breakdown["critical"]),
+                str(point.severity_breakdown["high"]),
+                str(point.severity_breakdown["medium"]),
+                str(point.severity_breakdown["low"]),
+                str(point.severity_breakdown["info"]),
+                "—" if point.is_baseline else str(point.new),
+                "—" if point.is_baseline else str(point.resolved),
+            ]
+            for point in result.points
+        ]
+        typer.echo(render_table(columns, rows, title="Finding trend (oldest first)"))
+    raise typer.Exit(code=ExitCode.FINDINGS if result.regressed else ExitCode.OK)
 
 
 findings_app = typer.Typer(

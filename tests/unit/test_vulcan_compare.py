@@ -18,6 +18,7 @@ from olympus.core.enums import Severity, Source
 from olympus.core.exit_codes import ExitCode
 from olympus.core.models import Finding
 from olympus.vulcan.compare import diff_findings
+from olympus.vulcan.trend import build_finding_trend
 
 runner = CliRunner()
 
@@ -145,3 +146,73 @@ def test_cli_diff_reports_a_bad_bundle_as_usage_error(tmp_path: Path) -> None:
     bad.write_text("{not json", encoding="utf-8")
     result = runner.invoke(app, ["vulcan", "diff", "--baseline", str(base), "--current", str(bad)])
     assert result.exit_code == ExitCode.USAGE
+
+
+# ---------------------------------------------------------------------------
+# Finding severity trend across runs (ROADMAP WEB-I)
+# ---------------------------------------------------------------------------
+
+
+def test_trend_tracks_counts_and_step_deltas() -> None:
+    s1 = [_finding("XSS"), _finding("SQLi", Severity.CRITICAL)]
+    s2 = [_finding("XSS", Severity.CRITICAL), _finding("Open redirect", asset_id="AST-2")]
+    s3 = [_finding("Open redirect", asset_id="AST-2")]
+    trend = build_finding_trend([("aug", s1), ("sep", s2), ("oct", s3)])
+    labels = [p.label for p in trend.points]
+    assert labels == ["aug", "sep", "oct"]
+    # First point is a baseline with no deltas.
+    assert trend.points[0].is_baseline and trend.points[0].new == 0
+    # sep: SQLi resolved, Open redirect new, XSS persists.
+    assert (trend.points[1].new, trend.points[1].resolved, trend.points[1].persistent) == (1, 1, 1)
+    # oct: XSS resolved, nothing new.
+    assert (trend.points[2].new, trend.points[2].resolved) == (0, 1)
+    assert trend.points[2].total == 1
+
+
+def test_trend_regressed_reflects_the_last_step() -> None:
+    worse = build_finding_trend(
+        [("base", [_finding("XSS")]), ("now", [_finding("XSS"), _finding("New", asset_id="A2")])]
+    )
+    assert worse.regressed is True
+    better = build_finding_trend(
+        [("base", [_finding("XSS"), _finding("Gone", asset_id="A2")]), ("now", [_finding("XSS")])]
+    )
+    assert better.regressed is False
+
+
+def test_trend_severity_breakdown_has_every_level() -> None:
+    trend = build_finding_trend([("a", [_finding("x", Severity.LOW)]), ("b", [])])
+    assert set(trend.points[0].severity_breakdown) == {"critical", "high", "medium", "low", "info"}
+    assert trend.points[0].severity_breakdown["low"] == 1
+
+
+def test_cli_trend_needs_at_least_two_snapshots(tmp_path: Path) -> None:
+    one = _bundle(tmp_path / "one.json", [_finding("XSS")])
+    result = runner.invoke(app, ["vulcan", "trend", "--snapshot", str(one)])
+    assert result.exit_code == ExitCode.USAGE
+
+
+def test_cli_trend_exit_codes_and_json(tmp_path: Path) -> None:
+    base = _bundle(tmp_path / "base.json", [_finding("XSS")])
+    regressed = _bundle(tmp_path / "now.json", [_finding("XSS"), _finding("New", asset_id="A2")])
+    table = runner.invoke(
+        app, ["vulcan", "trend", "--snapshot", str(base), "--snapshot", str(regressed)]
+    )
+    assert table.exit_code == ExitCode.FINDINGS
+    payload = runner.invoke(
+        app,
+        [
+            "vulcan",
+            "trend",
+            "--snapshot",
+            str(base),
+            "--snapshot",
+            str(regressed),
+            "--format",
+            "json",
+        ],
+    )
+    assert payload.exit_code == ExitCode.FINDINGS
+    data = json.loads(payload.stdout)
+    assert [p["label"] for p in data["points"]] == ["base", "now"]
+    assert data["points"][1]["new"] == 1

@@ -230,6 +230,26 @@ The browser exposes the same engine at `GET /findings/diff` when the control
 plane is started with a `--baseline-directory` alongside `--findings-directory`;
 see [`web.md`](web.md).
 
+### Trend across several runs
+
+`vulcan.trend.build_finding_trend` generalises the two-run diff to an ordered
+series: given snapshots oldest first, it reports each run's folded total and
+severity breakdown and — between consecutive runs — how many findings were new,
+resolved or persistent (reusing `diff_findings`). It is pure, offline and
+deterministic.
+
+```bash
+# Finding severity trend across three runs (oldest first). Exit code 1 when the
+# most recent run introduced any new finding (a regression), 0 otherwise.
+olympus vulcan trend \
+  --snapshot run-2026-08.json \
+  --snapshot run-2026-09.json \
+  --snapshot run-2026-10.json
+
+# --format json emits the full per-point projection for dashboards.
+olympus vulcan trend --snapshot run-2026-08.json --snapshot run-2026-10.json --format json
+```
+
 ## Tagging, search and filters
 
 Findings carry free-form `tags` (operator labels for triage and grouping —
