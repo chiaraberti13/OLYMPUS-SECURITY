@@ -339,6 +339,15 @@ prima dell'esecuzione. Un digest non recuperabile o un worker senza verificatore
 terminano il job come `policy_denied`, senza avviare lo scanner. Web e CLI non
 impongono ancora il manifest firmato in ogni submit; SEC-C resta `[~]`.
 
+**Avanzamento verificato (2026-10-21, gate CLI):** `themis jobs submit` non
+accetta più la sola conferma booleana: richiede il documento firmato, la chiave
+pubblica Ed25519 fissata e l'archivio engagement. Prima di accodare verifica
+firma, digest, revoca, finestra, target e scanner, conserva il documento e lega
+il digest al job. Letture limitate di file regolari non-symlink e test di
+regressione coprono manifest assente, scaduto e fuori scope/tecnica. Il Web non
+impone ancora lo stesso gate e audit/report/evidenze non espongono ancora tutta
+la provenienza, quindi SEC-C resta `[~]`.
+
 **Criterio di completamento:** nessuna live scan può partire con un semplice flag;
 il report consente di dimostrare manifest, firma, scope e policy effettivi usati.
 

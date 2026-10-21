@@ -653,16 +653,80 @@ def themis_jobs_submit(
     max_attempts: int = typer.Option(
         1, "--max-attempts", min=1, max=10, help="Execution attempts before the job is failed."
     ),
+    signed_manifest: str = typer.Option(
+        "",
+        "--signed-manifest",
+        help="Signed engagement manifest authorizing this exact target and scanner.",
+    ),
+    manifest_public_key: str = typer.Option(
+        "",
+        "--manifest-public-key",
+        help="Pinned Ed25519 approver public key used to verify the manifest.",
+    ),
+    engagement_storage: str = typer.Option(
+        "",
+        "--engagement-storage",
+        help="Directory holding the durable signed-manifest and revocation store.",
+    ),
     i_am_authorized: bool = typer.Option(False, "--i-am-authorized"),
 ) -> None:
-    """Persist one authorized scan job without executing it."""
+    """Persist one manifest-authorized scan job without executing it."""
+    import sqlite3
+    from datetime import UTC, datetime
     from pathlib import Path
 
+    from olympus.core.fileio import read_regular_text
+    from olympus.engagements.manifest import SignedEngagementManifest
+    from olympus.engagements.store import (
+        ENGAGEMENTS_DB_NAME,
+        MAX_DOCUMENT_BYTES,
+        SqliteEngagementStore,
+    )
     from olympus.themis.jobs import ThemisJobStore
 
     if not i_am_authorized:
         typer.echo("olympus: queued live work requires --i-am-authorized", err=True)
         raise typer.Exit(code=ExitCode.NOT_AUTHORIZED)
+    if not signed_manifest or not manifest_public_key or not engagement_storage:
+        typer.echo(
+            "olympus: queued work requires --signed-manifest, --manifest-public-key "
+            "and --engagement-storage",
+            err=True,
+        )
+        raise typer.Exit(code=ExitCode.NOT_AUTHORIZED)
+
+    engagement_store: SqliteEngagementStore | None = None
+    try:
+        signed = SignedEngagementManifest.model_validate_json(
+            read_regular_text(
+                Path(signed_manifest),
+                max_bytes=MAX_DOCUMENT_BYTES,
+                label="signed engagement manifest",
+            )
+        )
+        trusted_public_key = read_regular_text(
+            Path(manifest_public_key),
+            max_bytes=64 * 1024,
+            label="manifest public key",
+        )
+        engagement_store = SqliteEngagementStore(Path(engagement_storage) / ENGAGEMENTS_DB_NAME)
+        engagement_store.authorize_and_save_manifest(
+            signed,
+            trusted_public_key_pem=trusted_public_key,
+            target=target,
+            technique=scanner,
+            now=datetime.now(UTC),
+        )
+    except (OSError, sqlite3.Error, ValueError) as exc:
+        typer.echo(
+            safe_terminal_text(f"olympus: signed authorization refused: {exc}"),
+            err=True,
+        )
+        raise typer.Exit(code=ExitCode.NOT_AUTHORIZED) from exc
+    finally:
+        if engagement_store is not None:
+            engagement_store.close()
+
     try:
         job = ThemisJobStore(Path(database)).submit(
             scanner=scanner,
@@ -670,6 +734,7 @@ def themis_jobs_submit(
             target_kind=kind,
             scope_path=Path(scope),
             authorized=True,
+            manifest_sha256=signed.manifest_sha256,
             idempotency_key=idempotency_key,
             max_attempts=max_attempts,
         )

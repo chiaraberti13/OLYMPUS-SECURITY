@@ -71,14 +71,24 @@ stops scanning rather than racing its replacement.
 
 ```bash
 olympus themis jobs submit nmap --target 10.0.0.1 --scope ./scope.json \
+  --signed-manifest ./signed-manifest.json \
+  --manifest-public-key ./approver-public.pem \
+  --engagement-storage .olympus/engagements \
   --idempotency-key ticket-4711 --max-attempts 3 --i-am-authorized
 olympus themis jobs work --worker-id scanner-pod-3
 olympus themis jobs recover
 ```
 
+The CLI refuses a boolean confirmation by itself. Before queueing, it verifies
+the manifest signature and digest against the pinned Ed25519 public key, then
+checks the current time, exact target and scanner against the signed bounds.
+The signed document is retained in the engagement store and its digest is bound
+to the job, so a manifest-aware worker can reload it and recheck revocation and
+expiry immediately before execution.
+
 ## Schema versioning, migration and durability
 
-- The SQLite layout carries `PRAGMA user_version`; the current version is **2**.
+- The SQLite layout carries `PRAGMA user_version`; the current version is **3**.
 - `initialize()` migrates forward: a fresh file gets the current schema, and a
   pre-versioning database is altered in place (leases, attempt budget,
   availability and idempotency columns are added, `available_at` is backfilled

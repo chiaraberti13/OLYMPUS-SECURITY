@@ -108,6 +108,15 @@ def test_store_require_returns_or_raises(tmp_path: Path) -> None:
         store.close()
 
 
+def test_store_rejects_symlink_database(tmp_path: Path) -> None:
+    target = tmp_path / "real.db"
+    target.touch()
+    link = tmp_path / "engagements.db"
+    link.symlink_to(target)
+    with pytest.raises(OSError, match="non-symlink"):
+        SqliteEngagementStore(link)
+
+
 def test_store_round_trips_and_lists(tmp_path: Path) -> None:
     store = SqliteEngagementStore(tmp_path / "engagements.db")
     try:

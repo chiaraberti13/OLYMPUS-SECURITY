@@ -223,7 +223,9 @@ olympus argus doctor                       # readiness dipendenze/configurazione
 
 olympus themis capabilities                 # stati configured/available/ready
 olympus themis jobs init                    # archivio job locale persistente
-olympus themis jobs submit nmap --target example.com --scope scope.json --i-am-authorized
+olympus themis jobs submit nmap --target example.com --scope scope.json \
+  --signed-manifest signed-manifest.json --manifest-public-key approver-public.pem \
+  --engagement-storage .olympus/engagements --i-am-authorized
 olympus themis jobs work                    # elabora un job in coda
 OLYMPUS_THEMIS_API_KEY='<32+ caratteri casuali>' olympus themis api --scope-directory .olympus/scopes
 olympus themis scanners                     # catalogo motori specialistici
@@ -231,8 +233,9 @@ olympus themis migrate                       # migrazioni del database job nativ
 olympus themis workers                       # worker nativo continuo
 ```
 
-Per richiedere manifest di autorizzazione firmati in ogni submit API, fissa la
-chiave dell'approvatore lato server e usa il registro revoche engagement
+Il submit CLI richiede sempre un manifest di autorizzazione firmato, la chiave
+dell'approvatore fissata e il registro revoche condiviso. Per applicare lo
+stesso gate a ogni submit API, fissa la chiave lato server e usa quel registro
 condiviso: `olympus themis api --engagement-storage .olympus/engagements
 --manifest-public-key approver-ed25519-public.pem`.
 

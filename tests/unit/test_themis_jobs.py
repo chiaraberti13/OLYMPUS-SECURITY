@@ -287,9 +287,40 @@ def test_store_rejects_symlink_database(tmp_path: Path) -> None:
         ThemisJobStore(link).initialize()
 
 
+def _cli_manifest_files(
+    tmp_path: Path,
+    *,
+    target: str = "127.0.0.1",
+    technique: str = "nmap",
+    expired: bool = False,
+) -> tuple[Path, Path, str]:
+    private_key, public_key = generate_keypair()
+    now = datetime.now(UTC)
+    valid_from = now - timedelta(hours=2 if expired else 1)
+    expires_at = now - timedelta(hours=1) if expired else now + timedelta(hours=1)
+    manifest = EngagementManifest(
+        engagement_id="ENG-2026-00001",
+        client="Synthetic Client",
+        owner="Security Owner",
+        approver="Authorized Approver",
+        contract_id="CONTRACT-2026-01",
+        scope=EngagementScope(included=(target,)),
+        valid_from=valid_from,
+        expires_at=expires_at,
+        allowed_techniques=(technique,),
+    )
+    signed = SignedEngagementManifest.sign_manifest(manifest, private_key_pem=private_key)
+    manifest_path = tmp_path / "signed-manifest.json"
+    manifest_path.write_text(signed.model_dump_json(), encoding="utf-8")
+    public_key_path = tmp_path / "approver-public.pem"
+    public_key_path.write_text(public_key, encoding="utf-8")
+    return manifest_path, public_key_path, signed.manifest_sha256
+
+
 def test_job_cli_submit_list_status_cancel(tmp_path: Path) -> None:
     database = tmp_path / "jobs.sqlite3"
     scope = _scope(tmp_path / "scope.json")
+    manifest, public_key, expected_digest = _cli_manifest_files(tmp_path)
     submitted = runner.invoke(
         app,
         [
@@ -303,11 +334,19 @@ def test_job_cli_submit_list_status_cancel(tmp_path: Path) -> None:
             str(scope),
             "--database",
             str(database),
+            "--signed-manifest",
+            str(manifest),
+            "--manifest-public-key",
+            str(public_key),
+            "--engagement-storage",
+            str(tmp_path / "engagements"),
             "--i-am-authorized",
         ],
     )
     assert submitted.exit_code == 0, submitted.output
-    job_id = json.loads(submitted.output)["job_id"]
+    created = json.loads(submitted.output)
+    job_id = created["job_id"]
+    assert created["manifest_sha256"] == expected_digest
     listed = runner.invoke(app, ["themis", "jobs", "list", "-d", str(database)])
     assert listed.exit_code == 0 and json.loads(listed.output)["count"] == 1
     status = runner.invoke(app, ["themis", "jobs", "status", job_id, "-d", str(database)])
@@ -334,6 +373,134 @@ def test_job_cli_refuses_unconfirmed_authorization(tmp_path: Path) -> None:
     )
     assert result.exit_code == 4
     assert "requires --i-am-authorized" in result.output
+
+
+def test_job_cli_refuses_boolean_authorization_without_signed_manifest(tmp_path: Path) -> None:
+    result = runner.invoke(
+        app,
+        [
+            "themis",
+            "jobs",
+            "submit",
+            "nmap",
+            "--target",
+            "127.0.0.1",
+            "--scope",
+            str(_scope(tmp_path / "scope.json")),
+            "--database",
+            str(tmp_path / "jobs.sqlite3"),
+            "--i-am-authorized",
+        ],
+    )
+    assert result.exit_code == 4
+    assert "requires --signed-manifest" in result.output
+
+
+@pytest.mark.parametrize(
+    ("target", "technique", "expired"),
+    [
+        ("192.0.2.10", "nmap", False),
+        ("127.0.0.1", "nuclei", False),
+        ("127.0.0.1", "nmap", True),
+    ],
+)
+def test_job_cli_refuses_manifest_outside_operation_bounds(
+    tmp_path: Path, target: str, technique: str, expired: bool
+) -> None:
+    manifest, public_key, _digest = _cli_manifest_files(
+        tmp_path, target=target, technique=technique, expired=expired
+    )
+    database = tmp_path / "jobs.sqlite3"
+    result = runner.invoke(
+        app,
+        [
+            "themis",
+            "jobs",
+            "submit",
+            "nmap",
+            "--target",
+            "127.0.0.1",
+            "--scope",
+            str(_scope(tmp_path / "scope.json")),
+            "--database",
+            str(database),
+            "--signed-manifest",
+            str(manifest),
+            "--manifest-public-key",
+            str(public_key),
+            "--engagement-storage",
+            str(tmp_path / "engagements"),
+            "--i-am-authorized",
+        ],
+    )
+    assert result.exit_code == 4
+    assert "signed authorization refused" in result.output
+    assert ThemisJobStore(database).list() == []
+
+
+def test_job_cli_refuses_symlinked_manifest(tmp_path: Path) -> None:
+    manifest, public_key, _digest = _cli_manifest_files(tmp_path)
+    link = tmp_path / "manifest-link.json"
+    link.symlink_to(manifest)
+    result = runner.invoke(
+        app,
+        [
+            "themis",
+            "jobs",
+            "submit",
+            "nmap",
+            "--target",
+            "127.0.0.1",
+            "--scope",
+            str(_scope(tmp_path / "scope.json")),
+            "--signed-manifest",
+            str(link),
+            "--manifest-public-key",
+            str(public_key),
+            "--engagement-storage",
+            str(tmp_path / "engagements"),
+            "--i-am-authorized",
+        ],
+    )
+    assert result.exit_code == 4
+    assert "must not be a symlink" in result.output
+
+
+def test_job_cli_refuses_revoked_manifest(tmp_path: Path) -> None:
+    manifest, public_key, _digest = _cli_manifest_files(tmp_path)
+    engagement_storage = tmp_path / "engagements"
+    signed = SignedEngagementManifest.model_validate_json(manifest.read_text(encoding="utf-8"))
+    store = SqliteEngagementStore(engagement_storage / "engagements.db")
+    try:
+        store.revoke_manifest(
+            signed,
+            trusted_public_key_pem=public_key.read_text(encoding="utf-8"),
+        )
+    finally:
+        store.close()
+
+    result = runner.invoke(
+        app,
+        [
+            "themis",
+            "jobs",
+            "submit",
+            "nmap",
+            "--target",
+            "127.0.0.1",
+            "--scope",
+            str(_scope(tmp_path / "scope.json")),
+            "--signed-manifest",
+            str(manifest),
+            "--manifest-public-key",
+            str(public_key),
+            "--engagement-storage",
+            str(engagement_storage),
+            "--i-am-authorized",
+        ],
+    )
+    assert result.exit_code == 4
+    assert "has been revoked" in result.output
 
 
 # --------------------------------------------------------------------------- #

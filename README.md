@@ -298,7 +298,9 @@ olympus themis doctor --scanner all         # the same, for every catalogued eng
 olympus themis matrix                       # classification matrix, generated from the registry
 olympus themis matrix --check               # CI gate: fail if docs/scanner-matrix.md drifted
 olympus themis jobs init                    # durable local job store
-olympus themis jobs submit nmap --target example.com --scope scope.json --i-am-authorized
+olympus themis jobs submit nmap --target example.com --scope scope.json \
+  --signed-manifest signed-manifest.json --manifest-public-key approver-public.pem \
+  --engagement-storage .olympus/engagements --i-am-authorized
 olympus themis jobs work                    # process one queued job
 OLYMPUS_THEMIS_API_KEY='<32+ random chars>' olympus themis api --scope-directory .olympus/scopes
 olympus themis scanners                     # specialist-engine catalogue
@@ -306,8 +308,9 @@ olympus themis migrate                       # apply the VAP database migrations
 olympus themis serve --host 127.0.0.1 --port 8000   # serve the full VAP web app
 ```
 
-To require signed authorization manifests on every API job submission, pin the
-approver key server-side and use the shared engagement revocation store:
+CLI job submission always requires a signed authorization manifest, a pinned
+approver key and the shared revocation store. To enforce the same gate on every
+API submission, pin the approver key server-side and use that store:
 `olympus themis api --engagement-storage .olympus/engagements
 --manifest-public-key approver-ed25519-public.pem`.
 

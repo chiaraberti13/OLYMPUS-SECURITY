@@ -52,6 +52,8 @@ class SqliteEngagementStore:
 
     def __init__(self, path: Path) -> None:
         self._path = path
+        if path.is_symlink() or (path.exists() and not path.is_file()):
+            raise OSError("engagement database must be a regular non-symlink file")
         path.parent.mkdir(parents=True, exist_ok=True)
         with contextlib.suppress(OSError):  # pragma: no cover - platform dependent
             path.parent.chmod(0o700)
