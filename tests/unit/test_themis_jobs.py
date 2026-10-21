@@ -441,9 +441,7 @@ def test_an_idempotency_key_makes_resubmission_safe(tmp_path: Path) -> None:
 def test_signed_manifest_digest_is_persisted_and_part_of_idempotency(tmp_path: Path) -> None:
     store = ThemisJobStore(tmp_path / "jobs.sqlite3")
     digest = "a" * 64
-    first = _submit(
-        store, tmp_path, idempotency_key="ticket-signed", manifest_sha256=digest
-    )
+    first = _submit(store, tmp_path, idempotency_key="ticket-signed", manifest_sha256=digest)
     assert first.manifest_sha256 == digest
     assert store.execution_record(first.job_id).manifest_sha256 == digest
     with pytest.raises(IdempotencyConflict, match="ticket-signed"):

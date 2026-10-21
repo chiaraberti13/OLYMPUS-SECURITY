@@ -286,7 +286,7 @@
       },
       "ThemisJob": {
         "additionalProperties": false,
-        "description": "Versioned job document returned consistently by CLI, API and workers.\n\n``2.0.0`` replaces ``scope_path`` with ``scope_name``: the absolute path is\nserver-side state and never leaves the store.",
+        "description": "Versioned job document returned consistently by CLI, API and workers.\n\n``3.0.0`` adds the digest of the signed engagement manifest. Legacy jobs\nmigrate with ``None`` rather than receiving invented authorization provenance.",
         "properties": {
           "attempts": {
             "maximum": 10.0,

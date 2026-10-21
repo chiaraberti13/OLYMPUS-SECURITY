@@ -293,9 +293,7 @@ class ThemisJobStore:
             _execute_schema_statements(db, _INDEXES_V2_STATEMENTS)
             return
         if version == 2:
-            db.execute(
-                f"ALTER TABLE themis_jobs ADD COLUMN manifest_sha256 {_MANIFEST_COLUMN}"
-            )
+            db.execute(f"ALTER TABLE themis_jobs ADD COLUMN manifest_sha256 {_MANIFEST_COLUMN}")
 
     # -- submission --------------------------------------------------------- #
     def submit(
