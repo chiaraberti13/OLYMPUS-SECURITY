@@ -269,6 +269,8 @@ every module; for a single command's full details (every option, with defaults) 
 | **Vulcan** — 🟣 aggregation & reporting | |
 | `olympus vulcan rank --findings <f>` | bounded strict loading, exact-ID deduplication and severity ranking |
 | `olympus vulcan report --assets/--findings/--alerts <f>` | validates complete producer envelopes and renders one canonical report as atomic JSON plus optional safe Markdown/HTML |
+| `olympus vulcan export --kind findings/assets -i <bundle> -o <ndjson>` | exports a JSON bundle to portable, versioned NDJSON (sorted, deterministic) |
+| `olympus vulcan import --kind findings/assets -i <ndjson> -o <bundle>` | imports portable NDJSON back into a canonical JSON bundle, strict and all-or-nothing |
 
 ### Legend of the main options
 
@@ -637,6 +639,8 @@ sempre `--help`, es. `olympus argus scan --help`.
 | **Vulcan** — 🟣 aggregazione & report | |
 | `olympus vulcan rank --findings <f>` | caricamento rigoroso e limitato, deduplicazione per ID esatto e ranking per severità |
 | `olympus vulcan report --assets/--findings/--alerts <f>` | valida gli envelope completi e genera un report canonico come JSON atomico più Markdown/HTML sicuri opzionali |
+| `olympus vulcan export --kind findings/assets -i <bundle> -o <ndjson>` | esporta un bundle JSON in NDJSON portabile e versionato (ordinato, deterministico) |
+| `olympus vulcan import --kind findings/assets -i <ndjson> -o <bundle>` | reimporta l'NDJSON portabile in un bundle JSON canonico, strict e all-or-nothing |
 
 ### Legenda delle opzioni principali
 

@@ -11,7 +11,7 @@ from olympus.core.enums import FindingStatus, Severity, Source
 from olympus.core.execution import CancellationRequested, ExecutionPolicyError, safe_terminal_text
 from olympus.core.exit_codes import ExitCode
 from olympus.core.fileio import atomic_write_bytes, atomic_write_text, read_regular_text
-from olympus.core.models import Finding
+from olympus.core.models import Asset, Finding
 from olympus.core.output import OutputFormat, render, render_table
 from olympus.core.paths import output_path
 from olympus.minerva.application import (
@@ -31,6 +31,7 @@ from olympus.vulcan.aggregate import (
     DEFAULT_MAX_ITEMS_PER_FILE,
     DEFAULT_MAX_TOTAL_ITEMS,
     AggregationError,
+    load_assets,
     load_findings,
 )
 from olympus.vulcan.application import (
@@ -59,6 +60,21 @@ from olympus.vulcan.evidence_view import (
     build_finding_evidence_view,
 )
 from olympus.vulcan.pdf import PdfUnavailableError
+from olympus.vulcan.portable import (
+    PortabilityError,
+)
+from olympus.vulcan.portable import (
+    export_assets as portable_export_assets,
+)
+from olympus.vulcan.portable import (
+    export_findings as portable_export_findings,
+)
+from olympus.vulcan.portable import (
+    import_assets as portable_import_assets,
+)
+from olympus.vulcan.portable import (
+    import_findings as portable_import_findings,
+)
 from olympus.vulcan.report import export_report, export_text
 from olympus.vulcan.search import FindingFilter, search_findings
 from olympus.vulcan.trend import build_finding_trend
@@ -473,6 +489,77 @@ def trend(
         ]
         typer.echo(render_table(columns, rows, title="Finding trend (oldest first)"))
     raise typer.Exit(code=ExitCode.FINDINGS if result.regressed else ExitCode.OK)
+
+
+#: Bound the NDJSON import file so a hostile file cannot exhaust memory on read.
+_MAX_IMPORT_BYTES = 64 * 1024 * 1024
+
+
+@app.command("export")
+def export_command(
+    kind: str = typer.Option(..., "--kind", help="What to export: 'findings' or 'assets'."),
+    input_files: list[Path] = typer.Option(
+        ..., "--input", "-i", help="core.Finding/Asset JSON bundle(s) to read (repeatable)."
+    ),
+    output: Path = typer.Option(..., "--output", "-o", help="Portable NDJSON file to write."),
+    max_files: int = typer.Option(DEFAULT_MAX_FILES, "--max-files"),
+    max_input_bytes: int = typer.Option(DEFAULT_MAX_INPUT_BYTES, "--max-input-bytes"),
+    max_items_per_file: int = typer.Option(DEFAULT_MAX_ITEMS_PER_FILE, "--max-items-per-file"),
+    max_total_items: int = typer.Option(DEFAULT_MAX_TOTAL_ITEMS, "--max-total-items"),
+) -> None:
+    """Export findings or assets to portable, versioned NDJSON (one record per line).
+
+    The file is reimportable with ``vulcan import`` and round-trips losslessly with
+    the JSON bundles the loaders consume. Records are sorted by id, so the output
+    is deterministic and diffable.
+    """
+    if kind not in {"findings", "assets"}:
+        typer.echo("vulcan: --kind must be 'findings' or 'assets'", err=True)
+        raise typer.Exit(code=ExitCode.USAGE)
+    try:
+        loader = load_findings if kind == "findings" else load_assets
+        loaded = loader(
+            input_files,
+            max_files=max_files,
+            max_bytes=max_input_bytes,
+            max_items_per_file=max_items_per_file,
+            max_total_items=max_total_items,
+        )
+        serialise = portable_export_findings if kind == "findings" else portable_export_assets
+        atomic_write_text(output, serialise(loaded), mode=0o600)  # type: ignore[arg-type]
+    except _APPLICATION_ERRORS as exc:
+        typer.echo(safe_terminal_text(f"vulcan: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    typer.echo(json.dumps({"kind": kind, "exported": len(loaded), "output": str(output)}, indent=2))
+
+
+@app.command("import")
+def import_command(
+    kind: str = typer.Option(..., "--kind", help="What to import: 'findings' or 'assets'."),
+    input_file: Path = typer.Option(..., "--input", "-i", help="Portable NDJSON file to read."),
+    output: Path = typer.Option(..., "--output", "-o", help="core.* JSON bundle to write."),
+) -> None:
+    """Import findings or assets from portable NDJSON into a JSON bundle.
+
+    Strict and all-or-nothing: the whole file is parsed and validated against the
+    versioned contract before anything is written, so a malformed record imports
+    nothing. The output is a canonical JSON array the Olympus loaders accept.
+    """
+    if kind not in {"findings", "assets"}:
+        typer.echo("vulcan: --kind must be 'findings' or 'assets'", err=True)
+        raise typer.Exit(code=ExitCode.USAGE)
+    try:
+        text = read_regular_text(input_file, max_bytes=_MAX_IMPORT_BYTES, label="vulcan import")
+        parse = portable_import_findings if kind == "findings" else portable_import_assets
+        records: list[Finding] | list[Asset] = parse(text)
+    except (OSError, ValueError, PortabilityError) as exc:
+        typer.echo(safe_terminal_text(f"vulcan: invalid import: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    bundle = [record.model_dump(mode="json") for record in records]
+    atomic_write_text(output, json.dumps(bundle, indent=2, sort_keys=True) + "\n", mode=0o600)
+    typer.echo(
+        json.dumps({"kind": kind, "imported": len(records), "output": str(output)}, indent=2)
+    )
 
 
 findings_app = typer.Typer(

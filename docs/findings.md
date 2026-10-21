@@ -250,6 +250,28 @@ olympus vulcan trend \
 olympus vulcan trend --snapshot run-2026-08.json --snapshot run-2026-10.json --format json
 ```
 
+## Portability — findings and assets as NDJSON (`WEB-J`)
+
+Findings and assets move between installations and line-oriented tools as
+portable, **versioned NDJSON** (one record per line, each the deterministic
+`olympus.finding` / `olympus.asset` document). `vulcan.portable` is the single,
+tested place that serialises and parses them: export is sorted by id (diffable,
+round-trip-verifiable) and import is strict and **all-or-nothing** — the whole
+file is validated against the contract before anything is written. It round-trips
+losslessly with the JSON bundles the loaders already consume.
+
+```bash
+# JSON bundle -> portable NDJSON (sorted, deterministic)
+olympus vulcan export --kind findings -i findings.json -o findings.ndjson
+olympus vulcan export --kind assets   -i assets.json   -o assets.ndjson
+
+# portable NDJSON -> canonical JSON bundle (loadable by every Olympus tool)
+olympus vulcan import --kind findings -i findings.ndjson -o restored.json
+```
+
+A malformed or contract-incompatible NDJSON file exits `2` (usage) and writes
+nothing.
+
 ## Tagging, search and filters
 
 Findings carry free-form `tags` (operator labels for triage and grouping —

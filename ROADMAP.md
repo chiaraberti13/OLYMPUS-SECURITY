@@ -1362,9 +1362,18 @@ notifica redatta alla chiusura di un job, senza logica di report duplicata.
   --storage … -i file.ndjson` (upsert per id; file malformato → exit `2`, nulla
   scritto). Round-trip senza perdita verificato A→export→import→B (digest uguali).
   Test `tests/unit/test_engagements_portable.py`; doc
-  [`docs/engagements.md`](docs/engagements.md). **Resta aperto:** import/export di
-  finding/asset (SARIF per i finding esiste già in Hermes) in un formato
-  portabile unico.
+  [`docs/engagements.md`](docs/engagements.md).
+- [x] **Import / export di finding e asset (slice 2 — NDJSON portabile).**
+  `vulcan/portable.py` (sibling di `engagements/portable.py`): export deterministico
+  ordinato per id e import strict/bounded/**all-or-nothing** per `Finding` e
+  `Asset`, validati sui contratti `olympus.finding`/`olympus.asset`; round-trip
+  lossless con i bundle JSON che i loader già consumano. CLI `olympus vulcan
+  export --kind findings|assets -i bundle.json -o out.ndjson` e `olympus vulcan
+  import --kind … -i out.ndjson -o bundle.json` (file malformato → exit `2`, nulla
+  scritto). Test `tests/unit/test_vulcan_portable.py`; doc
+  [`docs/findings.md`](docs/findings.md), [`docs/reference.md`](docs/reference.md).
+  **Resta aperto:** SARIF come formato di import (l'export SARIF dei finding esiste
+  già in Hermes).
 - [x] **OpenAPI pubblicata e documentata**: lo schema OpenAPI del control plane
   (`themis.api`) è generato (`scripts/update_contract_goldens.py`) e **versionato
   e verificato in CI** come golden (`tests/fixtures/contracts/openapi.json`,
