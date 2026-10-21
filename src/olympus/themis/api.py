@@ -260,9 +260,8 @@ class JobList(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     schema_name: Literal["olympus.themis-job-list"] = "olympus.themis-job-list"
-    # 2.0.0 tracks the embedded olympus.themis-job contract, which replaced
-    # `scope_path` with `scope_name`.
-    schema_version: Literal["2.0.0"] = "2.0.0"
+    # The list version tracks its embedded olympus.themis-job contract.
+    schema_version: Literal["3.0.0"] = "3.0.0"
     count: int
     jobs: list[ThemisJob]
 

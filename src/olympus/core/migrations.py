@@ -75,6 +75,14 @@ def _job_v1_to_v2(document: dict[str, Any]) -> dict[str, Any]:
     return migrated
 
 
+def _job_v2_to_v3(document: dict[str, Any]) -> dict[str, Any]:
+    """Add the optional signed-manifest binding without inventing provenance."""
+    migrated = dict(document)
+    migrated.setdefault("manifest_sha256", None)
+    migrated["schema_version"] = "3.0.0"
+    return migrated
+
+
 def _legacy_evidence(document: dict[str, Any]) -> dict[str, Any]:
     return _headers(document, "olympus.evidence", "1.0.0")
 
@@ -89,6 +97,7 @@ MIGRATIONS = (
     ContractMigration("olympus.athena.plan", "1", "1.0.0", _integer_plan_v1),
     ContractMigration("olympus.themis-job", LEGACY, "1.0.0", _legacy_job),
     ContractMigration("olympus.themis-job", "1.0.0", "2.0.0", _job_v1_to_v2),
+    ContractMigration("olympus.themis-job", "2.0.0", "3.0.0", _job_v2_to_v3),
     ContractMigration("olympus.evidence", LEGACY, "1.0.0", _legacy_evidence),
     ContractMigration("olympus.metis-case", LEGACY, "1.0.0", _legacy_metis_case),
 )

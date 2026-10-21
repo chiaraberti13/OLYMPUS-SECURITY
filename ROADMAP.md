@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 31353)
+Total output lines: 1847
+
 # 🏛️ OLYMPUS-SECURITY Roadmap
 
 > **Obiettivo:** consolidare Olympus come piattaforma Red/Blue/Purple Team sicura,
@@ -316,6 +319,13 @@ verificato digest e firma con la chiave pubblica fidata. Il metodo
 offline coprono firma non attendibile, riapertura del database e rifiuto. Il
 registro locale non è tamper-evident o distribuito e non è ancora collegato ai
 percorsi attivi di submit job: `SEC-C` resta incompleto.
+
+**Avanzamento verificato (2026-10-21, binding persistente):** il contratto job
+THEMIS 3.0.0 e lo schema SQLite v3 possono conservare `manifest_sha256`; il
+digest è validato, esposto al worker e parte dell'identità della richiesta
+idempotente. La migrazione v2→v3 mantiene i job esistenti senza inventare una
+provenienza di autorizzazione. API, Web e CLI non impongono ancora il manifest
+firmato in ogni submit e SEC-C resta quindi `[~]`.
 
 **Criterio di completamento:** nessuna live scan può partire con un semplice flag;
 il report consente di dimostrare manifest, firma, scope e policy effettivi usati.
@@ -821,91 +831,7 @@ senza modificare il core, ma non può bypassare scope, policy, audit o sandbox.
 - [x] Misurare la branch coverage del codice first-party e imporre un floor
   iniziale del 75% con report JSON, checker dedicato e job CI Python 3.11;
   aumentare la soglia progressivamente quando la baseline cresce.
-- [x] Separare unit, contract e integration con directory, marker e job CI
-  indipendenti; container e live-lab hanno selezione esplicita e opt-in, e una
-  suite vuota fallisce come “no tests collected”. La suite container SEC-A ha
-  un caso eseguibile in CI; la suite live-lab resta senza casi e non attesta
-  scanner live o isolamento egress.
-- [x] Aggiungere mutation test mirati a scope gate, redaction, parser, exit code e
-  state machine dei job: la suite dedicata e un gate CI Linux selezionano le
-  funzioni critiche; il checker richiede almeno il 35% di mutazioni uccise per
-  ciascuna funzione, blocca gli esiti non verificati e segnala i mutanti superstiti.
-
-**Fix verificato (2026-10-19, job CI mutation):** il job `security-boundary
-mutation tests` falliva stabilmente con «failed to collect stats. runner
-returned 2» perché installava solo l'extra `.[dev]`, mentre il gate muta
-`olympus.themis.api` e `tests/mutation/test_guardrails.py` lo importa (quindi
-importa FastAPI): senza l'extra `api`, la raccolta pytest della baseline mutmut
-usciva con codice 2. Il job ora installa `.[dev,api]` come gli altri job di test.
-Riproduzione: in un venv con solo `.[dev]`, `pytest tests/mutation/` esce 2 con
-`ModuleNotFoundError: fastapi`; con `.[dev,api]` la raccolta passa (25 test) e la
-fase di stats di mutmut termina con successo. Il gate completo resta verde
-(273/485 mutanti uccisi, 56,3%).
-
-**Criterio di completamento:** matrice supportata dichiarata uguale a quella
-effettivamente testata; regressioni dei guardrail provocano sempre un fallimento.
-
-### Intervento D · `DEV-D` — Contratti, migrazioni e backward compatibility (**P1**)
-
-- [x] Pubblicare JSON Schema versionati per input/output e applicare SemVer ai
-  contratti oltre che al package: il catalogo committato include direzione,
-  `$id`, versione, percorso e SHA-256; contract test e `make schemas-check`
-  impediscono drift tra modelli e artifact pubblicati.
-- [x] Aggiungere golden contract test per CLI JSON/NDJSON, API OpenAPI, SQLite e
-  report; le sei fixture deterministiche sono bloccanti nella suite contract e
-  la policy documenta classificazione delle modifiche, deprecazioni e finestra
-  minima di compatibilità.
-- [x] Introdurre migrazioni esplicite per scope, assessment plan, job, evidence e
-  case CTI: un registro centrale applica solo trasformazioni deterministiche,
-  espone il manifest via CLI e rifiuta versioni future, header parziali o dati di
-  provenienza non ricostruibili.
-- [x] Centralizzare exit code e stati (`clean`, `findings`, `partial`, `failed`,
-  `cancelled`) in tutti i moduli: `RunStatus` e `ExitCode` definiscono il
-  contratto 0–7, Apollo/Hermes distinguono i risultati parziali dagli errori di
-  input, Athena e AEGIS riducono le proprie state machine nello stesso mapping e
-  i contract test vietano exit code numerici locali o valori esterni non
-  normalizzati.
-
-**Criterio di completamento:** una release nuova legge gli artifact supportati
-dalla precedente oppure restituisce un errore di migrazione esplicito e sicuro.
-
-### Intervento E · `DEV-E` — Performance, resilienza e osservabilità (**P2**)
-
-- [x] Creare benchmark offline ripetibili per ingest, normalizzazione,
-  deduplicazione finding, rendering report e lifecycle della coda AEGIS; il
-  profilo quick/standard registra wall time, CPU e memoria Python e dispone di
-  budget espliciti applicabili con `--enforce` (`docs/performance.md`). I limiti
-  non sono ancora gate CI perché i runner condivisi hanno prestazioni variabili.
-- [x] Usare streaming e backpressure per file/log grandi: Apollo ingest legge e
-  normalizza una riga alla volta, pubblica NDJSON con scrittura atomica
-  incrementale e limita byte totali, byte per riga e diagnostica degli scarti;
-  Apollo run valuta subito ogni evento e conserva per la deduplica solo ID e
-  fingerprint, non l'intero dataset.
-- [x] Aggiungere metriche OpenTelemetry/Prometheus con cardinalità limitata e
-  redazione by design: backend opzionali `none|prometheus|otlp`, endpoint
-  Prometheus AEGIS autenticato, textfile atomico per processi brevi e metriche
-  prive di target/identità/ID. Le trace correlano assessment, job, evidence e
-  report esclusivamente tramite identificativi Olympus opachi e validati
-  (`docs/observability.md`).
-- [x] Testare crash recovery, retry idempotenti, lock SQLite, migrazioni interrotte
-  e cancellazione durante l'esecuzione di un tool esterno: la suite di fault
-  injection riavvia lo store dopo una lease abbandonata, forza submit concorrenti
-  con la stessa idempotency key, contende un writer lock reale, interrompe una
-  migrazione DDL e cancella un processo già avviato. Le migrazioni AEGIS sono ora
-  atomiche e acquisiscono il write lock solo quando la versione deve avanzare
-  (`tests/integration/test_aegis_resilience.py`, suite POSIX).
-
-**Criterio di completamento:** esistono SLO e performance budget misurati; un
-riavvio non duplica scansioni né perde lo stato terminale di un job.
-
-### Intervento F · `DEV-F` — Release PyPI professionale (**P2**)
-
-- [ ] Automatizzare versione, changelog, build, test, firma e pubblicazione PyPI
-  tramite Trusted Publishing/OIDC, senza token statici.
-- [ ] Testare sia dipendenze minime sia extra (`api`, `themis`, `dev`) e dichiarare
-  chiaramente cosa è incluso nella wheel e cosa richiede binari esterni.
-- [ ] Pubblicare release candidate e procedura di rollback; evitare release se
-  documentazione, schema o maturity ledger sono incoerenti.
+- [x] Separare unit, contract e integration con directory, m…1353 tokens truncated… incoerenti.
 - [ ] Generare una CLI reference dalla command tree per eliminare duplicazioni.
 
 **Criterio di completamento:** installazione con `pipx install olympus-security`

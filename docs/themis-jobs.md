@@ -107,8 +107,11 @@ operator-visible at the same time:
   shared `redact_text`, and absolute filesystem paths reduced to
   `[path]/<name>` — an error message must not describe the server's layout.
 - **`scope_path` is server-side state.** The `olympus.themis-job` document
-  (`2.0.0`) publishes `scope_name` only; workers read the real path through
+  (`3.0.0`) publishes `scope_name` only; workers read the real path through
   `execution_record()`, which no API surfaces.
+- **`manifest_sha256` binds authorization provenance.** New jobs may persist
+  the lowercase SHA-256 digest of their signed engagement manifest. Legacy jobs
+  migrate with `null`; Olympus never fabricates authorization provenance.
 - **Targets** are published through `redact_url`, so a credential someone put
   in a URL query does not come back out of the job list. The scanner is still
   run against the target exactly as submitted.

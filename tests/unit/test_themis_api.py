@@ -351,7 +351,7 @@ def test_the_api_never_publishes_server_filesystem_paths(tmp_path: Path) -> None
     assert str(tmp_path) not in submitted.text
     listed = client.get("/api/v1/jobs", headers=AUTH)
     assert str(tmp_path) not in listed.text
-    assert listed.json()["schema_version"] == "2.0.0"
+    assert listed.json()["schema_version"] == "3.0.0"
 
 
 def test_engagements_are_readable_over_the_api(tmp_path: Path) -> None:

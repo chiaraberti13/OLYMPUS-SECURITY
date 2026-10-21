@@ -64,7 +64,8 @@ def test_scope_plan_job_evidence_and_case_migrate_through_real_loaders(
     assert plan.schema_version == "1.0.0"
 
     job = load_job_document(legacy_documents["themis_job"])
-    assert job.schema_version == "2.0.0"
+    assert job.schema_version == "3.0.0"
+    assert job.manifest_sha256 is None
     assert job.scope_name == "lab.json"
     assert "scope_path" not in job.model_dump()
 
@@ -81,13 +82,13 @@ def test_current_documents_are_idempotent(legacy_documents: dict[str, dict[str, 
     migrated = migrate_document(
         legacy_documents["themis_job"],
         schema_name="olympus.themis-job",
-        current_version="2.0.0",
+        current_version="3.0.0",
     )
     assert (
         migrate_document(
             migrated,
             schema_name="olympus.themis-job",
-            current_version="2.0.0",
+            current_version="3.0.0",
         )
         == migrated
     )
@@ -138,7 +139,7 @@ def test_legacy_aegis_schema_names_are_canonicalized_to_themis() -> None:
 
     legacy_job = {"schema_name": "olympus.aegis-job", "schema_version": "2.0.0", "job_id": "j1"}
     migrated = migrate_document(
-        legacy_job, schema_name="olympus.themis-job", current_version="2.0.0"
+        legacy_job, schema_name="olympus.themis-job", current_version="3.0.0"
     )
     assert migrated["schema_name"] == "olympus.themis-job"
 
@@ -147,7 +148,7 @@ def test_legacy_aegis_schema_names_are_canonicalized_to_themis() -> None:
     assert canonicalize_schema_name(legacy_scope)["schema_name"] == "olympus.themis-scope"
 
     # A document already on the current name is returned unchanged.
-    current = {"schema_name": "olympus.themis-job", "schema_version": "2.0.0"}
+    current = {"schema_name": "olympus.themis-job", "schema_version": "3.0.0"}
     assert canonicalize_schema_name(current) is current
 
 

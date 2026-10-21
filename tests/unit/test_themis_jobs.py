@@ -438,6 +438,36 @@ def test_an_idempotency_key_makes_resubmission_safe(tmp_path: Path) -> None:
     assert len(store.list()) == 1
 
 
+def test_signed_manifest_digest_is_persisted_and_part_of_idempotency(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    digest = "a" * 64
+    first = _submit(
+        store, tmp_path, idempotency_key="ticket-signed", manifest_sha256=digest
+    )
+    assert first.manifest_sha256 == digest
+    assert store.execution_record(first.job_id).manifest_sha256 == digest
+    with pytest.raises(IdempotencyConflict, match="ticket-signed"):
+        _submit(
+            store,
+            tmp_path,
+            idempotency_key="ticket-signed",
+            manifest_sha256="b" * 64,
+        )
+
+
+def test_malformed_manifest_digest_is_rejected(tmp_path: Path) -> None:
+    database = tmp_path / "jobs.sqlite3"
+    store = ThemisJobStore(database)
+    with pytest.raises(ValueError, match="manifest_sha256"):
+        _submit(store, tmp_path, manifest_sha256="A" * 64)
+    job = _submit(store, tmp_path, manifest_sha256="a" * 64)
+    with sqlite3.connect(database) as db, pytest.raises(sqlite3.IntegrityError):
+        db.execute(
+            "UPDATE themis_jobs SET manifest_sha256 = ? WHERE job_id = ?",
+            ("z" * 64, job.job_id),
+        )
+
+
 def test_reusing_a_key_for_a_different_request_is_refused(tmp_path: Path) -> None:
     store = ThemisJobStore(tmp_path / "jobs.sqlite3")
     _submit(store, tmp_path, idempotency_key="ticket-4711")
@@ -512,6 +542,25 @@ def test_a_database_from_a_newer_release_is_refused(tmp_path: Path) -> None:
         db.execute(f"PRAGMA user_version = {SCHEMA_VERSION + 1}")
     with pytest.raises(SchemaVersionError, match="upgrade Olympus"):
         store.get("THEMIS-" + "A" * 32)
+
+
+def test_a_v2_database_adds_manifest_binding_without_inventing_it(tmp_path: Path) -> None:
+    database = tmp_path / "v2.sqlite3"
+    store = ThemisJobStore(database)
+    existing = _submit(store, tmp_path)
+    with sqlite3.connect(database) as db:
+        db.execute("ALTER TABLE themis_jobs DROP COLUMN manifest_sha256")
+        db.execute("PRAGMA user_version = 2")
+    store.initialize()
+    with sqlite3.connect(database) as db:
+        columns = {row[1] for row in db.execute("PRAGMA table_info(themis_jobs)")}
+        assert "manifest_sha256" in columns
+        with pytest.raises(sqlite3.IntegrityError):
+            db.execute(
+                "UPDATE themis_jobs SET manifest_sha256 = ? WHERE job_id = ?",
+                ("z" * 64, existing.job_id),
+            )
+    assert store.get(existing.job_id).manifest_sha256 is None
 
 
 def test_the_store_uses_write_ahead_logging_and_a_busy_timeout(tmp_path: Path) -> None:
@@ -614,7 +663,7 @@ def test_the_job_document_never_publishes_the_scope_path(tmp_path: Path) -> None
     store = ThemisJobStore(tmp_path / "jobs.sqlite3")
     job = _submit(store, tmp_path)
     document = job.model_dump(mode="json")
-    assert document["schema_version"] == "2.0.0"
+    assert document["schema_version"] == "3.0.0"
     assert "scope_path" not in document
     assert document["scope_name"] == "scope.json"
     assert str(tmp_path) not in json.dumps(document)

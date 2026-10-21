@@ -55,7 +55,7 @@ from olympus.themis.runner import TerminationCause
 from olympus.themis.states import ExecutionState
 
 #: Bumped whenever the SQLite layout changes; ``initialize`` migrates forward.
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 DEFAULT_LEASE_SECONDS = 300.0
 DEFAULT_HEARTBEAT_SECONDS = 60.0
@@ -63,6 +63,7 @@ MAX_ATTEMPTS_LIMIT = 10
 
 WORKER_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$")
 IDEMPOTENCY_KEY_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
+SHA256_PATTERN = re.compile(r"^[a-f0-9]{64}$")
 
 
 class JobState(StrEnum):
@@ -133,16 +134,17 @@ class IdempotencyConflict(ValueError):
 class ThemisJob(BaseModel):
     """Versioned job document returned consistently by CLI, API and workers.
 
-    ``2.0.0`` replaces ``scope_path`` with ``scope_name``: the absolute path is
-    server-side state and never leaves the store.
+    ``3.0.0`` adds the digest of the signed engagement manifest. Legacy jobs
+    migrate with ``None`` rather than receiving invented authorization provenance.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     schema_name: Literal["olympus.themis-job"] = "olympus.themis-job"
-    schema_version: Literal["2.0.0"] = "2.0.0"
+    schema_version: Literal["3.0.0"] = "3.0.0"
     job_id: str = Field(pattern=r"^THEMIS-[A-F0-9]{32}$")
     idempotency_key: str | None = Field(default=None, max_length=128)
+    manifest_sha256: str | None = Field(default=None, pattern=SHA256_PATTERN.pattern)
     scanner: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{0,63}$")
     target: str = Field(min_length=1, max_length=2_048)
     target_kind: Literal["host", "domain", "url"]
@@ -165,7 +167,7 @@ class ThemisJob(BaseModel):
 
 def load_job_document(raw: object) -> ThemisJob:
     """Load a current job document or migrate a declared legacy shape."""
-    candidate = migrate_document(raw, schema_name="olympus.themis-job", current_version="2.0.0")
+    candidate = migrate_document(raw, schema_name="olympus.themis-job", current_version="3.0.0")
     return ThemisJob.model_validate(candidate)
 
 
@@ -178,6 +180,7 @@ class JobExecution:
     target: str
     target_kind: str
     scope_path: Path
+    manifest_sha256: str | None
     authorized: bool
     attempts: int
     max_attempts: int
@@ -265,16 +268,16 @@ class ThemisJobStore:
         self.path.chmod(0o600)
 
     def _migrate(self, db: sqlite3.Connection, version: int) -> None:
-        if version not in {0, SCHEMA_VERSION}:
+        if version not in {0, 2, SCHEMA_VERSION}:
             raise SchemaVersionError(f"unsupported THEMIS job schema {version}; migration refused")
         legacy = db.execute(
             "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'themis_jobs'"
         ).fetchone()
         if version == 0 and legacy is None:
-            _execute_schema_statements(db, _SCHEMA_V2_STATEMENTS)
+            _execute_schema_statements(db, _SCHEMA_V3_STATEMENTS)
             return
         if version == 0:
-            # A pre-versioning database: add what v2 introduced, keeping rows.
+            # A pre-versioning database: add what v2/v3 introduced, keeping rows.
             for column, definition in (
                 ("idempotency_key", "TEXT"),
                 ("attempts", "INTEGER NOT NULL DEFAULT 0"),
@@ -283,10 +286,16 @@ class ThemisJobStore:
                 ("worker_id", "TEXT"),
                 ("lease_expires_at", "TEXT"),
                 ("heartbeat_at", "TEXT"),
+                ("manifest_sha256", _MANIFEST_COLUMN),
             ):
                 db.execute(f"ALTER TABLE themis_jobs ADD COLUMN {column} {definition}")
             db.execute("UPDATE themis_jobs SET available_at = created_at")
             _execute_schema_statements(db, _INDEXES_V2_STATEMENTS)
+            return
+        if version == 2:
+            db.execute(
+                f"ALTER TABLE themis_jobs ADD COLUMN manifest_sha256 {_MANIFEST_COLUMN}"
+            )
 
     # -- submission --------------------------------------------------------- #
     def submit(
@@ -297,6 +306,7 @@ class ThemisJobStore:
         target_kind: str,
         scope_path: Path,
         authorized: bool,
+        manifest_sha256: str | None = None,
         idempotency_key: str | None = None,
         max_attempts: int = 1,
     ) -> ThemisJob:
@@ -308,6 +318,8 @@ class ThemisJobStore:
             raise ValueError(
                 "idempotency_key must be 1-128 characters of letters, digits, '_', '.', ':' or '-'"
             )
+        if manifest_sha256 is not None and not SHA256_PATTERN.fullmatch(manifest_sha256):
+            raise ValueError("manifest_sha256 must be a lowercase SHA-256 digest")
         # Reuse the strict request validation before persisting untrusted data.
         ThemisRunRequest(
             scanner=scanner,
@@ -322,7 +334,13 @@ class ThemisJobStore:
             existing = self._by_idempotency_key(idempotency_key)
             if existing is not None:
                 self._require_same_request(
-                    existing, scanner, target, target_kind, resolved_scope, authorized
+                    existing,
+                    scanner,
+                    target,
+                    target_kind,
+                    resolved_scope,
+                    authorized,
+                    manifest_sha256,
                 )
                 return self.get(existing["job_id"])
         timestamp = _now()
@@ -331,13 +349,14 @@ class ThemisJobStore:
             with self._transaction() as db:
                 db.execute(
                     """INSERT INTO themis_jobs
-                    (job_id, idempotency_key, scanner, target, target_kind, scope_path,
-                     authorized, state, attempts, max_attempts, available_at,
+                    (job_id, idempotency_key, manifest_sha256, scanner, target, target_kind,
+                     scope_path, authorized, state, attempts, max_attempts, available_at,
                      created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)""",
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)""",
                     (
                         job_id,
                         idempotency_key,
+                        manifest_sha256,
                         scanner,
                         target,
                         target_kind,
@@ -357,7 +376,13 @@ class ThemisJobStore:
             if existing is None:
                 raise
             self._require_same_request(
-                existing, scanner, target, target_kind, resolved_scope, authorized
+                existing,
+                scanner,
+                target,
+                target_kind,
+                resolved_scope,
+                authorized,
+                manifest_sha256,
             )
             return self.get(existing["job_id"])
         return self.get(job_id)
@@ -370,6 +395,7 @@ class ThemisJobStore:
         target_kind: str,
         scope_path: str,
         authorized: bool,
+        manifest_sha256: str | None,
     ) -> None:
         recorded = (
             row["scanner"],
@@ -377,8 +403,16 @@ class ThemisJobStore:
             row["target_kind"],
             row["scope_path"],
             bool(row["authorized"]),
+            row["manifest_sha256"],
         )
-        if recorded != (scanner, target, target_kind, scope_path, authorized):
+        if recorded != (
+            scanner,
+            target,
+            target_kind,
+            scope_path,
+            authorized,
+            manifest_sha256,
+        ):
             raise IdempotencyConflict(
                 f"idempotency key {row['idempotency_key']!r} was already used for a "
                 "different request"
@@ -413,6 +447,7 @@ class ThemisJobStore:
             target=row["target"],
             target_kind=row["target_kind"],
             scope_path=Path(row["scope_path"]),
+            manifest_sha256=row["manifest_sha256"],
             authorized=bool(row["authorized"]),
             attempts=int(row["attempts"]),
             max_attempts=int(row["max_attempts"]),
@@ -724,10 +759,16 @@ class ThemisJobStore:
             raise OSError("THEMIS job database must be a regular non-symlink file")
 
 
-_CREATE_JOBS_V2 = """
+_MANIFEST_COLUMN = (
+    "TEXT CHECK (manifest_sha256 IS NULL OR "
+    "(length(manifest_sha256) = 64 AND manifest_sha256 NOT GLOB '*[^0-9a-f]*'))"
+)
+
+_CREATE_JOBS_V3 = f"""
 CREATE TABLE themis_jobs (
     job_id TEXT PRIMARY KEY,
     idempotency_key TEXT,
+    manifest_sha256 {_MANIFEST_COLUMN},
     scanner TEXT NOT NULL,
     target TEXT NOT NULL,
     target_kind TEXT NOT NULL,
@@ -758,7 +799,7 @@ _INDEXES_V2_STATEMENTS = (
        ON themis_jobs(idempotency_key) WHERE idempotency_key IS NOT NULL""",
 )
 
-_SCHEMA_V2_STATEMENTS = (_CREATE_JOBS_V2, *_INDEXES_V2_STATEMENTS)
+_SCHEMA_V3_STATEMENTS = (_CREATE_JOBS_V3, *_INDEXES_V2_STATEMENTS)
 
 
 def _execute_schema_statements(db: sqlite3.Connection, statements: tuple[str, ...]) -> None:
@@ -990,6 +1031,7 @@ def _job(row: sqlite3.Row) -> ThemisJob:
     return ThemisJob(
         job_id=row["job_id"],
         idempotency_key=row["idempotency_key"],
+        manifest_sha256=row["manifest_sha256"],
         scanner=row["scanner"],
         # The stored target is what a scanner is run against; the published one
         # never carries a credential someone put in a URL query.

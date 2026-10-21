@@ -660,7 +660,7 @@ def themis_jobs_list(
         json.dumps(
             {
                 "schema_name": "olympus.themis-job-list",
-                "schema_version": "2.0.0",
+                "schema_version": "3.0.0",
                 "count": len(jobs),
                 "jobs": [job.model_dump(mode="json") for job in jobs],
             },
