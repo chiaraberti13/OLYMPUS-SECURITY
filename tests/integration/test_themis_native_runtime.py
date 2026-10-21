@@ -180,6 +180,23 @@ def test_invalid_worker_identity_is_refused_before_reporting_readiness(tmp_path:
     assert '"ready": true' not in result.output
 
 
+def test_worker_manifest_revalidation_requires_storage_and_key_together(tmp_path: Path) -> None:
+    result = runner.invoke(
+        app,
+        [
+            "themis",
+            "workers",
+            "--once",
+            "-d",
+            str(tmp_path / "jobs.sqlite3"),
+            "--engagement-storage",
+            str(tmp_path / "engagements"),
+        ],
+    )
+    assert result.exit_code == 2
+    assert "must be configured together" in result.output
+
+
 def test_runtime_diagnostics_do_not_load_vendored_code_or_mutate_sys_path(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

@@ -329,8 +329,15 @@ la chiave pubblica Ed25519 fidata, `POST /api/v1/jobs` richiede un manifest
 firmato, verifica firma/digest, revoche persistenti, finestra, engagement,
 target e scanner, quindi lega il digest al job. Un manifest inviato senza una
 chiave fidata server-side viene rifiutato. Web e CLI non applicano ancora lo
-stesso gate e la verifica va ripetuta dal worker immediatamente prima
-dell'esecuzione: SEC-C resta `[~]`.
+stesso gate: SEC-C resta `[~]`.
+
+**Avanzamento verificato (2026-10-21, gate worker):** l'API conserva nel database
+engagement il documento firmato già verificato. Un worker configurato con lo
+stesso archivio e la chiave pubblica fissata ricarica il manifest legato al job
+e ricontrolla firma, digest, revoca, finestra, target e scanner immediatamente
+prima dell'esecuzione. Un digest non recuperabile o un worker senza verificatore
+terminano il job come `policy_denied`, senza avviare lo scanner. Web e CLI non
+impongono ancora il manifest firmato in ogni submit; SEC-C resta `[~]`.
 
 **Criterio di completamento:** nessuna live scan può partire con un semplice flag;
 il report consente di dimostrare manifest, firma, scope e policy effettivi usati.

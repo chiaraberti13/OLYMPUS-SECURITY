@@ -653,7 +653,7 @@ def _authorize_submission_manifest(settings: ApiSettings, body: JobSubmission) -
     database = _require_engagements_database(settings)
     store = SqliteEngagementStore(database)
     try:
-        store.authorize_manifest(
+        store.authorize_and_save_manifest(
             body.signed_manifest,
             trusted_public_key_pem=trusted_key,
             target=body.target,

@@ -17,6 +17,20 @@ olympus themis workers --database .olympus/themis-jobs.sqlite3
 olympus themis workers --once --database .olympus/themis-jobs.sqlite3
 ```
 
+Per i job API protetti da manifest firmato, API e worker devono condividere
+l'archivio revoche e la chiave pubblica dell'approvatore:
+
+```bash
+olympus themis workers --database .olympus/themis-jobs.sqlite3 \
+  --engagement-storage .olympus/engagements \
+  --manifest-public-key approver-ed25519-public.pem
+```
+
+L'API conserva il documento firmato verificato, non solo il digest. Prima di
+avviare lo scanner il worker ricarica quel documento e ricontrolla firma,
+digest, revoca, finestra, target e tecnica. Un digest senza documento o un
+worker privo del verificatore viene classificato `policy_denied`, senza traffico.
+
 Prima di avviare API/Web, creare la directory degli scope e configurare
 `OLYMPUS_THEMIS_API_KEY` (almeno 32 caratteri casuali) oppure `--identities` con
 un registro di identità. La chiave condivisa concede per default solo
@@ -138,6 +152,14 @@ SIGINT/SIGTERM cancel active execution and stop new claims, returning `7`.
 `--once` processes at most one job and preserves canonical exit codes:
 `0` empty/clean, `1` findings, `4` denied, `5` partial, `6` failed/timed out,
 `7` cancelled.
+
+For API jobs protected by signed manifests, start workers with the same
+`--engagement-storage` and pinned `--manifest-public-key` used by the API. The
+API retains the verified signed document alongside the revocation register.
+Immediately before scanner execution, the worker reloads it and rechecks the
+signature, digest, revocation status, time window, target and technique. A bound
+digest without its document or without a configured verifier becomes
+`policy_denied` and produces no scanner traffic.
 
 Migrations are idempotent and transactional for supported **native job**
 databases. Foreign/VAP files, unsupported/future versions and symlinks are

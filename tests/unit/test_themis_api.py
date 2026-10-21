@@ -496,6 +496,14 @@ def test_api_requires_verifies_and_binds_signed_manifest(tmp_path: Path) -> None
 
     revocations = SqliteEngagementStore(tmp_path / ENGAGEMENTS_DB_NAME)
     try:
+        retained = revocations.authorize_stored_manifest(
+            signed.manifest_sha256,
+            trusted_public_key_pem=public_key,
+            target="www.acme.test",
+            technique="nmap",
+            now=datetime.now(UTC),
+        )
+        assert retained.manifest_id == signed.manifest.manifest_id
         revocations.revoke_manifest(signed, trusted_public_key_pem=public_key)
     finally:
         revocations.close()

@@ -325,6 +325,13 @@ olympus themis serve --scope-directory .olympus/scopes \
 olympus themis workers --database .olympus/themis-jobs.sqlite3
 ```
 
+Workers that consume API jobs protected by signed manifests must use the same
+revocation store and pinned approver key:
+`olympus themis workers --engagement-storage .olympus/engagements
+--manifest-public-key approver-ed25519-public.pem`. A job carrying a manifest
+digest is denied if the worker cannot reload and revalidate that exact signed
+document immediately before scanner execution.
+
 `serve` and `web` are identical. Browser sessions use HTTPS. Every queued job
 still needs explicit authorization and scope; live scans default to disabled.
 `workers --once` preserves canonical job exit codes, while the continuous worker

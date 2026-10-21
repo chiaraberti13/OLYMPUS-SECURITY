@@ -35,6 +35,11 @@ CREATE TABLE IF NOT EXISTS manifest_revocations (
     identifier TEXT PRIMARY KEY,
     revoked_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS signed_manifests (
+    manifest_sha256 TEXT PRIMARY KEY,
+    document TEXT NOT NULL,
+    stored_at TEXT NOT NULL
+);
 """
 
 
@@ -147,6 +152,71 @@ class SqliteEngagementStore:
             revoked=self.revoked_manifest_identifiers(),
         )
 
+    def authorize_and_save_manifest(
+        self,
+        signed_manifest: SignedEngagementManifest,
+        *,
+        trusted_public_key_pem: str,
+        target: str,
+        technique: str,
+        now: datetime,
+    ) -> EngagementManifest:
+        """Authorize and retain the signed document for worker-time revalidation."""
+        manifest = self.authorize_manifest(
+            signed_manifest,
+            trusted_public_key_pem=trusted_public_key_pem,
+            target=target,
+            technique=technique,
+            now=now,
+        )
+        document = json.dumps(
+            signed_manifest.model_dump(mode="json"), sort_keys=True, separators=(",", ":")
+        )
+        if len(document.encode("utf-8")) > MAX_DOCUMENT_BYTES:
+            raise EngagementStoreError("signed manifest document exceeds the size limit")
+        with self._conn:
+            self._conn.execute(
+                """INSERT INTO signed_manifests
+                (manifest_sha256, document, stored_at) VALUES (?, ?, ?)
+                ON CONFLICT(manifest_sha256) DO UPDATE SET
+                    document = excluded.document, stored_at = excluded.stored_at""",
+                (signed_manifest.manifest_sha256, document, datetime.now(UTC).isoformat()),
+            )
+        return manifest
+
+    def authorize_stored_manifest(
+        self,
+        manifest_sha256: str,
+        *,
+        trusted_public_key_pem: str,
+        target: str,
+        technique: str,
+        now: datetime,
+    ) -> EngagementManifest:
+        """Reload and reauthorize a queued job's exact signed manifest."""
+        row = self._conn.execute(
+            "SELECT document FROM signed_manifests WHERE manifest_sha256 = ?",
+            (manifest_sha256,),
+        ).fetchone()
+        if row is None:
+            raise EngagementStoreError("signed manifest bound to job is not available")
+        document = str(row["document"])
+        if len(document.encode("utf-8")) > MAX_DOCUMENT_BYTES:
+            raise EngagementStoreError("stored signed manifest document exceeds the size limit")
+        try:
+            signed_manifest = SignedEngagementManifest.model_validate_json(document)
+        except ValueError as exc:
+            raise EngagementStoreError("stored signed manifest document is invalid") from exc
+        if signed_manifest.manifest_sha256 != manifest_sha256:
+            raise EngagementStoreError("stored signed manifest digest does not match its key")
+        return self.authorize_manifest(
+            signed_manifest,
+            trusted_public_key_pem=trusted_public_key_pem,
+            target=target,
+            technique=technique,
+            now=now,
+        )
+
     @staticmethod
     def _load(document: str) -> Engagement:
         if len(document.encode("utf-8")) > MAX_DOCUMENT_BYTES:
@@ -160,3 +230,29 @@ class SqliteEngagementStore:
             return Engagement.model_validate(raw)
         except ValueError as exc:
             raise EngagementStoreError(str(exc)) from exc
+
+
+class StoredManifestAuthorizer:
+    """Short-lived SQLite adapter used by workers before scanner execution."""
+
+    def __init__(self, database: Path, *, trusted_public_key_pem: str) -> None:
+        if not trusted_public_key_pem.strip():
+            raise ValueError("trusted manifest public key must not be empty")
+        self._database = database
+        self._trusted_public_key_pem = trusted_public_key_pem
+
+    def authorize(
+        self, *, manifest_sha256: str, target: str, technique: str, now: datetime
+    ) -> None:
+        """Recheck signature, digest, revocation, scope and time from durable state."""
+        store = SqliteEngagementStore(self._database)
+        try:
+            store.authorize_stored_manifest(
+                manifest_sha256,
+                trusted_public_key_pem=self._trusted_public_key_pem,
+                target=target,
+                technique=technique,
+                now=now,
+            )
+        finally:
+            store.close()

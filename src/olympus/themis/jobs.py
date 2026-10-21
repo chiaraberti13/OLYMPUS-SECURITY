@@ -28,13 +28,13 @@ import secrets
 import sqlite3
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Protocol
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -184,6 +184,18 @@ class JobExecution:
     authorized: bool
     attempts: int
     max_attempts: int
+
+
+class ManifestAuthorizer(Protocol):
+    """Port used to revalidate a queued signed manifest immediately before execution."""
+
+    def authorize(
+        self, *, manifest_sha256: str, target: str, technique: str, now: datetime
+    ) -> None: ...
+
+
+def _utcnow() -> datetime:
+    return datetime.now(UTC)
 
 
 def _now() -> str:
@@ -903,6 +915,8 @@ class ThemisWorker:
     worker_id: str = field(default_factory=generate_worker_id)
     heartbeat_seconds: float = DEFAULT_HEARTBEAT_SECONDS
     observability: Observability = field(default_factory=Observability)
+    manifest_authorizer: ManifestAuthorizer | None = None
+    clock: Callable[[], datetime] = field(default=_utcnow, repr=False)
 
     def __post_init__(self) -> None:
         _validated_worker_id(self.worker_id)
@@ -929,6 +943,19 @@ class ThemisWorker:
             record = self.store.execution_record(job.job_id)
             job_cancellation = _JobCancellation(self.store, job.job_id, shutdown=shutdown)
             try:
+                if record.manifest_sha256 is not None:
+                    if self.manifest_authorizer is None:
+                        from olympus.engagements.manifest import ManifestAuthorizationError
+
+                        raise ManifestAuthorizationError(
+                            "signed manifest bound to job cannot be revalidated by this worker"
+                        )
+                    self.manifest_authorizer.authorize(
+                        manifest_sha256=record.manifest_sha256,
+                        target=record.target,
+                        technique=record.scanner,
+                        now=self.clock(),
+                    )
                 with _Heartbeat(
                     self.store, job.job_id, self.worker_id, job_cancellation, self.heartbeat_seconds
                 ):
@@ -1008,6 +1035,11 @@ def classify_result(result: ScanResult) -> tuple[JobState, str | None]:
 def classify_exception(exc: BaseException) -> JobState:
     """Map a worker exception onto a job state, keeping policy refusals distinct."""
     from olympus.core.execution import AuthorizationRequiredError
+    from olympus.engagements.manifest import (
+        ManifestAuthorizationError,
+        ManifestVerificationError,
+    )
+    from olympus.engagements.store import EngagementStoreError
     from olympus.themis.base import NotAuthorizedError
     from olympus.themis.scope import OutOfScopeError, SsrfBlockedError, TargetValidationError
 
@@ -1017,7 +1049,10 @@ def classify_exception(exc: BaseException) -> JobState:
         | AuthorizationRequiredError
         | OutOfScopeError
         | SsrfBlockedError
-        | TargetValidationError,
+        | TargetValidationError
+        | ManifestAuthorizationError
+        | ManifestVerificationError
+        | EngagementStoreError,
     ):
         return JobState.POLICY_DENIED
     if isinstance(exc, TimeoutError):

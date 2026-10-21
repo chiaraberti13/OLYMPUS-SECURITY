@@ -320,6 +320,58 @@ def test_sqlite_manifest_revocation_is_verified_and_persistent(tmp_path: Path) -
         reopened.close()
 
 
+def test_sqlite_signed_manifest_is_retained_and_reauthorized_at_execution(
+    tmp_path: Path,
+) -> None:
+    signed, public_key = _signed_and_keys()
+    now = datetime(2026, 10, 19, 1, 0, tzinfo=UTC)
+    path = tmp_path / "engagements.db"
+    store = SqliteEngagementStore(path)
+    try:
+        stored = store.authorize_and_save_manifest(
+            signed,
+            trusted_public_key_pem=public_key,
+            target="www.example.com",
+            technique="nmap",
+            now=now,
+        )
+        reauthorized = store.authorize_stored_manifest(
+            signed.manifest_sha256,
+            trusted_public_key_pem=public_key,
+            target="www.example.com",
+            technique="nmap",
+            now=now,
+        )
+        assert reauthorized == stored
+
+        store.revoke_manifest(signed, trusted_public_key_pem=public_key)
+        with pytest.raises(ManifestRevocationError):
+            store.authorize_stored_manifest(
+                signed.manifest_sha256,
+                trusted_public_key_pem=public_key,
+                target="www.example.com",
+                technique="nmap",
+                now=now,
+            )
+    finally:
+        store.close()
+
+
+def test_stored_manifest_lookup_fails_closed_for_missing_digest(tmp_path: Path) -> None:
+    store = SqliteEngagementStore(tmp_path / "engagements.db")
+    try:
+        with pytest.raises(EngagementStoreError, match="not available"):
+            store.authorize_stored_manifest(
+                "0" * 64,
+                trusted_public_key_pem="synthetic",
+                target="www.example.com",
+                technique="nmap",
+                now=datetime(2026, 10, 19, 1, 0, tzinfo=UTC),
+            )
+    finally:
+        store.close()
+
+
 def test_sqlite_manifest_revocation_rejects_untrusted_signature(tmp_path: Path) -> None:
     private_key, _ = generate_keypair()
     _, other_public_key = generate_keypair()

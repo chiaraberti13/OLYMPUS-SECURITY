@@ -362,6 +362,16 @@ def themis_migrate(
 def themis_workers(
     database: str = typer.Option(".olympus/themis-jobs.sqlite3", "--database", "-d"),
     audit: str = typer.Option(DEFAULT_THEMIS_AUDIT_LOG, "--audit"),
+    engagement_storage: str = typer.Option(
+        "",
+        "--engagement-storage",
+        help="Directory holding signed manifests and their revocation register.",
+    ),
+    manifest_public_key: str = typer.Option(
+        "",
+        "--manifest-public-key",
+        help="Pinned Ed25519 approver public key used to revalidate bound manifests.",
+    ),
     worker_id: str | None = typer.Option(None, "--worker-id", help="Stable lease owner."),
     poll_interval: float = typer.Option(1.0, "--poll-interval", min=0.05, max=30.0),
     once: bool = typer.Option(False, "--once", help="Process at most one job and exit."),
@@ -370,6 +380,7 @@ def themis_workers(
     import sqlite3
 
     from olympus.core.observability import observability_from_config
+    from olympus.engagements.store import ENGAGEMENTS_DB_NAME, StoredManifestAuthorizer
     from olympus.themis.config import live_enabled
     from olympus.themis.jobs import JobStoreError, ThemisJobStore, ThemisWorker, generate_worker_id
     from olympus.themis.runtime import WorkerStop, migrate_jobs, work_queue, worker_signals
@@ -378,6 +389,18 @@ def themis_workers(
         migrate_jobs(Path(database))
         live = live_enabled()
         telemetry = observability_from_config()
+        if bool(engagement_storage) != bool(manifest_public_key):
+            raise ValueError(
+                "--engagement-storage and --manifest-public-key must be configured together"
+            )
+        manifest_authorizer = (
+            StoredManifestAuthorizer(
+                Path(engagement_storage) / ENGAGEMENTS_DB_NAME,
+                trusted_public_key_pem=Path(manifest_public_key).read_text(encoding="utf-8"),
+            )
+            if manifest_public_key
+            else None
+        )
     except (OSError, sqlite3.Error, ValueError, JobStoreError) as exc:
         typer.echo(f"olympus: native worker unavailable: {exc}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
@@ -393,6 +416,7 @@ def themis_workers(
             live_scans=live,
             observability=telemetry,
             worker_id=generate_worker_id() if worker_id is None else worker_id,
+            manifest_authorizer=manifest_authorizer,
         )
     except ValueError as exc:
         telemetry.shutdown()
@@ -403,7 +427,12 @@ def themis_workers(
             if not once:
                 typer.echo(
                     json.dumps(
-                        {"ready": True, "worker_id": worker.worker_id, "live_scans": live},
+                        {
+                            "ready": True,
+                            "worker_id": worker.worker_id,
+                            "live_scans": live,
+                            "manifest_revalidation": manifest_authorizer is not None,
+                        },
                         sort_keys=True,
                     )
                 )

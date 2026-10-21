@@ -14,6 +14,10 @@ from typer.testing import CliRunner
 
 from olympus.cli import app
 from olympus.core.execution import CancellationRequested
+from olympus.core.models import EngagementScope
+from olympus.core.signing import generate_keypair
+from olympus.engagements.manifest import EngagementManifest, SignedEngagementManifest
+from olympus.engagements.store import SqliteEngagementStore, StoredManifestAuthorizer
 from olympus.themis.application import ThemisApplicationService
 from olympus.themis.base import ScannerAdapter
 from olympus.themis.jobs import (
@@ -63,6 +67,27 @@ def _scope(path: Path) -> Path:
     return path
 
 
+def _worker_manifest() -> tuple[SignedEngagementManifest, str, datetime]:
+    private_key, public_key = generate_keypair()
+    now = datetime(2026, 10, 21, 20, 0, tzinfo=UTC)
+    manifest = EngagementManifest(
+        engagement_id="ENG-2026-00001",
+        client="Synthetic Client",
+        owner="Security Owner",
+        approver="Authorized Approver",
+        contract_id="CONTRACT-2026-01",
+        scope=EngagementScope(included=("127.0.0.1",)),
+        valid_from=now - timedelta(minutes=5),
+        expires_at=now + timedelta(hours=1),
+        allowed_techniques=("test-engine",),
+    )
+    return (
+        SignedEngagementManifest.sign_manifest(manifest, private_key_pem=private_key),
+        public_key,
+        now,
+    )
+
+
 @pytest.mark.posix_only
 def test_durable_job_lifecycle(tmp_path: Path) -> None:
     store = ThemisJobStore(tmp_path / "state" / "jobs.sqlite3")
@@ -84,6 +109,113 @@ def test_durable_job_lifecycle(tmp_path: Path) -> None:
     assert completed.result is not None and completed.result["state"] == "live"
     assert store.get(job.job_id) == completed
     assert stat.S_IMODE(store.path.stat().st_mode) == 0o600
+
+
+@pytest.mark.posix_only
+def test_worker_reauthorizes_bound_manifest_immediately_before_execution(tmp_path: Path) -> None:
+    signed, public_key, now = _worker_manifest()
+    engagement_database = tmp_path / "engagements.db"
+    manifests = SqliteEngagementStore(engagement_database)
+    try:
+        manifests.authorize_and_save_manifest(
+            signed,
+            trusted_public_key_pem=public_key,
+            target="127.0.0.1",
+            technique="test-engine",
+            now=now,
+        )
+    finally:
+        manifests.close()
+
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    store.submit(
+        scanner="test-engine",
+        target="127.0.0.1",
+        target_kind="host",
+        scope_path=_scope(tmp_path / "scope.json"),
+        authorized=True,
+        manifest_sha256=signed.manifest_sha256,
+    )
+    completed = ThemisWorker(
+        store,
+        ThemisApplicationService(lambda name: _Adapter()),
+        live_scans=False,
+        manifest_authorizer=StoredManifestAuthorizer(
+            engagement_database, trusted_public_key_pem=public_key
+        ),
+        clock=lambda: now,
+    ).run_next()
+
+    assert completed is not None and completed.state is JobState.PARTIAL
+
+
+@pytest.mark.parametrize(
+    ("revoke_after_queueing", "expected_error"),
+    [(True, "revoked"), (False, "does not authorize")],
+)
+def test_worker_denies_manifest_revoked_or_expired_after_queueing(
+    tmp_path: Path, revoke_after_queueing: bool, expected_error: str
+) -> None:
+    signed, public_key, now = _worker_manifest()
+    engagement_database = tmp_path / "engagements.db"
+    manifests = SqliteEngagementStore(engagement_database)
+    try:
+        manifests.authorize_and_save_manifest(
+            signed,
+            trusted_public_key_pem=public_key,
+            target="127.0.0.1",
+            technique="test-engine",
+            now=now,
+        )
+        if revoke_after_queueing:
+            manifests.revoke_manifest(signed, trusted_public_key_pem=public_key)
+    finally:
+        manifests.close()
+
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    store.submit(
+        scanner="test-engine",
+        target="127.0.0.1",
+        target_kind="host",
+        scope_path=_scope(tmp_path / "scope.json"),
+        authorized=True,
+        manifest_sha256=signed.manifest_sha256,
+    )
+    denied = ThemisWorker(
+        store,
+        ThemisApplicationService(lambda name: _Adapter()),
+        live_scans=True,
+        manifest_authorizer=StoredManifestAuthorizer(
+            engagement_database, trusted_public_key_pem=public_key
+        ),
+        clock=lambda: now if revoke_after_queueing else signed.manifest.expires_at,
+    ).run_next()
+
+    assert denied is not None and denied.state is JobState.POLICY_DENIED
+    assert denied.error is not None and expected_error in denied.error
+
+
+def test_worker_denies_bound_manifest_when_revalidation_is_not_configured(
+    tmp_path: Path,
+) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    store.submit(
+        scanner="test-engine",
+        target="127.0.0.1",
+        target_kind="host",
+        scope_path=_scope(tmp_path / "scope.json"),
+        authorized=True,
+        manifest_sha256="a" * 64,
+    )
+
+    denied = ThemisWorker(
+        store,
+        ThemisApplicationService(lambda name: _Adapter()),
+        live_scans=True,
+    ).run_next()
+
+    assert denied is not None and denied.state is JobState.POLICY_DENIED
+    assert denied.error is not None and "cannot be revalidated" in denied.error
 
 
 def test_atomic_claim_and_queue_order(tmp_path: Path) -> None:
