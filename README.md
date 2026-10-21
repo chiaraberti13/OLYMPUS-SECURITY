@@ -70,7 +70,7 @@ $ olympus athena run plan.json --storage ./.athena
 | **Hermes** | `olympus hermes` | Secret & sensitive-data scanning with SARIF output. |
 | **Apollo** | `olympus apollo` | Detection rules engine (red/blue) over normalized events. |
 | **Minerva** | `olympus minerva` | Incident triage and chain-of-custody records. |
-| **Vulcan** | `olympus vulcan` | Aggregation, deduplication, ranking and report rendering. |
+| **Vulcan** | `olympus vulcan` | Aggregation, deduplication, ranking, scan diff (new/resolved/persistent) and report rendering. |
 | **Metis** | `olympus metis` | Deterministic capability routing, engagement plans, CTI cases, IOC correlation and operational reports. |
 | **core** | `olympus core` | Shared data-contract utilities (`export-schemas`, versioned migration manifest). |
 | **THEMIS** | `olympus themis` | Scope-gated scanner orchestration, capability readiness and maturity, durable SQLite jobs, cancellation, audit and explicit execution states. Native for 15 of 24 catalogued engines; `serve`/`migrate`/`workers` still need `vendor/`. |
@@ -332,7 +332,9 @@ The browser control plane also covers the **analysis end** of the cycle: with
 append-only audit trail — the same workflow, view and evidence browser the CLI
 exposes (`olympus vulcan findings`). The filtered view also exports a Vulcan
 report (Markdown/HTML/JSON) with one click, reusing the same renderer as the CLI
-(`WEB-I` slice 1). See [`docs/web.md`](docs/web.md).
+(`WEB-I` slice 1), and a **Scan diff** page (and `olympus vulcan diff`) compares a
+baseline run against the current findings — new / resolved / persistent — to
+evidence remediation (`WEB-I` slice 2). See [`docs/web.md`](docs/web.md).
 
 After preparing scopes, scoped identities and TLS files as described in
 [`docs/themis-runtime.md`](docs/themis-runtime.md):

@@ -105,6 +105,7 @@ from olympus.themis.jobs import (
     ThemisJobStore,
 )
 from olympus.vulcan.aggregate import AggregationError, load_findings
+from olympus.vulcan.compare import diff_findings
 from olympus.vulcan.evidence_view import build_finding_evidence_view
 from olympus.vulcan.report import (
     build_report_model,
@@ -560,9 +561,10 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
     engagements_database = settings.engagements_database
     findings_directory = settings.findings_directory
     findings_database = settings.findings_database
+    baseline_findings_directory = settings.baseline_findings_directory
 
-    def _load_findings_catalogue() -> list[Finding]:
-        """Load every ``*.json`` finding bundle in the configured directory, bounded.
+    def _load_findings_from(directory: Path) -> list[Finding]:
+        """Load every ``*.json`` finding bundle in ``directory``, bounded.
 
         The bundles are the same read-only producer artifacts the CLI consumes
         (``olympus vulcan findings``), loaded through the identical strict,
@@ -570,8 +572,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         raises :class:`_FindingsUnavailable` so the page is honest about a broken
         input rather than silently showing fewer findings than exist.
         """
-        assert findings_directory is not None  # noqa: S101 - callers guard on configuration
-        root = findings_directory.resolve()
+        root = directory.resolve()
         try:
             paths = sorted(path for path in root.glob("*.json") if path.is_file())
         except OSError as exc:
@@ -584,6 +585,11 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             raise _FindingsUnavailable(_safe(str(exc))) from exc
         except OSError as exc:
             raise _FindingsUnavailable("a findings bundle could not be read") from exc
+
+    def _load_findings_catalogue() -> list[Finding]:
+        """Load the configured current-findings directory (see :func:`_load_findings_from`)."""
+        assert findings_directory is not None  # noqa: S101 - callers guard on configuration
+        return _load_findings_from(findings_directory)
 
     def _open_transition_store() -> SqliteFindingTransitionStore | None:
         """Open the append-only lifecycle store, or ``None`` when not configured."""
@@ -1279,6 +1285,56 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             headers={
                 "Content-Disposition": f'attachment; filename="olympus-report-{slug}.{extension}"',
                 "Cache-Control": "no-store",
+            },
+        )
+
+    @app.get("/findings/diff", response_class=HTMLResponse, include_in_schema=False)
+    def findings_diff(request: Request, session: WebSession = reads_findings) -> Response:
+        """Compare the baseline run against the current findings (ROADMAP ``WEB-I``).
+
+        Shows what is **new** (a regression), **resolved** (the evidence a fix
+        landed) and **persistent** between a configured baseline directory and the
+        current findings directory, reusing :func:`diff_findings` — the same
+        engine the CLI (``olympus vulcan diff``) uses — so both agree. It never
+        rewrites either producer artifact.
+        """
+        context: dict[str, object] = {
+            "has_current": findings_directory is not None,
+            "has_baseline": baseline_findings_directory is not None,
+            "configured": findings_directory is not None
+            and baseline_findings_directory is not None,
+            "error": None,
+            "summary": None,
+            "new": [],
+            "resolved": [],
+            "persistent": [],
+        }
+        if findings_directory is None or baseline_findings_directory is None:
+            return _page(request, "findings_diff.html", context)
+        try:
+            current = _load_findings_catalogue()
+            baseline = _load_findings_from(baseline_findings_directory)
+        except _FindingsUnavailable as exc:
+            return _page(request, "findings_diff.html", {**context, "error": exc.detail})
+        result = diff_findings(baseline, current)
+        return _page(
+            request,
+            "findings_diff.html",
+            {
+                **context,
+                "summary": result.summary(),
+                "new": [_present_finding_row(FindingView(f)) for f in result.new],
+                "resolved": [_present_finding_row(FindingView(f)) for f in result.resolved],
+                "persistent": [
+                    {
+                        **_present_finding_row(FindingView(item.current)),
+                        "baseline_severity": item.baseline.severity.value,
+                        "severity_changed": item.severity_changed,
+                        "severity_worsened": item.severity_worsened,
+                        "risk_delta": f"{item.risk_delta:+g}",
+                    }
+                    for item in result.persistent
+                ],
             },
         )
 

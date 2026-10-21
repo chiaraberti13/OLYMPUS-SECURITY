@@ -200,6 +200,36 @@ It runs in the Vulcan aggregation pipeline after the exact-id `dedupe_findings`,
 and is stable and idempotent (a finding with no duplicate passes through
 unchanged).
 
+## Scan comparison (`WEB-I`)
+
+A security programme is judged by what changes between runs. `vulcan.compare`
+is the single, tested place that compares two finding sets and classifies each
+logical issue as **new**, **resolved** or **persistent**:
+
+- **Logical identity.** Findings are matched by the same
+  `(asset_id, vulnerability)` fingerprint used by the dedup
+  (`vulcan.aggregate.finding_fingerprint`), never by the per-run `finding_id`,
+  so the same issue seen in two runs is recognised as one. Each side is folded
+  with `merge_duplicate_findings` first, so a logical issue counts once.
+- **Classification.** `diff_findings(baseline, current)` returns a `ScanDiff`
+  with the `new` (regressions or newly discovered), `resolved` (the evidence a
+  remediation worked) and `persistent` findings; persistent entries carry both
+  representatives so a severity or risk change is visible (`severity_worsened`,
+  `risk_delta`). The result is pure, offline and deterministic (ranked by risk).
+
+```bash
+# Compare two runs of the same scope. Exit code 1 when the current run
+# introduced any new finding (a regression), 0 when it did not.
+olympus vulcan diff --baseline run-2026-09.json --current run-2026-10.json
+
+# --format json emits the full summary + new/resolved/persistent projection.
+olympus vulcan diff --baseline run-2026-09.json --current run-2026-10.json --format json
+```
+
+The browser exposes the same engine at `GET /findings/diff` when the control
+plane is started with a `--baseline-directory` alongside `--findings-directory`;
+see [`web.md`](web.md).
+
 ## Tagging, search and filters
 
 Findings carry free-form `tags` (operator labels for triage and grouping —

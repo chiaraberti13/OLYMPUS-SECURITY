@@ -330,18 +330,27 @@ _CONFIDENCE_ORDER: dict[Confidence, int] = {
 }
 
 
-def _finding_fingerprint(finding: Finding) -> tuple[str, str]:
+def finding_fingerprint(finding: Finding) -> tuple[str, str]:
     """Return a logical identity for a finding: same asset + same vulnerability.
 
-    Two findings from different scanners describe the *same* issue when they share
-    an asset and the same vulnerability identity — the set of CVEs when any are
-    known (structured field or text-derived), else the normalized title. This is
-    deliberately conservative: without a shared CVE we only merge identical
-    titles, so distinct issues are never collapsed.
+    Two findings from different scanners — or from two runs of the same scan —
+    describe the *same* issue when they share an asset and the same vulnerability
+    identity: the set of CVEs when any are known (structured field or text-derived),
+    else the normalized title. This is deliberately conservative: without a shared
+    CVE we only match identical titles, so distinct issues are never collapsed.
+
+    The identity deliberately ignores the per-run ``finding_id`` (freshly minted
+    each scan), so both cross-scanner dedup (:func:`merge_duplicate_findings`) and
+    cross-run comparison (:mod:`olympus.vulcan.compare`) recognise one logical
+    issue the same way.
     """
     cves = finding.cves()
     identity = ",".join(cves) if cves else f"title:{finding.title.strip().casefold()}"
     return (finding.asset_id, identity)
+
+
+#: Backwards-compatible internal alias; prefer the public name.
+_finding_fingerprint = finding_fingerprint
 
 
 def _ordered_unique(*groups: Sequence[str]) -> list[str]:

@@ -70,7 +70,7 @@ $ olympus athena run plan.json --storage ./.athena
 | **Hermes** | `olympus hermes` | Scansione di segreti e dati sensibili con output SARIF. |
 | **Apollo** | `olympus apollo` | Motore di regole di detection (red/blue) su eventi normalizzati. |
 | **Minerva** | `olympus minerva` | Triage degli incidenti e catena di custodia. |
-| **Vulcan** | `olympus vulcan` | Aggregazione, deduplica, ranking e rendering dei report. |
+| **Vulcan** | `olympus vulcan` | Aggregazione, deduplica, ranking, confronto tra run (nuovi/risolti/persistenti) e rendering dei report. |
 | **Metis** | `olympus metis` | Routing deterministico delle competenze, piani d'ingaggio, casi CTI, correlazione IOC e report operativi. |
 | **core** | `olympus core` | Utility del contratto dati condiviso (es. `export-schemas`). |
 | **THEMIS** | `olympus themis` | Orchestrazione scanner con scope, stato capacità, job SQLite persistenti, cancellazione, audit e stati di esecuzione espliciti. |
@@ -257,7 +257,10 @@ accettare-con-motivazione, chiudere, riaprire) dal browser, con un audit trail
 append-only — lo stesso workflow, vista ed evidence browser della CLI
 (`olympus vulcan findings`). La vista filtrata esporta anche un report Vulcan
 (Markdown/HTML/JSON) con un clic, riusando lo stesso renderer della CLI
-(`WEB-I` slice 1). Vedi [`docs/web.md`](docs/web.md).
+(`WEB-I` slice 1), e una pagina **Scan diff** (più `olympus vulcan diff`)
+confronta un run di baseline con i finding correnti — nuovi / risolti /
+persistenti — per dar prova delle remediation (`WEB-I` slice 2). Vedi
+[`docs/web.md`](docs/web.md).
 
 Dopo aver preparato scope, identità e TLS secondo la
 [`guida al runtime`](docs/themis-runtime.md):

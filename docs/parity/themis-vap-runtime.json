@@ -433,6 +433,12 @@
     {
       "surface": "web",
       "method": "GET",
+      "path": "/findings/diff",
+      "handler": "findings_diff"
+    },
+    {
+      "surface": "web",
+      "method": "GET",
       "path": "/findings/report",
       "handler": "findings_report"
     },

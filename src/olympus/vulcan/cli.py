@@ -40,6 +40,7 @@ from olympus.vulcan.application import (
     VulcanRankRequest,
     VulcanReportRequest,
 )
+from olympus.vulcan.compare import ScanDiff, diff_findings
 from olympus.vulcan.enrichment import (
     DEFAULT_MAX_FEED_BYTES,
     EnrichmentError,
@@ -319,6 +320,91 @@ def rank(
         for finding in ranked
     ]
     typer.echo(render(records, columns, output_format, title="Findings (ranked)"))
+
+
+def _diff_row(finding: Finding) -> list[str]:
+    """One compact row for a scan-diff section, reusing the shared finding view."""
+    cells = FindingView(finding).row()
+    return [cells["risk"], cells["severity"], cells["title"], cells["asset"], cells["cve"]]
+
+
+@app.command("diff")
+def diff(
+    baseline: list[Path] = typer.Option(
+        ..., "--baseline", help="Earlier-run core.Finding JSON file(s) (repeatable)."
+    ),
+    current: list[Path] = typer.Option(
+        ..., "--current", help="Later-run core.Finding JSON file(s) (repeatable)."
+    ),
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.TABLE, "--format", help="Render as a table (human) or json (machine)."
+    ),
+    max_files: int = typer.Option(DEFAULT_MAX_FILES, "--max-files"),
+    max_input_bytes: int = typer.Option(DEFAULT_MAX_INPUT_BYTES, "--max-input-bytes"),
+    max_items_per_file: int = typer.Option(DEFAULT_MAX_ITEMS_PER_FILE, "--max-items-per-file"),
+    max_total_items: int = typer.Option(DEFAULT_MAX_TOTAL_ITEMS, "--max-total-items"),
+) -> None:
+    """Compare two assessment runs: what is new, resolved and still persistent.
+
+    Findings are matched by logical identity (same asset + same vulnerability),
+    not by the per-run id, so the same issue seen twice is recognised as one.
+    The classification reuses ``vulcan.compare.diff_findings`` — the single place
+    that decides new/resolved/persistent — so the CLI and the Web UI agree. Exit
+    code ``1`` when the current run introduced any new finding (a regression the
+    caller may want to act on), ``0`` when it did not.
+    """
+    try:
+        base_findings = _load_for_view(
+            baseline,
+            max_files=max_files,
+            max_input_bytes=max_input_bytes,
+            max_items_per_file=max_items_per_file,
+            max_total_items=max_total_items,
+        )
+        current_findings = _load_for_view(
+            current,
+            max_files=max_files,
+            max_input_bytes=max_input_bytes,
+            max_items_per_file=max_items_per_file,
+            max_total_items=max_total_items,
+        )
+    except _APPLICATION_ERRORS as exc:
+        typer.echo(safe_terminal_text(f"vulcan: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+
+    result: ScanDiff = diff_findings(base_findings, current_findings)
+    if output_format is OutputFormat.JSON:
+        typer.echo(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    else:
+        columns = ["risk", "severity", "title", "asset", "cve"]
+        typer.echo(
+            render_table(columns, [_diff_row(f) for f in result.new], title="New (regressions)")
+        )
+        typer.echo(render_table(columns, [_diff_row(f) for f in result.resolved], title="Resolved"))
+        typer.echo(
+            render_table(
+                [*columns, "severity change"],
+                [
+                    [
+                        *_diff_row(item.current),
+                        (
+                            f"{item.baseline.severity.value} → {item.current.severity.value}"
+                            if item.severity_changed
+                            else "—"
+                        ),
+                    ]
+                    for item in result.persistent
+                ],
+                title="Persistent",
+            )
+        )
+    summary = result.summary()
+    typer.echo(
+        "vulcan: {new} new, {resolved} resolved, {persistent} persistent "
+        "({worsened} worsened)".format(**summary),
+        err=True,
+    )
+    raise typer.Exit(code=ExitCode.FINDINGS if result.has_regressions else ExitCode.OK)
 
 
 findings_app = typer.Typer(

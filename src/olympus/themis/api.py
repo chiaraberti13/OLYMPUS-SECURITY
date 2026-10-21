@@ -91,6 +91,12 @@ class ApiSettings:
     #: The bundles are read-only producer artifacts — the lifecycle lives in the
     #: append-only transition store below, never by rewriting them.
     findings_directory: Path | None = None
+    #: Directory of ``core.Finding`` JSON bundles from an *earlier* run, used as
+    #: the baseline for the Web UI scan-diff (ROADMAP ``WEB-I``). When set, the
+    #: browser can compare the current findings against this baseline (new /
+    #: resolved / persistent); when ``None`` the diff page reports the feature is
+    #: not configured. Read-only producer artifacts, like ``findings_directory``.
+    baseline_findings_directory: Path | None = None
     #: The append-only finding lifecycle store
     #: (:class:`~olympus.findings.store.SqliteFindingTransitionStore`). When set,
     #: a browser triage decision is recorded here with who/when/from→to/why, and
@@ -129,12 +135,17 @@ class ApiSettings:
         root = self.scope_directory.resolve()
         if not root.exists() or not root.is_dir() or root.is_symlink():
             raise ValueError("THEMIS scope directory must be an existing non-symlink directory")
-        if self.findings_directory is not None:
-            findings_root = self.findings_directory.resolve()
-            missing = not findings_root.exists() or not findings_root.is_dir()
-            if missing or findings_root.is_symlink():
+        for label, directory in (
+            ("findings", self.findings_directory),
+            ("baseline findings", self.baseline_findings_directory),
+        ):
+            if directory is None:
+                continue
+            resolved = directory.resolve()
+            missing = not resolved.exists() or not resolved.is_dir()
+            if missing or resolved.is_symlink():
                 raise ValueError(
-                    "THEMIS findings directory must be an existing non-symlink directory"
+                    f"THEMIS {label} directory must be an existing non-symlink directory"
                 )
 
 

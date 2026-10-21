@@ -36,6 +36,9 @@ The web plane shares its command surface with `olympus themis api`:
   `olympus vulcan findings` consumes — and enables the **Findings** pages;
   `--findings-storage` points at the append-only lifecycle store so triage
   decisions made in the browser are recorded (and audited) there.
+- **Optional scan diff.** `--baseline-directory` points at a folder of
+  `core.Finding` bundles from an earlier run and enables the **Scan diff** page,
+  which compares that baseline against the current findings.
 
 ## Authentication and session
 
@@ -80,6 +83,7 @@ as on the API.
 | `GET /jobs` | Every job, newest first. |
 | `GET /findings` | Findings, filtered and ranked by risk exactly as the CLI does (requires `findings:read`); available only with `--findings-directory`. |
 | `GET /findings/report` | Download a Vulcan report of the currently filtered findings as Markdown, HTML or JSON (requires `findings:read`). |
+| `GET /findings/diff` | Compare a baseline run against the current findings — new / resolved / persistent (requires `findings:read`); available only with `--baseline-directory`. |
 | `GET /findings/{id}` | Finding detail, evidence chain and lifecycle history (requires `findings:read`). |
 | `POST /findings/{id}/transition` | Record a lifecycle transition for one finding (requires `findings:write`, CSRF-protected); available only with `--findings-storage`. |
 | `GET /engagements`, `GET /engagements/{id}` | The shared engagements and their scope (requires `engagements:read`); available only when the server is started with `--engagement-storage`. |
@@ -146,8 +150,21 @@ byte-for-byte what the CLI produces for the same finding set. The response is a
 download (`Content-Disposition: attachment`), so what reaches the browser is a
 report, not a page. The `engagement` label is sanitised (`SEC-H`) and slugified
 for the filename. PDF stays CLI-only for now (`olympus vulcan report --pdf`,
-optional `report` extra); report comparison, trends and notifications are the
-remaining `WEB-I` slices.
+optional `report` extra); trends and notifications are the remaining `WEB-I`
+slices.
+
+### Scan diff (`WEB-I`)
+
+`GET /findings/diff` compares a **baseline** run against the **current** findings
+and classifies every logical issue as **new** (a regression, or newly
+discovered), **resolved** (the evidence a remediation landed) or **persistent**
+(still open, with any severity/risk change shown). It reuses
+`vulcan.compare.diff_findings` — the same engine as `olympus vulcan diff` — so the
+browser and CLI agree, and matches findings by logical identity (same asset +
+same vulnerability), never by the per-run id. Both inputs are read-only producer
+artifacts: the baseline is `--baseline-directory`, the current set is
+`--findings-directory`. Without a baseline the page says plainly that the feature
+is not configured.
 
 ## New assessment (`WEB-E`)
 

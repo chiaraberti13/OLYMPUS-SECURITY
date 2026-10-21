@@ -245,6 +245,12 @@ def themis_web(
         help="Append-only SQLite finding-lifecycle store; enables recording "
         "triage decisions (status transitions) from the browser.",
     ),
+    baseline_directory: str = typer.Option(
+        "",
+        "--baseline-directory",
+        help="Directory of core.Finding JSON bundles from an earlier run; enables "
+        "the Scan diff page (new/resolved/persistent vs the current findings).",
+    ),
     ssl_certfile: str = typer.Option("", "--ssl-certfile"),
     ssl_keyfile: str = typer.Option("", "--ssl-keyfile"),
 ) -> None:
@@ -299,6 +305,9 @@ def themis_web(
                 ),
                 findings_directory=Path(findings_directory) if findings_directory else None,
                 findings_database=Path(findings_storage) if findings_storage else None,
+                baseline_findings_directory=(
+                    Path(baseline_directory) if baseline_directory else None
+                ),
                 max_concurrent_requests=max_concurrent_requests,
             )
         )

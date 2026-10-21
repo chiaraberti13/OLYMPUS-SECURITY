@@ -910,3 +910,69 @@ def test_report_route_does_not_shadow_a_finding_detail(tmp_path: Path) -> None:
     assert client.get("/findings/FND-2026-00001").status_code == 200
     # The findings list offers the export links for the current view.
     assert "/findings/report?format=md" in client.get("/findings").text
+
+
+# ---------------------------------------------------------------------------
+# Scan diff in the browser (ROADMAP WEB-I slice 2)
+# ---------------------------------------------------------------------------
+
+
+def _baseline_dir(tmp_path: Path, *findings: dict[str, object]) -> Path:
+    directory = tmp_path / "baseline"
+    directory.mkdir(parents=True, exist_ok=True)
+    for index, finding in enumerate(findings):
+        (directory / f"base-{index}.json").write_text(json.dumps(finding), encoding="utf-8")
+    return directory
+
+
+def test_scan_diff_requires_the_findings_read_scope(tmp_path: Path) -> None:
+    client = _client(
+        tmp_path,
+        api_key_scopes=("jobs:read",),
+        findings_directory=_findings_dir(tmp_path),
+        baseline_findings_directory=_baseline_dir(tmp_path, _FINDING),
+    )
+    _login(client)
+    assert client.get("/findings/diff").status_code == 403
+
+
+def test_scan_diff_is_honest_when_baseline_is_not_configured(tmp_path: Path) -> None:
+    client = _findings_client(tmp_path)  # findings dir but no baseline
+    _login(client)
+    page = client.get("/findings/diff")
+    assert page.status_code == 200
+    assert "not set" in page.text
+
+
+def test_scan_diff_classifies_new_resolved_and_persistent(tmp_path: Path) -> None:
+    resolved = {
+        **_FINDING,
+        "finding_id": "FND-2026-00009",
+        "title": "Legacy TLS",
+        "asset_id": "AST-2026-00009",
+    }
+    # Baseline: the current XSS (same asset+title → persistent) plus a resolved one.
+    baseline = {**_FINDING, "finding_id": "FND-2026-05555", "severity": "low"}
+    client = _client(
+        tmp_path,
+        findings_directory=_findings_dir(tmp_path, _FINDING),
+        baseline_findings_directory=_baseline_dir(tmp_path, baseline, resolved),
+    )
+    _login(client)
+    page = client.get("/findings/diff")
+    assert page.status_code == 200
+    # XSS persists (worsened low -> high); Legacy TLS resolved; nothing new.
+    assert "Reflected XSS in search" in page.text
+    assert "Legacy TLS" in page.text
+    assert "low → high" in page.text
+
+
+def test_scan_diff_does_not_shadow_a_finding_detail(tmp_path: Path) -> None:
+    client = _client(
+        tmp_path,
+        findings_directory=_findings_dir(tmp_path, _FINDING),
+        baseline_findings_directory=_baseline_dir(tmp_path, _FINDING),
+    )
+    _login(client)
+    assert client.get("/findings/diff").status_code == 200
+    assert client.get("/findings/FND-2026-00001").status_code == 200

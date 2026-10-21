@@ -120,7 +120,7 @@ Legenda stato: ✅ implementata · 🟡 parziale · 🗓️ pianificata · ❌ a
 | 9 | Mapping CVE/CWE/CVSS/MITRE ATT&CK | 🟡 | `Finding.cvss` + campi `cve`/`cwe`/`epss`/`kev` strutturati (`WEB-C`); link NVD/MITRE in `vulcan/pdf.py`; EPSS/KEV `vulcan/enrichment.py`; ATT&CK detection `apollo/attack.py`, `Alert.mitre_attack` | Campi strutturati ✅; **ATT&CK offensivo sui finding** → `OPS-RED` |
 | 10 | Inventario centralizzato asset | 🟡 | `core.Asset`, `argus/assets.py`, persistenza per-assessment in Athena; `Asset.engagement_id` opzionale e stamping dal coordinator Athena per id canonici (`WEB-B` slice 2); engagement esposti via API/Web sullo stesso store con scope enforcement (`WEB-B` slice 3) | Engagement leggibili/operabili dai quattro canali ✅; **viste di aggregazione asset cross-engagement** (widget) → `WEB-G` |
 | 11 | Scheduler, code, worker isolati, ripresa job | 🟡 | job store SQLite `themis/jobs.py` (stati+`recover`), `olympus themis jobs recover`, sandbox e worker continuo nativo (`SEC-A`) | Queue+recover+sandbox ✅; **scheduler nativo** ❌ → `D13`; runtime Celery ritirato ✅; parità dati/route legacy → `SEC-A` |
-| 12 | Scansioni incrementali + confronto risultati | 🟡 | `argus/diff.py` (diff recon) | **Finding/scan diff cross-run** → `WEB-I` |
+| 12 | Scansioni incrementali + confronto risultati | 🟡 | `argus/diff.py` (diff recon); **finding/scan diff cross-run** `vulcan/compare.py` + `olympus vulcan diff` + Web `/findings/diff` (`WEB-I` slice 2) | Finding/scan diff ✅; **trend storici** → `WEB-I` |
 | 13 | Dashboard, notifiche, report JSON/CSV/HTML/PDF/SARIF | 🟡 | report JSON/MD/HTML/PDF `vulcan/`, SARIF `hermes/sarif.py`, OCSF/ECS/NDJSON `apollo/` | **CSV** ❌ (basso costo) → `WEB-I`; **dashboard/notifiche** → `WEB-G`/`WEB-I` |
 | 14 | API, webhook, CI/CD, ticketing, SIEM, CTI | 🟡 | API tipizzata `themis/api.py`; CTI nativo Metis (`metis/misp.py`,`stix.py`) | API+CTI ✅; **webhook/ticketing/CI** → `WEB-J`; **SIEM** → `OPS-BLUE` |
 | 15 | Test unit/integration/e2e + demo sicuro | ✅ | ~132 file di test (unit/contract/integration/container/live_lab), demo `labs/mars/`; web-security + job-lifecycle della Web UI nativa, tools page dal capability inventory, wizard New Assessment guidato con anteprima di rischio e findings review/triage nel browser con audit (`tests/unit/test_themis_web.py`, `tests/unit/test_scanner_activity.py`, `WEB-A`/`WEB-C`/`WEB-D`/`WEB-E`) | Estendere e2e Web sulle slice successive (`WEB-F`/`WEB-G`) |
@@ -1306,8 +1306,20 @@ lo stesso port; l'utente locale non deve installare Postgres.
   `tests/unit/test_themis_web.py`; doc [`docs/web.md`](docs/web.md). **Resta da
   fare:** sezioni executive/tecnico selezionabili, PDF dal browser (oggi CLI-only
   `olympus vulcan report --pdf`).
-- [ ] **Report comparison / scan diff**: confrontare due run o due report dello
-  stesso scope evidenziando finding nuovi, risolti e persistenti.
+- [x] **Report comparison / scan diff (slice 2).** Motore puro e offline
+  `vulcan/compare.diff_findings` → `ScanDiff` che classifica ogni finding logico
+  come **new** (regressione o nuova scoperta), **resolved** (prova che una
+  remediation ha funzionato) o **persistent** (ancora aperto, con cambio di
+  severità/rischio evidenziato), abbinando per identità logica
+  (`vulcan.aggregate.finding_fingerprint`: stesso asset + stessa vuln, mai il
+  `finding_id` per-run); fonte unica per CLI e Web. CLI `olympus vulcan diff
+  --baseline … --current …` (tabella/JSON, exit code `1` se ci sono finding nuovi,
+  `0` altrimenti). Web `GET /findings/diff` (scope `findings:read`) confronta il
+  `--baseline-directory` con il `--findings-directory` corrente riusando lo stesso
+  motore e `FindingView`; degrado onesto se non configurato. Nessun artefatto
+  produttore viene riscritto. Test `tests/unit/test_vulcan_compare.py` e
+  `tests/unit/test_themis_web.py`; doc [`docs/findings.md`](docs/findings.md),
+  [`docs/web.md`](docs/web.md).
 - [ ] **Trend storici e attack-surface evolution**: andamento di finding per
   severità nel tempo e variazione della superficie (asset/porte/servizi/subdomain)
   tra run, riusando il diff già presente in Argus.
