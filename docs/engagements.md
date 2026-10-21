@@ -43,6 +43,26 @@ olympus engagement show ENG-2026-00001 --storage ./workspace
 Every command prints JSON for machine use. `show` on an unknown id exits `2`
 (usage), consistent with the canonical Olympus exit codes.
 
+### Portability — export and import (`WEB-J`)
+
+Engagements move between installations through portable, **versioned NDJSON**:
+one engagement per line, each the deterministic `olympus.engagement` document.
+Export is sorted by id (so the file is diffable and a round-trip is verifiable);
+import is strict and **all-or-nothing** — the whole file is parsed and validated
+against the contract before anything is written, so a malformed record imports
+nothing. Existing engagements with the same id are replaced (upsert).
+
+```bash
+# Export all engagements (or selected ids) to a portable NDJSON bundle
+olympus engagement export --storage ./workspace -o engagements.ndjson
+olympus engagement export --storage ./workspace --id ENG-2026-00001 -o one.ndjson
+
+# Import them into another installation's store without data loss
+olympus engagement import --storage /other/workspace -i engagements.ndjson
+```
+
+A malformed or incompatible bundle exits `2` (usage) and writes nothing.
+
 ## Linking objects to an engagement
 
 Every engagement-scoped contract — `Asset`, `Finding`, `Event`, `Evidence`,

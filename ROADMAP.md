@@ -1352,12 +1352,25 @@ notifica redatta alla chiusura di un job, senza logica di report duplicata.
 - [ ] **Backup / restore** verificabile di engagement, job, finding, evidence e
   identità, con integrità controllabile; **data retention** applicata in modo
   uniforme (riusa `core.retention`).
-- [ ] **Import / export** di engagement/finding/asset in formati versionati
-  (JSON/NDJSON/SARIF) per portabilità tra installazioni, senza rompere i
-  contratti dati.
-- [ ] **OpenAPI pubblicata e documentata**: esporre e versionare lo schema
-  OpenAPI del control plane (`themis.api`) come superficie di integrazione
-  stabile, con esempi.
+- [x] **Import / export di engagement (slice 1 — portabilità engagement).**
+  Formato portabile **NDJSON versionato** (un engagement per riga, documento
+  deterministico `olympus.engagement` via `canonical_json`): motore puro e offline
+  `engagements/portable.py` (`export_engagements` ordinato per id →
+  diffabile/round-trip verificabile; `import_engagements` strict, bounded,
+  validato sul contratto, **all-or-nothing**). CLI `olympus engagement
+  export --storage … -o file.ndjson [--id …]` e `olympus engagement import
+  --storage … -i file.ndjson` (upsert per id; file malformato → exit `2`, nulla
+  scritto). Round-trip senza perdita verificato A→export→import→B (digest uguali).
+  Test `tests/unit/test_engagements_portable.py`; doc
+  [`docs/engagements.md`](docs/engagements.md). **Resta aperto:** import/export di
+  finding/asset (SARIF per i finding esiste già in Hermes) in un formato
+  portabile unico.
+- [x] **OpenAPI pubblicata e documentata**: lo schema OpenAPI del control plane
+  (`themis.api`) è generato (`scripts/update_contract_goldens.py`) e **versionato
+  e verificato in CI** come golden (`tests/fixtures/contracts/openapi.json`,
+  gate `tests/contract/test_golden_interfaces.py`), documentato in
+  [`docs/contracts.md`](docs/contracts.md). **Resta aperto:** esempi d'uso
+  per gli integratori e un comando dedicato per emetterlo on-demand.
 
 **Criterio di completamento:** un engagement esportato da un'installazione è
 reimportabile in un'altra senza perdita di dati né violazione di contratto; lo

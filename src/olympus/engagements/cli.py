@@ -16,12 +16,22 @@ from pydantic import ValidationError
 
 from olympus.core.enums import EngagementStatus
 from olympus.core.exit_codes import ExitCode
+from olympus.core.fileio import atomic_write_text, read_regular_text
 from olympus.core.models import Engagement, EngagementScope
+from olympus.engagements.portable import (
+    MAX_LINE_BYTES,
+    EngagementPortabilityError,
+    export_engagements,
+    import_engagements,
+)
 from olympus.engagements.store import (
     ENGAGEMENTS_DB_NAME,
     EngagementStoreError,
     SqliteEngagementStore,
 )
+
+#: Bound the import file so a hostile NDJSON cannot exhaust memory on read.
+_MAX_IMPORT_BYTES = 64 * 1024 * 1024
 
 app = typer.Typer(help="Engagements — the top-level assessment container.", no_args_is_help=True)
 
@@ -115,3 +125,70 @@ def show(
         typer.echo(f"engagement: not found: {engagement_id}", err=True)
         raise typer.Exit(code=ExitCode.USAGE)
     typer.echo(json.dumps(engagement.model_dump(mode="json"), indent=2, sort_keys=True))
+
+
+@app.command("export")
+def export_command(
+    storage: Path = typer.Option(..., "--storage", help="Directory for the engagements database."),
+    output: Path = typer.Option(..., "--output", "-o", help="NDJSON file to write."),
+    engagement_id: list[str] = typer.Option(
+        [], "--id", help="Export only this engagement id (repeatable); default: all."
+    ),
+) -> None:
+    """Export engagements to portable, versioned NDJSON (one per line, sorted by id).
+
+    The file is reimportable into another installation with ``engagement import``
+    without loss. Selecting unknown ids fails loudly rather than exporting fewer.
+    """
+    store = _open_store(storage)
+    try:
+        if engagement_id:
+            engagements = [store.require(eid) for eid in engagement_id]
+        else:
+            engagements = store.list()
+    except EngagementStoreError as exc:
+        typer.echo(f"engagement: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    finally:
+        store.close()
+    atomic_write_text(output, export_engagements(engagements), mode=0o600)
+    typer.echo(
+        json.dumps({"exported": len(engagements), "output": str(output)}, indent=2, sort_keys=True)
+    )
+
+
+@app.command("import")
+def import_command(
+    storage: Path = typer.Option(..., "--storage", help="Directory for the engagements database."),
+    input_file: Path = typer.Option(..., "--input", "-i", help="NDJSON file to import."),
+) -> None:
+    """Import engagements from portable NDJSON into the store (upsert by id).
+
+    Strict and all-or-nothing: the whole file is parsed and validated against the
+    ``olympus.engagement`` contract before anything is written, so a malformed
+    record imports nothing. Existing engagements with the same id are replaced.
+    """
+    try:
+        text = read_regular_text(input_file, max_bytes=_MAX_IMPORT_BYTES, label="engagement import")
+    except (OSError, ValueError) as exc:
+        typer.echo(f"engagement: cannot read import file: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    try:
+        engagements = import_engagements(text, max_line_bytes=MAX_LINE_BYTES)
+    except EngagementPortabilityError as exc:
+        typer.echo(f"engagement: invalid import: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+
+    store = _open_store(storage)
+    try:
+        for engagement in engagements:
+            store.save(engagement)
+    finally:
+        store.close()
+    typer.echo(
+        json.dumps(
+            {"imported": len(engagements), "ids": sorted(e.engagement_id for e in engagements)},
+            indent=2,
+            sort_keys=True,
+        )
+    )
