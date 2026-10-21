@@ -62,7 +62,7 @@ $ olympus athena run plan.json --storage ./.athena
 
 | Modulo | Punto d'ingresso | Cosa fa |
 | --- | --- | --- |
-| **Argus** | `olympus argus` | OSINT & recon passivo: DNS, WHOIS/RDAP, header web, IP, telefono, email, MAC, account, CDN fronting, grafi di investigazione. |
+| **Argus** | `olympus argus` | OSINT & recon passivo: DNS, WHOIS/RDAP, header web, IP, telefono, email, MAC, account, CDN fronting, grafi di investigazione, diff della superficie d'attacco (hostname + IP). |
 | **Athena** | `olympus athena` | **Orchestrazione e ciclo di vita** dell'assessment: piani validati, esecuzione job limitata, storage SQLite durevole, audit trail, reporting. |
 | **Helios** | `olympus helios` | Scansione della superficie in scope ed export dei finding. |
 | **Artemis** | `olympus artemis` | Probing di applicazioni web (fingerprint, contenuti, XSS) in scope. |

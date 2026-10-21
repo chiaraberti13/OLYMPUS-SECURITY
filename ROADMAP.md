@@ -1328,9 +1328,19 @@ lo stesso port; l'utente locale non deve installare Postgres.
   vulcan trend --snapshot … --snapshot …` (tabella/JSON, exit code `1` se l'ultimo
   run introduce finding nuovi, `0` altrimenti; min 2 snapshot). Deterministico.
   Test `tests/unit/test_vulcan_compare.py`; doc [`docs/findings.md`](docs/findings.md).
-- [ ] **Attack-surface evolution**: variazione della superficie
-  (asset/porte/servizi/subdomain) tra run, riusando il diff già presente in Argus;
-  e vista trend multi-snapshot nel browser (richiede uno storico degli snapshot).
+- [x] **Attack-surface evolution (slice 3b — superficie asset).** Esteso il diff
+  già presente in Argus (`argus/diff.py`, `olympus argus diff`) dalla sola lista
+  di hostname all'intera superficie modellata dall'`Asset`: hostname/subdomain
+  **e** indirizzi IP aggiunti/rimossi/invariati. Nuovo motore puro e offline
+  `diff_assets(before, after) -> AssetDiff` (DI-friendly, deterministico,
+  normalizza gli hostname); `diff_snapshots` lo riusa via un loader condiviso
+  mantenendo il contratto storico (`added`/`removed`/`unchanged` = hostname).
+  Porte/servizi **non** sono campi di primo livello su `core.Asset` e non vengono
+  inventati (onestà della superficie). Test `tests/unit/test_argus_assets_diff.py`;
+  doc [`docs/reference.md`](docs/reference.md).
+- [ ] **Resta aperto**: porte/servizi come superficie di primo livello (richiede
+  un'estensione del contratto `Asset`) e la vista trend multi-snapshot nel browser
+  (richiede uno storico persistente degli snapshot).
 - [ ] **Notifiche**: canali opzionali (webhook/e-mail) su eventi di job e finding,
   con payload redatto e nessun segreto; disattivate di default.
 
