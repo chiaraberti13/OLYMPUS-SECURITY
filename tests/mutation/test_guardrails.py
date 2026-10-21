@@ -72,6 +72,36 @@ def test_api_settings_default_shared_key_scope_is_minimum_and_validated(tmp_path
         ).validate()
 
 
+def test_api_settings_manifest_trust_anchor_is_nonempty_and_has_revocation_store(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "engagements.db"
+    valid = ApiSettings(
+        database=tmp_path / "jobs.sqlite3",
+        scope_directory=tmp_path,
+        api_key="a" * 32,
+        engagements_database=database,
+        trusted_manifest_public_key_pem="-----BEGIN PUBLIC KEY-----\nsynthetic\n",
+    )
+    valid.validate()
+
+    with pytest.raises(ValueError, match="public key must not be empty"):
+        ApiSettings(
+            database=tmp_path / "jobs.sqlite3",
+            scope_directory=tmp_path,
+            api_key="a" * 32,
+            engagements_database=database,
+            trusted_manifest_public_key_pem=" \n\t",
+        ).validate()
+    with pytest.raises(ValueError, match="require an engagement database"):
+        ApiSettings(
+            database=tmp_path / "jobs.sqlite3",
+            scope_directory=tmp_path,
+            api_key="a" * 32,
+            trusted_manifest_public_key_pem="pinned-key",
+        ).validate()
+
+
 def test_scope_gate_accepts_domain_and_subdomain_but_rejects_suffix_spoof() -> None:
     allowed = ("example.com",)
 
