@@ -10,6 +10,7 @@ is used as evidence of end-to-end functionality — that lives in
 from __future__ import annotations
 
 import json
+import re
 import stat
 import sys
 from pathlib import Path
@@ -43,7 +44,7 @@ from olympus.themis.application import (
     load_scope,
 )
 from olympus.themis.base import NotAuthorizedError, ParseError, ScannerAdapter, _evidence
-from olympus.themis.model import ScanRequest
+from olympus.themis.model import ScanRequest, ScanResult
 from olympus.themis.runner import (
     CommandError,
     CommandOutput,
@@ -363,11 +364,80 @@ def test_state_live_runs_real_process() -> None:
     assert result.findings and result.findings[0].title == "live finding"
     document = result.to_dict()
     assert document["schema_name"] == "olympus.themis-result"
-    assert document["schema_version"] == "1.1.0"
+    assert document["schema_version"] == "1.2.0"
     assert document["real_execution"] is True
     assert document["resolved_addresses"] == ["127.0.0.1"]
     termination = document["termination"]
     assert isinstance(termination, dict) and termination["cause"] == "completed"
+
+
+def test_result_document_carries_authorization_provenance() -> None:
+    result = ScanResult(
+        scanner="fake",
+        state=ExecutionState.DISABLED,
+        target="https://example.test/?api_key=must-not-leak",
+        job_id="THEMIS-" + "A" * 32,
+        manifest_sha256="b" * 64,
+    )
+
+    document = result.to_dict()
+
+    assert document["job_id"] == "THEMIS-" + "A" * 32
+    assert document["manifest_sha256"] == "b" * 64
+    assert "must-not-leak" not in str(document)
+
+
+@pytest.mark.parametrize(
+    ("job_id", "manifest_sha256", "message"),
+    [
+        ("not-a-job", None, "job_id"),
+        (None, "b" * 64, "requires a job_id"),
+        ("THEMIS-" + "A" * 32, "B" * 64, "lowercase SHA-256"),
+    ],
+)
+def test_result_rejects_malformed_authorization_provenance(
+    job_id: str | None, manifest_sha256: str | None, message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        ScanResult(
+            scanner="fake",
+            state=ExecutionState.DISABLED,
+            target="example.test",
+            job_id=job_id,
+            manifest_sha256=manifest_sha256,
+        )
+
+
+@given(
+    job_id=st.one_of(st.none(), st.text(max_size=80)),
+    manifest_sha256=st.one_of(st.none(), st.text(max_size=80)),
+)
+def test_result_authorization_provenance_boundary(
+    job_id: str | None, manifest_sha256: str | None
+) -> None:
+    valid_job = job_id is None or re.fullmatch(r"THEMIS-[A-F0-9]{32}", job_id) is not None
+    valid_digest = manifest_sha256 is None or (
+        job_id is not None and re.fullmatch(r"[a-f0-9]{64}", manifest_sha256) is not None
+    )
+
+    if valid_job and valid_digest:
+        result = ScanResult(
+            scanner="fake",
+            state=ExecutionState.DISABLED,
+            target="example.test",
+            job_id=job_id,
+            manifest_sha256=manifest_sha256,
+        )
+        assert result.to_document().job_id == job_id
+    else:
+        with pytest.raises(ValueError):
+            ScanResult(
+                scanner="fake",
+                state=ExecutionState.DISABLED,
+                target="example.test",
+                job_id=job_id,
+                manifest_sha256=manifest_sha256,
+            )
 
 
 @pytest.mark.posix_only
@@ -504,6 +574,27 @@ def _scope(path: Path) -> Path:
     return path
 
 
+def test_application_result_carries_job_authorization_provenance(tmp_path: Path) -> None:
+    scope = _scope(tmp_path / "scope.json")
+    result = ThemisApplicationService(lambda name: _FakeAdapter()).run(
+        ThemisRunRequest(
+            scanner="fake",
+            target="127.0.0.1",
+            target_kind="host",
+            scope_path=scope,
+            authorized=True,
+            live_enabled=False,
+            simulate=True,
+            job_id="THEMIS-" + "C" * 32,
+            manifest_sha256="d" * 64,
+        )
+    )
+
+    document = result.to_dict()
+    assert document["job_id"] == "THEMIS-" + "C" * 32
+    assert document["manifest_sha256"] == "d" * 64
+
+
 @pytest.mark.posix_only
 def test_scope_loader_and_application_output_audit(tmp_path: Path) -> None:
     scope = _scope(tmp_path / "scope.json")
@@ -527,6 +618,9 @@ def test_scope_loader_and_application_output_audit(tmp_path: Path) -> None:
     )
     assert result.state is ExecutionState.LIVE
     payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["schema_version"] == "1.2.0"
+    assert payload["job_id"] == "THEMIS-" + "A" * 32
+    assert payload["manifest_sha256"] == "b" * 64
     assert payload["target"].endswith("api_key=[REDACTED]")
     assert payload["findings"][0]["schema_name"] == "olympus.finding"
     assert stat.S_IMODE(output.stat().st_mode) == 0o600

@@ -148,6 +148,10 @@ def test_worker_reauthorizes_bound_manifest_immediately_before_execution(tmp_pat
     ).run_next(audit_path=audit_path)
 
     assert completed is not None and completed.state is JobState.PARTIAL
+    assert completed.result is not None
+    assert completed.result["schema_version"] == "1.2.0"
+    assert completed.result["job_id"] == queued.job_id
+    assert completed.result["manifest_sha256"] == signed.manifest_sha256
     audit = [json.loads(line) for line in audit_path.read_text(encoding="utf-8").splitlines()]
     authorization = next(
         record for record in audit if record["action"] == "themis.manifest-authorization"

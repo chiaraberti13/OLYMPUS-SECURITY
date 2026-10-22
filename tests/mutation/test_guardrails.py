@@ -56,7 +56,7 @@ def test_api_settings_default_shared_key_scope_is_minimum_and_validated(tmp_path
     settings.validate()
     assert settings.api_key_scopes == ("capabilities:read",)
 
-    with pytest.raises(ValueError, match="unknown THEMIS API key scopes"):
+    with pytest.raises(ValueError, match="unknown Themis API key scopes"):
         ApiSettings(
             database=tmp_path / "jobs.sqlite3",
             scope_directory=tmp_path,

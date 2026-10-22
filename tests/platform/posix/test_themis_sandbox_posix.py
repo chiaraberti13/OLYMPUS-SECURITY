@@ -326,7 +326,7 @@ def test_a_killed_scanner_fails_with_a_recorded_cause() -> None:
     assert result.termination.cause is TerminationCause.SIGNALLED
     assert "SIGKILL" in (result.error or "")
     document = result.to_dict()
-    assert document["schema_version"] == "1.1.0"
+    assert document["schema_version"] == "1.2.0"
     recorded = document["termination"]
     assert isinstance(recorded, dict)
     assert recorded["cause"] == "signalled"

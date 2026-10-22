@@ -125,7 +125,10 @@ operator-visible at the same time:
   manifest-aware worker records a redacted `themis.manifest-authorization`
   event immediately after revalidation (or on refusal), and correlates the
   subsequent `themis.native-scan` event with the same job ID and digest. The
-  signed document itself is not copied into the audit log.
+  persisted `olympus.themis-result` 1.2.0 document repeats that job ID and
+  digest, so downstream evidence and report builders can join the result to the
+  authorization decision without unredacted target text or the signed document. The
+  signed document itself is not copied into either record.
 - **Targets** are published through `redact_url`, so a credential someone put
   in a URL query does not come back out of the job list. The scanner is still
   run against the target exactly as submitted.

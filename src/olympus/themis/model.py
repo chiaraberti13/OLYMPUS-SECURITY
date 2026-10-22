@@ -88,9 +88,12 @@ class ThemisResultDocument(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     schema_name: Literal["olympus.themis-result"] = "olympus.themis-result"
-    # 1.1.0 adds the optional `termination` object; every 1.0.0 field is
-    # unchanged, so a 1.0.0 reader still understands a 1.1.0 document.
-    schema_version: Literal["1.1.0"] = "1.1.0"
+    # 1.2.0 adds optional authorization provenance. Results produced outside a
+    # durable job remain valid with both fields unset; a manifest digest can
+    # never appear without the canonical job that consumed it.
+    schema_version: Literal["1.2.0"] = "1.2.0"
+    job_id: str | None = Field(default=None, pattern=r"^THEMIS-[A-F0-9]{32}$")
+    manifest_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
     scanner: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{0,63}$")
     state: ExecutionState
     real_execution: bool
@@ -121,6 +124,8 @@ class ThemisResultDocument(BaseModel):
             self.findings or self.assets
         ):
             raise ValueError("non-live/non-simulation states must not carry assets or findings")
+        if self.manifest_sha256 is not None and self.job_id is None:
+            raise ValueError("manifest_sha256 requires a job_id")
         return self
 
 
@@ -131,6 +136,8 @@ class ScanResult:
     scanner: str
     state: ExecutionState
     target: str
+    job_id: str | None = None
+    manifest_sha256: str | None = None
     resolved_addresses: tuple[str, ...] = ()
     version: str | None = None
     findings: list[Finding] = field(default_factory=list)
@@ -142,11 +149,22 @@ class ScanResult:
     termination: TerminationReport | None = None
     duration_seconds: float = 0.0
 
+    def __post_init__(self) -> None:
+        if self.job_id is not None and re.fullmatch(r"THEMIS-[A-F0-9]{32}", self.job_id) is None:
+            raise ValueError("job_id must be a canonical Themis job id")
+        if self.manifest_sha256 is not None:
+            if self.job_id is None:
+                raise ValueError("manifest_sha256 requires a job_id")
+            if re.fullmatch(r"[a-f0-9]{64}", self.manifest_sha256) is None:
+                raise ValueError("manifest_sha256 must be a lowercase SHA-256 digest")
+
     def to_document(self) -> ThemisResultDocument:
         """Validate and return the canonical versioned result document."""
         evidence = self.raw_evidence[:MAX_RAW_EVIDENCE]
         evidence_digest = hashlib.sha256(evidence.encode()).hexdigest() if evidence else None
         return ThemisResultDocument(
+            job_id=self.job_id,
+            manifest_sha256=self.manifest_sha256,
             scanner=self.scanner,
             state=self.state,
             real_execution=self.state is ExecutionState.LIVE,

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
@@ -144,6 +144,11 @@ class ThemisApplicationService:
                     simulate=request.simulate,
                     cancellation=request.cancellation,
                 )
+            )
+            result = replace(
+                result,
+                job_id=request.job_id,
+                manifest_sha256=request.manifest_sha256,
             )
         except AuthorizationRequiredError:
             self._audit(request, execution_id, "refused", {})

@@ -67,6 +67,10 @@ revalidation, including only the job ID, manifest SHA-256 and scanner (plus the
 exception type on refusal). The scan audit repeats the job ID and digest so an
 operator can join the authorization decision to the execution without copying
 the signed document or its human-readable engagement data into the log.
+Successful job evidence repeats the same correlation fields in
+`olympus.themis-result` 1.2.0. The result therefore remains independently
+traceable after audit rotation, while the manifest document and approver data
+stay in the access-controlled engagement store.
 
 ## Adoption status
 

@@ -368,6 +368,14 @@ firmato o eventuali segreti nella URL. Report ed evidenze non incorporano ancora
 questa provenienza e la modalità compatibile senza chiave resta disponibile:
 SEC-C resta `[~]`.
 
+**Avanzamento verificato (2026-10-22, provenienza evidenza job):** il contratto
+`olympus.themis-result` 1.2.0 include ora `job_id` e `manifest_sha256` opzionali
+ma accoppiati; il worker li persiste nel risultato dopo la rivalidazione, oltre
+che negli eventi audit. Un risultato può quindi essere correlato alla decisione
+di autorizzazione senza copiare manifest, approvatore o target non redatto.
+L'inclusione della provenienza nei report consolidati e la rimozione della
+modalità compatibile senza chiave restano aperte: SEC-C resta `[~]`.
+
 **Criterio di completamento:** nessuna live scan può partire con un semplice flag;
 il report consente di dimostrare manifest, firma, scope e policy effettivi usati.
 
