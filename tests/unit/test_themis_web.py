@@ -1098,6 +1098,21 @@ def test_report_rejects_an_unknown_format(tmp_path: Path) -> None:
     assert client.get("/findings/report", params={"format": "pdf"}).status_code == 422
 
 
+def test_report_exports_sarif_of_the_filtered_findings(tmp_path: Path) -> None:
+    client = _findings_client(tmp_path, _FINDING, _LOW_FINDING)
+    _login(client)
+    response = client.get("/findings/report", params={"format": "sarif", "severity": "high"})
+    assert response.status_code == 200, response.text
+    assert "application/sarif+json" in response.headers["content-type"]
+    assert ".sarif.json" in response.headers["content-disposition"]
+    document = json.loads(response.text)
+    assert document["version"] == "2.1.0"
+    # Only the high finding survives the min-severity filter — the SARIF reflects it.
+    titles = {r["message"]["text"].splitlines()[0] for r in document["runs"][0]["results"]}
+    assert "Reflected XSS in search" in titles
+    assert "Server banner disclosed" not in titles
+
+
 def test_report_is_honest_when_no_directory_is_configured(tmp_path: Path) -> None:
     client = _client(tmp_path)  # no findings_directory
     _login(client)

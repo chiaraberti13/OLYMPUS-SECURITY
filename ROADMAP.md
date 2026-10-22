@@ -1347,7 +1347,7 @@ lo stesso port; l'utente locale non deve installare Postgres.
 
 - [x] **Report builder (slice 1 — export dal browser).** Dalla vista findings
   (`WEB-C`) l'operatore scarica un report Vulcan della selezione corrente in
-  `md`/`html`/`json` via `GET /findings/report` (scope `findings:read`), con lo
+  `md`/`html`/`json`/`sarif` via `GET /findings/report` (scope `findings:read`), con lo
   **stesso** filtro della tabella (`_finding_filter_from_params` →
   `FindingFilter`) e i renderer esistenti (`build_report_model` +
   `render_report_markdown`/`render_report_html`/JSON dump): nessuna logica di

@@ -114,6 +114,7 @@ from olympus.vulcan.report import (
     render_report_html,
     render_report_markdown,
 )
+from olympus.vulcan.sarif import findings_to_sarif
 from olympus.vulcan.search import FindingFilter, search_findings
 from olympus.vulcan.view import FindingView, rank_by_risk
 
@@ -1264,9 +1265,11 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         browser is a report, not a page.
         """
         chosen = format.strip().lower()
-        renderers = {"json", "md", "markdown", "html"}
+        renderers = {"json", "md", "markdown", "html", "sarif"}
         if chosen not in renderers:
-            raise HTTPException(status_code=422, detail="format must be one of json, md, html")
+            raise HTTPException(
+                status_code=422, detail="format must be one of json, md, html, sarif"
+            )
         if findings_directory is None:
             raise HTTPException(status_code=400, detail="no findings directory is configured")
         try:
@@ -1301,6 +1304,10 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         if chosen == "json":
             body = json.dumps(report.model_dump(mode="json"), indent=2, sort_keys=True) + "\n"
             media_type, extension = "application/json", "json"
+        elif chosen == "sarif":
+            # SARIF of the filtered findings, for any SARIF consumer (CI code-scanning).
+            body = json.dumps(findings_to_sarif(matched), indent=2, sort_keys=True) + "\n"
+            media_type, extension = "application/sarif+json", "sarif.json"
         elif chosen in {"md", "markdown"}:
             body = render_report_markdown(report)
             media_type, extension = "text/markdown; charset=utf-8", "md"
