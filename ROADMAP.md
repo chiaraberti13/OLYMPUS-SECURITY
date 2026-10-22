@@ -210,7 +210,10 @@ dello scope e delle evidenze. Il runtime mantenuto è ora interamente nativo.
   [`docs/themis-runtime.md`](docs/themis-runtime.md). Il sorgente legacy resta
   archiviato; la matrice route/dati è in `docs/parity/themis-vap-runtime.json`.
   Import di `vap.db`, verifica funzionale delle lacune e ritiro fisico del
-  sorgente restano lavoro SEC-A.
+  sorgente restano lavoro SEC-A. `themis legacy-snapshot` ora apre `vap.db` in
+  sola lettura, crea un backup SQLite consistente e un inventario versionato con
+  digest, conteggi, chiavi deterministiche, mapping esplicito degli stati e
+  rollback; non crea job eseguibili e non importa consent/audit/analytics.
 - [x] Definire una matrice di parità per endpoint, job state, persistenza, audit,
   report e cancellazione prima di rimuovere il codice legacy.
 - [~] Rendere il control plane nativo fail-closed: autenticazione obbligatoria,
@@ -242,6 +245,15 @@ dell'immagine container assegna esplicitamente alla chiave sintetica i permessi
 minimi necessari al submit/lettura job (`capabilities:read`, `jobs:read`,
 `jobs:write`). Il default read-only resta invariato; il test non dipende da
 privilegi impliciti della chiave.
+
+**Avanzamento verificato (2026-10-22, snapshot dati legacy):** il comando
+`themis legacy-snapshot` produce un backup SQLite create-only e il contratto
+`olympus.legacy-vap-snapshot` 1.0.0 senza modificare il database sorgente.
+Registra digest di sorgente/backup, conteggi e chiavi di migrazione
+deterministiche; esclude target e query secret, mantiene consent/audit/analytics
+solo nel backup e marca le righe `queued`/`running` come non convertibili. La
+conversione revisionata nei contratti nativi, la parità delle route residue e il
+ritiro fisico del vendor restano aperti: `SEC-A` resta `[~]`.
 
 ### Intervento B · `SEC-B` — Isolamento forte degli scanner (**P0**)
 

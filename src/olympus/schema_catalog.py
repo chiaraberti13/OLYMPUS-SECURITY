@@ -35,6 +35,7 @@ from olympus.core.models import (
 )
 from olympus.engagements.manifest import EngagementManifest, SignedEngagementManifest
 from olympus.metis.models import EngagementPlan, IntelCaseDocument
+from olympus.themis.legacy_vap import LegacyVapSnapshot
 
 CATALOG_SCHEMA_NAME = "olympus.schema-catalog"
 CATALOG_SCHEMA_VERSION = "1.0.0"
@@ -77,6 +78,7 @@ PUBLISHED_CONTRACTS = (
     PublishedContract("olympus.observation", "shared", Observation),
     PublishedContract("olympus.scan-job", "shared", ScanJob),
     PublishedContract("olympus.security-report", "output", SecurityReport),
+    PublishedContract("olympus.legacy-vap-snapshot", "output", LegacyVapSnapshot),
 )
 
 

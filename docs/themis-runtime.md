@@ -78,6 +78,26 @@ versione Olympus corrispondente e riavviare. Conservare il volume VAP
 precedente separatamente; il nuovo stack usa `themis-data`. Evitare
 `docker compose down -v` se si desidera conservare evidenze e job.
 
+Prima di progettare una conversione, creare uno snapshot read-only del database
+VAP archiviato:
+
+```bash
+olympus themis legacy-snapshot --source vap.db \
+  --backup migration/vap.backup.sqlite3 \
+  --output migration/vap.snapshot.json
+```
+
+Il comando non modifica `vap.db`, non crea job nativi e non accetta symlink o
+destinazioni già esistenti. Il backup SQLite consistente e il manifest sono
+owner-only. Il contratto `olympus.legacy-vap-snapshot` 1.0.0 registra digest,
+conteggi, chiavi di migrazione deterministiche e decisioni sugli stati. Le righe
+`queued`/`running` sono `blocked_active`, mentre stati sconosciuti o ambigui
+restano `unmapped`: nessuna scansione viene riattivata senza nuova autorizzazione.
+Target e query secret sono esclusi dal manifest: resta soltanto il digest del
+target, mentre il valore originale rimane nel backup. Consent, audit e analytics
+sono conteggiati ma esclusi dal manifest
+perché richiedono valutazioni separate di finalità, privacy e provenienza.
+
 ### Docker
 
 L'immagine `docker/Dockerfile` installa la wheel, include template/statici e
@@ -182,6 +202,18 @@ before backing up, use SQLite backup or copy DB/WAL after all connections close,
 and restore the native backup with its matching Olympus version for rollback.
 Keep the old VAP volume separate; the native stack uses `themis-data`.
 
+Before any reviewed conversion, run `olympus themis legacy-snapshot --source
+vap.db --backup migration/vap.backup.sqlite3 --output
+migration/vap.snapshot.json`. The command opens the source read-only, creates a
+consistent create-only backup and publishes the versioned
+`olympus.legacy-vap-snapshot` 1.0.0 inventory. It records source/backup digests,
+counts, deterministic migration keys and explicit state decisions without
+creating native jobs. Active rows are blocked, ambiguous states remain unmapped,
+and targets/query secrets are excluded from the inventory; only the target
+digest remains. Consent, audit and product-analytics contents stay only in the
+backup pending separate privacy and provenance reviews. Existing outputs and
+symlinks are refused.
+
 Before Docker startup, prepare registered scopes under `.olympus/scopes`, the
 scoped identity register under `.olympus/config/themis-api-identities.json`,
 and valid TLS files under `.olympus/tls/{cert,key}.pem`. Mounts are read-only and
@@ -199,8 +231,9 @@ Scanner egress/seccomp/AppArmor completion remains SEC-B.
 
 The route-by-route legacy/native inventory and lifecycle/data gaps are tracked in
 [`docs/parity/themis-vap-runtime.json`](parity/themis-vap-runtime.json) and
-contract-tested against both source trees. This inventory does not implement VAP
-database import or claim complete runtime parity; those remain SEC-A work.
+contract-tested against both source trees. This snapshot does not convert VAP
+records into native executable jobs or claim complete runtime parity; reviewed
+contract conversion remains SEC-A work.
 
 Run `make check`, `python scripts/smoke_native_runtime.py` and, on a Docker host,
 `make test-container`. CI exercises clean-wheel and isolated-container startup

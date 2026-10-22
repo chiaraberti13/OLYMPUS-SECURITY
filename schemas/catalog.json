@@ -93,6 +93,13 @@
     },
     {
       "direction": "output",
+      "name": "olympus.legacy-vap-snapshot",
+      "path": "contracts/olympus.legacy-vap-snapshot/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "bbf75da6303af2aae6189b78717ffc3edc85d4e88e36a82711d9a48d7a538975"
+    },
+    {
+      "direction": "output",
       "name": "olympus.metis-case",
       "path": "contracts/olympus.metis-case/1.0.0.schema.json",
       "schema_version": "1.0.0",

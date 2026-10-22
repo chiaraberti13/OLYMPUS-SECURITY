@@ -115,4 +115,7 @@ def test_persistence_audit_reports_and_cancellation_remain_partial() -> None:
     for name in ("persistence", "audit", "reports", "cancellation"):
         assert contracts[name]["status"] == "partial"
         assert contracts[name]["migration"]
-    assert "rejects foreign/VAP databases" in contracts["persistence"]["migration"]
+    migration = contracts["persistence"]["migration"]
+    assert "legacy-snapshot" in migration
+    assert "still rejects foreign/VAP databases" in migration
+    assert "never converts active rows" in migration

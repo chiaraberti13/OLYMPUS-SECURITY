@@ -2149,6 +2149,243 @@
     "title": "Incident",
     "type": "object"
   },
+  "olympus.legacy-vap-snapshot": {
+    "$defs": {
+      "LegacyVapExcludedTable": {
+        "additionalProperties": false,
+        "description": "A legacy table intentionally kept only inside the SQLite backup.",
+        "properties": {
+          "name": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+            "title": "Name",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "row_count": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Row Count"
+          }
+        },
+        "required": [
+          "name",
+          "reason"
+        ],
+        "title": "LegacyVapExcludedTable",
+        "type": "object"
+      },
+      "LegacyVapScan": {
+        "additionalProperties": false,
+        "description": "One privacy-minimized legacy scan inventory record.",
+        "properties": {
+          "completed_at": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Completed At"
+          },
+          "configuration_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Configuration Sha256"
+          },
+          "conversion_decision": {
+            "enum": [
+              "convertible_terminal",
+              "blocked_active",
+              "unmapped"
+            ],
+            "title": "Conversion Decision",
+            "type": "string"
+          },
+          "created_at": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Created At",
+            "type": "string"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Deleted At"
+          },
+          "findings_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Findings Sha256"
+          },
+          "legacy_scan_id": {
+            "minimum": 1,
+            "title": "Legacy Scan Id",
+            "type": "integer"
+          },
+          "legacy_state": {
+            "maxLength": 30,
+            "minLength": 1,
+            "title": "Legacy State",
+            "type": "string"
+          },
+          "migration_key": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Migration Key",
+            "type": "string"
+          },
+          "native_state": {
+            "anyOf": [
+              {
+                "enum": [
+                  "succeeded",
+                  "failed",
+                  "cancelled"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Native State"
+          },
+          "scan_type": {
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Scan Type",
+            "type": "string"
+          },
+          "target_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Target Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "legacy_scan_id",
+          "migration_key",
+          "target_sha256",
+          "scan_type",
+          "legacy_state",
+          "conversion_decision",
+          "created_at"
+        ],
+        "title": "LegacyVapScan",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Versioned migration inventory tied to an immutable backup digest.",
+    "properties": {
+      "backup_sha256": {
+        "pattern": "^[a-f0-9]{64}$",
+        "title": "Backup Sha256",
+        "type": "string"
+      },
+      "excluded_tables": {
+        "items": {
+          "$ref": "#/$defs/LegacyVapExcludedTable"
+        },
+        "title": "Excluded Tables",
+        "type": "array"
+      },
+      "rollback": {
+        "const": "retain-source-and-restore-backup",
+        "default": "retain-source-and-restore-backup",
+        "title": "Rollback",
+        "type": "string"
+      },
+      "scan_count": {
+        "maximum": 100000,
+        "minimum": 0,
+        "title": "Scan Count",
+        "type": "integer"
+      },
+      "scans": {
+        "items": {
+          "$ref": "#/$defs/LegacyVapScan"
+        },
+        "maxItems": 100000,
+        "title": "Scans",
+        "type": "array"
+      },
+      "schema_name": {
+        "const": "olympus.legacy-vap-snapshot",
+        "default": "olympus.legacy-vap-snapshot",
+        "title": "Schema Name",
+        "type": "string"
+      },
+      "schema_version": {
+        "const": "1.0.0",
+        "default": "1.0.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "source_sha256": {
+        "pattern": "^[a-f0-9]{64}$",
+        "title": "Source Sha256",
+        "type": "string"
+      },
+      "source_size_bytes": {
+        "maximum": 1000000000,
+        "minimum": 1,
+        "title": "Source Size Bytes",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "source_sha256",
+      "backup_sha256",
+      "source_size_bytes",
+      "scan_count",
+      "scans",
+      "excluded_tables"
+    ],
+    "title": "LegacyVapSnapshot",
+    "type": "object"
+  },
   "olympus.metis-case": {
     "$defs": {
       "Indicator": {

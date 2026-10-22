@@ -33,6 +33,7 @@ from olympus.themis.adapters.nmap import NmapAdapter
 from olympus.themis.adapters.nuclei import NucleiAdapter
 from olympus.themis.api import ApiSettings, RequestConcurrencyGate
 from olympus.themis.base import ParseError
+from olympus.themis.legacy_vap import _decision
 from olympus.themis.model import ScanRequest
 from olympus.themis.runner import CommandOutput
 
@@ -320,3 +321,22 @@ def test_job_state_machine_rejects_terminal_skip_and_derives_partial() -> None:
         state=JobState.FAILED,
     )
     assert derive_terminal_state((succeeded, failed)) is AssessmentState.PARTIAL
+
+
+@pytest.mark.parametrize(
+    ("legacy_state", "native_state", "decision"),
+    [
+        ("completed", "succeeded", "convertible_terminal"),
+        ("failed", "failed", "convertible_terminal"),
+        ("canceled", "cancelled", "convertible_terminal"),
+        ("queued", None, "blocked_active"),
+        ("running", None, "blocked_active"),
+        ("unknown", None, "unmapped"),
+    ],
+)
+def test_legacy_vap_state_mapping_never_makes_active_rows_executable(
+    legacy_state: str,
+    native_state: str | None,
+    decision: str,
+) -> None:
+    assert _decision(legacy_state) == (native_state, decision)

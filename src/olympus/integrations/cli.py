@@ -379,6 +379,45 @@ def themis_migrate(
     typer.echo(json.dumps(result.to_dict(), indent=2, sort_keys=True))
 
 
+@themis_app.command("legacy-snapshot")
+def themis_legacy_snapshot(
+    source: str = typer.Option(..., "--source", help="Read-only archived VAP SQLite database."),
+    backup: str = typer.Option(..., "--backup", help="Create-only consistent SQLite backup."),
+    output: str = typer.Option(..., "--output", "-o", help="Create-only migration manifest."),
+) -> None:
+    """Inventory a legacy VAP database without creating executable jobs."""
+    import sqlite3
+
+    from olympus.core.fileio import UnsafeWriteTarget
+    from olympus.themis.legacy_vap import create_legacy_vap_snapshot
+
+    try:
+        snapshot = create_legacy_vap_snapshot(
+            Path(source), backup=Path(backup), manifest=Path(output)
+        )
+    except (OSError, sqlite3.Error, UnsafeWriteTarget, ValueError) as exc:
+        typer.echo(f"olympus: legacy snapshot refused: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    decisions: dict[str, int] = {}
+    for scan in snapshot.scans:
+        decisions[scan.conversion_decision] = decisions.get(scan.conversion_decision, 0) + 1
+    typer.echo(
+        json.dumps(
+            {
+                "schema_name": snapshot.schema_name,
+                "schema_version": snapshot.schema_version,
+                "source_sha256": snapshot.source_sha256,
+                "backup_sha256": snapshot.backup_sha256,
+                "scan_count": snapshot.scan_count,
+                "conversion_decisions": decisions,
+                "excluded_tables": [table.name for table in snapshot.excluded_tables],
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
+
+
 @themis_app.command("workers")
 def themis_workers(
     database: str = typer.Option(".olympus/themis-jobs.sqlite3", "--database", "-d"),
