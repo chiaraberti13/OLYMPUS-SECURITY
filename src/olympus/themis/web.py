@@ -390,6 +390,8 @@ def _finding_filter_from_params(
     kev_only: str,
     has_cve: str,
     min_risk: str,
+    engagement: str = "",
+    tag: str = "",
 ) -> tuple[FindingFilter, dict[str, str]]:
     """Build a :class:`FindingFilter` from raw query params, plus an echo dict.
 
@@ -397,6 +399,8 @@ def _finding_filter_from_params(
     filter, so the findings list and the exported report narrow a finding set
     *identically* — a report is always exactly what the filtered table showed.
     Unrecognised enum values and an out-of-range risk simply do not constrain.
+    ``tag`` is a comma-separated list; a finding must carry **all** of the tags
+    (case-insensitive), exactly as the CLI ``--tag`` repeated option does.
     """
     status_value = _as_finding_status(status_filter)
     source_value = _as_source(source)
@@ -407,12 +411,15 @@ def _finding_filter_from_params(
         min_risk_value = None
     if min_risk_value is not None and not 0.0 <= min_risk_value <= 100.0:
         min_risk_value = None
+    tags = frozenset(part.strip() for part in tag.split(",") if part.strip())
     query = FindingFilter(
         statuses=frozenset({status_value}) if status_value is not None else frozenset(),
         sources=frozenset({source_value}) if source_value is not None else frozenset(),
         min_severity=min_severity,
+        engagement_id=engagement.strip() or None,
         kev_only=bool(kev_only),
         has_cve=True if has_cve else None,
+        tags=tags,
         text=text.strip(),
         min_risk_score=min_risk_value,
     )
@@ -420,6 +427,8 @@ def _finding_filter_from_params(
         "status": status_filter,
         "severity": severity,
         "source": source,
+        "engagement": engagement,
+        "tag": tag,
         "text": text,
         "kev_only": "on" if kev_only else "",
         "has_cve": "on" if has_cve else "",
@@ -1184,6 +1193,8 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         kev_only: str = "",
         has_cve: str = "",
         min_risk: str = "",
+        engagement: str = "",
+        tag: str = "",
         session: WebSession = reads_findings,
     ) -> Response:
         """List findings, filtered and ranked exactly as the CLI does.
@@ -1201,6 +1212,8 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             kev_only=kev_only,
             has_cve=has_cve,
             min_risk=min_risk,
+            engagement=engagement,
+            tag=tag,
         )
         base_context: dict[str, object] = {
             "configured": findings_directory is not None,
@@ -1251,6 +1264,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         kev_only: str = "",
         has_cve: str = "",
         min_risk: str = "",
+        tag: str = "",
         session: WebSession = reads_findings,
     ) -> Response:
         """Export a Vulcan report of the *currently filtered* findings (ROADMAP ``WEB-I``).
@@ -1285,6 +1299,8 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             kev_only=kev_only,
             has_cve=has_cve,
             min_risk=min_risk,
+            engagement=engagement,
+            tag=tag,
         )
         store = _open_transition_store()
         try:

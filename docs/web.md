@@ -134,9 +134,10 @@ CLI uses — no security or presentation logic is re-implemented in the page:
   strict, bounded `load_findings` the CLI uses. The bundles are **read-only
   producer artifacts**; the page never rewrites them.
 - **List and filter.** The filter form reuses `vulcan.search.FindingFilter`
-  (status, minimum severity, source, CISA KEV, has-CVE, free text, minimum risk)
-  and the result is ranked by `vulcan.view.rank_by_risk`, so the browser produces
-  the same set an operator gets from `olympus vulcan findings list`.
+  (status, minimum severity, source, engagement, tags, CISA KEV, has-CVE, free
+  text, minimum risk) and the result is ranked by `vulcan.view.rank_by_risk`, so
+  the browser produces the same set an operator gets from
+  `olympus vulcan findings list` — tags use AND semantics like the CLI `--tag`.
 - **Detail.** The detail cells come from `FindingView.display_items`, honest
   about absence (a datum the finding does not carry renders as `—`, never a
   fabricated `0`). The **evidence** table comes from
@@ -162,9 +163,10 @@ degrade honestly rather than pretending there are no findings.
 
 The findings view offers a one-click **Vulcan report** of exactly what is on
 screen. `GET /findings/report` takes the same filter query parameters as
-`GET /findings` plus `format` (`md`, `html`, `json` or `sarif`) and an optional
-`engagement` label, narrows the catalogue with the identical
-`vulcan.search.FindingFilter`, builds the canonical `SecurityReport` with
+`GET /findings` (status, severity, source, text, KEV, has-CVE, min-risk,
+`engagement`, `tag`) plus `format` (`md`, `html`, `json` or `sarif`), narrows the
+catalogue with the identical `vulcan.search.FindingFilter` (so the report is
+exactly the filtered table), builds the canonical `SecurityReport` with
 `vulcan.report.build_report_model`, and renders it with the **existing**
 `render_report_markdown` / `render_report_html` / the model's JSON dump — no
 rendering logic is duplicated in the web layer, so a report from the browser is
@@ -173,8 +175,10 @@ emits SARIF 2.1.0 (`application/sarif+json`) of the filtered findings via the
 shared `vulcan.sarif.findings_to_sarif`, so the browser feeds the same
 interoperability format as `olympus vulcan sarif-export`. The response is a
 download (`Content-Disposition: attachment`), so what reaches the browser is a
-report, not a page. The `engagement` label is sanitised (`SEC-H`) and slugified
-for the filename. PDF stays CLI-only for now (`olympus vulcan report --pdf`,
+report, not a page. When set, `engagement` both filters the findings to that
+engagement and labels the report; it is sanitised (`SEC-H`) and slugified for the
+filename. `tag` is a comma-separated list with AND semantics, exactly like the
+CLI `olympus vulcan findings list --tag`. PDF stays CLI-only for now (`olympus vulcan report --pdf`,
 optional `report` extra); trends and notifications are the remaining `WEB-I`
 slices.
 

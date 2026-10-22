@@ -48,6 +48,16 @@
         <input id="min_risk" name="min_risk" type="number" min="0" max="100" step="1"
                value="{{ filters.min_risk }}" inputmode="numeric">
       </div>
+      <div>
+        <label for="engagement">Engagement</label>
+        <input id="engagement" name="engagement" type="text" value="{{ filters.engagement }}"
+               placeholder="ENG-2026-00001">
+      </div>
+      <div>
+        <label for="tag">Tags</label>
+        <input id="tag" name="tag" type="text" value="{{ filters.tag }}"
+               placeholder="comma,separated (all required)">
+      </div>
       <div class="filter-wide">
         <label for="text">Text search</label>
         <input id="text" name="text" type="text" value="{{ filters.text }}"

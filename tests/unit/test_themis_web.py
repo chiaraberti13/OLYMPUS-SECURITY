@@ -938,6 +938,38 @@ def test_findings_list_renders_and_filters_like_the_cli(tmp_path: Path) -> None:
     assert "1 of 2" in filtered.text
 
 
+def test_findings_list_filters_by_tag_and_engagement(tmp_path: Path) -> None:
+    tagged = {
+        **_FINDING,
+        "finding_id": "FND-2026-00010",
+        "title": "Tagged XSS",
+        "tags": ["web", "urgent"],
+        "engagement_id": "ENG-2026-00001",
+    }
+    plain = {**_FINDING, "finding_id": "FND-2026-00011", "title": "Plain SQLi"}
+    client = _findings_client(tmp_path, tagged, plain)
+    _login(client)
+    # Tag filter uses AND semantics, like the CLI --tag option.
+    both = client.get("/findings", params={"tag": "web,urgent"})
+    assert "Tagged XSS" in both.text and "Plain SQLi" not in both.text
+    # A tag no finding carries filters everything out.
+    none = client.get("/findings", params={"tag": "nonexistent"})
+    assert "Tagged XSS" not in none.text and "0 of 2" in none.text
+    # Engagement filter narrows to the stamped finding.
+    eng = client.get("/findings", params={"engagement": "ENG-2026-00001"})
+    assert "Tagged XSS" in eng.text and "Plain SQLi" not in eng.text
+
+
+def test_report_honours_the_tag_filter(tmp_path: Path) -> None:
+    tagged = {**_FINDING, "finding_id": "FND-2026-00010", "title": "Tagged XSS", "tags": ["web"]}
+    plain = {**_FINDING, "finding_id": "FND-2026-00011", "title": "Plain SQLi"}
+    client = _findings_client(tmp_path, tagged, plain)
+    _login(client)
+    report = client.get("/findings/report", params={"format": "json", "tag": "web"})
+    assert report.status_code == 200
+    assert json.loads(report.text)["summary"]["findings"] == 1
+
+
 def test_finding_detail_shows_lifecycle_and_evidence(tmp_path: Path) -> None:
     client = _findings_client(tmp_path)
     _login(client)
@@ -1067,18 +1099,24 @@ def test_report_requires_the_findings_read_scope(tmp_path: Path) -> None:
 
 
 def test_report_renders_in_each_format_as_a_download(tmp_path: Path) -> None:
-    client = _findings_client(tmp_path, _FINDING, _LOW_FINDING)
+    # The report's engagement is both the header/filename label and a filter, so
+    # the findings carry the engagement it is asked to report on.
+    high = {**_FINDING, "engagement_id": "ENG-2026-00001"}
+    low = {**_LOW_FINDING, "engagement_id": "ENG-2026-00001"}
+    client = _findings_client(tmp_path, high, low)
     _login(client)
     for fmt, content_type in (
         ("md", "text/markdown"),
         ("html", "text/html"),
         ("json", "application/json"),
     ):
-        response = client.get("/findings/report", params={"format": fmt, "engagement": "Demo 2026"})
+        response = client.get(
+            "/findings/report", params={"format": fmt, "engagement": "ENG-2026-00001"}
+        )
         assert response.status_code == 200, response.text
         assert content_type in response.headers["content-type"]
         assert "attachment" in response.headers["content-disposition"]
-        assert "olympus-report-Demo-2026." in response.headers["content-disposition"]
+        assert "olympus-report-ENG-2026-00001." in response.headers["content-disposition"]
         assert "Reflected XSS in search" in response.text
 
 
