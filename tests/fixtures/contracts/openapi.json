@@ -697,7 +697,7 @@
   },
   "info": {
     "description": "Authorized specialist-engine orchestration and evidence lifecycle.",
-    "title": "Olympus THEMIS API",
+    "title": "Olympus Themis API",
     "version": "0.2.0"
   },
   "openapi": "3.1.0",

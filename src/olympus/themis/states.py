@@ -1,4 +1,4 @@
-"""Explicit execution states for THEMIS scanner adapters.
+"""Explicit execution states for Themis scanner adapters.
 
 These states make the difference between a real scan, a missing dependency, a
 failure, an intentionally-off scanner, and an explicitly-requested simulation

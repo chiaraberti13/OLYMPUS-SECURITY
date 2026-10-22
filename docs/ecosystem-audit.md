@@ -1,10 +1,10 @@
 # Olympus ecosystem audit
 
-_Historical audit date: 2026-08-27. The THEMIS runtime, deployment and parity
+_Historical audit date: 2026-08-27. The Themis runtime, deployment and parity
 sections below were rechecked against main on 2026-10-18; the other module
 snapshots and verification claims remain historical._
 
-> **Current THEMIS status:** API, Web, migrations and workers run from the native
+> **Current Themis status:** API, Web, migrations and workers run from the native
 > wheel. The VAP tree is archived and is not a supported runtime. Its route and
 > data-contract differences are tracked in
 > [`parity/themis-vap-runtime.json`](parity/themis-vap-runtime.json). Do not use
@@ -13,7 +13,7 @@ snapshots and verification claims remain historical._
 
 > Method: the CLI tree was introspected live (`typer`/`click`), module sources
 > and imports were read, the 24 vendored scanners were parsed for their real
-> external binaries, and the vendored THEMIS web app was booted to confirm routes
+> external binaries, and the vendored Themis web app was booted to confirm routes
 > and migrations. Presence of source files is **not** treated as completeness.
 
 ## 1. Status legend
@@ -84,7 +84,7 @@ commands.
   blacklist and resource bounds. Active pivots require authorization and a
   scope gate.
 
-### THEMIS (native control plane; archived VAP source) — `olympus themis`
+### Themis (native control plane; archived VAP source) — `olympus themis`
 
 - **Source:** `vendor/vulnerability-assessment-platform/` (upstream rev
   `6c6b395…`, GPL-3.0-only). Complete FastAPI app (~40 routes), 24 scanners, SQLAlchemy +
@@ -141,7 +141,7 @@ commands.
 
 | Need | For | How to obtain |
 | --- | --- | --- |
-| Scanner binaries (19 OSS) | live THEMIS scans | `docker-compose.scanners.yml` / `installer.sh` / `olympus themis deps` |
+| Scanner binaries (19 OSS) | live Themis scans | `docker-compose.scanners.yml` / `installer.sh` / `olympus themis deps` |
 | Commercial engines (5) | nessus/burp/acunetix/zap/openvas | manual install + licence/API config |
 | Docker daemon | native container suite and deployment | host Docker Engine |
 | VAP tools/runtime | no native operation; archived source only | not required or supported by Olympus |
@@ -156,7 +156,7 @@ See `docs/scanner-matrix.md` for the per-scanner matrix and
 - `olympus doctor` / `olympus themis doctor` / `olympus argus doctor` — real diagnostics.
 - `olympus argus phone --number +390212345678` — real offline OSINT output.
 - `olympus themis jobs submit/list/status/cancel/work` — durable native lifecycle.
-- Native THEMIS route parity is contract-tested against both source trees.
+- Native Themis route parity is contract-tested against both source trees.
 - `python scripts/smoke_native_runtime.py` and `make test-container` are the
   documented native runtime checks; execute them in the current host/CI before
   claiming they pass for a new revision. Docker is not assumed present here.

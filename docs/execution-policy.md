@@ -61,7 +61,7 @@ Sensitive URL query values are replaced while non-sensitive routing context is
 retained. Athena's narrower allowlist remains an additional protection and now
 uses the same URL redactor before SQLite persistence.
 
-For a THEMIS job bound to a signed engagement manifest, the worker emits a
+For a Themis job bound to a signed engagement manifest, the worker emits a
 `themis.manifest-authorization` record after immediate pre-execution
 revalidation, including only the job ID, manifest SHA-256 and scanner (plus the
 exception type on refusal). The scan audit repeats the job ID and digest so an
@@ -108,6 +108,6 @@ the signed document or its human-readable engagement data into the log.
 - Vulcan: all input files, aggregate bytes/items, output bytes and report/rank deadlines are bounded;
   complete producer envelopes are validated, cancellation is checked between records/renderers, and
   every output is preflighted then written with a unique fsynced atomic replacement.
-- THEMIS adoption is tracked in
+- Themis adoption is tracked in
   `upgrade.md`; offline-only work uses the same validation/redaction pieces where
   applicable but does not invent network authorization requirements.

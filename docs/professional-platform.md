@@ -39,7 +39,7 @@ Simulation, fixtures and examples never count as live readiness. A missing
 engine, adapter or configuration is an explicit non-ready state, never a
 fabricated successful result.
 
-## Native THEMIS API baseline
+## Native Themis API baseline
 
 `olympus themis api` exposes health, authenticated readiness/capabilities and a
 durable job lifecycle (`submit`, `list`, `status`, `cancel`). Scope documents
@@ -63,7 +63,7 @@ rotation, revocation, rate limits and per-request audit ids.
 
 1. Create an engagement and an immutable authorized scope.
 2. Discover and normalize assets with Argus.
-3. Plan bounded work with Athena and select only ready THEMIS capabilities.
+3. Plan bounded work with Athena and select only ready Themis capabilities.
 4. Execute real specialist engines through shell-free or authenticated API
    adapters with timeouts, output limits and cancellation.
 5. Preserve raw-evidence digests and convert output to Olympus contracts.

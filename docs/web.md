@@ -64,7 +64,7 @@ The web plane shares its command surface with `olympus themis api`:
 
 ## Authentication and session
 
-Login exchanges a valid THEMIS API credential for a short-lived, HMAC-signed
+Login exchanges a valid Themis API credential for a short-lived, HMAC-signed
 session cookie (`olympus_session`). The cookie is:
 
 - `HttpOnly` — unreadable from JavaScript;
@@ -196,7 +196,7 @@ does not remember the CLI flags. It walks one path:
 1. **Engagement** (optional) → **target** and **target kind** → **registered
    scope**.
 2. **Activity** — *Reconnaissance*, *Network*, *Web application* or
-   *Vulnerability assessment*. These are the activities that run as a THEMIS
+   *Vulnerability assessment*. These are the activities that run as a Themis
    scanner job; *Secret scan*, *Detection engineering* and *Full assessment* are
    listed honestly as living in other modules (with their CLI command) rather
    than faked here.

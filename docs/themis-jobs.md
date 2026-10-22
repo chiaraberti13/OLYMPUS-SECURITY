@@ -1,4 +1,4 @@
-# THEMIS durable job plane
+# Themis durable job plane
 
 `olympus.themis.jobs` is the control plane for queued scans: SQLite owns the
 lifecycle, and the canonical application service remains the only path that may

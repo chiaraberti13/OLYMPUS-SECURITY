@@ -1,21 +1,21 @@
-"""Athena adapter that runs an THEMIS scanner as a pipeline step (scope-gated).
+"""Athena adapter that runs a Themis scanner as a pipeline step (scope-gated).
 
-This bridges THEMIS's scope-gated scanner engine into an Athena plan, so a single
+This bridges Themis's scope-gated scanner engine into an Athena plan, so a single
 ``athena run`` can chain **recon → scan → enrich → report**. The adapter is a
 plain :class:`~olympus.athena.ports.ToolRunner` (no HTTP client): it delegates to
-a real THEMIS :class:`~olympus.themis.base.ScannerAdapter`.
+a real Themis :class:`~olympus.themis.base.ScannerAdapter`.
 
 Authorization and scope are never bypassed — they are enforced twice:
 
 * Athena's own :func:`guard_target` validates scope/SSRF for the engagement, and
-* the THEMIS adapter re-validates the target with ``ensure_allowed`` and its
+* the Themis adapter re-validates the target with ``ensure_allowed`` and its
   authorization gate before it will run anything.
 
 An Athena plan only runs once ``authorization.confirmed`` is true (the plan
 contract refuses otherwise), so the engagement is authorized by construction;
-that is what lets this adapter mark the THEMIS request authorized. Whether a
+that is what lets this adapter mark the Themis request authorized. Whether a
 *real* scan runs is still gated by ``THEMIS_ENABLE_LIVE_SCANS``: with live
-scanning off (the default, and in CI) the adapter uses THEMIS's own scope-gated
+scanning off (the default, and in CI) the adapter uses Themis's own scope-gated
 **simulation** mode, which returns clearly-labelled illustrative findings and
 never executes a binary.
 """
@@ -37,7 +37,7 @@ _OK_STATES = frozenset({ExecutionState.LIVE, ExecutionState.SIMULATION})
 
 
 class ThemisScanAdapter:
-    """Run one THEMIS scanner over an engagement target as an Athena step."""
+    """Run one Themis scanner over an engagement target as an Athena step."""
 
     def __init__(
         self,

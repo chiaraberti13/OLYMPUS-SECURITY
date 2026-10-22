@@ -1,4 +1,4 @@
-"""Shared policy and process boundary for real THEMIS scanner adapters."""
+"""Shared policy and process boundary for real Themis scanner adapters."""
 
 from __future__ import annotations
 
@@ -195,7 +195,7 @@ class ScannerAdapter(ABC):
             deadline_seconds=request.deadline_seconds,
         )
         try:
-            policy.require_authorization(f"THEMIS {self.name} live scan")
+            policy.require_authorization(f"Themis {self.name} live scan")
         except PermissionError as exc:
             raise NotAuthorizedError(
                 f"a real {self.name} scan requires explicit authorization (--i-am-authorized)"
@@ -233,7 +233,7 @@ class ScannerAdapter(ABC):
         def remaining() -> float:
             value = request.deadline_seconds - (time.monotonic() - started)
             if value <= 0:
-                raise TimeoutError("THEMIS overall execution deadline exceeded")
+                raise TimeoutError("Themis overall execution deadline exceeded")
             return value
 
         version = self.version(request, remaining())

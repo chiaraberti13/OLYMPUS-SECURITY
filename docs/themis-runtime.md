@@ -1,4 +1,4 @@
-# Native THEMIS runtime — SEC-A
+# Native Themis runtime — SEC-A
 
 ## Italiano
 

@@ -1,6 +1,6 @@
 # Maturità delle integrazioni scanner
 
-Il catalogo THEMIS elenca **24 scanner**. Elencarli non significa eseguirli. Questo
+Il catalogo Themis elenca **24 scanner**. Elencarli non significa eseguirli. Questo
 documento descrive la scala con cui Olympus dichiara *quanto* ogni integrazione è
 stata davvero validata, e il meccanismo che impedisce a quella dichiarazione di
 mentire.
@@ -66,7 +66,7 @@ impedire.
 ### Configurazione: nuclei e i suoi template
 
 nuclei è inutile senza template, e li cerca tramite `$HOME`. Sotto il sandbox
-THEMIS il processo gira come utente non privilegiato con una home diversa, quindi
+Themis il processo gira come utente non privilegiato con una home diversa, quindi
 il checkout `nuclei-templates` dell'operatore è invisibile e il motore esce
 diverso da zero con "no templates provided for scan". La directory si dichiara
 esplicitamente:

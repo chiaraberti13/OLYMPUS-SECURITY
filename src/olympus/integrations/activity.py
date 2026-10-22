@@ -1,4 +1,4 @@
-"""Operator-facing activity and risk classification for THEMIS scanners.
+"""Operator-facing activity and risk classification for Themis scanners.
 
 ROADMAP ``WEB-E`` asks for a *guided* New Assessment flow: pick an engagement,
 a target and a kind of activity (recon / network / web / vulnerability /
@@ -157,7 +157,7 @@ class ActivityInfo:
     activity: ActivityType
     title: str
     summary: str
-    #: True when this activity runs as a THEMIS scanner job through the web
+    #: True when this activity runs as a Themis scanner job through the web
     #: control plane; False when it lives in another Olympus module and is only
     #: honestly surfaced (with a CLI hint) rather than faked here.
     themis_native: bool
@@ -166,7 +166,7 @@ class ActivityInfo:
 
 
 #: Every activity the guided flow offers, in presentation order. Recon through
-#: vulnerability run as THEMIS scanner jobs; secret, detection and full are
+#: vulnerability run as Themis scanner jobs; secret, detection and full are
 #: honestly marked as living in other modules so the flow never pretends the
 #: web control plane can run them yet.
 ACTIVITY_CATALOGUE: tuple[ActivityInfo, ...] = (

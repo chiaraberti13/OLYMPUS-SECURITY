@@ -130,7 +130,7 @@ def _queue_lifecycle(jobs: int, root: Path) -> int:
     while store.claim_next("benchmark-worker") is not None:
         claimed += 1
     if claimed != jobs:
-        raise RuntimeError(f"THEMIS benchmark claimed {claimed} of {jobs} queued jobs")
+        raise RuntimeError(f"Themis benchmark claimed {claimed} of {jobs} queued jobs")
     return claimed
 
 

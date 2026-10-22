@@ -31,7 +31,7 @@ from olympus.core.http import HttpClient
 
 
 def _themis_scan_factory(_http: HttpClient) -> ToolRunner:
-    """Build the THEMIS scan step. It ignores the HTTP client: THEMIS scanners run
+    """Build the Themis scan step. It ignores the HTTP client: Themis scanners run
     as their own scope-gated subprocess engine, not over Athena's HTTP transport."""
     return ThemisScanAdapter("nmap")
 

@@ -1,6 +1,6 @@
-# THEMIS configuration (`THEMIS_*`) with `AEGIS_*` and legacy `VAP_*` fallback
+# Themis configuration (`THEMIS_*`) with `AEGIS_*` and legacy `VAP_*` fallback
 
-Olympus-owned THEMIS configuration uses `THEMIS_*` environment variables. The
+Olympus-owned Themis configuration uses `THEMIS_*` environment variables. The
 subsystem was renamed AEGIS → Themis (ROADMAP `DEV-I`), so each canonical
 `THEMIS_*` value **falls back** — in order — to the previous `AEGIS_*` name and
 then to the legacy `VAP_*` name when unset. Precedence:
@@ -16,7 +16,7 @@ no message broker.
 
 ## Mapping
 
-| THEMIS variable | Legacy fallback | Purpose | Default |
+| Themis variable | Legacy fallback | Purpose | Default |
 | --- | --- | --- | --- |
 | `THEMIS_ENABLE_LIVE_SCANS` | `VAP_ENABLE_LIVE_SCANS` | Enable real scans (else `disabled`) | `false` |
 | `THEMIS_SIMULATION_MODE` | `VAP_SIMULATION_MODE` | Global explicit simulation (else off) | `false` |

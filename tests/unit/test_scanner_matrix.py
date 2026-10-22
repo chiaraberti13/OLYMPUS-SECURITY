@@ -73,7 +73,7 @@ def test_api_engines_render_as_api_daemon() -> None:
 def test_matrix_command_prints_the_document() -> None:
     result = runner.invoke(app, ["themis", "matrix"])
     assert result.exit_code == 0, result.output
-    assert result.stdout.startswith("# THEMIS 24-scanner classification")
+    assert result.stdout.startswith("# Themis 24-scanner classification")
 
 
 def test_matrix_check_passes_when_the_doc_is_current() -> None:

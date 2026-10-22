@@ -111,6 +111,6 @@ def test_scan_client_sanitizes_remote_http_error(monkeypatch) -> None:  # type: 
     )
 
     assert result.exit_code == 1
-    assert "THEMIS server returned 403: denied[2J forged remote line" in result.output
+    assert "Themis server returned 403: denied[2J forged remote line" in result.output
     assert "\x1b" not in result.output
     assert "\nforged remote line" not in result.output

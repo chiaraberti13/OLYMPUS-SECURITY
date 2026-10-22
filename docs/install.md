@@ -1,9 +1,9 @@
 # Unified installation & operation
 
-Olympus-native ARGUS and THEMIS and the specialist-engine catalogue from one
+Olympus-native ARGUS and Themis and the specialist-engine catalogue from one
 checkout. Linux (Debian/Ubuntu shown; adapt the package manager for RHEL/Arch).
 
-THEMIS runs on the Olympus-owned native control plane (SQLite job store, native
+Themis runs on the Olympus-owned native control plane (SQLite job store, native
 migration and worker services): **no Redis, Celery or Alembic**. The mandatory
 scope, identity and TLS setup lives in `docs/themis-runtime.md`; this page is the
 install and day-to-day operation overview.
@@ -18,16 +18,16 @@ olympus --version
 olympus doctor            # environment diagnostics (binaries, services, deps)
 ```
 
-## 2. Native ARGUS and THEMIS dependencies
+## 2. Native ARGUS and Themis dependencies
 
 ```bash
 olympus argus --help                      # already installed by the base package
 bash scripts/setup-vendored-tools.sh      # installs the native .[themis,dev] runtime
 # or:
-pip install -e ".[themis]"                # native THEMIS API/Web/worker stack
+pip install -e ".[themis]"                # native Themis API/Web/worker stack
 ```
 
-## 3. THEMIS — native operation (single host)
+## 3. Themis — native operation (single host)
 
 The Olympus-owned control plane needs no Redis or Celery. See
 `docs/themis-runtime.md` for the full scope/identity/TLS setup and the migration
@@ -63,7 +63,7 @@ Shutdown: Ctrl-C each process (`SIGINT`/`SIGTERM` cancel the active scan and
 stop). Reset: stop them, delete the SQLite DB (`.olympus/themis-jobs.sqlite3`)
 and the reports dir.
 
-## 4. THEMIS — Docker operation (full stack)
+## 4. Themis — Docker operation (full stack)
 
 The Compose stack is native and broker-free: `themis-migrate` (native SQLite
 migration), `themis-api` (HTTPS API), `themis-app` (HTTPS web) and
@@ -113,7 +113,7 @@ disabled state. Simulation occurs only when the operator explicitly requests it.
 
 ```bash
 olympus doctor           # ecosystem-wide: python deps, git/docker/curl, scanners
-olympus themis doctor     # THEMIS: web stack, DB/reports dir, live-scan flag, secrets(set?), scanners
+olympus themis doctor     # Themis: web stack, DB/reports dir, live-scan flag, secrets(set?), scanners
 olympus argus doctor     # ARGUS: dnspython/phonenumbers, optional API keys (set?)
 ```
 
@@ -124,7 +124,7 @@ All `doctor` output is secret-safe: it reports whether a secret env var is
 
 | Dependency | Needed for | Install |
 | --- | --- | --- |
-| 19 OSS scanners | live THEMIS scans | `docker-compose.scanners.yml` or `docker/Dockerfile.scanners` |
+| 19 OSS scanners | live Themis scans | `docker-compose.scanners.yml` or `docker/Dockerfile.scanners` |
 | OWASP ZAP | `zap` scanner | ZAP daemon/docker image + API config |
 | OpenVAS/GVM | `openvas` scanner | Greenbone GVM stack (docker/manual) |
 | Nessus / Burp / Acunetix | those scanners | vendor installer + commercial licence + API config |

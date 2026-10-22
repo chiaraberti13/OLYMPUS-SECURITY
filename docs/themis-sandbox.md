@@ -1,6 +1,6 @@
-# THEMIS scanner isolation
+# Themis scanner isolation
 
-A scanner is untrusted code processing untrusted remote output. THEMIS therefore
+A scanner is untrusted code processing untrusted remote output. Themis therefore
 never runs one as "just another subprocess": every child started by
 `olympus.themis.runner.run_command` is confined by the policy in
 `olympus.themis.sandbox` before it reaches `exec`, and every child that stops is

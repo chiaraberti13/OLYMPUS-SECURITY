@@ -36,7 +36,7 @@ COMPAT: dict[str, str] = {
 
 
 def _fallback_names(name: str) -> list[str]:
-    """Return the resolution order for ``name``: THEMIS, then AEGIS, then VAP.
+    """Return the resolution order for ``name``: Themis, then AEGIS, then VAP.
 
     The resolver is bidirectional: whether a caller passes the canonical
     ``THEMIS_*`` name or the previous ``AEGIS_*`` name, both are tried (canonical
@@ -87,7 +87,7 @@ def _flag(name: str) -> bool:
 
 
 def live_enabled() -> bool:
-    """True when live scanning is explicitly enabled (THEMIS, AEGIS or VAP)."""
+    """True when live scanning is explicitly enabled (Themis, AEGIS or VAP)."""
     return _flag("THEMIS_ENABLE_LIVE_SCANS")
 
 

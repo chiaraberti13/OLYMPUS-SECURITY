@@ -57,7 +57,7 @@ observability = [
     "opentelemetry-sdk>=1.27",
     "opentelemetry-exporter-otlp-proto-http>=1.27",
 ]
-# Native THEMIS API/Web runtime. Migrations and workers use stdlib SQLite and
+# Native Themis API/Web runtime. Migrations and workers use stdlib SQLite and
 # the core application service; no vendored app, Redis, Celery or Alembic.
 # External scanner binaries are installed separately (docker/Dockerfile.scanners).
 themis = [
@@ -66,7 +66,7 @@ themis = [
     "jinja2>=3.1",
     "python-multipart>=0.0.6",
 ]
-# Deprecated alias for the THEMIS extra (kept for backward compatibility).
+# Deprecated alias for the Themis extra (kept for backward compatibility).
 vap = [
     "olympus-security[themis]",
 ]

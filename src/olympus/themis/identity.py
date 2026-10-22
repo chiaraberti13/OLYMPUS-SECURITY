@@ -1,4 +1,4 @@
-"""API identities for the THEMIS control plane: scopes, rotation, revocation.
+"""API identities for the Themis control plane: scopes, rotation, revocation.
 
 One shared API key is a single point of compromise with no way to tell callers
 apart, no way to give a dashboard read-only access, and no way to take a leaked
@@ -183,11 +183,11 @@ class IdentityRegister(BaseModel):
 
 def load_register(path: Path) -> IdentityRegister:
     """Load and validate the identity register; any problem is fail-closed."""
-    raw = read_regular_text(path, max_bytes=MAX_REGISTER_BYTES, label="THEMIS identity register")
+    raw = read_regular_text(path, max_bytes=MAX_REGISTER_BYTES, label="Themis identity register")
     try:
         document = json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise IdentityError(f"invalid THEMIS identity register JSON: {exc.msg}") from exc
+        raise IdentityError(f"invalid Themis identity register JSON: {exc.msg}") from exc
     document = validate_contract_header(document, schema_name="olympus.themis-api-identities")
     return IdentityRegister.model_validate(document).validate_entries()
 

@@ -1,4 +1,4 @@
-"""Runtime capability inventory for the THEMIS professional control plane.
+"""Runtime capability inventory for the Themis professional control plane.
 
 The catalogue deliberately separates four facts that older Olympus releases
 collapsed into a single "scanner present" claim:
@@ -61,7 +61,7 @@ def is_configured(env: dict[str, str], name: str) -> bool:
 
 @dataclass(frozen=True)
 class Capability:
-    """One honest, machine-readable THEMIS capability record."""
+    """One honest, machine-readable Themis capability record."""
 
     name: str
     category: str

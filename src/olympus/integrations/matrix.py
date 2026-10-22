@@ -35,7 +35,7 @@ _KIND_ORDER = {
     "proprietary-remote-api": 3,
 }
 
-_HEADER = """# THEMIS 24-scanner classification, dependency & execution matrix
+_HEADER = """# Themis 24-scanner classification, dependency & execution matrix
 
 _Generated from `olympus.integrations.scanners` (registry) and \
 `olympus.themis.registry` (native execution adapters) by \
@@ -161,7 +161,7 @@ def _totals() -> str:
             f"- **Bundled in `docker/Dockerfile.scanners`**: {in_image}/{total}",
             f"- **Proprietary (commercial licence)**: {len(proprietary)}/{total} "
             f"({', '.join(proprietary)})",
-            f"- **Native THEMIS execution adapters implemented**: {len(adapters)}/{total} "
+            f"- **Native Themis execution adapters implemented**: {len(adapters)}/{total} "
             f"({', '.join(adapters)})",
             f"- **Live end-to-end verified in this environment**: {len(live)}/{total} "
             f"({', '.join(live)}) — see evidence doc",

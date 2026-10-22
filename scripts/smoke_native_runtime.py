@@ -144,7 +144,7 @@ def main() -> None:
     import secrets
 
     environment = dict(os.environ)
-    for prefix in ("THEMIS", "AEGIS", "VAP"):
+    for prefix in ("Themis", "AEGIS", "VAP"):
         for suffix in ("ENABLE_LIVE_SCANS", "SIMULATION_MODE"):
             environment.pop(f"{prefix}_{suffix}", None)
     environment["THEMIS_ENABLE_LIVE_SCANS"] = "false"

@@ -1,6 +1,6 @@
-# THEMIS API identities, scopes and accountability
+# Themis API identities, scopes and accountability
 
-The native THEMIS API authenticates a **named identity**, checks that identity's
+The native Themis API authenticates a **named identity**, checks that identity's
 **scopes** and **rate limit**, and records the request with an id that is echoed
 back to the caller. A legacy shared key remains supported, but its default scope
 is only `capabilities:read`; any additional permission must be explicitly

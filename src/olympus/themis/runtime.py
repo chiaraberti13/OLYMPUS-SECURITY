@@ -36,7 +36,7 @@ def migrate_jobs(database: Path) -> MigrationResult:
     serialized transaction, retaining jobs and refusing newer/unknown versions.
     """
     if database.is_symlink():
-        raise ValueError("THEMIS job database must not be a symlink")
+        raise ValueError("Themis job database must not be a symlink")
     previous: int | None = None
     if database.exists():
         with sqlite3.connect(f"{database.resolve().as_uri()}?mode=ro", uri=True) as db:
@@ -48,7 +48,7 @@ def migrate_jobs(database: Path) -> MigrationResult:
             }
         if tables and tables != {"themis_jobs"}:
             raise SchemaVersionError(
-                "not a native THEMIS job database; keep the legacy database and use a new file"
+                "not a native Themis job database; keep the legacy database and use a new file"
             )
     ThemisJobStore(database).initialize()
     return MigrationResult(previous, SCHEMA_VERSION)

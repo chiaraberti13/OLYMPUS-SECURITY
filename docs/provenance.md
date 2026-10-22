@@ -2,7 +2,7 @@
 
 This file records completed source migrations and archived source retained for
 provenance and parity review. Olympus does not use runtime Git dependencies or
-submodules, and native THEMIS does not load or execute the archived VAP runtime.
+submodules, and native Themis does not load or execute the archived VAP runtime.
 
 ## ARGUS (OSINT & reconnaissance toolkit)
 
@@ -37,11 +37,11 @@ submodules, and native THEMIS does not load or execute the archived VAP runtime.
   text and upstream repository metadata both identify GNU GPL version 3.
   Redistribution must preserve the GPL source and notice obligations for this
   component.
-- Olympus-facing name: **THEMIS** (see `docs/vap-to-themis-rename.md`). Native
+- Olympus-facing name: **Themis** (see `docs/vap-to-themis-rename.md`). Native
   entry points include `api`, `capabilities`, `jobs`, `run`, `scan`, `scanners`,
   `serve`, `web`, `migrate`, `workers` and `doctor`. They use the authenticated
   native SQLite job store and do not load VAP, Redis, Celery or Alembic. The
-  deprecated `olympus vap` command remains an alias for the native THEMIS CLI.
+  deprecated `olympus vap` command remains an alias for the native Themis CLI.
   Route, lifecycle, persistence, audit, report and cancellation decisions are
   tracked in `docs/parity/themis-vap-runtime.json`; legacy database conversion
   and source removal are still open SEC-A work.

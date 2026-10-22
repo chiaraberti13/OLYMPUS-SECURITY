@@ -28,7 +28,7 @@
 - **[Project structure](#-project-structure)** — how the repository is laid out.
 - **[Development](#-development)** — required CI checks and local commands.
 - **[Security model](#-security-model)** — scope, authorization, SSRF, audit.
-- **[Migration](#-migration--specialist-engines)** — native ARGUS, THEMIS and specialist engines.
+- **[Migration](#-migration--specialist-engines)** — native ARGUS, Themis and specialist engines.
 - **[Licences](#-licence-scope)** — GPL-3.0 native code plus preserved third-party licences.
 - **[Legal & ethical use](#-legal--ethical-use)** — authorized-only, in practice.
 
@@ -73,7 +73,7 @@ $ olympus athena run plan.json --storage ./.athena
 | **Vulcan** | `olympus vulcan` | Aggregation, deduplication, ranking, scan diff (new/resolved/persistent), severity trend and report rendering. |
 | **Metis** | `olympus metis` | Deterministic capability routing, engagement plans, CTI cases, IOC correlation and operational reports. |
 | **core** | `olympus core` | Shared data-contract utilities (`export-schemas`, versioned migration manifest). |
-| **THEMIS** | `olympus themis` | Scope-gated scanner orchestration, capability readiness and maturity, durable SQLite jobs, cancellation, audit and explicit execution states. Native for 15 of 24 catalogued engines; `serve`/`migrate`/`workers` still need `vendor/`. |
+| **Themis** | `olympus themis` | Scope-gated scanner orchestration, capability readiness and maturity, durable SQLite jobs, cancellation, audit and explicit execution states. Native for 15 of 24 catalogued engines; `serve`/`migrate`/`workers` still need `vendor/`. |
 | **Unified TUI** | `olympus ui` | Keyboard-first interface over every real Olympus command, with streamed output and process cancellation. |
 
 > [!TIP]
@@ -256,7 +256,7 @@ The standalone **ARGUS** migration is complete. Its maintained implementation is
 `src/olympus/argus/`, exposed only as `olympus argus`; the duplicated
 `vendor/argus` source and the `argus-native` passthrough have been removed.
 
-THEMIS now runs its API, Web UI (`serve`/`web`), schema migrations and continuous
+Themis now runs its API, Web UI (`serve`/`web`), schema migrations and continuous
 workers from the installed native wheel. Scope, authorization, adapters, durable
 SQLite jobs, cancellation and redacted audit share one implementation, without
 Redis/Celery or runtime imports from `vendor/`. The archived VAP source remains
@@ -389,7 +389,7 @@ Exhaustive walkthroughs live in [`docs/reference.md`](docs/reference.md).
 
 ## 📄 Licence scope
 
-Olympus-native code, including native ARGUS and THEMIS, is licensed under **GNU GPL-3.0** — see
+Olympus-native code, including native ARGUS and Themis, is licensed under **GNU GPL-3.0** — see
 [LICENSE](LICENSE). Vendored and third-party components retain their own applicable licences; the
 root licence does not overwrite third-party licensing terms.
 See [third-party notices](THIRD_PARTY_NOTICES.md) and

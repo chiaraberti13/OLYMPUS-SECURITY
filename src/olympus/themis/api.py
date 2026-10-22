@@ -1,4 +1,4 @@
-"""Authenticated native HTTP API for the THEMIS control plane.
+"""Authenticated native HTTP API for the Themis control plane.
 
 Every request is attributed: it authenticates one named identity, is checked
 against that identity's scopes and rate limit, carries a request id that is
@@ -124,32 +124,32 @@ class ApiSettings:
             or not 1 <= self.max_concurrent_requests <= MAX_CONCURRENT_REQUESTS_LIMIT
         ):
             raise ValueError(
-                "THEMIS API max_concurrent_requests must be an integer between 1 and "
+                "Themis API max_concurrent_requests must be an integer between 1 and "
                 f"{MAX_CONCURRENT_REQUESTS_LIMIT}"
             )
         if not self.api_key and self.identities_path is None:
-            raise ValueError("THEMIS API needs either an API key or an identity register")
+            raise ValueError("Themis API needs either an API key or an identity register")
         if self.api_key and len(self.api_key) < 32:
-            raise ValueError("THEMIS API key must contain at least 32 characters")
+            raise ValueError("Themis API key must contain at least 32 characters")
         if self.api_key:
             if not isinstance(self.api_key_scopes, tuple) or not self.api_key_scopes:
-                raise ValueError("THEMIS API key must have at least one explicitly granted scope")
+                raise ValueError("Themis API key must have at least one explicitly granted scope")
             if any(not isinstance(scope, str) for scope in self.api_key_scopes):
-                raise ValueError("THEMIS API key scopes must be strings")
+                raise ValueError("Themis API key scopes must be strings")
             unknown_scopes = sorted(set(self.api_key_scopes) - set(SCOPES))
             if unknown_scopes:
-                raise ValueError(f"unknown THEMIS API key scopes: {', '.join(unknown_scopes)}")
+                raise ValueError(f"unknown Themis API key scopes: {', '.join(unknown_scopes)}")
         if self.identities_path is not None:
             # Fail at startup rather than on the first request.
             load_register(self.identities_path)
         if self.trusted_manifest_public_key_pem is not None:
             if not self.trusted_manifest_public_key_pem.strip():
-                raise ValueError("THEMIS trusted manifest public key must not be empty")
+                raise ValueError("Themis trusted manifest public key must not be empty")
             if self.engagements_database is None:
-                raise ValueError("THEMIS signed manifests require an engagement database")
+                raise ValueError("Themis signed manifests require an engagement database")
         root = self.scope_directory.resolve()
         if not root.exists() or not root.is_dir() or root.is_symlink():
-            raise ValueError("THEMIS scope directory must be an existing non-symlink directory")
+            raise ValueError("Themis scope directory must be an existing non-symlink directory")
         for label, directory in (
             ("findings", self.findings_directory),
             ("baseline findings", self.baseline_findings_directory),
@@ -160,7 +160,7 @@ class ApiSettings:
             missing = not resolved.exists() or not resolved.is_dir()
             if missing or resolved.is_symlink():
                 raise ValueError(
-                    f"THEMIS {label} directory must be an existing non-symlink directory"
+                    f"Themis {label} directory must be an existing non-symlink directory"
                 )
 
 
@@ -234,7 +234,7 @@ class RequestConcurrencyGate:
     def release(self) -> None:
         with self._lock:
             if self._active <= 0:
-                raise RuntimeError("THEMIS API concurrency gate released without acquisition")
+                raise RuntimeError("Themis API concurrency gate released without acquisition")
             self._active -= 1
 
 
@@ -283,7 +283,7 @@ class JobList(BaseModel):
 
 
 def create_app(settings: ApiSettings, observability: Observability | None = None) -> FastAPI:
-    """Build a fail-closed THEMIS API around the canonical durable job store."""
+    """Build a fail-closed Themis API around the canonical durable job store."""
     settings.validate()
     owns_telemetry = observability is None
     telemetry = observability or observability_from_config()
@@ -304,7 +304,7 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
                 telemetry.shutdown()
 
     app = FastAPI(
-        title="Olympus THEMIS API",
+        title="Olympus Themis API",
         version=__version__,
         description="Authorized specialist-engine orchestration and evidence lifecycle.",
         lifespan=lifespan,
@@ -445,7 +445,7 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
                 )
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                content={"detail": "THEMIS API concurrency limit reached"},
+                content={"detail": "Themis API concurrency limit reached"},
                 headers={
                     "Retry-After": "1",
                     "X-Request-ID": request_id,

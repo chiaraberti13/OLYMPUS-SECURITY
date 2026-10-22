@@ -1,4 +1,4 @@
-"""Application boundary for scoped, auditable THEMIS native scanner execution."""
+"""Application boundary for scoped, auditable Themis native scanner execution."""
 
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ _MANIFEST_SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
 
 
 class ThemisScope(BaseModel):
-    """Exact host/domain/CIDR engagement scope for native THEMIS scans."""
+    """Exact host/domain/CIDR engagement scope for native Themis scans."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -74,7 +74,7 @@ class ThemisScope(BaseModel):
 
     def nonempty(self) -> ThemisScope:
         if not (self.allowed_hosts or self.allowed_domains or self.allowed_cidrs):
-            raise ValueError("THEMIS scope must authorize at least one host, domain, or CIDR")
+            raise ValueError("Themis scope must authorize at least one host, domain, or CIDR")
         return self
 
 
@@ -100,7 +100,7 @@ class ThemisRunRequest:
 
     def __post_init__(self) -> None:
         if self.job_id is not None and _JOB_ID_RE.fullmatch(self.job_id) is None:
-            raise ValueError("job_id must be a canonical THEMIS job id")
+            raise ValueError("job_id must be a canonical Themis job id")
         if self.manifest_sha256 is not None:
             if self.job_id is None:
                 raise ValueError("manifest_sha256 requires a job_id")
@@ -124,7 +124,7 @@ class ThemisApplicationService:
         execution_id = f"themis-{uuid4().hex}"
         try:
             if not request.simulate:
-                policy.require_authorization(f"THEMIS {request.scanner} live scan")
+                policy.require_authorization(f"Themis {request.scanner} live scan")
             scope = load_scope(request.scope_path, max_bytes=request.max_scope_bytes)
             adapter = self.adapter_factory(request.scanner)
             result = adapter.run(
@@ -199,18 +199,18 @@ class ThemisApplicationService:
 def load_scope(path: Path, *, max_bytes: int = DEFAULT_MAX_SCOPE_BYTES) -> ThemisScope:
     """Load the strict current scope or one unambiguous legacy scope shape."""
     try:
-        raw = json.loads(read_regular_text(path, max_bytes=max_bytes, label="THEMIS scope"))
+        raw = json.loads(read_regular_text(path, max_bytes=max_bytes, label="Themis scope"))
     except json.JSONDecodeError as exc:
-        raise ValueError(f"invalid THEMIS scope JSON: {exc.msg}") from exc
+        raise ValueError(f"invalid Themis scope JSON: {exc.msg}") from exc
     if not isinstance(raw, dict):
-        raise ValueError("THEMIS scope must be a JSON object")
+        raise ValueError("Themis scope must be a JSON object")
     candidate = migrate_document(raw, schema_name="olympus.themis-scope", current_version="1.0.0")
     validate_contract_header(candidate, schema_name="olympus.themis-scope")
     try:
         return ThemisScope.model_validate(candidate).nonempty()
     except ValidationError as exc:
         details = exc.errors(include_input=False, include_url=False)
-        raise ValueError(f"invalid THEMIS scope contract: {details}") from exc
+        raise ValueError(f"invalid Themis scope contract: {details}") from exc
 
 
 def export_result(result: ScanResult, output: Path) -> None:
@@ -225,6 +225,6 @@ def _validate_path_conflicts(request: ThemisRunRequest) -> None:
         path.resolve() for path in (request.output_path, request.audit_path) if path is not None
     ]
     if len(outputs) != len(set(outputs)):
-        raise ValueError("THEMIS result and audit paths must differ")
+        raise ValueError("Themis result and audit paths must differ")
     if scope in outputs:
-        raise ValueError("THEMIS output paths must not overwrite the scope input")
+        raise ValueError("Themis output paths must not overwrite the scope input")

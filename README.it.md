@@ -28,7 +28,7 @@
 - **[Struttura del progetto](#-struttura-del-progetto)** — com'è organizzato il repository.
 - **[Sviluppo](#-sviluppo)** — controlli CI obbligatori e comandi locali.
 - **[Modello di sicurezza](#-modello-di-sicurezza)** — scope, autorizzazione, SSRF, audit.
-- **[Migrazione](#-migrazione--motori-specialistici)** — ARGUS nativo, THEMIS e motori specialistici.
+- **[Migrazione](#-migrazione--motori-specialistici)** — ARGUS nativo, Themis e motori specialistici.
 - **[Licenze](#-ambito-delle-licenze)** — codice nativo GPL-3.0 e licenze vendor preservate.
 - **[Uso legale ed etico](#-uso-legale-ed-etico)** — solo autorizzato, in pratica.
 
@@ -73,7 +73,7 @@ $ olympus athena run plan.json --storage ./.athena
 | **Vulcan** | `olympus vulcan` | Aggregazione, deduplica, ranking, confronto tra run (nuovi/risolti/persistenti), trend di severità e rendering dei report. |
 | **Metis** | `olympus metis` | Routing deterministico delle competenze, piani d'ingaggio, casi CTI, correlazione IOC e report operativi. |
 | **core** | `olympus core` | Utility del contratto dati condiviso (es. `export-schemas`). |
-| **THEMIS** | `olympus themis` | Orchestrazione scanner con scope, stato capacità, job SQLite persistenti, cancellazione, audit e stati di esecuzione espliciti. |
+| **Themis** | `olympus themis` | Orchestrazione scanner con scope, stato capacità, job SQLite persistenti, cancellazione, audit e stati di esecuzione espliciti. |
 | **TUI unificata** | `olympus ui` | Interfaccia da tastiera su tutti i comandi reali Olympus, con output in streaming e cancellazione del processo. |
 
 > [!TIP]
@@ -204,7 +204,7 @@ La migrazione di **ARGUS** standalone è completa. L'implementazione mantenuta �
 `src/olympus/argus/`, esposta soltanto come `olympus argus`; il sorgente
 duplicato `vendor/argus` e il passthrough `argus-native` sono stati rimossi.
 
-THEMIS esegue ora API, Web UI (`serve`/`web`), migrazioni e worker continui dalla
+Themis esegue ora API, Web UI (`serve`/`web`), migrazioni e worker continui dalla
 wheel nativa. Scope, autorizzazione, adapter, job SQLite, cancellazione e audit
 redatto condividono una sola implementazione, senza Redis/Celery né import
 runtime da `vendor/`. Il sorgente VAP resta un archivio per la futura verifica
@@ -308,7 +308,7 @@ esaustive sono in [`docs/reference.md`](docs/reference.md).
 
 ## 📄 Ambito delle licenze
 
-Il codice nativo Olympus, inclusi ARGUS e THEMIS nativi, è distribuito con licenza **GNU GPL-3.0** — vedi
+Il codice nativo Olympus, inclusi ARGUS e Themis nativi, è distribuito con licenza **GNU GPL-3.0** — vedi
 [LICENSE](LICENSE). I componenti vendorizzati e di terze parti mantengono le rispettive licenze
 applicabili; la licenza root non sovrascrive i termini di licenza di terze parti. Vedi [note di terze parti](THIRD_PARTY_NOTICES.md)
 e [provenienza](docs/provenance.md).

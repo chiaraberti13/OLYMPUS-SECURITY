@@ -568,7 +568,7 @@ def test_application_authorizes_before_scope_and_protects_paths(tmp_path: Path) 
 @pytest.mark.parametrize(
     ("job_id", "manifest_sha256", "message"),
     [
-        ("not-a-job", None, "canonical THEMIS job id"),
+        ("not-a-job", None, "canonical Themis job id"),
         (None, "a" * 64, "requires a job_id"),
         ("THEMIS-" + "A" * 32, "A" * 64, "lowercase SHA-256"),
     ],

@@ -1,8 +1,8 @@
-"""Durable, dependency-light THEMIS job control plane.
+"""Durable, dependency-light Themis job control plane.
 
 This module replaces the legacy VAP/Celery ownership boundary for local and
 single-node deployments. SQLite owns job lifecycle, leases and cancellation
-intent; the existing THEMIS application service remains the only path that may
+intent; the existing Themis application service remains the only path that may
 execute an adapter, so authorization, scope, SSRF controls, audit and output
 limits are not bypassed by queued work.
 
@@ -254,12 +254,12 @@ class ThemisJobStore:
                 if not str(row[0]).startswith("sqlite_")
             }
             if tables and tables != {"themis_jobs"}:
-                raise SchemaVersionError("not a native THEMIS job database; migration refused")
+                raise SchemaVersionError("not a native Themis job database; migration refused")
             if version == SCHEMA_VERSION and "themis_jobs" not in tables:
-                raise SchemaVersionError("THEMIS job schema is missing; migration refused")
+                raise SchemaVersionError("Themis job schema is missing; migration refused")
         if version > SCHEMA_VERSION:
             raise SchemaVersionError(
-                f"THEMIS job database is at schema {version}, but this release understands "
+                f"Themis job database is at schema {version}, but this release understands "
                 f"{SCHEMA_VERSION}: upgrade Olympus rather than downgrading the database"
             )
         if version < SCHEMA_VERSION:
@@ -272,7 +272,7 @@ class ThemisJobStore:
                 locked_version = int(db.execute("PRAGMA user_version").fetchone()[0])
                 if locked_version > SCHEMA_VERSION:
                     raise SchemaVersionError(
-                        f"THEMIS job database is at schema {locked_version}, but this release "
+                        f"Themis job database is at schema {locked_version}, but this release "
                         f"understands {SCHEMA_VERSION}: upgrade Olympus rather than downgrading "
                         "the database"
                     )
@@ -283,7 +283,7 @@ class ThemisJobStore:
 
     def _migrate(self, db: sqlite3.Connection, version: int) -> None:
         if version not in {0, 2, SCHEMA_VERSION}:
-            raise SchemaVersionError(f"unsupported THEMIS job schema {version}; migration refused")
+            raise SchemaVersionError(f"unsupported Themis job schema {version}; migration refused")
         legacy = db.execute(
             "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'themis_jobs'"
         ).fetchone()
@@ -443,7 +443,7 @@ class ThemisJobStore:
         with self._reading() as db:
             row = db.execute("SELECT * FROM themis_jobs WHERE job_id = ?", (job_id,)).fetchone()
         if row is None:
-            raise KeyError(f"unknown THEMIS job: {job_id}")
+            raise KeyError(f"unknown Themis job: {job_id}")
         return _job(row)
 
     def execution_record(self, job_id: str) -> JobExecution:
@@ -452,7 +452,7 @@ class ThemisJobStore:
         with self._reading() as db:
             row = db.execute("SELECT * FROM themis_jobs WHERE job_id = ?", (job_id,)).fetchone()
         if row is None:
-            raise KeyError(f"unknown THEMIS job: {job_id}")
+            raise KeyError(f"unknown Themis job: {job_id}")
         return JobExecution(
             job_id=row["job_id"],
             scanner=row["scanner"],
@@ -768,7 +768,7 @@ class ThemisJobStore:
 
     def _validate_path(self) -> None:
         if self.path.exists() and (self.path.is_symlink() or not self.path.is_file()):
-            raise OSError("THEMIS job database must be a regular non-symlink file")
+            raise OSError("Themis job database must be a regular non-symlink file")
 
 
 _MANIFEST_COLUMN = (

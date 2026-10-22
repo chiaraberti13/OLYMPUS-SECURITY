@@ -1,4 +1,4 @@
-"""Registry of the 24 THEMIS (vendored VAP) scanner integrations.
+"""Registry of the 24 Themis (vendored VAP) scanner integrations.
 
 This is the Olympus-native source of truth for *what each scanner needs to run
 for real*: its external executable (or API), licence, whether it is
@@ -326,7 +326,7 @@ REGISTRY: tuple[ScannerSpec, ...] = (
     ),
 )
 
-#: The number of scanner integrations THEMIS ships (all present in REGISTRY).
+#: The number of scanner integrations Themis ships (all present in REGISTRY).
 SCANNER_COUNT = 24
 
 

@@ -13,7 +13,7 @@ everything below lives under **Unreleased**.
 ## [Unreleased]
 
 ### Added
-- **Wizard New Assessment guidato (`WEB-E`).** La Web UI THEMIS espone un flusso
+- **Wizard New Assessment guidato (`WEB-E`).** La Web UI Themis espone un flusso
   activity-first (`GET /assessments/new`): engagement → target → scope → tipo di
   attività (recon/network/web/vulnerability) → tool o **Automatic** → anteprima
   "Olympus is about to run" (`POST /assessments/preview`, che non accoda nulla e
@@ -28,7 +28,7 @@ everything below lives under **Unreleased**.
   `tests/unit/test_scanner_activity.py` e `tests/unit/test_themis_web.py`.
 
 ### Changed
-- **Runtime THEMIS nativo (`SEC-A`, primo punto).** `serve`/`web` avviano la stessa
+- **Runtime Themis nativo (`SEC-A`, primo punto).** `serve`/`web` avviano la stessa
   Web UI autenticata; `migrate` aggiorna il database job nativo con rifiuto di
   database legacy/estranei e versioni non supportate; `workers` usa SQLite,
   lease e cancellazione SIGINT/SIGTERM senza Redis/Celery/Alembic. Diagnostica
@@ -96,7 +96,7 @@ everything below lives under **Unreleased**.
 ### Added
 - **Web control plane nativo (`WEB-A`).** Nuova interfaccia browser
   `olympus.themis.web` (FastAPI + Jinja2 + server-sent events) servita da
-  `olympus themis web`, costruita **sopra** l'API THEMIS esistente senza
+  `olympus themis web`, costruita **sopra** l'API Themis esistente senza
   duplicare logica di sicurezza: un job avviato dal browser passa per lo stesso
   `ThemisJobStore`, la stessa risoluzione dello scope registrato, la stessa
   execution policy, sandbox, rate limit, retention e audit trail redatto della

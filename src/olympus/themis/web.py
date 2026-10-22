@@ -1,7 +1,7 @@
-"""Native THEMIS web control plane (FastAPI + Jinja2 + server-sent events).
+"""Native Themis web control plane (FastAPI + Jinja2 + server-sent events).
 
 CLI, TUI, API and Web are different interfaces over the *same* core use cases.
-This module adds a browser interface on top of the authenticated THEMIS API
+This module adds a browser interface on top of the authenticated Themis API
 without duplicating any security logic: it drives the identical
 :class:`~olympus.themis.jobs.ThemisJobStore`, the identical registered-scope
 resolution and the identical redacted audit trail, so a job started from the
@@ -250,7 +250,7 @@ _RISK_LABELS: dict[RiskClass, str] = {
 
 
 def _native_activities() -> list[dict[str, str]]:
-    """Return the activities that run as a THEMIS job, for the run form select."""
+    """Return the activities that run as a Themis job, for the run form select."""
     return [
         {"value": info.activity.value, "title": info.title, "summary": info.summary}
         for info in ACTIVITY_CATALOGUE
@@ -453,7 +453,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
     """Build the fail-closed native web control plane over the canonical store."""
     settings.validate()
     if not TEMPLATES_DIR.is_dir() or not STATIC_DIR.is_dir():  # pragma: no cover - packaging
-        raise RuntimeError("THEMIS web assets are missing from the installation")
+        raise RuntimeError("Themis web assets are missing from the installation")
 
     owns_telemetry = observability is None
     telemetry = observability or observability_from_config()
@@ -478,9 +478,9 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 telemetry.shutdown()
 
     app = FastAPI(
-        title="Olympus THEMIS Web",
+        title="Olympus Themis Web",
         version=__version__,
-        description="Browser control plane over the authenticated THEMIS API.",
+        description="Browser control plane over the authenticated Themis API.",
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
@@ -724,7 +724,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 )
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                content={"detail": "THEMIS Web concurrency limit reached"},
+                content={"detail": "Themis Web concurrency limit reached"},
                 headers={
                     "Retry-After": "1",
                     "X-Request-ID": request_id,
@@ -876,7 +876,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
 
         The page is a faithful projection of
         :func:`olympus.integrations.capabilities.inventory`; it never hardcodes a
-        tool list, so it reflects exactly what THEMIS has adapted, what is
+        tool list, so it reflects exactly what Themis has adapted, what is
         installed/configured on this host, and what is therefore runnable.
         """
         del session

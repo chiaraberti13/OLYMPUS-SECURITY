@@ -1,4 +1,4 @@
-"""Bounded, isolated, cancellable, shell-free subprocess execution for THEMIS.
+"""Bounded, isolated, cancellable, shell-free subprocess execution for Themis.
 
 Every scanner runs in its own session and process group, as an unprivileged
 user, under kernel-enforced resource limits, with a private scratch directory,

@@ -37,7 +37,7 @@ def _legacy_themis_scope(document: dict[str, Any]) -> dict[str, Any]:
     migrated = dict(document)
     if "allowed" in migrated and "allowed_domains" in migrated:
         raise ContractMigrationError(
-            "legacy THEMIS scope cannot contain both allowed and allowed_domains"
+            "legacy Themis scope cannot contain both allowed and allowed_domains"
         )
     if "allowed" in migrated:
         migrated["allowed_domains"] = migrated.pop("allowed")
@@ -61,15 +61,15 @@ def _legacy_job(document: dict[str, Any]) -> dict[str, Any]:
 def _job_v1_to_v2(document: dict[str, Any]) -> dict[str, Any]:
     migrated = dict(document)
     if "scope_path" not in migrated:
-        raise ContractMigrationError("THEMIS job 1.0.0 is missing scope_path")
+        raise ContractMigrationError("Themis job 1.0.0 is missing scope_path")
     if "scope_name" in migrated:
-        raise ContractMigrationError("THEMIS job contains both scope_path and scope_name")
+        raise ContractMigrationError("Themis job contains both scope_path and scope_name")
     raw_path = migrated.pop("scope_path")
     if not isinstance(raw_path, str) or not raw_path.strip():
-        raise ContractMigrationError("THEMIS job scope_path must be a non-empty string")
+        raise ContractMigrationError("Themis job scope_path must be a non-empty string")
     scope_name = raw_path.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
     if not scope_name:
-        raise ContractMigrationError("THEMIS job scope_path has no file name")
+        raise ContractMigrationError("Themis job scope_path has no file name")
     migrated["scope_name"] = scope_name
     migrated["schema_version"] = "2.0.0"
     return migrated

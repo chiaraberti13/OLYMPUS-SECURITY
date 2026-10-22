@@ -53,17 +53,17 @@ def _read_api_key(api_key_env: str) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# THEMIS — native control plane
+# Themis — native control plane
 # --------------------------------------------------------------------------- #
 themis_app = typer.Typer(
     add_completion=False,
     no_args_is_help=True,
-    help="THEMIS — Olympus vulnerability-assessment & scanner-orchestration platform.",
+    help="Themis — Olympus vulnerability-assessment & scanner-orchestration platform.",
 )
 jobs_app = typer.Typer(
     add_completion=False,
     no_args_is_help=True,
-    help="Durable native THEMIS job queue (SQLite, no Redis/Celery required).",
+    help="Durable native Themis job queue (SQLite, no Redis/Celery required).",
 )
 identities_app = typer.Typer(
     add_completion=False,
@@ -83,7 +83,7 @@ themis_app.add_typer(retention_app, name="retention")
 #: state directory rather than the working directory.
 DEFAULT_IDENTITY_REGISTER = str(state_file_path("themis-api-identities.json"))
 
-#: THEMIS writes this audit log whether or not the operator asked for it, so it
+#: Themis writes this audit log whether or not the operator asked for it, so it
 #: defaults to the per-user state directory rather than the working directory.
 DEFAULT_THEMIS_AUDIT_LOG = str(audit_log_path("themis-audit.ndjson"))
 
@@ -93,7 +93,7 @@ def _emit_report(report: Report) -> None:
 
 
 def _job_exit_code(job: object) -> ExitCode:
-    """Reduce an THEMIS job state to the canonical process contract."""
+    """Reduce a Themis job state to the canonical process contract."""
     state = getattr(getattr(job, "state", None), "value", None)
     if state == "partial":
         return exit_code_for(RunStatus.PARTIAL)
@@ -145,7 +145,7 @@ def themis_api(
     ssl_certfile: str = typer.Option("", "--ssl-certfile"),
     ssl_keyfile: str = typer.Option("", "--ssl-keyfile"),
 ) -> None:
-    """Serve the authenticated native THEMIS API.
+    """Serve the authenticated native Themis API.
 
     Non-loopback binds require both a TLS certificate and key. Credentials come
     from an identity register or a single environment variable, never from the
@@ -163,7 +163,7 @@ def themis_api(
         loopback = host.lower() == "localhost"
     if not loopback and not (ssl_certfile and ssl_keyfile):
         typer.echo(
-            "olympus: non-loopback THEMIS API binds require TLS certificate and key",
+            "olympus: non-loopback Themis API binds require TLS certificate and key",
             err=True,
         )
         raise typer.Exit(code=ExitCode.USAGE)
@@ -276,7 +276,7 @@ def themis_web(
     ssl_certfile: str = typer.Option("", "--ssl-certfile"),
     ssl_keyfile: str = typer.Option("", "--ssl-keyfile"),
 ) -> None:
-    """Serve the native THEMIS web control plane (browser UI over the same core).
+    """Serve the native Themis web control plane (browser UI over the same core).
 
     A browser-driven job is run through the identical scope gate, authorization
     check, sandbox and redacted audit trail as the CLI. Non-loopback binds
@@ -295,7 +295,7 @@ def themis_web(
         loopback = host.lower() == "localhost"
     if not loopback and not (ssl_certfile and ssl_keyfile):
         typer.echo(
-            "olympus: non-loopback THEMIS web binds require TLS certificate and key",
+            "olympus: non-loopback Themis web binds require TLS certificate and key",
             err=True,
         )
         raise typer.Exit(code=ExitCode.USAGE)
@@ -487,7 +487,7 @@ def themis_scanners(
         False, "--check", help="Also report whether each scanner's binary is available."
     ),
 ) -> None:
-    """List the complete THEMIS scanner catalogue (all 24 integrations)."""
+    """List the complete Themis scanner catalogue (all 24 integrations)."""
     specs = scanner_registry.REGISTRY
     if not check:
         typer.echo(
@@ -594,7 +594,7 @@ def themis_capabilities(
         help="How many integrations must reach --min-maturity.",
     ),
 ) -> None:
-    """Report what THEMIS can actually execute, and how far each engine is proven.
+    """Report what Themis can actually execute, and how far each engine is proven.
 
     Unlike ``scanners``, which is a product catalogue, this command distinguishes
     registered adapters, installed engines, configured APIs and live readiness —
@@ -641,7 +641,7 @@ def _emit_job(job: object) -> None:
     from pydantic import BaseModel
 
     if not isinstance(job, BaseModel):
-        raise TypeError("THEMIS job output must be a validated contract")
+        raise TypeError("Themis job output must be a validated contract")
     typer.echo(job.model_dump_json(indent=2))
 
 
@@ -1135,7 +1135,7 @@ def themis_retention_rotate_log(
 
 @themis_app.command("deps")
 def themis_deps() -> None:
-    """Report THEMIS runtime dependencies: web stack, services, and scanner binaries."""
+    """Report Themis runtime dependencies: web stack, services, and scanner binaries."""
     report = Report("themis deps")
     for module in ("fastapi", "uvicorn", "jinja2", "multipart"):
         report.add(check_python_module(module, optional=True))
@@ -1147,7 +1147,7 @@ def themis_deps() -> None:
 
 @themis_app.command("info")
 def themis_info() -> None:
-    """Show where THEMIS lives and whether its stack is importable."""
+    """Show where Themis lives and whether its stack is importable."""
     import importlib.util
 
     from olympus.themis.jobs import SCHEMA_VERSION
@@ -1155,7 +1155,7 @@ def themis_info() -> None:
     importable = importlib.util.find_spec("fastapi") is not None
     binaries = sum(1 for s in scanner_registry.REGISTRY if s.available())
     payload = {
-        "name": "THEMIS (native Olympus control plane)",
+        "name": "Themis (native Olympus control plane)",
         "runtime": "native",
         "vendor_required": False,
         "job_schema_version": SCHEMA_VERSION,
@@ -1177,12 +1177,12 @@ def themis_scan(
     scope_id: str = typer.Option(..., "--scope-id", help="Server-registered scope identifier."),
     kind: str = typer.Option("host", "--kind", help="Target kind: host, domain or url."),
     base_url: str = typer.Option(
-        "http://127.0.0.1:8443", "--url", help="Base URL of the native THEMIS API."
+        "http://127.0.0.1:8443", "--url", help="Base URL of the native Themis API."
     ),
     api_key_env: str = typer.Option("OLYMPUS_THEMIS_API_KEY", "--api-key-env"),
     i_am_authorized: bool = typer.Option(False, "--i-am-authorized"),
 ) -> None:
-    """Submit authorized work to the native THEMIS API."""
+    """Submit authorized work to the native Themis API."""
     import ipaddress
     import urllib.error
     import urllib.request
@@ -1200,14 +1200,14 @@ def themis_scan(
         raise typer.Exit(code=ExitCode.USAGE)
     parsed = urlparse(base_url)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
-        typer.echo("olympus: THEMIS API URL must be an absolute HTTP(S) URL", err=True)
+        typer.echo("olympus: Themis API URL must be an absolute HTTP(S) URL", err=True)
         raise typer.Exit(code=ExitCode.USAGE)
     try:
         loopback = ipaddress.ip_address(parsed.hostname).is_loopback
     except ValueError:
         loopback = parsed.hostname.lower() == "localhost"
     if parsed.scheme != "https" and not loopback:
-        typer.echo("olympus: remote THEMIS API connections require HTTPS", err=True)
+        typer.echo("olympus: remote Themis API connections require HTTPS", err=True)
         raise typer.Exit(code=ExitCode.USAGE)
 
     body: dict[str, object] = {
@@ -1231,13 +1231,13 @@ def themis_scan(
         # The server rejected the request (e.g. auth/scope/schema) — surface it.
         detail = exc.read().decode("utf-8", "replace")
         typer.echo(
-            safe_terminal_text(f"olympus: THEMIS server returned {exc.code}: {detail}"),
+            safe_terminal_text(f"olympus: Themis server returned {exc.code}: {detail}"),
             err=True,
         )
         raise typer.Exit(code=ExitCode.FINDINGS) from exc
     except urllib.error.URLError as exc:
         typer.echo(
-            f"olympus: could not reach an THEMIS server at {base_url} ({exc.reason}). "
+            f"olympus: could not reach a Themis server at {base_url} ({exc.reason}). "
             "Start it with: olympus themis api",
             err=True,
         )
@@ -1255,7 +1255,7 @@ def themis_doctor(
         ),
     ),
 ) -> None:
-    """Diagnose the THEMIS runtime, or one scanner with ``--scanner``.
+    """Diagnose the Themis runtime, or one scanner with ``--scanner``.
 
     Without ``--scanner`` this reports the whole runtime (web stack, DB dir,
     Redis, config). With ``--scanner <name>`` it reports that one engine: whether
@@ -1440,7 +1440,7 @@ def register_doctor(parent: typer.Typer) -> None:
         # Common external tooling.
         for binary in ("git", "docker", "redis-cli", "curl"):
             report.add(check_binary(binary, optional=True))
-        # ARGUS + THEMIS stacks (importable?).
+        # ARGUS + Themis stacks (importable?).
         report.add(check_python_module("requests", optional=True))
         report.add(check_python_module("fastapi", optional=True))
         # Scanner binary coverage.
@@ -1463,7 +1463,7 @@ def themis_run(
     scanner: str = typer.Argument(..., help="Scanner name (see 'olympus themis run --list')."),
     target: str = typer.Option("", "--target", help="Authorized target (host/url/domain)."),
     kind: str = typer.Option("host", "--kind", help="Target kind: host, url, or domain."),
-    scope: str = typer.Option("", "--scope", help="Versioned THEMIS scope JSON file."),
+    scope: str = typer.Option("", "--scope", help="Versioned Themis scope JSON file."),
     timeout: float = typer.Option(300.0, "--timeout", help="Per-process timeout in seconds."),
     deadline: float = typer.Option(600.0, "--deadline", help="Overall scan deadline in seconds."),
     max_scope_bytes: int = typer.Option(1_000_000, "--max-scope-bytes"),
@@ -1545,10 +1545,10 @@ def themis_run(
         typer.echo(f"olympus: {exc}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
     except CancellationRequested as exc:
-        typer.echo(f"olympus: THEMIS execution cancelled: {exc}", err=True)
+        typer.echo(f"olympus: Themis execution cancelled: {exc}", err=True)
         raise typer.Exit(code=ExitCode.CANCELLED) from exc
     except (ThemisConfigError, OSError, TimeoutError, ValueError) as exc:
-        typer.echo(f"olympus: THEMIS execution error: {exc}", err=True)
+        typer.echo(f"olympus: Themis execution error: {exc}", err=True)
         raise typer.Exit(code=ExitCode.FAILED) from exc
 
     typer.echo(json.dumps(result.to_dict(), indent=2, sort_keys=True))

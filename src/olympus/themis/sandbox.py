@@ -1,4 +1,4 @@
-"""Process-level isolation policy for THEMIS scanner subprocesses.
+"""Process-level isolation policy for Themis scanner subprocesses.
 
 A scanner is untrusted code driven by untrusted remote output: it must not be
 able to spend the host's CPU, exhaust its memory, fill its disk, fork without

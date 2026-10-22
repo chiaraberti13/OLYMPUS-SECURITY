@@ -14,7 +14,7 @@ that stream becomes the run's raw evidence — response bodies routinely carry
 session cookies, tokens and personal data.
 
 nuclei is useless without templates, and it finds them through ``$HOME``. Under
-the THEMIS sandbox the process runs as an unprivileged user with a different
+the Themis sandbox the process runs as an unprivileged user with a different
 home, so an operator's ``nuclei-templates`` checkout is invisible and the engine
 exits non-zero with "no templates provided for scan". The template directory is
 therefore named explicitly through ``THEMIS_NUCLEI_TEMPLATES`` (the legacy

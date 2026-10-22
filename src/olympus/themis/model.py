@@ -1,4 +1,4 @@
-"""Strict request and versioned result contracts for THEMIS native execution."""
+"""Strict request and versioned result contracts for Themis native execution."""
 
 from __future__ import annotations
 

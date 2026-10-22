@@ -318,7 +318,7 @@ registro locale non è tamper-evident o distribuito e non è ancora collegato ai
 percorsi attivi di submit job: `SEC-C` resta incompleto.
 
 **Avanzamento verificato (2026-10-21, binding persistente):** il contratto job
-THEMIS 3.0.0 e lo schema SQLite v3 possono conservare `manifest_sha256`; il
+Themis 3.0.0 e lo schema SQLite v3 possono conservare `manifest_sha256`; il
 digest è validato, esposto al worker e parte dell'identità della richiesta
 idempotente. La migrazione v2→v3 mantiene i job esistenti senza inventare una
 provenienza di autorizzazione. API, Web e CLI non impongono ancora il manifest
@@ -1289,7 +1289,7 @@ registry/capability inventory; uno scanner non adattato non appare eseguibile.
   /assessments/new` → `POST /assessments/preview` (anteprima che non accoda
   nulla e ri-valida scope ed engagement) → `POST /jobs` (launch) → `GET
   /jobs/{id}` con SSE di stato reale e Cancel (già `WEB-A`). Le quattro attività
-  THEMIS (recon/network/web/vulnerability) accodano un job scanner; Secret
+  Themis (recon/network/web/vulnerability) accodano un job scanner; Secret
   Scan / Detection / Full sono dichiarate oneste come gestite da altri moduli
   (hint CLI `olympus hermes`/`apollo`/`athena`), mai simulate. La modalità
   **Automatic** sceglie un tool `ready` per l'attività e **rifiuta** onestamente

@@ -1,4 +1,4 @@
-# THEMIS native execution — real evidence
+# Themis native execution — real evidence
 
 _Captured on 2026-08-25 against a **local authorized lab** (a Python HTTP
 server on 127.0.0.1:8000). No public/third-party system was scanned. Scope

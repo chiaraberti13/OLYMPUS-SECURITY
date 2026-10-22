@@ -1,6 +1,6 @@
 """Per-scanner diagnostics: is this one engine actually runnable, and how proven?
 
-``olympus themis doctor`` answers a question about the whole THEMIS runtime. This
+``olympus themis doctor`` answers a question about the whole Themis runtime. This
 module answers it one scanner at a time — "can Olympus run *nmap* here, what
 version, and how far has the project validated it?" — which is what an operator
 needs before adding an engine to an engagement.
