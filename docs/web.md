@@ -105,7 +105,7 @@ as on the API.
 | `GET /jobs` | Every job, newest first. |
 | `GET /findings` | Findings, filtered and ranked by risk exactly as the CLI does (requires `findings:read`); available only with `--findings-directory`. |
 | `GET /findings/report` | Download a Vulcan report of the currently filtered findings as Markdown, HTML, JSON or SARIF (requires `findings:read`). |
-| `GET /findings/diff` | Compare a baseline run against the current findings — new / resolved / persistent (requires `findings:read`); available only with `--baseline-directory`. |
+| `GET /findings/diff` | Compare a baseline run against the current findings — new / resolved / persistent (requires `findings:read`); available only with `--baseline-directory`. `?format=json` returns the machine-readable diff. |
 | `GET /findings/{id}` | Finding detail, evidence chain and lifecycle history (requires `findings:read`). |
 | `POST /findings/{id}/transition` | Record a lifecycle transition for one finding (requires `findings:write`, CSRF-protected); available only with `--findings-storage`. |
 | `GET /engagements`, `GET /engagements/{id}` | The shared engagements and their scope (requires `engagements:read`); available only when the server is started with `--engagement-storage`. |
@@ -193,7 +193,9 @@ browser and CLI agree, and matches findings by logical identity (same asset +
 same vulnerability), never by the per-run id. Both inputs are read-only producer
 artifacts: the baseline is `--baseline-directory`, the current set is
 `--findings-directory`. Without a baseline the page says plainly that the feature
-is not configured.
+is not configured. `GET /findings/diff?format=json` returns the same
+`ScanDiff` projection as `olympus vulcan diff --format json`, for automation and
+CI regression gates.
 
 ## New assessment (`WEB-E`)
 

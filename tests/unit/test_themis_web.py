@@ -1222,6 +1222,44 @@ def test_scan_diff_classifies_new_resolved_and_persistent(tmp_path: Path) -> Non
     assert "low → high" in page.text
 
 
+def test_scan_diff_json_export_matches_the_engine(tmp_path: Path) -> None:
+    resolved = {
+        **_FINDING,
+        "finding_id": "FND-2026-00009",
+        "title": "Legacy TLS",
+        "asset_id": "AST-2026-00009",
+    }
+    baseline = {**_FINDING, "finding_id": "FND-2026-05555", "severity": "low"}
+    client = _client(
+        tmp_path,
+        findings_directory=_findings_dir(tmp_path, _FINDING),
+        baseline_findings_directory=_baseline_dir(tmp_path, baseline, resolved),
+    )
+    _login(client)
+    response = client.get("/findings/diff", params={"format": "json"})
+    assert response.status_code == 200
+    assert "application/json" in response.headers["content-type"]
+    assert "attachment" in response.headers["content-disposition"]
+    payload = json.loads(response.text)
+    assert payload["summary"] == {"new": 0, "resolved": 1, "persistent": 1, "worsened": 1}
+
+
+def test_scan_diff_json_is_honest_when_unconfigured(tmp_path: Path) -> None:
+    client = _findings_client(tmp_path)  # findings dir but no baseline
+    _login(client)
+    assert client.get("/findings/diff", params={"format": "json"}).status_code == 400
+
+
+def test_scan_diff_rejects_an_unknown_format(tmp_path: Path) -> None:
+    client = _client(
+        tmp_path,
+        findings_directory=_findings_dir(tmp_path, _FINDING),
+        baseline_findings_directory=_baseline_dir(tmp_path, _FINDING),
+    )
+    _login(client)
+    assert client.get("/findings/diff", params={"format": "xml"}).status_code == 422
+
+
 def test_scan_diff_does_not_shadow_a_finding_detail(tmp_path: Path) -> None:
     client = _client(
         tmp_path,

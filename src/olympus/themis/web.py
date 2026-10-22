@@ -1340,15 +1340,23 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         )
 
     @app.get("/findings/diff", response_class=HTMLResponse, include_in_schema=False)
-    def findings_diff(request: Request, session: WebSession = reads_findings) -> Response:
+    def findings_diff(
+        request: Request, format: str = "", session: WebSession = reads_findings
+    ) -> Response:
         """Compare the baseline run against the current findings (ROADMAP ``WEB-I``).
 
         Shows what is **new** (a regression), **resolved** (the evidence a fix
         landed) and **persistent** between a configured baseline directory and the
         current findings directory, reusing :func:`diff_findings` — the same
         engine the CLI (``olympus vulcan diff``) uses — so both agree. It never
-        rewrites either producer artifact.
+        rewrites either producer artifact. ``?format=json`` returns the machine
+        -readable ``ScanDiff`` (the same projection as ``vulcan diff --format
+        json``) for automation; the default renders the HTML page.
         """
+        as_json = format.strip().lower()
+        if as_json not in {"", "json"}:
+            raise HTTPException(status_code=422, detail="format must be json")
+        wants_json = as_json == "json"
         context: dict[str, object] = {
             "has_current": findings_directory is not None,
             "has_baseline": baseline_findings_directory is not None,
@@ -1361,13 +1369,29 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             "persistent": [],
         }
         if findings_directory is None or baseline_findings_directory is None:
+            if wants_json:
+                raise HTTPException(
+                    status_code=400,
+                    detail="scan diff needs both --findings-directory and --baseline-directory",
+                )
             return _page(request, "findings_diff.html", context)
         try:
             current = _load_findings_catalogue()
             baseline = _load_findings_from(baseline_findings_directory)
         except _FindingsUnavailable as exc:
+            if wants_json:
+                raise HTTPException(status_code=503, detail=exc.detail) from exc
             return _page(request, "findings_diff.html", {**context, "error": exc.detail})
         result = diff_findings(baseline, current)
+        if wants_json:
+            return Response(
+                content=json.dumps(result.to_dict(), indent=2, sort_keys=True) + "\n",
+                media_type="application/json",
+                headers={
+                    "Content-Disposition": 'attachment; filename="olympus-scan-diff.json"',
+                    "Cache-Control": "no-store",
+                },
+            )
         return _page(
             request,
             "findings_diff.html",
