@@ -272,6 +272,27 @@ olympus vulcan import --kind findings -i findings.ndjson -o restored.json
 A malformed or contract-incompatible NDJSON file exits `2` (usage) and writes
 nothing.
 
+### Importing third-party SARIF (`WEB-J`)
+
+SARIF 2.1.0 is the interoperability format for analysis results, so Olympus can
+ingest any SARIF-producing tool's findings and run them through the same
+lifecycle, dedup, diff, trend and reporting as native findings (Hermes already
+*exports* SARIF; `vulcan.sarif` is the *import* side). The document comes from an
+external tool, so it is treated as hostile input: strict 2.1.0 validation,
+type-checked fields, bounded sizes, and a malformed document imports nothing.
+
+```bash
+# SARIF report -> canonical core.Finding bundle, linked to an Olympus asset
+olympus vulcan sarif-import -i report.sarif.json -o findings.json \
+  --asset-id AST-2026-00001
+```
+
+The SARIF `level` maps to severity (`error`→high, `warning`→medium, `note`→low,
+`none`→info; absent→medium, never silently downgraded); `ruleId` and the rule's
+`helpUri` become references; each result location becomes `uri:line` evidence.
+Imported findings are stamped `source=manual` (ingested from outside Olympus)
+unless `--source` is given.
+
 ## Tagging, search and filters
 
 Findings carry free-form `tags` (operator labels for triage and grouping —

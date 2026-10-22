@@ -271,6 +271,7 @@ every module; for a single command's full details (every option, with defaults) 
 | `olympus vulcan report --assets/--findings/--alerts <f>` | validates complete producer envelopes and renders one canonical report as atomic JSON plus optional safe Markdown/HTML |
 | `olympus vulcan export --kind findings/assets -i <bundle> -o <ndjson>` | exports a JSON bundle to portable, versioned NDJSON (sorted, deterministic) |
 | `olympus vulcan import --kind findings/assets -i <ndjson> -o <bundle>` | imports portable NDJSON back into a canonical JSON bundle, strict and all-or-nothing |
+| `olympus vulcan sarif-import -i <sarif> -o <bundle> --asset-id <id>` | imports a third-party SARIF 2.1.0 report as a core.Finding bundle (hostile-input safe) |
 
 ### Legend of the main options
 
@@ -641,6 +642,7 @@ sempre `--help`, es. `olympus argus scan --help`.
 | `olympus vulcan report --assets/--findings/--alerts <f>` | valida gli envelope completi e genera un report canonico come JSON atomico più Markdown/HTML sicuri opzionali |
 | `olympus vulcan export --kind findings/assets -i <bundle> -o <ndjson>` | esporta un bundle JSON in NDJSON portabile e versionato (ordinato, deterministico) |
 | `olympus vulcan import --kind findings/assets -i <ndjson> -o <bundle>` | reimporta l'NDJSON portabile in un bundle JSON canonico, strict e all-or-nothing |
+| `olympus vulcan sarif-import -i <sarif> -o <bundle> --asset-id <id>` | importa un report SARIF 2.1.0 di terze parti come bundle core.Finding (sicuro su input ostile) |
 
 ### Legenda delle opzioni principali
 

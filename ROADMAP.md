@@ -1423,8 +1423,17 @@ notifica redatta alla chiusura di un job, senza logica di report duplicata.
   import --kind … -i out.ndjson -o bundle.json` (file malformato → exit `2`, nulla
   scritto). Test `tests/unit/test_vulcan_portable.py`; doc
   [`docs/findings.md`](docs/findings.md), [`docs/reference.md`](docs/reference.md).
-  **Resta aperto:** SARIF come formato di import (l'export SARIF dei finding esiste
-  già in Hermes).
+- [x] **Import SARIF (slice 3 — interoperabilità).** `vulcan/sarif.py`
+  `sarif_to_findings(document, *, asset_id, source)`: importa un report **SARIF
+  2.1.0** di terze parti come `core.Finding` (mapping `level`→severità con default
+  sicuro `medium`, `ruleId`/`helpUri`→references, location→evidence), trattando il
+  documento come **input ostile** (validazione 2.1.0 stretta, campi type-checked,
+  dimensioni limitate; documento malformato non importa nulla). Chiude il formato
+  SARIF citato nel bullet import/export (l'export SARIF dei finding era già in
+  Hermes). CLI `olympus vulcan sarif-import -i report.sarif.json -o findings.json
+  --asset-id … [--source …]` (bundle JSON caricabile dai loader; malformato → exit
+  `2`, nulla scritto). Test `tests/unit/test_vulcan_sarif.py`; doc
+  [`docs/findings.md`](docs/findings.md), [`docs/reference.md`](docs/reference.md).
 - [x] **OpenAPI pubblicata e documentata**: lo schema OpenAPI del control plane
   (`themis.api`) è generato (`scripts/update_contract_goldens.py`) e **versionato
   e verificato in CI** come golden (`tests/fixtures/contracts/openapi.json`,

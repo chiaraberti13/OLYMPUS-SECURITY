@@ -76,6 +76,7 @@ from olympus.vulcan.portable import (
     import_findings as portable_import_findings,
 )
 from olympus.vulcan.report import export_report, export_text
+from olympus.vulcan.sarif import SarifImportError, sarif_to_findings
 from olympus.vulcan.search import FindingFilter, search_findings
 from olympus.vulcan.trend import build_finding_trend
 from olympus.vulcan.view import LIST_COLUMNS, FindingView, rank_by_risk
@@ -560,6 +561,42 @@ def import_command(
     typer.echo(
         json.dumps({"kind": kind, "imported": len(records), "output": str(output)}, indent=2)
     )
+
+
+@app.command("sarif-import")
+def sarif_import_command(
+    input_file: Path = typer.Option(..., "--input", "-i", help="SARIF 2.1.0 JSON file to import."),
+    output: Path = typer.Option(..., "--output", "-o", help="core.Finding JSON bundle to write."),
+    asset_id: str = typer.Option(
+        ..., "--asset-id", help="Olympus asset id these SARIF results pertain to."
+    ),
+    source: Source = typer.Option(
+        Source.MANUAL, "--source", help="Provenance stamped on the imported findings."
+    ),
+) -> None:
+    """Import a third-party SARIF 2.1.0 report as a core.Finding JSON bundle.
+
+    SARIF is the interoperability format for analysis results, so this ingests any
+    SARIF-producing tool's findings into Olympus for the same lifecycle, dedup,
+    diff, trend and reporting. The document is treated as hostile input: strict
+    2.1.0 validation, type-checked fields and bounded sizes. A malformed document
+    exits ``2`` and writes nothing. The output is a canonical JSON array the
+    Olympus loaders accept.
+    """
+    try:
+        text = read_regular_text(input_file, max_bytes=_MAX_IMPORT_BYTES, label="SARIF import")
+        document = json.loads(text)
+    except (OSError, ValueError) as exc:
+        typer.echo(safe_terminal_text(f"vulcan: cannot read SARIF: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    try:
+        findings = sarif_to_findings(document, asset_id=asset_id, source=source)
+    except SarifImportError as exc:
+        typer.echo(safe_terminal_text(f"vulcan: invalid SARIF: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    bundle = [finding.model_dump(mode="json") for finding in findings]
+    atomic_write_text(output, json.dumps(bundle, indent=2, sort_keys=True) + "\n", mode=0o600)
+    typer.echo(json.dumps({"imported": len(findings), "output": str(output)}, indent=2))
 
 
 findings_app = typer.Typer(
