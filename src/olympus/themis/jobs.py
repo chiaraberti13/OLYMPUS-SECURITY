@@ -43,6 +43,8 @@ from olympus.core.execution import (
     Cancellation,
     CancellationRequested,
     NeverCancelled,
+    StructuredAuditRecord,
+    append_structured_audit,
     redact_text,
     redact_url,
 )
@@ -944,17 +946,31 @@ class ThemisWorker:
             job_cancellation = _JobCancellation(self.store, job.job_id, shutdown=shutdown)
             try:
                 if record.manifest_sha256 is not None:
-                    if self.manifest_authorizer is None:
-                        from olympus.engagements.manifest import ManifestAuthorizationError
+                    try:
+                        if self.manifest_authorizer is None:
+                            from olympus.engagements.manifest import ManifestAuthorizationError
 
-                        raise ManifestAuthorizationError(
-                            "signed manifest bound to job cannot be revalidated by this worker"
+                            raise ManifestAuthorizationError(
+                                "signed manifest bound to job cannot be revalidated by this worker"
+                            )
+                        self.manifest_authorizer.authorize(
+                            manifest_sha256=record.manifest_sha256,
+                            target=record.target,
+                            technique=record.scanner,
+                            now=self.clock(),
                         )
-                    self.manifest_authorizer.authorize(
-                        manifest_sha256=record.manifest_sha256,
-                        target=record.target,
-                        technique=record.scanner,
-                        now=self.clock(),
+                    except BaseException as exc:
+                        self._audit_manifest_authorization(
+                            record,
+                            audit_path,
+                            outcome="refused",
+                            error_type=type(exc).__name__,
+                        )
+                        raise
+                    self._audit_manifest_authorization(
+                        record,
+                        audit_path,
+                        outcome="authorized",
                     )
                 with _Heartbeat(
                     self.store, job.job_id, self.worker_id, job_cancellation, self.heartbeat_seconds
@@ -969,6 +985,8 @@ class ThemisWorker:
                             live_enabled=(
                                 live_enabled() if self.live_scans is None else self.live_scans
                             ),
+                            job_id=record.job_id,
+                            manifest_sha256=record.manifest_sha256,
                             audit_path=audit_path,
                             cancellation=job_cancellation,
                         )
@@ -986,6 +1004,36 @@ class ThemisWorker:
             state, error = classify_result(result)
             settled = self._settle(job.job_id, state, result=result.to_dict(), error=error)
             return self._observed(job.scanner, settled, started_at)
+
+    @staticmethod
+    def _audit_manifest_authorization(
+        record: JobExecution,
+        audit_path: Path | None,
+        *,
+        outcome: str,
+        error_type: str | None = None,
+    ) -> None:
+        """Record manifest revalidation without copying the signed document."""
+        if audit_path is None or record.manifest_sha256 is None:
+            return
+        metadata: dict[str, object] = {
+            "job_id": record.job_id,
+            "manifest_sha256": record.manifest_sha256,
+            "scanner": record.scanner,
+        }
+        if error_type is not None:
+            metadata["error_type"] = error_type
+        append_structured_audit(
+            audit_path,
+            StructuredAuditRecord(
+                timestamp=datetime.now(UTC).isoformat(),
+                execution_id=record.job_id,
+                action="themis.manifest-authorization",
+                outcome=outcome,
+                target=record.target,
+                metadata=metadata,
+            ),
+        )
 
     def _observed(self, scanner: str, job: ThemisJob, started_at: float) -> ThemisJob:
         self.observability.job_finished(

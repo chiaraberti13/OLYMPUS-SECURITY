@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -34,6 +35,8 @@ from olympus.themis.registry import get_adapter
 from olympus.themis.scope import OutOfScopeError, SsrfBlockedError
 
 DEFAULT_MAX_SCOPE_BYTES = 1_000_000
+_JOB_ID_RE = re.compile(r"^THEMIS-[A-F0-9]{32}$")
+_MANIFEST_SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
 
 
 class ThemisScope(BaseModel):
@@ -83,6 +86,8 @@ class ThemisRunRequest:
     scope_path: Path
     authorized: bool
     live_enabled: bool
+    job_id: str | None = None
+    manifest_sha256: str | None = None
     simulate: bool = False
     output_path: Path | None = None
     audit_path: Path | None = None
@@ -92,6 +97,15 @@ class ThemisRunRequest:
     max_output_bytes: int = DEFAULT_MAX_PROCESS_OUTPUT_BYTES
     max_findings: int = DEFAULT_MAX_FINDINGS
     cancellation: Cancellation = field(default_factory=NeverCancelled, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        if self.job_id is not None and _JOB_ID_RE.fullmatch(self.job_id) is None:
+            raise ValueError("job_id must be a canonical THEMIS job id")
+        if self.manifest_sha256 is not None:
+            if self.job_id is None:
+                raise ValueError("manifest_sha256 requires a job_id")
+            if _MANIFEST_SHA256_RE.fullmatch(self.manifest_sha256) is None:
+                raise ValueError("manifest_sha256 must be a lowercase SHA-256 digest")
 
 
 @dataclass(frozen=True)
@@ -164,6 +178,11 @@ class ThemisApplicationService:
     ) -> None:
         if request.audit_path is None:
             return
+        provenance: dict[str, object] = dict(metadata)
+        if request.job_id is not None:
+            provenance["job_id"] = request.job_id
+        if request.manifest_sha256 is not None:
+            provenance["manifest_sha256"] = request.manifest_sha256
         append_structured_audit(
             request.audit_path,
             StructuredAuditRecord(
@@ -172,7 +191,7 @@ class ThemisApplicationService:
                 action="themis.native-scan",
                 outcome=outcome,
                 target=request.target,
-                metadata=metadata,
+                metadata=provenance,
             ),
         )
 

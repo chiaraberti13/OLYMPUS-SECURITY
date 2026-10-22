@@ -128,7 +128,7 @@ def test_worker_reauthorizes_bound_manifest_immediately_before_execution(tmp_pat
         manifests.close()
 
     store = ThemisJobStore(tmp_path / "jobs.sqlite3")
-    store.submit(
+    queued = store.submit(
         scanner="test-engine",
         target="127.0.0.1",
         target_kind="host",
@@ -136,6 +136,7 @@ def test_worker_reauthorizes_bound_manifest_immediately_before_execution(tmp_pat
         authorized=True,
         manifest_sha256=signed.manifest_sha256,
     )
+    audit_path = tmp_path / "audit.ndjson"
     completed = ThemisWorker(
         store,
         ThemisApplicationService(lambda name: _Adapter()),
@@ -144,9 +145,23 @@ def test_worker_reauthorizes_bound_manifest_immediately_before_execution(tmp_pat
             engagement_database, trusted_public_key_pem=public_key
         ),
         clock=lambda: now,
-    ).run_next()
+    ).run_next(audit_path=audit_path)
 
     assert completed is not None and completed.state is JobState.PARTIAL
+    audit = [json.loads(line) for line in audit_path.read_text(encoding="utf-8").splitlines()]
+    authorization = next(
+        record for record in audit if record["action"] == "themis.manifest-authorization"
+    )
+    assert authorization["outcome"] == "authorized"
+    assert authorization["execution_id"] == queued.job_id
+    assert authorization["metadata"] == {
+        "job_id": queued.job_id,
+        "manifest_sha256": signed.manifest_sha256,
+        "scanner": "test-engine",
+    }
+    scan = next(record for record in audit if record["action"] == "themis.native-scan")
+    assert scan["metadata"]["job_id"] == queued.job_id
+    assert scan["metadata"]["manifest_sha256"] == signed.manifest_sha256
 
 
 @pytest.mark.parametrize(
@@ -173,7 +188,7 @@ def test_worker_denies_manifest_revoked_or_expired_after_queueing(
         manifests.close()
 
     store = ThemisJobStore(tmp_path / "jobs.sqlite3")
-    store.submit(
+    queued = store.submit(
         scanner="test-engine",
         target="127.0.0.1",
         target_kind="host",
@@ -181,6 +196,7 @@ def test_worker_denies_manifest_revoked_or_expired_after_queueing(
         authorized=True,
         manifest_sha256=signed.manifest_sha256,
     )
+    audit_path = tmp_path / "audit.ndjson"
     denied = ThemisWorker(
         store,
         ThemisApplicationService(lambda name: _Adapter()),
@@ -189,33 +205,60 @@ def test_worker_denies_manifest_revoked_or_expired_after_queueing(
             engagement_database, trusted_public_key_pem=public_key
         ),
         clock=lambda: now if revoke_after_queueing else signed.manifest.expires_at,
-    ).run_next()
+    ).run_next(audit_path=audit_path)
 
     assert denied is not None and denied.state is JobState.POLICY_DENIED
     assert denied.error is not None and expected_error in denied.error
+    audit = [json.loads(line) for line in audit_path.read_text(encoding="utf-8").splitlines()]
+    assert audit == [
+        {
+            "action": "themis.manifest-authorization",
+            "execution_id": queued.job_id,
+            "metadata": {
+                "error_type": "ManifestRevocationError"
+                if revoke_after_queueing
+                else "ManifestAuthorizationError",
+                "job_id": queued.job_id,
+                "manifest_sha256": signed.manifest_sha256,
+                "scanner": "test-engine",
+            },
+            "outcome": "refused",
+            "target": "127.0.0.1",
+            "timestamp": audit[0]["timestamp"],
+        }
+    ]
 
 
 def test_worker_denies_bound_manifest_when_revalidation_is_not_configured(
     tmp_path: Path,
 ) -> None:
     store = ThemisJobStore(tmp_path / "jobs.sqlite3")
-    store.submit(
+    queued = store.submit(
         scanner="test-engine",
-        target="127.0.0.1",
-        target_kind="host",
+        target="https://127.0.0.1/?api_key=must-not-leak",
+        target_kind="url",
         scope_path=_scope(tmp_path / "scope.json"),
         authorized=True,
         manifest_sha256="a" * 64,
     )
 
+    audit_path = tmp_path / "audit.ndjson"
     denied = ThemisWorker(
         store,
         ThemisApplicationService(lambda name: _Adapter()),
         live_scans=True,
-    ).run_next()
+    ).run_next(audit_path=audit_path)
 
     assert denied is not None and denied.state is JobState.POLICY_DENIED
     assert denied.error is not None and "cannot be revalidated" in denied.error
+    audit = json.loads(audit_path.read_text(encoding="utf-8"))
+    assert audit["action"] == "themis.manifest-authorization"
+    assert audit["execution_id"] == queued.job_id
+    assert audit["outcome"] == "refused"
+    assert audit["metadata"]["manifest_sha256"] == "a" * 64
+    assert audit["metadata"]["error_type"] == "ManifestAuthorizationError"
+    assert audit["target"] == "https://127.0.0.1/?api_key=[REDACTED]"
+    assert "must-not-leak" not in audit_path.read_text(encoding="utf-8")
 
 
 def test_atomic_claim_and_queue_order(tmp_path: Path) -> None:

@@ -519,6 +519,8 @@ def test_scope_loader_and_application_output_audit(tmp_path: Path) -> None:
             scope_path=scope,
             authorized=True,
             live_enabled=True,
+            job_id="THEMIS-" + "A" * 32,
+            manifest_sha256="b" * 64,
             output_path=output,
             audit_path=audit,
         )
@@ -530,6 +532,9 @@ def test_scope_loader_and_application_output_audit(tmp_path: Path) -> None:
     assert stat.S_IMODE(output.stat().st_mode) == 0o600
     audit_text = audit.read_text(encoding="utf-8")
     assert "secret" not in audit_text and "[REDACTED]" in audit_text
+    audit_record = json.loads(audit_text)
+    assert audit_record["metadata"]["job_id"] == "THEMIS-" + "A" * 32
+    assert audit_record["metadata"]["manifest_sha256"] == "b" * 64
     assert stat.S_IMODE(audit.stat().st_mode) == 0o600
 
 
@@ -558,6 +563,33 @@ def test_application_authorizes_before_scope_and_protects_paths(tmp_path: Path) 
         load_scope(link)
     with pytest.raises(ValueError, match="byte limit"):
         load_scope(scope, max_bytes=5)
+
+
+@pytest.mark.parametrize(
+    ("job_id", "manifest_sha256", "message"),
+    [
+        ("not-a-job", None, "canonical THEMIS job id"),
+        (None, "a" * 64, "requires a job_id"),
+        ("THEMIS-" + "A" * 32, "A" * 64, "lowercase SHA-256"),
+    ],
+)
+def test_run_request_rejects_malformed_authorization_provenance(
+    tmp_path: Path,
+    job_id: str | None,
+    manifest_sha256: str | None,
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        ThemisRunRequest(
+            scanner="fake",
+            target="127.0.0.1",
+            target_kind="host",
+            scope_path=tmp_path / "scope.json",
+            authorized=True,
+            live_enabled=False,
+            job_id=job_id,
+            manifest_sha256=manifest_sha256,
+        )
 
 
 def test_global_simulation_environment_does_not_enable_native_simulation(

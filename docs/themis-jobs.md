@@ -121,7 +121,11 @@ operator-visible at the same time:
   `execution_record()`, which no API surfaces.
 - **`manifest_sha256` binds authorization provenance.** New jobs may persist
   the lowercase SHA-256 digest of their signed engagement manifest. Legacy jobs
-  migrate with `null`; Olympus never fabricates authorization provenance.
+  migrate with `null`; Olympus never fabricates authorization provenance. A
+  manifest-aware worker records a redacted `themis.manifest-authorization`
+  event immediately after revalidation (or on refusal), and correlates the
+  subsequent `themis.native-scan` event with the same job ID and digest. The
+  signed document itself is not copied into the audit log.
 - **Targets** are published through `redact_url`, so a credential someone put
   in a URL query does not come back out of the job list. The scanner is still
   run against the target exactly as submitted.

@@ -358,6 +358,16 @@ revoca, tecnica errata e chiave fidata assente. La modalità API/Web senza chiav
 resta compatibile ma non è il profilo protetto; audit/report/evidenze non
 espongono ancora tutta la provenienza, quindi SEC-C resta `[~]`.
 
+**Avanzamento verificato (2026-10-22, provenienza audit worker):** prima di
+eseguire un job legato a un manifest, il worker registra un evento redatto
+`themis.manifest-authorization` con esito `authorized` o `refused`, job ID,
+digest e scanner; anche l'evento successivo `themis.native-scan` porta lo stesso
+job ID e digest. Un rifiuto per revoca, scadenza, documento mancante o
+verificatore assente è quindi dimostrabile senza salvare nel log il documento
+firmato o eventuali segreti nella URL. Report ed evidenze non incorporano ancora
+questa provenienza e la modalità compatibile senza chiave resta disponibile:
+SEC-C resta `[~]`.
+
 **Criterio di completamento:** nessuna live scan può partire con un semplice flag;
 il report consente di dimostrare manifest, firma, scope e policy effettivi usati.
 

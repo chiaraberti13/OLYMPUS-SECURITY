@@ -168,7 +168,11 @@ protected profile.
 Immediately before scanner execution, the worker reloads it and rechecks the
 signature, digest, revocation status, time window, target and technique. A bound
 digest without its document or without a configured verifier becomes
-`policy_denied` and produces no scanner traffic.
+`policy_denied` and produces no scanner traffic. With `--audit`, the worker
+records that decision as `themis.manifest-authorization` (`authorized` or
+`refused`) with the job ID, manifest digest and scanner; successful execution
+then carries the same job ID and digest in `themis.native-scan`. URL query
+secrets remain redacted and the signed document is never copied into audit.
 
 Migrations are idempotent and transactional for supported **native job**
 databases. Foreign/VAP files, unsupported/future versions and symlinks are

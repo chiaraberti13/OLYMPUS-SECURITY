@@ -61,6 +61,13 @@ Sensitive URL query values are replaced while non-sensitive routing context is
 retained. Athena's narrower allowlist remains an additional protection and now
 uses the same URL redactor before SQLite persistence.
 
+For a THEMIS job bound to a signed engagement manifest, the worker emits a
+`themis.manifest-authorization` record after immediate pre-execution
+revalidation, including only the job ID, manifest SHA-256 and scanner (plus the
+exception type on refusal). The scan audit repeats the job ID and digest so an
+operator can join the authorization decision to the execution without copying
+the signed document or its human-readable engagement data into the log.
+
 ## Adoption status
 
 - Core HTTP: validated timeout/retry/backoff/rate policy and cooperative
