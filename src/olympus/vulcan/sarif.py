@@ -1,23 +1,28 @@
-"""Import third-party SARIF 2.1.0 results as Olympus findings (ROADMAP ``WEB-J``).
+"""SARIF 2.1.0 interoperability for Olympus findings (ROADMAP ``WEB-J``).
 
-SARIF is the interoperability format for static- and dynamic-analysis results, so
-ingesting it lets Olympus consume findings from any SARIF-producing tool and run
-them through the same lifecycle, dedup, diff, trend and reporting as native
-findings. Hermes already *exports* SARIF (:mod:`olympus.hermes.sarif`); this is
-the *import* side.
+SARIF is the interoperability format for static- and dynamic-analysis results.
+This module bridges it both ways for the shared ``core.Finding`` contract:
 
-A SARIF document comes from an external tool, so it is treated as **hostile
-input**: every field is type-checked before use, strings are length-bounded, the
-result count is capped, and anything malformed raises
-:class:`SarifImportError` rather than producing a half-built finding. The mapping
-is deterministic and offline.
+* **import** (:func:`sarif_to_findings`) consumes any SARIF-producing tool's
+  results so they run through the same lifecycle, dedup, diff, trend and
+  reporting as native findings;
+* **export** (:func:`findings_to_sarif`) emits Olympus findings as a SARIF
+  document that any SARIF consumer (CI code-scanning, dashboards) can ingest.
+
+(Hermes has its own secret-finding SARIF exporter; this is the generic
+``core.Finding`` bridge.) An imported SARIF document comes from an external tool,
+so it is treated as **hostile input**: every field is type-checked before use,
+strings are length-bounded, the result count is capped, and anything malformed
+raises :class:`SarifImportError` rather than producing a half-built finding. Both
+directions are deterministic and offline.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
+from olympus import __version__
 from olympus.core.enums import Severity, Source
 from olympus.core.models import Finding
 
@@ -185,3 +190,79 @@ def sarif_to_findings(
                 raise SarifImportError("each SARIF result must be an object")
             findings.append(_result_to_finding(result, rules, asset_id=asset_id, source=source))
     return findings
+
+
+#: Olympus severity → SARIF ``result.level``. SARIF has four levels and Olympus
+#: five severities, so ``critical`` and ``high`` both map to ``error`` (SARIF's
+#: most urgent level); the richer Olympus severity is preserved in the result's
+#: ``properties`` bag so a round-trip or a rich consumer never loses it.
+_SEVERITY_LEVEL: dict[Severity, str] = {
+    Severity.CRITICAL: "error",
+    Severity.HIGH: "error",
+    Severity.MEDIUM: "warning",
+    Severity.LOW: "note",
+    Severity.INFO: "none",
+}
+
+#: The published SARIF 2.1.0 schema, matching the Hermes exporter.
+_SARIF_SCHEMA = "https://json.schemastore.org/sarif-2.1.0.json"
+
+
+def _finding_result(finding: Finding) -> dict[str, Any]:
+    """Project one finding into a SARIF result, preserving Olympus fields."""
+    message = (
+        finding.title if not finding.description else f"{finding.title}\n{finding.description}"
+    )
+    result: dict[str, Any] = {
+        "ruleId": finding.finding_id,
+        "level": _SEVERITY_LEVEL[finding.severity],
+        "message": {"text": message},
+        "locations": [
+            {"physicalLocation": {"artifactLocation": {"uri": finding.asset_id}}},
+        ],
+        # Olympus-specific fields ride in the SARIF property bag so a consumer
+        # (or a re-import) keeps the full severity, provenance and intelligence.
+        "properties": {
+            "severity": finding.severity.value,
+            "source": finding.source.value,
+            "status": finding.status.value,
+            "risk_score": finding.risk_score(),
+            "cve": list(finding.cves()),
+            "cwe": list(finding.cwes()),
+            "kev": finding.kev,
+        },
+    }
+    if finding.references:
+        result["properties"]["references"] = list(finding.references)
+    return result
+
+
+def findings_to_sarif(
+    findings: Sequence[Finding], *, tool_name: str = "Olympus Vulcan"
+) -> dict[str, Any]:
+    """Serialise Olympus findings into a deterministic SARIF 2.1.0 document.
+
+    Results are ordered by ``finding_id`` so the same set always produces the same
+    document (diffable, round-trip-verifiable). Severity maps to the SARIF level
+    (:data:`_SEVERITY_LEVEL`); the finding's asset is the result location; and the
+    full Olympus severity, provenance, status, risk score and CVE/CWE/KEV ride in
+    the result ``properties`` bag so no information is lost to the four SARIF
+    levels. Pure and offline.
+    """
+    ordered = sorted(findings, key=lambda finding: finding.finding_id)
+    return {
+        "$schema": _SARIF_SCHEMA,
+        "version": SARIF_VERSION,
+        "runs": [
+            {
+                "tool": {
+                    "driver": {
+                        "name": tool_name,
+                        "version": __version__,
+                        "informationUri": "https://github.com/chiaraberti13/OLYMPUS-SECURITY",
+                    }
+                },
+                "results": [_finding_result(finding) for finding in ordered],
+            }
+        ],
+    }

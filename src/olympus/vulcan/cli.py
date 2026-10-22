@@ -76,7 +76,7 @@ from olympus.vulcan.portable import (
     import_findings as portable_import_findings,
 )
 from olympus.vulcan.report import export_report, export_text
-from olympus.vulcan.sarif import SarifImportError, sarif_to_findings
+from olympus.vulcan.sarif import SarifImportError, findings_to_sarif, sarif_to_findings
 from olympus.vulcan.search import FindingFilter, search_findings
 from olympus.vulcan.trend import build_finding_trend
 from olympus.vulcan.view import LIST_COLUMNS, FindingView, rank_by_risk
@@ -597,6 +597,40 @@ def sarif_import_command(
     bundle = [finding.model_dump(mode="json") for finding in findings]
     atomic_write_text(output, json.dumps(bundle, indent=2, sort_keys=True) + "\n", mode=0o600)
     typer.echo(json.dumps({"imported": len(findings), "output": str(output)}, indent=2))
+
+
+@app.command("sarif-export")
+def sarif_export_command(
+    input_files: list[Path] = typer.Option(
+        ..., "--input", "-i", help="core.Finding JSON bundle(s) to export (repeatable)."
+    ),
+    output: Path = typer.Option(..., "--output", "-o", help="SARIF 2.1.0 JSON file to write."),
+    max_files: int = typer.Option(DEFAULT_MAX_FILES, "--max-files"),
+    max_input_bytes: int = typer.Option(DEFAULT_MAX_INPUT_BYTES, "--max-input-bytes"),
+    max_items_per_file: int = typer.Option(DEFAULT_MAX_ITEMS_PER_FILE, "--max-items-per-file"),
+    max_total_items: int = typer.Option(DEFAULT_MAX_TOTAL_ITEMS, "--max-total-items"),
+) -> None:
+    """Export findings as a SARIF 2.1.0 document for any SARIF consumer.
+
+    Deterministic (results sorted by finding id). Severity maps to the SARIF level
+    and the full Olympus severity/provenance/status/risk/CVE-CWE-KEV ride in each
+    result's ``properties`` bag, so a SARIF-aware tool keeps the detail and a
+    re-import loses nothing but the four-level severity collapse.
+    """
+    try:
+        loaded = load_findings(
+            input_files,
+            max_files=max_files,
+            max_bytes=max_input_bytes,
+            max_items_per_file=max_items_per_file,
+            max_total_items=max_total_items,
+        )
+    except _APPLICATION_ERRORS as exc:
+        typer.echo(safe_terminal_text(f"vulcan: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    document = findings_to_sarif(loaded)
+    atomic_write_text(output, json.dumps(document, indent=2, sort_keys=True) + "\n", mode=0o600)
+    typer.echo(json.dumps({"exported": len(loaded), "output": str(output)}, indent=2))
 
 
 findings_app = typer.Typer(

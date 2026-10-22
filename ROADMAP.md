@@ -1432,8 +1432,12 @@ notifica redatta alla chiusura di un job, senza logica di report duplicata.
   SARIF citato nel bullet import/export (l'export SARIF dei finding era già in
   Hermes). CLI `olympus vulcan sarif-import -i report.sarif.json -o findings.json
   --asset-id … [--source …]` (bundle JSON caricabile dai loader; malformato → exit
-  `2`, nulla scritto). Test `tests/unit/test_vulcan_sarif.py`; doc
-  [`docs/findings.md`](docs/findings.md), [`docs/reference.md`](docs/reference.md).
+  `2`, nulla scritto). **Export simmetrico** `findings_to_sarif` +
+  `olympus vulcan sarif-export -i findings.json -o report.sarif.json`
+  (deterministico, ordinato per id; severità→`level` con severità/provenienza/
+  stato/rischio/CVE-CWE-KEV conservati nel `properties` bag, così il dettaglio non
+  si perde oltre il collasso a 4 livelli). Test `tests/unit/test_vulcan_sarif.py`;
+  doc [`docs/findings.md`](docs/findings.md), [`docs/reference.md`](docs/reference.md).
 - [x] **OpenAPI pubblicata e documentata**: lo schema OpenAPI del control plane
   (`themis.api`) è generato (`scripts/update_contract_goldens.py`) e **versionato
   e verificato in CI** come golden (`tests/fixtures/contracts/openapi.json`,

@@ -166,3 +166,92 @@ def test_cli_rejects_malformed_sarif_without_writing(tmp_path: Path) -> None:
     )
     assert result.exit_code == ExitCode.USAGE
     assert not out.exists()
+
+
+# ---------------------------------------------------------------------------
+# SARIF export (findings -> SARIF 2.1.0)
+# ---------------------------------------------------------------------------
+
+from olympus.vulcan.sarif import findings_to_sarif  # noqa: E402
+
+
+def _finding(fid: str, title: str, severity: Severity, asset: str = "AST-1") -> Any:
+    from olympus.core.models import Finding
+
+    return Finding(
+        finding_id=fid, asset_id=asset, source=Source.ARTEMIS, title=title, severity=severity
+    )
+
+
+def test_export_is_valid_sarif_and_deterministic() -> None:
+    a = _finding("FND-2026-00001", "XSS", Severity.CRITICAL)
+    b = _finding("FND-2026-00002", "Open port", Severity.LOW)
+    doc = findings_to_sarif([b, a])
+    assert doc["version"] == "2.1.0"
+    assert doc["$schema"].endswith("sarif-2.1.0.json")
+    results = doc["runs"][0]["results"]
+    # Sorted by finding id, so the output is byte-stable.
+    assert [r["ruleId"] for r in results] == ["FND-2026-00001", "FND-2026-00002"]
+    assert findings_to_sarif([a, b]) == findings_to_sarif([b, a])
+    # Round-trippable through json.
+    json.dumps(doc)
+
+
+def test_export_maps_severity_to_level_and_keeps_detail_in_properties() -> None:
+    doc = findings_to_sarif(
+        [
+            _finding("FND-2026-00001", "crit", Severity.CRITICAL),
+            _finding("FND-2026-00002", "high", Severity.HIGH),
+            _finding("FND-2026-00003", "med", Severity.MEDIUM),
+            _finding("FND-2026-00004", "low", Severity.LOW),
+            _finding("FND-2026-00005", "info", Severity.INFO),
+        ]
+    )
+    levels = [(r["level"], r["properties"]["severity"]) for r in doc["runs"][0]["results"]]
+    assert levels == [
+        ("error", "critical"),  # critical and high both collapse to error...
+        ("error", "high"),
+        ("warning", "medium"),
+        ("note", "low"),
+        ("none", "info"),
+    ]
+    # ...but the exact Olympus severity survives in the property bag.
+
+
+def test_export_puts_asset_in_location() -> None:
+    doc = findings_to_sarif([_finding("FND-2026-00001", "x", Severity.LOW, asset="AST-2026-00042")])
+    uri = doc["runs"][0]["results"][0]["locations"][0]["physicalLocation"]["artifactLocation"][
+        "uri"
+    ]
+    assert uri == "AST-2026-00042"
+
+
+def test_cli_export_then_reimport_round_trips(tmp_path: Path) -> None:
+    from olympus.core.models import Finding
+
+    findings = [
+        Finding(
+            finding_id="FND-2026-00001",
+            asset_id="AST-1",
+            source=Source.ARTEMIS,
+            title="XSS",
+            severity=Severity.HIGH,
+        ),
+    ]
+    bundle = tmp_path / "in.json"
+    bundle.write_text(
+        json.dumps([json.loads(f.model_dump_json()) for f in findings]), encoding="utf-8"
+    )
+    sarif = tmp_path / "out.sarif.json"
+    exported = runner.invoke(app, ["vulcan", "sarif-export", "-i", str(bundle), "-o", str(sarif)])
+    assert exported.exit_code == 0, exported.output
+    assert json.loads(exported.output)["exported"] == 1
+
+    restored = tmp_path / "back.json"
+    reimported = runner.invoke(
+        app,
+        ["vulcan", "sarif-import", "-i", str(sarif), "-o", str(restored), "--asset-id", "AST-1"],
+    )
+    assert reimported.exit_code == 0, reimported.output
+    loaded = load_findings([restored])
+    assert loaded[0].title == "XSS" and loaded[0].severity is Severity.HIGH

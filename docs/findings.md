@@ -285,6 +285,9 @@ type-checked fields, bounded sizes, and a malformed document imports nothing.
 # SARIF report -> canonical core.Finding bundle, linked to an Olympus asset
 olympus vulcan sarif-import -i report.sarif.json -o findings.json \
   --asset-id AST-2026-00001
+
+# core.Finding bundle -> SARIF 2.1.0 for any SARIF consumer (CI code-scanning…)
+olympus vulcan sarif-export -i findings.json -o report.sarif.json
 ```
 
 The SARIF `level` maps to severity (`error`→high, `warning`→medium, `note`→low,
@@ -292,6 +295,13 @@ The SARIF `level` maps to severity (`error`→high, `warning`→medium, `note`�
 `helpUri` become references; each result location becomes `uri:line` evidence.
 Imported findings are stamped `source=manual` (ingested from outside Olympus)
 unless `--source` is given.
+
+Export is the symmetric direction (deterministic, sorted by finding id). Severity
+maps to the SARIF `level` and — because SARIF has four levels while Olympus has
+five severities, so `critical` and `high` both become `error` — the exact
+severity, provenance, status, risk score and CVE/CWE/KEV ride in each result's
+`properties` bag, so a SARIF-aware consumer keeps the detail and a re-import loses
+nothing but that four-level collapse.
 
 ## Tagging, search and filters
 
