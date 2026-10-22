@@ -111,6 +111,21 @@ def report(
     alerts: list[Path] = typer.Option(
         [], "--alerts", help="core.Alert JSON file(s) to include (repeatable)."
     ),
+    themis_results: list[Path] = typer.Option(
+        [],
+        "--themis-result",
+        help="Manifest-bound olympus.themis-result 1.2.0 file(s) (repeatable).",
+    ),
+    signed_manifests: list[Path] = typer.Option(
+        [],
+        "--signed-manifest",
+        help="Signed engagement manifest file(s) matching the Themis results (repeatable).",
+    ),
+    manifest_public_key: Path | None = typer.Option(
+        None,
+        "--manifest-public-key",
+        help="Pinned Ed25519 public key used to verify report authorization provenance.",
+    ),
     output: Path = typer.Option(DEFAULT_REPORT_OUTPUT, "--output", help="JSON report output path."),
     markdown: Path | None = typer.Option(
         None, "--markdown", help="If set, also write a Markdown report to this path."
@@ -163,12 +178,24 @@ def report(
             if epss is not None
             else {}
         )
+        trusted_manifest_public_key_pem = (
+            read_regular_text(
+                manifest_public_key,
+                max_bytes=64_000,
+                label="manifest public key",
+            )
+            if manifest_public_key is not None
+            else None
+        )
         outcome = VulcanApplicationService().report(
             VulcanReportRequest(
                 engagement=engagement,
                 asset_paths=tuple(assets),
                 finding_paths=tuple(findings),
                 alert_paths=tuple(alerts),
+                themis_result_paths=tuple(themis_results),
+                signed_manifest_paths=tuple(signed_manifests),
+                trusted_manifest_public_key_pem=trusted_manifest_public_key_pem,
                 excluded_paths=outputs,
                 min_severity=min_severity,
                 render_markdown=markdown is not None,

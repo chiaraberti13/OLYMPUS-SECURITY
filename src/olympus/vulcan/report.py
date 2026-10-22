@@ -11,7 +11,14 @@ from pathlib import Path
 
 from olympus.core.execution import safe_terminal_text
 from olympus.core.fileio import atomic_write_text
-from olympus.core.models import Alert, Asset, Finding, ReportSummary, SecurityReport
+from olympus.core.models import (
+    Alert,
+    Asset,
+    AuthorizationProvenance,
+    Finding,
+    ReportSummary,
+    SecurityReport,
+)
 from olympus.vulcan.aggregate import rank_findings, severity_breakdown
 
 
@@ -21,6 +28,7 @@ def build_report_model(
     findings: Sequence[Finding],
     alerts: Sequence[Alert],
     *,
+    authorization_provenance: Sequence[AuthorizationProvenance] = (),
     generated_at: datetime | None = None,
 ) -> SecurityReport:
     """Assemble the canonical report model used by every output renderer."""
@@ -37,6 +45,7 @@ def build_report_model(
         assets=list(assets),
         findings=ranked,
         alerts=list(alerts),
+        authorization_provenance=list(authorization_provenance),
     )
 
 
@@ -110,6 +119,24 @@ def render_report_markdown(report: SecurityReport) -> str:
             f"- [{alert.severity.value.upper()}] {_markdown_text(alert.title)} "
             f"({_markdown_text(alert.alert_id)}; {provenance})"
         )
+    lines += ["", "## Authorization provenance"]
+    if not report.authorization_provenance:
+        lines.append("_No manifest-bound scanner results supplied._")
+    for item in report.authorization_provenance:
+        lines += [
+            "",
+            f"### Job {_markdown_text(item.job_id)}",
+            f"- Manifest SHA-256: `{item.manifest_sha256}`",
+            f"- Manifest: {_markdown_text(item.manifest_id)}; engagement "
+            f"{_markdown_text(item.engagement_id)}",
+            f"- Scanner/result: {_markdown_text(item.scanner)} / "
+            f"{_markdown_text(item.result_state)}",
+            "- Verification: Ed25519 signature, target scope and technique verified",
+            f"- Validity: {item.valid_from.astimezone(UTC).isoformat()} to "
+            f"{item.expires_at.astimezone(UTC).isoformat()}",
+            f"- Policy limits: targets={item.max_targets}, concurrency={item.max_concurrency}, "
+            f"runtime={item.max_runtime_seconds}s",
+        ]
     return "\n".join(lines) + "\n"
 
 
@@ -208,6 +235,21 @@ def render_report_html(report: SecurityReport) -> str:
             f"<div class='card'><strong>[{alert.severity.value.upper()}] "
             f"{_html_text(alert.title)}</strong><p class='meta'>{_html_text(alert.alert_id)} · "
             f"{_html_text(alert.source.value)} · {_html_text(provenance)}</p></div>"
+        )
+    parts.append("<h2>Authorization provenance</h2>")
+    if not report.authorization_provenance:
+        parts.append("<p>No manifest-bound scanner results supplied.</p>")
+    for item in report.authorization_provenance:
+        parts.append(
+            "<div class='card'><strong>Job "
+            f"{_html_text(item.job_id)}</strong>"
+            f"<p class='meta'>Manifest SHA-256 {_html_text(item.manifest_sha256)} · "
+            f"{_html_text(item.manifest_id)} · {_html_text(item.engagement_id)}</p>"
+            f"<p>{_html_text(item.scanner)} / {_html_text(item.result_state)} · "
+            "Ed25519 signature, target scope and technique verified</p>"
+            f"<p class='meta'>Valid {item.valid_from.astimezone(UTC).isoformat()} to "
+            f"{item.expires_at.astimezone(UTC).isoformat()} · targets {item.max_targets} · "
+            f"concurrency {item.max_concurrency} · runtime {item.max_runtime_seconds}s</p></div>"
         )
     parts.append("</body></html>")
     return "".join(parts)

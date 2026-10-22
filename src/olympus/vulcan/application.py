@@ -30,6 +30,7 @@ from olympus.vulcan.aggregate import (
 )
 from olympus.vulcan.enrichment import EpssScore, KevEntry, enrich_findings
 from olympus.vulcan.pdf import render_report_pdf
+from olympus.vulcan.provenance import load_authorization_provenance
 from olympus.vulcan.report import build_report_model, render_report_html, render_report_markdown
 
 DEFAULT_MAX_OUTPUT_BYTES = 100_000_000
@@ -42,6 +43,9 @@ class VulcanReportRequest:
     asset_paths: tuple[Path, ...] = ()
     finding_paths: tuple[Path, ...] = ()
     alert_paths: tuple[Path, ...] = ()
+    themis_result_paths: tuple[Path, ...] = ()
+    signed_manifest_paths: tuple[Path, ...] = ()
+    trusted_manifest_public_key_pem: str | None = None
     excluded_paths: tuple[Path, ...] = ()
     min_severity: Severity | None = None
     render_markdown: bool = False
@@ -87,7 +91,13 @@ class VulcanApplicationService:
 
     def report(self, request: VulcanReportRequest) -> VulcanReportOutcome:
         engagement = _single_line(request.engagement, "engagement", 500)
-        all_inputs = request.asset_paths + request.finding_paths + request.alert_paths
+        all_inputs = (
+            request.asset_paths
+            + request.finding_paths
+            + request.alert_paths
+            + request.themis_result_paths
+            + request.signed_manifest_paths
+        )
         _validate_limits(request)
         _validate_input_set(all_inputs, request.max_files, request.max_total_input_bytes)
         _validate_output_conflicts(all_inputs, request.excluded_paths)
@@ -138,7 +148,18 @@ class VulcanApplicationService:
                 sample = ", ".join(missing[:5])
                 raise AggregationError(f"findings reference unknown report assets: {sample}")
         progress()
-        report = build_report_model(engagement, assets, findings, alerts)
+        authorization_provenance = load_authorization_provenance(
+            request.themis_result_paths,
+            request.signed_manifest_paths,
+            trusted_public_key_pem=request.trusted_manifest_public_key_pem,
+        )
+        report = build_report_model(
+            engagement,
+            assets,
+            findings,
+            alerts,
+            authorization_provenance=authorization_provenance,
+        )
         json_content = json.dumps(report.model_dump(mode="json"), indent=2, sort_keys=True) + "\n"
         _ensure_output_size(json_content.encode(), request.max_output_bytes, "JSON")
         markdown = render_report_markdown(report) if request.render_markdown else None

@@ -2913,6 +2913,117 @@
         "title": "AssetType",
         "type": "string"
       },
+      "AuthorizationProvenance": {
+        "additionalProperties": false,
+        "description": "Verified manifest binding carried by a consolidated security report.\n\nThe signed document and execution target are deliberately not embedded.  A\nreport keeps only the identifiers, authorized scope and bounded policy that\nan independent reviewer needs to correlate with the retained manifest.",
+        "properties": {
+          "allowed_techniques": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 128,
+            "minItems": 1,
+            "title": "Allowed Techniques",
+            "type": "array"
+          },
+          "engagement_id": {
+            "pattern": "^ENG-\\d{4}-\\d{5}$",
+            "title": "Engagement Id",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "job_id": {
+            "pattern": "^THEMIS-[A-F0-9]{32}$",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "manifest_id": {
+            "pattern": "^MAN-\\d{4}-\\d{5}$",
+            "title": "Manifest Id",
+            "type": "string"
+          },
+          "manifest_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Manifest Sha256",
+            "type": "string"
+          },
+          "max_concurrency": {
+            "maximum": 64,
+            "minimum": 1,
+            "title": "Max Concurrency",
+            "type": "integer"
+          },
+          "max_runtime_seconds": {
+            "maximum": 86400,
+            "minimum": 1,
+            "title": "Max Runtime Seconds",
+            "type": "integer"
+          },
+          "max_targets": {
+            "maximum": 10000,
+            "minimum": 1,
+            "title": "Max Targets",
+            "type": "integer"
+          },
+          "result_state": {
+            "pattern": "^[a-z_]{1,32}$",
+            "title": "Result State",
+            "type": "string"
+          },
+          "scanner": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Scanner",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/$defs/EngagementScope"
+          },
+          "scope_verified": {
+            "const": true,
+            "default": true,
+            "title": "Scope Verified",
+            "type": "boolean"
+          },
+          "signature_verified": {
+            "const": true,
+            "default": true,
+            "title": "Signature Verified",
+            "type": "boolean"
+          },
+          "technique_verified": {
+            "const": true,
+            "default": true,
+            "title": "Technique Verified",
+            "type": "boolean"
+          },
+          "valid_from": {
+            "format": "date-time",
+            "title": "Valid From",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "scanner",
+          "result_state",
+          "manifest_sha256",
+          "manifest_id",
+          "engagement_id",
+          "scope",
+          "allowed_techniques",
+          "valid_from",
+          "expires_at",
+          "max_targets",
+          "max_concurrency",
+          "max_runtime_seconds"
+        ],
+        "title": "AuthorizationProvenance",
+        "type": "object"
+      },
       "Confidence": {
         "description": "How confident Olympus is that a finding is a true positive.",
         "enum": [
@@ -2933,6 +3044,33 @@
         ],
         "title": "Criticality",
         "type": "string"
+      },
+      "EngagementScope": {
+        "additionalProperties": false,
+        "description": "The authorized perimeter of an engagement: included minus excluded.\n\nEntries are hostnames or domains (matched like the rest of Olympus: an entry\ncovers itself and its subdomains). IP/CIDR matching is a planned extension\n(ROADMAP ``WEB-B``); until then IPs must be listed verbatim.",
+        "properties": {
+          "excluded": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Excluded",
+            "type": "array"
+          },
+          "included": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Included",
+            "type": "array"
+          }
+        },
+        "required": [
+          "included"
+        ],
+        "title": "EngagementScope",
+        "type": "object"
       },
       "Finding": {
         "additionalProperties": false,
@@ -3202,6 +3340,13 @@
         "title": "Assets",
         "type": "array"
       },
+      "authorization_provenance": {
+        "items": {
+          "$ref": "#/$defs/AuthorizationProvenance"
+        },
+        "title": "Authorization Provenance",
+        "type": "array"
+      },
       "engagement": {
         "minLength": 1,
         "title": "Engagement",
@@ -3226,8 +3371,8 @@
         "type": "string"
       },
       "schema_version": {
-        "const": "1.0.0",
-        "default": "1.0.0",
+        "const": "1.1.0",
+        "default": "1.1.0",
         "title": "Schema Version",
         "type": "string"
       },

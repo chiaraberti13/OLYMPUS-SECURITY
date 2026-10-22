@@ -18,7 +18,7 @@ producer, CLI, worker, database adapter, API, and report consumer.
 | Alert | `olympus.alert` | `1.0.0` | Apollo producer; Minerva and Vulcan consumers |
 | Incident | `olympus.incident` | `1.0.0` | Minerva triage producer; report consumers |
 | Custody ledger | `olympus.custody` | `2.0.0` | Minerva record/verify/timeline; evidence digest anchors |
-| Security report | `olympus.security-report` | `1.0.0` | Vulcan and Athena report adapter; CLI/API/report readers |
+| Security report | `olympus.security-report` | `1.1.0` | Vulcan and Athena report adapter; CLI/API/report readers |
 
 Apollo alerts carry the source `rule_id` and validated `mitre_attack` techniques;
 their optional introduction is compatible within `1.0.0`. Athena job results are
@@ -100,7 +100,9 @@ digest, authorization, timestamp, indicator or finding.
   converting old history would invent unavailable provenance and is not allowed.
 - Vulcan still accepts the original bare arrays or single shared objects as an
   input compatibility path. Versioned Argus, Helios, Apollo, and security-report
-  envelopes are validated before their arrays are consumed.
+  envelopes are validated before their arrays are consumed. Security-report
+  `1.0.x` is normalized by a named additive adapter to `1.1.0` with an empty
+  authorization-provenance array; newer minor/major documents fail closed.
 - No compatibility claim is made for unversioned Athena result documents. New
   writes and database reads validate `olympus.athena.result` and its nested job,
   asset, and finding contracts.

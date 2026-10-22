@@ -225,7 +225,7 @@ def test_build_report_and_markdown() -> None:
     alerts = [Alert(event_id="EVT-1", title="brute force", source=Source.APOLLO)]
     report = build_report("eng", assets, findings, alerts)
     assert report["schema_name"] == "olympus.security-report"
-    assert report["schema_version"] == "1.0.0"
+    assert report["schema_version"] == "1.1.0"
     summary = report["summary"]
     assert isinstance(summary, dict)
     assert summary["findings"] == 1
@@ -233,6 +233,22 @@ def test_build_report_and_markdown() -> None:
     assert "# Security report — eng" in md
     assert "SQLi" in md
     assert "brute force" in md
+
+
+def test_security_report_previous_minor_remains_a_supported_input(tmp_path: Path) -> None:
+    finding = _finding("legacy report finding", Severity.MEDIUM)
+    report = build_report("eng", [], [finding], [])
+    report["schema_version"] = "1.0.0"
+    report.pop("authorization_provenance")
+    path = tmp_path / "report-1.0.json"
+    path.write_text(json.dumps(report), encoding="utf-8")
+
+    assert load_findings([path]) == [finding]
+
+    report["schema_version"] = "1.2.0"
+    path.write_text(json.dumps(report), encoding="utf-8")
+    with pytest.raises(AggregationError, match="incompatible contract"):
+        load_findings([path])
 
 
 def test_cli_report_end_to_end(tmp_path: Path) -> None:

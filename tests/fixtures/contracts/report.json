@@ -36,6 +36,7 @@
       "tags": []
     }
   ],
+  "authorization_provenance": [],
   "engagement": "ENG-GOLDEN",
   "findings": [
     {
@@ -70,7 +71,7 @@
   ],
   "generated_at": "2026-01-02T03:04:05Z",
   "schema_name": "olympus.security-report",
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "summary": {
     "alerts": 1,
     "assets": 1,

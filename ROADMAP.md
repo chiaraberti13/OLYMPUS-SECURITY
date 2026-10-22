@@ -376,6 +376,17 @@ di autorizzazione senza copiare manifest, approvatore o target non redatto.
 L'inclusione della provenienza nei report consolidati e la rimozione della
 modalità compatibile senza chiave restano aperte: SEC-C resta `[~]`.
 
+**Avanzamento verificato (2026-10-22, provenienza report verificata):** Vulcan
+accetta risultati Themis 1.2.0, manifest firmati e chiave pubblica Ed25519
+fissata come insieme fail-closed. Il report `olympus.security-report` 1.1.0
+verifica firma/digest e che target e scanner del risultato siano coperti da
+scope e tecniche firmati, quindi esporta in JSON/Markdown/HTML/PDF una proiezione
+minimizzata con job, digest, identificativi, finestra e limiti, senza documento
+firmato, target puntuale o dati di approvatore/cliente. Non inventa una verifica
+retrospettiva di revoca o finestra temporale: quella decisione resta provata
+dall'audit worker correlato. Il profilo lab separato e la modalità compatibile
+senza chiave restano aperti: SEC-C resta `[~]`.
+
 **Criterio di completamento:** nessuna live scan può partire con un semplice flag;
 il report consente di dimostrare manifest, firma, scope e policy effettivi usati.
 

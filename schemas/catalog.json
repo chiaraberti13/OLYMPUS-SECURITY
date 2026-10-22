@@ -122,9 +122,9 @@
     {
       "direction": "output",
       "name": "olympus.security-report",
-      "path": "contracts/olympus.security-report/1.0.0.schema.json",
-      "schema_version": "1.0.0",
-      "sha256": "56e7dd645a9070347bfcb1e97d1ba96617621c11a78d75cc2e523229d6f606bf"
+      "path": "contracts/olympus.security-report/1.1.0.schema.json",
+      "schema_version": "1.1.0",
+      "sha256": "4cefb122d111292231c117a80319c2d30c0025a0d72bfa4d17b0ead9cc7058fc"
     },
     {
       "direction": "input",

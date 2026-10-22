@@ -75,7 +75,9 @@ def test_shared_contracts_are_self_describing_and_strict() -> None:
     assert observation.schema_name == "olympus.observation"
     assert job.schema_name == "olympus.scan-job"
     assert report.schema_name == "olympus.security-report"
-    assert {observation.schema_version, job.schema_version, report.schema_version} == {"1.0.0"}
+    assert observation.schema_version == "1.0.0"
+    assert job.schema_version == "1.0.0"
+    assert report.schema_version == "1.1.0"
 
     with pytest.raises(ValidationError):
         ScanJob.model_validate({**job.model_dump(), "schema_name": "olympus.not-a-job"})

@@ -2,7 +2,7 @@
 
 Vulcan is the offline reporting capstone. One application service loads shared
 producer contracts, applies exact deduplication and severity filtering, builds
-one canonical `olympus.security-report`, and renders JSON, Markdown and HTML
+one canonical `olympus.security-report`, and renders JSON, Markdown, HTML and PDF
 from that same timestamped model.
 
 ## Accepted inputs
@@ -15,6 +15,11 @@ Vulcan validates complete versioned envelopes and every nested object for:
 - Apollo alert collections;
 - existing Olympus security reports;
 - direct versioned `Asset`, `Finding`, and `Alert` objects.
+
+For authorization provenance, Vulcan also accepts strict
+`olympus.themis-result` 1.2.0 documents and their signed engagement manifests.
+Those inputs are optional, but fail closed as a group: results, manifests and a
+pinned Ed25519 public key must all be supplied.
 
 The original bare array or bare single-object forms remain one explicit legacy
 adapter. Unsupported/wrong schemas, unknown envelope fields, incompatible
@@ -49,7 +54,29 @@ olympus vulcan report --engagement ENG-2026-001 \
   --findings helios-findings.json \
   --alerts apollo-alerts.json \
   --output report.json --markdown report.md --html report.html --pdf report.pdf
+
+olympus vulcan report --engagement ENG-2026-001 \
+  --themis-result themis-result.json \
+  --signed-manifest signed-manifest.json \
+  --manifest-public-key approver.pub.pem \
+  --output report-with-provenance.json --markdown report-with-provenance.md
 ```
+
+The second form verifies the canonical manifest digest and Ed25519 signature,
+then requires each result target and scanner to be covered by the signed scope
+and allowed techniques. The 1.1.0 report carries a deterministic,
+privacy-minimized projection: job/digest/manifest/engagement identifiers,
+result state, authorized scope, validity window and policy limits. It does not
+copy the signature envelope, exact execution target, client, owner, approver or
+contract identifier.
+
+This report-time verification proves the static result-to-manifest binding. It
+does not reconstruct whether the manifest was unrevoked and inside its time
+window at the historical execution instant because the result contract has no
+execution timestamp or revocation snapshot. The worker's
+`themis.manifest-authorization` audit event remains authoritative for that
+immediate pre-execution decision; the shared job ID and manifest digest join the
+two records without overstating what the report can prove.
 
 Supplying JSON plus optional Markdown/HTML/PDF is prevalidated and rendered fully
 before the first write. The individual atomic replacements are durable, but a

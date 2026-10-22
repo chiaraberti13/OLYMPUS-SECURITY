@@ -521,6 +521,53 @@ def render_report_pdf(
         )
         story.append(assets_table)
 
+    story.extend(_section("Authorization provenance"))
+    if not report.authorization_provenance:
+        story.append(
+            Paragraph(
+                "No manifest-bound Themis results were supplied for this report.",
+                body,
+            )
+        )
+    for item in report.authorization_provenance:
+        verified = "signature, scope and technique verified"
+        policy = (
+            f"targets {item.max_targets}; concurrency {item.max_concurrency}; "
+            f"runtime {item.max_runtime_seconds}s"
+        )
+        provenance_rows = [
+            ["Job", item.job_id],
+            ["Manifest SHA-256", item.manifest_sha256],
+            ["Authorization", f"{item.manifest_id} / {item.engagement_id}"],
+            ["Result", f"{item.scanner} / {item.result_state}"],
+            ["Verification", verified],
+            [
+                "Validity",
+                f"{item.valid_from.isoformat()} to {item.expires_at.isoformat()}",
+            ],
+            ["Policy limits", policy],
+        ]
+        provenance_table = Table(
+            [
+                [Paragraph(_safe(name), cell_head), Paragraph(_safe(value), mono)]
+                for name, value in provenance_rows
+            ],
+            colWidths=[38 * mm, content_width - 38 * mm],
+        )
+        provenance_table.setStyle(
+            TableStyle(
+                [
+                    ("LINEBELOW", (0, 0), (-1, -2), 0.3, hairline),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("TOPPADDING", (0, 0), (-1, -1), 4),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ]
+            )
+        )
+        story.append(provenance_table)
+        story.append(Spacer(1, 3 * mm))
+
     story.extend(_section("Alerts"))
     if not report.alerts:
         story.append(Paragraph("No alerts.", body))

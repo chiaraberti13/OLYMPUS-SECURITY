@@ -30,3 +30,6 @@ _Generated 2026-01-02 03:04 UTC by Olympus Vulcan._
 
 ## Alerts
 - [MEDIUM] Suspicious login sequence (ALT-GOLDEN-1; rule APL-GOLDEN-1; MITRE T1110)
+
+## Authorization provenance
+_No manifest-bound scanner results supplied._

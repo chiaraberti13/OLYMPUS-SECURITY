@@ -397,16 +397,48 @@ class ReportSummary(BaseModel):
     severity_breakdown: dict[str, int]
 
 
-class SecurityReport(OlympusModel):
+class AuthorizationProvenance(BaseModel):
+    """Verified manifest binding carried by a consolidated security report.
+
+    The signed document and execution target are deliberately not embedded.  A
+    report keeps only the identifiers, authorized scope and bounded policy that
+    an independent reviewer needs to correlate with the retained manifest.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    job_id: str = Field(pattern=r"^THEMIS-[A-F0-9]{32}$")
+    scanner: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{0,63}$")
+    result_state: str = Field(pattern=r"^[a-z_]{1,32}$")
+    manifest_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    manifest_id: str = Field(pattern=r"^MAN-\d{4}-\d{5}$")
+    engagement_id: str = Field(pattern=r"^ENG-\d{4}-\d{5}$")
+    signature_verified: Literal[True] = True
+    scope_verified: Literal[True] = True
+    technique_verified: Literal[True] = True
+    scope: EngagementScope
+    allowed_techniques: tuple[str, ...] = Field(min_length=1, max_length=128)
+    valid_from: datetime
+    expires_at: datetime
+    max_targets: int = Field(ge=1, le=10_000)
+    max_concurrency: int = Field(ge=1, le=64)
+    max_runtime_seconds: int = Field(ge=1, le=86_400)
+
+
+class SecurityReport(BaseModel):
     """Canonical machine-readable engagement report consumed across Olympus."""
 
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
     schema_name: Literal["olympus.security-report"] = "olympus.security-report"
+    schema_version: Literal["1.1.0"] = "1.1.0"
     engagement: str = Field(min_length=1)
     generated_at: datetime = Field(default_factory=_utcnow)
     summary: ReportSummary
     assets: list[Asset] = Field(default_factory=list)
     findings: list[Finding] = Field(default_factory=list)
     alerts: list[Alert] = Field(default_factory=list)
+    authorization_provenance: list[AuthorizationProvenance] = Field(default_factory=list)
 
 
 class EngagementScope(BaseModel):

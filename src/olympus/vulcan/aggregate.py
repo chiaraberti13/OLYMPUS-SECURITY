@@ -151,12 +151,25 @@ def _load_array(
                 raise AggregationError(
                     f"{path} schema {schema_name!r} cannot be consumed as {model.__name__}"
                 )
+            envelope_type, key, singular = specification
+            supported_version = "1.1.0" if envelope_type is SecurityReport else "1.0.0"
             try:
-                validate_contract_header(raw, schema_name=schema_name)
+                validated_envelope = validate_contract_header(
+                    raw,
+                    schema_name=schema_name,
+                    supported_version=supported_version,
+                )
             except ContractCompatibilityError as exc:
                 raise AggregationError(f"{path} has an incompatible contract: {exc}") from exc
-            envelope_type, key, singular = specification
-            raw_payload = raw.get(key)
+            if envelope_type is SecurityReport:
+                # Security-report 1.1.0 adds only an optional provenance array.
+                # Normalize the previous minor (and compatible patch headers)
+                # before strict validation, preserving the published 1.0.0
+                # read contract while all new writes remain canonical 1.1.0.
+                validated_envelope = dict(validated_envelope)
+                validated_envelope["schema_version"] = "1.1.0"
+                validated_envelope.setdefault("authorization_provenance", [])
+            raw_payload = validated_envelope.get(key)
             raw_count = (
                 1
                 if singular and raw_payload is not None
@@ -165,7 +178,7 @@ def _load_array(
             if raw_count > max_items:
                 raise AggregationError(f"{path} exceeds the {max_items} item limit")
             try:
-                envelope = envelope_type.model_validate(raw)
+                envelope = envelope_type.model_validate(validated_envelope)
             except ValidationError as exc:
                 details = exc.errors(include_input=False, include_url=False)
                 raise AggregationError(f"{path} has an invalid envelope: {details}") from exc

@@ -72,6 +72,13 @@ Successful job evidence repeats the same correlation fields in
 traceable after audit rotation, while the manifest document and approver data
 stay in the access-controlled engagement store.
 
+Vulcan can independently verify that binding when consolidating a report: pass
+the 1.2.0 result, signed manifest and pinned public key to `vulcan report`. The
+report records a privacy-minimized verification projection and correlates it by
+job ID and manifest digest. This later verification covers signature, digest,
+scope and technique; it deliberately does not claim to replay the worker's
+execution-time expiry/revocation decision. See [Vulcan reporting](vulcan.md).
+
 ## Adoption status
 
 - Core HTTP: validated timeout/retry/backoff/rate policy and cooperative
