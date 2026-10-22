@@ -1,6 +1,6 @@
-# METIS — planning and cyber threat intelligence
+# Metis — planning and cyber threat intelligence
 
-METIS adds local, deterministic planning and CTI casework to Olympus. It does
+Metis adds local, deterministic planning and CTI casework to Olympus. It does
 not call an AI provider, run shell commands, or contact a target. Active work is
 represented as a plan step with an explicit authorization state and is executed
 only by the existing scope-aware Olympus modules.

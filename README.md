@@ -28,7 +28,7 @@
 - **[Project structure](#-project-structure)** — how the repository is laid out.
 - **[Development](#-development)** — required CI checks and local commands.
 - **[Security model](#-security-model)** — scope, authorization, SSRF, audit.
-- **[Migration](#-migration--specialist-engines)** — native ARGUS, Themis and specialist engines.
+- **[Migration](#-migration--specialist-engines)** — native Argus, Themis and specialist engines.
 - **[Licences](#-licence-scope)** — GPL-3.0 native code plus preserved third-party licences.
 - **[Legal & ethical use](#-legal--ethical-use)** — authorized-only, in practice.
 
@@ -188,7 +188,7 @@ src/olympus/
 ├── cli.py            # unified `olympus` entry point
 ├── tui/              # unified keyboard-first terminal interface
 ├── core/             # shared contract: models, enums, http, config, policy, ids
-├── argus/            # OSINT & passive recon (incl. ARGUS integration)
+├── argus/            # OSINT & passive recon (incl. Argus integration)
 ├── athena/           # assessment orchestration (VAP integration)
 │   ├── domain/       # immutable plans, jobs, state machines, audit
 │   ├── application/  # coordinator, registry, planning use cases
@@ -252,7 +252,7 @@ the control behind each threat, and an honest list of what is not yet covered.
 
 ## 🔁 Migration & specialist engines
 
-The standalone **ARGUS** migration is complete. Its maintained implementation is
+The standalone **Argus** migration is complete. Its maintained implementation is
 `src/olympus/argus/`, exposed only as `olympus argus`; the duplicated
 `vendor/argus` source and the `argus-native` passthrough have been removed.
 
@@ -389,7 +389,7 @@ Exhaustive walkthroughs live in [`docs/reference.md`](docs/reference.md).
 
 ## 📄 Licence scope
 
-Olympus-native code, including native ARGUS and Themis, is licensed under **GNU GPL-3.0** — see
+Olympus-native code, including native Argus and Themis, is licensed under **GNU GPL-3.0** — see
 [LICENSE](LICENSE). Vendored and third-party components retain their own applicable licences; the
 root licence does not overwrite third-party licensing terms.
 See [third-party notices](THIRD_PARTY_NOTICES.md) and

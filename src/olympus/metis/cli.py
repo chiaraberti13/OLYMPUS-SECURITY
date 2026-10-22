@@ -1,4 +1,4 @@
-"""Command-line surface for METIS capability routing and CTI cases."""
+"""Command-line surface for Metis capability routing and CTI cases."""
 
 from __future__ import annotations
 
@@ -517,7 +517,7 @@ def case_backup(
 def case_verify_backup(
     backup: Path = typer.Argument(..., help="Snapshot file to validate."),
 ) -> None:
-    """Confirm a snapshot is a real METIS store and print its row counts."""
+    """Confirm a snapshot is a real Metis store and print its row counts."""
     try:
         counts = verify_backup(backup)
     except (BackupError, OSError, sqlite3.Error) as exc:

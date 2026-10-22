@@ -1,4 +1,4 @@
-"""Strict, versioned contracts for METIS planning and intelligence cases."""
+"""Strict, versioned contracts for Metis planning and intelligence cases."""
 
 from __future__ import annotations
 

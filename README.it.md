@@ -28,7 +28,7 @@
 - **[Struttura del progetto](#-struttura-del-progetto)** — com'è organizzato il repository.
 - **[Sviluppo](#-sviluppo)** — controlli CI obbligatori e comandi locali.
 - **[Modello di sicurezza](#-modello-di-sicurezza)** — scope, autorizzazione, SSRF, audit.
-- **[Migrazione](#-migrazione--motori-specialistici)** — ARGUS nativo, Themis e motori specialistici.
+- **[Migrazione](#-migrazione--motori-specialistici)** — Argus nativo, Themis e motori specialistici.
 - **[Licenze](#-ambito-delle-licenze)** — codice nativo GPL-3.0 e licenze vendor preservate.
 - **[Uso legale ed etico](#-uso-legale-ed-etico)** — solo autorizzato, in pratica.
 
@@ -150,7 +150,7 @@ src/olympus/
 ├── cli.py            # punto d'ingresso unificato `olympus`
 ├── tui/              # interfaccia terminale unificata da tastiera
 ├── core/             # contratto dati condiviso: modelli, enum, http, config, ids
-├── argus/            # OSINT & recon passivo (incl. integrazione ARGUS)
+├── argus/            # OSINT & recon passivo (incl. integrazione Argus)
 ├── athena/           # orchestrazione degli assessment (integrazione VAP)
 │   ├── domain/       # piani, job, macchine a stati, audit immutabili
 │   ├── application/  # coordinator, registry, use case di planning
@@ -200,7 +200,7 @@ per metriche redatte e correlazione delle trace, [`docs/parity/`](docs/parity) p
 
 ## 🔁 Migrazione & motori specialistici
 
-La migrazione di **ARGUS** standalone è completa. L'implementazione mantenuta è
+La migrazione di **Argus** standalone è completa. L'implementazione mantenuta è
 `src/olympus/argus/`, esposta soltanto come `olympus argus`; il sorgente
 duplicato `vendor/argus` e il passthrough `argus-native` sono stati rimossi.
 
@@ -308,7 +308,7 @@ esaustive sono in [`docs/reference.md`](docs/reference.md).
 
 ## 📄 Ambito delle licenze
 
-Il codice nativo Olympus, inclusi ARGUS e Themis nativi, è distribuito con licenza **GNU GPL-3.0** — vedi
+Il codice nativo Olympus, inclusi Argus e Themis nativi, è distribuito con licenza **GNU GPL-3.0** — vedi
 [LICENSE](LICENSE). I componenti vendorizzati e di terze parti mantengono le rispettive licenze
 applicabili; la licenza root non sovrascrive i termini di licenza di terze parti. Vedi [note di terze parti](THIRD_PARTY_NOTICES.md)
 e [provenienza](docs/provenance.md).

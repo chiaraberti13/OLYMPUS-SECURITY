@@ -4,7 +4,7 @@ This file records completed source migrations and archived source retained for
 provenance and parity review. Olympus does not use runtime Git dependencies or
 submodules, and native Themis does not load or execute the archived VAP runtime.
 
-## ARGUS (OSINT & reconnaissance toolkit)
+## Argus (OSINT & reconnaissance toolkit)
 
 - Upstream: <https://github.com/chiaraberti13/ARGUS>
 - Last assessed standalone revision: `1c7a8310ee64e005878dfa183ca8a384760706c6`.
@@ -16,7 +16,7 @@ submodules, and native Themis does not load or execute the archived VAP runtime.
   dependency updates are handled by Dependabot rather than a self-updater.
 - Verification: `tests/unit/test_argus_native_replacement.py`, the Argus unit
   suite and `docs/parity/argus.json` remain the executable migration contract.
-- No standalone ARGUS source is retained below `vendor/` and no `argus-native`
+- No standalone Argus source is retained below `vendor/` and no `argus-native`
   passthrough remains.
 
 ## Vulnerability Assessment Platform

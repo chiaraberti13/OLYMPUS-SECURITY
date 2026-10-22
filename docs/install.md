@@ -1,6 +1,6 @@
 # Unified installation & operation
 
-Olympus-native ARGUS and Themis and the specialist-engine catalogue from one
+Olympus-native Argus and Themis and the specialist-engine catalogue from one
 checkout. Linux (Debian/Ubuntu shown; adapt the package manager for RHEL/Arch).
 
 Themis runs on the Olympus-owned native control plane (SQLite job store, native
@@ -18,7 +18,7 @@ olympus --version
 olympus doctor            # environment diagnostics (binaries, services, deps)
 ```
 
-## 2. Native ARGUS and Themis dependencies
+## 2. Native Argus and Themis dependencies
 
 ```bash
 olympus argus --help                      # already installed by the base package
@@ -114,7 +114,7 @@ disabled state. Simulation occurs only when the operator explicitly requests it.
 ```bash
 olympus doctor           # ecosystem-wide: python deps, git/docker/curl, scanners
 olympus themis doctor     # Themis: web stack, DB/reports dir, live-scan flag, secrets(set?), scanners
-olympus argus doctor     # ARGUS: dnspython/phonenumbers, optional API keys (set?)
+olympus argus doctor     # Argus: dnspython/phonenumbers, optional API keys (set?)
 ```
 
 All `doctor` output is secret-safe: it reports whether a secret env var is

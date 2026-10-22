@@ -13,8 +13,8 @@ The machine-readable contract is
 
 | Reference | Reviewed revision | Licence observed | Useful pattern | Independent Olympus implementation |
 | --- | --- | --- | --- | --- |
-| `0xSteph/pentest-ai-agents` | `e5d7aa02c4c0c29a90e4789034b45e0cb7488e89` | MIT | specialist catalog, task routing, engagement planning, findings memory, scope guard | METIS capability catalog/router/planner and case store; shared `ExecutionPolicy` |
-| `7onez/cti-expert` | `c8e051aeb5d68f3b66009b8cdc61bf1db4840710` | MIT + ethical-use statement | case workspaces, IOC intake, confidence, pivot/correlation, reporting | METIS strict case document, SQLite case store, local IOC extraction, finding links and Markdown/JSON reports |
+| `0xSteph/pentest-ai-agents` | `e5d7aa02c4c0c29a90e4789034b45e0cb7488e89` | MIT | specialist catalog, task routing, engagement planning, findings memory, scope guard | Metis capability catalog/router/planner and case store; shared `ExecutionPolicy` |
+| `7onez/cti-expert` | `c8e051aeb5d68f3b66009b8cdc61bf1db4840710` | MIT + ethical-use statement | case workspaces, IOC intake, confidence, pivot/correlation, reporting | Metis strict case document, SQLite case store, local IOC extraction, finding links and Markdown/JSON reports |
 | `mukul975/Anthropic-Cybersecurity-Skills` | `1b3f6b2286981381a5cc0566551ef3bb6bc38383` | Apache-2.0 | searchable cyber capability index and schema validation | native typed `CapabilityProfile` catalog and explainable deterministic scorer; no prompt files copied |
 | `CarterPerez-dev/Cybersecurity-Projects` | `614b4c7e9351c76f09a2496eccae29b798982a23` | AGPL-3.0 | levelled project catalog and evidence-oriented learning paths | `olympus metis labs`, restricted to safe Olympus-native fixtures and commands |
 | `blacklanternsecurity/bbot` | `a6fb827bb144cdb85b52e142a4d6e14ed5f94b69` | AGPL-3.0 | event-driven modules, presets, recursion, deduplication, blacklist and scan bounds | native `olympus.argus.pipeline` engine and strict preset/result contracts; no BBOT module/source is present |
@@ -23,10 +23,10 @@ The machine-readable contract is
 ## Review decisions
 
 - AI-provider-specific prompt packs were converted into a deterministic local
-  capability catalog. METIS does not claim autonomous exploitation and does
+  capability catalog. Metis does not claim autonomous exploitation and does
   not require an LLM or API key.
 - Findings and CTI cases use a dedicated schema instead of storing plaintext
-  credentials. Secret values are never a supported METIS field.
+  credentials. Secret values are never a supported Metis field.
 - The event pipeline ships only offline transforms. Its extension contract has
   an explicit `active` flag; active modules require both authorization and an
   injected per-event scope gate.

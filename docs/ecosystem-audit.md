@@ -68,14 +68,14 @@ commands.
 | vulcan | rank, report | core policy/contracts | none | none | strict producer envelopes, aggregate byte/item/deadline limits | one canonical report; atomic JSON/safe Markdown/self-contained HTML | n/a |
 | metis | capabilities, recommend, plan, labs, case | core file safety, pydantic, SQLite | none | private SQLite case store | strict objectives, scope entries, source/confidence and ingest limits | versioned plans/cases, safe Markdown and JSON reports | n/a |
 
-### ARGUS (native migration complete) — `olympus argus`
+### Argus (native migration complete) — `olympus argus`
 
 - **Source:** `src/olympus/argus/`; last compared standalone revision
   `1c7a831…`. No duplicated source or runtime passthrough remains under
   `vendor/`.
 - **CLI:** `accounts, diff, dns, doctor, email, fronting, investigate, ip, mac,
   myip, phone, pipeline, scan, web, whois`.
-- **Deps:** `phonenumbers, rich` and optional `dnspython`; no standalone ARGUS
+- **Deps:** `phonenumbers, rich` and optional `dnspython`; no standalone Argus
   package, external binary or service is required.
 - **Verified here:** the full suite passes while `vendor/argus` is absent;
   `tests/unit/test_argus_native_replacement.py` prevents restoration of the

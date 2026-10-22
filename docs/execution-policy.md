@@ -72,7 +72,7 @@ the signed document or its human-readable engagement data into the log.
 
 - Core HTTP: validated timeout/retry/backoff/rate policy and cooperative
   cancellation before dispatch/retry.
-- ARGUS: shared authorization errors and shared account-concurrency validation;
+- Argus: shared authorization errors and shared account-concurrency validation;
   dedicated domain/IP/phone/OUI/handle/URL scope gates remain authoritative.
 - Athena: plan limits become one shared policy; its formerly unused retry budget
   now drives transient adapter retries, cancellation tokens are issued per job,

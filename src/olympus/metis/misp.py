@@ -1,4 +1,4 @@
-"""MISP event export and import for METIS indicators (§2 Metis).
+"""MISP event export and import for Metis indicators (§2 Metis).
 
 MISP is the other widely deployed way to exchange indicators, and — like STIX —
 its event format is plain JSON, so this adds no dependency. The module mirrors

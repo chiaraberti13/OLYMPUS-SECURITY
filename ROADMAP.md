@@ -24,7 +24,7 @@
   sviluppo, `UX-*` design, `OPS-*` backlog operativo): fasi, priorità, issue, PR e
   commit devono citarlo, così lo stato resta tracciabile senza duplicare testo.
 - `ROADMAP.md` è la fonte canonica per il lavoro **futuro**; `upgrade.md` resta il
-  registro storico dei cicli di integrazione ARGUS/VAP e non va usato per
+  registro storico dei cicli di integrazione Argus/VAP e non va usato per
   pianificare nuove attività.
 - Una casella passa a `[x]` solo rispettando la
   [Definition of Done trasversale](#definition-of-done-trasversale); un `[~]` deve

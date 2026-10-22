@@ -72,7 +72,7 @@ rotation, revocation, rate limits and per-request audit ids.
 8. Deduplicate, rank and publish the final result through Vulcan.
 
 The supported professional release must demonstrate this vertical path against
-an explicitly authorized lab and must not rely on the vendored ARGUS or
+an explicitly authorized lab and must not rely on the vendored Argus or
 Vulnerability Assessment Platform codebases. Removal of those legacy trees and
 replacement of their runtime surfaces is tracked as a migration requirement,
 not described as already complete. The native runtime entry points are now

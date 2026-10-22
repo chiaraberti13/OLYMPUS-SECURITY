@@ -77,7 +77,7 @@ olympus core migrations
 | Athena plan | headerless or integer version `1` | `1.0.0` | add/normalize only the contract header |
 | Themis job | headerless or `1.0.0` | `2.0.0` | replace private `scope_path` with its non-sensitive file name |
 | Evidence | headerless current fields | `1.0.0` | add the header; a missing SHA-256 remains an error |
-| METIS case | headerless current fields | `1.0.0` | add the header without changing CTI content |
+| Metis case | headerless current fields | `1.0.0` | add the header without changing CTI content |
 
 Every edge is pure, ordered and covered by committed legacy fixtures. Running a
 migration twice returns the same current document. A wrong identity, partial

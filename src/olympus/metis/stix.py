@@ -1,4 +1,4 @@
-"""STIX 2.1 export and import for METIS indicators (§2 Metis).
+"""STIX 2.1 export and import for Metis indicators (§2 Metis).
 
 STIX 2.1 is the lingua franca for sharing cyber-threat intelligence, and it is
 plain JSON — so this needs no new dependency. The module converts between

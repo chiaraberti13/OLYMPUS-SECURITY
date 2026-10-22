@@ -1,4 +1,4 @@
-"""Deterministic, non-executing engagement planning for METIS."""
+"""Deterministic, non-executing engagement planning for Metis."""
 
 from __future__ import annotations
 

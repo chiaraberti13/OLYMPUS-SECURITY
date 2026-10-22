@@ -242,7 +242,7 @@ class CaseStore:
 
     def __init__(self, path: Path) -> None:
         if path.is_symlink():
-            raise OSError(f"METIS database must not be a symlink: {path}")
+            raise OSError(f"Metis database must not be a symlink: {path}")
         path = path.resolve()
         path.parent.mkdir(parents=True, exist_ok=True)
         with suppress(OSError):
@@ -261,7 +261,7 @@ class CaseStore:
         with suppress(OSError):
             path.chmod(0o600)
         if path.exists() and not stat.S_ISREG(path.stat().st_mode):
-            raise OSError(f"METIS database must be a regular file: {path}")
+            raise OSError(f"Metis database must be a regular file: {path}")
 
     def __enter__(self) -> CaseStore:
         return self
@@ -303,7 +303,7 @@ class CaseStore:
 
     def _require_case(self, case_id: str) -> None:
         if self._conn.execute("SELECT 1 FROM cases WHERE case_id=?", (case_id,)).fetchone() is None:
-            raise LookupError(f"METIS case not found: {case_id}")
+            raise LookupError(f"Metis case not found: {case_id}")
 
     def _activity(self, case_id: str, action: str, detail: str) -> None:
         self._conn.execute(
@@ -357,7 +357,7 @@ class CaseStore:
         source: str,
         confidence: int = 50,
     ) -> int:
-        text = read_regular_text(path, max_bytes=MAX_INGEST_BYTES, label="METIS evidence")
+        text = read_regular_text(path, max_bytes=MAX_INGEST_BYTES, label="Metis evidence")
         return self.add_indicators(
             case_id,
             extract_indicators(text, source=source, confidence=confidence),
@@ -419,7 +419,7 @@ class CaseStore:
     def load_case(self, case_id: str) -> IntelCaseDocument:
         row = self._conn.execute("SELECT * FROM cases WHERE case_id=?", (case_id,)).fetchone()
         if row is None:
-            raise LookupError(f"METIS case not found: {case_id}")
+            raise LookupError(f"Metis case not found: {case_id}")
         indicators = tuple(
             Indicator(
                 indicator_id=item["indicator_id"],
@@ -479,14 +479,14 @@ class CaseStore:
 
 
 class BackupError(ValueError):
-    """Raised when a backup is not a usable METIS case database."""
+    """Raised when a backup is not a usable Metis case database."""
 
 
 def verify_backup(path: Path) -> dict[str, int]:
-    """Open a backup read-only and confirm it is a real METIS store.
+    """Open a backup read-only and confirm it is a real Metis store.
 
     Returns row counts for the core tables. Raises :class:`BackupError` if the
-    file is not a regular file, is not SQLite, or lacks the METIS schema — so a
+    file is not a regular file, is not SQLite, or lacks the Metis schema — so a
     restore never overwrites a live database from a bogus source.
     """
     if path.is_symlink() or not path.is_file():
@@ -501,7 +501,7 @@ def verify_backup(path: Path) -> dict[str, int]:
     try:
         version_row = connection.execute("SELECT MAX(version) FROM metis_schema").fetchone()
         if version_row is None or version_row[0] != 1:
-            raise BackupError("backup is not a METIS schema version 1 database")
+            raise BackupError("backup is not a Metis schema version 1 database")
         # Table names are a fixed literal allowlist, never user input, so the
         # f-string cannot be an injection vector.
         counts = {
@@ -511,7 +511,7 @@ def verify_backup(path: Path) -> dict[str, int]:
             for table in ("cases", "indicators", "findings")
         }
     except sqlite3.Error as exc:
-        raise BackupError(f"backup is missing the METIS schema: {exc}") from exc
+        raise BackupError(f"backup is missing the Metis schema: {exc}") from exc
     finally:
         connection.close()
     return counts

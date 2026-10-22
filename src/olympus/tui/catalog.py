@@ -25,18 +25,18 @@ class CommandSpec:
 
 
 TOOLS: tuple[ToolSpec, ...] = (
-    ToolSpec("argus", "ARGUS", "RECON", "OSINT, asset discovery and passive reconnaissance."),
-    ToolSpec("athena", "ATHENA", "ASSESS", "Assessment planning, orchestration and lifecycle."),
-    ToolSpec("helios", "HELIOS", "ASSESS", "Scoped network attack-surface mapping."),
-    ToolSpec("artemis", "ARTEMIS", "ASSESS", "Authorized web-application assessment."),
+    ToolSpec("argus", "Argus", "RECON", "OSINT, asset discovery and passive reconnaissance."),
+    ToolSpec("athena", "Athena", "ASSESS", "Assessment planning, orchestration and lifecycle."),
+    ToolSpec("helios", "Helios", "ASSESS", "Scoped network attack-surface mapping."),
+    ToolSpec("artemis", "Artemis", "ASSESS", "Authorized web-application assessment."),
     ToolSpec("themis", "Themis", "ENGINES", "Specialist-engine readiness, jobs and execution."),
-    ToolSpec("hermes", "HERMES", "DEFEND", "Secret and sensitive-data scanning with SARIF."),
-    ToolSpec("apollo", "APOLLO", "DEFEND", "Detection rules over normalized security events."),
-    ToolSpec("minerva", "MINERVA", "RESPOND", "Incident triage and chain of custody."),
-    ToolSpec("vulcan", "VULCAN", "REPORT", "Finding aggregation, ranking and reporting."),
-    ToolSpec("metis", "METIS", "INTEL", "CTI cases, IOC correlation and engagement plans."),
-    ToolSpec("proteus", "PROTEUS", "EXERCISE", "Authorized social-engineering campaign modelling."),
-    ToolSpec("core", "CORE", "PLATFORM", "Shared, versioned data-contract utilities."),
+    ToolSpec("hermes", "Hermes", "DEFEND", "Secret and sensitive-data scanning with SARIF."),
+    ToolSpec("apollo", "Apollo", "DEFEND", "Detection rules over normalized security events."),
+    ToolSpec("minerva", "Minerva", "RESPOND", "Incident triage and chain of custody."),
+    ToolSpec("vulcan", "Vulcan", "REPORT", "Finding aggregation, ranking and reporting."),
+    ToolSpec("metis", "Metis", "INTEL", "CTI cases, IOC correlation and engagement plans."),
+    ToolSpec("proteus", "Proteus", "EXERCISE", "Authorized social-engineering campaign modelling."),
+    ToolSpec("core", "Core", "PLATFORM", "Shared, versioned data-contract utilities."),
 )
 
 

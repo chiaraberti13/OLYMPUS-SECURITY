@@ -1440,7 +1440,7 @@ def register_doctor(parent: typer.Typer) -> None:
         # Common external tooling.
         for binary in ("git", "docker", "redis-cli", "curl"):
             report.add(check_binary(binary, optional=True))
-        # ARGUS + Themis stacks (importable?).
+        # Argus + Themis stacks (importable?).
         report.add(check_python_module("requests", optional=True))
         report.add(check_python_module("fastapi", optional=True))
         # Scanner binary coverage.
