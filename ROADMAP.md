@@ -348,6 +348,16 @@ regressione coprono manifest assente, scaduto e fuori scope/tecnica. Il Web non
 impone ancora lo stesso gate e audit/report/evidenze non espongono ancora tutta
 la provenienza, quindi SEC-C resta `[~]`.
 
+**Avanzamento verificato (2026-10-22, gate Web):** `themis web`/`serve` accetta
+ora `--manifest-public-key` con lettura limitata di file regolari non-symlink e,
+quando la chiave è configurata insieme all'archivio engagement, il wizard
+richiede il documento firmato. Anteprima e submit verificano firma, digest,
+revoca, finestra, engagement, target e scanner; il submit conserva il documento
+e lega il digest al job. Test Web coprono assenza, manomissione, scadenza,
+revoca, tecnica errata e chiave fidata assente. La modalità API/Web senza chiave
+resta compatibile ma non è il profilo protetto; audit/report/evidenze non
+espongono ancora tutta la provenienza, quindi SEC-C resta `[~]`.
+
 **Criterio di completamento:** nessuna live scan può partire con un semplice flag;
 il report consente di dimostrare manifest, firma, scope e policy effettivi usati.
 

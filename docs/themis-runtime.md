@@ -17,14 +17,20 @@ olympus themis workers --database .olympus/themis-jobs.sqlite3
 olympus themis workers --once --database .olympus/themis-jobs.sqlite3
 ```
 
-Per i job API protetti da manifest firmato, API e worker devono condividere
-l'archivio revoche e la chiave pubblica dell'approvatore:
+Per i job API/Web protetti da manifest firmato, API, Web e worker devono
+condividere l'archivio revoche e la chiave pubblica dell'approvatore:
 
 ```bash
 olympus themis workers --database .olympus/themis-jobs.sqlite3 \
   --engagement-storage .olympus/engagements \
   --manifest-public-key approver-ed25519-public.pem
 ```
+
+Avviare anche il Web con `--engagement-storage .olympus/engagements
+--manifest-public-key approver-ed25519-public.pem`: il wizard richiede il JSON
+firmato, lo verifica in anteprima e di nuovo al submit, quindi lega il digest al
+job. Senza la chiave fissata resta la modalità compatibile a conferma booleana,
+che non costituisce il profilo protetto SEC-C.
 
 L'API conserva il documento firmato verificato, non solo il digest. Prima di
 avviare lo scanner il worker ricarica quel documento e ricontrolla firma,
@@ -153,9 +159,12 @@ SIGINT/SIGTERM cancel active execution and stop new claims, returning `7`.
 `0` empty/clean, `1` findings, `4` denied, `5` partial, `6` failed/timed out,
 `7` cancelled.
 
-For API jobs protected by signed manifests, start workers with the same
-`--engagement-storage` and pinned `--manifest-public-key` used by the API. The
-API retains the verified signed document alongside the revocation register.
+For API/Web jobs protected by signed manifests, start workers with the same
+`--engagement-storage` and pinned `--manifest-public-key` used by the API and
+Web. The submitting service retains the verified signed document alongside the
+revocation register. The Web wizard verifies it at preview and again at launch;
+without a pinned Web key, its compatibility confirmation mode is not the SEC-C
+protected profile.
 Immediately before scanner execution, the worker reloads it and rechecks the
 signature, digest, revocation status, time window, target and technique. A bound
 digest without its document or without a configured verifier becomes

@@ -31,6 +31,12 @@
       <br><span class="muted">The target was verified inside this engagement's authorized scope.</span>
     </dd>
     {% endif %}
+    {% if manifest_sha256 %}
+    <dt>Authorization manifest</dt>
+    <dd><code>{{ manifest_sha256 }}</code>
+      <br><span class="muted">Signature and policy verified; the document is rechecked at launch.</span>
+    </dd>
+    {% endif %}
     <dt>Max attempts</dt>
     <dd>{{ max_attempts }}</dd>
   </dl>
@@ -44,6 +50,7 @@
     {% if engagement_id %}<input type="hidden" name="engagement_id" value="{{ engagement_id }}">{% endif %}
     {% if idempotency_key %}<input type="hidden" name="idempotency_key" value="{{ idempotency_key }}">{% endif %}
     <input type="hidden" name="max_attempts" value="{{ max_attempts }}">
+    {% if signed_manifest %}<textarea hidden name="signed_manifest">{{ signed_manifest }}</textarea>{% endif %}
 
     {% if needs_confirmation %}
     <p class="alert" role="alert">

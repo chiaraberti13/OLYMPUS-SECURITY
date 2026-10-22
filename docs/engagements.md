@@ -123,7 +123,9 @@ manifest digest and signature before recording its digest and manifest id.
 `authorize_manifest(...)` loads that durable revocation set and
 delegates target, technique, and time checks to the signed-manifest verifier.
 The database is local owner-only state, not a tamper-evident or distributed
-revocation service; active job submission paths are not yet wired to it.
+revocation service. CLI submission always uses it; API and Web submissions use
+it whenever their pinned manifest public key is configured, and workers recheck
+the retained document immediately before execution.
 
 ## API and Web (slice 3)
 
@@ -139,7 +141,8 @@ that holds `engagements.db`:
 
 ```bash
 olympus themis api --engagement-storage ./workspace --scope-directory ./scopes
-olympus themis web --engagement-storage ./workspace --scope-directory ./scopes
+olympus themis web --engagement-storage ./workspace --scope-directory ./scopes \
+  --manifest-public-key ./approver-ed25519-public.pem
 ```
 
 - **API** (`engagements:read` scope): `GET /api/v1/engagements` returns the
@@ -149,7 +152,9 @@ olympus themis web --engagement-storage ./workspace --scope-directory ./scopes
   empty list that would falsely imply there are no engagements.
 - **Web** (`engagements:read` scope): `GET /engagements` and
   `GET /engagements/{id}` browse the same engagements, read-only (engagements are
-  created from the CLI), with the same redaction as the rest of the UI.
+  created from the CLI), with the same redaction as the rest of the UI. When a
+  trusted manifest key is configured, its assessment preview and launch forms
+  also require and independently verify the signed document before queueing.
 
 ### Scope enforcement derived from the engagement
 

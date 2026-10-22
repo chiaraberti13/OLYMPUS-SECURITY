@@ -15,7 +15,7 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
     {% if engagements %}
-    <label for="engagement_id">Engagement (optional)</label>
+    <label for="engagement_id">Engagement{% if not manifest_required %} (optional){% endif %}</label>
     <select id="engagement_id" name="engagement_id">
       <option value="">— none —</option>
       {% for engagement in engagements %}
@@ -28,6 +28,17 @@
     <p class="muted">
       With an engagement chosen, the target must fall inside its authorized
       scope or the scan is refused before it is queued.
+    </p>
+    {% endif %}
+
+    {% if manifest_required %}
+    <label for="signed_manifest">Signed engagement manifest</label>
+    <textarea id="signed_manifest" name="signed_manifest" rows="8" required
+              spellcheck="false">{{ form.signed_manifest or '' }}</textarea>
+    <p class="muted">
+      Paste the complete signed JSON document. Olympus verifies its Ed25519
+      signature, digest, validity window, engagement, target, tool and revocation
+      status before showing the preview and again before queueing.
     </p>
     {% endif %}
 

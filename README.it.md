@@ -235,9 +235,10 @@ olympus themis workers                       # worker nativo continuo
 
 Il submit CLI richiede sempre un manifest di autorizzazione firmato, la chiave
 dell'approvatore fissata e il registro revoche condiviso. Per applicare lo
-stesso gate a ogni submit API, fissa la chiave lato server e usa quel registro
-condiviso: `olympus themis api --engagement-storage .olympus/engagements
---manifest-public-key approver-ed25519-public.pem`.
+stesso gate a ogni submit API o Web, fissa la chiave lato server e usa quel
+registro condiviso: `olympus themis api --engagement-storage
+.olympus/engagements --manifest-public-key approver-ed25519-public.pem` oppure
+sostituisci `api` con `web`.
 
 ### Avviare il control plane nativo
 
@@ -249,6 +250,8 @@ olympus themis migrate --database .olympus/themis-jobs.sqlite3
 olympus themis api --scope-directory .olympus/scopes
 olympus themis serve --scope-directory .olympus/scopes \
   --ssl-certfile cert.pem --ssl-keyfile key.pem \
+  --engagement-storage .olympus/engagements \
+  --manifest-public-key approver-ed25519-public.pem \
   --findings-directory .olympus/findings --findings-storage .olympus/finding-transitions.sqlite3
 olympus themis workers --database .olympus/themis-jobs.sqlite3
 ```

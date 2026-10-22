@@ -109,7 +109,7 @@ class ApiSettings:
     #: the effective status of a finding is folded from this history over the
     #: bundle's base status. Without it, the Web UI shows findings read-only.
     findings_database: Path | None = None
-    #: Pinned Ed25519 approver key. When configured, every API job submission
+    #: Pinned Ed25519 approver key. When configured, every API/Web job submission
     #: must carry a signed manifest and is rejected unless it authorizes the
     #: exact engagement, scanner, target and current time.
     trusted_manifest_public_key_pem: str | None = None
@@ -538,7 +538,7 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
                 body.target,
                 body.target_kind,
             )
-        manifest_sha256 = _authorize_submission_manifest(settings, body)
+        manifest_sha256 = authorize_submission_manifest(settings, body)
         scope_path = _registered_scope(scope_root, body.scope_id)
         try:
             job = store.submit(
@@ -634,7 +634,7 @@ def _enforce_engagement_scope(
         )
 
 
-def _authorize_submission_manifest(settings: ApiSettings, body: JobSubmission) -> str | None:
+def authorize_submission_manifest(settings: ApiSettings, body: JobSubmission) -> str | None:
     """Verify and bind the configured signed authorization, fail-closed."""
     trusted_key = settings.trusted_manifest_public_key_pem
     if trusted_key is None:

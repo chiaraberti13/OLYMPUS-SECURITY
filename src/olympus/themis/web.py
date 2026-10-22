@@ -66,6 +66,7 @@ from olympus.core.finding_lifecycle import (
 )
 from olympus.core.models import Engagement, Finding
 from olympus.core.observability import Correlation, Observability, observability_from_config
+from olympus.engagements.manifest import SignedEngagementManifest
 from olympus.engagements.resolve import (
     EngagementStoreError,
     engagement_covers,
@@ -95,6 +96,7 @@ from olympus.themis.api import (
     _registered_scope,
     _RegisterSource,
     _trace_id,
+    authorize_submission_manifest,
 )
 from olympus.themis.identity import IdentityError, RateLimiter
 from olympus.themis.jobs import (
@@ -904,6 +906,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             "other_activities": _other_activities(),
             "scanners": _scanner_choices(ready),
             "ready_count": len(ready),
+            "manifest_required": settings.trusted_manifest_public_key_pem is not None,
             "csrf_token": _csrf_token(session.nonce),
         }
 
@@ -922,6 +925,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         scanner: Annotated[str, Form()] = "",
         engagement_id: Annotated[str | None, Form()] = None,
         idempotency_key: Annotated[str | None, Form()] = None,
+        signed_manifest: Annotated[str | None, Form()] = None,
         max_attempts: Annotated[int, Form()] = 1,
         session: WebSession = writes_jobs,
     ) -> Response:
@@ -939,6 +943,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             "scope_id": scope_id,
             "activity": activity,
             "engagement_id": engagement_id or "",
+            "signed_manifest": signed_manifest or "",
         }
 
         def _back(message: str, code: int = 400) -> Response:
@@ -974,6 +979,12 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             )
 
         chosen_engagement = (engagement_id or "").strip() or None
+        parsed_manifest = None
+        if signed_manifest:
+            try:
+                parsed_manifest = SignedEngagementManifest.model_validate_json(signed_manifest)
+            except ValueError:
+                return _back("The signed engagement manifest is not valid JSON.", code=422)
         try:
             submission = JobSubmission(
                 scanner=resolved,
@@ -982,6 +993,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 scope_id=scope_id,
                 authorized=True,
                 engagement_id=chosen_engagement,
+                signed_manifest=parsed_manifest,
                 idempotency_key=(idempotency_key or None),
                 max_attempts=max_attempts,
             )
@@ -1004,6 +1016,11 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             _registered_scope(scope_root, submission.scope_id)
         except HTTPException as exc:
             return _back(f"Scope rejected: {exc.detail}", code=exc.status_code)
+
+        try:
+            manifest_sha256 = authorize_submission_manifest(settings, submission)
+        except HTTPException as exc:
+            return _back(f"Authorization rejected: {exc.detail}", code=exc.status_code)
 
         needs_confirmation = scanner_profile.risk is not RiskClass.PASSIVE
         return _page(
@@ -1028,6 +1045,8 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 "engagement_name": engagement_name,
                 "idempotency_key": submission.idempotency_key or "",
                 "max_attempts": submission.max_attempts,
+                "signed_manifest": signed_manifest or "",
+                "manifest_sha256": manifest_sha256,
                 "csrf_token": _csrf_token(session.nonce),
             },
         )
@@ -1043,6 +1062,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         authorized: Annotated[str | None, Form()] = None,
         engagement_id: Annotated[str | None, Form()] = None,
         idempotency_key: Annotated[str | None, Form()] = None,
+        signed_manifest: Annotated[str | None, Form()] = None,
         max_attempts: Annotated[int, Form()] = 1,
         session: WebSession = writes_jobs,
     ) -> Response:
@@ -1053,18 +1073,14 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             "target": target,
             "scope_id": scope_id,
             "engagement_id": engagement_id or "",
+            "signed_manifest": signed_manifest or "",
         }
 
         def _error(message: str, code: int = 400) -> Response:
             return _page(
                 request,
                 "new_assessment.html",
-                {
-                    "error": message,
-                    "form": form,
-                    "engagements": _engagement_options(),
-                    "csrf_token": _csrf_token(session.nonce),
-                },
+                _assessment_context(session, form, message),
                 code=code,
             )
 
@@ -1072,6 +1088,12 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         if not is_authorized:
             return _error("Documented authorization must be confirmed before an active scan.")
         chosen_engagement = (engagement_id or "").strip() or None
+        parsed_manifest = None
+        if signed_manifest:
+            try:
+                parsed_manifest = SignedEngagementManifest.model_validate_json(signed_manifest)
+            except ValueError:
+                return _error("The signed engagement manifest is not valid JSON.", code=422)
         try:
             submission = JobSubmission(
                 scanner=scanner,
@@ -1080,6 +1102,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 scope_id=scope_id,
                 authorized=True,
                 engagement_id=chosen_engagement,
+                signed_manifest=parsed_manifest,
                 idempotency_key=(idempotency_key or None),
                 max_attempts=max_attempts,
             )
@@ -1099,12 +1122,17 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         except HTTPException as exc:
             return _error(f"Scope rejected: {exc.detail}", code=exc.status_code)
         try:
+            manifest_sha256 = authorize_submission_manifest(settings, submission)
+        except HTTPException as exc:
+            return _error(f"Authorization rejected: {exc.detail}", code=exc.status_code)
+        try:
             job = store.submit(
                 scanner=submission.scanner,
                 target=submission.target,
                 target_kind=submission.target_kind,
                 scope_path=scope_path,
                 authorized=True,
+                manifest_sha256=manifest_sha256,
                 idempotency_key=submission.idempotency_key,
                 max_attempts=submission.max_attempts,
             )

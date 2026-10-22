@@ -12,6 +12,7 @@ import json
 import re
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -20,6 +21,10 @@ from fastapi.testclient import TestClient
 from typer.testing import CliRunner
 
 from olympus.cli import app
+from olympus.core.models import EngagementScope
+from olympus.core.signing import generate_keypair
+from olympus.engagements.manifest import EngagementManifest, SignedEngagementManifest
+from olympus.engagements.store import ENGAGEMENTS_DB_NAME, SqliteEngagementStore
 from olympus.themis.api import ApiSettings, create_app
 from olympus.themis.identity import SCOPES, IdentityRegister, add_identity, save_register
 from olympus.themis.jobs import ThemisJobStore
@@ -309,6 +314,23 @@ def test_cli_web_requires_secret_and_tls_for_remote_bind(tmp_path: Path) -> None
     assert remote.exit_code == 2
     assert "require TLS" in remote.output
 
+    missing_key = runner.invoke(
+        app,
+        [
+            "themis",
+            "web",
+            "--scope-directory",
+            str(scopes),
+            "--engagement-storage",
+            str(tmp_path),
+            "--manifest-public-key",
+            str(tmp_path / "missing-public-key.pem"),
+        ],
+        env={"OLYMPUS_THEMIS_API_KEY": API_KEY},
+    )
+    assert missing_key.exit_code == 2
+    assert "missing-public-key.pem" in missing_key.output
+
 
 def _seed_engagement(tmp_path: Path) -> str:
     from olympus.core.models import Engagement, EngagementScope
@@ -328,11 +350,191 @@ def _seed_engagement(tmp_path: Path) -> str:
 
 
 def _engagements_client(tmp_path: Path) -> tuple[TestClient, str]:
-    from olympus.engagements.store import ENGAGEMENTS_DB_NAME
-
     engagement_id = _seed_engagement(tmp_path)
     client = _client(tmp_path, engagements_database=tmp_path / ENGAGEMENTS_DB_NAME)
     return client, engagement_id
+
+
+def _signed_web_client(
+    tmp_path: Path,
+    *,
+    expires_at: datetime | None = None,
+    allowed_techniques: tuple[str, ...] = ("nmap",),
+) -> tuple[TestClient, SignedEngagementManifest, str, str]:
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    engagement_id = _seed_engagement(tmp_path)
+    private_key, public_key = generate_keypair()
+    now = datetime.now(UTC)
+    signed = SignedEngagementManifest.sign_manifest(
+        EngagementManifest(
+            engagement_id=engagement_id,
+            client="Acme",
+            owner="Security Owner",
+            approver="Authorized Approver",
+            contract_id="CONTRACT-WEB-01",
+            scope=EngagementScope(included=("acme.test",), excluded=("vpn.acme.test",)),
+            valid_from=now - timedelta(hours=2),
+            expires_at=expires_at or now + timedelta(hours=1),
+            allowed_techniques=allowed_techniques,
+        ),
+        private_key_pem=private_key,
+    )
+    client = _client(
+        tmp_path,
+        engagements_database=tmp_path / ENGAGEMENTS_DB_NAME,
+        trusted_manifest_public_key_pem=public_key,
+    )
+    return client, signed, engagement_id, public_key
+
+
+def test_web_requires_verifies_and_binds_signed_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import olympus.themis.web as web
+
+    monkeypatch.setattr(web, "_ready_scanner_names", lambda: {"nmap"})
+    client, signed, engagement_id, public_key = _signed_web_client(tmp_path)
+    _login(client)
+    csrf = _csrf(client)
+    form = client.get("/assessments/new")
+    assert 'name="signed_manifest"' in form.text
+
+    base = {
+        "scanner": "nmap",
+        "target": "www.acme.test",
+        "target_kind": "domain",
+        "scope_id": "engagement",
+        "engagement_id": engagement_id,
+        "authorized": "on",
+        "csrf_token": csrf,
+    }
+    missing = client.post("/jobs", data=base, follow_redirects=False)
+    assert missing.status_code == 403
+    assert "signed engagement manifest is required" in missing.text
+
+    document = signed.model_dump_json()
+    preview = _preview(
+        client,
+        csrf,
+        activity="network",
+        scanner="nmap",
+        target="www.acme.test",
+        target_kind="domain",
+        engagement_id=engagement_id,
+        signed_manifest=document,
+    )
+    assert preview.status_code == 200, preview.text
+    assert signed.manifest_sha256 in preview.text
+
+    accepted = client.post(
+        "/jobs", data={**base, "signed_manifest": document}, follow_redirects=False
+    )
+    assert accepted.status_code == 303, accepted.text
+    job_id = accepted.headers["location"].rsplit("/", 1)[-1]
+    assert ThemisJobStore(tmp_path / "jobs.sqlite3").get(job_id).manifest_sha256 == (
+        signed.manifest_sha256
+    )
+    audit = (tmp_path / "audit.log").read_text(encoding="utf-8")
+    assert "signature_envelope" not in audit
+    assert "CONTRACT-WEB-01" not in audit
+
+    retained = SqliteEngagementStore(tmp_path / ENGAGEMENTS_DB_NAME)
+    try:
+        stored = retained.authorize_stored_manifest(
+            signed.manifest_sha256,
+            trusted_public_key_pem=public_key,
+            target="www.acme.test",
+            technique="nmap",
+            now=datetime.now(UTC),
+        )
+    finally:
+        retained.close()
+    assert stored.manifest_id == signed.manifest.manifest_id
+
+
+def test_web_manifest_gate_rejects_tampering_expiry_revocation_and_wrong_tool(
+    tmp_path: Path,
+) -> None:
+    client, signed, engagement_id, public_key = _signed_web_client(tmp_path)
+    _login(client)
+    csrf = _csrf(client)
+    base = {
+        "scanner": "nmap",
+        "target": "www.acme.test",
+        "target_kind": "domain",
+        "scope_id": "engagement",
+        "engagement_id": engagement_id,
+        "authorized": "on",
+        "csrf_token": csrf,
+    }
+
+    tampered = signed.model_dump(mode="json")
+    tampered["manifest"]["client"] = "Mallory"
+    rejected = client.post("/jobs", data={**base, "signed_manifest": json.dumps(tampered)})
+    assert rejected.status_code == 403
+    assert "digest" in rejected.text
+
+    wrong_tool = client.post(
+        "/jobs",
+        data={**base, "scanner": "nuclei", "signed_manifest": signed.model_dump_json()},
+    )
+    assert wrong_tool.status_code == 403
+
+    outside_scope = client.post(
+        "/jobs",
+        data={**base, "target": "evil.test", "signed_manifest": signed.model_dump_json()},
+    )
+    assert outside_scope.status_code == 422
+    assert "outside the selected engagement" in outside_scope.text
+
+    store = SqliteEngagementStore(tmp_path / ENGAGEMENTS_DB_NAME)
+    try:
+        store.revoke_manifest(signed, trusted_public_key_pem=public_key)
+    finally:
+        store.close()
+    revoked = client.post("/jobs", data={**base, "signed_manifest": signed.model_dump_json()})
+    assert revoked.status_code == 403
+    assert "revoked" in revoked.text
+
+    expired_client, expired, expired_engagement, _ = _signed_web_client(
+        tmp_path / "expired", expires_at=datetime.now(UTC) - timedelta(minutes=1)
+    )
+    _login(expired_client)
+    expired_response = expired_client.post(
+        "/jobs",
+        data={
+            **base,
+            "engagement_id": expired_engagement,
+            "csrf_token": _csrf(expired_client),
+            "signed_manifest": expired.model_dump_json(),
+        },
+    )
+    assert expired_response.status_code == 403
+
+
+def test_web_rejects_manifest_when_no_trusted_key_is_configured(tmp_path: Path) -> None:
+    client, signed, engagement_id, _ = _signed_web_client(tmp_path / "signed")
+    del client
+    untrusted = _client(
+        tmp_path,
+        engagements_database=tmp_path / "signed" / ENGAGEMENTS_DB_NAME,
+    )
+    _login(untrusted)
+    response = untrusted.post(
+        "/jobs",
+        data={
+            "scanner": "nmap",
+            "target": "www.acme.test",
+            "target_kind": "domain",
+            "scope_id": "engagement",
+            "engagement_id": engagement_id,
+            "authorized": "on",
+            "csrf_token": _csrf(untrusted),
+            "signed_manifest": signed.model_dump_json(),
+        },
+    )
+    assert response.status_code == 400
+    assert "no trusted approver key" in response.text
 
 
 def test_engagements_are_browsable_in_the_web_ui(tmp_path: Path) -> None:

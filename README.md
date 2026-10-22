@@ -310,9 +310,9 @@ olympus themis serve --host 127.0.0.1 --port 8000   # serve the full VAP web app
 
 CLI job submission always requires a signed authorization manifest, a pinned
 approver key and the shared revocation store. To enforce the same gate on every
-API submission, pin the approver key server-side and use that store:
+API or Web submission, pin the approver key server-side and use that store:
 `olympus themis api --engagement-storage .olympus/engagements
---manifest-public-key approver-ed25519-public.pem`.
+--manifest-public-key approver-ed25519-public.pem` or replace `api` with `web`.
 
 ### Running the native control plane
 
@@ -324,6 +324,8 @@ olympus themis migrate --database .olympus/themis-jobs.sqlite3
 olympus themis api --scope-directory .olympus/scopes
 olympus themis serve --scope-directory .olympus/scopes \
   --ssl-certfile cert.pem --ssl-keyfile key.pem \
+  --engagement-storage .olympus/engagements \
+  --manifest-public-key approver-ed25519-public.pem \
   --findings-directory .olympus/findings --findings-storage .olympus/finding-transitions.sqlite3
 olympus themis workers --database .olympus/themis-jobs.sqlite3
 ```

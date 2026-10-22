@@ -20,6 +20,25 @@ export OLYMPUS_THEMIS_API_KEY="$(head -c 48 /dev/urandom | base64)"   # ≥ 32 c
 olympus themis web --scope-directory .olympus/scopes --database .olympus/themis-jobs.sqlite3
 ```
 
+For a live-capable deployment, enable the signed-authorization gate and use the
+same store and key for the API, Web and workers:
+
+```bash
+olympus themis web --scope-directory .olympus/scopes \
+  --engagement-storage .olympus/engagements \
+  --manifest-public-key approver-ed25519-public.pem
+```
+
+With `--manifest-public-key`, the New assessment form requires the complete
+signed JSON document. Preview and launch independently verify Ed25519 signature,
+digest, revocation, validity window, engagement id, target and scanner. Launch
+persists the exact document for worker-time revalidation and binds its SHA-256
+digest to the job. A missing, malformed, expired, revoked, out-of-scope or
+wrong-technique manifest is rejected before queueing. Supplying a manifest to a
+server without a pinned key is also rejected. Without this option the legacy
+boolean-confirmation mode remains available for compatibility and must not be
+treated as the SEC-C protected profile.
+
 The web plane shares its command surface with `olympus themis api`:
 
 - **Loopback by default.** A non-loopback `--host` requires both `--ssl-certfile`
@@ -31,6 +50,9 @@ The web plane shares its command surface with `olympus themis api`:
   [`themis-api-identities.md`](themis-api-identities.md)).
 - **Same durable store.** `--database` and `--scope-directory` point at the same
   SQLite job store and registered scopes the CLI and API use.
+- **Signed authorization.** `--manifest-public-key` plus
+  `--engagement-storage` enables the same signed-manifest gate as the API and
+  provides the retained document/revocation state used by workers.
 - **Optional findings review.** `--findings-directory` points at a folder of
   `core.Finding` JSON bundles — the same read-only producer artifacts
   `olympus vulcan findings` consumes — and enables the **Findings** pages;

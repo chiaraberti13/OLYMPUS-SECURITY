@@ -154,6 +154,7 @@ def themis_api(
     import ipaddress
     from pathlib import Path
 
+    from olympus.core.fileio import read_regular_text
     from olympus.engagements.store import ENGAGEMENTS_DB_NAME
 
     try:
@@ -193,7 +194,11 @@ def themis_api(
                     Path(engagement_storage) / ENGAGEMENTS_DB_NAME if engagement_storage else None
                 ),
                 trusted_manifest_public_key_pem=(
-                    Path(manifest_public_key).read_text(encoding="utf-8")
+                    read_regular_text(
+                        Path(manifest_public_key),
+                        max_bytes=64 * 1024,
+                        label="manifest public key",
+                    )
                     if manifest_public_key
                     else None
                 ),
@@ -244,6 +249,12 @@ def themis_web(
         help="Directory holding the shared engagements database; enables the "
         "engagement pages and engagement-derived scope enforcement.",
     ),
+    manifest_public_key: str = typer.Option(
+        "",
+        "--manifest-public-key",
+        help="Pinned Ed25519 approver public key; requires --engagement-storage and "
+        "makes every Web job require a signed manifest.",
+    ),
     findings_directory: str = typer.Option(
         "",
         "--findings-directory",
@@ -275,6 +286,7 @@ def themis_web(
     import ipaddress
     from pathlib import Path
 
+    from olympus.core.fileio import read_regular_text
     from olympus.engagements.store import ENGAGEMENTS_DB_NAME
 
     try:
@@ -313,6 +325,15 @@ def themis_web(
                 audit_path=Path(audit) if audit else None,
                 engagements_database=(
                     Path(engagement_storage) / ENGAGEMENTS_DB_NAME if engagement_storage else None
+                ),
+                trusted_manifest_public_key_pem=(
+                    read_regular_text(
+                        Path(manifest_public_key),
+                        max_bytes=64 * 1024,
+                        label="manifest public key",
+                    )
+                    if manifest_public_key
+                    else None
                 ),
                 findings_directory=Path(findings_directory) if findings_directory else None,
                 findings_database=Path(findings_storage) if findings_storage else None,
