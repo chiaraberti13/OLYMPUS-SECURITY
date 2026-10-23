@@ -921,8 +921,24 @@ la mancanza di metriche di coverage bloccanti.
   usati da Athena e portarli nei moduli che mescolano CLI e orchestrazione.
 - [ ] Spezzare `src/olympus/cli.py` in registrazione comandi, presentazione e use
   case, mantenendo l'entry point pubblico `olympus.cli:main`.
-- [ ] Aggiungere test di architettura che vietino import inversi e accessi diretti
-  al network dal dominio.
+- [x] Aggiungere test di architettura che vietino import inversi e accessi diretti
+  al network dal dominio. **Fatto:** `tests/unit/test_architecture_boundaries.py`
+  analizza il grafo di import reale con `ast` e fallisce la CI se (a) un modulo
+  del layer `domain` (scoperti genericamente, oggi `athena/domain`) importa un
+  framework web/CLI/TUI/DB (`fastapi`, `typer`, `click`, `textual`, `rich`,
+  `sqlalchemy`, `celery`, `redis`, `httpx`/`requests`…), un modulo stdlib di
+  rete/processo/DB (`socket`, `subprocess`, `sqlite3`, `asyncio`,
+  `urllib.request`…) o il client di rete `olympus.core.http`; (b) un modulo del
+  dominio importa *verso l'alto* un layer `application`/`adapters`/`cli`/`api`/
+  `web`/`tui` (dipendenza invertita). Il kernel dei contratti condivisi
+  (`core/models|contracts|enums|ids|errors|exit_codes|coverage`) è vincolato a
+  restare framework-free dalla stessa suite (Pydantic ammesso: è la libreria di
+  validazione dei contratti, non I/O). Un test con violazione piantata prova che
+  il guard rileva davvero (nessun pass vacuo). I confini restano documentati in
+  [`docs/architecture/adr-002-athena-target-architecture.md`](docs/architecture/adr-002-athena-target-architecture.md).
+  Restano gli altri bullet `DEV-A` (source-of-truth unica vs `vendor/`,
+  formalizzazione dei confini nei moduli che mescolano CLI/orchestrazione, split
+  di `cli.py`).
 
 **Criterio di completamento:** dipendenze tra layer documentate e verificate in
 CI; nessuna logica di dominio dipende da Typer, Textual, FastAPI o SQLite.
