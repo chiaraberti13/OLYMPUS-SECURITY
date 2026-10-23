@@ -36,7 +36,7 @@
 
 | Fase | Focus | Stato | Interventi principali |
 | --- | --- | --- | --- |
-| 0 | Baseline e coerenza documentale | `[~]` | `DEV-G`, `DEV-H`, `DEV-C` (suite e coverage) |
+| 0 | Baseline e coerenza documentale | `[x]` | `DEV-G` ✓, `DEV-H` ✓, `DEV-C` ✓ (suite e coverage) |
 | 1 | Security hardening (**P0**) | `[~]` | `SEC-A`, `SEC-B`, `SEC-C`, `SEC-H`, `UX-B` |
 | 2 | Architettura e qualità di release | `[~]` | `DEV-A`, `DEV-B`, `DEV-C`, `DEV-D`, `DEV-E`, `SEC-F` |
 | 3 | UX operativa bilingue | `[ ]` | `UX-A`, `UX-C`, `UX-D`, `UX-E`, `UX-F`, `UX-G` |
@@ -1027,7 +1027,7 @@ da artifact firmato e smoke test completo fuori dal checkout.
   `maturity.summary()` (9/0/3/12/0 sul catalogo di 24). `tests/unit/test_maturity_docs.py`
   estrae i conteggi dai due documenti e li confronta con il ledger vivo, così la
   tabella non può più divergere.
-- [~] Aggiungere un link checker, esempi eseguibili e test che rigenerino tabelle
+- [x] Aggiungere un link checker, esempi eseguibili e test che rigenerino tabelle
   di capacità/maturità dal registry invece di mantenerle a mano. Link checker
   implementato: `scripts/check_doc_links.py` verifica tutti i Markdown first-party
   (esclusa `vendor/`), validando l'esistenza dei file linkati e gli anchor
@@ -1042,8 +1042,13 @@ da artifact firmato e smoke test completo fuori dal checkout.
   `GENERATED:maturity-status`): non più mantenuto a mano ma rigenerato e sottoposto
   a drift gate da `tests/unit/test_scanner_maturity.py` (`--check` esce `2` se il
   blocco committato diverge dal registry), oltre alla validazione dei conteggi già
-  presente in `tests/unit/test_maturity_docs.py`. Restano gli **esempi eseguibili**
-  (comandi di documentazione eseguiti in CI sul dataset sintetico `examples/`).
+  presente in `tests/unit/test_maturity_docs.py`. **Esempi eseguibili fatti:** i
+  comandi documentati in `examples/README.md` (IT/EN) sul dataset sintetico
+  `examples/` — `apollo test`/`rules`, catena DFIR `minerva triage`+`verify`,
+  `hermes scan`, `core export-schemas` — sono **offline** (nessuna rete né
+  bersaglio) ed **eseguiti in CI** da `tests/integration/test_examples_offline.py`,
+  che asserisce il codice di uscita canonico e un risultato contract-valid, così i
+  comandi documentati non possono invecchiare in silenzio.
 - [x] Consolidare il backlog tecnico e strategico in questo unico `ROADMAP.md`,
   eliminando roadmap parallele che potrebbero divergere.
 
