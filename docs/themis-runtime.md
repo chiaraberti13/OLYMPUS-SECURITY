@@ -98,6 +98,20 @@ target, mentre il valore originale rimane nel backup. Consent, audit e analytics
 sono conteggiati ma esclusi dal manifest
 perché richiedono valutazioni separate di finalità, privacy e provenienza.
 
+Prima di usare lo snapshot come input per una futura conversione, verificare
+insieme tutti e tre gli artefatti:
+
+```bash
+olympus themis legacy-verify --source vap.db \
+  --backup migration/vap.backup.sqlite3 \
+  --manifest migration/vap.snapshot.json
+```
+
+La verifica è in sola lettura e fallisce se sorgente, backup o manifest sono
+cambiati, se il contratto non è esattamente la versione supportata, se
+`PRAGMA integrity_check` fallisce o se l'inventario ricostruito dal backup non
+coincide. Un esito positivo non autorizza né importa scansioni.
+
 ### Docker
 
 L'immagine `docker/Dockerfile` installa la wheel, include template/statici e
@@ -213,6 +227,13 @@ and targets/query secrets are excluded from the inventory; only the target
 digest remains. Consent, audit and product-analytics contents stay only in the
 backup pending separate privacy and provenance reviews. Existing outputs and
 symlinks are refused.
+
+Before a future converter consumes the snapshot, verify the three artifacts
+together with `olympus themis legacy-verify --source vap.db --backup
+migration/vap.backup.sqlite3 --manifest migration/vap.snapshot.json`. The
+read-only check fails if any artifact changed, the contract is not exactly the
+supported version, SQLite integrity fails, or the inventory reconstructed from
+the backup differs. Success neither authorizes nor imports a scan.
 
 Before Docker startup, prepare registered scopes under `.olympus/scopes`, the
 scoped identity register under `.olympus/config/themis-api-identities.json`,

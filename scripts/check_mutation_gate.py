@@ -24,7 +24,10 @@ MUTATED_FUNCTIONS = {
         "xǁApiSettingsǁvalidate",
         "xǁRequestConcurrencyGateǁtry_acquire",
     ],
-    "src/olympus/themis/legacy_vap.py": ["x__decision"],
+    "src/olympus/themis/legacy_vap.py": [
+        "x__decision",
+        "x_verify_legacy_vap_snapshot",
+    ],
     "src/olympus/core/coverage.py": ["xǁCoverageǁstatus"],
     "src/olympus/athena/cli.py": ["x__exit_code_for"],
     "src/olympus/athena/domain/assessment.py": [

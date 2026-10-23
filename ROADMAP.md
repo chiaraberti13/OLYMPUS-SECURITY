@@ -255,6 +255,14 @@ solo nel backup e marca le righe `queued`/`running` come non convertibili. La
 conversione revisionata nei contratti nativi, la parità delle route residue e il
 ritiro fisico del vendor restano aperti: `SEC-A` resta `[~]`.
 
+**Avanzamento verificato (2026-10-22, gate di integrità legacy):** il comando
+read-only `themis legacy-verify` richiede sorgente, backup e manifest insieme;
+verifica i digest e la dimensione sorgente, lo schema esatto del contratto,
+`PRAGMA integrity_check` e l'inventario ricostruito dal backup, rifiutando anche
+modifiche concorrenti. Non ripara, non importa e non crea job. La conversione
+revisionata, le route residue e il ritiro fisico restano aperti: `SEC-A` resta
+`[~]`.
+
 ### Intervento B · `SEC-B` — Isolamento forte degli scanner (**P0**)
 
 `src/olympus/themis/sandbox.py` applica già drop dei privilegi, limiti CPU/memoria/

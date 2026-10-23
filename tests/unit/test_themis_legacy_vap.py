@@ -11,7 +11,11 @@ from hypothesis import strategies as st
 from typer.testing import CliRunner
 
 from olympus.cli import app
-from olympus.themis.legacy_vap import LegacyVapSnapshotError, create_legacy_vap_snapshot
+from olympus.themis.legacy_vap import (
+    LegacyVapSnapshotError,
+    create_legacy_vap_snapshot,
+    verify_legacy_vap_snapshot,
+)
 
 
 def _legacy_database(
@@ -158,6 +162,95 @@ def test_cli_emits_only_minimized_counts_and_digests(tmp_path: Path) -> None:
     assert payload["conversion_decisions"] == {"convertible_terminal": 1}
     assert "super-secret" not in result.output
     assert "example.test" not in result.output
+
+
+def test_verify_reconstructs_inventory_and_cli_emits_no_legacy_content(tmp_path: Path) -> None:
+    source = tmp_path / "vap.db"
+    backup = tmp_path / "backup.db"
+    manifest = tmp_path / "manifest.json"
+    _legacy_database(source)
+    created = create_legacy_vap_snapshot(source, backup=backup, manifest=manifest)
+
+    verified = verify_legacy_vap_snapshot(source, backup=backup, manifest=manifest)
+    assert verified == created
+    result = CliRunner().invoke(
+        app,
+        [
+            "themis",
+            "legacy-verify",
+            "--source",
+            str(source),
+            "--backup",
+            str(backup),
+            "--manifest",
+            str(manifest),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["verified"] is True
+    assert payload["scan_count"] == 1
+    assert "super-secret" not in result.output
+    assert "example.test" not in result.output
+
+
+@pytest.mark.parametrize("artifact", ["source", "backup", "manifest"])
+def test_verify_refuses_each_tampered_artifact(tmp_path: Path, artifact: str) -> None:
+    source = tmp_path / "vap.db"
+    backup = tmp_path / "backup.db"
+    manifest = tmp_path / "manifest.json"
+    _legacy_database(source)
+    create_legacy_vap_snapshot(source, backup=backup, manifest=manifest)
+
+    if artifact == "source":
+        with sqlite3.connect(source) as db:
+            db.execute("UPDATE scans SET status = 'failed'")
+    elif artifact == "backup":
+        with sqlite3.connect(backup) as db:
+            db.execute("UPDATE scans SET status = 'failed'")
+    else:
+        payload = json.loads(manifest.read_text(encoding="utf-8"))
+        payload["scans"][0]["legacy_state"] = "failed"
+        manifest.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(LegacyVapSnapshotError, match="does not match"):
+        verify_legacy_vap_snapshot(source, backup=backup, manifest=manifest)
+
+
+def test_verify_refuses_invalid_contract_and_path_aliases(tmp_path: Path) -> None:
+    source = tmp_path / "vap.db"
+    backup = tmp_path / "backup.db"
+    manifest = tmp_path / "manifest.json"
+    _legacy_database(source)
+    create_legacy_vap_snapshot(source, backup=backup, manifest=manifest)
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    payload["schema_version"] = "9.0.0"
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"1\.0\.0"):
+        verify_legacy_vap_snapshot(source, backup=backup, manifest=manifest)
+    with pytest.raises(LegacyVapSnapshotError, match="must be different"):
+        verify_legacy_vap_snapshot(source, backup=source, manifest=manifest)
+
+
+@settings(max_examples=12, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@given(tampered_state=st.text(min_size=1, max_size=30).filter(lambda value: value != "completed"))
+def test_verify_fails_closed_for_hostile_manifest_state(
+    tmp_path: Path, tampered_state: str
+) -> None:
+    source = tmp_path / "verify-fuzz-vap.db"
+    backup = tmp_path / "verify-fuzz-backup.db"
+    manifest = tmp_path / "verify-fuzz-manifest.json"
+    for path in (source, backup, manifest):
+        path.unlink(missing_ok=True)
+    _legacy_database(source)
+    create_legacy_vap_snapshot(source, backup=backup, manifest=manifest)
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    payload["scans"][0]["legacy_state"] = tampered_state
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        verify_legacy_vap_snapshot(source, backup=backup, manifest=manifest)
 
 
 @settings(max_examples=12, suppress_health_check=[HealthCheck.function_scoped_fixture])

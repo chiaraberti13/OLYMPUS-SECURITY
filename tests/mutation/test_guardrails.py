@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import sqlite3
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -33,7 +35,12 @@ from olympus.themis.adapters.nmap import NmapAdapter
 from olympus.themis.adapters.nuclei import NucleiAdapter
 from olympus.themis.api import ApiSettings, RequestConcurrencyGate
 from olympus.themis.base import ParseError
-from olympus.themis.legacy_vap import _decision
+from olympus.themis.legacy_vap import (
+    LegacyVapSnapshotError,
+    _decision,
+    create_legacy_vap_snapshot,
+    verify_legacy_vap_snapshot,
+)
 from olympus.themis.model import ScanRequest
 from olympus.themis.runner import CommandOutput
 
@@ -340,3 +347,74 @@ def test_legacy_vap_state_mapping_never_makes_active_rows_executable(
     decision: str,
 ) -> None:
     assert _decision(legacy_state) == (native_state, decision)
+
+
+def _legacy_vap_fixture(path: Path) -> None:
+    with sqlite3.connect(path) as db:
+        db.execute(
+            """CREATE TABLE scans (
+            id INTEGER PRIMARY KEY, target TEXT NOT NULL, scan_type TEXT NOT NULL,
+            status TEXT NOT NULL, created_at TEXT NOT NULL, completed_at TEXT,
+            deleted_at TEXT, findings_json TEXT, scan_configuration_json TEXT
+            )"""
+        )
+        db.execute(
+            """INSERT INTO scans VALUES
+            (1, 'example.test', 'nmap', 'completed', '2026-01-01T00:00:00+00:00',
+             '2026-01-01T00:01:00+00:00', NULL, '[]', '{}')"""
+        )
+
+
+def test_legacy_vap_verification_binds_all_artifacts(tmp_path: Path) -> None:
+    source = tmp_path / "vap.db"
+    backup = tmp_path / "backup.db"
+    manifest = tmp_path / "manifest.json"
+    _legacy_vap_fixture(source)
+    created = create_legacy_vap_snapshot(source, backup=backup, manifest=manifest)
+
+    assert verify_legacy_vap_snapshot(source, backup=backup, manifest=manifest) == created
+
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    payload["scans"][0]["legacy_state"] = "failed"
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(LegacyVapSnapshotError, match="inventory does not match"):
+        verify_legacy_vap_snapshot(source, backup=backup, manifest=manifest)
+
+
+def test_legacy_vap_verification_refuses_source_and_backup_changes(tmp_path: Path) -> None:
+    source = tmp_path / "vap.db"
+    backup = tmp_path / "backup.db"
+    manifest = tmp_path / "manifest.json"
+    _legacy_vap_fixture(source)
+    create_legacy_vap_snapshot(source, backup=backup, manifest=manifest)
+
+    with sqlite3.connect(source) as db:
+        db.execute("UPDATE scans SET status = 'failed'")
+    with pytest.raises(LegacyVapSnapshotError, match="source does not match"):
+        verify_legacy_vap_snapshot(source, backup=backup, manifest=manifest)
+
+    source = tmp_path / "vap-backup-check.db"
+    backup = tmp_path / "backup-check.db"
+    manifest = tmp_path / "manifest-check.json"
+    _legacy_vap_fixture(source)
+    create_legacy_vap_snapshot(source, backup=backup, manifest=manifest)
+    with sqlite3.connect(backup) as db:
+        db.execute("UPDATE scans SET status = 'failed'")
+    with pytest.raises(LegacyVapSnapshotError, match="backup does not match"):
+        verify_legacy_vap_snapshot(source, backup=backup, manifest=manifest)
+
+
+def test_legacy_vap_verification_refuses_alias_and_contract_drift(tmp_path: Path) -> None:
+    source = tmp_path / "vap.db"
+    backup = tmp_path / "backup.db"
+    manifest = tmp_path / "manifest.json"
+    _legacy_vap_fixture(source)
+    create_legacy_vap_snapshot(source, backup=backup, manifest=manifest)
+
+    with pytest.raises(LegacyVapSnapshotError, match="must be different"):
+        verify_legacy_vap_snapshot(source, backup=source, manifest=manifest)
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    payload["schema_version"] = "9.0.0"
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match=r"1\.0\.0"):
+        verify_legacy_vap_snapshot(source, backup=backup, manifest=manifest)

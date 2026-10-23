@@ -117,5 +117,7 @@ def test_persistence_audit_reports_and_cancellation_remain_partial() -> None:
         assert contracts[name]["migration"]
     migration = contracts["persistence"]["migration"]
     assert "legacy-snapshot" in migration
+    assert "legacy-verify" in migration
+    assert "reconstructed inventory" in migration
     assert "still rejects foreign/VAP databases" in migration
     assert "never converts active rows" in migration

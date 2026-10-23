@@ -418,6 +418,40 @@ def themis_legacy_snapshot(
     )
 
 
+@themis_app.command("legacy-verify")
+def themis_legacy_verify(
+    source: str = typer.Option(..., "--source", help="Archived VAP SQLite database."),
+    backup: str = typer.Option(..., "--backup", help="Snapshot SQLite backup."),
+    manifest: str = typer.Option(..., "--manifest", "-m", help="Snapshot manifest."),
+) -> None:
+    """Verify all legacy snapshot artifacts without modifying or importing them."""
+    import sqlite3
+
+    from olympus.themis.legacy_vap import verify_legacy_vap_snapshot
+
+    try:
+        snapshot = verify_legacy_vap_snapshot(
+            Path(source), backup=Path(backup), manifest=Path(manifest)
+        )
+    except (OSError, sqlite3.Error, ValueError) as exc:
+        typer.echo(f"olympus: legacy snapshot verification refused: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    typer.echo(
+        json.dumps(
+            {
+                "schema_name": snapshot.schema_name,
+                "schema_version": snapshot.schema_version,
+                "verified": True,
+                "source_sha256": snapshot.source_sha256,
+                "backup_sha256": snapshot.backup_sha256,
+                "scan_count": snapshot.scan_count,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
+
+
 @themis_app.command("workers")
 def themis_workers(
     database: str = typer.Option(".olympus/themis-jobs.sqlite3", "--database", "-d"),

@@ -21,10 +21,16 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from olympus.core.fileio import UnsafeWriteTarget, atomic_write_text, ensure_write_target
+from olympus.core.fileio import (
+    UnsafeWriteTarget,
+    atomic_write_text,
+    ensure_write_target,
+    read_regular_text,
+)
 from olympus.core.models import OlympusModel
 
 MAX_LEGACY_DATABASE_BYTES = 1_000_000_000
+MAX_LEGACY_MANIFEST_BYTES = 100_000_000
 MAX_LEGACY_SCANS = 100_000
 _SHA256 = r"^[a-f0-9]{64}$"
 _SAFE_TABLE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,127}$")
@@ -300,4 +306,67 @@ def create_legacy_vap_snapshot(source: Path, *, backup: Path, manifest: Path) ->
         if backup_created:
             backup.unlink(missing_ok=True)
         raise
+    return document
+
+
+def verify_legacy_vap_snapshot(source: Path, *, backup: Path, manifest: Path) -> LegacyVapSnapshot:
+    """Fail closed unless all snapshot artifacts still describe the same data.
+
+    The source is mandatory because its digest and size cannot be recovered from
+    the backup.  Verification never repairs or rewrites an artifact and never
+    promotes legacy rows into the native job store.
+    """
+    if len({source.resolve(), backup.resolve(), manifest.resolve()}) != 3:
+        raise LegacyVapSnapshotError("source, backup and manifest must be different files")
+    manifest_text = read_regular_text(
+        manifest,
+        max_bytes=MAX_LEGACY_MANIFEST_BYTES,
+        label="legacy snapshot manifest",
+    )
+    document = LegacyVapSnapshot.model_validate_json(manifest_text)
+    source_sha256, source_size = _hash_regular_file(source, label="legacy database")
+    backup_sha256, _ = _hash_regular_file(backup, label="legacy backup")
+    if (source_sha256, source_size) != (document.source_sha256, document.source_size_bytes):
+        raise LegacyVapSnapshotError("legacy source does not match the snapshot manifest")
+    if backup_sha256 != document.backup_sha256:
+        raise LegacyVapSnapshotError("legacy backup does not match the snapshot manifest")
+
+    try:
+        backup_uri = backup.resolve().as_uri() + "?mode=ro"
+        with sqlite3.connect(backup_uri, uri=True) as db:
+            db.row_factory = sqlite3.Row
+            db.execute("PRAGMA query_only = ON")
+            integrity = str(db.execute("PRAGMA integrity_check").fetchone()[0])
+            if integrity != "ok":
+                raise LegacyVapSnapshotError(f"legacy backup integrity check failed: {integrity}")
+            tables = _validated_tables(db)
+            scans = _scan_inventory(db, backup_sha256)
+            excluded = _excluded_inventory(db, tables)
+    except sqlite3.DatabaseError as exc:
+        raise LegacyVapSnapshotError(f"legacy backup is not readable SQLite: {exc}") from exc
+
+    expected = LegacyVapSnapshot(
+        source_sha256=source_sha256,
+        backup_sha256=backup_sha256,
+        source_size_bytes=source_size,
+        scan_count=len(scans),
+        scans=scans,
+        excluded_tables=excluded,
+    )
+    if document != expected:
+        raise LegacyVapSnapshotError("legacy snapshot manifest inventory does not match the backup")
+
+    current_source = _hash_regular_file(source, label="legacy database")
+    current_backup = _hash_regular_file(backup, label="legacy backup")
+    current_manifest = read_regular_text(
+        manifest,
+        max_bytes=MAX_LEGACY_MANIFEST_BYTES,
+        label="legacy snapshot manifest",
+    )
+    if (
+        current_source != (source_sha256, source_size)
+        or current_backup[0] != backup_sha256
+        or current_manifest != manifest_text
+    ):
+        raise LegacyVapSnapshotError("legacy snapshot artifacts changed during verification")
     return document
