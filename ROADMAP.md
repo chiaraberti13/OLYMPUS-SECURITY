@@ -982,7 +982,23 @@ CI; nessuna logica di dominio dipende da Typer, Textual, FastAPI o SQLite.
   allowlist di plugin firmati/approvati per le installazioni professionali.
 - [ ] Validare output scanner con schema versionato e quarantena dei record non
   conformi; mai “best effort” silenzioso.
-- [ ] Fornire un template e contract test riutilizzabile per nuovi adapter.
+- [x] Fornire un template e contract test riutilizzabile per nuovi adapter.
+  **Fatto:** `tests/contract/test_adapter_contract.py` è parametrizzato su
+  **ogni adapter registrato** (`themis.registry.implemented`, oggi 15) e verifica
+  offline — senza eseguire alcun binario né contattare un target — il contratto
+  condiviso che ogni adapter deve rispettare: identità coerente con il registry e
+  con il catalogo (`integrations.scanners`), `build_argv` che restituisce un
+  vettore `list[str]` non vuoto (mai una stringa shell) con l'host trasportato
+  come token atomico, `parse` che su output ostile (JSON malformato, byte di
+  controllo, annidamento profondo, path traversal) restituisce `list[Finding]`
+  oppure solleva `ParseError`/`ValueError` gestito (mai un'eccezione non gestita o
+  un finding inventato), `run` che rifiuta uno scanner non corrispondente e
+  `simulate` che etichetta sempre i finding come `SIMULATION`. Poiché la suite è
+  guidata dal registry, un nuovo adapter aggiunto al registry è
+  **contract-tested automaticamente** senza modificare il core — l'obiettivo
+  `DEV-B`. Restano gli altri bullet `DEV-B` (protocollo pubblico stabile estratto,
+  discovery via entry point + allowlist firmata, quarantena schema-validata degli
+  output non conformi).
 
 **Criterio di completamento:** un adapter esterno può essere sviluppato e testato
 senza modificare il core, ma non può bypassare scope, policy, audit o sandbox.
