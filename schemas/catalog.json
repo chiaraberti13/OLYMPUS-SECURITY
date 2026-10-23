@@ -100,6 +100,13 @@
     },
     {
       "direction": "output",
+      "name": "olympus.legacy-vap-import-approval",
+      "path": "contracts/olympus.legacy-vap-import-approval/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "31910d0c0c22fb1d944c3049a3d2f943eb8c1da8e99ab202a424d4f815d66a88"
+    },
+    {
+      "direction": "output",
       "name": "olympus.legacy-vap-snapshot",
       "path": "contracts/olympus.legacy-vap-snapshot/1.0.0.schema.json",
       "schema_version": "1.0.0",

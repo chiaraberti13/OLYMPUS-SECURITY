@@ -1,0 +1,135 @@
+{
+  "$defs": {
+    "LegacyVapImportApprovalEntry": {
+      "additionalProperties": false,
+      "description": "One terminal legacy record explicitly approved for later archival import.",
+      "properties": {
+        "disposition": {
+          "const": "approved_historical_import",
+          "default": "approved_historical_import",
+          "title": "Disposition",
+          "type": "string"
+        },
+        "historical_execution_authorized": {
+          "const": false,
+          "default": false,
+          "title": "Historical Execution Authorized",
+          "type": "boolean"
+        },
+        "migration_key": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Migration Key",
+          "type": "string"
+        },
+        "native_scanner": {
+          "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+          "title": "Native Scanner",
+          "type": "string"
+        },
+        "native_state": {
+          "enum": [
+            "succeeded",
+            "failed",
+            "cancelled"
+          ],
+          "title": "Native State",
+          "type": "string"
+        },
+        "target_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Target Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "migration_key",
+        "target_sha256",
+        "native_scanner",
+        "native_state"
+      ],
+      "title": "LegacyVapImportApprovalEntry",
+      "type": "object"
+    }
+  },
+  "$id": "urn:olympus:schema:olympus.legacy-vap-import-approval:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Signed, current approval boundary for a later non-executable import.",
+  "properties": {
+    "approvals": {
+      "items": {
+        "$ref": "#/$defs/LegacyVapImportApprovalEntry"
+      },
+      "maxItems": 100000,
+      "minItems": 1,
+      "title": "Approvals",
+      "type": "array"
+    },
+    "approved_count": {
+      "maximum": 100000,
+      "minimum": 1,
+      "title": "Approved Count",
+      "type": "integer"
+    },
+    "backup_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Backup Sha256",
+      "type": "string"
+    },
+    "engagement_id": {
+      "pattern": "^ENG-[0-9]{4}-[0-9]{5}$",
+      "title": "Engagement Id",
+      "type": "string"
+    },
+    "executable_jobs_created": {
+      "const": 0,
+      "default": 0,
+      "title": "Executable Jobs Created",
+      "type": "integer"
+    },
+    "historical_execution_authorized": {
+      "const": false,
+      "default": false,
+      "title": "Historical Execution Authorized",
+      "type": "boolean"
+    },
+    "plan_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Plan Sha256",
+      "type": "string"
+    },
+    "schema_name": {
+      "const": "olympus.legacy-vap-import-approval",
+      "default": "olympus.legacy-vap-import-approval",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "signed_manifest_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Signed Manifest Sha256",
+      "type": "string"
+    },
+    "snapshot_manifest_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Snapshot Manifest Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "plan_sha256",
+    "snapshot_manifest_sha256",
+    "backup_sha256",
+    "signed_manifest_sha256",
+    "engagement_id",
+    "approved_count",
+    "approvals"
+  ],
+  "title": "LegacyVapImportApproval",
+  "type": "object"
+}

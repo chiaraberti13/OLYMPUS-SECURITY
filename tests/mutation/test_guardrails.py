@@ -38,6 +38,7 @@ from olympus.themis.base import ParseError
 from olympus.themis.legacy_vap import (
     LegacyVapSnapshotError,
     _decision,
+    approve_legacy_vap_import,
     create_legacy_vap_conversion_plan,
     create_legacy_vap_snapshot,
     verify_legacy_vap_snapshot,
@@ -441,3 +442,72 @@ def test_legacy_vap_conversion_plan_never_authorizes_or_creates_jobs(tmp_path: P
     assert plan.entries[0].requires_operator_review is True
     assert plan.executable_jobs_created == 0
     assert plan.authorization_inherited is False
+
+
+def test_legacy_vap_approval_requires_current_signed_scope_and_creates_no_jobs(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "vap.db"
+    backup = tmp_path / "backup.db"
+    manifest = tmp_path / "manifest.json"
+    plan_path = tmp_path / "plan.json"
+    signed_path = tmp_path / "signed.json"
+    key_path = tmp_path / "approver.pub.pem"
+    _legacy_vap_fixture(source)
+    snapshot = create_legacy_vap_snapshot(source, backup=backup, manifest=manifest)
+    create_legacy_vap_conversion_plan(
+        source,
+        backup=backup,
+        manifest=manifest,
+        output=plan_path,
+        native_scanners=frozenset({"nmap"}),
+    )
+    private_key, public_key = generate_keypair()
+    now = datetime(2026, 10, 23, 8, 0, tzinfo=UTC)
+    current_manifest = EngagementManifest(
+        engagement_id="ENG-2026-00001",
+        client="Synthetic Client",
+        owner="Synthetic Owner",
+        approver="Synthetic Approver",
+        contract_id="SYNTHETIC-CONTRACT",
+        scope=EngagementScope(included=("example.test",), excluded=()),
+        valid_from=now - timedelta(hours=1),
+        expires_at=now + timedelta(hours=1),
+        allowed_techniques=("nmap",),
+        max_targets=1,
+    )
+    signed = SignedEngagementManifest.sign_manifest(current_manifest, private_key_pem=private_key)
+    signed_path.write_text(signed.model_dump_json(), encoding="utf-8")
+    key_path.write_text(public_key, encoding="utf-8")
+
+    approval = approve_legacy_vap_import(
+        source,
+        backup=backup,
+        manifest=manifest,
+        plan_path=plan_path,
+        signed_manifest_path=signed_path,
+        trusted_public_key_path=key_path,
+        output=tmp_path / "approval.json",
+        migration_keys=(snapshot.scans[0].migration_key,),
+        native_scanners=frozenset({"nmap"}),
+        now=now,
+    )
+
+    assert approval.approved_count == len(approval.approvals) == 1
+    assert approval.approvals[0].native_state == "succeeded"
+    assert approval.historical_execution_authorized is False
+    assert approval.executable_jobs_created == 0
+    with pytest.raises(ValueError):
+        approve_legacy_vap_import(
+            source,
+            backup=backup,
+            manifest=manifest,
+            plan_path=plan_path,
+            signed_manifest_path=signed_path,
+            trusted_public_key_path=key_path,
+            output=tmp_path / "revoked.json",
+            migration_keys=(snapshot.scans[0].migration_key,),
+            native_scanners=frozenset({"nmap"}),
+            revoked=(signed.manifest_sha256,),
+            now=now,
+        )

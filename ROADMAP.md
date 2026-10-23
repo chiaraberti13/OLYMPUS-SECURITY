@@ -272,6 +272,15 @@ autorizzazione e crea esplicitamente zero job. L'importazione con engagement
 manifest corrente, la parità delle route residue e il ritiro fisico del vendor
 restano aperti: `SEC-A` resta `[~]`.
 
+**Avanzamento verificato (2026-10-23, approvazione firmata dell'import):**
+`themis legacy-approve` rivalida snapshot e piano e accetta soltanto migration key
+terminali selezionate esplicitamente. Firma Ed25519, revoche opzionali, finestra,
+scope, tecnica e limite dei target sono verificati contro un engagement manifest
+corrente. Il contratto `olympus.legacy-vap-import-approval` 1.0.0 espone solo
+digest, non attribuisce retroattivamente autorizzazione alle esecuzioni storiche
+e crea zero job. L'importatore storico, la parità delle route residue e il ritiro
+fisico del vendor restano aperti: `SEC-A` resta `[~]`.
+
 ### Intervento B · `SEC-B` — Isolamento forte degli scanner (**P0**)
 
 `src/olympus/themis/sandbox.py` applica già drop dei privilegi, limiti CPU/memoria/

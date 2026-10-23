@@ -129,6 +129,27 @@ legacy e dichiara esplicitamente zero job eseguibili creati. Il file è
 create-only e owner-only; la futura importazione richiederà un comando separato,
 un engagement manifest corrente e un'ulteriore revisione SEC-A.
 
+Approvare quindi soltanto le chiavi revisionate usando un manifest di engagement
+corrente e la chiave pubblica dell'approvatore:
+
+```bash
+olympus themis legacy-approve --source vap.db \
+  --backup migration/vap.backup.sqlite3 \
+  --manifest migration/vap.snapshot.json \
+  --plan migration/vap.conversion-plan.json \
+  --signed-manifest engagement.signed.json \
+  --manifest-public-key approver.pub.pem \
+  --migration-key <sha256> \
+  --output migration/vap.import-approval.json
+```
+
+Il contratto `olympus.legacy-vap-import-approval` 1.0.0 verifica nuovamente
+snapshot e piano, firma Ed25519, revoche opzionali, finestra temporale, tecnica,
+scope e limite dei target. Accetta solo record `review_terminal` selezionati
+esplicitamente. Il receipt contiene digest e chiavi di migrazione, mai target in
+chiaro; non considera autorizzata retroattivamente l'esecuzione storica e crea
+zero job. L'importatore storico resta una milestone SEC-A separata.
+
 ### Docker
 
 L'immagine `docker/Dockerfile` installa la wheel, include template/statici e
@@ -262,6 +283,16 @@ adapter. It contains no plaintext target, inherits no legacy authorization and
 explicitly creates zero executable jobs. The create-only, owner-only plan is
 not an import; a later SEC-A step still needs a current signed engagement
 manifest and a separate reviewed conversion command.
+
+Approve only explicitly reviewed keys with `olympus themis legacy-approve`,
+passing the snapshot, plan, current signed engagement manifest, pinned approver
+public key, one or more `--migration-key` values, and a create-only output path.
+The `olympus.legacy-vap-import-approval` 1.0.0 receipt re-verifies the snapshot
+and plan plus Ed25519 signature, optional revocations, time window, technique,
+scope and target limit. It accepts only `review_terminal` entries and exposes
+digests rather than plaintext targets. It creates zero jobs and explicitly does
+not claim retroactive authorization for historical execution; the historical
+importer remains a separate SEC-A milestone.
 
 Before Docker startup, prepare registered scopes under `.olympus/scopes`, the
 scoped identity register under `.olympus/config/themis-api-identities.json`,

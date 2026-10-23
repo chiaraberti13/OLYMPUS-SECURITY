@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -11,8 +12,12 @@ from hypothesis import strategies as st
 from typer.testing import CliRunner
 
 from olympus.cli import app
+from olympus.core.models import EngagementScope
+from olympus.core.signing import generate_keypair
+from olympus.engagements.manifest import EngagementManifest, SignedEngagementManifest
 from olympus.themis.legacy_vap import (
     LegacyVapSnapshotError,
+    approve_legacy_vap_import,
     create_legacy_vap_conversion_plan,
     create_legacy_vap_snapshot,
     verify_legacy_vap_snapshot,
@@ -51,6 +56,53 @@ def _legacy_database(
             )"""
         )
         db.execute("INSERT INTO consent_records VALUES (1, 'person-1', 'terms', 'v1')")
+
+
+def _approval_artifacts(tmp_path: Path) -> tuple[Path, Path, Path, Path, Path, Path, str, datetime]:
+    source = tmp_path / "vap.db"
+    backup = tmp_path / "backup.db"
+    manifest = tmp_path / "snapshot.json"
+    plan = tmp_path / "plan.json"
+    signed_path = tmp_path / "signed.json"
+    key_path = tmp_path / "approver.pub.pem"
+    _legacy_database(source)
+    snapshot = create_legacy_vap_snapshot(source, backup=backup, manifest=manifest)
+    create_legacy_vap_conversion_plan(
+        source,
+        backup=backup,
+        manifest=manifest,
+        output=plan,
+        native_scanners=frozenset({"nmap"}),
+    )
+    now = datetime(2026, 10, 23, 8, 0, tzinfo=UTC)
+    private_key, public_key = generate_keypair()
+    engagement = EngagementManifest(
+        engagement_id="ENG-2026-00001",
+        client="Synthetic Client",
+        owner="Synthetic Owner",
+        approver="Synthetic Approver",
+        contract_id="SYNTHETIC-CONTRACT",
+        scope=EngagementScope(
+            included=("https://example.test/search?token=super-secret",), excluded=()
+        ),
+        valid_from=now - timedelta(hours=1),
+        expires_at=now + timedelta(hours=1),
+        allowed_techniques=("nmap",),
+        max_targets=1,
+    )
+    signed = SignedEngagementManifest.sign_manifest(engagement, private_key_pem=private_key)
+    signed_path.write_text(signed.model_dump_json(), encoding="utf-8")
+    key_path.write_text(public_key, encoding="utf-8")
+    return (
+        source,
+        backup,
+        manifest,
+        plan,
+        signed_path,
+        key_path,
+        snapshot.scans[0].migration_key,
+        now,
+    )
 
 
 def test_snapshot_is_read_only_consistent_minimized_and_deterministic(tmp_path: Path) -> None:
@@ -227,6 +279,150 @@ def test_conversion_plan_is_review_only_minimized_and_create_only(tmp_path: Path
             output=output,
             native_scanners=frozenset({"nmap"}),
         )
+
+
+def test_import_approval_is_signed_selected_minimized_and_non_executable(tmp_path: Path) -> None:
+    source, backup, manifest, plan, signed, key, migration_key, now = _approval_artifacts(tmp_path)
+    output = tmp_path / "approval.json"
+
+    approval = approve_legacy_vap_import(
+        source,
+        backup=backup,
+        manifest=manifest,
+        plan_path=plan,
+        signed_manifest_path=signed,
+        trusted_public_key_path=key,
+        output=output,
+        migration_keys=(migration_key,),
+        native_scanners=frozenset({"nmap"}),
+        now=now,
+    )
+
+    assert approval.approved_count == 1
+    assert approval.approvals[0].disposition == "approved_historical_import"
+    assert approval.approvals[0].historical_execution_authorized is False
+    assert approval.historical_execution_authorized is False
+    assert approval.executable_jobs_created == 0
+    rendered = output.read_text(encoding="utf-8")
+    assert "super-secret" not in rendered
+    assert "example.test" not in rendered
+
+
+@pytest.mark.parametrize("failure", ["revoked", "wrong-key", "unselected", "active"])
+def test_import_approval_fails_closed(tmp_path: Path, failure: str) -> None:
+    source, backup, manifest, plan, signed, key, migration_key, now = _approval_artifacts(tmp_path)
+    revoked: tuple[str, ...] = ()
+    selected = (migration_key,)
+    if failure == "revoked":
+        signed_document = SignedEngagementManifest.model_validate_json(
+            signed.read_text(encoding="utf-8")
+        )
+        revoked = (signed_document.manifest_sha256,)
+    elif failure == "wrong-key":
+        _private, other_public = generate_keypair()
+        key.write_text(other_public, encoding="utf-8")
+    elif failure == "unselected":
+        selected = ("0" * 64,)
+    else:
+        with sqlite3.connect(source) as db:
+            db.execute("UPDATE scans SET status = 'running'")
+
+    with pytest.raises(ValueError):
+        approve_legacy_vap_import(
+            source,
+            backup=backup,
+            manifest=manifest,
+            plan_path=plan,
+            signed_manifest_path=signed,
+            trusted_public_key_path=key,
+            output=tmp_path / "approval.json",
+            migration_keys=selected,
+            native_scanners=frozenset({"nmap"}),
+            revoked=revoked,
+            now=now,
+        )
+    assert not (tmp_path / "approval.json").exists()
+
+
+def test_legacy_approve_cli_emits_only_receipt_metadata(tmp_path: Path) -> None:
+    source, backup, manifest, plan, signed, key, migration_key, _now = _approval_artifacts(tmp_path)
+    signed_document = SignedEngagementManifest.model_validate_json(
+        signed.read_text(encoding="utf-8")
+    )
+    current_time = datetime.now(UTC)
+    signed_document.manifest = signed_document.manifest.model_validate(
+        {
+            **signed_document.manifest.model_dump(),
+            "valid_from": current_time - timedelta(hours=1),
+            "expires_at": current_time + timedelta(hours=1),
+        }
+    )
+    private_key, public_key = generate_keypair()
+    current = SignedEngagementManifest.sign_manifest(
+        signed_document.manifest, private_key_pem=private_key
+    )
+    signed.write_text(current.model_dump_json(), encoding="utf-8")
+    key.write_text(public_key, encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "themis",
+            "legacy-approve",
+            "--source",
+            str(source),
+            "--backup",
+            str(backup),
+            "--manifest",
+            str(manifest),
+            "--plan",
+            str(plan),
+            "--signed-manifest",
+            str(signed),
+            "--manifest-public-key",
+            str(key),
+            "--migration-key",
+            migration_key,
+            "--output",
+            str(tmp_path / "approval.json"),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["approved_count"] == 1
+    assert payload["historical_execution_authorized"] is False
+    assert payload["executable_jobs_created"] == 0
+    assert "super-secret" not in result.output
+    assert "example.test" not in result.output
+
+    revoked = CliRunner().invoke(
+        app,
+        [
+            "themis",
+            "legacy-approve",
+            "--source",
+            str(source),
+            "--backup",
+            str(backup),
+            "--manifest",
+            str(manifest),
+            "--plan",
+            str(plan),
+            "--signed-manifest",
+            str(signed),
+            "--manifest-public-key",
+            str(key),
+            "--migration-key",
+            migration_key,
+            "--revoked",
+            current.manifest_sha256,
+            "--output",
+            str(tmp_path / "revoked.json"),
+        ],
+    )
+    assert revoked.exit_code == 4
+    assert not (tmp_path / "revoked.json").exists()
 
 
 @pytest.mark.parametrize(
