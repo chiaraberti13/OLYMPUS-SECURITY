@@ -113,7 +113,12 @@ from olympus.themis.jobs import (
     ThemisJob,
     ThemisJobStore,
 )
-from olympus.vulcan.aggregate import AggregationError, load_findings, severity_breakdown
+from olympus.vulcan.aggregate import (
+    AggregationError,
+    load_findings,
+    severity_breakdown,
+    source_breakdown,
+)
 from olympus.vulcan.compare import diff_findings
 from olympus.vulcan.evidence_view import build_finding_evidence_view
 from olympus.vulcan.report import (
@@ -828,11 +833,15 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 findings_summary = None
             else:
                 breakdown = severity_breakdown(catalogue)
+                sources = source_breakdown(catalogue)
                 findings_summary = {
                     "total": len(catalogue),
                     "levels": [
                         {"severity": level, "count": breakdown[level]}
                         for level in ("critical", "high", "medium", "low", "info")
+                    ],
+                    "sources": [
+                        {"source": source, "count": count} for source, count in sources.items()
                     ],
                 }
         # Scanner-readiness widget (WEB-G): only for an identity that may read

@@ -1451,10 +1451,12 @@ nessuno stadio) o senza autorizzazione (il motore non esegue mai nulla).
   in corso, scansioni completate, finding per severità/scanner, incident aperti,
   attività recente, scanner readiness, avanzamento assessment); nessun widget
   decorativo. **Fatto finora:** totali e istogramma stati job + job recenti; e il
-  widget **finding per severità** sulla dashboard (`GET /`), scope-gated a
-  `findings:read` e attivo solo con `--findings-directory`, che riusa
-  `vulcan.aggregate.severity_breakdown` e linka alla vista findings filtrata per
-  severità; degrada onestamente (assente) se non configurato o non leggibile; e
+  widget **finding per severità/scanner** sulla dashboard (`GET /`), scope-gated
+  a `findings:read` e attivo solo con `--findings-directory`, che riusa
+  `vulcan.aggregate.severity_breakdown` e `source_breakdown` (quest'ultimo elenca
+  solo le sorgenti che hanno prodotto finding, ordinate per conteggio) e linka
+  alla vista findings filtrata per severità e per sorgente; degrada onestamente
+  (assente) se non configurato o non leggibile; e
   il widget **scanner readiness** (`GET /`), scope-gated a `capabilities:read`,
   che proietta fedelmente l'inventario capability (`integrations.capabilities.inventory`
   — stessa fonte di `olympus themis capabilities` e della pagina Tools) in

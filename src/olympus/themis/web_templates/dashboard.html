@@ -26,6 +26,17 @@
     </div>
     {% endfor %}
   </div>
+  {% if findings_summary.sources %}
+  <h3>By source</h3>
+  <div class="tiles">
+    {% for item in findings_summary.sources %}
+    <div class="tile">
+      <span class="tile-value"><a class="button-link" href="/findings?source={{ item.source }}">{{ item.count }}</a></span>
+      <span class="tile-label">{{ item.source }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
 </section>
 {% endif %}
 {% if scanner_readiness %}

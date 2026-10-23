@@ -452,6 +452,20 @@ def severity_breakdown(findings: Sequence[Finding]) -> dict[str, int]:
     return counts
 
 
+def source_breakdown(findings: Sequence[Finding]) -> dict[str, int]:
+    """Return a count of findings per producing source (scanner/module).
+
+    Only sources that actually produced at least one finding are reported,
+    ordered by descending count and then source name, so a caller renders a
+    compact, meaningful breakdown instead of a wall of zero-valued sources.
+    """
+    counts: dict[str, int] = {}
+    for finding in findings:
+        key = finding.source.value
+        counts[key] = counts.get(key, 0) + 1
+    return dict(sorted(counts.items(), key=lambda item: (-item[1], item[0])))
+
+
 def filter_min_severity(findings: Sequence[Finding], minimum: Severity) -> list[Finding]:
     """Keep only findings at or above ``minimum`` severity."""
     threshold = _SEVERITY_ORDER[minimum]

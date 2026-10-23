@@ -19,6 +19,7 @@ from olympus.vulcan.aggregate import (
     merge_duplicate_findings,
     rank_findings,
     severity_breakdown,
+    source_breakdown,
 )
 from olympus.vulcan.application import (
     VulcanApplicationService,
@@ -217,6 +218,21 @@ def test_severity_breakdown_covers_all_levels() -> None:
     counts = severity_breakdown([_finding("a", Severity.HIGH), _finding("b", Severity.HIGH)])
     assert counts["high"] == 2
     assert counts["info"] == 0
+
+
+def test_source_breakdown_counts_only_producing_sources_ordered() -> None:
+    findings = [
+        Finding(asset_id="AST-1", source=Source.ARGUS, title="a", severity=Severity.LOW),
+        Finding(asset_id="AST-1", source=Source.ARGUS, title="b", severity=Severity.LOW),
+        Finding(asset_id="AST-1", source=Source.ARGUS, title="c", severity=Severity.LOW),
+        Finding(asset_id="AST-1", source=Source.VULCAN, title="d", severity=Severity.LOW),
+        Finding(asset_id="AST-1", source=Source.MINERVA, title="e", severity=Severity.LOW),
+    ]
+    counts = source_breakdown(findings)
+    # Only sources that actually produced findings appear, ordered by count
+    # descending then source name — not every member of the Source enum.
+    assert list(counts.items()) == [("argus", 3), ("minerva", 1), ("vulcan", 1)]
+    assert source_breakdown([]) == {}
 
 
 def test_build_report_and_markdown() -> None:

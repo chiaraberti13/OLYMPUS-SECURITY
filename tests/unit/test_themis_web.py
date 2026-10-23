@@ -1443,6 +1443,9 @@ def test_dashboard_shows_findings_by_severity_for_a_findings_reader(tmp_path: Pa
     # Links drill into the filtered findings view.
     assert "/findings?severity=high" in page.text
     assert "/findings?severity=critical" in page.text
+    # The by-source breakdown lists only producing sources, drilling in too.
+    assert "By source" in page.text
+    assert "/findings?source=artemis" in page.text
 
 
 def test_dashboard_widget_hidden_without_findings_read_scope(tmp_path: Path) -> None:
