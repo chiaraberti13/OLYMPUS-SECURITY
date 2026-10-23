@@ -29,6 +29,7 @@ from olympus.core.addresses import (
 )
 from olympus.core.execution import (
     _SENSITIVE_KEY_PARTS,
+    _sensitive_key,
     redact_mapping,
     redact_text,
     redact_url,
@@ -155,8 +156,12 @@ _secrets = st.text(
 
 
 def _is_unexpected_safe_key(value: str) -> bool:
-    candidate = ("x-custom-" + value).lower()
-    return not any(part in candidate for part in _SENSITIVE_KEY_PARTS)
+    # Mirror the production key test *exactly* (via the real `_sensitive_key`,
+    # which normalizes '-' to '_'), so the strategy never generates a key the
+    # redactor legitimately treats as sensitive — e.g. "API-KEY" normalizes to
+    # "api_key". A hand-rolled substring check here drifted from production and
+    # produced false "safe" keys that the redactor still (correctly) redacted.
+    return not _sensitive_key("x-custom-" + value)
 
 
 @given(key=st.sampled_from(_SENSITIVE_KEYS), secret=_secrets)
