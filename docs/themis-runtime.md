@@ -227,9 +227,13 @@ Il sorgente VAP resta un archivio per provenance e confronto. La matrice route
 per route e dei contratti di lifecycle è mantenuta in
 [`docs/parity/themis-vap-runtime.json`](parity/themis-vap-runtime.json) e
 verificata contro i router sorgente da
-`tests/contract/test_themis_vap_parity.py`. La conversione dei database VAP e il
-ritiro fisico del sorgente restano punti separati della roadmap; non sono
-capacità dichiarate di questo runtime.
+`tests/contract/test_themis_vap_parity.py`. La decisione di ritiro per ogni
+route e confine dati è registrata separatamente in
+[`docs/parity/themis-vap-retirement.json`](parity/themis-vap-retirement.json):
+sostituzioni native, esclusioni intenzionali e capability native future sono
+distinte senza presentare queste ultime come parità già implementata. L'import
+storico terminale è disponibile; il ritiro fisico del sorgente resta un punto
+separato della roadmap e non è una capacità del runtime.
 
 ## English
 
@@ -347,13 +351,17 @@ Scanner egress/seccomp/AppArmor completion remains SEC-B.
 
 The route-by-route legacy/native inventory and lifecycle/data gaps are tracked in
 [`docs/parity/themis-vap-runtime.json`](parity/themis-vap-runtime.json) and
-contract-tested against both source trees. Reviewed terminal history can now be
-imported without producing executable work or claiming complete runtime parity;
-the residual route/data decisions and physical source retirement remain SEC-A
-work.
+contract-tested against both source trees. The independently testable
+[`docs/parity/themis-vap-retirement.json`](parity/themis-vap-retirement.json)
+records one source-removal decision for every legacy route and data boundary,
+separating native replacements, intentional exclusions and future native
+capabilities. Reviewed terminal history can now be imported without producing
+executable work or claiming complete runtime parity; distributed concurrency
+and physical source retirement remain SEC-A work.
 
 Run `make check`, `python scripts/smoke_native_runtime.py` and, on a Docker host,
 `make test-container`. CI exercises clean-wheel and isolated-container startup
 with real API/HTTPS Web servers and a disabled scanner job. These tests require
-no external target. VAP source remains archived pending review of each recorded
-gap, legacy data-import and physical source-removal milestones.
+no external target. VAP source remains archived pending the distributed-control
+and physical source-removal milestones; route/data retirement decisions and the
+reviewed historical import path are complete.

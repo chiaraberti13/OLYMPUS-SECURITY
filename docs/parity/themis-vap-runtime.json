@@ -11,9 +11,10 @@
       "src/olympus/themis/api.py",
       "src/olympus/themis/web.py"
     ],
-        "reviewed_against": "origin/main at cd08ffb",
+    "reviewed_against": "origin/main at 10df45f",
     "legacy_app_sha256": "1df54b7b8f0656e470b31b8e6c47476c920428860642a245f9b32847c370d66a"
   },
+  "retirement_decision_manifest": "docs/parity/themis-vap-retirement.json",
   "status_values": [
     "implemented",
     "partial",

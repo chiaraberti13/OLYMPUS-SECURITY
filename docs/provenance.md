@@ -43,16 +43,22 @@ submodules, and native Themis does not load or execute the archived VAP runtime.
   native SQLite job store and do not load VAP, Redis, Celery or Alembic. The
   deprecated `olympus vap` command remains an alias for the native Themis CLI.
   Route, lifecycle, persistence, audit, report and cancellation decisions are
-  tracked in `docs/parity/themis-vap-runtime.json`; legacy database conversion
-  and source removal are still open SEC-A work.
+  tracked in `docs/parity/themis-vap-runtime.json`; the source-retirement
+  disposition for every route and data boundary is tracked in
+  `docs/parity/themis-vap-retirement.json`. Reviewed terminal legacy history can
+  be imported without creating executable work. Distributed concurrency and
+  physical source removal are still open SEC-A work.
 
 ## Archived VAP source
 
 The archived tree is retained for provenance and migration review; it is not a
 supported Olympus runtime. Do not launch its web app or worker as a substitute
-for the native runtime. Legacy database import is not implemented. Native
-`themis migrate` rejects VAP/foreign databases; preserve and back up those files
-until an explicit read-only importer and rollback procedure are completed.
+for the native runtime. The explicit `legacy-snapshot` → `legacy-verify` →
+`legacy-plan` → `legacy-approve` → `legacy-import` chain handles only reviewed
+terminal history, always unauthorized and non-executable. Native `themis
+migrate` continues to reject VAP/foreign databases. Preserve the source database
+and create-only backup until the import receipt and rollback evidence have been
+reviewed.
 
 ## Notes
 
@@ -64,8 +70,8 @@ until an explicit read-only importer and rollback procedure are completed.
 - Vendored code is preserved verbatim and held to its own quality tooling, not
   Olympus's optional helpers.
 - Contract tests pin the complete archived VAP route inventory against the
-  route-by-route parity matrix. They do not certify data import or scanner live
-  readiness.
+  route-by-route parity matrix and require exactly one retirement disposition
+  for every route and data boundary. They do not certify scanner live readiness.
 
 ## Repository licence scope
 

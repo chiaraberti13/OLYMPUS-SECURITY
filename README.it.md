@@ -208,8 +208,10 @@ Themis esegue ora API, Web UI (`serve`/`web`), migrazioni e worker continui dall
 wheel nativa. Scope, autorizzazione, adapter, job SQLite, cancellazione e audit
 redatto condividono una sola implementazione, senza Redis/Celery né import
 runtime da `vendor/`. Il sorgente VAP resta un archivio per la futura verifica
-completa della parità endpoint/dati (`SEC-A`); import dei database legacy e
-milestone Web avanzate restano punti distinti. Configurazione e rollback sono
+di ritiro fisico (`SEC-A`): ogni route e confine dati ha ora una decisione
+esplicita e verificata, mentre lo storico terminale revisionato dispone di un
+percorso di import non eseguibile. Concorrenza distribuita, rimozione fisica del
+sorgente e milestone Web avanzate restano punti distinti. Configurazione e rollback sono
 nella [guida al runtime nativo](docs/themis-runtime.md), bilingue IT/EN.
 
 I motori di scansione specialistici sono **integrati e governati, non copiati**.

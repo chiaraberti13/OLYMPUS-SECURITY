@@ -259,9 +259,11 @@ The standalone **Argus** migration is complete. Its maintained implementation is
 Themis now runs its API, Web UI (`serve`/`web`), schema migrations and continuous
 workers from the installed native wheel. Scope, authorization, adapters, durable
 SQLite jobs, cancellation and redacted audit share one implementation, without
-Redis/Celery or runtime imports from `vendor/`. The archived VAP source remains
-for the pending full endpoint/data parity review (`SEC-A`); legacy database import
-and advanced Web milestones are separate roadmap work. See the bilingual
+Redis/Celery or runtime imports from `vendor/`. Every archived VAP route and data
+boundary now has an explicit, contract-tested retirement decision (`SEC-A`), and
+reviewed terminal history has a non-executable import path. Distributed
+concurrency, physical source removal and advanced Web milestones remain roadmap
+work. See the bilingual
 [native runtime guide](docs/themis-runtime.md) for configuration and rollback.
 
 **How much of the catalogue actually executes.** The 24-scanner registry is a

@@ -12,11 +12,21 @@ from olympus.themis.jobs import JobState
 
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "docs/parity/themis-vap-runtime.json"
+RETIREMENT_MANIFEST = ROOT / "docs/parity/themis-vap-retirement.json"
 VALID_STATUSES = {"implemented", "partial", "missing"}
+VALID_RETIREMENT_DECISIONS = {
+    "native_replacement",
+    "intentional_exclusion",
+    "future_native_capability",
+}
 
 
 def _read_manifest() -> dict[str, Any]:
     return cast(dict[str, Any], json.loads(MANIFEST.read_text(encoding="utf-8")))
+
+
+def _read_retirement_manifest() -> dict[str, Any]:
+    return cast(dict[str, Any], json.loads(RETIREMENT_MANIFEST.read_text(encoding="utf-8")))
 
 
 def _routes(path: Path) -> list[dict[str, str]]:
@@ -50,6 +60,10 @@ def _routes(path: Path) -> list[dict[str, str]]:
 
 def _route_key(route: dict[str, str]) -> tuple[str, str, str]:
     return route["method"], route["path"], route["handler"]
+
+
+def _retirement_route_key(route: dict[str, str]) -> str:
+    return f"{route['method']} {route['path']}"
 
 
 def test_legacy_route_inventory_is_complete_and_pinned_to_reviewed_source() -> None:
@@ -96,6 +110,64 @@ def test_every_legacy_route_has_an_explicit_parity_and_security_decision() -> No
             assert route["native"] is None
         else:
             assert route["native"]
+
+
+def test_every_legacy_route_has_one_non_blocking_retirement_decision() -> None:
+    parity = _read_manifest()
+    retirement = _read_retirement_manifest()
+
+    assert retirement["roadmap_id"] == "SEC-A"
+    assert retirement["priority"] == "P0"
+    assert set(retirement["decision_values"]) == VALID_RETIREMENT_DECISIONS
+    assert parity["retirement_decision_manifest"] == str(RETIREMENT_MANIFEST.relative_to(ROOT))
+    assert (
+        retirement["baseline"]["legacy_repository_revision"]
+        == (parity["baseline"]["legacy_repository_revision"])
+    )
+    assert retirement["baseline"]["legacy_app_sha256"] == parity["baseline"]["legacy_app_sha256"]
+
+    expected = {_retirement_route_key(route) for route in parity["legacy_routes"]}
+    recorded: list[str] = []
+    decision_by_route: dict[str, str] = {}
+    for group in retirement["route_decisions"]:
+        assert group["decision"] in VALID_RETIREMENT_DECISIONS
+        assert group["source_removal_blocker"] is False
+        assert group["rationale"].strip()
+        if group["decision"] == "future_native_capability":
+            assert group["follow_up"]
+        recorded.extend(group["routes"])
+        decision_by_route.update(dict.fromkeys(group["routes"], group["decision"]))
+
+    assert set(recorded) == expected
+    assert len(recorded) == len(set(recorded))
+    implemented = {
+        _retirement_route_key(route)
+        for route in parity["legacy_routes"]
+        if route["status"] == "implemented"
+    }
+    assert all(decision_by_route[route] == "native_replacement" for route in implemented)
+
+
+def test_every_legacy_data_boundary_has_one_retirement_decision() -> None:
+    parity = _read_manifest()
+    retirement = _read_retirement_manifest()
+    expected = set(parity["data_contracts"])
+    decisions = retirement["data_decisions"]
+    recorded = [item["boundary"] for item in decisions]
+
+    assert set(recorded) == expected
+    assert len(recorded) == len(set(recorded))
+    for item in decisions:
+        assert item["decision"] in VALID_RETIREMENT_DECISIONS
+        assert item["source_removal_blocker"] is False
+        assert item["rationale"].strip()
+        if item["decision"] == "future_native_capability":
+            assert item["follow_up"]
+
+    outcome = retirement["review_outcome"]
+    assert outcome["route_and_data_decisions_complete"] is True
+    assert outcome["source_removal_blockers"] == []
+    assert outcome["remaining_sec_a_work"]
 
 
 def test_job_state_parity_does_not_collapse_non_clean_outcomes() -> None:

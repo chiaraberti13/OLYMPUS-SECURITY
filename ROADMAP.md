@@ -294,6 +294,17 @@ persistenza e il contratto `olympus.legacy-vap-import-receipt` 1.0.0 espone solo
 provenienza minimizzata. Parità delle route/dati esclusi, controllo distribuito
 della concorrenza e ritiro fisico del vendor restano aperti: `SEC-A` resta `[~]`.
 
+**Avanzamento verificato (2026-10-23, decisione di ritiro route/dati):** la
+review multidisciplinare ha classificato ogni route e confine dati VAP in
+`native_replacement`, `intentional_exclusion` o `future_native_capability` nel
+manifest verificabile
+[`docs/parity/themis-vap-retirement.json`](docs/parity/themis-vap-retirement.json).
+Il test contrattuale impone copertura esatta e non duplicata di tutte le route e
+dei cinque confini dati; nessuna decisione richiede di conservare il sorgente
+eseguibile. Le capability future rimangono legate agli ID roadmap esistenti e
+non ereditano route, identità o contratti VAP. Controllo distribuito della
+concorrenza e ritiro fisico del vendor restano aperti: `SEC-A` resta `[~]`.
+
 ### Intervento B · `SEC-B` — Isolamento forte degli scanner (**P0**)
 
 `src/olympus/themis/sandbox.py` applica già drop dei privilegi, limiti CPU/memoria/
