@@ -113,7 +113,7 @@ from olympus.themis.jobs import (
     ThemisJob,
     ThemisJobStore,
 )
-from olympus.vulcan.aggregate import AggregationError, load_findings
+from olympus.vulcan.aggregate import AggregationError, load_findings, severity_breakdown
 from olympus.vulcan.compare import diff_findings
 from olympus.vulcan.evidence_view import build_finding_evidence_view
 from olympus.vulcan.report import (
@@ -817,6 +817,24 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         for job in jobs:
             histogram[job.state.value] = histogram.get(job.state.value, 0) + 1
         recent = [_present_job(job) for job in jobs[:10]]
+        # Findings-by-severity widget (WEB-G): only for an identity that may read
+        # findings, and only when a findings directory is configured and readable —
+        # otherwise the card is simply absent (the Findings page surfaces errors).
+        findings_summary: dict[str, object] | None = None
+        if findings_directory is not None and "findings:read" in session.scopes:
+            try:
+                catalogue = _load_findings_catalogue()
+            except _FindingsUnavailable:
+                findings_summary = None
+            else:
+                breakdown = severity_breakdown(catalogue)
+                findings_summary = {
+                    "total": len(catalogue),
+                    "levels": [
+                        {"severity": level, "count": breakdown[level]}
+                        for level in ("critical", "high", "medium", "low", "info")
+                    ],
+                }
         return _page(
             request,
             "dashboard.html",
@@ -826,6 +844,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 "total": len(jobs),
                 "histogram": histogram,
                 "recent": recent,
+                "findings_summary": findings_summary,
                 "csrf_token": _csrf_token(session.nonce),
             },
         )

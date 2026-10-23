@@ -101,7 +101,7 @@ as on the API.
 | Route | Purpose |
 | --- | --- |
 | `GET /login`, `POST /login`, `POST /logout` | Session lifecycle. |
-| `GET /` | Dashboard: job totals, a state histogram and the ten most recent jobs. |
+| `GET /` | Dashboard: job totals, a state histogram, the ten most recent jobs, and — for a `findings:read` identity with `--findings-directory` — a findings-by-severity widget linking into the filtered findings view. |
 | `GET /jobs` | Every job, newest first. |
 | `GET /findings` | Findings, filtered and ranked by risk exactly as the CLI does (requires `findings:read`); available only with `--findings-directory`. |
 | `GET /findings/report` | Download a Vulcan report of the currently filtered findings as Markdown, HTML, JSON or SARIF (requires `findings:read`). |

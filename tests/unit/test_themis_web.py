@@ -1426,3 +1426,38 @@ def test_scan_diff_does_not_shadow_a_finding_detail(tmp_path: Path) -> None:
     _login(client)
     assert client.get("/findings/diff").status_code == 200
     assert client.get("/findings/FND-2026-00001").status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Dashboard findings-by-severity widget (ROADMAP WEB-G)
+# ---------------------------------------------------------------------------
+
+
+def test_dashboard_shows_findings_by_severity_for_a_findings_reader(tmp_path: Path) -> None:
+    high2 = {**_FINDING, "finding_id": "FND-2026-00050", "severity": "high"}
+    client = _findings_client(tmp_path, _FINDING, _LOW_FINDING, high2)
+    _login(client)
+    page = client.get("/")
+    assert page.status_code == 200
+    assert "Findings by severity" in page.text
+    # Links drill into the filtered findings view.
+    assert "/findings?severity=high" in page.text
+    assert "/findings?severity=critical" in page.text
+
+
+def test_dashboard_widget_hidden_without_findings_read_scope(tmp_path: Path) -> None:
+    client = _client(
+        tmp_path,
+        api_key_scopes=("jobs:read",),
+        findings_directory=_findings_dir(tmp_path, _FINDING),
+    )
+    _login(client)
+    assert "Findings by severity" not in client.get("/").text
+
+
+def test_dashboard_widget_absent_when_no_findings_directory(tmp_path: Path) -> None:
+    client = _client(tmp_path)  # no findings_directory
+    _login(client)
+    page = client.get("/")
+    assert page.status_code == 200
+    assert "Findings by severity" not in page.text

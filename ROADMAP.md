@@ -1425,10 +1425,16 @@ nessuno stadio) o senza autorizzazione (il motore non esegue mai nulla).
 
 ### Intervento G · `WEB-G` — Dashboard, accessibilità, i18n (**P2**)
 
-- [ ] Dashboard con widget che rispondono a domande operative reali (asset, job
+- [~] Dashboard con widget che rispondono a domande operative reali (asset, job
   in corso, scansioni completate, finding per severità/scanner, incident aperti,
   attività recente, scanner readiness, avanzamento assessment); nessun widget
-  decorativo.
+  decorativo. **Fatto finora:** totali e istogramma stati job + job recenti; e il
+  widget **finding per severità** sulla dashboard (`GET /`), scope-gated a
+  `findings:read` e attivo solo con `--findings-directory`, che riusa
+  `vulcan.aggregate.severity_breakdown` e linka alla vista findings filtrata per
+  severità; degrada onestamente (assente) se non configurato o non leggibile.
+  Test `tests/unit/test_themis_web.py`; doc [`docs/web.md`](docs/web.md).
+  **Resta:** widget asset/incident/scanner-readiness/avanzamento assessment.
 - [ ] Responsive, accessibile (lega a `UX-E`), bilingue IT/EN, con onboarding e
   modalità Advanced.
 
