@@ -28,7 +28,7 @@ import secrets
 import sqlite3
 import threading
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Collection, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -186,6 +186,21 @@ class JobExecution:
     authorized: bool
     attempts: int
     max_attempts: int
+
+
+@dataclass(frozen=True)
+class HistoricalJobImport:
+    """One terminal, non-executable record imported from reviewed history."""
+
+    idempotency_key: str
+    scanner: str
+    target: str
+    target_kind: str
+    scope_path: Path
+    state: JobState
+    created_at: datetime
+    finished_at: datetime
+    result: dict[str, object]
 
 
 class ManifestAuthorizer(Protocol):
@@ -398,6 +413,106 @@ class ThemisJobStore:
             )
             return self.get(existing["job_id"])
         return self.get(job_id)
+
+    def import_historical_terminal(self, records: Collection[HistoricalJobImport]) -> JobRecords:
+        """Atomically persist reviewed history without making anything runnable.
+
+        Imported records are always terminal, unauthorized for execution and
+        idempotent.  They deliberately carry no execution-manifest provenance:
+        a current manifest may authorize the import, but cannot retroactively
+        authorize the historical scan.
+        """
+        self.initialize()
+        prepared: list[tuple[HistoricalJobImport, str, str, str]] = []
+        keys: set[str] = set()
+        for record in records:
+            if record.state not in TERMINAL_STATES:
+                raise ValueError("historical imports must use a terminal job state")
+            if record.idempotency_key in keys:
+                raise ValueError("historical import idempotency keys must be unique")
+            keys.add(record.idempotency_key)
+            if not IDEMPOTENCY_KEY_PATTERN.fullmatch(record.idempotency_key):
+                raise ValueError("invalid historical import idempotency key")
+            if record.created_at.tzinfo is None or record.finished_at.tzinfo is None:
+                raise ValueError("historical import timestamps must include a timezone")
+            if record.finished_at < record.created_at:
+                raise ValueError("historical import finished_at must not precede created_at")
+            ThemisRunRequest(
+                scanner=record.scanner,
+                target=record.target,
+                target_kind=record.target_kind,
+                scope_path=record.scope_path,
+                authorized=False,
+                live_enabled=False,
+            )
+            result_json = json.dumps(record.result, sort_keys=True, separators=(",", ":"))
+            if len(result_json.encode("utf-8")) > 100_000:
+                raise ValueError("historical import result exceeds 100000 bytes")
+            created_at = record.created_at.astimezone(UTC).isoformat()
+            finished_at = record.finished_at.astimezone(UTC).isoformat()
+            job_id = f"THEMIS-{secrets.token_hex(16).upper()}"
+            prepared.append((record, job_id, created_at, finished_at))
+
+        job_ids: list[str] = []
+        with self._transaction(immediate=True) as db:
+            for record, proposed_job_id, created_at, finished_at in prepared:
+                scope_path = str(record.scope_path.resolve())
+                result_json = json.dumps(record.result, sort_keys=True, separators=(",", ":"))
+                existing = db.execute(
+                    "SELECT * FROM themis_jobs WHERE idempotency_key = ?",
+                    (record.idempotency_key,),
+                ).fetchone()
+                if existing is not None:
+                    expected = (
+                        record.scanner,
+                        record.target,
+                        record.target_kind,
+                        scope_path,
+                        record.state.value,
+                        created_at,
+                        finished_at,
+                        result_json,
+                    )
+                    actual = (
+                        existing["scanner"],
+                        existing["target"],
+                        existing["target_kind"],
+                        existing["scope_path"],
+                        existing["state"],
+                        existing["created_at"],
+                        existing["finished_at"],
+                        existing["result_json"],
+                    )
+                    if actual != expected or bool(existing["authorized"]):
+                        raise IdempotencyConflict(
+                            f"idempotency key {record.idempotency_key!r} was already used for "
+                            "different historical data"
+                        )
+                    job_ids.append(str(existing["job_id"]))
+                    continue
+                db.execute(
+                    """INSERT INTO themis_jobs
+                    (job_id, idempotency_key, manifest_sha256, scanner, target, target_kind,
+                     scope_path, authorized, state, attempts, max_attempts, available_at,
+                     created_at, updated_at, finished_at, result_json)
+                    VALUES (?, ?, NULL, ?, ?, ?, ?, 0, ?, 0, 1, ?, ?, ?, ?, ?)""",
+                    (
+                        proposed_job_id,
+                        record.idempotency_key,
+                        record.scanner,
+                        record.target,
+                        record.target_kind,
+                        scope_path,
+                        record.state.value,
+                        created_at,
+                        created_at,
+                        finished_at,
+                        finished_at,
+                        result_json,
+                    ),
+                )
+                job_ids.append(proposed_job_id)
+        return [self.get(job_id) for job_id in job_ids]
 
     @staticmethod
     def _require_same_request(

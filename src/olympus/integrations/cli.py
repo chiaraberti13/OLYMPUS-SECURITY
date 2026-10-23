@@ -561,6 +561,75 @@ def themis_legacy_approve(
     )
 
 
+@themis_app.command("legacy-import")
+def themis_legacy_import(
+    source: str = typer.Option(..., "--source", help="Archived VAP SQLite database."),
+    backup: str = typer.Option(..., "--backup", help="Verified snapshot SQLite backup."),
+    manifest: str = typer.Option(..., "--manifest", "-m", help="Verified snapshot manifest."),
+    plan: str = typer.Option(..., "--plan", help="Verified conversion plan."),
+    approval: str = typer.Option(..., "--approval", help="Signed-scope import approval receipt."),
+    signed_manifest: str = typer.Option(
+        ..., "--signed-manifest", help="Current signed engagement manifest."
+    ),
+    manifest_public_key: str = typer.Option(
+        ..., "--manifest-public-key", help="Pinned Ed25519 approver public key."
+    ),
+    database: str = typer.Option(
+        ".olympus/themis-jobs.sqlite3", "--database", "-d", help="Native Themis job database."
+    ),
+    revoked: list[str] | None = typer.Option(
+        None, "--revoked", help="Revoked manifest identifier; repeat as needed."
+    ),
+    output: str = typer.Option(..., "--output", "-o", help="Create-only import receipt."),
+) -> None:
+    """Import approved terminal history; never queue or execute a scanner."""
+    import sqlite3
+
+    from olympus.engagements.manifest import (
+        ManifestAuthorizationError,
+        ManifestVerificationError,
+    )
+    from olympus.themis.jobs import JobStoreError
+    from olympus.themis.legacy_vap import import_legacy_vap_history
+    from olympus.themis.registry import implemented
+
+    try:
+        receipt = import_legacy_vap_history(
+            Path(source),
+            backup=Path(backup),
+            manifest=Path(manifest),
+            plan_path=Path(plan),
+            approval_path=Path(approval),
+            signed_manifest_path=Path(signed_manifest),
+            trusted_public_key_path=Path(manifest_public_key),
+            database=Path(database),
+            output=Path(output),
+            native_scanners=frozenset(implemented()),
+            revoked=revoked or (),
+        )
+    except (ManifestAuthorizationError, ManifestVerificationError) as exc:
+        typer.echo(f"olympus: legacy historical import refused: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.NOT_AUTHORIZED) from exc
+    except (OSError, sqlite3.Error, ValueError, JobStoreError) as exc:
+        typer.echo(f"olympus: legacy historical import invalid: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    typer.echo(
+        json.dumps(
+            {
+                "schema_name": receipt.schema_name,
+                "schema_version": receipt.schema_version,
+                "engagement_id": receipt.engagement_id,
+                "signed_manifest_sha256": receipt.signed_manifest_sha256,
+                "imported_count": receipt.imported_count,
+                "historical_execution_authorized": receipt.historical_execution_authorized,
+                "executable_jobs_created": receipt.executable_jobs_created,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
+
+
 @themis_app.command("workers")
 def themis_workers(
     database: str = typer.Option(".olympus/themis-jobs.sqlite3", "--database", "-d"),

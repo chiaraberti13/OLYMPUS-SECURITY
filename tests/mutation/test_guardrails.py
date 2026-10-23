@@ -35,12 +35,15 @@ from olympus.themis.adapters.nmap import NmapAdapter
 from olympus.themis.adapters.nuclei import NucleiAdapter
 from olympus.themis.api import ApiSettings, RequestConcurrencyGate
 from olympus.themis.base import ParseError
+from olympus.themis.jobs import JobState as ThemisJobState
+from olympus.themis.jobs import ThemisJobStore
 from olympus.themis.legacy_vap import (
     LegacyVapSnapshotError,
     _decision,
     approve_legacy_vap_import,
     create_legacy_vap_conversion_plan,
     create_legacy_vap_snapshot,
+    import_legacy_vap_history,
     verify_legacy_vap_snapshot,
 )
 from olympus.themis.model import ScanRequest
@@ -480,6 +483,7 @@ def test_legacy_vap_approval_requires_current_signed_scope_and_creates_no_jobs(
     signed_path.write_text(signed.model_dump_json(), encoding="utf-8")
     key_path.write_text(public_key, encoding="utf-8")
 
+    approval_path = tmp_path / "approval.json"
     approval = approve_legacy_vap_import(
         source,
         backup=backup,
@@ -487,7 +491,7 @@ def test_legacy_vap_approval_requires_current_signed_scope_and_creates_no_jobs(
         plan_path=plan_path,
         signed_manifest_path=signed_path,
         trusted_public_key_path=key_path,
-        output=tmp_path / "approval.json",
+        output=approval_path,
         migration_keys=(snapshot.scans[0].migration_key,),
         native_scanners=frozenset({"nmap"}),
         now=now,
@@ -497,6 +501,26 @@ def test_legacy_vap_approval_requires_current_signed_scope_and_creates_no_jobs(
     assert approval.approvals[0].native_state == "succeeded"
     assert approval.historical_execution_authorized is False
     assert approval.executable_jobs_created == 0
+    receipt = import_legacy_vap_history(
+        source,
+        backup=backup,
+        manifest=manifest,
+        plan_path=plan_path,
+        approval_path=approval_path,
+        signed_manifest_path=signed_path,
+        trusted_public_key_path=key_path,
+        database=tmp_path / "native.db",
+        output=tmp_path / "receipt.json",
+        native_scanners=frozenset({"nmap"}),
+        now=now,
+    )
+    assert receipt.imported_count == 1
+    assert receipt.imports[0].native_job_state == "partial"
+    imported = ThemisJobStore(tmp_path / "native.db").list()
+    assert len(imported) == 1
+    assert imported[0].state is ThemisJobState.PARTIAL
+    assert imported[0].authorized is False
+    assert receipt.executable_jobs_created == 0
     with pytest.raises(ValueError):
         approve_legacy_vap_import(
             source,

@@ -53,7 +53,7 @@ test-coverage:
 
 # POSIX-only, bounded mutation gate for critical scope/redaction/parser/status/job rules.
 test-mutation:
-	mutmut run --max-children 4 \
+	$(PYTHON) -m mutmut run --max-children 4 \
 		"olympus.athena.scope.x__reject_out_of_scope*" \
 		"olympus.athena.scope.x_ensure_target_allowed*" \
 		"olympus.core.execution.x__sensitive_key*" \
@@ -70,6 +70,7 @@ test-mutation:
 		"olympus.themis.legacy_vap.x_verify_legacy_vap_snapshot*" \
 		"olympus.themis.legacy_vap.x_create_legacy_vap_conversion_plan*" \
 		"olympus.themis.legacy_vap.x_approve_legacy_vap_import*" \
+		"olympus.themis.legacy_vap.x_import_legacy_vap_history*" \
 		"olympus.core.coverage.xǁCoverageǁstatus*" \
 		"olympus.athena.cli.x__exit_code_for*" \
 		"olympus.athena.domain.assessment.x_advance_job*" \

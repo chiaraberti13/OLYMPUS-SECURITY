@@ -120,8 +120,11 @@ def test_persistence_audit_reports_and_cancellation_remain_partial() -> None:
     assert "legacy-verify" in migration
     assert "legacy-plan" in migration
     assert "legacy-approve" in migration
+    assert "legacy-import" in migration
     assert "zero executable jobs" in migration
     assert "reconstructed inventory" in migration
     assert "still rejects foreign/VAP databases" in migration
     assert "never converts active rows" in migration
     assert "not retroactively authorized" in migration
+    assert "completed becomes partial" in migration
+    assert "workers cannot claim" in migration

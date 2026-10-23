@@ -29,6 +29,7 @@ MUTATED_FUNCTIONS = {
         "x_verify_legacy_vap_snapshot",
         "x_create_legacy_vap_conversion_plan",
         "x_approve_legacy_vap_import",
+        "x_import_legacy_vap_history",
     ],
     "src/olympus/core/coverage.py": ["xǁCoverageǁstatus"],
     "src/olympus/athena/cli.py": ["x__exit_code_for"],

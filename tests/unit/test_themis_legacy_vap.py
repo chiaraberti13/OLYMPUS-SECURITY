@@ -15,11 +15,13 @@ from olympus.cli import app
 from olympus.core.models import EngagementScope
 from olympus.core.signing import generate_keypair
 from olympus.engagements.manifest import EngagementManifest, SignedEngagementManifest
+from olympus.themis.jobs import JobState, ThemisJobStore
 from olympus.themis.legacy_vap import (
     LegacyVapSnapshotError,
     approve_legacy_vap_import,
     create_legacy_vap_conversion_plan,
     create_legacy_vap_snapshot,
+    import_legacy_vap_history,
     verify_legacy_vap_snapshot,
 )
 
@@ -308,6 +310,143 @@ def test_import_approval_is_signed_selected_minimized_and_non_executable(tmp_pat
     assert "example.test" not in rendered
 
 
+def test_historical_import_is_terminal_partial_redacted_and_idempotent(tmp_path: Path) -> None:
+    source, backup, manifest, plan, signed, key, migration_key, now = _approval_artifacts(tmp_path)
+    approval_path = tmp_path / "approval.json"
+    approve_legacy_vap_import(
+        source,
+        backup=backup,
+        manifest=manifest,
+        plan_path=plan,
+        signed_manifest_path=signed,
+        trusted_public_key_path=key,
+        output=approval_path,
+        migration_keys=(migration_key,),
+        native_scanners=frozenset({"nmap"}),
+        now=now,
+    )
+    database = tmp_path / "native.db"
+    receipt = import_legacy_vap_history(
+        source,
+        backup=backup,
+        manifest=manifest,
+        plan_path=plan,
+        approval_path=approval_path,
+        signed_manifest_path=signed,
+        trusted_public_key_path=key,
+        database=database,
+        output=tmp_path / "receipt.json",
+        native_scanners=frozenset({"nmap"}),
+        now=now,
+    )
+
+    assert receipt.imported_count == 1
+    assert receipt.imports[0].native_job_state == "partial"
+    assert receipt.historical_execution_authorized is False
+    assert receipt.executable_jobs_created == 0
+    store = ThemisJobStore(database)
+    jobs = store.list()
+    assert len(jobs) == 1
+    assert jobs[0].state is JobState.PARTIAL
+    assert jobs[0].authorized is False
+    assert jobs[0].manifest_sha256 is None
+    assert jobs[0].attempts == 0
+    assert jobs[0].target.endswith("token=[REDACTED]")
+    assert store.claim_next("test-worker") is None
+    assert "super-secret" not in database.read_bytes().decode("utf-8", errors="ignore")
+
+    repeated = import_legacy_vap_history(
+        source,
+        backup=backup,
+        manifest=manifest,
+        plan_path=plan,
+        approval_path=approval_path,
+        signed_manifest_path=signed,
+        trusted_public_key_path=key,
+        database=database,
+        output=tmp_path / "receipt-2.json",
+        native_scanners=frozenset({"nmap"}),
+        now=now,
+    )
+    assert repeated.imports[0].job_id == receipt.imports[0].job_id
+    assert len(store.list()) == 1
+
+
+@pytest.mark.parametrize(
+    ("legacy_state", "expected"),
+    [("failed", JobState.FAILED), ("canceled", JobState.CANCELLED)],
+)
+def test_historical_import_preserves_failure_outcomes(
+    tmp_path: Path, legacy_state: str, expected: JobState
+) -> None:
+    source = tmp_path / "vap.db"
+    _legacy_database(source, state=legacy_state)
+    backup = tmp_path / "backup.db"
+    manifest = tmp_path / "snapshot.json"
+    plan = tmp_path / "plan.json"
+    signed = tmp_path / "signed.json"
+    key = tmp_path / "key.pem"
+    snapshot = create_legacy_vap_snapshot(source, backup=backup, manifest=manifest)
+    create_legacy_vap_conversion_plan(
+        source,
+        backup=backup,
+        manifest=manifest,
+        output=plan,
+        native_scanners=frozenset({"nmap"}),
+    )
+    now = datetime(2026, 10, 23, 8, 0, tzinfo=UTC)
+    private_key, public_key = generate_keypair()
+    engagement = EngagementManifest(
+        engagement_id="ENG-2026-00001",
+        client="Synthetic Client",
+        owner="Synthetic Owner",
+        approver="Synthetic Approver",
+        contract_id="SYNTHETIC-CONTRACT",
+        scope=EngagementScope(
+            included=("https://example.test/search?token=super-secret",), excluded=()
+        ),
+        valid_from=now - timedelta(hours=1),
+        expires_at=now + timedelta(hours=1),
+        allowed_techniques=("nmap",),
+        max_targets=1,
+    )
+    signed.write_text(
+        SignedEngagementManifest.sign_manifest(
+            engagement, private_key_pem=private_key
+        ).model_dump_json(),
+        encoding="utf-8",
+    )
+    key.write_text(public_key, encoding="utf-8")
+    approval = tmp_path / "approval.json"
+    approve_legacy_vap_import(
+        source,
+        backup=backup,
+        manifest=manifest,
+        plan_path=plan,
+        signed_manifest_path=signed,
+        trusted_public_key_path=key,
+        output=approval,
+        migration_keys=(snapshot.scans[0].migration_key,),
+        native_scanners=frozenset({"nmap"}),
+        now=now,
+    )
+    receipt = import_legacy_vap_history(
+        source,
+        backup=backup,
+        manifest=manifest,
+        plan_path=plan,
+        approval_path=approval,
+        signed_manifest_path=signed,
+        trusted_public_key_path=key,
+        database=tmp_path / "native.db",
+        output=tmp_path / "receipt.json",
+        native_scanners=frozenset({"nmap"}),
+        now=now,
+    )
+    assert receipt.imports[0].native_job_state == expected.value
+    assert ThemisJobStore(tmp_path / "native.db").list()[0].state is expected
+
+
 @pytest.mark.parametrize("failure", ["revoked", "wrong-key", "unselected", "active"])
 def test_import_approval_fails_closed(tmp_path: Path, failure: str) -> None:
     source, backup, manifest, plan, signed, key, migration_key, now = _approval_artifacts(tmp_path)
@@ -423,6 +562,105 @@ def test_legacy_approve_cli_emits_only_receipt_metadata(tmp_path: Path) -> None:
     )
     assert revoked.exit_code == 4
     assert not (tmp_path / "revoked.json").exists()
+
+
+def test_legacy_import_cli_is_non_executable_and_revocation_aware(tmp_path: Path) -> None:
+    source, backup, manifest, plan, signed, key, migration_key, _now = _approval_artifacts(tmp_path)
+    signed_document = SignedEngagementManifest.model_validate_json(
+        signed.read_text(encoding="utf-8")
+    )
+    current_time = datetime.now(UTC)
+    signed_document.manifest = signed_document.manifest.model_validate(
+        {
+            **signed_document.manifest.model_dump(),
+            "valid_from": current_time - timedelta(hours=1),
+            "expires_at": current_time + timedelta(hours=1),
+        }
+    )
+    private_key, public_key = generate_keypair()
+    current = SignedEngagementManifest.sign_manifest(
+        signed_document.manifest, private_key_pem=private_key
+    )
+    signed.write_text(current.model_dump_json(), encoding="utf-8")
+    key.write_text(public_key, encoding="utf-8")
+    approval = tmp_path / "approval.json"
+    approve_legacy_vap_import(
+        source,
+        backup=backup,
+        manifest=manifest,
+        plan_path=plan,
+        signed_manifest_path=signed,
+        trusted_public_key_path=key,
+        output=approval,
+        migration_keys=(migration_key,),
+        native_scanners=frozenset({"nmap"}),
+        now=current_time,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "themis",
+            "legacy-import",
+            "--source",
+            str(source),
+            "--backup",
+            str(backup),
+            "--manifest",
+            str(manifest),
+            "--plan",
+            str(plan),
+            "--approval",
+            str(approval),
+            "--signed-manifest",
+            str(signed),
+            "--manifest-public-key",
+            str(key),
+            "--database",
+            str(tmp_path / "native.db"),
+            "--output",
+            str(tmp_path / "receipt.json"),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["imported_count"] == 1
+    assert payload["historical_execution_authorized"] is False
+    assert payload["executable_jobs_created"] == 0
+    assert "super-secret" not in result.output
+    assert "example.test" not in result.output
+    assert ThemisJobStore(tmp_path / "native.db").claim_next("cli-worker") is None
+
+    revoked = CliRunner().invoke(
+        app,
+        [
+            "themis",
+            "legacy-import",
+            "--source",
+            str(source),
+            "--backup",
+            str(backup),
+            "--manifest",
+            str(manifest),
+            "--plan",
+            str(plan),
+            "--approval",
+            str(approval),
+            "--signed-manifest",
+            str(signed),
+            "--manifest-public-key",
+            str(key),
+            "--database",
+            str(tmp_path / "revoked.db"),
+            "--revoked",
+            current.manifest_sha256,
+            "--output",
+            str(tmp_path / "revoked-receipt.json"),
+        ],
+    )
+    assert revoked.exit_code == 4
+    assert not (tmp_path / "revoked.db").exists()
+    assert not (tmp_path / "revoked-receipt.json").exists()
 
 
 @pytest.mark.parametrize(

@@ -148,7 +148,32 @@ snapshot e piano, firma Ed25519, revoche opzionali, finestra temporale, tecnica,
 scope e limite dei target. Accetta solo record `review_terminal` selezionati
 esplicitamente. Il receipt contiene digest e chiavi di migrazione, mai target in
 chiaro; non considera autorizzata retroattivamente l'esecuzione storica e crea
-zero job. L'importatore storico resta una milestone SEC-A separata.
+zero job.
+
+Importare infine soltanto le righe approvate come record terminali nativi:
+
+```bash
+olympus themis legacy-import --source vap.db \
+  --backup migration/vap.backup.sqlite3 \
+  --manifest migration/vap.snapshot.json \
+  --plan migration/vap.conversion-plan.json \
+  --approval migration/vap.import-approval.json \
+  --signed-manifest engagement.signed.json \
+  --manifest-public-key approver.pub.pem \
+  --database .olympus/themis-jobs.sqlite3 \
+  --output migration/vap.import-receipt.json
+```
+
+`legacy-import` rivalida l'intera catena, la firma, le revoche e lo scope al
+momento dell'import. Scrive in una singola transazione record idempotenti già
+terminali e con `authorized=false`: nessun worker può reclamarli. Un legacy
+`completed` diventa `partial`, mai `succeeded`, perché findings e configurazione
+non affidabili restano nel backup e nel job sono conservati solo i digest;
+`failed` e `canceled` restano distinti. I parametri query sensibili del target
+sono redatti prima della persistenza. Il receipt create-only
+`olympus.legacy-vap-import-receipt` 1.0.0 contiene solo provenienza minimizzata,
+ribadisce che l'esecuzione storica non è autorizzata retroattivamente e dichiara
+zero job eseguibili.
 
 ### Docker
 
@@ -291,8 +316,19 @@ The `olympus.legacy-vap-import-approval` 1.0.0 receipt re-verifies the snapshot
 and plan plus Ed25519 signature, optional revocations, time window, technique,
 scope and target limit. It accepts only `review_terminal` entries and exposes
 digests rather than plaintext targets. It creates zero jobs and explicitly does
-not claim retroactive authorization for historical execution; the historical
-importer remains a separate SEC-A milestone.
+not claim retroactive authorization for historical execution.
+
+Finally run `olympus themis legacy-import` with the same snapshot, plan,
+approval, signed manifest and pinned key, plus the native database and a
+create-only receipt path. The command re-verifies the full chain, revocation and
+current scope before atomically writing idempotent terminal records with
+`authorized=false`; workers can never claim them. Legacy `completed` becomes
+native `partial`, never `succeeded`, because untrusted finding/configuration
+bodies stay in the immutable backup and only their digests are carried forward.
+`failed` and `canceled` remain distinct. Sensitive URL query values are redacted
+before native persistence. The `olympus.legacy-vap-import-receipt` 1.0.0 output
+contains minimized provenance, asserts no retroactive execution authorization
+and records zero executable jobs.
 
 Before Docker startup, prepare registered scopes under `.olympus/scopes`, the
 scoped identity register under `.olympus/config/themis-api-identities.json`,
@@ -311,9 +347,10 @@ Scanner egress/seccomp/AppArmor completion remains SEC-B.
 
 The route-by-route legacy/native inventory and lifecycle/data gaps are tracked in
 [`docs/parity/themis-vap-runtime.json`](parity/themis-vap-runtime.json) and
-contract-tested against both source trees. This snapshot does not convert VAP
-records into native executable jobs or claim complete runtime parity; reviewed
-contract conversion remains SEC-A work.
+contract-tested against both source trees. Reviewed terminal history can now be
+imported without producing executable work or claiming complete runtime parity;
+the residual route/data decisions and physical source retirement remain SEC-A
+work.
 
 Run `make check`, `python scripts/smoke_native_runtime.py` and, on a Docker host,
 `make test-container`. CI exercises clean-wheel and isolated-container startup

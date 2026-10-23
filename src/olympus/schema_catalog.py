@@ -38,6 +38,7 @@ from olympus.metis.models import EngagementPlan, IntelCaseDocument
 from olympus.themis.legacy_vap import (
     LegacyVapConversionPlan,
     LegacyVapImportApproval,
+    LegacyVapImportReceipt,
     LegacyVapSnapshot,
 )
 
@@ -85,6 +86,7 @@ PUBLISHED_CONTRACTS = (
     PublishedContract("olympus.legacy-vap-snapshot", "output", LegacyVapSnapshot),
     PublishedContract("olympus.legacy-vap-conversion-plan", "output", LegacyVapConversionPlan),
     PublishedContract("olympus.legacy-vap-import-approval", "output", LegacyVapImportApproval),
+    PublishedContract("olympus.legacy-vap-import-receipt", "output", LegacyVapImportReceipt),
 )
 
 

@@ -209,8 +209,9 @@ dello scope e delle evidenze. Il runtime mantenuto è ora interamente nativo.
   e CI container; guida IT/EN e rollback in
   [`docs/themis-runtime.md`](docs/themis-runtime.md). Il sorgente legacy resta
   archiviato; la matrice route/dati è in `docs/parity/themis-vap-runtime.json`.
-  Import di `vap.db`, verifica funzionale delle lacune e ritiro fisico del
-  sorgente restano lavoro SEC-A. `themis legacy-snapshot` ora apre `vap.db` in
+  L'import revisionato dei record terminali è disponibile; verifica funzionale
+  delle lacune, decisioni sulle route/dati esclusi e ritiro fisico del sorgente
+  restano lavoro SEC-A. `themis legacy-snapshot` ora apre `vap.db` in
   sola lettura, crea un backup SQLite consistente e un inventario versionato con
   digest, conteggi, chiavi deterministiche, mapping esplicito degli stati e
   rollback; non crea job eseguibili e non importa consent/audit/analytics.
@@ -280,6 +281,18 @@ corrente. Il contratto `olympus.legacy-vap-import-approval` 1.0.0 espone solo
 digest, non attribuisce retroattivamente autorizzazione alle esecuzioni storiche
 e crea zero job. L'importatore storico, la parità delle route residue e il ritiro
 fisico del vendor restano aperti: `SEC-A` resta `[~]`.
+
+**Avanzamento verificato (2026-10-23, import storico terminale):**
+`themis legacy-import` rivalida snapshot, piano, approval, firma Ed25519,
+revoche, finestra e scope prima di una transazione idempotente nel job store
+nativo. Importa esclusivamente record approvati già terminali con
+`authorized=false` e senza manifest di esecuzione; nessun worker può reclamarli.
+Un legacy `completed` diventa `partial`, mai `succeeded`, perché i corpi finding
+non affidabili restano nel backup e sono preservati soltanto tramite digest;
+`failed` e `canceled` restano distinti. Query secret sono redatti prima della
+persistenza e il contratto `olympus.legacy-vap-import-receipt` 1.0.0 espone solo
+provenienza minimizzata. Parità delle route/dati esclusi, controllo distribuito
+della concorrenza e ritiro fisico del vendor restano aperti: `SEC-A` resta `[~]`.
 
 ### Intervento B · `SEC-B` — Isolamento forte degli scanner (**P0**)
 

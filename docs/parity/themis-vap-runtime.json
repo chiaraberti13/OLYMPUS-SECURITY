@@ -11,7 +11,7 @@
       "src/olympus/themis/api.py",
       "src/olympus/themis/web.py"
     ],
-    "reviewed_against": "origin/main at a961bd4",
+        "reviewed_against": "origin/main at cd08ffb",
     "legacy_app_sha256": "1df54b7b8f0656e470b31b8e6c47476c920428860642a245f9b32847c370d66a"
   },
   "status_values": [
@@ -567,13 +567,13 @@
         "policy_denied"
       ],
       "status": "partial",
-      "decision": "Do not collapse partial, timeout or policy denial into clean/completed. VAP report_failed and deleted require explicit import semantics before a converter can be specified."
+      "decision": "Do not collapse partial, timeout or policy denial into clean/completed. A reviewed historical completed row is imported as native partial because only finding/configuration digests are preserved; failed and canceled remain distinct. VAP report_failed and deleted remain retained."
     },
     "persistence": {
       "legacy": "VAP SQLAlchemy/Alembic database (SQLite by default; optional Postgres), scans and VAP-specific user/consent/config/feed tables.",
       "native": "Themis versioned SQLite job store; separate native engagement store; the read-only legacy snapshot is never an executable queue.",
       "status": "partial",
-      "migration": "Themis legacy-snapshot creates a consistent create-only SQLite backup and olympus.legacy-vap-snapshot 1.0.0 inventory with counts, deterministic migration keys, source/backup digests, state decisions and rollback. The read-only legacy-verify gate checks all three artifacts, the exact contract, SQLite integrity and a reconstructed inventory. The create-only legacy-plan gate re-verifies those artifacts and emits olympus.legacy-vap-conversion-plan 1.0.0 with digests and fail-closed review dispositions, no inherited authorization and zero executable jobs; it never converts active rows. The legacy-approve gate accepts only explicitly selected terminal records after re-verifying the plan, current Ed25519-signed engagement scope, technique, time, revocation and target limit; olympus.legacy-vap-import-approval 1.0.0 states that historical execution is not retroactively authorized and creates zero jobs. All manifests exclude consent, audit and analytics content. Native migrate still rejects foreign/VAP databases; the historical importer remains pending."
+      "migration": "Themis legacy-snapshot creates a consistent create-only SQLite backup and olympus.legacy-vap-snapshot 1.0.0 inventory with counts, deterministic migration keys, source/backup digests, state decisions and rollback. The read-only legacy-verify gate checks all three artifacts, the exact contract, SQLite integrity and a reconstructed inventory. The create-only legacy-plan gate re-verifies those artifacts and emits olympus.legacy-vap-conversion-plan 1.0.0 with digests and fail-closed review dispositions, no inherited authorization and zero executable jobs; it never converts active rows. The legacy-approve gate accepts only explicitly selected terminal records after re-verifying the plan, current Ed25519-signed engagement scope, technique, time, revocation and target limit; olympus.legacy-vap-import-approval 1.0.0 states that historical execution is not retroactively authorized and creates zero jobs. The legacy-import gate re-verifies every artifact and writes only terminal, unauthorized, idempotent native records: completed becomes partial because raw legacy findings remain untrusted in the backup, while failed and canceled stay distinct. Query secrets are redacted before native persistence, workers cannot claim imported rows, and olympus.legacy-vap-import-receipt 1.0.0 records minimized provenance. All manifests exclude consent, audit and analytics content. Native migrate still rejects foreign/VAP databases."
     },
     "audit": {
       "legacy": "VAP database audit events and route-specific records, including actor/subject and product data.",
@@ -596,7 +596,7 @@
   },
   "retirement_gate": [
     "Review every missing and partial route with product owner before removing the archived VAP source.",
-    "Keep the tested read-only legacy snapshot, three-artifact verification gate, non-executable review plan and signed import-approval receipt (source, backup, strict manifest, reconstructed inventory, dispositions, current scope and rollback) green before enabling a separate historical importer.",
+    "Keep the tested read-only legacy snapshot, three-artifact verification gate, non-executable review plan, signed approval and terminal historical importer (source, backup, strict manifests, reconstructed inventory, current scope, idempotency and rollback) green before removing archived sources.",
     "Do not import consent or product analytics records into Olympus without a separate purpose and privacy review.",
     "Run API/Web route, job-state, persistence, audit, report and cancellation contract tests on the source and native implementation before source removal.",
     "No scanner live traffic or production readiness is inferred from this offline parity inventory."

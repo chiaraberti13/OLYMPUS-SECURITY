@@ -10,6 +10,7 @@ reviewed converter can consume.
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import json
 import os
 import re
@@ -19,10 +20,12 @@ import tempfile
 from collections.abc import Collection
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from olympus.core.execution import redact_url
 from olympus.core.fileio import (
     UnsafeWriteTarget,
     atomic_write_text,
@@ -31,6 +34,8 @@ from olympus.core.fileio import (
 )
 from olympus.core.models import OlympusModel
 from olympus.engagements.manifest import SignedEngagementManifest
+from olympus.themis.jobs import HistoricalJobImport, JobState, ThemisJobStore
+from olympus.themis.scope import host_of
 
 MAX_LEGACY_DATABASE_BYTES = 1_000_000_000
 MAX_LEGACY_MANIFEST_BYTES = 100_000_000
@@ -54,6 +59,7 @@ _KNOWN_TABLE_COUNT_QUERIES = {
     "scan_configuration_presets": 'SELECT COUNT(*) FROM "scan_configuration_presets"',
 }
 NativeLegacyState = Literal["succeeded", "failed", "cancelled"]
+ImportedJobState = Literal["partial", "failed", "cancelled"]
 LegacyConversionDecision = Literal["convertible_terminal", "blocked_active", "unmapped"]
 LegacyPlanDisposition = Literal[
     "review_terminal",
@@ -175,6 +181,35 @@ class LegacyVapImportApproval(OlympusModel):
     engagement_id: str = Field(pattern=r"^ENG-[0-9]{4}-[0-9]{5}$")
     approved_count: int = Field(ge=1, le=MAX_LEGACY_SCANS)
     approvals: list[LegacyVapImportApprovalEntry] = Field(min_length=1, max_length=MAX_LEGACY_SCANS)
+    historical_execution_authorized: Literal[False] = False
+    executable_jobs_created: Literal[0] = 0
+
+
+class LegacyVapImportReceiptEntry(BaseModel):
+    """One idempotently imported terminal record with minimized provenance."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    migration_key: str = Field(pattern=_SHA256)
+    job_id: str = Field(pattern=r"^THEMIS-[A-F0-9]{32}$")
+    target_sha256: str = Field(pattern=_SHA256)
+    native_scanner: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{0,63}$")
+    native_job_state: ImportedJobState
+    findings_sha256: str | None = Field(default=None, pattern=_SHA256)
+    configuration_sha256: str | None = Field(default=None, pattern=_SHA256)
+
+
+class LegacyVapImportReceipt(OlympusModel):
+    """Create-only receipt for a non-executable historical import."""
+
+    schema_name: Literal["olympus.legacy-vap-import-receipt"] = "olympus.legacy-vap-import-receipt"
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    approval_sha256: str = Field(pattern=_SHA256)
+    backup_sha256: str = Field(pattern=_SHA256)
+    signed_manifest_sha256: str = Field(pattern=_SHA256)
+    engagement_id: str = Field(pattern=r"^ENG-[0-9]{4}-[0-9]{5}$")
+    imported_count: int = Field(ge=1, le=MAX_LEGACY_SCANS)
+    imports: list[LegacyVapImportReceiptEntry] = Field(min_length=1, max_length=MAX_LEGACY_SCANS)
     historical_execution_authorized: Literal[False] = False
     executable_jobs_created: Literal[0] = 0
 
@@ -664,3 +699,247 @@ def approve_legacy_vap_import(
         overwrite=False,
     )
     return approval
+
+
+def _legacy_timestamp(value: str | None, *, fallback: datetime | None = None) -> datetime:
+    if value is None:
+        if fallback is None:
+            raise LegacyVapSnapshotError("legacy terminal record has no completion timestamp")
+        return fallback
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise LegacyVapSnapshotError("legacy timestamp is not valid ISO 8601") from exc
+    if parsed.tzinfo is None:
+        raise LegacyVapSnapshotError("legacy timestamps must include a timezone")
+    return parsed.astimezone(UTC)
+
+
+def _legacy_target_kind(target: str) -> Literal["host", "domain", "url"]:
+    parsed = urlsplit(target)
+    if parsed.scheme:
+        kind: Literal["host", "domain", "url"] = "url"
+    else:
+        try:
+            ipaddress.ip_address(target.rstrip("."))
+        except ValueError:
+            kind = "domain"
+        else:
+            kind = "host"
+    host_of(kind, target)
+    return kind
+
+
+def import_legacy_vap_history(
+    source: Path,
+    *,
+    backup: Path,
+    manifest: Path,
+    plan_path: Path,
+    approval_path: Path,
+    signed_manifest_path: Path,
+    trusted_public_key_path: Path,
+    database: Path,
+    output: Path,
+    native_scanners: frozenset[str],
+    revoked: Collection[str] = (),
+    now: datetime | None = None,
+) -> LegacyVapImportReceipt:
+    """Import reviewed terminal history without creating executable work.
+
+    The original target is used only for current signature/scope verification.
+    Sensitive URL query values are redacted before persistence.  A historical
+    ``completed`` row becomes ``partial`` because its untrusted finding body is
+    retained in the immutable backup rather than being presented as exhaustive
+    native evidence.
+    """
+    artifact_paths = {
+        source.resolve(),
+        backup.resolve(),
+        manifest.resolve(),
+        plan_path.resolve(),
+        approval_path.resolve(),
+        signed_manifest_path.resolve(),
+        trusted_public_key_path.resolve(),
+        database.resolve(),
+        output.resolve(),
+    }
+    if len(artifact_paths) != 9:
+        raise LegacyVapSnapshotError("legacy import artifacts and database must be different")
+    ensure_write_target(output, overwrite=False)
+    snapshot = verify_legacy_vap_snapshot(source, backup=backup, manifest=manifest)
+    manifest_text = read_regular_text(
+        manifest,
+        max_bytes=MAX_LEGACY_MANIFEST_BYTES,
+        label="legacy snapshot manifest",
+    )
+    plan_text = read_regular_text(
+        plan_path,
+        max_bytes=MAX_LEGACY_MANIFEST_BYTES,
+        label="legacy conversion plan",
+    )
+    plan = LegacyVapConversionPlan.model_validate_json(plan_text)
+    expected_entries = [_plan_entry(scan, native_scanners) for scan in snapshot.scans]
+    expected_plan = LegacyVapConversionPlan(
+        snapshot_manifest_sha256=hashlib.sha256(manifest_text.encode("utf-8")).hexdigest(),
+        backup_sha256=snapshot.backup_sha256,
+        entry_count=len(expected_entries),
+        entries=expected_entries,
+    )
+    if plan != expected_plan:
+        raise LegacyVapSnapshotError("legacy conversion plan does not match the verified snapshot")
+
+    approval_text = read_regular_text(
+        approval_path,
+        max_bytes=MAX_LEGACY_MANIFEST_BYTES,
+        label="legacy import approval",
+    )
+    approval = LegacyVapImportApproval.model_validate_json(approval_text)
+    if (
+        approval.plan_sha256 != hashlib.sha256(plan_text.encode("utf-8")).hexdigest()
+        or approval.snapshot_manifest_sha256 != plan.snapshot_manifest_sha256
+        or approval.backup_sha256 != snapshot.backup_sha256
+    ):
+        raise LegacyVapSnapshotError("legacy import approval does not match the verified plan")
+
+    signed_text = read_regular_text(
+        signed_manifest_path,
+        max_bytes=MAX_SIGNED_MANIFEST_BYTES,
+        label="signed engagement manifest",
+    )
+    signed_manifest = SignedEngagementManifest.model_validate_json(signed_text)
+    if (
+        approval.signed_manifest_sha256 != signed_manifest.manifest_sha256
+        or approval.engagement_id != signed_manifest.manifest.engagement_id
+    ):
+        raise LegacyVapSnapshotError("legacy approval does not match the signed manifest")
+    public_key = read_regular_text(
+        trusted_public_key_path,
+        max_bytes=64 * 1024,
+        label="trusted manifest public key",
+    )
+    approval_by_key = {item.migration_key: item for item in approval.approvals}
+    if approval.approved_count != len(approval_by_key):
+        raise LegacyVapSnapshotError("legacy approval contains duplicate migration keys")
+    scan_by_key = {scan.migration_key: scan for scan in snapshot.scans}
+    plan_by_key = {entry.migration_key: entry for entry in plan.entries}
+    instant = now if now is not None else datetime.now(UTC)
+    historical: list[HistoricalJobImport] = []
+    receipt_source: list[tuple[LegacyVapScan, LegacyVapImportApprovalEntry, ImportedJobState]] = []
+    backup_uri = backup.resolve().as_uri() + "?mode=ro"
+    try:
+        with sqlite3.connect(backup_uri, uri=True) as db:
+            db.row_factory = sqlite3.Row
+            db.execute("PRAGMA query_only = ON")
+            for migration_key, approved in approval_by_key.items():
+                scan = scan_by_key.get(migration_key)
+                planned = plan_by_key.get(migration_key)
+                if scan is None or planned is None:
+                    raise LegacyVapSnapshotError(
+                        "approved legacy record is absent from the snapshot"
+                    )
+                if (
+                    planned.disposition != "review_terminal"
+                    or approved.target_sha256 != scan.target_sha256
+                    or approved.native_scanner != planned.native_scanner
+                    or approved.native_state != planned.native_state
+                ):
+                    raise LegacyVapSnapshotError("legacy approval entry does not match the plan")
+                row = db.execute(
+                    'SELECT target FROM "scans" WHERE id = ?', (scan.legacy_scan_id,)
+                ).fetchone()
+                if row is None:
+                    raise LegacyVapSnapshotError("approved legacy row is missing from the backup")
+                target = str(row["target"])
+                if hashlib.sha256(target.encode()).hexdigest() != scan.target_sha256:
+                    raise LegacyVapSnapshotError("approved legacy target does not match its digest")
+                signed_manifest.authorize(
+                    trusted_public_key_pem=public_key,
+                    target=target,
+                    technique=approved.native_scanner,
+                    now=instant,
+                    revoked=revoked,
+                )
+                created_at = _legacy_timestamp(scan.created_at)
+                finished_at = _legacy_timestamp(scan.completed_at, fallback=created_at)
+                receipt_state = cast(
+                    ImportedJobState,
+                    {
+                        "succeeded": "partial",
+                        "failed": "failed",
+                        "cancelled": "cancelled",
+                    }[approved.native_state],
+                )
+                state = JobState(receipt_state)
+                historical.append(
+                    HistoricalJobImport(
+                        idempotency_key=f"legacy-vap:{migration_key}",
+                        scanner=approved.native_scanner,
+                        target=redact_url(target),
+                        target_kind=_legacy_target_kind(target),
+                        scope_path=signed_manifest_path,
+                        state=state,
+                        created_at=created_at,
+                        finished_at=finished_at,
+                        result={
+                            "schema_name": "olympus.legacy-vap-history",
+                            "schema_version": "1.0.0",
+                            "migration_key": migration_key,
+                            "target_sha256": scan.target_sha256,
+                            "findings_sha256": scan.findings_sha256,
+                            "configuration_sha256": scan.configuration_sha256,
+                            "import_manifest_sha256": signed_manifest.manifest_sha256,
+                            "historical_execution_authorized": False,
+                            "coverage_complete": False,
+                        },
+                    )
+                )
+                receipt_source.append((scan, approved, receipt_state))
+    except sqlite3.DatabaseError as exc:
+        raise LegacyVapSnapshotError(f"legacy backup is not readable SQLite: {exc}") from exc
+
+    if (
+        len({item.target_sha256 for item in approval.approvals})
+        > signed_manifest.manifest.max_targets
+    ):
+        raise LegacyVapSnapshotError("approved legacy targets exceed the signed manifest limit")
+    if verify_legacy_vap_snapshot(source, backup=backup, manifest=manifest) != snapshot:
+        raise LegacyVapSnapshotError("legacy snapshot changed while import was prepared")
+    if (
+        read_regular_text(
+            approval_path,
+            max_bytes=MAX_LEGACY_MANIFEST_BYTES,
+            label="legacy import approval",
+        )
+        != approval_text
+    ):
+        raise LegacyVapSnapshotError("legacy approval changed while import was prepared")
+
+    jobs = ThemisJobStore(database).import_historical_terminal(historical)
+    imports = [
+        LegacyVapImportReceiptEntry(
+            migration_key=scan.migration_key,
+            job_id=job.job_id,
+            target_sha256=scan.target_sha256,
+            native_scanner=approved.native_scanner,
+            native_job_state=state,
+            findings_sha256=scan.findings_sha256,
+            configuration_sha256=scan.configuration_sha256,
+        )
+        for job, (scan, approved, state) in zip(jobs, receipt_source, strict=True)
+    ]
+    receipt = LegacyVapImportReceipt(
+        approval_sha256=hashlib.sha256(approval_text.encode("utf-8")).hexdigest(),
+        backup_sha256=snapshot.backup_sha256,
+        signed_manifest_sha256=signed_manifest.manifest_sha256,
+        engagement_id=signed_manifest.manifest.engagement_id,
+        imported_count=len(imports),
+        imports=imports,
+    )
+    atomic_write_text(
+        output,
+        json.dumps(receipt.model_dump(mode="json"), indent=2, sort_keys=True) + "\n",
+        mode=0o600,
+        overwrite=False,
+    )
+    return receipt
