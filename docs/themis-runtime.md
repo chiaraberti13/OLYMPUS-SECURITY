@@ -52,10 +52,15 @@ Il worker continuo stampa una riga JSON quando è pronto e una per ogni job
 terminato. Una singola scansione fallita/parziale non interrompe il servizio.
 Ogni processo esegue un job alla volta; processi distinti condividono i claim
 atomici e i lease SQLite. `--poll-interval` è limitato a 0,05–30 secondi.
-API e Web limitano le richieste concorrenti a 64 per processo per default; il
-limite si può regolare con `--max-concurrent-requests` (1–4096). Le richieste
-oltre soglia ricevono `503` e `Retry-After: 1`, senza accodamento interno; il
-limite è per processo, non un coordinamento globale tra repliche.
+API e Web limitano per default a 64 le richieste concorrenti complessive tra i
+processi che condividono lo stesso `--database`; il limite si può regolare con
+`--max-concurrent-requests` (1–4096). Un sidecar SQLite `<database>.requests`
+usa acquisizioni atomiche e lease rinnovabili: recupera capacità dopo un crash,
+rifiuta con `503` e `Retry-After: 1` invece di accodare e non contiene payload o
+identità. Tutte le repliche devono condividere lo stesso file e lo stesso limite;
+deployment multi-host senza volume condiviso richiedono ancora un limite trusted
+a monte. Il sidecar deve essere incluso nel backup solo per diagnostica, non per
+il ripristino: le lease scadute vengono eliminate automaticamente.
 `SIGINT`/`SIGTERM` interrompono anche l'attesa a coda vuota, propagano la
 cancellazione allo scanner attivo e impediscono nuovi claim. Il servizio
 termina con codice `7`; `--once` restituisce il codice canonico del job
@@ -247,10 +252,15 @@ a certificate and private key. Set a random 32+ character API credential or
 provide an identity register. A shared key defaults to `capabilities:read`;
 grant additional permissions explicitly with `--api-key-scopes` (prefer named,
 least-privilege identities). Scopes and per-job authorization stay mandatory.
-API and Web cap concurrent requests at 64 per process by default; tune with
-`--max-concurrent-requests` (1–4096). Excess requests receive `503` with
-`Retry-After: 1` instead of being queued in an unbounded application backlog.
-This is a per-process bound, not a cluster-wide limit across replicas.
+API and Web default to 64 aggregate concurrent requests across processes that
+share the same `--database`; tune this with `--max-concurrent-requests`
+(1–4096). A `<database>.requests` SQLite sidecar uses atomic acquisitions and
+renewable leases, recovers capacity after crashes, and contains no request
+payloads or identities. Excess requests receive `503` with `Retry-After: 1`
+instead of entering an unbounded queue. Every replica must share that file and
+the same limit; multi-host deployments without a shared volume still need a
+trusted upstream limit. The sidecar is diagnostic backup material only, not
+restore state: expired leases are purged automatically.
 
 The continuous worker emits NDJSON readiness/completion records, runs one job
 at a time and continues after individual job failures. Separate processes
@@ -356,8 +366,9 @@ contract-tested against both source trees. The independently testable
 records one source-removal decision for every legacy route and data boundary,
 separating native replacements, intentional exclusions and future native
 capabilities. Reviewed terminal history can now be imported without producing
-executable work or claiming complete runtime parity; distributed concurrency
-and physical source retirement remain SEC-A work.
+executable work or claiming complete runtime parity. Shared-store concurrency
+is now enforced for API/Web processes; worker concurrency and physical source
+retirement remain SEC-A work.
 
 Run `make check`, `python scripts/smoke_native_runtime.py` and, on a Docker host,
 `make test-container`. CI exercises clean-wheel and isolated-container startup

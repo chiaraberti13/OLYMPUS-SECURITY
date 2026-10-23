@@ -7,15 +7,15 @@ echoed back to the caller, and is recorded in the redacted audit log.
 
 from __future__ import annotations
 
+import asyncio
 import math
 import re
 import time
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from threading import Lock
 from typing import Annotated, Literal, cast
 from uuid import uuid4
 
@@ -43,6 +43,7 @@ from olympus.engagements.resolve import (
 )
 from olympus.engagements.store import SqliteEngagementStore
 from olympus.integrations.capabilities import inventory_document
+from olympus.themis.concurrency import RequestConcurrencyGate, RequestLease
 from olympus.themis.identity import (
     SCOPES,
     ApiIdentity,
@@ -113,8 +114,8 @@ class ApiSettings:
     #: must carry a signed manifest and is rejected unless it authorizes the
     #: exact engagement, scanner, target and current time.
     trusted_manifest_public_key_pem: str | None = None
-    #: Bound in-flight ASGI requests; excess work is rejected rather than queued
-    #: in an unbounded server backlog. This limit is per API process.
+    #: Bound in-flight ASGI requests across API/Web processes sharing this job
+    #: database; excess work is rejected rather than queued without bounds.
     max_concurrent_requests: int = DEFAULT_MAX_CONCURRENT_REQUESTS
 
     def validate(self) -> None:
@@ -216,28 +217,6 @@ class Caller:
     scopes: tuple[str, ...]
 
 
-class RequestConcurrencyGate:
-    """A non-blocking per-process cap for concurrent control-plane requests."""
-
-    def __init__(self, limit: int) -> None:
-        self._limit = limit
-        self._active = 0
-        self._lock = Lock()
-
-    def try_acquire(self) -> bool:
-        with self._lock:
-            if self._active >= self._limit:
-                return False
-            self._active += 1
-            return True
-
-    def release(self) -> None:
-        with self._lock:
-            if self._active <= 0:
-                raise RuntimeError("Themis API concurrency gate released without acquisition")
-            self._active -= 1
-
-
 class JobSubmission(BaseModel):
     """Bounded request body for one authorized job."""
 
@@ -282,6 +261,14 @@ class JobList(BaseModel):
     jobs: list[ThemisJob]
 
 
+async def _renew_request_lease(gate: RequestConcurrencyGate, lease: RequestLease) -> None:
+    """Keep a request lease alive until its middleware cancels this task."""
+    while True:
+        await asyncio.sleep(gate.heartbeat_seconds)
+        if not await asyncio.to_thread(gate.renew, lease):
+            return
+
+
 def create_app(settings: ApiSettings, observability: Observability | None = None) -> FastAPI:
     """Build a fail-closed Themis API around the canonical durable job store."""
     settings.validate()
@@ -292,7 +279,7 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
     scope_root = settings.scope_directory.resolve()
     registers = _RegisterSource(settings)
     limiter = RateLimiter()
-    concurrency = RequestConcurrencyGate(settings.max_concurrent_requests)
+    concurrency = RequestConcurrencyGate(settings.database, settings.max_concurrent_requests)
 
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
@@ -428,7 +415,8 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
         started_at = time.monotonic()
         request_id = _trace_id(request.headers.get("x-request-id"), "req")
         correlation_id = _trace_id(request.headers.get("x-correlation-id"), "cor")
-        if not concurrency.try_acquire():
+        lease = concurrency.try_acquire()
+        if lease is None:
             telemetry.api_request(
                 "themis", request.method, "overloaded", 503, time.monotonic() - started_at
             )
@@ -456,10 +444,14 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
                     "Referrer-Policy": "no-referrer",
                 },
             )
+        heartbeat = asyncio.create_task(_renew_request_lease(concurrency, lease))
         try:
             return await call_next(request)
         finally:
-            concurrency.release()
+            heartbeat.cancel()
+            with suppress(asyncio.CancelledError):
+                await heartbeat
+            concurrency.release(lease)
 
     @app.get("/health", tags=["operations"])
     def health() -> dict[str, str]:

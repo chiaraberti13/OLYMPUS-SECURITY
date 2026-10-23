@@ -65,7 +65,7 @@ test-mutation:
 		"olympus.engagements.manifest.xǁSignedEngagementManifestǁauthorize*" \
 		"olympus.themis.adapters.nmap.xǁNmapAdapterǁparse*" \
 		"olympus.themis.api.xǁApiSettingsǁvalidate*" \
-		"olympus.themis.api.xǁRequestConcurrencyGateǁtry_acquire*" \
+		"olympus.themis.concurrency.xǁRequestConcurrencyGateǁtry_acquire*" \
 		"olympus.themis.legacy_vap.x__decision*" \
 		"olympus.themis.legacy_vap.x_verify_legacy_vap_snapshot*" \
 		"olympus.themis.legacy_vap.x_create_legacy_vap_conversion_plan*" \

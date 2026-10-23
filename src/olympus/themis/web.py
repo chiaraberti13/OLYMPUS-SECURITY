@@ -36,7 +36,7 @@ import re
 import secrets
 import time
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -99,12 +99,13 @@ from olympus.themis.api import (
     MAX_REQUEST_BYTES,
     ApiSettings,
     JobSubmission,
-    RequestConcurrencyGate,
     _registered_scope,
     _RegisterSource,
+    _renew_request_lease,
     _trace_id,
     authorize_submission_manifest,
 )
+from olympus.themis.concurrency import RequestConcurrencyGate
 from olympus.themis.identity import IdentityError, RateLimiter
 from olympus.themis.jobs import (
     TERMINAL_STATES,
@@ -484,7 +485,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
     scope_root = settings.scope_directory.resolve()
     registers = _RegisterSource(settings)
     limiter = RateLimiter()
-    concurrency = RequestConcurrencyGate(settings.max_concurrent_requests)
+    concurrency = RequestConcurrencyGate(settings.database, settings.max_concurrent_requests)
     # A per-process secret: restarting the server invalidates every session,
     # which is the safe default. It never leaves the process.
     session_secret = secrets.token_bytes(32)
@@ -729,7 +730,8 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         """Bound in-flight requests before buffering their bodies or dispatching them."""
         started_at = time.monotonic()
         request_id = _trace_id(request.headers.get("x-request-id"), "web")
-        if not concurrency.try_acquire():
+        lease = concurrency.try_acquire()
+        if lease is None:
             telemetry.api_request(
                 "themis-web", request.method, "overloaded", 503, time.monotonic() - started_at
             )
@@ -761,10 +763,14 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                     ),
                 },
             )
+        heartbeat = asyncio.create_task(_renew_request_lease(concurrency, lease))
         try:
             return await call_next(request)
         finally:
-            concurrency.release()
+            heartbeat.cancel()
+            with suppress(asyncio.CancelledError):
+                await heartbeat
+            concurrency.release(lease)
 
     def _page(request: Request, name: str, context: dict[str, object], code: int = 200) -> Response:
         payload: dict[str, object] = {"version": __version__, **context}

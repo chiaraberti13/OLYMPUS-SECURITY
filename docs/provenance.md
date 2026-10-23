@@ -46,8 +46,9 @@ submodules, and native Themis does not load or execute the archived VAP runtime.
   tracked in `docs/parity/themis-vap-runtime.json`; the source-retirement
   disposition for every route and data boundary is tracked in
   `docs/parity/themis-vap-retirement.json`. Reviewed terminal legacy history can
-  be imported without creating executable work. Distributed concurrency and
-  physical source removal are still open SEC-A work.
+  be imported without creating executable work. API/Web concurrency is shared
+  by processes using the same job database; worker bounds and physical source
+  removal are still open SEC-A work.
 
 ## Archived VAP source
 

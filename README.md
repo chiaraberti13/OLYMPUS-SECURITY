@@ -261,9 +261,10 @@ workers from the installed native wheel. Scope, authorization, adapters, durable
 SQLite jobs, cancellation and redacted audit share one implementation, without
 Redis/Celery or runtime imports from `vendor/`. Every archived VAP route and data
 boundary now has an explicit, contract-tested retirement decision (`SEC-A`), and
-reviewed terminal history has a non-executable import path. Distributed
-concurrency, physical source removal and advanced Web milestones remain roadmap
-work. See the bilingual
+reviewed terminal history has a non-executable import path. API/Web processes
+sharing the same job database now enforce one crash-recoverable concurrency
+limit; worker bounds, physical source removal and advanced Web milestones remain
+roadmap work. See the bilingual
 [native runtime guide](docs/themis-runtime.md) for configuration and rollback.
 
 **How much of the catalogue actually executes.** The 24-scanner registry is a

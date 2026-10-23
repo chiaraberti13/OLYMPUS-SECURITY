@@ -20,10 +20,8 @@ MUTATED_FUNCTIONS = {
         "xǁSignedEngagementManifestǁauthorize",
     ],
     "src/olympus/themis/adapters/nmap.py": ["xǁNmapAdapterǁparse"],
-    "src/olympus/themis/api.py": [
-        "xǁApiSettingsǁvalidate",
-        "xǁRequestConcurrencyGateǁtry_acquire",
-    ],
+    "src/olympus/themis/api.py": ["xǁApiSettingsǁvalidate"],
+    "src/olympus/themis/concurrency.py": ["xǁRequestConcurrencyGateǁtry_acquire"],
     "src/olympus/themis/legacy_vap.py": [
         "x__decision",
         "x_verify_legacy_vap_snapshot",

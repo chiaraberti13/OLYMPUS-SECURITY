@@ -94,6 +94,7 @@ network and no live scanner job. These controls do not claim SEC-B completion.
 least-privilege default, the request-concurrency boundary and audit behavior.
 Evidence: `ApiSettings.validate`, `_RegisterSource`, the `authenticated` route
 dependencies and `concurrency_boundary` in `olympus.themis.api`;
+shared leases are implemented by `olympus.themis.concurrency`;
 `tests/unit/test_themis_api.py` and `tests/unit/test_themis_identity.py` exercise
 default denial and explicit grants.
 
@@ -101,13 +102,13 @@ default denial and explicit grants.
 | --- | --- | --- |
 | A stolen shared key submits or cancels jobs | The default grants only `capabilities:read`; unknown, empty and malformed grants fail startup. Route dependencies return 403 without the required scope. | Explicit `jobs:write` or `jobs:cancel` still makes a shared key powerful. Treat it as a single-operator fallback; prefer named, scoped, expiring and revocable identities for multi-user or remote operation. |
 | A shared key is compromised and must be revoked | The secret is read from server-side environment configuration, never from a command-line argument. | The static identity has no independent expiry or live revocation; rotate the environment secret and restart each API/Web process. Use the named identity register for independent rotation and revocation. |
-| Request bursts exhaust a control-plane process | API/Web reject excess in-flight requests with 503/`Retry-After`; rejections are audited. Default maximum is 64 per process. | The cap is process-local and does not bound aggregate work across replicas. Multi-replica deployments need a trusted upstream limit; worker concurrency remains a separate SEC-A item. |
+| Request bursts exhaust the control plane | API/Web processes sharing a job database coordinate a default aggregate maximum of 64 through atomic, expiring SQLite leases. Overflow and coordinator contention fail closed with 503/`Retry-After`; rejections are audited. | Replicas without the same shared volume are separate limits and need a trusted upstream cap. Worker concurrency remains a separate SEC-A item. |
 | Audit records disclose credentials or personal data | Accountability records identity, route, status and request/correlation ids, not credentials; serialization is redacted. | The audit file still requires operator-controlled permissions, retention and backup. Cross-replica audit aggregation is not provided. |
 | A scanner escapes the current process sandbox | Existing privilege drop, resource limits and private scratch directory still apply. | This review produced no evidence of namespaces, read-only rootfs, seccomp or egress enforcement. SEC-B remains open; API scopes are not scan-plane containment. |
 
 **Disposition:** acceptable as a transitional control-plane milestone, not as a
-claim of multi-user or distributed isolation. Keep SEC-A `[~]` until runtime
-parity and worker/distributed bounds are addressed. For non-loopback access,
+claim of multi-user or distributed isolation. Keep SEC-A `[~]` until physical
+source retirement and worker bounds are addressed. For non-loopback access,
 require TLS and prefer the named identity register. Repeat this review whenever
 the trust boundary or deployment model changes.
 
@@ -122,7 +123,7 @@ Honesty is a control here too. These are open, and tracked in
   reviewed retirement disposition in
   [`parity/themis-vap-retirement.json`](parity/themis-vap-retirement.json), and
   reviewed terminal history has a fail-closed, non-executable import path.
-  Distributed concurrency enforcement and physical source removal remain open;
+  Worker concurrency and physical source removal remain open;
   future native capabilities do not inherit VAP identity or payload contracts.
   The supported runtime is documented in [`themis-runtime.md`](themis-runtime.md).
 - **Egress allowlist on scanner processes.** Scanner subprocesses are sandboxed

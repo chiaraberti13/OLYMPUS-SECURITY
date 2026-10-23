@@ -126,7 +126,7 @@
     "route_and_data_decisions_complete": true,
     "source_removal_blockers": [],
     "remaining_sec_a_work": [
-      "distributed concurrency enforcement for multi-process or replicated control planes",
+      "worker concurrency bounds independent from the shared API/Web request gate",
       "physical removal of the archived VAP source and stale source-dependent documentation"
     ]
   }

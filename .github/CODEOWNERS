@@ -22,6 +22,7 @@
 /src/olympus/themis/sandbox.py       @chiaraberti13
 /src/olympus/themis/scope.py         @chiaraberti13
 /src/olympus/themis/identity.py      @chiaraberti13
+/src/olympus/themis/concurrency.py   @chiaraberti13
 /src/olympus/themis/base.py          @chiaraberti13
 
 # --- Supply chain: SBOM, hash-pinned lock, honest maturity ledger. ---

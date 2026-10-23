@@ -210,9 +210,11 @@ redatto condividono una sola implementazione, senza Redis/Celery né import
 runtime da `vendor/`. Il sorgente VAP resta un archivio per la futura verifica
 di ritiro fisico (`SEC-A`): ogni route e confine dati ha ora una decisione
 esplicita e verificata, mentre lo storico terminale revisionato dispone di un
-percorso di import non eseguibile. Concorrenza distribuita, rimozione fisica del
-sorgente e milestone Web avanzate restano punti distinti. Configurazione e rollback sono
-nella [guida al runtime nativo](docs/themis-runtime.md), bilingue IT/EN.
+percorso di import non eseguibile. I processi API/Web che condividono lo stesso
+database applicano ora un unico limite di concorrenza recuperabile dopo crash;
+limiti worker, rimozione fisica del sorgente e milestone Web avanzate restano
+punti distinti. Configurazione e rollback sono nella
+[guida al runtime nativo](docs/themis-runtime.md), bilingue IT/EN.
 
 I motori di scansione specialistici sono **integrati e governati, non copiati**.
 Olympus ne rileva versioni e configurazione, li esegue entro lo scope autorizzato,

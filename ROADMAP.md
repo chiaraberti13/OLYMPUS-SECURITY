@@ -217,13 +217,14 @@ dello scope e delle evidenze. Il runtime mantenuto è ora interamente nativo.
   rollback; non crea job eseguibili e non importa consent/audit/analytics.
 - [x] Definire una matrice di parità per endpoint, job state, persistenza, audit,
   report e cancellazione prima di rimuovere il codice legacy.
-- [~] Rendere il control plane nativo fail-closed: autenticazione obbligatoria,
+- [x] Rendere il control plane nativo fail-closed: autenticazione obbligatoria,
   autorizzazioni minime per rotta, scope registrati, limiti di concorrenza e live
   scan disabilitate di default. La chiave condivisa legacy ora concede per
   default solo `capabilities:read`; ulteriori scope richiedono un opt-in esplicito
   (`--api-key-scopes`), mentre sono preferibili identità nominate. API e Web ora applicano un limite di richieste
-  simultanee per processo (default 64, configurabile 1–4096); l'overflow è
-  respinto con 503 e Retry-After, ed è auditato. Autenticazione obbligatoria,
+  simultanee aggregate fra processi che condividono il job database (default 64,
+  configurabile 1–4096); l'overflow è respinto con 503 e Retry-After, ed è
+  auditato. Autenticazione obbligatoria,
   scope per rotta e live scan disabilitate per default erano già presenti.
 - [x] Eseguire la threat-model review per la milestone di controllo API/Web del
   2026-10-19; ripeterla prima di ogni successiva milestone di migrazione. Esito e
@@ -304,6 +305,16 @@ dei cinque confini dati; nessuna decisione richiede di conservare il sorgente
 eseguibile. Le capability future rimangono legate agli ID roadmap esistenti e
 non ereditano route, identità o contratti VAP. Controllo distribuito della
 concorrenza e ritiro fisico del vendor restano aperti: `SEC-A` resta `[~]`.
+
+**Avanzamento verificato (2026-10-23, concorrenza control plane condivisa):**
+API e Web coordinano lo stesso limite di richieste tra processi mediante un
+sidecar SQLite con acquisizione atomica, lease rinnovabili e recupero dopo crash.
+Overflow, lock contention e indisponibilità del coordinatore falliscono chiusi
+con `503`, senza accodamento; il sidecar non persiste payload o identità. Le
+repliche devono condividere il job database/volume e la stessa configurazione;
+un deployment multi-host senza storage condiviso richiede ancora un limite a
+monte. Il criterio fail-closed del control plane è completo; limiti worker e
+ritiro fisico del vendor restano aperti, quindi `SEC-A` resta `[~]`.
 
 ### Intervento B · `SEC-B` — Isolamento forte degli scanner (**P0**)
 

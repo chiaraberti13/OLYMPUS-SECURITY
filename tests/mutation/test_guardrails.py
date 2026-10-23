@@ -33,8 +33,9 @@ from olympus.engagements.manifest import (
 )
 from olympus.themis.adapters.nmap import NmapAdapter
 from olympus.themis.adapters.nuclei import NucleiAdapter
-from olympus.themis.api import ApiSettings, RequestConcurrencyGate
+from olympus.themis.api import ApiSettings
 from olympus.themis.base import ParseError
+from olympus.themis.concurrency import RequestConcurrencyGate
 from olympus.themis.jobs import JobState as ThemisJobState
 from olympus.themis.jobs import ThemisJobStore
 from olympus.themis.legacy_vap import (
@@ -50,14 +51,16 @@ from olympus.themis.model import ScanRequest
 from olympus.themis.runner import CommandOutput
 
 
-def test_api_concurrency_gate_rejects_overflow_and_recovers_after_release() -> None:
-    gate = RequestConcurrencyGate(1)
+def test_api_concurrency_gate_rejects_overflow_and_recovers_after_release(
+    tmp_path: Path,
+) -> None:
+    gate = RequestConcurrencyGate(tmp_path / "jobs.sqlite3", 1)
 
-    assert gate.try_acquire() is True
-    assert gate.try_acquire() is False
-    gate.release()
-    assert gate.try_acquire() is True
-    gate.release()
+    lease = gate.try_acquire()
+    assert lease is not None
+    assert gate.try_acquire() is None
+    gate.release(lease)
+    assert gate.try_acquire() is not None
 
 
 def test_api_settings_default_shared_key_scope_is_minimum_and_validated(tmp_path: Path) -> None:
