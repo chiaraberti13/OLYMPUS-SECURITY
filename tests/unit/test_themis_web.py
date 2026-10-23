@@ -1461,3 +1461,19 @@ def test_dashboard_widget_absent_when_no_findings_directory(tmp_path: Path) -> N
     page = client.get("/")
     assert page.status_code == 200
     assert "Findings by severity" not in page.text
+
+
+def test_dashboard_shows_scanner_readiness_for_a_capabilities_reader(tmp_path: Path) -> None:
+    client = _client(tmp_path)  # default SCOPES include capabilities:read
+    _login(client)
+    page = client.get("/")
+    assert page.status_code == 200
+    assert "Scanner readiness" in page.text
+    # The tiles drill into the full tool catalogue.
+    assert "/tools" in page.text
+
+
+def test_dashboard_scanner_readiness_hidden_without_capabilities_scope(tmp_path: Path) -> None:
+    client = _client(tmp_path, api_key_scopes=("jobs:read",))
+    _login(client)
+    assert "Scanner readiness" not in client.get("/").text

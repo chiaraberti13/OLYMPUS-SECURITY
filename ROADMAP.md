@@ -1432,9 +1432,14 @@ nessuno stadio) o senza autorizzazione (il motore non esegue mai nulla).
   widget **finding per severità** sulla dashboard (`GET /`), scope-gated a
   `findings:read` e attivo solo con `--findings-directory`, che riusa
   `vulcan.aggregate.severity_breakdown` e linka alla vista findings filtrata per
-  severità; degrada onestamente (assente) se non configurato o non leggibile.
+  severità; degrada onestamente (assente) se non configurato o non leggibile; e
+  il widget **scanner readiness** (`GET /`), scope-gated a `capabilities:read`,
+  che proietta fedelmente l'inventario capability (`integrations.capabilities.inventory`
+  — stessa fonte di `olympus themis capabilities` e della pagina Tools) in
+  conteggi ready/installati/adattati/catalogati e linka alla pagina Tools,
+  rispondendo a «quali scanner adattati posso eseguire ora su questo host?».
   Test `tests/unit/test_themis_web.py`; doc [`docs/web.md`](docs/web.md).
-  **Resta:** widget asset/incident/scanner-readiness/avanzamento assessment.
+  **Resta:** widget asset/incident/avanzamento assessment.
 - [ ] Responsive, accessibile (lega a `UX-E`), bilingue IT/EN, con onboarding e
   modalità Advanced.
 

@@ -28,6 +28,17 @@
   </div>
 </section>
 {% endif %}
+{% if scanner_readiness %}
+<section class="card">
+  <h2>Scanner readiness</h2>
+  <div class="tiles">
+    <div class="tile"><span class="tile-value"><a class="button-link" href="/tools">{{ scanner_readiness.ready }}</a></span><span class="tile-label">ready to run</span></div>
+    <div class="tile"><span class="tile-value"><a class="button-link" href="/tools">{{ scanner_readiness.available }}</a></span><span class="tile-label">installed</span></div>
+    <div class="tile"><span class="tile-value"><a class="button-link" href="/tools">{{ scanner_readiness.adapted }}</a></span><span class="tile-label">adapted</span></div>
+    <div class="tile"><span class="tile-value"><a class="button-link" href="/tools">{{ scanner_readiness.catalogued }}</a></span><span class="tile-label">catalogued</span></div>
+  </div>
+</section>
+{% endif %}
 <section class="card">
   <h2>Recent jobs</h2>
   {% if recent %}

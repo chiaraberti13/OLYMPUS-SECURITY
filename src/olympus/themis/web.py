@@ -835,6 +835,20 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                         for level in ("critical", "high", "medium", "low", "info")
                     ],
                 }
+        # Scanner-readiness widget (WEB-G): only for an identity that may read
+        # capabilities. It is a faithful projection of the capability inventory
+        # (the same source the Tools page and ``olympus themis capabilities`` use),
+        # answering "which adapted scanners can actually run on this host now?".
+        scanner_readiness: dict[str, object] | None = None
+        if "capabilities:read" in session.scopes:
+            capabilities = list(inventory())
+            adapted = [item for item in capabilities if item.adapted]
+            scanner_readiness = {
+                "catalogued": len(capabilities),
+                "adapted": len(adapted),
+                "ready": sum(1 for item in adapted if item.ready),
+                "available": sum(1 for item in adapted if item.available),
+            }
         return _page(
             request,
             "dashboard.html",
@@ -845,6 +859,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 "histogram": histogram,
                 "recent": recent,
                 "findings_summary": findings_summary,
+                "scanner_readiness": scanner_readiness,
                 "csrf_token": _csrf_token(session.nonce),
             },
         )
