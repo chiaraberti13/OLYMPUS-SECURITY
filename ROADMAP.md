@@ -529,12 +529,23 @@ markup Rich, ma la difesa non è sistematica.
   Argus (provider OSINT, risultati parziali e pivot) vengono sanitizzati; un test
   CLI offline inietta ANSI e newline nel warning del provider. Altri output CLI
   dinamici restano da rivedere.
-- [ ] Garantire escaping contestuale in tutti gli export: HTML con Content Security
+- [~] Garantire escaping contestuale in tutti gli export: HTML con Content Security
   Policy restrittiva e nessuno script inline, Markdown, SARIF e CSV/XLSX con
   protezione da formula injection (`=`, `+`, `-`, `@` in testa alla cella).
-  Nell'export Markdown Vulcan i link letterali `http(s)://` provenienti da testo
-  del target vengono ora defangati per evitare autolink cliccabili; restano da
-  verificare altri campi/export e la protezione spreadsheet se si aggiungerà CSV/XLSX.
+  **HTML fatto** (CSP `default-src 'none'`, nessuno script inline, `html.escape`
+  dopo `safe_terminal_text`). **Markdown fatto** per i metacaratteri e per i link
+  letterali `http(s)://` del target, defangati per evitare autolink cliccabili.
+  **SARIF export fatto:** in `vulcan/sarif.findings_to_sarif` i campi *renderizzati*
+  dai consumer — il `message.text` del result e l'`uri` della location — passano
+  ora da `safe_terminal_text` (strip ANSI/OSC e C0/C1, collasso dei newline), così
+  un titolo/descrizione controllato dal target non può iniettare sequenze di
+  controllo o righe forgiate in un viewer SARIF o in un terminale; titolo e
+  descrizione sono sanitizzati **separatamente** e riuniti con `\n`, così lo split
+  sopravvive al re-import (round-trip invariato). Test
+  `tests/unit/test_vulcan_sarif.py::test_export_neutralizes_hostile_finding_text`.
+  Restano: protezione spreadsheet (solo *se* si aggiungerà un export CSV/XLSX, oggi
+  assente) e l'export SARIF di Hermes (findings di secret-scan: path locali e
+  snippet già mascherati, superficie target-controllata minore).
 - [~] Vietare che valori provenienti dal target diventino path, argv, URL di
   follow-up o nomi file senza passare per validazione e scope gate (path traversal,
   SSRF di secondo ordine, argument injection). Argument injection e path traversal

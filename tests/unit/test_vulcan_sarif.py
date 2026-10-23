@@ -226,6 +226,34 @@ def test_export_puts_asset_in_location() -> None:
     assert uri == "AST-2026-00042"
 
 
+def test_export_neutralizes_hostile_finding_text(tmp_path: Path) -> None:
+    """SEC-H: a target-controlled title/description cannot carry terminal-control
+    sequences or forged lines into the SARIF a consumer renders."""
+    from olympus.core.models import Finding
+
+    hostile = Finding(
+        finding_id="FND-2026-00001",
+        asset_id="AST-1",
+        source=Source.ARTEMIS,
+        severity=Severity.HIGH,
+        # ANSI colour, an OSC title-set sequence, and an embedded newline that
+        # would otherwise forge a second log/line in a consumer.
+        title="Reflected \x1b[31mXSS\x1b[0m\nStatus: clean",
+        description="see \x1b]0;pwned\x07 details",
+    )
+    doc = findings_to_sarif([hostile])
+    text = doc["runs"][0]["results"][0]["message"]["text"]
+    title_line, _, description_line = text.partition("\n")
+    # No raw escape/control bytes survive anywhere.
+    assert "\x1b" not in text and "\x07" not in text
+    # The embedded newline inside the title is collapsed, so the attacker cannot
+    # forge a second line: the whole title stays on one line.
+    assert "\n" not in title_line and "Status: clean" in title_line
+    # The genuine title/description boundary is still exactly one newline.
+    assert text.count("\n") == 1
+    assert description_line and "\n" not in description_line
+
+
 def test_cli_export_then_reimport_round_trips(tmp_path: Path) -> None:
     from olympus.core.models import Finding
 

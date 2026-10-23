@@ -24,6 +24,7 @@ from typing import Any
 
 from olympus import __version__
 from olympus.core.enums import Severity, Source
+from olympus.core.execution import safe_terminal_text
 from olympus.core.models import Finding
 
 #: The only SARIF version this importer accepts.
@@ -209,16 +210,31 @@ _SARIF_SCHEMA = "https://json.schemastore.org/sarif-2.1.0.json"
 
 
 def _finding_result(finding: Finding) -> dict[str, Any]:
-    """Project one finding into a SARIF result, preserving Olympus fields."""
+    """Project one finding into a SARIF result, preserving Olympus fields.
+
+    The ``title``/``description`` of a finding can be target-controlled (a page
+    title, a banner, a scanner message), so the rendered SARIF fields — the
+    result ``message`` and the location ``uri`` — are passed through
+    :func:`safe_terminal_text` first (SEC-H): ANSI/OSC and C0/C1 control
+    sequences are stripped and newlines collapsed, so a SARIF viewer, a terminal
+    tailing the report, or a log pipeline cannot be attacked by a hostile
+    finding. Title and description are sanitized *separately* and rejoined with a
+    newline, so the title/description split survives a re-import unchanged.
+    """
+    title = safe_terminal_text(finding.title)
     message = (
-        finding.title if not finding.description else f"{finding.title}\n{finding.description}"
+        title if not finding.description else f"{title}\n{safe_terminal_text(finding.description)}"
     )
     result: dict[str, Any] = {
         "ruleId": finding.finding_id,
         "level": _SEVERITY_LEVEL[finding.severity],
         "message": {"text": message},
         "locations": [
-            {"physicalLocation": {"artifactLocation": {"uri": finding.asset_id}}},
+            {
+                "physicalLocation": {
+                    "artifactLocation": {"uri": safe_terminal_text(finding.asset_id)}
+                }
+            },
         ],
         # Olympus-specific fields ride in the SARIF property bag so a consumer
         # (or a re-import) keeps the full severity, provenance and intelligence.
