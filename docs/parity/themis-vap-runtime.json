@@ -415,6 +415,18 @@
     {
       "surface": "web",
       "method": "GET",
+      "path": "/assessments/smart",
+      "handler": "smart_scan"
+    },
+    {
+      "surface": "web",
+      "method": "POST",
+      "path": "/assessments/smart/plan",
+      "handler": "smart_scan_plan"
+    },
+    {
+      "surface": "web",
+      "method": "GET",
       "path": "/engagements",
       "handler": "engagements_page"
     },

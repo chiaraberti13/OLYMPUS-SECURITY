@@ -753,6 +753,164 @@ def themis_capabilities(
         raise typer.Exit(code=int(ExitCode.NOT_AUTHORIZED))
 
 
+@themis_app.command("smart-scan")
+def themis_smart_scan(
+    objective: str = typer.Option(
+        ...,
+        "--objective",
+        help=(
+            "What to achieve: recon | web-app | network | full. Each expands to a "
+            "reviewed, ordered pipeline of native activities."
+        ),
+    ),
+    target: str = typer.Option(..., "--target", help="The target to plan against."),
+    target_kind: str = typer.Option(
+        "host", "--target-kind", help="Target kind: host, domain or url."
+    ),
+    max_risk: str = typer.Option(
+        "active",
+        "--max-risk",
+        help=(
+            "Risk ceiling: passive | active | intrusive. A scanner louder than the "
+            "ceiling is dropped with a reason; intrusive is never planned unless "
+            "selected here explicitly."
+        ),
+    ),
+    engagement_storage: str | None = typer.Option(
+        None,
+        "--engagement-storage",
+        help="Directory holding the shared engagements database; enables engagement "
+        "scope enforcement on the proposal.",
+    ),
+    engagement: str | None = typer.Option(
+        None,
+        "--engagement",
+        help="Engagement id (ENG-YYYY-NNNNN); the target must fall inside its scope "
+        "or the plan proposes nothing.",
+    ),
+    output_format: str = typer.Option(
+        "table", "--format", help="Output format: table (human) or json (machine)."
+    ),
+) -> None:
+    """Propose a deterministic, scope- and policy-aware scan pipeline. Runs nothing.
+
+    Smart Scan turns an objective and a target into an ordered pipeline the
+    operator reads **before** anything executes. It only proposes: no scanner is
+    launched and no target is contacted here. Execution stays on the audited
+    path (``olympus themis jobs`` / the guided web flow), so every stage still
+    passes the real scope, authorization and preview gates. The proposal is
+    reproducible — the same inputs always yield the same plan and digest.
+    """
+    from olympus.core.output import OutputFormat
+    from olympus.engagements.resolve import require_engagement
+    from olympus.engagements.store import ENGAGEMENTS_DB_NAME, EngagementStoreError
+    from olympus.integrations.activity import RiskClass
+    from olympus.integrations.capabilities import inventory
+    from olympus.integrations.smartscan import ScanObjective, propose_pipeline
+
+    try:
+        chosen_objective = ScanObjective(objective)
+    except ValueError as exc:
+        typer.echo(
+            f"olympus: unknown objective {objective!r}; expected one of "
+            + ", ".join(item.value for item in ScanObjective),
+            err=True,
+        )
+        raise typer.Exit(code=int(ExitCode.USAGE)) from exc
+    try:
+        ceiling = RiskClass(max_risk)
+    except ValueError as exc:
+        typer.echo(
+            f"olympus: unknown risk ceiling {max_risk!r}; expected one of "
+            + ", ".join(item.value for item in RiskClass),
+            err=True,
+        )
+        raise typer.Exit(code=int(ExitCode.USAGE)) from exc
+    if target_kind not in {"host", "domain", "url"}:
+        typer.echo("olympus: --target-kind must be host, domain or url", err=True)
+        raise typer.Exit(code=int(ExitCode.USAGE))
+    try:
+        fmt = OutputFormat(output_format)
+    except ValueError as exc:
+        typer.echo("olympus: --format must be table or json", err=True)
+        raise typer.Exit(code=int(ExitCode.USAGE)) from exc
+
+    resolved_engagement = None
+    if engagement is not None:
+        if engagement_storage is None:
+            typer.echo("olympus: --engagement requires --engagement-storage", err=True)
+            raise typer.Exit(code=int(ExitCode.USAGE))
+        database = Path(engagement_storage) / ENGAGEMENTS_DB_NAME
+        try:
+            resolved_engagement = require_engagement(database, engagement)
+        except EngagementStoreError as exc:
+            typer.echo(f"olympus: {safe_terminal_text(str(exc))}", err=True)
+            raise typer.Exit(code=int(ExitCode.USAGE)) from exc
+
+    ready = {item.name for item in inventory() if item.ready}
+    plan = propose_pipeline(
+        objective=chosen_objective,
+        target=target,
+        target_kind=target_kind,
+        ready=ready,
+        engagement=resolved_engagement,
+        max_risk=ceiling,
+    )
+
+    if fmt is OutputFormat.JSON:
+        typer.echo(json.dumps(plan.to_dict(), indent=2, sort_keys=True))
+    else:
+        typer.echo(_format_smart_scan_table(plan))
+
+    # A plan that cannot run anything is an honest, non-error outcome, but the
+    # exit code still distinguishes it so a caller can branch on it without
+    # parsing text: out-of-scope targets exit OUT_OF_SCOPE, an empty-but-in-scope
+    # plan exits OK (nothing to run here is not a failure of the proposal).
+    if not plan.in_scope:
+        raise typer.Exit(code=int(ExitCode.OUT_OF_SCOPE))
+
+
+def _format_smart_scan_table(plan: object) -> str:
+    """Render a Smart Scan plan as a human-readable, terminal-safe summary.
+
+    Target and other target-derived text pass through :func:`safe_terminal_text`
+    so a hostile hostname cannot forge lines or inject escape sequences into the
+    operator's terminal (ROADMAP ``SEC-H``).
+    """
+    from olympus.integrations.smartscan import OBJECTIVE_SUMMARY, SmartScanPlan
+
+    assert isinstance(plan, SmartScanPlan)  # noqa: S101 - internal invariant, not input validation
+    lines: list[str] = []
+    lines.append(f"Smart Scan proposal ({plan.objective.value})")
+    lines.append(OBJECTIVE_SUMMARY[plan.objective])
+    lines.append(f"  target:      {safe_terminal_text(plan.target)} ({plan.target_kind})")
+    lines.append(f"  engagement:  {plan.engagement_id or '—'}")
+    lines.append(f"  risk ceiling:{plan.max_risk.value:>9}")
+    lines.append(f"  digest:      {plan.digest}")
+    lines.append(f"  authorization required: {'yes' if plan.requires_authorization else 'no'}")
+    if not plan.in_scope:
+        lines.append("")
+        lines.append("  The target is outside the engagement's scope; nothing is proposed.")
+        return "\n".join(lines)
+    lines.append("")
+    if plan.stages:
+        lines.append("Proposed pipeline (nothing runs until you launch each step):")
+        for stage in plan.stages:
+            flag = "AUTH" if stage.needs_authorization else "    "
+            lines.append(
+                f"  {stage.order}. [{flag}] {stage.scanner:<12} "
+                f"{stage.risk.value:<9} {safe_terminal_text(stage.rationale)}"
+            )
+    else:
+        lines.append("No stage can run on this host for this objective.")
+    if plan.excluded:
+        lines.append("")
+        lines.append("Not proposed:")
+        for dropped in plan.excluded:
+            lines.append(f"  - {dropped.activity.value}: {safe_terminal_text(dropped.reason)}")
+    return "\n".join(lines)
+
+
 def _emit_job(job: object) -> None:
     from pydantic import BaseModel
 

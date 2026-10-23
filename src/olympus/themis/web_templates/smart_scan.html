@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}Smart Scan · Olympus Themis{% endblock %}
+{% block content %}
+<section class="card narrow">
+  <h1>Smart Scan</h1>
+  <p class="muted">
+    Describe the goal and Olympus <strong>proposes</strong> an ordered pipeline
+    you can read before anything runs. Nothing is queued here: each step hands
+    off to the same preview, scope gate and authorization check as a normal
+    assessment. The proposal is deterministic — the same inputs always produce
+    the same plan.
+  </p>
+  {% if error %}<p class="alert" role="alert">{{ error }}</p>{% endif %}
+
+  <form method="post" action="/assessments/smart/plan">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+    <label for="objective">Objective</label>
+    <select id="objective" name="objective" required>
+      {% for objective in objectives %}
+      <option value="{{ objective.value }}" data-summary="{{ objective.summary }}"
+              {% if form.objective == objective.value %}selected{% endif %}>
+        {{ objective.value }}
+      </option>
+      {% endfor %}
+    </select>
+    <p class="muted" id="objective-hint"></p>
+
+    {% if engagements %}
+    <label for="engagement_id">Engagement{% if not manifest_required %} (optional){% endif %}</label>
+    <select id="engagement_id" name="engagement_id">
+      <option value="">— none —</option>
+      {% for engagement in engagements %}
+      <option value="{{ engagement.engagement_id }}"
+              {% if form.engagement_id == engagement.engagement_id %}selected{% endif %}>
+        {{ engagement.engagement_id }} — {{ engagement.name }}
+      </option>
+      {% endfor %}
+    </select>
+    <p class="muted">
+      With an engagement chosen, a target outside its authorized scope yields a
+      plan with no steps — Smart Scan never proposes a branch out of scope.
+    </p>
+    {% endif %}
+
+    <label for="target">Target</label>
+    <input id="target" name="target" value="{{ form.target or '' }}" maxlength="2048" required>
+
+    <label for="target_kind">Target kind</label>
+    <select id="target_kind" name="target_kind">
+      {% for kind in ("host", "domain", "url") %}
+      <option value="{{ kind }}" {% if form.target_kind == kind %}selected{% endif %}>{{ kind }}</option>
+      {% endfor %}
+    </select>
+
+    <label for="scope_id">Registered scope</label>
+    <input id="scope_id" name="scope_id" value="{{ form.scope_id or '' }}"
+           pattern="[A-Za-z0-9][A-Za-z0-9_.-]{0,127}" required>
+
+    <label for="max_risk">Risk ceiling</label>
+    <select id="max_risk" name="max_risk">
+      {% for level in risk_levels %}
+      <option value="{{ level.value }}"
+              {% if (form.max_risk or 'active') == level.value %}selected{% endif %}>
+        {{ level.label }}
+      </option>
+      {% endfor %}
+    </select>
+    <p class="muted">
+      A tool louder than the ceiling is dropped from the plan with a reason.
+      Intrusive techniques are only ever proposed when you choose
+      <em>Intrusive</em> here explicitly.
+    </p>
+
+    <button type="submit">Propose pipeline</button>
+  </form>
+</section>
+
+{% if plan %}
+<section class="card narrow">
+  <h2>Proposed pipeline</h2>
+  <p class="muted">{{ plan.objective_summary }}</p>
+  <dl class="preview">
+    <dt>Target</dt>
+    <dd><code>{{ plan.target_display }}</code> <span class="muted">({{ plan.target_kind }})</span></dd>
+    <dt>Registered scope</dt>
+    <dd><code>{{ plan.scope_id }}</code></dd>
+    {% if plan.engagement_id %}
+    <dt>Engagement</dt>
+    <dd><code>{{ plan.engagement_id }}</code>{% if plan.engagement_name %} — {{ plan.engagement_name }}{% endif %}</dd>
+    {% endif %}
+    <dt>Risk ceiling</dt>
+    <dd>{{ plan.max_risk_label }}</dd>
+    <dt>Plan digest</dt>
+    <dd><code>{{ plan.digest }}</code>
+      <br><span class="muted">Reproducible: the same inputs always produce this digest.</span></dd>
+  </dl>
+
+  {% if not plan.in_scope %}
+  <p class="alert" role="alert">
+    The target is outside the selected engagement's authorized scope. No step is
+    proposed. Choose a target inside the engagement or a different engagement.
+  </p>
+  {% elif plan.stages %}
+  <p class="muted">
+    Nothing runs until you prepare and launch each step. Steps run in order so
+    later, louder stages act on a mapped surface. Each step opens the normal
+    preview where you review and authorize it.
+  </p>
+  <ol class="pipeline">
+    {% for stage in plan.stages %}
+    <li class="risk-{{ stage.risk }}">
+      <p>
+        <strong>{{ stage.activity_title }}</strong> — <code>{{ stage.scanner }}</code>
+        <span class="risk-tag risk-{{ stage.risk }}">{{ stage.risk_label }}</span>
+      </p>
+      <p class="muted">{{ stage.rationale }}</p>
+      <p class="muted">{{ stage.risk_explanation }}</p>
+      <form method="post" action="/assessments/preview">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="activity" value="{{ stage.activity }}">
+        <input type="hidden" name="scanner" value="{{ stage.scanner }}">
+        <input type="hidden" name="target" value="{{ plan.target }}">
+        <input type="hidden" name="target_kind" value="{{ plan.target_kind }}">
+        <input type="hidden" name="scope_id" value="{{ plan.scope_id }}">
+        {% if plan.engagement_id %}
+        <input type="hidden" name="engagement_id" value="{{ plan.engagement_id }}">
+        {% endif %}
+        <button type="submit">Prepare step {{ stage.order }}</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}
+  <p class="alert" role="alert">
+    No step for this objective can run on this host at the chosen risk ceiling.
+    See the <a href="/tools">Tools</a> page for what is missing.
+  </p>
+  {% endif %}
+
+  {% if plan.excluded %}
+  <h3>Not proposed</h3>
+  <ul class="plain">
+    {% for dropped in plan.excluded %}
+    <li><strong>{{ dropped.activity }}</strong> — {{ dropped.reason }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script src="/static/smart_scan.js"></script>
+{% endblock %}

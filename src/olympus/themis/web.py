@@ -88,6 +88,13 @@ from olympus.integrations.activity import (
     scanners_for_activity,
 )
 from olympus.integrations.capabilities import Capability, CapabilityState, inventory
+from olympus.integrations.smartscan import (
+    OBJECTIVE_SUMMARY,
+    ScanObjective,
+    SmartScanPlan,
+    objectives,
+    propose_pipeline,
+)
 from olympus.themis.api import (
     MAX_REQUEST_BYTES,
     ApiSettings,
@@ -1060,6 +1067,149 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 "csrf_token": _csrf_token(session.nonce),
             },
         )
+
+    def _smart_scan_context(
+        session: WebSession, form: dict[str, str] | None = None, error: str | None = None
+    ) -> dict[str, object]:
+        """Shared context for the Smart Scan form (step 1, before any plan)."""
+        return {
+            "error": error,
+            "form": form or {},
+            "engagements": _engagement_options(),
+            "objectives": [
+                {"value": item.value, "summary": OBJECTIVE_SUMMARY[item]} for item in objectives()
+            ],
+            "risk_levels": [
+                {"value": level.value, "label": _RISK_LABELS[level]}
+                for level in (RiskClass.PASSIVE, RiskClass.ACTIVE, RiskClass.INTRUSIVE)
+            ],
+            "manifest_required": settings.trusted_manifest_public_key_pem is not None,
+            "plan": None,
+            "csrf_token": _csrf_token(session.nonce),
+        }
+
+    def _present_smart_scan_plan(
+        plan: SmartScanPlan, *, scope_id: str, engagement_name: str | None
+    ) -> dict[str, object]:
+        """Project a plan into a redacted, handoff-ready view for the template.
+
+        Each stage carries the fields the existing ``/assessments/preview`` form
+        needs, so launching a step still goes through the real scope,
+        authorization and preview gate — the Smart Scan page only proposes.
+        Target- and scanner-derived text is escaped with :func:`_safe` so a
+        hostile hostname or rationale cannot inject markup (ROADMAP ``SEC-H``).
+        """
+        return {
+            "objective": plan.objective.value,
+            "objective_summary": OBJECTIVE_SUMMARY[plan.objective],
+            "target": plan.target,
+            "target_display": _safe(plan.target),
+            "target_kind": plan.target_kind,
+            "scope_id": scope_id,
+            "engagement_id": plan.engagement_id or "",
+            "engagement_name": engagement_name,
+            "in_scope": plan.in_scope,
+            "max_risk": plan.max_risk.value,
+            "max_risk_label": _RISK_LABELS[plan.max_risk],
+            "requires_authorization": plan.requires_authorization,
+            "digest": plan.digest,
+            "stages": [
+                {
+                    "order": stage.order,
+                    "activity": stage.activity.value,
+                    "activity_title": activity_info(stage.activity).title,
+                    "scanner": stage.scanner,
+                    "risk": stage.risk.value,
+                    "risk_label": _RISK_LABELS[stage.risk],
+                    "risk_explanation": RISK_EXPLANATION[stage.risk],
+                    "needs_authorization": stage.needs_authorization,
+                    "rationale": _safe(stage.rationale),
+                }
+                for stage in plan.stages
+            ],
+            "excluded": [
+                {"activity": dropped.activity.value, "reason": _safe(dropped.reason)}
+                for dropped in plan.excluded
+            ],
+        }
+
+    @app.get("/assessments/smart", response_class=HTMLResponse, include_in_schema=False)
+    def smart_scan(request: Request, session: WebSession = writes_jobs) -> Response:
+        return _page(request, "smart_scan.html", _smart_scan_context(session))
+
+    @app.post("/assessments/smart/plan", response_class=HTMLResponse, include_in_schema=False)
+    def smart_scan_plan(
+        request: Request,
+        objective: Annotated[str, Form()],
+        target: Annotated[str, Form()],
+        scope_id: Annotated[str, Form()],
+        csrf_token: Annotated[str, Form()],
+        target_kind: Annotated[str, Form()] = "host",
+        max_risk: Annotated[str, Form()] = "active",
+        engagement_id: Annotated[str | None, Form()] = None,
+        session: WebSession = writes_jobs,
+    ) -> Response:
+        """Propose a deterministic Smart Scan pipeline. Queues and runs nothing.
+
+        The plan is built from the same interface-agnostic engine the CLI uses,
+        so it is reproducible. When an engagement is chosen the target is
+        scope-checked here: a target outside its perimeter yields a plan with no
+        stages, so no branch is ever proposed out of scope.
+        """
+        _check_csrf(session, csrf_token)
+        form = {
+            "objective": objective,
+            "target": target,
+            "target_kind": target_kind,
+            "scope_id": scope_id,
+            "max_risk": max_risk,
+            "engagement_id": engagement_id or "",
+        }
+
+        def _back(message: str, code: int = 400) -> Response:
+            return _page(
+                request, "smart_scan.html", _smart_scan_context(session, form, message), code
+            )
+
+        try:
+            chosen_objective = ScanObjective(objective)
+        except ValueError:
+            return _back("Choose a valid objective.", code=422)
+        try:
+            ceiling = RiskClass(max_risk)
+        except ValueError:
+            return _back("Choose a valid risk ceiling.", code=422)
+        if target_kind not in {"host", "domain", "url"}:
+            return _back("Target kind must be host, domain or url.", code=422)
+        if not target.strip():
+            return _back("Enter a target.", code=422)
+
+        chosen_engagement = (engagement_id or "").strip() or None
+        resolved_engagement = None
+        engagement_name: str | None = None
+        if chosen_engagement is not None:
+            if engagements_database is None:
+                return _back("No engagement store is configured on this server.", code=400)
+            try:
+                resolved_engagement = require_engagement(engagements_database, chosen_engagement)
+            except EngagementStoreError:
+                return _back("The selected engagement does not exist.", code=404)
+            engagement_name = _safe(resolved_engagement.name)
+
+        plan = propose_pipeline(
+            objective=chosen_objective,
+            target=target,
+            target_kind=target_kind,
+            ready=_ready_scanner_names(),
+            engagement=resolved_engagement,
+            max_risk=ceiling,
+        )
+
+        context = _smart_scan_context(session, form)
+        context["plan"] = _present_smart_scan_plan(
+            plan, scope_id=scope_id, engagement_name=engagement_name
+        )
+        return _page(request, "smart_scan.html", context)
 
     @app.post("/jobs", include_in_schema=False)
     def submit_job(

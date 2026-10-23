@@ -854,6 +854,163 @@ def _visible_text(html: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Smart Scan — proposed pipeline (ROADMAP WEB-F)
+# ---------------------------------------------------------------------------
+
+
+def _smart_plan(client: TestClient, csrf: str, **overrides: str) -> httpx.Response:
+    payload = {
+        "objective": "full",
+        "target": "127.0.0.1",
+        "target_kind": "host",
+        "scope_id": "engagement",
+        "max_risk": "active",
+        "csrf_token": csrf,
+    }
+    payload.update(overrides)
+    return client.post("/assessments/smart/plan", data=payload, follow_redirects=False)
+
+
+def test_smart_scan_page_requires_a_session(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    redirect = client.get("/assessments/smart", follow_redirects=False)
+    assert redirect.status_code == 303
+    assert redirect.headers["location"] == "/login"
+
+
+def test_smart_scan_form_offers_objectives_and_a_risk_ceiling(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    page = client.get("/assessments/smart")
+    assert page.status_code == 200
+    assert 'name="objective"' in page.text
+    assert 'name="max_risk"' in page.text
+    # It proposes, routing execution through the audited preview flow.
+    assert 'action="/assessments/smart/plan"' in page.text
+    assert "proposes" in page.text.lower()
+
+
+def test_smart_scan_proposes_a_deterministic_pipeline_without_queueing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import olympus.themis.web as web
+
+    monkeypatch.setattr(web, "_ready_scanner_names", lambda: {"subfinder", "nmap", "nuclei"})
+    client = _client(tmp_path)
+    _login(client)
+    csrf = _csrf(client)
+    first = _smart_plan(client, csrf)
+    assert first.status_code == 200, first.text
+    assert "Proposed pipeline" in first.text
+    # Each step hands off to the real preview/authorization gate.
+    assert 'action="/assessments/preview"' in first.text
+    # A reproducible digest is shown.
+    digest = re.search(r"Plan digest</dt>\s*<dd><code>([0-9a-f]{64})</code>", first.text)
+    assert digest is not None
+    # Reproducible: the same inputs render the same digest.
+    second = _smart_plan(client, csrf)
+    assert digest.group(1) in second.text
+    # Nothing was queued by proposing a plan.
+    jobs = client.get("/jobs")
+    assert "No jobs" in jobs.text or "nmap" not in jobs.text
+
+
+def test_smart_scan_default_ceiling_drops_intrusive_tools(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import olympus.themis.web as web
+
+    monkeypatch.setattr(web, "_ready_scanner_names", lambda: {"subfinder", "sqlmap"})
+    client = _client(tmp_path)
+    _login(client)
+    csrf = _csrf(client)
+    plan = _smart_plan(client, csrf, objective="web-app", max_risk="active")
+    assert plan.status_code == 200, plan.text
+    # The intrusive web tool is reported as not proposed, never silently chosen.
+    assert "Not proposed" in plan.text
+    assert "risk ceiling" in plan.text
+    # No launch handoff carries sqlmap at the active ceiling.
+    assert 'name="scanner" value="sqlmap"' not in plan.text
+
+
+def test_smart_scan_intrusive_ceiling_allows_intrusive_tools(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import olympus.themis.web as web
+
+    monkeypatch.setattr(web, "_ready_scanner_names", lambda: {"subfinder", "sqlmap"})
+    client = _client(tmp_path)
+    _login(client)
+    csrf = _csrf(client)
+    plan = _smart_plan(client, csrf, objective="web-app", max_risk="intrusive")
+    assert plan.status_code == 200, plan.text
+    assert 'name="scanner" value="sqlmap"' in plan.text
+
+
+def test_smart_scan_out_of_scope_engagement_proposes_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import olympus.themis.web as web
+
+    monkeypatch.setattr(web, "_ready_scanner_names", lambda: {"subfinder", "nmap", "nuclei"})
+    engagement_id = _seed_engagement(tmp_path)
+    client = _client(tmp_path, engagements_database=tmp_path / ENGAGEMENTS_DB_NAME)
+    _login(client)
+    csrf = _csrf(client)
+    plan = _smart_plan(
+        client,
+        csrf,
+        objective="full",
+        target="evil.example",
+        target_kind="domain",
+        engagement_id=engagement_id,
+    )
+    assert plan.status_code == 200, plan.text
+    assert "outside the selected engagement" in plan.text
+    # No step and so no preview handoff is offered out of scope.
+    assert 'action="/assessments/preview"' not in plan.text
+
+
+def test_smart_scan_in_scope_engagement_proposes_a_pipeline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import olympus.themis.web as web
+
+    monkeypatch.setattr(web, "_ready_scanner_names", lambda: {"subfinder"})
+    engagement_id = _seed_engagement(tmp_path)
+    client = _client(tmp_path, engagements_database=tmp_path / ENGAGEMENTS_DB_NAME)
+    _login(client)
+    csrf = _csrf(client)
+    plan = _smart_plan(
+        client,
+        csrf,
+        objective="recon",
+        target="acme.test",
+        target_kind="domain",
+        engagement_id=engagement_id,
+    )
+    assert plan.status_code == 200, plan.text
+    assert "Proposed pipeline" in plan.text
+    assert 'name="scanner" value="subfinder"' in plan.text
+
+
+def test_smart_scan_requires_a_valid_csrf_token(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    response = _smart_plan(client, "deadbeef")
+    assert response.status_code == 403
+
+
+def test_smart_scan_rejects_an_unknown_objective(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    csrf = _csrf(client)
+    response = _smart_plan(client, csrf, objective="bogus")
+    assert response.status_code == 422
+    assert "valid objective" in response.text
+
+
+# ---------------------------------------------------------------------------
 # Findings review and triage (ROADMAP WEB-C wired into the browser)
 # ---------------------------------------------------------------------------
 

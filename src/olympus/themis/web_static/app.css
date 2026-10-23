@@ -117,6 +117,17 @@ details.advanced summary { cursor: pointer; font-weight: 600; color: var(--accen
 .button-link:hover { text-decoration: underline; }
 ul.plain { padding-left: 1.1rem; }
 ul.plain li { margin: .5rem 0; }
+/* Smart Scan proposed pipeline (WEB-F). */
+ol.pipeline { padding-left: 1.2rem; margin: 1rem 0; }
+ol.pipeline li {
+  margin: .8rem 0; padding: .7rem .9rem; border-radius: 8px;
+  border: 1px solid var(--line);
+}
+ol.pipeline li p { margin: .2rem 0; }
+.risk-tag {
+  padding: .1rem .45rem; border-radius: 999px; font-size: .78rem;
+  border: 1px solid var(--line); margin-left: .4rem;
+}
 /* Findings review and triage (WEB-C). */
 .severity {
   padding: .15rem .5rem; border-radius: 999px; font-size: .8rem;

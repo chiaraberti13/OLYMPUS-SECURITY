@@ -43,14 +43,14 @@
 | 4 | Capability Red/Blue/Purple | `[~]` | `OPS-RED`, `OPS-BLUE`, `OPS-PURPLE`, `OPS-SCAN` |
 | 5 | Production readiness scanner | `[ ]` | `D1`, `D2` |
 | 6 | Distribuzione e osservabilità | `[~]` | `DEV-E`, `DEV-F`, `SEC-F` |
-| 7 | Rename Themis + Web control plane | `[~]` | `DEV-I` ✓, `WEB-A` ✓, `WEB-B` ✓, `WEB-C` ✓, `WEB-D` ✓, `WEB-E` ✓, `WEB-F`…`WEB-J` |
+| 7 | Rename Themis + Web control plane | `[~]` | `DEV-I` ✓, `WEB-A` ✓, `WEB-B` ✓, `WEB-C` ✓, `WEB-D` ✓, `WEB-E` ✓, `WEB-F` ✓, `WEB-G`…`WEB-J` |
 
 L'ordine di esecuzione concordato per la Fase 7 mette le **fondamenta dati prima
 delle interfacce**: `DEV-I` (rename) → `WEB-B` (engagement entità di primo
 livello) → **Finding strutturato** (`WEB-C`, campi CVE/CWE/EPSS/KEV tipizzati con
 migrazione) → `WEB-A` (API/SSE + web skeleton sicuro) → `WEB-D` (tools) →
 `WEB-E` (new assessment) ✓ → `WEB-C` (findings UI) → `WEB-J`/`WEB-I` (dati e
-reporting) → `WEB-F` (smart scan) → `WEB-H` (persistenza) → ritiro runtime VAP
+reporting) → `WEB-F` (smart scan) ✓ → `WEB-H` (persistenza) → ritiro runtime VAP
 (`SEC-A`). `SEC-H` (parsing input ostile) va svolto in opportunità durante il
 rename, perché non richiede un lab autorizzato.
 
@@ -1360,13 +1360,45 @@ della CLI). **`WEB-E` completo.**
 
 ### Intervento F · `WEB-F` — Smart Scan (pipeline proposta) (**P2**)
 
-- [ ] Da target + engagement + obiettivo, Olympus **propone** una pipeline
+- [x] Da target + engagement + obiettivo, Olympus **propone** una pipeline
   deterministica, spiegabile, scope-aware, policy-aware, limitata, configurabile e
   **visualizzabile prima dell'esecuzione**; mai esecuzione automatica di qualunque
-  scanner. L'utente approva il piano.
+  scanner. L'utente approva il piano. **Fatto:** motore puro e offline
+  `olympus.integrations.smartscan.propose_pipeline` (sibling di
+  `integrations/activity.py`, fonte unica interface-agnostica riusata da CLI e
+  Web, come `activity.py` lo è per il flusso a singolo scanner di `WEB-E`).
+  L'obiettivo (`recon`/`web-app`/`network`/`full`) espande a una lista ordinata
+  e revisionata di attività **native** (recon sempre per prima, così gli stadi
+  più rumorosi agiscono su una superficie già mappata); ogni stadio sceglie lo
+  scanner **ready** dell'attività via `recommended_scanner`, con una `rationale`
+  in linguaggio semplice. **Riproducibilità:** il piano espone un `digest`
+  SHA-256 stabile sui suoi input e stadi ordinati (stessi input → stesso piano,
+  verificato). **Scope-aware:** con un engagement, un target fuori perimetro
+  produce `in_scope=False` e **zero stadi** (nessun ramo pianificato fuori
+  scope). **Policy-aware:** un soffitto di rischio (default `active`) scarta con
+  motivazione esplicita ogni scanner più rumoroso del soffitto — le tecniche
+  `intrusive` sono proposte solo con opt-in `--max-risk intrusive`. **Limitata:**
+  cap configurabile sugli stadi (`MAX_PIPELINE_STAGES`). **Mai esecuzione
+  automatica:** il motore non lancia nulla e non contatta alcun target; ogni
+  stadio rimanda al flusso audited esistente (`/assessments/preview` → `/jobs`,
+  o `olympus themis jobs`) che applica scope, autorizzazione e preview. CLI
+  `olympus themis smart-scan --objective … --target … [--max-risk …]
+  [--engagement-storage … --engagement …] [--format table|json]` (tabella
+  terminal-safe via `safe_terminal_text`, JSON machine-readable; `OUT_OF_SCOPE`
+  quando il target è fuori dall'engagement). Web: `GET /assessments/smart` +
+  `POST /assessments/smart/plan` (scope `jobs:write`, CSRF, degrado onesto),
+  template `web_templates/smart_scan.html` con enhancement progressivo
+  same-origin (`smart_scan.js`, CSP senza inline); ogni stadio è un form verso
+  `/assessments/preview`, così l'approvazione resta esplicita e sul gate reale.
+  Test `tests/unit/test_smartscan.py` (motore), `tests/unit/test_smartscan_cli.py`
+  (CLI) e flusso web in `tests/unit/test_themis_web.py`. Doc:
+  [`docs/web.md`](docs/web.md).
 
-**Criterio di completamento:** la pipeline proposta è riproducibile e approvata
-esplicitamente; nessun ramo parte fuori scope o senza autorizzazione.
+**Criterio di completamento (soddisfatto):** la pipeline proposta è riproducibile
+(digest stabile) e approvata esplicitamente (ogni stadio passa per il preview e
+l'autorizzazione reali); nessun ramo parte fuori scope (target fuori engagement →
+nessuno stadio) o senza autorizzazione (il motore non esegue mai nulla).
+**`WEB-F` completo.**
 
 ### Intervento G · `WEB-G` — Dashboard, accessibilità, i18n (**P2**)
 

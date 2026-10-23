@@ -111,6 +111,8 @@ as on the API.
 | `GET /engagements`, `GET /engagements/{id}` | The shared engagements and their scope (requires `engagements:read`); available only when the server is started with `--engagement-storage`. |
 | `GET /tools` | The tool catalogue, read straight from the real capability inventory (requires `capabilities:read`). |
 | `GET /assessments/new` | Guided New Assessment wizard (requires `jobs:write`): engagement → target → scope → activity → tool or automatic. |
+| `GET /assessments/smart` | Smart Scan form (requires `jobs:write`): objective → target → scope → engagement → risk ceiling. |
+| `POST /assessments/smart/plan` | Proposes a deterministic, scope- and policy-aware pipeline; queues nothing (requires `jobs:write`, CSRF-protected). |
 | `POST /assessments/preview` | Renders the "Olympus is about to run" preview with the `PASSIVE`/`ACTIVE`/`INTRUSIVE` risk level; queues nothing (requires `jobs:write`, CSRF-protected). |
 | `POST /jobs` | Typed, scope-gated job submission from the preview's launch form (requires `jobs:write`). An optional engagement scopes the target. |
 | `GET /jobs/{id}` | Job detail with a live state line and, with `jobs:cancel`, a **Cancel** button wired to real Olympus cancellation. |
@@ -235,6 +237,42 @@ Progressive enhancement only: the wizard works without JavaScript (every option
 is present and the server re-validates the activity/tool pairing on preview); a
 same-origin `assessment.js` simply filters the tool list to the chosen activity
 and shows the live hint.
+
+## Smart Scan (`WEB-F`)
+
+`GET /assessments/smart` turns a *goal* — an objective, a target and (optionally)
+an engagement — into an **ordered pipeline the operator reads before anything
+runs**. It only *proposes*: `POST /assessments/smart/plan` queues nothing, runs
+no scanner and contacts no target. Each proposed step is a form that hands off to
+the normal `POST /assessments/preview`, so launching a step still passes the real
+scope gate, authorization check and risk preview — the Smart Scan page never
+weakens that gate.
+
+An objective expands to a reviewed, ordered list of native activities
+(reconnaissance always first, so louder stages act on a mapped surface):
+
+- **recon** — reconnaissance only;
+- **web-app** — recon → web application → vulnerability assessment;
+- **network** — recon → network → vulnerability assessment;
+- **full** — recon → network → web → vulnerability assessment.
+
+The proposal is:
+
+- **deterministic and reproducible** — the plan shows a stable SHA-256 *digest*
+  of its inputs and ordered steps; the same inputs always produce the same plan;
+- **scope-aware** — with an engagement chosen, a target outside its authorized
+  perimeter yields a plan with **no steps** (no branch is ever proposed out of
+  scope);
+- **policy-aware** — a **risk ceiling** (default *Active*) drops any tool louder
+  than the ceiling with an explicit reason; *Intrusive* techniques appear only
+  when the operator selects the *Intrusive* ceiling explicitly;
+- **bounded and honest** — only tools that are *ready* on this host are proposed,
+  and every dropped activity is listed with a reason rather than hidden.
+
+The engine is the interface-agnostic `olympus.integrations.smartscan`
+(`propose_pipeline`), the same one the CLI `olympus themis smart-scan` uses, so
+the web and the command line propose identically. Progressive enhancement only: a
+same-origin `smart_scan.js` mirrors the chosen objective's summary into a hint.
 
 ## Tools (`WEB-D`)
 
