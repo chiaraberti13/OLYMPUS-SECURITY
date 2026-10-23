@@ -51,6 +51,13 @@ _KNOWN_TABLE_COUNT_QUERIES = {
 }
 NativeLegacyState = Literal["succeeded", "failed", "cancelled"]
 LegacyConversionDecision = Literal["convertible_terminal", "blocked_active", "unmapped"]
+LegacyPlanDisposition = Literal[
+    "review_terminal",
+    "retain_deleted",
+    "retain_active",
+    "retain_unmapped_state",
+    "retain_unmapped_scanner",
+]
 
 _STATE_MAP: dict[str, NativeLegacyState] = {
     "completed": "succeeded",
@@ -105,6 +112,36 @@ class LegacyVapSnapshot(OlympusModel):
     scans: list[LegacyVapScan] = Field(max_length=MAX_LEGACY_SCANS)
     excluded_tables: list[LegacyVapExcludedTable]
     rollback: Literal["retain-source-and-restore-backup"] = "retain-source-and-restore-backup"
+
+
+class LegacyVapPlanEntry(BaseModel):
+    """One non-executable, privacy-minimized conversion recommendation."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    migration_key: str = Field(pattern=_SHA256)
+    target_sha256: str = Field(pattern=_SHA256)
+    legacy_scan_type: str = Field(min_length=1, max_length=50)
+    native_scanner: str | None = Field(default=None, pattern=r"^[a-z0-9][a-z0-9-]{0,63}$")
+    legacy_state: str = Field(min_length=1, max_length=30)
+    native_state: NativeLegacyState | None = None
+    disposition: LegacyPlanDisposition
+    requires_operator_review: Literal[True] = True
+
+
+class LegacyVapConversionPlan(OlympusModel):
+    """Review boundary between an immutable snapshot and any future import."""
+
+    schema_name: Literal["olympus.legacy-vap-conversion-plan"] = (
+        "olympus.legacy-vap-conversion-plan"
+    )
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    snapshot_manifest_sha256: str = Field(pattern=_SHA256)
+    backup_sha256: str = Field(pattern=_SHA256)
+    entry_count: int = Field(ge=0, le=MAX_LEGACY_SCANS)
+    entries: list[LegacyVapPlanEntry] = Field(max_length=MAX_LEGACY_SCANS)
+    executable_jobs_created: Literal[0] = 0
+    authorization_inherited: Literal[False] = False
 
 
 def _hash_regular_file(path: Path, *, label: str) -> tuple[str, int]:
@@ -370,3 +407,68 @@ def verify_legacy_vap_snapshot(source: Path, *, backup: Path, manifest: Path) ->
     ):
         raise LegacyVapSnapshotError("legacy snapshot artifacts changed during verification")
     return document
+
+
+def create_legacy_vap_conversion_plan(
+    source: Path,
+    *,
+    backup: Path,
+    manifest: Path,
+    output: Path,
+    native_scanners: frozenset[str],
+) -> LegacyVapConversionPlan:
+    """Create a review plan without reading targets or creating native jobs.
+
+    Verification is deliberately repeated immediately before planning.  A
+    terminal row with a native adapter is only recommended for review: legacy
+    consent is never interpreted as current Olympus authorization.
+    """
+    if output.resolve() in {source.resolve(), backup.resolve(), manifest.resolve()}:
+        raise LegacyVapSnapshotError("conversion plan must be a different file")
+    ensure_write_target(output, overwrite=False)
+    snapshot = verify_legacy_vap_snapshot(source, backup=backup, manifest=manifest)
+    entries: list[LegacyVapPlanEntry] = []
+    for scan in snapshot.scans:
+        normalized_scanner = scan.scan_type.strip().lower()
+        native_scanner = normalized_scanner if normalized_scanner in native_scanners else None
+        if scan.deleted_at is not None:
+            disposition: LegacyPlanDisposition = "retain_deleted"
+        elif scan.conversion_decision == "blocked_active":
+            disposition = "retain_active"
+        elif scan.conversion_decision == "unmapped":
+            disposition = "retain_unmapped_state"
+        elif native_scanner is None:
+            disposition = "retain_unmapped_scanner"
+        else:
+            disposition = "review_terminal"
+        entries.append(
+            LegacyVapPlanEntry(
+                migration_key=scan.migration_key,
+                target_sha256=scan.target_sha256,
+                legacy_scan_type=scan.scan_type,
+                native_scanner=native_scanner,
+                legacy_state=scan.legacy_state,
+                native_state=scan.native_state,
+                disposition=disposition,
+            )
+        )
+    manifest_text = read_regular_text(
+        manifest,
+        max_bytes=MAX_LEGACY_MANIFEST_BYTES,
+        label="legacy snapshot manifest",
+    )
+    if LegacyVapSnapshot.model_validate_json(manifest_text) != snapshot:
+        raise LegacyVapSnapshotError("legacy snapshot manifest changed while planning")
+    plan = LegacyVapConversionPlan(
+        snapshot_manifest_sha256=hashlib.sha256(manifest_text.encode("utf-8")).hexdigest(),
+        backup_sha256=snapshot.backup_sha256,
+        entry_count=len(entries),
+        entries=entries,
+    )
+    atomic_write_text(
+        output,
+        json.dumps(plan.model_dump(mode="json"), indent=2, sort_keys=True) + "\n",
+        mode=0o600,
+        overwrite=False,
+    )
+    return plan

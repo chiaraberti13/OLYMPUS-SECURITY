@@ -452,6 +452,49 @@ def themis_legacy_verify(
     )
 
 
+@themis_app.command("legacy-plan")
+def themis_legacy_plan(
+    source: str = typer.Option(..., "--source", help="Archived VAP SQLite database."),
+    backup: str = typer.Option(..., "--backup", help="Verified snapshot SQLite backup."),
+    manifest: str = typer.Option(..., "--manifest", "-m", help="Verified snapshot manifest."),
+    output: str = typer.Option(..., "--output", "-o", help="Create-only review plan."),
+) -> None:
+    """Plan a reviewed legacy conversion without creating executable jobs."""
+    import sqlite3
+
+    from olympus.themis.legacy_vap import create_legacy_vap_conversion_plan
+    from olympus.themis.registry import implemented
+
+    try:
+        plan = create_legacy_vap_conversion_plan(
+            Path(source),
+            backup=Path(backup),
+            manifest=Path(manifest),
+            output=Path(output),
+            native_scanners=frozenset(implemented()),
+        )
+    except (OSError, sqlite3.Error, ValueError) as exc:
+        typer.echo(f"olympus: legacy conversion plan refused: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    dispositions: dict[str, int] = {}
+    for entry in plan.entries:
+        dispositions[entry.disposition] = dispositions.get(entry.disposition, 0) + 1
+    typer.echo(
+        json.dumps(
+            {
+                "schema_name": plan.schema_name,
+                "schema_version": plan.schema_version,
+                "entry_count": plan.entry_count,
+                "dispositions": dispositions,
+                "executable_jobs_created": plan.executable_jobs_created,
+                "authorization_inherited": plan.authorization_inherited,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
+
+
 @themis_app.command("workers")
 def themis_workers(
     database: str = typer.Option(".olympus/themis-jobs.sqlite3", "--database", "-d"),

@@ -11,7 +11,7 @@
       "src/olympus/themis/api.py",
       "src/olympus/themis/web.py"
     ],
-    "reviewed_against": "origin/main at 752f50c",
+    "reviewed_against": "origin/main at d425500",
     "legacy_app_sha256": "1df54b7b8f0656e470b31b8e6c47476c920428860642a245f9b32847c370d66a"
   },
   "status_values": [
@@ -561,7 +561,7 @@
       "legacy": "VAP SQLAlchemy/Alembic database (SQLite by default; optional Postgres), scans and VAP-specific user/consent/config/feed tables.",
       "native": "Themis versioned SQLite job store; separate native engagement store; the read-only legacy snapshot is never an executable queue.",
       "status": "partial",
-      "migration": "Themis legacy-snapshot creates a consistent create-only SQLite backup and olympus.legacy-vap-snapshot 1.0.0 inventory with counts, deterministic migration keys, source/backup digests, state decisions and rollback. The read-only legacy-verify gate checks all three artifacts, the exact contract, SQLite integrity and a reconstructed inventory before conversion. It excludes consent, audit and analytics content from the manifest and never converts active rows. Native migrate still rejects foreign/VAP databases; reviewed conversion into native contracts remains pending."
+      "migration": "Themis legacy-snapshot creates a consistent create-only SQLite backup and olympus.legacy-vap-snapshot 1.0.0 inventory with counts, deterministic migration keys, source/backup digests, state decisions and rollback. The read-only legacy-verify gate checks all three artifacts, the exact contract, SQLite integrity and a reconstructed inventory. The create-only legacy-plan gate re-verifies those artifacts and emits olympus.legacy-vap-conversion-plan 1.0.0 with digests and fail-closed review dispositions, no inherited authorization and zero executable jobs; it never converts active rows. It excludes consent, audit and analytics content from the manifests. Native migrate still rejects foreign/VAP databases; reviewed import with a current engagement manifest remains pending."
     },
     "audit": {
       "legacy": "VAP database audit events and route-specific records, including actor/subject and product data.",
@@ -584,7 +584,7 @@
   },
   "retirement_gate": [
     "Review every missing and partial route with product owner before removing the archived VAP source.",
-    "Keep the tested read-only legacy snapshot and three-artifact verification gate (source, backup, strict manifest, reconstructed inventory and rollback) green before enabling a separate reviewed converter.",
+    "Keep the tested read-only legacy snapshot, three-artifact verification gate and non-executable review plan (source, backup, strict manifest, reconstructed inventory, dispositions and rollback) green before enabling a separate reviewed importer.",
     "Do not import consent or product analytics records into Olympus without a separate purpose and privacy review.",
     "Run API/Web route, job-state, persistence, audit, report and cancellation contract tests on the source and native implementation before source removal.",
     "No scanner live traffic or production readiness is inferred from this offline parity inventory."

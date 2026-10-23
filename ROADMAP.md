@@ -263,6 +263,15 @@ modifiche concorrenti. Non ripara, non importa e non crea job. La conversione
 revisionata, le route residue e il ritiro fisico restano aperti: `SEC-A` resta
 `[~]`.
 
+**Avanzamento verificato (2026-10-23, piano di conversione revisionabile):**
+`themis legacy-plan` rivalida sorgente, backup e manifest e pubblica il contratto
+`olympus.legacy-vap-conversion-plan` 1.0.0 create-only. Il piano contiene solo
+digest, mapping di stato/scanner e disposizioni fail-closed; record attivi,
+eliminati, ambigui o privi di adapter restano nel backup. Non eredita consenso o
+autorizzazione e crea esplicitamente zero job. L'importazione con engagement
+manifest corrente, la parità delle route residue e il ritiro fisico del vendor
+restano aperti: `SEC-A` resta `[~]`.
+
 ### Intervento B · `SEC-B` — Isolamento forte degli scanner (**P0**)
 
 `src/olympus/themis/sandbox.py` applica già drop dei privilegi, limiti CPU/memoria/

@@ -112,6 +112,23 @@ cambiati, se il contratto non è esattamente la versione supportata, se
 `PRAGMA integrity_check` fallisce o se l'inventario ricostruito dal backup non
 coincide. Un esito positivo non autorizza né importa scansioni.
 
+Generare quindi il piano revisionabile, ancora non eseguibile:
+
+```bash
+olympus themis legacy-plan --source vap.db \
+  --backup migration/vap.backup.sqlite3 \
+  --manifest migration/vap.snapshot.json \
+  --output migration/vap.conversion-plan.json
+```
+
+Il contratto `olympus.legacy-vap-conversion-plan` 1.0.0 collega il piano ai
+digest del manifest e del backup e classifica ogni record come terminale da
+revisionare oppure da trattenere perché attivo, eliminato, con stato ambiguo o
+senza adapter nativo. Non contiene target in chiaro, non eredita autorizzazioni
+legacy e dichiara esplicitamente zero job eseguibili creati. Il file è
+create-only e owner-only; la futura importazione richiederà un comando separato,
+un engagement manifest corrente e un'ulteriore revisione SEC-A.
+
 ### Docker
 
 L'immagine `docker/Dockerfile` installa la wheel, include template/statici e
@@ -234,6 +251,17 @@ migration/vap.backup.sqlite3 --manifest migration/vap.snapshot.json`. The
 read-only check fails if any artifact changed, the contract is not exactly the
 supported version, SQLite integrity fails, or the inventory reconstructed from
 the backup differs. Success neither authorizes nor imports a scan.
+
+Next create the non-executable review plan with `olympus themis legacy-plan
+--source vap.db --backup migration/vap.backup.sqlite3 --manifest
+migration/vap.snapshot.json --output migration/vap.conversion-plan.json`.
+The `olympus.legacy-vap-conversion-plan` 1.0.0 contract binds the plan to the
+manifest and backup digests, then classifies each row as a terminal record for
+review or retained because it is active, deleted, ambiguous, or lacks a native
+adapter. It contains no plaintext target, inherits no legacy authorization and
+explicitly creates zero executable jobs. The create-only, owner-only plan is
+not an import; a later SEC-A step still needs a current signed engagement
+manifest and a separate reviewed conversion command.
 
 Before Docker startup, prepare registered scopes under `.olympus/scopes`, the
 scoped identity register under `.olympus/config/themis-api-identities.json`,

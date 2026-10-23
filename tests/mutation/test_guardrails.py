@@ -38,6 +38,7 @@ from olympus.themis.base import ParseError
 from olympus.themis.legacy_vap import (
     LegacyVapSnapshotError,
     _decision,
+    create_legacy_vap_conversion_plan,
     create_legacy_vap_snapshot,
     verify_legacy_vap_snapshot,
 )
@@ -418,3 +419,25 @@ def test_legacy_vap_verification_refuses_alias_and_contract_drift(tmp_path: Path
     manifest.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(ValueError, match=r"1\.0\.0"):
         verify_legacy_vap_snapshot(source, backup=backup, manifest=manifest)
+
+
+def test_legacy_vap_conversion_plan_never_authorizes_or_creates_jobs(tmp_path: Path) -> None:
+    source = tmp_path / "vap.db"
+    backup = tmp_path / "backup.db"
+    manifest = tmp_path / "manifest.json"
+    _legacy_vap_fixture(source)
+    create_legacy_vap_snapshot(source, backup=backup, manifest=manifest)
+
+    plan = create_legacy_vap_conversion_plan(
+        source,
+        backup=backup,
+        manifest=manifest,
+        output=tmp_path / "plan.json",
+        native_scanners=frozenset({"nmap"}),
+    )
+
+    assert plan.entry_count == len(plan.entries) == 1
+    assert plan.entries[0].disposition == "review_terminal"
+    assert plan.entries[0].requires_operator_review is True
+    assert plan.executable_jobs_created == 0
+    assert plan.authorization_inherited is False

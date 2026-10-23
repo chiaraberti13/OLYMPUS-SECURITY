@@ -1,0 +1,150 @@
+{
+  "$defs": {
+    "LegacyVapPlanEntry": {
+      "additionalProperties": false,
+      "description": "One non-executable, privacy-minimized conversion recommendation.",
+      "properties": {
+        "disposition": {
+          "enum": [
+            "review_terminal",
+            "retain_deleted",
+            "retain_active",
+            "retain_unmapped_state",
+            "retain_unmapped_scanner"
+          ],
+          "title": "Disposition",
+          "type": "string"
+        },
+        "legacy_scan_type": {
+          "maxLength": 50,
+          "minLength": 1,
+          "title": "Legacy Scan Type",
+          "type": "string"
+        },
+        "legacy_state": {
+          "maxLength": 30,
+          "minLength": 1,
+          "title": "Legacy State",
+          "type": "string"
+        },
+        "migration_key": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Migration Key",
+          "type": "string"
+        },
+        "native_scanner": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Native Scanner"
+        },
+        "native_state": {
+          "anyOf": [
+            {
+              "enum": [
+                "succeeded",
+                "failed",
+                "cancelled"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Native State"
+        },
+        "requires_operator_review": {
+          "const": true,
+          "default": true,
+          "title": "Requires Operator Review",
+          "type": "boolean"
+        },
+        "target_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Target Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "migration_key",
+        "target_sha256",
+        "legacy_scan_type",
+        "legacy_state",
+        "disposition"
+      ],
+      "title": "LegacyVapPlanEntry",
+      "type": "object"
+    }
+  },
+  "$id": "urn:olympus:schema:olympus.legacy-vap-conversion-plan:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Review boundary between an immutable snapshot and any future import.",
+  "properties": {
+    "authorization_inherited": {
+      "const": false,
+      "default": false,
+      "title": "Authorization Inherited",
+      "type": "boolean"
+    },
+    "backup_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Backup Sha256",
+      "type": "string"
+    },
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/LegacyVapPlanEntry"
+      },
+      "maxItems": 100000,
+      "title": "Entries",
+      "type": "array"
+    },
+    "entry_count": {
+      "maximum": 100000,
+      "minimum": 0,
+      "title": "Entry Count",
+      "type": "integer"
+    },
+    "executable_jobs_created": {
+      "const": 0,
+      "default": 0,
+      "title": "Executable Jobs Created",
+      "type": "integer"
+    },
+    "schema_name": {
+      "const": "olympus.legacy-vap-conversion-plan",
+      "default": "olympus.legacy-vap-conversion-plan",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "snapshot_manifest_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Snapshot Manifest Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "snapshot_manifest_sha256",
+    "backup_sha256",
+    "entry_count",
+    "entries"
+  ],
+  "title": "LegacyVapConversionPlan",
+  "type": "object"
+}

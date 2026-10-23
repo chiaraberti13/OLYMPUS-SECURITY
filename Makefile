@@ -68,6 +68,7 @@ test-mutation:
 		"olympus.themis.api.xǁRequestConcurrencyGateǁtry_acquire*" \
 		"olympus.themis.legacy_vap.x__decision*" \
 		"olympus.themis.legacy_vap.x_verify_legacy_vap_snapshot*" \
+		"olympus.themis.legacy_vap.x_create_legacy_vap_conversion_plan*" \
 		"olympus.core.coverage.xǁCoverageǁstatus*" \
 		"olympus.athena.cli.x__exit_code_for*" \
 		"olympus.athena.domain.assessment.x_advance_job*" \

@@ -13,6 +13,7 @@ from typer.testing import CliRunner
 from olympus.cli import app
 from olympus.themis.legacy_vap import (
     LegacyVapSnapshotError,
+    create_legacy_vap_conversion_plan,
     create_legacy_vap_snapshot,
     verify_legacy_vap_snapshot,
 )
@@ -192,6 +193,127 @@ def test_verify_reconstructs_inventory_and_cli_emits_no_legacy_content(tmp_path:
     assert payload["scan_count"] == 1
     assert "super-secret" not in result.output
     assert "example.test" not in result.output
+
+
+def test_conversion_plan_is_review_only_minimized_and_create_only(tmp_path: Path) -> None:
+    source = tmp_path / "vap.db"
+    backup = tmp_path / "backup.db"
+    manifest = tmp_path / "manifest.json"
+    output = tmp_path / "plan.json"
+    _legacy_database(source)
+    create_legacy_vap_snapshot(source, backup=backup, manifest=manifest)
+
+    plan = create_legacy_vap_conversion_plan(
+        source,
+        backup=backup,
+        manifest=manifest,
+        output=output,
+        native_scanners=frozenset({"nmap"}),
+    )
+
+    assert plan.entry_count == 1
+    assert plan.entries[0].disposition == "review_terminal"
+    assert plan.entries[0].native_scanner == "nmap"
+    assert plan.executable_jobs_created == 0
+    assert plan.authorization_inherited is False
+    rendered = output.read_text(encoding="utf-8")
+    assert "super-secret" not in rendered
+    assert "example.test" not in rendered
+    with pytest.raises(ValueError, match="refusing to overwrite"):
+        create_legacy_vap_conversion_plan(
+            source,
+            backup=backup,
+            manifest=manifest,
+            output=output,
+            native_scanners=frozenset({"nmap"}),
+        )
+
+
+@pytest.mark.parametrize(
+    ("state", "scan_type", "deleted", "expected"),
+    [
+        ("running", "nmap", False, "retain_active"),
+        ("report_failed", "nmap", False, "retain_unmapped_state"),
+        ("completed", "full", False, "retain_unmapped_scanner"),
+        ("completed", "nmap", True, "retain_deleted"),
+    ],
+)
+def test_conversion_plan_fails_closed_by_disposition(
+    tmp_path: Path, state: str, scan_type: str, deleted: bool, expected: str
+) -> None:
+    source = tmp_path / "vap.db"
+    backup = tmp_path / "backup.db"
+    manifest = tmp_path / "manifest.json"
+    _legacy_database(source, state=state)
+    with sqlite3.connect(source) as db:
+        db.execute(
+            "UPDATE scans SET scan_type = ?, deleted_at = ?",
+            (scan_type, "2026-01-02T00:00:00+00:00" if deleted else None),
+        )
+    create_legacy_vap_snapshot(source, backup=backup, manifest=manifest)
+
+    plan = create_legacy_vap_conversion_plan(
+        source,
+        backup=backup,
+        manifest=manifest,
+        output=tmp_path / "plan.json",
+        native_scanners=frozenset({"nmap"}),
+    )
+    assert plan.entries[0].disposition == expected
+    assert plan.entries[0].requires_operator_review is True
+
+
+def test_legacy_plan_cli_emits_only_counts_and_never_creates_jobs(tmp_path: Path) -> None:
+    source = tmp_path / "vap.db"
+    backup = tmp_path / "backup.db"
+    manifest = tmp_path / "manifest.json"
+    output = tmp_path / "plan.json"
+    _legacy_database(source)
+    create_legacy_vap_snapshot(source, backup=backup, manifest=manifest)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "themis",
+            "legacy-plan",
+            "--source",
+            str(source),
+            "--backup",
+            str(backup),
+            "--manifest",
+            str(manifest),
+            "--output",
+            str(output),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["dispositions"] == {"review_terminal": 1}
+    assert payload["executable_jobs_created"] == 0
+    assert payload["authorization_inherited"] is False
+    assert "super-secret" not in result.output
+    assert "example.test" not in result.output
+
+
+def test_conversion_plan_reverifies_snapshot_before_writing(tmp_path: Path) -> None:
+    source = tmp_path / "vap.db"
+    backup = tmp_path / "backup.db"
+    manifest = tmp_path / "manifest.json"
+    output = tmp_path / "plan.json"
+    _legacy_database(source)
+    create_legacy_vap_snapshot(source, backup=backup, manifest=manifest)
+    with sqlite3.connect(backup) as db:
+        db.execute("UPDATE scans SET status = 'failed'")
+
+    with pytest.raises(LegacyVapSnapshotError, match="does not match"):
+        create_legacy_vap_conversion_plan(
+            source,
+            backup=backup,
+            manifest=manifest,
+            output=output,
+            native_scanners=frozenset({"nmap"}),
+        )
+    assert not output.exists()
 
 
 @pytest.mark.parametrize("artifact", ["source", "backup", "manifest"])
