@@ -1480,3 +1480,29 @@ def test_dashboard_scanner_readiness_hidden_without_capabilities_scope(tmp_path:
     client = _client(tmp_path, api_key_scopes=("jobs:read",))
     _login(client)
     assert "Scanner readiness" not in client.get("/").text
+
+
+def test_dashboard_assessment_progress_absent_without_jobs(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    page = client.get("/")
+    assert page.status_code == 200
+    assert "Assessment progress" not in page.text
+
+
+def test_dashboard_assessment_progress_tracks_terminal_jobs(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    csrf = _csrf(client)
+    # Two queued jobs; cancelling one makes it terminal, so progress is 50%.
+    _submit(client, csrf)
+    cancel_me = _submit(client, csrf)
+    cancelled = client.post(
+        f"/jobs/{cancel_me}/cancel", data={"csrf_token": csrf}, follow_redirects=False
+    )
+    assert cancelled.status_code == 303, cancelled.text
+    page = client.get("/")
+    assert page.status_code == 200
+    assert "Assessment progress" in page.text
+    assert "50%" in page.text
+    assert "in flight" in page.text

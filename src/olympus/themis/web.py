@@ -822,6 +822,21 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         for job in jobs:
             histogram[job.state.value] = histogram.get(job.state.value, 0) + 1
         recent = [_present_job(job) for job in jobs[:10]]
+        # Assessment-progress widget (WEB-G): how far the scheduled scan work has
+        # progressed, computed from the jobs already loaded (no extra query) using
+        # the authoritative TERMINAL_STATES partition. It answers "how much is still
+        # in flight, and how much completed cleanly?"; absent when there are no jobs.
+        assessment_progress: dict[str, object] | None = None
+        if jobs:
+            done = sum(1 for job in jobs if job.state in TERMINAL_STATES)
+            clean = sum(1 for job in jobs if job.state is JobState.SUCCEEDED)
+            assessment_progress = {
+                "total": len(jobs),
+                "done": done,
+                "active": len(jobs) - done,
+                "clean": clean,
+                "percent": round(done * 100 / len(jobs)),
+            }
         # Findings-by-severity widget (WEB-G): only for an identity that may read
         # findings, and only when a findings directory is configured and readable —
         # otherwise the card is simply absent (the Findings page surfaces errors).
@@ -867,6 +882,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 "total": len(jobs),
                 "histogram": histogram,
                 "recent": recent,
+                "assessment_progress": assessment_progress,
                 "findings_summary": findings_summary,
                 "scanner_readiness": scanner_readiness,
                 "csrf_token": _csrf_token(session.nonce),

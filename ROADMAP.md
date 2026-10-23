@@ -1461,9 +1461,14 @@ nessuno stadio) o senza autorizzazione (il motore non esegue mai nulla).
   che proietta fedelmente l'inventario capability (`integrations.capabilities.inventory`
   — stessa fonte di `olympus themis capabilities` e della pagina Tools) in
   conteggi ready/installati/adattati/catalogati e linka alla pagina Tools,
-  rispondendo a «quali scanner adattati posso eseguire ora su questo host?».
-  Test `tests/unit/test_themis_web.py`; doc [`docs/web.md`](docs/web.md).
-  **Resta:** widget asset/incident/avanzamento assessment.
+  rispondendo a «quali scanner adattati posso eseguire ora su questo host?»; e
+  il widget **avanzamento assessment** (`GET /`), calcolato dai job già caricati
+  (nessuna query extra) sulla partizione autorevole `TERMINAL_STATES`: percentuale
+  completata, job in corso / terminati / completati con successo pulito, presente
+  solo quando esistono job, rispondendo a «quanto lavoro è ancora in volo e quanto
+  è finito bene?». Test `tests/unit/test_themis_web.py`; doc
+  [`docs/web.md`](docs/web.md).
+  **Resta:** widget asset/incident.
 - [ ] Responsive, accessibile (lega a `UX-E`), bilingue IT/EN, con onboarding e
   modalità Advanced.
 

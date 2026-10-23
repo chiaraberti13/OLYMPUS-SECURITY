@@ -14,6 +14,17 @@
     {% endfor %}
   </div>
 </section>
+{% if assessment_progress %}
+<section class="card">
+  <h2>Assessment progress</h2>
+  <div class="tiles">
+    <div class="tile"><span class="tile-value">{{ assessment_progress.percent }}%</span><span class="tile-label">complete</span></div>
+    <div class="tile"><span class="tile-value"><a class="button-link" href="/jobs">{{ assessment_progress.active }}</a></span><span class="tile-label">in flight</span></div>
+    <div class="tile"><span class="tile-value">{{ assessment_progress.done }}</span><span class="tile-label">finished</span></div>
+    <div class="tile"><span class="tile-value">{{ assessment_progress.clean }}</span><span class="tile-label">clean completions</span></div>
+  </div>
+</section>
+{% endif %}
 {% if findings_summary %}
 <section class="card">
   <h2>Findings by severity</h2>
