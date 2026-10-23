@@ -48,14 +48,19 @@ sbagliato non deve mai risultare una scansione pulita.
 
 ## Lo stato oggi
 
+_Il blocco seguente è generato da `olympus.integrations.maturity` tramite
+`olympus themis maturity --write`. Non modificarlo a mano: un test di CI
+(`tests/unit/test_scanner_maturity.py`) fallisce se diverge dal registry._
+
+<!-- GENERATED:maturity-status START -->
 ```text
-catalog-only      9
+catalog-only      9   acunetix, burp, nessus, nosqlmap, openvas, subfinder, theharvester, wpscan, zap
 adapter-ready     0
-offline-tested    3   testssl, whatweb, wapiti
-live-tested      12   nmap, nikto, sqlmap, wafw00f, httpx, nuclei, katana,
-                      dalfox, dirsearch, commix, arjun, xsstrike
+offline-tested    3   testssl, wapiti, whatweb
+live-tested      12   arjun, commix, dalfox, dirsearch, httpx, katana, nikto, nmap, nuclei, sqlmap, wafw00f, xsstrike
 production-ready  0
 ```
+<!-- GENERATED:maturity-status END -->
 
 **Nessun adapter è `production-ready`**, e dirlo è il punto di questo modulo. La
 Definition of Done non è soddisfatta per nessun motore: mancano l'evidence

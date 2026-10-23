@@ -1033,10 +1033,17 @@ da artifact firmato e smoke test completo fuori dal checkout.
   (esclusa `vendor/`), validando l'esistenza dei file linkati e gli anchor
   (slug stile GitHub, ignorando le heading dentro i fence di codice); è eseguito a
   ogni run CI tramite `tests/unit/test_doc_links.py`, che fallisce su qualunque
-  link interno rotto (64 file, 0 rotti alla verifica). Le tabelle di maturità sono
-  ora **validate** contro il registry da `tests/unit/test_maturity_docs.py`;
-  restano gli esempi eseguibili e la *rigenerazione* automatica (anziché sola
-  validazione) delle tabelle.
+  link interno rotto (64 file, 0 rotti alla verifica). **Rigenerazione automatica
+  delle tabelle fatta:** la tabella capacità/licenze di `docs/scanner-matrix.md`
+  è generata da `olympus themis matrix` (gate `tests/unit/test_scanner_matrix.py`)
+  e il blocco "Lo stato oggi" di `docs/scanner-maturity.md` (conteggi **e** nomi
+  per stadio) è ora generato dal ledger via `olympus themis maturity`
+  (`olympus.integrations.maturity.render_status_section`, marker
+  `GENERATED:maturity-status`): non più mantenuto a mano ma rigenerato e sottoposto
+  a drift gate da `tests/unit/test_scanner_maturity.py` (`--check` esce `2` se il
+  blocco committato diverge dal registry), oltre alla validazione dei conteggi già
+  presente in `tests/unit/test_maturity_docs.py`. Restano gli **esempi eseguibili**
+  (comandi di documentazione eseguiti in CI sul dataset sintetico `examples/`).
 - [x] Consolidare il backlog tecnico e strategico in questo unico `ROADMAP.md`,
   eliminando roadmap parallele che potrebbero divergere.
 

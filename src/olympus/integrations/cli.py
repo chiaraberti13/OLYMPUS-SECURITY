@@ -688,6 +688,87 @@ def themis_matrix(
     typer.echo(rendered, nl=False)
 
 
+@themis_app.command("maturity")
+def themis_maturity(
+    check: bool = typer.Option(
+        False,
+        "--check",
+        help="Exit non-zero if the maturity status block in docs/scanner-maturity.md "
+        "differs from the generated output.",
+    ),
+    write: bool = typer.Option(
+        False,
+        "--write",
+        help="Rewrite the generated maturity status block in docs/scanner-maturity.md in place.",
+    ),
+) -> None:
+    """Render the maturity status block from the ledger, or check/rewrite the doc.
+
+    The per-stage counts and the scanner names at each stage are generated from
+    ``olympus.integrations.maturity`` (the registry plus the declared ledger), so
+    the "Lo stato oggi" table in ``docs/scanner-maturity.md`` can never drift from
+    the code — exactly as ``olympus themis matrix`` keeps ``docs/scanner-matrix.md``
+    honest. ``--check`` is the CI gate: it exits ``2`` when the committed block no
+    longer matches. The surrounding prose is hand-written and left untouched.
+    """
+    from pathlib import Path
+
+    from olympus.integrations.maturity import render_status_section
+
+    doc_path = Path(__file__).resolve().parents[3] / "docs" / "scanner-maturity.md"
+    section = render_status_section()
+    try:
+        current = doc_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        typer.echo(f"olympus: cannot read {doc_path}: {exc}", err=True)
+        raise typer.Exit(code=int(ExitCode.USAGE)) from exc
+
+    try:
+        updated = _replace_generated_section(current, section)
+    except ValueError as exc:
+        typer.echo(f"olympus: {exc}", err=True)
+        raise typer.Exit(code=int(ExitCode.USAGE)) from exc
+
+    if check:
+        if current != updated:
+            typer.echo(
+                "olympus: docs/scanner-maturity.md status block is stale; "
+                "run 'olympus themis maturity --write'",
+                err=True,
+            )
+            raise typer.Exit(code=int(ExitCode.USAGE))
+        typer.echo("olympus: scanner maturity status block is up to date", err=True)
+        return
+
+    if write:
+        doc_path.write_text(updated, encoding="utf-8")
+        typer.echo(f"olympus: wrote {doc_path}", err=True)
+        return
+
+    typer.echo(section)
+
+
+def _replace_generated_section(document: str, section: str) -> str:
+    """Return ``document`` with the maturity-status markers' content set to ``section``.
+
+    The markers must appear exactly once each and in order; anything else is a
+    doc-authoring error rather than drift, so it is reported as a usage failure.
+    """
+    from olympus.integrations.maturity import STATUS_BLOCK_BEGIN, STATUS_BLOCK_END
+
+    begin = document.count(STATUS_BLOCK_BEGIN)
+    end = document.count(STATUS_BLOCK_END)
+    if begin != 1 or end != 1:
+        raise ValueError(
+            "docs/scanner-maturity.md must contain exactly one maturity-status marker pair"
+        )
+    start_index = document.index(STATUS_BLOCK_BEGIN)
+    end_index = document.index(STATUS_BLOCK_END) + len(STATUS_BLOCK_END)
+    if end_index < start_index:
+        raise ValueError("maturity-status END marker precedes its START marker")
+    return document[:start_index] + section + document[end_index:]
+
+
 @themis_app.command("capabilities")
 def themis_capabilities(
     strict: bool = typer.Option(

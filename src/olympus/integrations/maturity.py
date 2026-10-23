@@ -317,3 +317,55 @@ def summary() -> dict[str, int]:
     for spec in REGISTRY:
         counts[record_for(spec.name).stage.value] += 1
     return counts
+
+
+def names_by_stage() -> dict[Maturity, list[str]]:
+    """Return the catalogued scanner names at each stage, sorted deterministically.
+
+    Derived from the registry and the declared ledger so the mapping cannot
+    drift from the code; names are sorted so the output is reproducible.
+    """
+    grouped: dict[Maturity, list[str]] = {stage: [] for stage in LADDER}
+    for spec in REGISTRY:
+        grouped[record_for(spec.name).stage].append(spec.name)
+    for stage in grouped:
+        grouped[stage].sort()
+    return grouped
+
+
+#: Markers delimiting the generated maturity-status block in
+#: ``docs/scanner-maturity.md``. The prose around them is hand-written; only the
+#: block between them is rendered from the ledger, exactly as the scanner matrix
+#: is generated wholesale by :mod:`olympus.integrations.matrix`.
+STATUS_BLOCK_BEGIN = "<!-- GENERATED:maturity-status START -->"
+STATUS_BLOCK_END = "<!-- GENERATED:maturity-status END -->"
+
+#: Width the stage name is padded to before its count, chosen so the longest
+#: stage (`production-ready`) still leaves one separating space.
+_STAGE_WIDTH = 17
+
+
+def render_status_block() -> str:
+    """Return the fenced ``text`` block of per-stage counts and names.
+
+    This is the single source of truth for the "Lo stato oggi" table in
+    ``docs/scanner-maturity.md``: counts come from :func:`summary` and the names
+    from :func:`names_by_stage`, so a stale table cannot survive the drift gate
+    (``olympus themis maturity --check``). The block is deterministic.
+    """
+    counts = summary()
+    grouped = names_by_stage()
+    lines = ["```text"]
+    for stage in LADDER:
+        row = f"{stage.value:<{_STAGE_WIDTH}}{counts[stage.value]:>2}"
+        names = grouped[stage]
+        if names:
+            row += "   " + ", ".join(names)
+        lines.append(row)
+    lines.append("```")
+    return "\n".join(lines)
+
+
+def render_status_section() -> str:
+    """Return the full marker-delimited block written into the doc."""
+    return f"{STATUS_BLOCK_BEGIN}\n{render_status_block()}\n{STATUS_BLOCK_END}"
