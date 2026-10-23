@@ -369,6 +369,49 @@ def test_investigation_skips_out_of_scope_discovered_username(tmp_path: Path) ->
     assert "alice" in (tmp_path / "investigation.log").read_text(encoding="utf-8")
 
 
+class _OutOfScopeCtClient(RecordingCtClient):
+    """CT double returning a target-controlled subdomain outside the engagement."""
+
+    def __init__(self, discovered: str) -> None:
+        super().__init__()
+        self._discovered = discovered
+
+    def discover(self, domain: str) -> list[str]:
+        self.calls.append(domain)
+        return [self._discovered]
+
+
+def test_investigation_does_not_resolve_out_of_scope_discovered_subdomain(tmp_path: Path) -> None:
+    """SEC-H: a CT-discovered subdomain outside scope must never become a
+    second-order network lookup.
+
+    Certificate Transparency results are controlled by the target's own
+    infrastructure, so a hostile CT entry could name an arbitrary host (a scope
+    evasion / SSRF-of-second-order vector). The engagement scope gate is applied
+    to every *discovered* pivot, not only the seed, so the out-of-scope host is
+    added to the graph for the record but is never resolved.
+    """
+    evil = "internal.attacker.example"
+    resolver = RecordingResolver()
+    ct_client = _OutOfScopeCtClient(evil)
+    http = RecordingHttpClient()
+
+    outcome = _investigation_service(resolver, ct_client, http).run(
+        _investigation_request(tmp_path, depth=2)
+    )
+
+    # Hop 1 ran against the authorized seed: the CT lookup and the seed's own
+    # DNS resolution happened.
+    assert ct_client.calls == [DOMAIN]
+    assert resolver.calls
+    assert any(name == DOMAIN for name, _ in resolver.calls)
+    # The out-of-scope discovered subdomain is NEVER passed to the resolver.
+    assert all(name != evil for name, _ in resolver.calls)
+    # It is skipped and audited rather than silently followed or silently dropped.
+    assert any(f"out-of-scope host pivot {evil!r}" in warning for warning in outcome.warnings)
+    assert evil in (tmp_path / "investigation.log").read_text(encoding="utf-8")
+
+
 def test_domain_scan_service_returns_recon_without_cli_dependency(tmp_path: Path) -> None:
     resolver = RecordingResolver()
     ct_client = RecordingCtClient()

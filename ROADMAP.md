@@ -568,7 +568,7 @@ markup Rich, ma la difesa non è sistematica.
   Restano: protezione spreadsheet (solo *se* si aggiungerà un export CSV/XLSX, oggi
   assente) e l'export SARIF di Hermes (findings di secret-scan: path locali e
   snippet già mascherati, superficie target-controllata minore).
-- [~] Vietare che valori provenienti dal target diventino path, argv, URL di
+- [x] Vietare che valori provenienti dal target diventino path, argv, URL di
   follow-up o nomi file senza passare per validazione e scope gate (path traversal,
   SSRF di secondo ordine, argument injection). Argument injection e path traversal
   sono ora bloccati e verificati: `host_of`/`_normalize_host` rifiutano host
@@ -576,8 +576,17 @@ markup Rich, ma la difesa non è sistematica.
   solo URL http/https validi; ogni adapter costruisce un argv `list[str]` (mai una
   stringa shell), quindi un token derivato dal target non può essere interpretato
   come flag; `output_path`/`state_file_path`/`audit_log_path` rifiutano i nomi file
-  con traversal/separatori. Resta da auditare formalmente la SSRF di secondo ordine
-  (URL di follow-up costruiti da output dello scanner nei flussi di ricognizione).
+  con traversal/separatori. **SSRF di secondo ordine verificata formalmente:** nel
+  motore di investigazione Argus (`argus/transforms.py`, `argus/application.py`) il
+  gate di scope dell'engagement (`_InvestigationScopeGate.allows`) è applicato a
+  **ogni entità scoperta** prima di qualunque pivot di rete, non solo al seed, così
+  un valore controllato dal target (un sottodominio restituito da Certificate
+  Transparency, un IP risolto via DNS, un handle) non diventa un lookup di
+  follow-up se cade fuori perimetro: l'entità resta nel grafo per tracciabilità ma
+  non viene mai risolta/interrogata, e lo skip è auditato. Regressione pinnata da
+  `tests/unit/test_argus_application.py::test_investigation_does_not_resolve_out_of_scope_discovered_subdomain`
+  (un sottodominio CT fuori scope non è mai passato al resolver) oltre allo skip
+  già coperto per username/IP.
 - [x] Creare fixture “malevole” versionate (XML bomb, banner con escape ANSI,
   payload XSS nel titolo, nomi file con `../`) eseguite a ogni run di CI. Il corpus
   vive in `tests/fixtures/malicious/` (con README) ed è esercitato dalla suite
