@@ -148,6 +148,7 @@ source = ["olympus"]
 # Mutation testing runs only against security and correctness boundaries with
 # a dedicated, fast test selection. It is POSIX-only, so CI runs it on Ubuntu.
 [tool.mutmut]
+debug = true
 source_paths = ["src/olympus"]
 only_mutate = [
     "src/olympus/athena/scope.py",
