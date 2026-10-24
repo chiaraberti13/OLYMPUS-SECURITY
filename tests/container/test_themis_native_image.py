@@ -83,11 +83,13 @@ def test_native_image_runs_migrations_api_web_worker_and_escape_probes(tmp_path:
             "-c",
             (
                 "import ctypes, errno, os; "
+                "from olympus.themis.sandbox import require_scanner_isolation; "
+                "require_scanner_isolation(); "
                 "libc=ctypes.CDLL(None, use_errno=True); "
                 "result=libc.process_vm_readv(os.getpid(), None, 0, None, 0, 0); "
                 "error=ctypes.get_errno(); "
                 "assert result == -1 and error == errno.EPERM, (result, error); "
-                "print('seccomp denied process_vm_readv')"
+                "print('runtime attested; seccomp denied process_vm_readv')"
             ),
         ],
         check=True,
@@ -95,7 +97,7 @@ def test_native_image_runs_migrations_api_web_worker_and_escape_probes(tmp_path:
         text=True,
         timeout=30,
     )
-    assert "seccomp denied process_vm_readv" in denied.stdout
+    assert "runtime attested; seccomp denied process_vm_readv" in denied.stdout
 
     host_canary = tmp_path / "host-only-sensitive-file"
     host_canary.write_text("synthetic host-only canary")

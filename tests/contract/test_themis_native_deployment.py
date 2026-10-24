@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
 import tomllib
 from pathlib import Path
@@ -104,6 +105,23 @@ def test_native_images_never_copy_vendor_or_the_whole_checkout() -> None:
     overlay = yaml.safe_load((ROOT / "docker-compose.scanners.yml").read_text())
     assert set(overlay["services"]) == {"themis-worker"}
     assert overlay["services"]["themis-worker"]["build"]["context"] == "."
+
+
+def test_native_images_carry_the_pinned_scanner_runtime_attestation() -> None:
+    from olympus.themis.sandbox import SCANNER_RUNTIME_ATTESTATION_SHA256
+
+    attestation = ROOT / "deploy/security/scanner-runtime-attestation.json"
+    assert hashlib.sha256(attestation.read_bytes()).hexdigest() == (
+        SCANNER_RUNTIME_ATTESTATION_SHA256
+    )
+    assert json.loads(attestation.read_text()) == {
+        "runtime": "olympus-themis-scanner",
+        "schema_version": "1.0.0",
+    }
+    for name in ("Dockerfile", "Dockerfile.scanners"):
+        source = (ROOT / "docker" / name).read_text()
+        assert "deploy/security/scanner-runtime-attestation.json" in source
+        assert "/etc/olympus/scanner-runtime.json" in source
 
 
 def test_container_escape_probe_is_bounded_and_offline() -> None:

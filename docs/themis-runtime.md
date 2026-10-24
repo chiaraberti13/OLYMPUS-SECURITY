@@ -221,9 +221,12 @@ allowlist resta in SEC-B. Sugli host AppArmor compatibili il profilo versionato
 `deploy/security/olympus-themis-scanner.apparmor` si installa fail-closed con
 `sudo python scripts/manage_scanner_apparmor.py install` e si applica con
 l'overlay `docker-compose.apparmor.yml`. L'overlay resta esplicito perché
-l'installazione del package non deve elevare privilegi. Resta aperto anche
-l'obbligo container per le esecuzioni CLI dirette. Il test container prova
-runtime e rifiuto di una syscall,
+l'installazione del package non deve elevare privilegi. Le esecuzioni live
+verificano nel servizio applicativo il marker OCI e l'attestazione immagine a
+digest fissato insieme a rootfs read-only, capability zero,
+`no-new-privileges` e seccomp attivo. Un comando CLI host non può aggirare il
+gate con flag o variabili; simulazione e live disabilitato restano portabili.
+Il test container prova l'attestazione runtime e il rifiuto di una syscall,
 senza dichiarare isolamento scanner completo. Il profilo opzionale ZAP mantiene
 la sua chiave API obbligatoria;
 Compose richiede `THEMIS_ZAP_API_KEY` durante l'interpolazione anche quando
@@ -375,8 +378,12 @@ forbidden syscall returns `EPERM`. Compatible AppArmor hosts can load
 `docker-compose.apparmor.yml` overlay. Provision it fail-closed with
 `sudo python scripts/manage_scanner_apparmor.py install`; the overlay stays
 explicit because installing the package must never elevate host privileges.
-Scanner egress and mandatory containerization of direct host CLI runs remain
-SEC-B.
+Live execution now verifies, inside the application service, a trusted OCI
+marker and pinned image attestation together with read-only rootfs, zero
+effective capabilities, `no-new-privileges` and active seccomp. Host CLI flags
+or environment variables cannot bypass the gate; simulation and disabled-live
+operation remain portable. Scanner egress and scan/control-plane separation
+remain SEC-B.
 
 The physical VAP source has been removed. Its reviewed revision, digest and
 immutable route inventory remain in

@@ -32,6 +32,7 @@ from olympus.themis.model import (
     ScanResult,
 )
 from olympus.themis.registry import get_adapter
+from olympus.themis.sandbox import require_scanner_isolation
 from olympus.themis.scope import OutOfScopeError, SsrfBlockedError
 
 DEFAULT_MAX_SCOPE_BYTES = 1_000_000
@@ -113,6 +114,9 @@ class ThemisApplicationService:
     """Apply authorization before scope and dispatch through a real adapter port."""
 
     adapter_factory: Callable[[str], ScannerAdapter] = field(default=get_adapter, repr=False)
+    isolation_verifier: Callable[[], None] = field(
+        default=require_scanner_isolation, repr=False, compare=False
+    )
 
     def run(self, request: ThemisRunRequest) -> ScanResult:
         policy = ExecutionPolicy(
@@ -125,6 +129,8 @@ class ThemisApplicationService:
         try:
             if not request.simulate:
                 policy.require_authorization(f"Themis {request.scanner} live scan")
+            if request.live_enabled and not request.simulate:
+                self.isolation_verifier()
             scope = load_scope(request.scope_path, max_bytes=request.max_scope_bytes)
             adapter = self.adapter_factory(request.scanner)
             result = adapter.run(

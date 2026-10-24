@@ -54,6 +54,11 @@ class _Adapter(ScannerAdapter):
         return []
 
 
+def _service(adapter: ScannerAdapter) -> ThemisApplicationService:
+    """Keep job tests focused; runtime-isolation checks have dedicated tests."""
+    return ThemisApplicationService(lambda name: adapter, isolation_verifier=lambda: None)
+
+
 def _scope(path: Path) -> Path:
     path.write_text(
         json.dumps(
@@ -103,7 +108,7 @@ def test_durable_job_lifecycle(tmp_path: Path) -> None:
     assert job.state is JobState.QUEUED
     worker = ThemisWorker(
         store,
-        ThemisApplicationService(lambda name: _Adapter()),
+        _service(_Adapter()),
         live_scans=True,
     )
     completed = worker.run_next(audit_path=tmp_path / "audit.ndjson")
@@ -141,7 +146,7 @@ def test_worker_reauthorizes_bound_manifest_immediately_before_execution(tmp_pat
     audit_path = tmp_path / "audit.ndjson"
     completed = ThemisWorker(
         store,
-        ThemisApplicationService(lambda name: _Adapter()),
+        _service(_Adapter()),
         live_scans=False,
         manifest_authorizer=StoredManifestAuthorizer(
             engagement_database, trusted_public_key_pem=public_key
@@ -205,7 +210,7 @@ def test_worker_denies_manifest_revoked_or_expired_after_queueing(
     audit_path = tmp_path / "audit.ndjson"
     denied = ThemisWorker(
         store,
-        ThemisApplicationService(lambda name: _Adapter()),
+        _service(_Adapter()),
         live_scans=True,
         manifest_authorizer=StoredManifestAuthorizer(
             engagement_database, trusted_public_key_pem=public_key
@@ -251,7 +256,7 @@ def test_worker_denies_bound_manifest_when_revalidation_is_not_configured(
     audit_path = tmp_path / "audit.ndjson"
     denied = ThemisWorker(
         store,
-        ThemisApplicationService(lambda name: _Adapter()),
+        _service(_Adapter()),
         live_scans=True,
     ).run_next(audit_path=audit_path)
 
@@ -319,7 +324,7 @@ def test_failure_is_persisted_without_secret_fields(tmp_path: Path) -> None:
     )
     result = ThemisWorker(
         store,
-        ThemisApplicationService(lambda name: _Broken()),
+        _service(_Broken()),
         live_scans=True,
     ).run_next()
     assert result is not None and result.state is JobState.FAILED
@@ -706,7 +711,7 @@ def test_worker_renews_its_lease_while_a_scan_runs(tmp_path: Path) -> None:
     _submit(store, tmp_path)
     finished = ThemisWorker(
         store,
-        ThemisApplicationService(lambda name: _Slow()),
+        _service(_Slow()),
         live_scans=True,
         heartbeat_seconds=0.05,
     ).run_next()
@@ -745,7 +750,7 @@ def test_a_worker_that_loses_its_lease_stops_and_reports_the_new_owner(
     monkeypatch.setattr(ThemisJobStore, "heartbeat", held_heartbeat)
     worker = ThemisWorker(
         store,
-        ThemisApplicationService(lambda name: _Blocking()),
+        _service(_Blocking()),
         live_scans=True,
         worker_id="worker-a",
         heartbeat_seconds=0.05,
@@ -986,9 +991,7 @@ def test_scan_outcomes_map_onto_distinct_job_states() -> None:
 def test_out_of_scope_work_is_denied_not_failed(tmp_path: Path) -> None:
     store = ThemisJobStore(tmp_path / "jobs.sqlite3")
     _submit(store, tmp_path, target="10.11.12.13")
-    outcome = ThemisWorker(
-        store, ThemisApplicationService(lambda name: _Adapter()), live_scans=True
-    ).run_next()
+    outcome = ThemisWorker(store, _service(_Adapter()), live_scans=True).run_next()
     assert outcome is not None and outcome.state is JobState.POLICY_DENIED
     assert outcome.result is None
 
@@ -999,9 +1002,7 @@ def test_a_missing_scanner_is_partial_not_failed(tmp_path: Path) -> None:
 
     store = ThemisJobStore(tmp_path / "jobs.sqlite3")
     _submit(store, tmp_path)
-    outcome = ThemisWorker(
-        store, ThemisApplicationService(lambda name: _Missing()), live_scans=True
-    ).run_next()
+    outcome = ThemisWorker(store, _service(_Missing()), live_scans=True).run_next()
     assert outcome is not None and outcome.state is JobState.PARTIAL
     assert outcome.error is not None and "not installed" in outcome.error
 
@@ -1009,9 +1010,7 @@ def test_a_missing_scanner_is_partial_not_failed(tmp_path: Path) -> None:
 def test_disabled_live_scanning_is_partial_not_success(tmp_path: Path) -> None:
     store = ThemisJobStore(tmp_path / "jobs.sqlite3")
     _submit(store, tmp_path)
-    outcome = ThemisWorker(
-        store, ThemisApplicationService(lambda name: _Adapter()), live_scans=False
-    ).run_next()
+    outcome = ThemisWorker(store, _service(_Adapter()), live_scans=False).run_next()
     assert outcome is not None and outcome.state is JobState.PARTIAL
 
 
@@ -1022,9 +1021,7 @@ def test_cancelled_running_work_is_cancelled_not_failed(tmp_path: Path) -> None:
 
     store = ThemisJobStore(tmp_path / "jobs.sqlite3")
     _submit(store, tmp_path)
-    outcome = ThemisWorker(
-        store, ThemisApplicationService(lambda name: _Cancelling()), live_scans=True
-    ).run_next()
+    outcome = ThemisWorker(store, _service(_Cancelling()), live_scans=True).run_next()
     assert outcome is not None and outcome.state is JobState.CANCELLED
 
 

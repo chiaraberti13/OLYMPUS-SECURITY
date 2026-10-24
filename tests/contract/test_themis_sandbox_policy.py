@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -12,9 +13,11 @@ from olympus.themis.model import ScanResult
 from olympus.themis.runner import TerminationCause, TerminationReport
 from olympus.themis.sandbox import (
     DEFAULT_SANDBOX_USER,
+    SCANNER_RUNTIME_ATTESTATION_SHA256,
     SandboxError,
     SandboxPolicy,
     UnprivilegedIdentity,
+    inspect_scanner_isolation,
 )
 from olympus.themis.states import ExecutionState
 
@@ -59,6 +62,79 @@ def test_policy_reads_the_environment_and_refuses_unparsable_values(
 
 def test_default_policy_targets_an_unprivileged_account() -> None:
     assert SandboxPolicy().user == DEFAULT_SANDBOX_USER
+
+
+def _isolation_fixture(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
+    status = tmp_path / "status"
+    status.write_text(
+        "CapEff:\t0000000000000000\nNoNewPrivs:\t1\nSeccomp:\t2\nSeccomp_filters:\t1\n",
+        encoding="utf-8",
+    )
+    mountinfo = tmp_path / "mountinfo"
+    mountinfo.write_text("31 23 0:28 / / ro,relatime - overlay overlay rw\n", encoding="utf-8")
+    marker = tmp_path / ".dockerenv"
+    marker.write_text("", encoding="utf-8")
+    attestation = tmp_path / "scanner-runtime.json"
+    canonical = Path("deploy/security/scanner-runtime-attestation.json")
+    attestation.write_bytes(canonical.read_bytes())
+    return status, mountinfo, marker, attestation
+
+
+def test_live_scanner_isolation_requires_all_kernel_and_image_guards(tmp_path: Path) -> None:
+    status, mountinfo, marker, attestation = _isolation_fixture(tmp_path)
+
+    observed = inspect_scanner_isolation(
+        status_path=status,
+        mountinfo_path=mountinfo,
+        runtime_markers=(marker,),
+        attestation_path=attestation,
+    )
+
+    assert observed.ready
+    assert observed.attestation_sha256 == SCANNER_RUNTIME_ATTESTATION_SHA256
+    assert observed.missing() == ()
+
+
+@pytest.mark.parametrize(
+    ("mutation", "missing"),
+    [
+        ("marker", "OCI runtime marker"),
+        ("attestation", "pinned scanner image attestation"),
+        ("root", "read-only root filesystem"),
+        ("capabilities", "empty effective capability set"),
+        ("privileges", "no-new-privileges"),
+        ("seccomp", "seccomp filter"),
+    ],
+)
+def test_live_scanner_isolation_fails_closed_for_each_missing_guard(
+    tmp_path: Path, mutation: str, missing: str
+) -> None:
+    status, mountinfo, marker, attestation = _isolation_fixture(tmp_path)
+    runtime_markers = (marker,)
+    if mutation == "marker":
+        runtime_markers = (tmp_path / "absent",)
+    elif mutation == "attestation":
+        attestation.write_text("tampered", encoding="utf-8")
+    elif mutation == "root":
+        mountinfo.write_text("31 23 0:28 / / rw,relatime - overlay overlay rw\n")
+    else:
+        replacements = {
+            "capabilities": ("CapEff:\t0000000000000000", "CapEff:\t0000000000000001"),
+            "privileges": ("NoNewPrivs:\t1", "NoNewPrivs:\t0"),
+            "seccomp": ("Seccomp:\t2", "Seccomp:\t0"),
+        }
+        old, new = replacements[mutation]
+        status.write_text(status.read_text().replace(old, new))
+
+    observed = inspect_scanner_isolation(
+        status_path=status,
+        mountinfo_path=mountinfo,
+        runtime_markers=runtime_markers,
+        attestation_path=attestation,
+    )
+
+    assert not observed.ready
+    assert missing in observed.missing()
 
 
 def test_unprivileged_identity_rejects_uid_zero() -> None:

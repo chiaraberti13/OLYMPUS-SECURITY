@@ -49,6 +49,66 @@ from olympus.themis.legacy_vap import (
 )
 from olympus.themis.model import ScanRequest
 from olympus.themis.runner import CommandOutput
+from olympus.themis.sandbox import (
+    SCANNER_RUNTIME_ATTESTATION_SHA256,
+    ScannerIsolationStatus,
+    inspect_scanner_isolation,
+)
+
+
+def test_scanner_runtime_gate_requires_every_kernel_and_image_property(tmp_path: Path) -> None:
+    complete = ScannerIsolationStatus(
+        runtime_marker="/.dockerenv",
+        attestation_sha256=SCANNER_RUNTIME_ATTESTATION_SHA256,
+        root_read_only=True,
+        capabilities_empty=True,
+        no_new_privileges=True,
+        seccomp_filtering=True,
+    )
+    assert complete.ready and complete.missing() == ()
+
+    missing_by_field = {
+        "runtime_marker": "OCI runtime marker",
+        "attestation_sha256": "pinned scanner image attestation",
+        "root_read_only": "read-only root filesystem",
+        "capabilities_empty": "empty effective capability set",
+        "no_new_privileges": "no-new-privileges",
+        "seccomp_filtering": "seccomp filter",
+    }
+    for field, expected_missing in missing_by_field.items():
+        values = complete.__dict__.copy()
+        values[field] = None if field in {"runtime_marker", "attestation_sha256"} else False
+        incomplete = ScannerIsolationStatus(**values)
+        assert not incomplete.ready
+        assert incomplete.missing() == (expected_missing,)
+
+    status = tmp_path / "status"
+    status.write_text(
+        "CapEff:\t0000000000000000\nNoNewPrivs:\t1\nSeccomp:\t2\nSeccomp_filters:\t1\n"
+    )
+    mountinfo = tmp_path / "mountinfo"
+    mountinfo.write_text("31 23 0:28 / / ro,relatime - overlay overlay rw\n")
+    marker = tmp_path / ".dockerenv"
+    marker.write_text("")
+    attestation = tmp_path / "attestation.json"
+    attestation.write_bytes(
+        b'{\n  "runtime": "olympus-themis-scanner",\n  "schema_version": "1.0.0"\n}\n'
+    )
+
+    observed = inspect_scanner_isolation(
+        status_path=status,
+        mountinfo_path=mountinfo,
+        attestation_path=attestation,
+        runtime_markers=(marker,),
+    )
+    assert observed == complete.__class__(
+        runtime_marker=str(marker),
+        attestation_sha256=SCANNER_RUNTIME_ATTESTATION_SHA256,
+        root_read_only=True,
+        capabilities_empty=True,
+        no_new_privileges=True,
+        seccomp_filtering=True,
+    )
 
 
 def test_api_concurrency_gate_rejects_overflow_and_recovers_after_release(

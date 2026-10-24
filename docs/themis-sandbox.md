@@ -97,18 +97,17 @@ silently disabled limit.
 
 ## What this layer deliberately does not do
 
-These remain **open** on the hardening roadmap and are deployment concerns, not
-process-level ones. Do not read the guarantees above as covering them:
+Live execution is additionally fail-closed at the application boundary. Before
+scope resolution or adapter construction, Olympus verifies a root-owned OCI
+runtime marker, a pinned image-attestation digest, read-only `/`, zero effective
+capabilities, `NoNewPrivs=1` and active seccomp filter mode from `/proc`. These
+properties cannot be enabled by a CLI flag or environment variable. Direct host
+`themis run`, `workers` and `jobs work` invocations may still simulate or process
+disabled work, but cannot start a live scanner.
 
-- **Mandatory container confinement for direct host CLI runs.** The Compose
-  worker adds a read-only root filesystem, drops every capability, enables
-  `no-new-privileges` and loads the versioned default-deny profile at
-  `deploy/security/themis-scanner-seccomp.json`. Direct host execution has only
-  the process controls documented above.
-- **Mandatory AppArmor / SELinux confinement.** A versioned AppArmor profile and
-  opt-in Compose overlay are published, but an administrator must load the
-  policy on a compatible Linux host. SELinux and automatic host provisioning
-  remain open.
+The following remain **open** on the hardening roadmap. Do not read the
+guarantees above as covering them:
+
 - **Egress allowlisting for scanner processes.** DNS rebinding is closed inside
   Olympus by address pinning (`olympus.core.pinning`), but an external scanner
   binary resolves and connects on its own; only a network policy can bound
@@ -122,9 +121,8 @@ probe with a 32-PID cgroup limit: the probe checks the read-only root, writable
 scratch, absence of a host-only canary, protected kernel memory, zero effective
 capabilities, `no-new-privileges`, seccomp filter mode and denied user-namespace
 creation. All spawned children are reaped even on failure. This demonstrates
-profile loading and selected kernel controls in CI; it does not demonstrate
-egress containment, mandatory confinement of direct host CLI runs or close
-SEC-B by itself.
+profile loading, mandatory live-runtime attestation and selected kernel controls
+in CI; it does not demonstrate egress containment or close SEC-B by itself.
 
 ### Optional AppArmor enforcement
 

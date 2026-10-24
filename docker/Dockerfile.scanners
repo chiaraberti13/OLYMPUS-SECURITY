@@ -46,6 +46,8 @@ WORKDIR /app
 # Python scanners (best-effort).
 COPY pyproject.toml README.md LICENSE ./
 COPY src ./src
+COPY --chown=0:0 deploy/security/scanner-runtime-attestation.json \
+    /etc/olympus/scanner-runtime.json
 RUN pip install --no-cache-dir ".[api,report]" \
     && (pip install --no-cache-dir \
           sqlmap wafw00f arjun wapiti3 dirsearch commix theHarvester || true)

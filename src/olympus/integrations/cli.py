@@ -663,10 +663,13 @@ def themis_workers(
     from olympus.themis.config import live_enabled
     from olympus.themis.jobs import JobStoreError, ThemisJobStore, ThemisWorker, generate_worker_id
     from olympus.themis.runtime import WorkerStop, migrate_jobs, work_queue, worker_signals
+    from olympus.themis.sandbox import SandboxError, require_scanner_isolation
 
     try:
         migrate_jobs(Path(database))
         live = live_enabled()
+        if live:
+            require_scanner_isolation()
         telemetry = observability_from_config()
         if bool(engagement_storage) != bool(manifest_public_key):
             raise ValueError(
@@ -680,7 +683,7 @@ def themis_workers(
             if manifest_public_key
             else None
         )
-    except (OSError, sqlite3.Error, ValueError, JobStoreError) as exc:
+    except (OSError, sqlite3.Error, ValueError, JobStoreError, SandboxError) as exc:
         typer.echo(f"olympus: native worker unavailable: {exc}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
 
@@ -1344,17 +1347,23 @@ def themis_jobs_work(
         ObservabilityConfigurationError,
         observability_from_config,
     )
+    from olympus.themis.config import live_enabled
     from olympus.themis.jobs import ThemisJobStore, ThemisWorker, generate_worker_id
+    from olympus.themis.sandbox import SandboxError, require_scanner_isolation
 
     store = ThemisJobStore(Path(database))
     try:
+        live = live_enabled()
+        if live:
+            require_scanner_isolation()
         observability = observability_from_config()
-    except ObservabilityConfigurationError as exc:
+    except (ObservabilityConfigurationError, SandboxError, ValueError) as exc:
         typer.echo(f"olympus: {exc}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
     try:
         worker = ThemisWorker(
             store,
+            live_scans=live,
             worker_id=worker_id or generate_worker_id(),
             observability=observability,
         )
@@ -1996,6 +2005,7 @@ def themis_run(
     from olympus.themis.application import ThemisApplicationService, ThemisRunRequest
     from olympus.themis.config import ThemisConfigError
     from olympus.themis.registry import UnknownScannerError, implemented
+    from olympus.themis.sandbox import SandboxError
     from olympus.themis.scope import (
         OutOfScopeError,
         SsrfBlockedError,
@@ -2046,6 +2056,9 @@ def themis_run(
     except CancellationRequested as exc:
         typer.echo(f"olympus: Themis execution cancelled: {exc}", err=True)
         raise typer.Exit(code=ExitCode.CANCELLED) from exc
+    except SandboxError as exc:
+        typer.echo(f"olympus: scanner isolation refused: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.FAILED) from exc
     except (ThemisConfigError, OSError, TimeoutError, ValueError) as exc:
         typer.echo(f"olympus: Themis execution error: {exc}", err=True)
         raise typer.Exit(code=ExitCode.FAILED) from exc

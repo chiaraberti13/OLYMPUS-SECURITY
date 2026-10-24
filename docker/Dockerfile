@@ -8,6 +8,8 @@ RUN pip wheel --no-cache-dir --wheel-dir /wheels ".[api,report]"
 FROM python:3.11-slim@sha256:9534e5a8e315485d4061ed659af0fd78a284c015f9b73661b41d6bab25604534
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 OLYMPUS_STATE_DIR=/data/state
 COPY --from=build /wheels /wheels
+COPY --chown=0:0 deploy/security/scanner-runtime-attestation.json \
+    /etc/olympus/scanner-runtime.json
 RUN pip install --no-cache-dir --no-index --find-links=/wheels "olympus-security[api,report]" \
     && rm -rf /wheels \
     && groupadd --gid 10001 olympus \

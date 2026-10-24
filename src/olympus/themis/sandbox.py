@@ -19,15 +19,18 @@ to every child process:
   the child's working directory, ``TMPDIR`` and ``HOME``, removed when the run
   ends. Combined with the file-size limit that bounds temporary-space use.
 
-What this module deliberately does not do: seccomp/AppArmor confinement, a
-read-only root filesystem, and control/scan network separation are deployment
-concerns handled by the container runtime — see ``docs/themis-sandbox.md``.
+The container runtime still *applies* seccomp/AppArmor, read-only-root and
+namespace controls. This module verifies the mandatory OCI/kernel properties
+before live execution; control/scan network separation remains a deployment
+concern — see ``docs/themis-sandbox.md``.
 """
 
 from __future__ import annotations
 
 import os
+import stat
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from olympus.themis.config import ThemisConfigError, get
 
@@ -42,9 +45,54 @@ GRACE_SECONDS_RANGE = (0.05, 60.0)
 
 DEFAULT_SANDBOX_USER = "nobody"
 
+SCANNER_RUNTIME_ATTESTATION = Path("/etc/olympus/scanner-runtime.json")
+SCANNER_RUNTIME_ATTESTATION_SHA256 = (
+    "79242404f2f10aedf7b61e9fb2d7f1846d2e039d3a5739ddebba2fb11786b205"
+)
+CONTAINER_RUNTIME_MARKERS = (Path("/.dockerenv"), Path("/run/.containerenv"))
+
 
 class SandboxError(RuntimeError):
     """Raised when the required isolation cannot be established."""
+
+
+@dataclass(frozen=True)
+class ScannerIsolationStatus:
+    """Kernel and image properties required before any live scanner starts."""
+
+    runtime_marker: str | None
+    attestation_sha256: str | None
+    root_read_only: bool
+    capabilities_empty: bool
+    no_new_privileges: bool
+    seccomp_filtering: bool
+
+    @property
+    def ready(self) -> bool:
+        return all(
+            (
+                self.runtime_marker is not None,
+                self.attestation_sha256 == SCANNER_RUNTIME_ATTESTATION_SHA256,
+                self.root_read_only,
+                self.capabilities_empty,
+                self.no_new_privileges,
+                self.seccomp_filtering,
+            )
+        )
+
+    def missing(self) -> tuple[str, ...]:
+        checks = (
+            (self.runtime_marker is not None, "OCI runtime marker"),
+            (
+                self.attestation_sha256 == SCANNER_RUNTIME_ATTESTATION_SHA256,
+                "pinned scanner image attestation",
+            ),
+            (self.root_read_only, "read-only root filesystem"),
+            (self.capabilities_empty, "empty effective capability set"),
+            (self.no_new_privileges, "no-new-privileges"),
+            (self.seccomp_filtering, "seccomp filter"),
+        )
+        return tuple(label for ok, label in checks if not ok)
 
 
 @dataclass(frozen=True)
@@ -181,6 +229,102 @@ def apply_resource_limits(policy: SandboxPolicy) -> None:
 
     for limit, soft, hard in policy.rlimits():
         resource_module.setrlimit(limit, (soft, hard))
+
+
+def inspect_scanner_isolation(
+    *,
+    status_path: Path = Path("/proc/self/status"),
+    mountinfo_path: Path = Path("/proc/self/mountinfo"),
+    attestation_path: Path = SCANNER_RUNTIME_ATTESTATION,
+    runtime_markers: tuple[Path, ...] = CONTAINER_RUNTIME_MARKERS,
+) -> ScannerIsolationStatus:
+    """Inspect the current process without trusting an environment toggle.
+
+    The marker and attestation are useful only together with kernel state. An
+    untrusted adapter cannot add files to the read-only image, grant itself
+    capabilities, disable ``no_new_privs`` or replace the seccomp filter.
+    """
+    import hashlib
+    import sys
+
+    if not sys.platform.startswith("linux"):
+        return ScannerIsolationStatus(None, None, False, False, False, False)
+
+    marker = next((path for path in runtime_markers if _trusted_root_file(path)), None)
+    attestation_sha256: str | None = None
+    if _trusted_root_file(attestation_path):
+        try:
+            payload = attestation_path.read_bytes()
+        except OSError:
+            payload = b""
+        if len(payload) <= 4_096:
+            attestation_sha256 = hashlib.sha256(payload).hexdigest()
+
+    status = _read_bounded_text(status_path, 128 * 1024)
+    fields = {
+        key.strip(): value.strip()
+        for line in status.splitlines()
+        if ":" in line
+        for key, value in [line.split(":", 1)]
+    }
+    capabilities_empty = fields.get("CapEff") == "0000000000000000"
+    no_new_privileges = fields.get("NoNewPrivs") == "1"
+    try:
+        seccomp_filters = int(fields.get("Seccomp_filters", "0"), 10)
+    except ValueError:
+        seccomp_filters = 0
+    seccomp_filtering = fields.get("Seccomp") == "2" and seccomp_filters >= 1
+
+    root_read_only = False
+    for line in _read_bounded_text(mountinfo_path, 2 * 1024 * 1024).splitlines():
+        fields_before_separator = line.split(" - ", 1)[0].split()
+        if len(fields_before_separator) >= 6 and fields_before_separator[4] == "/":
+            root_read_only = "ro" in fields_before_separator[5].split(",")
+            break
+
+    return ScannerIsolationStatus(
+        runtime_marker=str(marker) if marker is not None else None,
+        attestation_sha256=attestation_sha256,
+        root_read_only=root_read_only,
+        capabilities_empty=capabilities_empty,
+        no_new_privileges=no_new_privileges,
+        seccomp_filtering=seccomp_filtering,
+    )
+
+
+def require_scanner_isolation() -> None:
+    """Fail closed unless the live worker has every mandatory OCI safeguard."""
+    status = inspect_scanner_isolation()
+    if status.ready:
+        return
+    missing = ", ".join(status.missing())
+    raise SandboxError(
+        "live scanner execution requires the hardened Olympus worker container; "
+        f"missing: {missing}. Use docker compose with the scanner overlay."
+    )
+
+
+def _trusted_root_file(path: Path) -> bool:
+    try:
+        metadata = path.stat(follow_symlinks=False)
+    except OSError:
+        return False
+    return (
+        stat.S_ISREG(metadata.st_mode)
+        and metadata.st_uid == 0
+        and metadata.st_mode & (stat.S_IWGRP | stat.S_IWOTH) == 0
+    )
+
+
+def _read_bounded_text(path: Path, max_bytes: int) -> str:
+    try:
+        with path.open("rb") as handle:
+            payload = handle.read(max_bytes + 1)
+    except OSError:
+        return ""
+    if len(payload) > max_bytes:
+        return ""
+    return payload.decode("utf-8", "replace")
 
 
 def _check_int(name: str, value: int, bounds: tuple[int, int]) -> None:

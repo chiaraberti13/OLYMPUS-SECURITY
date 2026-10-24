@@ -30,6 +30,11 @@ MUTATED_FUNCTIONS = {
         "x_import_legacy_vap_history",
     ],
     "src/olympus/themis/jobs.py": ["xǁThemisJobStoreǁclaim_next"],
+    "src/olympus/themis/sandbox.py": [
+        "xǁScannerIsolationStatusǁmissing",
+        "x_inspect_scanner_isolation",
+        "x__trusted_root_file",
+    ],
     "src/olympus/core/coverage.py": ["xǁCoverageǁstatus"],
     "src/olympus/athena/cli.py": ["x__exit_code_for"],
     "src/olympus/athena/domain/assessment.py": [

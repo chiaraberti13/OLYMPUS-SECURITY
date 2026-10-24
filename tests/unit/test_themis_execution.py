@@ -52,6 +52,7 @@ from olympus.themis.runner import (
     CommandTimeout,
     run_command,
 )
+from olympus.themis.sandbox import SandboxError
 from olympus.themis.scope import (
     OutOfScopeError,
     SsrfBlockedError,
@@ -102,6 +103,11 @@ def _req(**kw: object) -> ScanRequest:
     base: dict[str, object] = {"scanner": "x", "target": "127.0.0.1", "allowed": ("127.0.0.1",)}
     base.update(kw)
     return ScanRequest(**base)  # type: ignore[arg-type]
+
+
+def _service(adapter: ScannerAdapter) -> ThemisApplicationService:
+    """Unit-test seam: kernel isolation is covered by its own contract tests."""
+    return ThemisApplicationService(lambda name: adapter, isolation_verifier=lambda: None)
 
 
 # --- scope / SSRF ---------------------------------------------------------- #
@@ -576,7 +582,7 @@ def _scope(path: Path) -> Path:
 
 def test_application_result_carries_job_authorization_provenance(tmp_path: Path) -> None:
     scope = _scope(tmp_path / "scope.json")
-    result = ThemisApplicationService(lambda name: _FakeAdapter()).run(
+    result = _service(_FakeAdapter()).run(
         ThemisRunRequest(
             scanner="fake",
             target="127.0.0.1",
@@ -601,7 +607,7 @@ def test_scope_loader_and_application_output_audit(tmp_path: Path) -> None:
     assert load_scope(scope).allowed_hosts == ("127.0.0.1",)
     output = tmp_path / "result.json"
     audit = tmp_path / "audit.ndjson"
-    service = ThemisApplicationService(lambda name: _FakeAdapter())
+    service = _service(_FakeAdapter())
     result = service.run(
         ThemisRunRequest(
             scanner="fake",
@@ -634,7 +640,7 @@ def test_scope_loader_and_application_output_audit(tmp_path: Path) -> None:
 
 def test_application_authorizes_before_scope_and_protects_paths(tmp_path: Path) -> None:
     missing = tmp_path / "missing.json"
-    service = ThemisApplicationService(lambda name: _FakeAdapter())
+    service = _service(_FakeAdapter())
     with pytest.raises(AuthorizationRequiredError):
         service.run(ThemisRunRequest("fake", "127.0.0.1", "host", missing, False, True))
 
@@ -657,6 +663,29 @@ def test_application_authorizes_before_scope_and_protects_paths(tmp_path: Path) 
         load_scope(link)
     with pytest.raises(ValueError, match="byte limit"):
         load_scope(scope, max_bytes=5)
+
+
+def test_application_refuses_live_execution_without_container_isolation(tmp_path: Path) -> None:
+    scope = _scope(tmp_path / "scope.json")
+    adapter_requested = False
+
+    def adapter_factory(name: str) -> ScannerAdapter:
+        nonlocal adapter_requested
+        adapter_requested = True
+        return _FakeAdapter()
+
+    def refuse() -> None:
+        raise SandboxError("missing hardened runtime")
+
+    service = ThemisApplicationService(adapter_factory, isolation_verifier=refuse)
+    with pytest.raises(SandboxError, match="hardened runtime"):
+        service.run(ThemisRunRequest("fake", "127.0.0.1", "host", scope, True, True))
+    assert not adapter_requested
+
+    simulated = service.run(
+        ThemisRunRequest("fake", "127.0.0.1", "host", scope, False, True, simulate=True)
+    )
+    assert simulated.state is ExecutionState.SIMULATION
 
 
 @pytest.mark.parametrize(
