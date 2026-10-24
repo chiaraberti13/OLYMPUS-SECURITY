@@ -341,7 +341,7 @@ group. Il file dichiara correttamente ciò che manca.
 
 - [~] Eseguire ogni scanner in un namespace/container con filesystem root
   read-only, capability Linux azzerate, `no-new-privileges` e profilo seccomp.
-- [~] Applicare AppArmor o SELinux dove disponibile e pubblicare un profilo
+- [x] Applicare AppArmor o SELinux dove disponibile e pubblicare un profilo
   versionato nel repository.
 - [ ] Separare control plane e scan plane; consentire egress solo verso IP e porte
   derivati dallo scope già validato.
@@ -376,8 +376,13 @@ ptrace, kernel memory, securityfs, firmware e percorsi host-sensitive. L'overlay
 Compose è opt-in perché il profilo deve essere caricato dall'amministratore
 dell'host. Su runner Linux compatibili la CI carica il profilo in enforce mode,
 lo associa ai container e prova sia `/proc/self/attr/current` sia il rifiuto di
-un canary sintetico bind-mounted. SELinux e la distribuzione automatica della
-policy restano aperti, quindi il criterio resta `[~]`.
+un canary sintetico bind-mounted. Il provisioner fail-closed
+`scripts/manage_scanner_apparmor.py` valida identità, versione, file regolare e
+digest, usa un argv fisso senza shell, richiede AppArmor attivo e privilegi root
+e carica idempotentemente la policy; la CI usa lo stesso percorso prima della
+prova container. Il criterio è quindi `[x]`: AppArmor soddisfa l'alternativa LSM
+richiesta, mentre SELinux resta un'estensione portabile futura e non una
+condizione di questo bullet.
 
 **Criterio di completamento:** un adapter compromesso non può leggere il filesystem
 host, elevare privilegi o raggiungere un indirizzo non autorizzato; le prove sono

@@ -132,9 +132,17 @@ On Linux hosts with AppArmor enabled, load the repository policy before starting
 the worker overlay:
 
 ```bash
-sudo apparmor_parser -r -W deploy/security/olympus-themis-scanner.apparmor
+python scripts/manage_scanner_apparmor.py status
+sudo python scripts/manage_scanner_apparmor.py install
 docker compose -f docker-compose.yml -f docker-compose.apparmor.yml up --build
 ```
+
+The provisioner validates the policy identity, version, regular-file type and
+digest, never invokes a shell, and loads it idempotently with
+`apparmor_parser -r -W`. It fails without AppArmor, the parser or root
+privileges and never installs packages implicitly. Preserve its JSON output as
+deployment evidence; the container test then verifies both the effective
+profile and the denied canary.
 
 The profile is named `olympus-themis-scanner`, remains in enforce mode and
 complements rather than replaces the read-only root, dropped capabilities,

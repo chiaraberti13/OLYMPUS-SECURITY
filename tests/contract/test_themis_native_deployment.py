@@ -145,3 +145,16 @@ def test_versioned_apparmor_profile_and_overlay_are_fail_closed() -> None:
     assert overlay["services"]["themis-worker"]["security_opt"] == [
         "apparmor=olympus-themis-scanner"
     ]
+
+    provisioner = (ROOT / "scripts/manage_scanner_apparmor.py").read_text()
+    tree = ast.parse(provisioner)
+    assert 'PROFILE_NAME = "olympus-themis-scanner"' in provisioner
+    assert 'PROFILE_VERSION = "1.0.0"' in provisioner
+    assert '[status.parser, "-r", "-W", str(policy.resolve(strict=True))]' in provisioner
+    assert not any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "run"
+        and any(keyword.arg == "shell" for keyword in node.keywords)
+        for node in ast.walk(tree)
+    )

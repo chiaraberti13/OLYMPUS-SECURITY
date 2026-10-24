@@ -105,7 +105,7 @@ default denial and explicit grants.
 | Request bursts exhaust the control plane | API/Web processes sharing a job database coordinate a default aggregate maximum of 64 through atomic, expiring SQLite leases. Overflow and coordinator contention fail closed with 503/`Retry-After`; rejections are audited. | Replicas without the same shared volume are separate limits and need a trusted upstream cap. |
 | Too many scanner jobs run across worker replicas | A serialized SQLite claim counts `running` jobs and enforces `--max-concurrent-jobs` across workers sharing the database; the default is one and expired leases are recovered first. | Every replica must use the same configured limit; multi-host deployments need a shared database or an external trusted scheduler. |
 | Audit records disclose credentials or personal data | Accountability records identity, route, status and request/correlation ids, not credentials; serialization is redacted. | The audit file still requires operator-controlled permissions, retention and backup. Cross-replica audit aggregation is not provided. |
-| A scanner escapes the current process sandbox | Existing privilege drop, resource limits and private scratch directory still apply. The Compose worker adds read-only rootfs, capability drop, `no-new-privileges` and a default-deny seccomp profile. A versioned AppArmor overlay denies escape primitives and host-sensitive paths; CI attaches it where available and checks an LSM-denied canary. Bounded probes also cover kernel memory, privilege state, namespace creation and PID exhaustion. | Direct host CLI runs are not forced into the container; AppArmor requires host-side loading, SELinux and automatic policy provisioning are absent, and egress/out-of-scope probes remain open. SEC-B remains open; API scopes are not scan-plane containment. |
+| A scanner escapes the current process sandbox | Existing privilege drop, resource limits and private scratch directory still apply. The Compose worker adds read-only rootfs, capability drop, `no-new-privileges` and a default-deny seccomp profile. A versioned AppArmor overlay denies escape primitives and host-sensitive paths; a fail-closed provisioner validates and loads it without a shell, and CI attaches it where available and checks an LSM-denied canary. Bounded probes also cover kernel memory, privilege state, namespace creation and PID exhaustion. | Direct host CLI runs are not forced into the container; the AppArmor overlay requires an explicit privileged deployment step, and egress/out-of-scope probes remain open. SEC-B remains open; API scopes are not scan-plane containment. |
 
 **Disposition:** acceptable as a transitional control-plane milestone, not as a
 claim of multi-user or distributed isolation. Keep SEC-A `[~]` until physical
@@ -120,11 +120,10 @@ Honesty is a control here too. These are open, and tracked in
 
 - **Egress allowlist on scanner processes.** Scanner subprocesses are sandboxed
   for host isolation but do not yet run behind an egress allowlist.
-- **Mandatory confinement and AppArmor/SELinux.** Compose workers apply a
-  read-only root filesystem and a versioned default-deny seccomp profile; an
-  opt-in AppArmor overlay is available for compatible hosts, but
-  direct host CLI runs are not forced into that boundary, AppArmor still needs
-  host-side loading and no SELinux policy is published yet.
+- **Mandatory confinement for direct CLI runs.** Compose workers apply a
+  read-only root filesystem, a versioned default-deny seccomp profile and an
+  AppArmor overlay provisioned by a fail-closed helper on compatible hosts, but
+  direct host CLI runs are not yet forced into that boundary.
 - **Trusted timestamp for the ledger.** Minerva's chain-of-custody can be
   **HMAC-SHA256 signed** (`OLYMPUS_CUSTODY_HMAC_KEY`, detects truncation and full
   rewrite), and any artifact — a ledger, evidence, an SBOM, a report — can now be
