@@ -214,10 +214,13 @@ docker compose down
 
 La configurazione fallisce all'avvio se mancano credenziali, scope o TLS.
 Servizi non-root, filesystem root read-only, capability rimosse,
-`no-new-privileges`, tmpfs e limiti memoria/PID sono espliciti. La migrazione
-non ha rete. Egress allowlist, seccomp e AppArmor specifici restano in SEC-B;
-il test container SEC-A prova il runtime, senza dichiarare isolamento scanner
-completo. Il profilo opzionale ZAP mantiene la sua chiave API obbligatoria;
+`no-new-privileges`, tmpfs e limiti memoria/PID sono espliciti. Il worker carica
+inoltre il profilo seccomp default-deny versionato in
+`deploy/security/themis-scanner-seccomp.json`; la migrazione non ha rete. Egress
+allowlist e AppArmor/SELinux restano in SEC-B, come l'obbligo container per le
+esecuzioni CLI dirette. Il test container prova runtime e rifiuto di una syscall,
+senza dichiarare isolamento scanner completo. Il profilo opzionale ZAP mantiene
+la sua chiave API obbligatoria;
 Compose richiede `THEMIS_ZAP_API_KEY` durante l'interpolazione anche quando
 quel profilo non viene avviato.
 
@@ -360,7 +363,10 @@ required during Compose interpolation, even without selecting the profile.
 `docker/Dockerfile` installs the wheel without copying vendor sources; the
 scanner overlay changes only the worker image. Non-root, read-only rootfs,
 dropped capabilities, no-new-privileges and resource limits are explicit.
-Scanner egress/seccomp/AppArmor completion remains SEC-B.
+The worker also loads the versioned, default-deny seccomp profile from
+`deploy/security/themis-scanner-seccomp.json`; the container test proves a
+forbidden syscall returns `EPERM`. Scanner egress, AppArmor/SELinux and mandatory
+containerization of direct host CLI runs remain SEC-B.
 
 The physical VAP source has been removed. Its reviewed revision, digest and
 immutable route inventory remain in

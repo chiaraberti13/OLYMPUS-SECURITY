@@ -103,6 +103,9 @@ services:
 
   themis-worker:
     <<: *hardening
+    security_opt:
+      - "no-new-privileges:true"
+      - "seccomp:./deploy/security/themis-scanner-seccomp.json"
     networks:
       - backend
     build: *themis-build

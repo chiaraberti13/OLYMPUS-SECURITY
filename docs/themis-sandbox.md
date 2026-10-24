@@ -100,14 +100,23 @@ silently disabled limit.
 These remain **open** on the hardening roadmap and are deployment concerns, not
 process-level ones. Do not read the guarantees above as covering them:
 
-- **seccomp / AppArmor confinement and a read-only root filesystem.** Provided
-  by the container runtime around the process, not by the runner.
+- **Mandatory container confinement for direct host CLI runs.** The Compose
+  worker adds a read-only root filesystem, drops every capability, enables
+  `no-new-privileges` and loads the versioned default-deny profile at
+  `deploy/security/themis-scanner-seccomp.json`. Direct host execution has only
+  the process controls documented above.
+- **AppArmor / SELinux confinement.** No versioned LSM profile is published yet.
 - **Egress allowlisting for scanner processes.** DNS rebinding is closed inside
   Olympus by address pinning (`olympus.core.pinning`), but an external scanner
   binary resolves and connects on its own; only a network policy can bound
   where it goes.
 - **Separate control and scanning networks.** A Compose/orchestrator topology
   concern.
+
+The container test starts the native runtime under the repository profile and
+probes a denied `process_vm_readv` call. This demonstrates profile loading and
+kernel enforcement in CI; it does not demonstrate network containment or close
+SEC-B by itself.
 
 ## Operational notes
 

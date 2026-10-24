@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import json
 import tomllib
 from pathlib import Path
 
@@ -56,7 +57,42 @@ def test_compose_uses_the_native_image_and_is_fail_closed() -> None:
         )
     worker = services["themis-worker"]
     assert worker["environment"]["THEMIS_ENABLE_LIVE_SCANS"].endswith(":-false}")
+    assert "seccomp:./deploy/security/themis-scanner-seccomp.json" in worker["security_opt"]
     assert not any("themis-config" in mount or "themis-tls" in mount for mount in worker["volumes"])
+
+
+def test_scanner_seccomp_profile_is_default_deny_and_blocks_namespace_creation() -> None:
+    profile = json.loads((ROOT / "deploy/security/themis-scanner-seccomp.json").read_text())
+    assert profile["defaultAction"] == "SCMP_ACT_ERRNO"
+    assert profile["defaultErrnoRet"] == 1
+    allow_rules = [rule for rule in profile["syscalls"] if rule["action"] == "SCMP_ACT_ALLOW"]
+    allowed = {name for rule in allow_rules for name in rule["names"]}
+    assert {"execve", "fork", "vfork", "socket", "connect"} <= allowed
+    assert {
+        "bpf",
+        "clone3",
+        "keyctl",
+        "mount",
+        "process_vm_readv",
+        "ptrace",
+        "setns",
+        "unshare",
+    }.isdisjoint(allowed)
+    clone_rule = next(rule for rule in allow_rules if rule["names"] == ["clone"])
+    assert clone_rule["args"] == [
+        {
+            "index": 0,
+            "value": 0x7E020080,
+            "valueTwo": 0,
+            "op": "SCMP_CMP_MASKED_EQ",
+        }
+    ]
+    clone3_rule = next(rule for rule in profile["syscalls"] if rule["names"] == ["clone3"])
+    assert clone3_rule == {
+        "names": ["clone3"],
+        "action": "SCMP_ACT_ERRNO",
+        "errnoRet": 38,
+    }
 
 
 def test_native_images_never_copy_vendor_or_the_whole_checkout() -> None:

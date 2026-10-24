@@ -339,7 +339,7 @@ dello storico restano indipendenti dal vendor. **SEC-A è completato `[x]`.**
 processi/file descriptor, directory temporanea privata e terminazione del process
 group. Il file dichiara correttamente ciò che manca.
 
-- [ ] Eseguire ogni scanner in un namespace/container con filesystem root
+- [~] Eseguire ogni scanner in un namespace/container con filesystem root
   read-only, capability Linux azzerate, `no-new-privileges` e profilo seccomp.
 - [ ] Applicare AppArmor o SELinux dove disponibile e pubblicare un profilo
   versionato nel repository.
@@ -350,11 +350,15 @@ group. Il file dichiara correttamente ciò che manca.
 - [ ] Aggiungere test di fuga: scrittura fuori scratch, fork bomb, accesso a file
   sensibili, connessione a target fuori scope e timeout non cooperativo.
 
-**Blocco verificato (2026-10-19):** Docker e Podman non sono installati nel
-runner locale e `unshare -n true` fallisce con `Operation not permitted`; non è
-possibile produrre qui prove valide di isolamento namespace/egress. SEC-B resta
-aperto. Eseguire test container e verifiche kernel su un host Linux autorizzato
-prima di spuntare criteri o dichiarare isolamento effettivo.
+**Avanzamento verificato (2026-10-24):** il worker Compose non-root applica ora
+un profilo seccomp versionato, default-deny e compatibile x86-64/AArch64, oltre a
+root filesystem read-only, capability azzerate e `no-new-privileges`. Il profilo
+nega namespace aggiuntivi e syscall kernel ad alto rischio; il job CI
+`native-container` avvia il runtime con quel profilo e verifica un rifiuto
+`EPERM`. Il runtime locale non dispone di Docker/Podman e non consente `ptrace`,
+quindi la prova kernel container resta demandata alla CI. SEC-B rimane `[~]`:
+la CLI host non è ancora containerizzata obbligatoriamente, AppArmor/SELinux e
+la separazione scan-plane con egress allowlist non sono implementati.
 
 **Criterio di completamento:** un adapter compromesso non può leggere il filesystem
 host, elevare privilegi o raggiungere un indirizzo non autorizzato; le prove sono
