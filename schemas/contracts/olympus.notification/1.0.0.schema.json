@@ -1,0 +1,104 @@
+{
+  "$defs": {
+    "NotificationKind": {
+      "description": "Which platform event a notification describes.",
+      "enum": [
+        "job",
+        "finding"
+      ],
+      "title": "NotificationKind",
+      "type": "string"
+    },
+    "Severity": {
+      "description": "Normalized severity scale shared by findings, alerts and reports.",
+      "enum": [
+        "info",
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "title": "Severity",
+      "type": "string"
+    }
+  },
+  "$id": "urn:olympus:schema:olympus.notification:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A redacted, versioned event payload safe to deliver to an external sink.\n\nThis is the contract the webhook body carries, so a consumer can rely on its\n``schema_name``/``schema_version`` exactly like any other Olympus document.",
+  "properties": {
+    "engagement_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Engagement Id"
+    },
+    "kind": {
+      "$ref": "#/$defs/NotificationKind"
+    },
+    "labels": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Labels",
+      "type": "object"
+    },
+    "occurred_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Occurred At"
+    },
+    "schema_name": {
+      "const": "olympus.notification",
+      "default": "olympus.notification",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "severity": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Severity"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "summary": {
+      "default": "",
+      "title": "Summary",
+      "type": "string"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "title"
+  ],
+  "title": "Notification",
+  "type": "object"
+}

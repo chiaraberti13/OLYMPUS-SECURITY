@@ -13,6 +13,13 @@ from olympus.core.execution import CancellationRequested, ExecutionPolicyError, 
 from olympus.core.exit_codes import ExitCode
 from olympus.core.fileio import atomic_write_bytes, atomic_write_text, read_regular_text
 from olympus.core.models import Asset, Finding
+from olympus.core.notifications import (
+    NotificationChannel,
+    NotificationDispatcher,
+    PinnedWebhookPoster,
+    WebhookChannel,
+    notification_from_finding,
+)
 from olympus.core.output import OutputFormat, render, render_table
 from olympus.core.paths import output_path
 from olympus.minerva.application import (
@@ -32,6 +39,7 @@ from olympus.vulcan.aggregate import (
     DEFAULT_MAX_ITEMS_PER_FILE,
     DEFAULT_MAX_TOTAL_ITEMS,
     AggregationError,
+    filter_min_severity,
     load_assets,
     load_findings,
 )
@@ -374,6 +382,83 @@ def enrich(
         f"vulcan: enriched {len(loaded)} finding(s); {kev_hits} in CISA KEV; overlay: {output}",
         err=True,
     )
+
+
+@app.command()
+def notify(
+    findings: list[Path] = typer.Option(
+        ..., "--findings", help="core.Finding JSON file(s) to announce (repeatable)."
+    ),
+    webhook: str | None = typer.Option(
+        None,
+        "--webhook",
+        help="Operator webhook URL (http/https). Omit to preview only — "
+        "notifications are OFF by default and nothing leaves the host without it.",
+    ),
+    min_severity: Severity = typer.Option(
+        Severity.MEDIUM, "--min-severity", help="Announce only findings at or above this severity."
+    ),
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.TABLE, "--format", help="Render the notifications as table or json."
+    ),
+    max_files: int = typer.Option(DEFAULT_MAX_FILES, "--max-files"),
+    max_input_bytes: int = typer.Option(DEFAULT_MAX_INPUT_BYTES, "--max-input-bytes"),
+    max_items_per_file: int = typer.Option(DEFAULT_MAX_ITEMS_PER_FILE, "--max-items-per-file"),
+    max_total_items: int = typer.Option(DEFAULT_MAX_TOTAL_ITEMS, "--max-total-items"),
+) -> None:
+    """Build redacted notifications from findings and optionally deliver them.
+
+    Notifications are off by default: without ``--webhook`` the command only
+    previews the redacted payloads and makes no network call. With ``--webhook``
+    each payload is POSTed over an SSRF-safe, public-only transport; the exit code
+    is ``5`` (partial) if any delivery fails, ``0`` otherwise.
+    """
+    try:
+        loaded = load_findings(
+            findings,
+            max_files=max_files,
+            max_bytes=max_input_bytes,
+            max_items_per_file=max_items_per_file,
+            max_total_items=max_total_items,
+        )
+        channels: tuple[NotificationChannel, ...] = ()
+        if webhook is not None:
+            channel: NotificationChannel = WebhookChannel(webhook, PinnedWebhookPoster())
+            channels = (channel,)
+    except _APPLICATION_ERRORS as exc:
+        typer.echo(safe_terminal_text(f"vulcan: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+
+    notifications = [
+        notification_from_finding(finding) for finding in filter_min_severity(loaded, min_severity)
+    ]
+    dispatcher = NotificationDispatcher(channels)
+
+    records: list[dict[str, object]] = []
+    failures = 0
+    for notification in notifications:
+        results = dispatcher.dispatch(notification)
+        failures += sum(1 for result in results if not result.delivered)
+        records.append(
+            {
+                "kind": notification.kind.value,
+                "severity": notification.severity.value if notification.severity else "",
+                "title": notification.title,
+                "delivery": (
+                    ", ".join(f"{r.channel}:{r.detail}" for r in results) if results else "preview"
+                ),
+            }
+        )
+
+    columns = ["kind", "severity", "title", "delivery"]
+    typer.echo(render(records, columns, output_format, title="Notifications"))
+    mode = "delivered via webhook" if dispatcher.enabled else "previewed (off by default)"
+    typer.echo(
+        f"vulcan: {len(notifications)} notification(s) {mode}; {failures} delivery failure(s)",
+        err=True,
+    )
+    if failures:
+        raise typer.Exit(code=ExitCode.PARTIAL)
 
 
 @app.command()

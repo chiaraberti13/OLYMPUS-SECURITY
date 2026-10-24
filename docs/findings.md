@@ -464,3 +464,36 @@ references still render honestly as `no-custody` rather than disappearing.
   the finding's metadata line.
 
 See [`docs/vulcan.md`](vulcan.md) for the report pipeline and the KEV/EPSS feeds.
+
+## Notifications (`WEB-I`)
+
+A defender should not have to open a dashboard to learn a finding landed. The
+output port in `src/olympus/core/notifications.py` turns a `core.Finding` (or a
+`core.ScanJob`) into a small, **versioned** (`olympus.notification` `1.0.0`),
+**redacted** payload and — only when explicitly configured — delivers it to an
+operator webhook. It is deliberately a port on the core, not a new module.
+
+Three guarantees hold by construction:
+
+- **Redacted, no secrets.** Every human-readable field is run through
+  `safe_terminal_text` (one line, control characters stripped, URL credentials
+  redacted) and every label through `redact_mapping`, the same discipline as
+  audit logs and job records.
+- **Off by default.** Without `--webhook` the command only previews the payloads
+  and makes no network call; an empty `NotificationDispatcher` is a no-op.
+- **SSRF-safe egress.** The default `PinnedWebhookPoster` pins every hop to the
+  public-only `global_address_policy`, so a misconfigured or hostile URL cannot
+  be turned into a request against cloud metadata or an internal service, and
+  only `http(s)` schemes are dialled.
+
+```bash
+# Preview the redacted notifications for high+ findings (no network, off by default)
+olympus vulcan notify --findings ./findings.json --min-severity high --format json
+
+# Deliver each to an operator webhook (exit 5 if any delivery fails)
+olympus vulcan notify --findings ./findings.json --webhook https://hooks.example/olympus
+```
+
+E-mail delivery and automatic emission on live job/finding events (wiring the
+dispatcher into the Themis job loop) implement the same `NotificationChannel`
+port and are tracked in [`ROADMAP.md`](../ROADMAP.md) under `WEB-I`.
