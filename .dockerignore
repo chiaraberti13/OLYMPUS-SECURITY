@@ -4,7 +4,6 @@
 .env
 *.key
 *.pem
-vendor
 mutants
 dist
 build

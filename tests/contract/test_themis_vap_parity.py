@@ -1,9 +1,8 @@
-"""Keep the SEC-A legacy/native runtime parity inventory tied to source routes."""
+"""Keep the retired SEC-A legacy inventory and native routes contract-tested."""
 
 from __future__ import annotations
 
 import ast
-import hashlib
 import json
 from pathlib import Path
 from typing import Any, cast
@@ -66,19 +65,21 @@ def _retirement_route_key(route: dict[str, str]) -> str:
     return f"{route['method']} {route['path']}"
 
 
-def test_legacy_route_inventory_is_complete_and_pinned_to_reviewed_source() -> None:
+def test_legacy_route_inventory_is_complete_and_source_is_retired() -> None:
     manifest = _read_manifest()
-    source = ROOT / manifest["baseline"]["legacy_route_source"]
-    digest = hashlib.sha256(source.read_bytes()).hexdigest()
+    baseline = manifest["baseline"]
+    historical_source = ROOT / baseline["legacy_route_source_historical"]
 
-    assert digest == manifest["baseline"]["legacy_app_sha256"]
-    assert manifest["baseline"]["legacy_repository_revision"] == (
+    assert baseline["legacy_source_removed"] is True
+    assert not historical_source.exists()
+    assert baseline["legacy_app_sha256"] == (
+        "1df54b7b8f0656e470b31b8e6c47476c920428860642a245f9b32847c370d66a"
+    )
+    assert baseline["legacy_repository_revision"] == (
         "6c6b395d79f358372e028fe7094cc673374dd88f"
     )
-    expected = {_route_key(route) for route in _routes(source)}
     recorded = {_route_key(route) for route in manifest["legacy_routes"]}
-    assert recorded == expected
-    assert len(recorded) == len(manifest["legacy_routes"])
+    assert len(recorded) == len(manifest["legacy_routes"]) == 39
 
 
 def test_native_route_inventory_matches_api_and_web_routers() -> None:
@@ -167,7 +168,8 @@ def test_every_legacy_data_boundary_has_one_retirement_decision() -> None:
     outcome = retirement["review_outcome"]
     assert outcome["route_and_data_decisions_complete"] is True
     assert outcome["source_removal_blockers"] == []
-    assert outcome["remaining_sec_a_work"]
+    assert outcome["physical_source_removed"] is True
+    assert outcome["remaining_sec_a_work"] == []
 
 
 def test_job_state_parity_does_not_collapse_non_clean_outcomes() -> None:

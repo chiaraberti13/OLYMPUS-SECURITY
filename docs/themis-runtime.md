@@ -232,17 +232,14 @@ quel profilo non viene avviato.
 - CI: lo smoke della wheel gira in un ambiente pulito; il job
   `native-container` valida Compose ed esegue la suite container.
 
-Il sorgente VAP resta un archivio per provenance e confronto. La matrice route
-per route e dei contratti di lifecycle è mantenuta in
-[`docs/parity/themis-vap-runtime.json`](parity/themis-vap-runtime.json) e
-verificata contro i router sorgente da
-`tests/contract/test_themis_vap_parity.py`. La decisione di ritiro per ogni
-route e confine dati è registrata separatamente in
-[`docs/parity/themis-vap-retirement.json`](parity/themis-vap-retirement.json):
-sostituzioni native, esclusioni intenzionali e capability native future sono
-distinte senza presentare queste ultime come parità già implementata. L'import
-storico terminale è disponibile; il ritiro fisico del sorgente resta un punto
-separato della roadmap e non è una capacità del runtime.
+Il sorgente VAP è stato rimosso fisicamente. Revisione, digest e inventario
+immutabile delle route restano in
+[`docs/parity/themis-vap-runtime.json`](parity/themis-vap-runtime.json); le
+decisioni per ogni route e confine dati sono in
+[`docs/parity/themis-vap-retirement.json`](parity/themis-vap-retirement.json).
+I test contrattuali impongono l'assenza del tree e la completezza degli
+inventari. Lo storico terminale mantiene il percorso di import revisionato,
+senza conservare o rendere eseguibile il runtime legacy.
 
 ## English
 
@@ -365,20 +362,18 @@ scanner overlay changes only the worker image. Non-root, read-only rootfs,
 dropped capabilities, no-new-privileges and resource limits are explicit.
 Scanner egress/seccomp/AppArmor completion remains SEC-B.
 
-The route-by-route legacy/native inventory and lifecycle/data gaps are tracked in
-[`docs/parity/themis-vap-runtime.json`](parity/themis-vap-runtime.json) and
-contract-tested against both source trees. The independently testable
+The physical VAP source has been removed. Its reviewed revision, digest and
+immutable route inventory remain in
+[`docs/parity/themis-vap-runtime.json`](parity/themis-vap-runtime.json), while
 [`docs/parity/themis-vap-retirement.json`](parity/themis-vap-retirement.json)
-records one source-removal decision for every legacy route and data boundary,
-separating native replacements, intentional exclusions and future native
-capabilities. Reviewed terminal history can now be imported without producing
-executable work or claiming complete runtime parity. Shared-store concurrency
-is now enforced for API/Web processes and worker running jobs; physical source
-retirement remains SEC-A work.
+records one decision for every legacy route and data boundary. Contract tests
+require the source tree to stay absent and the inventories to remain complete.
+Reviewed terminal history can be imported without executable work or claims of
+retroactive authorization.
 
 Run `make check`, `python scripts/smoke_native_runtime.py` and, on a Docker host,
 `make test-container`. CI exercises clean-wheel and isolated-container startup
 with real API/HTTPS Web servers and a disabled scanner job. These tests require
-no external target. VAP source remains archived pending the distributed-control
-and physical source-removal milestones; route/data retirement decisions and the
-reviewed historical import path are complete.
+no external target. The VAP source is no longer present; route/data retirement
+decisions and the reviewed historical import path remain as immutable migration
+evidence.

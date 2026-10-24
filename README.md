@@ -73,7 +73,7 @@ $ olympus athena run plan.json --storage ./.athena
 | **Vulcan** | `olympus vulcan` | Aggregation, deduplication, ranking, scan diff (new/resolved/persistent), severity trend and report rendering. |
 | **Metis** | `olympus metis` | Deterministic capability routing, engagement plans, CTI cases, IOC correlation and operational reports. |
 | **core** | `olympus core` | Shared data-contract utilities (`export-schemas`, versioned migration manifest). |
-| **Themis** | `olympus themis` | Scope-gated scanner orchestration, capability readiness and maturity, durable SQLite jobs, cancellation, audit and explicit execution states. Native for 15 of 24 catalogued engines; `serve`/`migrate`/`workers` still need `vendor/`. |
+| **Themis** | `olympus themis` | Scope-gated scanner orchestration, capability readiness and maturity, durable SQLite jobs, cancellation, audit and explicit execution states. Native for 15 of 24 catalogued engines; API, Web, migrations and workers require no vendor tree. |
 | **Unified TUI** | `olympus ui` | Keyboard-first interface over every real Olympus command, with streamed output and process cancellation. |
 
 > [!TIP]
@@ -259,8 +259,9 @@ The standalone **Argus** migration is complete. Its maintained implementation is
 Themis now runs its API, Web UI (`serve`/`web`), schema migrations and continuous
 workers from the installed native wheel. Scope, authorization, adapters, durable
 SQLite jobs, cancellation and redacted audit share one implementation, without
-Redis/Celery or runtime imports from `vendor/`. Every archived VAP route and data
-boundary now has an explicit, contract-tested retirement decision (`SEC-A`), and
+Redis/Celery or runtime imports from `vendor/`. The archived VAP source has been
+physically removed after every route and data boundary received an explicit,
+contract-tested retirement decision (`SEC-A`), and
 reviewed terminal history has a non-executable import path. API/Web processes
 sharing the same job database now enforce one crash-recoverable concurrency
 limit, and workers sharing the database enforce one atomic running-job cap.
@@ -307,8 +308,8 @@ olympus themis jobs submit nmap --target example.com --scope scope.json \
 olympus themis jobs work                    # process one queued job
 OLYMPUS_THEMIS_API_KEY='<32+ random chars>' olympus themis api --scope-directory .olympus/scopes
 olympus themis scanners                     # specialist-engine catalogue
-olympus themis migrate                       # apply the VAP database migrations
-olympus themis serve --host 127.0.0.1 --port 8000   # serve the full VAP web app
+olympus themis migrate                       # apply native job-store migrations
+olympus themis serve --host 127.0.0.1 --port 8000   # serve the native Web UI
 ```
 
 CLI job submission always requires a signed authorization manifest, a pinned
@@ -397,8 +398,8 @@ Exhaustive walkthroughs live in [`docs/reference.md`](docs/reference.md).
 ## 📄 Licence scope
 
 Olympus-native code, including native Argus and Themis, is licensed under **GNU GPL-3.0** — see
-[LICENSE](LICENSE). Vendored and third-party components retain their own applicable licences; the
-root licence does not overwrite third-party licensing terms.
+[LICENSE](LICENSE). Third-party dependencies retain their applicable licences; the root licence does
+not overwrite third-party licensing terms.
 See [third-party notices](THIRD_PARTY_NOTICES.md) and
 [provenance](docs/provenance.md).
 

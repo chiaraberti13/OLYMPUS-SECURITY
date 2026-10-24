@@ -5,14 +5,16 @@
   "title": "Native THEMIS versus archived VAP runtime parity",
   "baseline": {
     "legacy_repository_revision": "6c6b395d79f358372e028fe7094cc673374dd88f",
-    "legacy_route_source": "vendor/vulnerability-assessment-platform/app.py",
     "legacy_source_commit": "0bfc465a51d8c571f56c177e61ee38a55b56baed",
     "native_sources": [
       "src/olympus/themis/api.py",
       "src/olympus/themis/web.py"
     ],
-    "reviewed_against": "origin/main at 10df45f",
-    "legacy_app_sha256": "1df54b7b8f0656e470b31b8e6c47476c920428860642a245f9b32847c370d66a"
+    "reviewed_against": "origin/main at 7e981be",
+    "legacy_app_sha256": "1df54b7b8f0656e470b31b8e6c47476c920428860642a245f9b32847c370d66a",
+    "legacy_route_source_historical": "vendor/vulnerability-assessment-platform/app.py",
+    "legacy_source_removed": true,
+    "legacy_source_repository": "https://github.com/chiaraberti13/Vulnerability-Assessment-Platform"
   },
   "retirement_decision_manifest": "docs/parity/themis-vap-retirement.json",
   "status_values": [

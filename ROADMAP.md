@@ -171,7 +171,7 @@ riorganizzati nelle 7 milestone richieste con criteri di accettazione misurabili
 
 | Milestone | Obiettivo | Stato verificato | Attività (ID) | Criterio di accettazione |
 | --- | --- | --- | --- | --- |
-| M1 Fondamenta | base stabile e coerente | 🟡 `DEV-I` ✅, suite/coverage ✅ | `DEV-G`,`DEV-H`,`DEV-C`,`SEC-A` | link checker in CI verde; 0 import runtime da `vendor/` |
+| M1 Fondamenta | base stabile e coerente | 🟡 `DEV-I` ✅, `SEC-A` ✅, suite/coverage ✅ | `DEV-G`,`DEV-H`,`DEV-C` | link checker in CI verde; 0 import runtime da `vendor/` |
 | M2 Sicurezza operativa | guardrail attivi | 🟡 scope/sandbox ✅ | `SEC-B`,`SEC-C`,`SEC-G`,`SEC-H`,`UX-B` | dry-run+kill switch end-to-end; parser fuzzing in CI |
 | M3 Modello dati & Finding Engine | finding ricchi e tracciabili | 🟡 stati+dedup ✅ | `WEB-C` (+`Finding.confidence`/risk score, CVE/CWE/EPSS/KEV strutturati) | lifecycle completo con audit; dedup senza perdita evidenza |
 | M4 Asset & Vulnerability management | engagement centrale | 🟡 Themis ✅, asset parziale | `WEB-B`,`WEB-D` | stesso engagement/asset da CLI/TUI/API/Web |
@@ -194,9 +194,10 @@ d'ambiente; i moduli che richiedono token usano variabili dedicate. La CI esegue
 inoltre `gitleaks` sul working tree e, su `main`, sull'intera history, con un canary
 che verifica che lo scanner sia realmente funzionante.
 
-Restano da verificare la parità completa dei dati/endpoint VAP e il loro piano
-di migrazione, l'isolamento di rete dei processi scanner e la forza probatoria
-dello scope e delle evidenze. Il runtime mantenuto è ora interamente nativo.
+La parità VAP è stata classificata, lo storico terminale dispone di una migrazione
+fail-closed e il sorgente vendorizzato è stato rimosso. Restano l'isolamento di
+rete dei processi scanner e la forza probatoria dello scope e delle evidenze.
+Il runtime mantenuto è interamente nativo.
 
 ### Intervento A · `SEC-A` — Ritirare la superficie VAP vendorizzata (**P0**)
 
@@ -209,9 +210,8 @@ dello scope e delle evidenze. Il runtime mantenuto è ora interamente nativo.
   e CI container; guida IT/EN e rollback in
   [`docs/themis-runtime.md`](docs/themis-runtime.md). Il sorgente legacy resta
   archiviato; la matrice route/dati è in `docs/parity/themis-vap-runtime.json`.
-  L'import revisionato dei record terminali è disponibile; verifica funzionale
-  delle lacune, decisioni sulle route/dati esclusi e ritiro fisico del sorgente
-  restano lavoro SEC-A. `themis legacy-snapshot` ora apre `vap.db` in
+  L'import revisionato dei record terminali, le decisioni route/dati e il ritiro
+  fisico del sorgente sono completati e verificati. `themis legacy-snapshot` ora apre `vap.db` in
   sola lettura, crea un backup SQLite consistente e un inventario versionato con
   digest, conteggi, chiavi deterministiche, mapping esplicito degli stati e
   rollback; non crea job eseguibili e non importa consent/audit/analytics.
@@ -323,7 +323,15 @@ condividono il database. Il conteggio e il claim avvengono nella stessa
 transazione SQLite; le lease scadute sono recuperate prima del conteggio e non
 consumano capacità. Configurazioni discordanti tra repliche restano un errore
 operativo documentato. Il limite worker è completo; rimane soltanto la rimozione
-fisica del sorgente VAP archiviato, quindi `SEC-A` resta `[~]`.
+fisica del sorgente VAP archiviato.
+
+**Completamento verificato (2026-10-24, ritiro fisico):** la directory
+`vendor/vulnerability-assessment-platform`, l'helper di caricamento e lo script
+di setup legacy sono stati rimossi. I manifest conservano revisione, digest,
+inventario delle 39 route e decisioni sui cinque confini dati senza trattenere
+codice eseguibile. I test impongono l'assenza del tree e verificano catalogo,
+compatibilità CLI, runtime nativo e inventari. Wheel, container e migrazione
+dello storico restano indipendenti dal vendor. **SEC-A è completato `[x]`.**
 
 ### Intervento B · `SEC-B` — Isolamento forte degli scanner (**P0**)
 

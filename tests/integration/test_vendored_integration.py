@@ -1,28 +1,18 @@
-"""Archived VAP source provenance and native catalogue/compatibility wiring.
-
-The legacy source is retained for the pending full parity review (SEC-A), but
-all executable runtime entry points are native. Runtime regression coverage
-lives in test_themis_native_runtime.py.
-"""
+"""Native Themis catalogue, compatibility and retired VAP-source guardrails."""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-import pytest
 from typer.testing import CliRunner
 
 from olympus.cli import app
-from olympus.integrations.vendored import (
-    VAP_DIR,
-    tool_path,
-    vendor_root,
-)
 
 runner = CliRunner()
+ROOT = Path(__file__).resolve().parents[2]
+LEGACY_SOURCE = ROOT / "vendor" / "vulnerability-assessment-platform"
 
-# The complete VAP scanner catalogue — all 24 integrations.
 EXPECTED_VAP_SCANNERS = {
     "acunetix",
     "arjun",
@@ -51,36 +41,11 @@ EXPECTED_VAP_SCANNERS = {
 }
 
 
-# --------------------------------------------------------------------------- #
-# Vendored source completeness (feature parity)
-# --------------------------------------------------------------------------- #
-def test_vendor_root_exists() -> None:
-    assert vendor_root().is_dir()
+def test_legacy_vap_source_is_physically_removed() -> None:
+    assert not LEGACY_SOURCE.exists()
+    assert not (ROOT / "vendor").exists()
 
 
-def test_vap_source_is_complete() -> None:
-    vap = tool_path(VAP_DIR)
-    assert (vap / "LICENSE").is_file()
-    scanners = {p.stem.removesuffix("_scanner") for p in (vap / "scanners").glob("*_scanner.py")}
-    assert scanners == EXPECTED_VAP_SCANNERS
-    for key_file in (
-        "app.py",
-        "database.py",
-        "scanner_engine.py",
-        "report_generator.py",
-        "celery_app.py",
-        "alembic.ini",
-        "docker-compose.yml",
-        "requirements.txt",
-    ):
-        assert (vap / key_file).is_file(), key_file
-    for key_dir in ("templates", "static", "db_migrations", "assets"):
-        assert (vap / key_dir).is_dir(), key_dir
-
-
-# --------------------------------------------------------------------------- #
-# CLI wiring
-# --------------------------------------------------------------------------- #
 def test_themis_scanners_command_lists_all_24() -> None:
     result = runner.invoke(app, ["themis", "scanners"])
     assert result.exit_code == 0, result.output
@@ -125,35 +90,22 @@ def test_themis_and_vap_compatibility_are_registered() -> None:
     assert "argus-native" not in result.output
     assert "argus" in result.output
     assert "themis" in result.output
-    assert "vap" in result.output  # deprecated alias still present
+    assert "vap" in result.output
 
 
 def test_vap_alias_is_deprecated_and_forwards() -> None:
     result = runner.invoke(app, ["vap", "scanners"])
     assert result.exit_code == 0, result.output
     assert "deprecated" in result.output.lower()
-    # The forwarded themis output (JSON) follows the deprecation notice.
     assert '"count": 24' in result.output
 
 
-def test_doctor_commands_run() -> None:
+def test_doctor_commands_run_without_vendor_source() -> None:
     for argv in (["doctor"], ["themis", "doctor"], ["argus", "doctor"]):
         result = runner.invoke(app, argv)
         assert result.exit_code == 0, (argv, result.output)
         payload = json.loads(result.output)
         assert payload.get("checks")
-
-
-def test_diagnostics_work_from_an_installation_without_the_vendored_tree(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A wheel install has no vendor/ tree; diagnostics must report, not crash."""
-    monkeypatch.setenv("OLYMPUS_VENDOR_DIR", str(tmp_path))
-
-    for argv in (["doctor"], ["themis", "doctor"], ["themis", "deps"]):
-        result = runner.invoke(app, argv)
-        assert result.exit_code == 0, (argv, result.output)
-        assert json.loads(result.output)["checks"]
 
     reported = json.loads(runner.invoke(app, ["themis", "doctor"]).output)
     native = next(item for item in reported["checks"] if item["name"] == "runtime:native")

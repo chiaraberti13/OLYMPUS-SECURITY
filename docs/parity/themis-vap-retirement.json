@@ -2,7 +2,7 @@
   "schema_version": 1,
   "roadmap_id": "SEC-A",
   "priority": "P0",
-  "reviewed_at": "2026-10-23",
+  "reviewed_at": "2026-10-24",
   "baseline": {
     "legacy_repository_revision": "6c6b395d79f358372e028fe7094cc673374dd88f",
     "legacy_app_sha256": "1df54b7b8f0656e470b31b8e6c47476c920428860642a245f9b32847c370d66a",
@@ -125,8 +125,7 @@
   "review_outcome": {
     "route_and_data_decisions_complete": true,
     "source_removal_blockers": [],
-    "remaining_sec_a_work": [
-      "physical removal of the archived VAP source and stale source-dependent documentation"
-    ]
+    "remaining_sec_a_work": [],
+    "physical_source_removed": true
   }
 }

@@ -29,7 +29,7 @@
 - **[Sviluppo](#-sviluppo)** — controlli CI obbligatori e comandi locali.
 - **[Modello di sicurezza](#-modello-di-sicurezza)** — scope, autorizzazione, SSRF, audit.
 - **[Migrazione](#-migrazione--motori-specialistici)** — Argus nativo, Themis e motori specialistici.
-- **[Licenze](#-ambito-delle-licenze)** — codice nativo GPL-3.0 e licenze vendor preservate.
+- **[Licenze](#-ambito-delle-licenze)** — codice Olympus GPL-3.0 e licenze delle dipendenze preservate.
 - **[Uso legale ed etico](#-uso-legale-ed-etico)** — solo autorizzato, in pratica.
 
 ---
@@ -207,10 +207,9 @@ duplicato `vendor/argus` e il passthrough `argus-native` sono stati rimossi.
 Themis esegue ora API, Web UI (`serve`/`web`), migrazioni e worker continui dalla
 wheel nativa. Scope, autorizzazione, adapter, job SQLite, cancellazione e audit
 redatto condividono una sola implementazione, senza Redis/Celery né import
-runtime da `vendor/`. Il sorgente VAP resta un archivio per la futura verifica
-di ritiro fisico (`SEC-A`): ogni route e confine dati ha ora una decisione
-esplicita e verificata, mentre lo storico terminale revisionato dispone di un
-percorso di import non eseguibile. I processi API/Web che condividono lo stesso
+runtime da `vendor/`. Il sorgente VAP è stato rimosso fisicamente dopo aver
+registrato una decisione verificata per ogni route e confine dati (`SEC-A`);
+lo storico terminale revisionato mantiene un percorso di import non eseguibile. I processi API/Web che condividono lo stesso
 database applicano ora un unico limite di concorrenza recuperabile dopo crash;
 anche i worker applicano un limite atomico ai job in esecuzione. Rimozione
 fisica del sorgente e milestone Web avanzate restano punti distinti.
@@ -317,8 +316,8 @@ esaustive sono in [`docs/reference.md`](docs/reference.md).
 ## 📄 Ambito delle licenze
 
 Il codice nativo Olympus, inclusi Argus e Themis nativi, è distribuito con licenza **GNU GPL-3.0** — vedi
-[LICENSE](LICENSE). I componenti vendorizzati e di terze parti mantengono le rispettive licenze
-applicabili; la licenza root non sovrascrive i termini di licenza di terze parti. Vedi [note di terze parti](THIRD_PARTY_NOTICES.md)
+[LICENSE](LICENSE). Le dipendenze di terze parti mantengono le rispettive licenze applicabili; la
+licenza root non sovrascrive i loro termini. Vedi [note di terze parti](THIRD_PARTY_NOTICES.md)
 e [provenienza](docs/provenance.md).
 
 ## ⚠️ Uso legale ed etico

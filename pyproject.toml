@@ -91,10 +91,6 @@ packages = ["src/olympus"]
 line-length = 100
 target-version = "py311"
 src = ["src", "tests"]
-# Vendored upstream tools are preserved verbatim and held to their own quality
-# gates, not Olympus's. Exclude them from lint/format here.
-extend-exclude = ["vendor"]
-
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "S", "C4", "SIM", "PTH", "RUF"]
 # S101 (assert) is fine in tests; handled per-file below.
@@ -108,8 +104,7 @@ extend-immutable-calls = ["typer.Option", "typer.Argument"]
 [tool.ruff.lint.isort]
 known-first-party = ["olympus"]
 
-# Mypy is a blocking CI check over first-party code. Vendored upstream tools
-# are excluded; they carry their own tooling.
+# Mypy is a blocking CI check over first-party code.
 [tool.mypy]
 python_version = "3.11"
 strict = true
@@ -117,7 +112,6 @@ plugins = ["pydantic.mypy"]
 mypy_path = "src"
 packages = ["olympus"]
 warn_unused_configs = true
-exclude = ['^vendor/']
 
 [tool.pydantic-mypy]
 init_forbid_extra = true

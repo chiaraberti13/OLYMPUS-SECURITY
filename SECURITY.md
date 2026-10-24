@@ -7,7 +7,7 @@
 Security fixes target the latest revision on the default branch unless a release is explicitly documented as supported.
 
 ### Scope
-All native Olympus modules, shared data contracts, CLI/TUI entry points, scope enforcement, sandbox/tool execution, evidence handling, reporting, vendored integrations and build/CI configuration.
+All native Olympus modules, shared data contracts, CLI/TUI entry points, scope enforcement, sandbox/tool execution, evidence handling, reporting, external integrations and build/CI configuration.
 
 ### Reporting
 Do not open a public issue for an unpatched vulnerability. Report privately through the repository's **Security → Advisories → Report a vulnerability** (GitHub Private Vulnerability Reporting); if that is unavailable, request a private channel by opening a minimal issue that asks a maintainer to enable it, without disclosing details. Include the affected commit/version, impact, minimal reproducible proof, environment assumptions and possible mitigations. Remove unrelated sensitive data.

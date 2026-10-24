@@ -116,18 +116,8 @@ the trust boundary or deployment model changes.
 ## What is NOT yet covered
 
 Honesty is a control here too. These are open, and tracked in
-[`ROADMAP.md`](../ROADMAP.md) (`SEC-A`, `SEC-B`, `SEC-E`):
+[`ROADMAP.md`](../ROADMAP.md) (`SEC-B`, `SEC-E`):
 
-- **VAP source retirement (SEC-A).** The legacy source is an archive; native
-  API/Web/migration/worker entry points and default containers no longer launch
-  it or add its path to imports. Every legacy route and data boundary now has a
-  reviewed retirement disposition in
-  [`parity/themis-vap-retirement.json`](parity/themis-vap-retirement.json), and
-  reviewed terminal history has a fail-closed, non-executable import path.
-  Worker concurrency is now bounded atomically across processes sharing the
-  native job database; physical source removal remains open.
-  future native capabilities do not inherit VAP identity or payload contracts.
-  The supported runtime is documented in [`themis-runtime.md`](themis-runtime.md).
 - **Egress allowlist on scanner processes.** Scanner subprocesses are sandboxed
   for host isolation but do not yet run behind an egress allowlist.
 - **seccomp/AppArmor.** The sandbox drops privileges and sets rlimits but does

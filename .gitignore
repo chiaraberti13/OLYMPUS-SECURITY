@@ -48,16 +48,6 @@ htmlcov/
 /vulcan-report.md
 /vulcan-report.html
 
-# Vendored-tool runtime artifacts (source is committed; runtime state is not)
-vendor/**/vap.db
-vendor/**/vap.db-*
-vendor/**/*.sqlite
-vendor/**/reports/*
-!vendor/**/reports/.gitkeep
-vendor/**/scans/*
-!vendor/**/scans/.gitkeep
-vendor/**/.venv/
-
 # Hypothesis example database (local test cache)
 .hypothesis/
 __pycache__/
