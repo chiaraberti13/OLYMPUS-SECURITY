@@ -328,3 +328,87 @@ def attack_layer(
     _echo_terminal(
         f"apollo: {len(layer['techniques'])} technique(s) from {len(rule_set)} rule(s) -> {output}"
     )
+
+
+@app.command()
+def coverage(
+    directory: Path = typer.Option(DEFAULT_RULES_DIR, "--rules", help="Directory of YAML rules."),
+    events: Path | None = typer.Option(
+        None,
+        "--events",
+        help="NDJSON telemetry whose event types are taken as the data actually ingested.",
+    ),
+    telemetry: list[str] = typer.Option(
+        [],
+        "--telemetry",
+        help="Event type available as telemetry (repeatable); union-ed with --events.",
+    ),
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.TABLE, "--format", help="Render as table (human) or json (machine)."
+    ),
+    strict: bool = typer.Option(
+        False,
+        "--strict",
+        help="Exit non-zero when a technique has a rule but no telemetry (a hard blind spot).",
+    ),
+    max_rules: int = typer.Option(DEFAULT_MAX_RULES, "--max-rules"),
+    max_rule_bytes: int = typer.Option(DEFAULT_MAX_RULE_BYTES, "--max-rule-bytes"),
+    max_stream_bytes: int = typer.Option(DEFAULT_MAX_STREAM_BYTES, "--max-stream-bytes"),
+    deadline: float = typer.Option(60.0, "--deadline"),
+) -> None:
+    """Report ATT&CK detection coverage against the telemetry actually available.
+
+    Correlates each rule's technique with the event type it needs and whether that
+    telemetry is present (from ``--events`` and/or ``--telemetry``), classifying
+    every technique as covered, partial or no-telemetry. A rule that targets a
+    technique whose telemetry is never ingested is a blind spot, not coverage.
+    Pure and offline; nothing is executed against a target.
+    """
+    from olympus.apollo.coverage import assess_coverage, event_types_from_ndjson
+
+    try:
+        rule_set = ApolloApplicationService().list_rules(
+            directory,
+            max_rules=max_rules,
+            max_rule_bytes=max_rule_bytes,
+            deadline_seconds=deadline,
+        )
+        available = set(telemetry)
+        if events is not None:
+            available |= event_types_from_ndjson(
+                read_regular_text(events, max_bytes=max_stream_bytes, label="telemetry events")
+            )
+        report = assess_coverage(rule_set, available)
+    except (ContractCompatibilityError, OSError, TimeoutError, ValueError) as exc:
+        _echo_terminal(f"apollo: coverage error: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+
+    if output_format is OutputFormat.JSON:
+        typer.echo(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+    else:
+        records: list[dict[str, object]] = [
+            {
+                "technique": technique.technique,
+                "status": technique.status.value,
+                "rules": ", ".join(
+                    f"{rule.rule_id}({rule.event_type}{'' if rule.telemetry_present else ' ✗'})"
+                    for rule in technique.rules
+                ),
+            }
+            for technique in report.techniques
+        ]
+        typer.echo(
+            render(
+                records,
+                ["technique", "status", "rules"],
+                output_format,
+                title="ATT&CK detection coverage",
+            )
+        )
+    counts = report.counts
+    _echo_terminal(
+        f"apollo: {len(report.techniques)} technique(s): {counts['covered']} covered, "
+        f"{counts['partial']} partial, {counts['no-telemetry']} without telemetry"
+    )
+    if strict and report.blind_spots:
+        raise typer.Exit(code=int(ExitCode.FINDINGS))

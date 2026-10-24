@@ -58,6 +58,29 @@ A further format (Sysmon/Windows Event) plugs into the same `core.Event` shape;
 Sysmon capture needs real Windows telemetry, so it stays tracked in
 [`ROADMAP.md`](../ROADMAP.md) as `OPS-BLUE` rather than declared here.
 
+## ATT&CK detection coverage (`OPS-PURPLE`)
+
+`olympus apollo coverage` answers a Purple-team question that a rule count alone
+cannot: *for each ATT&CK technique a rule claims to cover, is the telemetry it
+needs actually being ingested?* It correlates each rule's technique and its
+`event_type` with the event types present in a telemetry stream (`--events` NDJSON
+and/or repeatable `--telemetry` flags) and classifies every technique as:
+
+- `covered` — every rule targeting it fires on an event type that is present;
+- `partial` — some of its rules can fire, some are blind (their telemetry is absent);
+- `no-telemetry` — a rule targets it but none of the needed telemetry is present,
+  so the technique is undetectable however many rules exist.
+
+```bash
+olympus apollo coverage --rules ./rules --events events.ndjson
+olympus apollo coverage --rules ./rules --telemetry network.dns --strict   # exit 1 on blind spots
+```
+
+The analysis is pure and offline; `--strict` exits non-zero when any technique is
+a `no-telemetry` blind spot, so a CI or Purple exercise fails on a real gap. The
+matrix measures the detection set against available telemetry — it does not
+invent techniques for which no rule exists.
+
 ## Streaming and limits
 
 `apollo run` reads NDJSON incrementally from a non-symlink regular file. Rules,

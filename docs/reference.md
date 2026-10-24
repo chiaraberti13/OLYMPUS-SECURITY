@@ -261,6 +261,7 @@ every module; for a single command's full details (every option, with defaults) 
 | `olympus apollo test <rule> <event>` | evaluates one versioned exact-match rule against one normalized event with bounded input/deadline |
 | `olympus apollo run --rules <dir> --events <f>` | streams versioned NDJSON through bounded rule/event/evaluation/alert limits; malformed records are reported as partial failure |
 | `olympus apollo rules --rules <dir>` | loads, bounds and validates a non-empty rule directory with unique IDs |
+| `olympus apollo coverage --rules <dir>` | ATT&CK detection-coverage matrix: classifies each technique as covered / partial / no-telemetry against the event types actually ingested (`--events`/`--telemetry`); `--strict` exits non-zero on blind spots |
 | **Minerva** — 🔵 incident response & DFIR | |
 | `olympus minerva triage <alerts> --title <t>` | creates a stable Incident from a strict bounded Apollo export |
 | `olympus minerva record <evidence> <ledger> --actor <a> --action <act>` | locks, verifies and appends a private custody 2.0 entry anchored to the evidence SHA-256 |
@@ -634,6 +635,7 @@ sempre `--help`, es. `olympus argus scan --help`.
 | `olympus apollo test <rule> <event>` | valuta una regola versionata a confronto esatto contro un evento normalizzato, con input/deadline limitati |
 | `olympus apollo run --rules <dir> --events <f>` | elabora NDJSON versionato con limiti su regole/eventi/valutazioni/alert; i record malformati causano un fallimento parziale esplicito |
 | `olympus apollo rules --rules <dir>` | carica, limita e valida una cartella non vuota con ID di regola univoci |
+| `olympus apollo coverage --rules <dir>` | matrice di copertura ATT&CK: classifica ogni tecnica come covered / partial / no-telemetry rispetto ai tipi di evento realmente ingeriti (`--events`/`--telemetry`); `--strict` esce non-zero sui punti ciechi |
 | **Minerva** — 🔵 incident response & DFIR | |
 | `olympus minerva triage <alerts> --title <t>` | crea un Incident stabile da un export Apollo rigoroso e limitato |
 | `olympus minerva record <evidence> <ledger> --actor <a> --action <act>` | blocca, verifica e aggiunge una voce privata custody 2.0 ancorata allo SHA-256 del reperto |

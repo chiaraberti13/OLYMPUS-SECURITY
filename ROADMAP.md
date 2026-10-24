@@ -1920,8 +1920,24 @@ apparentemente pulita.
 - [ ] **P3 — Profilo lab ripetibile:** usare `labs/mars` come ambiente locale
   dichiarato, con seed, versioni, policy, output atteso ed evidenze committate per
   una regressione operativa riproducibile.
-- [ ] Aggiungere una matrice “tecnica ATT&CK → telemetria → regola → test” per
-  mostrare copertura reale, copertura parziale e assenza di dati.
+- [x] Aggiungere una matrice “tecnica ATT&CK → telemetria → regola → test” per
+  mostrare copertura reale, copertura parziale e assenza di dati. **Fatto:**
+  motore puro e offline `apollo/coverage.py` (`assess_coverage`) che correla ogni
+  tecnica ATT&CK referenziata dalle regole con l'`event_type` di cui ciascuna
+  regola ha bisogno e con i tipi di evento **realmente ingeriti**, classificando
+  ogni tecnica come `covered` (tutte le regole hanno la telemetria), `partial`
+  (solo alcune: restano punti ciechi) o `no-telemetry` (regola presente ma dato
+  mai ingerito → tecnica non rilevabile). Riusa il modello `DetectionRule` e i
+  tipi di evento dello stream Apollo; `event_types_from_ndjson` deriva la
+  telemetria disponibile da un capture reale saltando le righe non-evento (stessa
+  disciplina *skip, never guess*). Deterministico e ordinato; nessuna tecnica
+  inventata senza regola (assenza onesta). CLI `olympus apollo coverage --rules
+  … [--events …] [--telemetry …] [--format table|json] [--strict]` (`--strict`
+  esce `1` sui punti ciechi senza telemetria). Test `tests/unit/test_apollo_coverage.py`
+  (engine + CLI); doc [`docs/apollo.md`](docs/apollo.md). La dimensione
+  "tecnica senza alcuna regola" richiederebbe un catalogo ATT&CK di riferimento ed
+  è fuori scope: la matrice misura la copertura del set di detection contro la
+  telemetria disponibile, esattamente il divario che rende una regola cieca.
 
 **Criterio di completamento Purple Team:** la pipeline non misura soltanto se una
 regola scatta, ma se la telemetria necessaria è stata prodotta, ingerita e
