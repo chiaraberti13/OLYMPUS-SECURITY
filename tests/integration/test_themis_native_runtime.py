@@ -94,7 +94,18 @@ def test_api_submission_native_worker_and_cancellation_share_the_store(
             ).json()["state"]
             == "cancelled"
         )
-        empty = runner.invoke(app, ["themis", "workers", "--once", "-d", str(database)])
+        empty = runner.invoke(
+            app,
+            [
+                "themis",
+                "workers",
+                "--once",
+                "--max-concurrent-jobs",
+                "2",
+                "-d",
+                str(database),
+            ],
+        )
         assert empty.exit_code == 0, empty.output
         assert json.loads(empty.output)["claimed"] is False
 

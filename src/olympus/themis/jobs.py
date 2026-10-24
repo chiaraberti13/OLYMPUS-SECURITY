@@ -237,6 +237,22 @@ def generate_worker_id() -> str:
 #: methods that return several jobs name this alias instead.
 JobRecords = list[ThemisJob]
 
+MAX_CONCURRENT_JOBS_LIMIT = 4_096
+
+
+def _validated_concurrency_limit(limit: int | None) -> int | None:
+    if limit is None:
+        return None
+    if (
+        isinstance(limit, bool)
+        or not isinstance(limit, int)
+        or not 1 <= limit <= MAX_CONCURRENT_JOBS_LIMIT
+    ):
+        raise ValueError(
+            f"max_concurrent_jobs must be an integer between 1 and {MAX_CONCURRENT_JOBS_LIMIT}"
+        )
+    return limit
+
 
 @dataclass(frozen=True)
 class ThemisJobStore:
@@ -596,12 +612,24 @@ class ThemisJobStore:
             return [_job(row) for row in db.execute(query, params).fetchall()]
 
     # -- leases ------------------------------------------------------------- #
-    def claim_next(self, worker_id: str | None = None) -> ThemisJob | None:
-        """Lease the oldest due job, after recovering any abandoned lease."""
+    def claim_next(
+        self, worker_id: str | None = None, *, max_concurrent_jobs: int | None = None
+    ) -> ThemisJob | None:
+        """Lease the oldest due job without exceeding the shared running-job cap."""
         owner = _validated_worker_id(worker_id)
+        limit = _validated_concurrency_limit(max_concurrent_jobs)
         self.recover_expired_leases()
         timestamp = _now()
         with self._transaction(immediate=True) as db:
+            if limit is not None:
+                running = int(
+                    db.execute(
+                        "SELECT COUNT(*) FROM themis_jobs WHERE state = ?",
+                        (JobState.RUNNING.value,),
+                    ).fetchone()[0]
+                )
+                if running >= limit:
+                    return None
             row = db.execute(
                 """SELECT job_id FROM themis_jobs
                 WHERE state = ? AND cancel_requested = 0 AND available_at <= ?
@@ -1033,10 +1061,12 @@ class ThemisWorker:
     heartbeat_seconds: float = DEFAULT_HEARTBEAT_SECONDS
     observability: Observability = field(default_factory=Observability)
     manifest_authorizer: ManifestAuthorizer | None = None
+    max_concurrent_jobs: int = 1
     clock: Callable[[], datetime] = field(default=_utcnow, repr=False)
 
     def __post_init__(self) -> None:
         _validated_worker_id(self.worker_id)
+        _validated_concurrency_limit(self.max_concurrent_jobs)
 
     def run_next(
         self,
@@ -1048,7 +1078,7 @@ class ThemisWorker:
         shutdown = cancellation or NeverCancelled()
         if shutdown.is_cancelled():
             return None
-        job = self.store.claim_next(self.worker_id)
+        job = self.store.claim_next(self.worker_id, max_concurrent_jobs=self.max_concurrent_jobs)
         if job is None:
             return None
         started_at = time.monotonic()

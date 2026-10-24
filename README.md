@@ -263,8 +263,8 @@ Redis/Celery or runtime imports from `vendor/`. Every archived VAP route and dat
 boundary now has an explicit, contract-tested retirement decision (`SEC-A`), and
 reviewed terminal history has a non-executable import path. API/Web processes
 sharing the same job database now enforce one crash-recoverable concurrency
-limit; worker bounds, physical source removal and advanced Web milestones remain
-roadmap work. See the bilingual
+limit, and workers sharing the database enforce one atomic running-job cap.
+Physical source removal and advanced Web milestones remain roadmap work. See the bilingual
 [native runtime guide](docs/themis-runtime.md) for configuration and rollback.
 
 **How much of the catalogue actually executes.** The 24-scanner registry is a
@@ -330,7 +330,7 @@ olympus themis serve --scope-directory .olympus/scopes \
   --engagement-storage .olympus/engagements \
   --manifest-public-key approver-ed25519-public.pem \
   --findings-directory .olympus/findings --findings-storage .olympus/finding-transitions.sqlite3
-olympus themis workers --database .olympus/themis-jobs.sqlite3
+olympus themis workers --database .olympus/themis-jobs.sqlite3 --max-concurrent-jobs 1
 ```
 
 Workers that consume API jobs protected by signed manifests must use the same
@@ -339,6 +339,10 @@ revocation store and pinned approver key:
 --manifest-public-key approver-ed25519-public.pem`. A job carrying a manifest
 digest is denied if the worker cannot reload and revalidate that exact signed
 document immediately before scanner execution.
+
+All worker processes sharing the database enforce the same running-job cap
+atomically. The secure default is one; set the same `--max-concurrent-jobs`
+(1–4096) on every replica when parallel execution is explicitly intended.
 
 `serve` and `web` are identical. Browser sessions use HTTPS. Every queued job
 still needs explicit authorization and scope; live scans default to disabled.

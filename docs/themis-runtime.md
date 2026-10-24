@@ -51,7 +51,11 @@ la sessione browser locale. I bind non-loopback richiedono certificato e chiave.
 Il worker continuo stampa una riga JSON quando è pronto e una per ogni job
 terminato. Una singola scansione fallita/parziale non interrompe il servizio.
 Ogni processo esegue un job alla volta; processi distinti condividono i claim
-atomici e i lease SQLite. `--poll-interval` è limitato a 0,05–30 secondi.
+atomici e i lease SQLite. Prima di ogni claim la stessa transazione conta i job
+`running`: `--max-concurrent-jobs` (default 1, intervallo 1–4096) impone così un
+limite aggregato fra tutti i worker sul medesimo database. Le repliche devono
+usare lo stesso valore; lease scaduti sono recuperati prima del conteggio e non
+bloccano capacità. `--poll-interval` è limitato a 0,05–30 secondi.
 API e Web limitano per default a 64 le richieste concorrenti complessive tra i
 processi che condividono lo stesso `--database`; il limite si può regolare con
 `--max-concurrent-requests` (1–4096). Un sidecar SQLite `<database>.requests`
@@ -264,7 +268,9 @@ restore state: expired leases are purged automatically.
 
 The continuous worker emits NDJSON readiness/completion records, runs one job
 at a time and continues after individual job failures. Separate processes
-share atomic SQLite claims/leases. Bounded polling is interruptible;
+share atomic SQLite claims/leases and one aggregate `running` cap, configured
+consistently with `--max-concurrent-jobs` (default 1, range 1–4096). Expired
+leases are recovered before capacity is counted. Bounded polling is interruptible;
 SIGINT/SIGTERM cancel active execution and stop new claims, returning `7`.
 `--once` processes at most one job and preserves canonical exit codes:
 `0` empty/clean, `1` findings, `4` denied, `5` partial, `6` failed/timed out,
@@ -367,8 +373,8 @@ records one source-removal decision for every legacy route and data boundary,
 separating native replacements, intentional exclusions and future native
 capabilities. Reviewed terminal history can now be imported without producing
 executable work or claiming complete runtime parity. Shared-store concurrency
-is now enforced for API/Web processes; worker concurrency and physical source
-retirement remain SEC-A work.
+is now enforced for API/Web processes and worker running jobs; physical source
+retirement remains SEC-A work.
 
 Run `make check`, `python scripts/smoke_native_runtime.py` and, on a Docker host,
 `make test-container`. CI exercises clean-wheel and isolated-container startup

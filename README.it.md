@@ -212,8 +212,9 @@ di ritiro fisico (`SEC-A`): ogni route e confine dati ha ora una decisione
 esplicita e verificata, mentre lo storico terminale revisionato dispone di un
 percorso di import non eseguibile. I processi API/Web che condividono lo stesso
 database applicano ora un unico limite di concorrenza recuperabile dopo crash;
-limiti worker, rimozione fisica del sorgente e milestone Web avanzate restano
-punti distinti. Configurazione e rollback sono nella
+anche i worker applicano un limite atomico ai job in esecuzione. Rimozione
+fisica del sorgente e milestone Web avanzate restano punti distinti.
+Configurazione e rollback sono nella
 [guida al runtime nativo](docs/themis-runtime.md), bilingue IT/EN.
 
 I motori di scansione specialistici sono **integrati e governati, non copiati**.
@@ -257,13 +258,16 @@ olympus themis serve --scope-directory .olympus/scopes \
   --engagement-storage .olympus/engagements \
   --manifest-public-key approver-ed25519-public.pem \
   --findings-directory .olympus/findings --findings-storage .olympus/finding-transitions.sqlite3
-olympus themis workers --database .olympus/themis-jobs.sqlite3
+olympus themis workers --database .olympus/themis-jobs.sqlite3 --max-concurrent-jobs 1
 ```
 
 `serve` e `web` sono identici. Le sessioni browser usano HTTPS. Ogni job in
 coda richiede autorizzazione esplicita e scope; le scansioni live sono
 normalmente disabilitate. `workers --once` mantiene gli exit code canonici;
 il worker continuo prosegue dopo singoli fallimenti e gestisce SIGINT/SIGTERM.
+Tutti i processi worker che condividono il database applicano atomicamente lo
+stesso limite di job `running`. Il default sicuro è uno; per il parallelismo
+esplicito impostare lo stesso `--max-concurrent-jobs` (1–4096) su ogni replica.
 
 Il control plane via browser copre anche la **fase di analisi** del ciclo: con
 `--findings-directory` elenca, filtra e ordina i finding per rischio e con

@@ -313,8 +313,17 @@ Overflow, lock contention e indisponibilità del coordinatore falliscono chiusi
 con `503`, senza accodamento; il sidecar non persiste payload o identità. Le
 repliche devono condividere il job database/volume e la stessa configurazione;
 un deployment multi-host senza storage condiviso richiede ancora un limite a
-monte. Il criterio fail-closed del control plane è completo; limiti worker e
-ritiro fisico del vendor restano aperti, quindi `SEC-A` resta `[~]`.
+monte. Il criterio fail-closed del control plane è completo; il limite worker e
+il ritiro fisico del vendor sono i due residui successivi, quindi `SEC-A` resta `[~]`.
+
+**Avanzamento verificato (2026-10-24, concorrenza worker condivisa):** ogni
+worker esegue un job alla volta e `--max-concurrent-jobs` (default 1, 1–4096)
+limita atomicamente il totale dei job `running` fra tutti i processi che
+condividono il database. Il conteggio e il claim avvengono nella stessa
+transazione SQLite; le lease scadute sono recuperate prima del conteggio e non
+consumano capacità. Configurazioni discordanti tra repliche restano un errore
+operativo documentato. Il limite worker è completo; rimane soltanto la rimozione
+fisica del sorgente VAP archiviato, quindi `SEC-A` resta `[~]`.
 
 ### Intervento B · `SEC-B` — Isolamento forte degli scanner (**P0**)
 

@@ -645,6 +645,13 @@ def themis_workers(
         help="Pinned Ed25519 approver public key used to revalidate bound manifests.",
     ),
     worker_id: str | None = typer.Option(None, "--worker-id", help="Stable lease owner."),
+    max_concurrent_jobs: int = typer.Option(
+        1,
+        "--max-concurrent-jobs",
+        min=1,
+        max=4_096,
+        help="Shared cap for running jobs across workers using this database.",
+    ),
     poll_interval: float = typer.Option(1.0, "--poll-interval", min=0.05, max=30.0),
     once: bool = typer.Option(False, "--once", help="Process at most one job and exit."),
 ) -> None:
@@ -689,6 +696,7 @@ def themis_workers(
             observability=telemetry,
             worker_id=generate_worker_id() if worker_id is None else worker_id,
             manifest_authorizer=manifest_authorizer,
+            max_concurrent_jobs=max_concurrent_jobs,
         )
     except ValueError as exc:
         telemetry.shutdown()
@@ -704,6 +712,7 @@ def themis_workers(
                             "worker_id": worker.worker_id,
                             "live_scans": live,
                             "manifest_revalidation": manifest_authorizer is not None,
+                            "max_concurrent_jobs": max_concurrent_jobs,
                         },
                         sort_keys=True,
                     )

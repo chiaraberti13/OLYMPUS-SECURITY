@@ -29,6 +29,7 @@ MUTATED_FUNCTIONS = {
         "x_approve_legacy_vap_import",
         "x_import_legacy_vap_history",
     ],
+    "src/olympus/themis/jobs.py": ["xǁThemisJobStoreǁclaim_next"],
     "src/olympus/core/coverage.py": ["xǁCoverageǁstatus"],
     "src/olympus/athena/cli.py": ["x__exit_code_for"],
     "src/olympus/athena/domain/assessment.py": [

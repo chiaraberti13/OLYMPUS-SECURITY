@@ -163,6 +163,7 @@ only_mutate = [
     "src/olympus/themis/api.py",
     "src/olympus/themis/concurrency.py",
     "src/olympus/themis/legacy_vap.py",
+    "src/olympus/themis/jobs.py",
     "src/olympus/core/coverage.py",
     "src/olympus/athena/cli.py",
     "src/olympus/athena/domain/assessment.py",

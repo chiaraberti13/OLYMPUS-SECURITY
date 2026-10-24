@@ -10,6 +10,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 from typer.testing import CliRunner
 
 from olympus.cli import app
@@ -581,6 +583,47 @@ def test_claim_leases_the_job_to_exactly_one_worker(tmp_path: Path) -> None:
     assert claimed.attempts == 1
     assert claimed.lease_expires_at is not None
     assert store.claim_next("worker-b") is None
+
+
+def test_shared_worker_limit_is_atomic_across_store_instances(tmp_path: Path) -> None:
+    database = tmp_path / "jobs.sqlite3"
+    first_store = ThemisJobStore(database)
+    second_store = ThemisJobStore(database)
+    first_job = _submit(first_store, tmp_path)
+    second_job = _submit(first_store, tmp_path)
+
+    claimed = first_store.claim_next("worker-a", max_concurrent_jobs=1)
+    assert claimed is not None and claimed.job_id == first_job.job_id
+    assert second_store.claim_next("worker-b", max_concurrent_jobs=1) is None
+    assert second_store.get(second_job.job_id).state is JobState.QUEUED
+
+    first_store.complete(first_job.job_id, worker_id="worker-a", state=JobState.SUCCEEDED)
+    released = second_store.claim_next("worker-b", max_concurrent_jobs=1)
+    assert released is not None and released.job_id == second_job.job_id
+
+
+def test_shared_worker_limit_recovers_expired_capacity(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3", backoff_seconds=0.0)
+    _submit(store, tmp_path, max_attempts=2)
+    _submit(store, tmp_path)
+    first_claim = store.claim_next("worker-a", max_concurrent_jobs=1)
+    assert first_claim is not None
+    _expire_lease(store, first_claim.job_id)
+
+    reclaimed = store.claim_next("worker-b", max_concurrent_jobs=1)
+    assert reclaimed is not None and reclaimed.worker_id == "worker-b"
+
+
+@pytest.mark.parametrize("limit", [True, 0, 4_097])
+def test_worker_refuses_invalid_shared_concurrency_limit(tmp_path: Path, limit: int) -> None:
+    with pytest.raises(ValueError, match="max_concurrent_jobs"):
+        ThemisWorker(ThemisJobStore(tmp_path / "jobs.sqlite3"), max_concurrent_jobs=limit)
+
+
+@given(st.one_of(st.integers(max_value=0), st.integers(min_value=4_097)))
+def test_worker_concurrency_limit_is_property_bounded(limit: int) -> None:
+    with pytest.raises(ValueError, match="max_concurrent_jobs"):
+        ThemisWorker(ThemisJobStore(Path("unused.sqlite3")), max_concurrent_jobs=limit)
 
 
 def test_heartbeat_extends_a_lease_only_for_its_owner(tmp_path: Path) -> None:

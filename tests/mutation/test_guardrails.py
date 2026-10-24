@@ -63,6 +63,30 @@ def test_api_concurrency_gate_rejects_overflow_and_recovers_after_release(
     assert gate.try_acquire() is not None
 
 
+def test_worker_claim_gate_enforces_shared_limit_and_releases_capacity(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    scope = tmp_path / "scope.json"
+    first = store.submit(
+        scanner="nmap",
+        target="127.0.0.1",
+        target_kind="host",
+        scope_path=scope,
+        authorized=True,
+    )
+    store.submit(
+        scanner="nmap",
+        target="127.0.0.2",
+        target_kind="host",
+        scope_path=scope,
+        authorized=True,
+    )
+
+    assert store.claim_next("worker-a", max_concurrent_jobs=1) is not None
+    assert store.claim_next("worker-b", max_concurrent_jobs=1) is None
+    store.complete(first.job_id, worker_id="worker-a", state=ThemisJobState.SUCCEEDED)
+    assert store.claim_next("worker-b", max_concurrent_jobs=1) is not None
+
+
 def test_api_settings_default_shared_key_scope_is_minimum_and_validated(tmp_path: Path) -> None:
     settings = ApiSettings(
         database=tmp_path / "jobs.sqlite3",
