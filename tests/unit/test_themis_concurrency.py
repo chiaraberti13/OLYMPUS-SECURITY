@@ -4,6 +4,8 @@ import sqlite3
 import stat
 import subprocess
 import sys
+import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -107,6 +109,24 @@ def test_gate_fails_closed_instead_of_waiting_for_a_locked_store(tmp_path: Path)
     with sqlite3.connect(gate.path, isolation_level=None) as writer:
         writer.execute("BEGIN IMMEDIATE")
         assert gate.try_acquire() is None
+
+
+def test_release_waits_for_a_temporary_store_lock(tmp_path: Path) -> None:
+    gate = RequestConcurrencyGate(tmp_path / "jobs.sqlite3", 1)
+    lease = gate.try_acquire()
+    assert lease is not None
+
+    with sqlite3.connect(gate.path, isolation_level=None) as writer:
+        writer.execute("BEGIN IMMEDIATE")
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            released = pool.submit(gate.release, lease)
+            time.sleep(0.05)
+            writer.commit()
+            released.result(timeout=2)
+
+    replacement = gate.try_acquire()
+    assert replacement is not None
+    gate.release(replacement)
 
 
 @pytest.mark.posix_only

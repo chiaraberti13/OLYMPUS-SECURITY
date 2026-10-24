@@ -451,7 +451,7 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
             heartbeat.cancel()
             with suppress(asyncio.CancelledError):
                 await heartbeat
-            concurrency.release(lease)
+            await asyncio.to_thread(concurrency.release, lease)
 
     @app.get("/health", tags=["operations"])
     def health() -> dict[str, str]:

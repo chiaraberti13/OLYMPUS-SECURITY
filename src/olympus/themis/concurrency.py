@@ -11,6 +11,7 @@ from pathlib import Path
 from uuid import uuid4
 
 DEFAULT_REQUEST_LEASE_SECONDS = 30.0
+RELEASE_TIMEOUT_SECONDS = 1.0
 
 
 @dataclass(frozen=True)
@@ -102,7 +103,7 @@ class RequestConcurrencyGate:
     def release(self, lease: RequestLease) -> None:
         """Release owned capacity; expiry makes repeated release harmless."""
         try:
-            with self._transaction() as db:
+            with self._transaction(timeout=RELEASE_TIMEOUT_SECONDS) as db:
                 db.execute(
                     "DELETE FROM request_leases WHERE namespace = ? AND token = ?",
                     (self._namespace, lease.token),
@@ -172,8 +173,8 @@ class RequestConcurrencyGate:
         return db
 
     @contextmanager
-    def _transaction(self) -> Iterator[sqlite3.Connection]:
-        db = self._connect()
+    def _transaction(self, *, timeout: float = 0.0) -> Iterator[sqlite3.Connection]:
+        db = self._connect(timeout=timeout)
         try:
             db.execute("BEGIN IMMEDIATE")
             yield db
