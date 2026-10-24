@@ -42,9 +42,21 @@ olympus apollo ingest --format access-log --input access.log --output events.ndj
 olympus apollo run --rules ./rules --events events.ndjson --output alerts.json
 ```
 
-Additional formats (Sysmon/Windows Event, Zeek) can plug into the same
-`core.Event` shape. Sysmon capture needs real Windows telemetry, so it is tracked
-in [`ROADMAP.md`](../ROADMAP.md) as `OPS-BLUE` rather than declared here.
+The second format is `zeek-json` — Zeek JSON-streaming logs (one record per
+line). The record's `_path` selects the log kind: `conn`, `dns`, `http` and `ssl`
+map to `network.connection`, `dns.query`, `http.request` and `tls.session`
+events, using documented Zeek fields only (read both as flat `id.orig_h` keys and
+the nested `{"id": {"orig_h"}}` form). A line with no known `_path` or no mappable
+field is skipped, never guessed; the epoch `ts` is anchored to UTC.
+
+```bash
+olympus apollo ingest --format zeek-json --input conn.log --output events.ndjson
+olympus apollo run --rules ./rules --events events.ndjson --output alerts.json
+```
+
+A further format (Sysmon/Windows Event) plugs into the same `core.Event` shape;
+Sysmon capture needs real Windows telemetry, so it stays tracked in
+[`ROADMAP.md`](../ROADMAP.md) as `OPS-BLUE` rather than declared here.
 
 ## Streaming and limits
 

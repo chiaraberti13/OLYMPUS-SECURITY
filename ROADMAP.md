@@ -1881,7 +1881,20 @@ eseguibile solo perché il binario esterno è installato.
 
 - [~] **P1 — Ingest Apollo:** aggiungere Sysmon/Windows Event e Zeek oltre al
   formato access-log già disponibile. Separare sempre acquisizione e parsing,
-  usare fixture sanitizzate reali e non inventare campi mancanti.
+  usare fixture sanitizzate reali e non inventare campi mancanti. **Zeek fatto:**
+  `apollo/ingest.py` `parse_zeek_json`/`iter_zeek_json` normalizza i log
+  Zeek JSON-streaming (`_path` → kind) mappando `conn`/`dns`/`http`/`ssl` a
+  `network.connection`/`dns.query`/`http.request`/`tls.session` con i soli campi
+  Zeek documentati (chiavi `id.orig_h` piatte **o** forma annidata `{"id":{...}}`);
+  acquisizione (CLI, I/O bounded) separata dal parsing puro; *skip, never guess*
+  (JSON non valido, `_path` sconosciuto, nessun campo mappabile o nesting
+  eccessivo → riga saltata con motivo, mai evento fabbricato); `ts` epoch ancorato
+  a UTC. CLI `olympus apollo ingest --format zeek-json`. Fixture format-fedele
+  sintetica `tests/fixtures/apollo/ingest/zeek.jsonl`; test
+  `tests/integration/test_apollo_ingest_zeek.py` (parse per-kind, forma annidata,
+  skip, backpressure, CLI ingest→run con rilevazione DNS C2). Doc
+  [`docs/apollo.md`](docs/apollo.md). **Resta:** Sysmon/Windows Event (richiede
+  telemetria Windows reale).
 - [⏸] **P1 — Detection engineering loop:** eseguire regola Sigma → generazione di
   telemetria controllata → verifica → tuning → regression test, usando Atomic Red
   Team soltanto in un lab autorizzato.

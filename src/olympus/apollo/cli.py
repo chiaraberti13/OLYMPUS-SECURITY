@@ -20,7 +20,7 @@ from olympus.apollo.application import (
 )
 from olympus.apollo.attack import build_navigator_layer, techniques_from_rules
 from olympus.apollo.export import export_alerts, export_alerts_ecs, export_alerts_ocsf
-from olympus.apollo.ingest import IngestError, iter_access_log
+from olympus.apollo.ingest import IngestError, iter_access_log, iter_zeek_json
 from olympus.apollo.rules import DEFAULT_MAX_RULE_BYTES, DEFAULT_MAX_RULES
 from olympus.apollo.sigma import SigmaImportError, sigma_to_rule
 from olympus.core.contracts import ContractCompatibilityError
@@ -216,7 +216,7 @@ def ingest(
         ..., "--output", help="NDJSON of core.Event, ready for `apollo run --events`."
     ),
     telemetry_format: str = typer.Option(
-        "access-log", "--format", help="Telemetry format. Supported: access-log."
+        "access-log", "--format", help="Telemetry format. Supported: access-log, zeek-json."
     ),
     source: str = typer.Option(
         "manual", "--source", help="Source tag for the emitted events (an olympus source)."
@@ -232,9 +232,12 @@ def ingest(
     reason (reported on stderr), never coerced into a bogus event. The output is
     consumed directly by ``apollo run --events``.
     """
-    if telemetry_format != "access-log":
+    parsers = {"access-log": iter_access_log, "zeek-json": iter_zeek_json}
+    parser = parsers.get(telemetry_format)
+    if parser is None:
         _echo_terminal(
-            f"apollo: unsupported ingest format: {telemetry_format} (supported: access-log)",
+            f"apollo: unsupported ingest format: {telemetry_format} "
+            f"(supported: {', '.join(sorted(parsers))})",
             err=True,
         )
         raise typer.Exit(code=ExitCode.USAGE)
@@ -253,7 +256,7 @@ def ingest(
         ingested = 0
         skipped = 0
         with atomic_text_writer(dst, mode=0o600) as output:
-            for item in iter_access_log(records, source=source_tag, max_lines=max_lines):
+            for item in parser(records, source=source_tag, max_lines=max_lines):
                 if isinstance(item, Event):
                     output.write(item.model_dump_json() + "\n")
                     ingested += 1

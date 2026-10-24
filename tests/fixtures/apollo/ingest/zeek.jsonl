@@ -1,0 +1,7 @@
+{"_path":"conn","ts":1761300000.512,"id.orig_h":"10.10.0.5","id.orig_p":49210,"id.resp_h":"10.10.0.9","id.resp_p":445,"proto":"tcp","service":"smb","conn_state":"S0","orig_bytes":0,"resp_bytes":0}
+{"_path":"dns","ts":1761300001.004,"id":{"orig_h":"10.10.0.5","resp_h":"10.10.0.53"},"query":"c2.evil.example","qtype_name":"A","rcode_name":"NOERROR"}
+{"_path":"http","ts":1761300002.330,"id.orig_h":"10.10.0.5","id.resp_h":"203.0.113.10","method":"POST","host":"c2.evil.example","uri":"/beacon","status_code":200,"user_agent":"Mozilla/5.0"}
+{"_path":"ssl","ts":1761300003.140,"id.orig_h":"10.10.0.5","id.resp_h":"203.0.113.10","server_name":"c2.evil.example","version":"TLSv13","validation_status":"self signed certificate"}
+this line is not valid JSON
+{"_path":"weird","ts":1761300004.0,"x":1}
+{"_path":"conn","ts":"not-a-number","id.orig_h":"10.10.0.7","id.resp_h":"10.10.0.9","id.resp_p":22,"proto":"tcp"}

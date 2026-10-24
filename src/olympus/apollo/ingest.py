@@ -21,10 +21,18 @@ variant (same field layout, space between date and time), mapping each request t
 ``event_type="http.request"`` with string attributes a detection rule can match
 (``client_ip``, ``method``, ``path``, ``query``, ``protocol``, ``status``,
 ``bytes``, and — for Combined — ``referer``, ``user_agent``).
+
+Second format: **Zeek JSON-streaming logs** (:func:`parse_zeek_json`). Each line
+is one Zeek record (NDJSON); its ``_path`` selects the log kind. The ``conn``,
+``dns``, ``http`` and ``ssl`` kinds map to ``network.connection``, ``dns.query``,
+``http.request`` and ``tls.session`` events using documented Zeek fields only
+(read as flat ``id.orig_h`` keys or the nested ``{"id": {"orig_h"}}`` form). A
+line with no known ``_path`` or no mappable field is skipped, never guessed.
 """
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
@@ -155,6 +163,172 @@ def _event_from_match(match: re.Match[str], source: Source) -> Event:
     if observed is not None:
         fields["observed_at"] = observed
     return Event(**fields)  # type: ignore[arg-type]
+
+
+#: Zeek ``_path`` (log kind) -> (event_type, {zeek field: event attribute}). Only
+#: documented, stable Zeek fields are mapped; anything else is ignored rather than
+#: guessed. Field names are read both as Zeek's flat dotted keys (``id.orig_h``)
+#: and, as a fallback, as the nested ``{"id": {"orig_h": ...}}`` form, so either
+#: JSON logger layout works without inventing data.
+_ZEEK_MAP: dict[str, tuple[str, dict[str, str]]] = {
+    "conn": (
+        "network.connection",
+        {
+            "id.orig_h": "client_ip",
+            "id.orig_p": "src_port",
+            "id.resp_h": "dest_ip",
+            "id.resp_p": "dest_port",
+            "proto": "transport",
+            "service": "service",
+            "conn_state": "conn_state",
+            "orig_bytes": "orig_bytes",
+            "resp_bytes": "resp_bytes",
+        },
+    ),
+    "dns": (
+        "dns.query",
+        {
+            "id.orig_h": "client_ip",
+            "id.resp_h": "dest_ip",
+            "query": "query",
+            "qtype_name": "query_type",
+            "rcode_name": "response_code",
+        },
+    ),
+    "http": (
+        "http.request",
+        {
+            "id.orig_h": "client_ip",
+            "id.resp_h": "dest_ip",
+            "method": "method",
+            "host": "host",
+            "uri": "path",
+            "status_code": "status",
+            "user_agent": "user_agent",
+        },
+    ),
+    "ssl": (
+        "tls.session",
+        {
+            "id.orig_h": "client_ip",
+            "id.resp_h": "dest_ip",
+            "server_name": "server_name",
+            "version": "tls_version",
+            "validation_status": "validation_status",
+        },
+    ),
+}
+
+
+def _zeek_field(record: dict[str, object], key: str) -> object:
+    """Read a Zeek field as a flat dotted key, falling back to the nested form."""
+    if key in record:
+        return record[key]
+    if "." in key:
+        head, _, tail = key.partition(".")
+        nested = record.get(head)
+        if isinstance(nested, dict):
+            return nested.get(tail)
+    return None
+
+
+def _stringify(value: object) -> str:
+    """Render a scalar Zeek value as an attribute string; empty for None/containers."""
+    if value is None or isinstance(value, (dict, list)):
+        return ""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)
+
+
+def _zeek_timestamp(value: object) -> datetime | None:
+    """Convert a Zeek epoch ``ts`` (seconds, int/float/numeric str) to a UTC datetime."""
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        return None
+    try:
+        epoch = float(value)
+    except ValueError:
+        return None
+    try:
+        return datetime.fromtimestamp(epoch, tz=UTC)
+    except (OverflowError, OSError, ValueError):
+        return None
+
+
+def iter_zeek_json(
+    lines: Iterable[str],
+    *,
+    source: Source = Source.MANUAL,
+    max_lines: int = 1_000_000,
+) -> Iterator[Event | SkippedLine]:
+    """Parse Zeek JSON-streaming log lines lazily into normalized events.
+
+    Each line is one Zeek record (NDJSON). The ``_path`` field selects the log
+    kind; only the ``conn``/``dns``/``http``/``ssl`` kinds with documented fields
+    are mapped. A line that is not a JSON object, has no known ``_path``, or
+    carries no mappable field is recorded as skipped — never coerced into an
+    event with invented fields.
+    """
+    if not 1 <= max_lines <= 10_000_000:
+        raise ValueError("max_lines must be between 1 and 10000000")
+    for number, line in enumerate(lines, start=1):
+        if number > max_lines:
+            yield SkippedLine(number, line[:80], "line budget exceeded")
+            break
+        stripped = line.strip()
+        if not stripped:
+            continue
+        try:
+            record = json.loads(stripped)
+        except json.JSONDecodeError:
+            yield SkippedLine(number, stripped[:80], "not valid JSON")
+            continue
+        except RecursionError:
+            # A pathologically nested line is skipped honestly, never crashed on.
+            yield SkippedLine(number, stripped[:80], "JSON nesting too deep")
+            continue
+        if not isinstance(record, dict):
+            yield SkippedLine(number, stripped[:80], "not a JSON object")
+            continue
+        path = record.get("_path")
+        if not isinstance(path, str) or path not in _ZEEK_MAP:
+            yield SkippedLine(number, stripped[:80], "unknown or missing Zeek _path")
+            continue
+        event_type, field_map = _ZEEK_MAP[path]
+        attributes = {
+            attribute: _stringify(_zeek_field(record, zeek_key))
+            for zeek_key, attribute in field_map.items()
+        }
+        attributes = {key: value for key, value in attributes.items() if value}
+        if not attributes:
+            yield SkippedLine(number, stripped[:80], f"no mappable {path} fields")
+            continue
+        fields: dict[str, object] = {
+            "event_type": event_type,
+            "source": source,
+            "attributes": attributes,
+        }
+        observed = _zeek_timestamp(record.get("ts"))
+        if observed is not None:
+            fields["observed_at"] = observed
+        yield Event(**fields)  # type: ignore[arg-type]
+
+
+def parse_zeek_json(
+    text: str,
+    *,
+    source: Source = Source.MANUAL,
+    max_lines: int = 1_000_000,
+) -> IngestResult:
+    """Parse Zeek JSON-streaming log text into normalized events (skip, never guess)."""
+    events: list[Event] = []
+    skipped: list[SkippedLine] = []
+    for item in iter_zeek_json(text.splitlines(), source=source, max_lines=max_lines):
+        if isinstance(item, Event):
+            events.append(item)
+        else:
+            skipped.append(item)
+    return IngestResult(events=tuple(events), skipped=tuple(skipped))
 
 
 def events_to_ndjson(events: Iterable[Event]) -> str:
