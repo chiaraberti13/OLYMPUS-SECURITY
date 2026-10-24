@@ -17,10 +17,16 @@ def test_a_json_array_line_is_skipped_not_treated_as_a_record() -> None:
 
 
 def test_deeply_nested_line_is_skipped_without_crashing() -> None:
-    bomb = "[" * 20_000 + "]" * 20_000  # exceeds the JSON recursion limit
+    bomb = "[" * 20_000 + "]" * 20_000  # pathologically nested JSON array
+    # The invariant is that such a line never crashes the ingest and never yields
+    # an event. Whether the decoder raises (a recursion guard) or accepts it as a
+    # non-object is version-dependent — on CPython <=3.13 json.loads raises
+    # RecursionError, on 3.14+ it parses the nested list — so both honest skip
+    # reasons are acceptable; what matters is: no event, and the line is skipped.
     result = parse_zeek_json(bomb)
     assert result.events == ()
-    assert any(item.reason == "JSON nesting too deep" for item in result.skipped)
+    assert result.skipped, "a pathological line must be skipped, never ingested"
+    assert result.skipped[0].reason in {"JSON nesting too deep", "not a JSON object"}
 
 
 def test_boolean_fields_render_as_true_false_and_absent_fields_drop() -> None:
