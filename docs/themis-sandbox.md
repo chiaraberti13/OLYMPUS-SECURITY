@@ -114,8 +114,13 @@ process-level ones. Do not read the guarantees above as covering them:
   concern.
 
 The container test starts the native runtime under the repository profile and
-probes a denied `process_vm_readv` call. This demonstrates profile loading and
-kernel enforcement in CI; it does not demonstrate network containment or close
+probes a denied `process_vm_readv` call. It also runs a bounded, offline escape
+probe with a 32-PID cgroup limit: the probe checks the read-only root, writable
+scratch, absence of a host-only canary, protected kernel memory, zero effective
+capabilities, `no-new-privileges`, seccomp filter mode and denied user-namespace
+creation. All spawned children are reaped even on failure. This demonstrates
+profile loading and selected kernel controls in CI; it does not demonstrate
+egress containment, mandatory confinement of direct host CLI runs or close
 SEC-B by itself.
 
 ## Operational notes

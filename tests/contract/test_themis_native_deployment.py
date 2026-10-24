@@ -104,3 +104,17 @@ def test_native_images_never_copy_vendor_or_the_whole_checkout() -> None:
     overlay = yaml.safe_load((ROOT / "docker-compose.scanners.yml").read_text())
     assert set(overlay["services"]) == {"themis-worker"}
     assert overlay["services"]["themis-worker"]["build"]["context"] == "."
+
+
+def test_container_escape_probe_is_bounded_and_offline() -> None:
+    source = (ROOT / "scripts/probe_scanner_container.py").read_text()
+    tree = ast.parse(source)
+    assert "range(_MAX_CHILDREN)" in source
+    assert "errno.EAGAIN" in source
+    assert "child.terminate()" in source and "child.kill()" in source
+    assert "HOST_SECRET_PATH" in source
+    assert not any(
+        isinstance(node, ast.Import) and any(alias.name == "socket" for alias in node.names)
+        for node in ast.walk(tree)
+    )
+    assert "http://" not in source and "https://" not in source

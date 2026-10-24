@@ -13,7 +13,7 @@ IMAGE = "olympus-native-runtime-test:local"
 SECCOMP_PROFILE = ROOT / "deploy/security/themis-scanner-seccomp.json"
 
 
-def test_native_image_runs_migrations_api_web_and_worker() -> None:
+def test_native_image_runs_migrations_api_web_worker_and_escape_probes(tmp_path: Path) -> None:
     docker = shutil.which("docker")
     if docker is None:
         pytest.fail("Docker is required for the explicitly selected container suite")
@@ -89,3 +89,42 @@ def test_native_image_runs_migrations_api_web_and_worker() -> None:
         timeout=30,
     )
     assert "seccomp denied process_vm_readv" in denied.stdout
+
+    host_canary = tmp_path / "host-only-sensitive-file"
+    host_canary.write_text("synthetic host-only canary")
+    probes = subprocess.run(
+        [
+            docker,
+            "run",
+            "--rm",
+            "--network",
+            "none",
+            "--read-only",
+            "--pids-limit",
+            "32",
+            "--cap-drop",
+            "ALL",
+            "--security-opt",
+            "no-new-privileges:true",
+            "--security-opt",
+            f"seccomp={SECCOMP_PROFILE}",
+            "--tmpfs",
+            "/tmp:rw,noexec,nosuid,size=16m,mode=1777",  # noqa: S108
+            "--tmpfs",
+            "/data:rw,noexec,nosuid,size=16m,uid=10001,gid=10001,mode=0700",
+            "--env",
+            f"HOST_SECRET_PATH={host_canary}",
+            "--mount",
+            f"type=bind,source={ROOT / 'scripts' / 'probe_scanner_container.py'},"
+            "target=/probe.py,readonly",
+            "--entrypoint",
+            "python",
+            IMAGE,
+            "/probe.py",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=45,
+    )
+    assert "scanner container escape probes passed" in probes.stdout
