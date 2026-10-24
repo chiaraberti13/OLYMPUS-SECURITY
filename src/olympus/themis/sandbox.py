@@ -237,6 +237,8 @@ def inspect_scanner_isolation(
     mountinfo_path: Path = Path("/proc/self/mountinfo"),
     attestation_path: Path = SCANNER_RUNTIME_ATTESTATION,
     runtime_markers: tuple[Path, ...] = CONTAINER_RUNTIME_MARKERS,
+    trusted_uid: int = 0,
+    platform_name: str | None = None,
 ) -> ScannerIsolationStatus:
     """Inspect the current process without trusting an environment toggle.
 
@@ -247,12 +249,16 @@ def inspect_scanner_isolation(
     import hashlib
     import sys
 
-    if not sys.platform.startswith("linux"):
+    observed_platform = sys.platform if platform_name is None else platform_name
+    if not observed_platform.startswith("linux"):
         return ScannerIsolationStatus(None, None, False, False, False, False)
 
-    marker = next((path for path in runtime_markers if _trusted_root_file(path)), None)
+    marker = next(
+        (path for path in runtime_markers if _trusted_root_file(path, trusted_uid=trusted_uid)),
+        None,
+    )
     attestation_sha256: str | None = None
-    if _trusted_root_file(attestation_path):
+    if _trusted_root_file(attestation_path, trusted_uid=trusted_uid):
         try:
             payload = attestation_path.read_bytes()
         except OSError:
@@ -304,14 +310,14 @@ def require_scanner_isolation() -> None:
     )
 
 
-def _trusted_root_file(path: Path) -> bool:
+def _trusted_root_file(path: Path, *, trusted_uid: int = 0) -> bool:
     try:
         metadata = path.stat(follow_symlinks=False)
     except OSError:
         return False
     return (
         stat.S_ISREG(metadata.st_mode)
-        and metadata.st_uid == 0
+        and metadata.st_uid == trusted_uid
         and metadata.st_mode & (stat.S_IWGRP | stat.S_IWOTH) == 0
     )
 

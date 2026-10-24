@@ -52,6 +52,7 @@ from olympus.themis.runner import CommandOutput
 from olympus.themis.sandbox import (
     SCANNER_RUNTIME_ATTESTATION_SHA256,
     ScannerIsolationStatus,
+    _trusted_root_file,
     inspect_scanner_isolation,
 )
 
@@ -100,6 +101,8 @@ def test_scanner_runtime_gate_requires_every_kernel_and_image_property(tmp_path:
         mountinfo_path=mountinfo,
         attestation_path=attestation,
         runtime_markers=(marker,),
+        trusted_uid=marker.stat().st_uid,
+        platform_name="linux",
     )
     assert observed == complete.__class__(
         runtime_marker=str(marker),
@@ -109,6 +112,31 @@ def test_scanner_runtime_gate_requires_every_kernel_and_image_property(tmp_path:
         no_new_privileges=True,
         seccomp_filtering=True,
     )
+
+
+def test_scanner_runtime_attestation_file_must_be_regular_owned_and_immutable(
+    tmp_path: Path,
+) -> None:
+    trusted = tmp_path / "trusted"
+    trusted.write_text("attested", encoding="utf-8")
+    trusted.chmod(0o644)
+    trusted_uid = trusted.stat().st_uid
+
+    assert _trusted_root_file(trusted, trusted_uid=trusted_uid)
+    assert not _trusted_root_file(trusted, trusted_uid=trusted_uid + 1)
+
+    trusted.chmod(0o664)
+    assert not _trusted_root_file(trusted, trusted_uid=trusted_uid)
+    trusted.chmod(0o644)
+
+    directory = tmp_path / "directory"
+    directory.mkdir()
+    assert not _trusted_root_file(directory, trusted_uid=directory.stat().st_uid)
+    assert not _trusted_root_file(tmp_path / "missing", trusted_uid=trusted_uid)
+
+    symlink = tmp_path / "symlink"
+    symlink.symlink_to(trusted)
+    assert not _trusted_root_file(symlink, trusted_uid=trusted_uid)
 
 
 def test_api_concurrency_gate_rejects_overflow_and_recovers_after_release(

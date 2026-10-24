@@ -88,6 +88,8 @@ def test_live_scanner_isolation_requires_all_kernel_and_image_guards(tmp_path: P
         mountinfo_path=mountinfo,
         runtime_markers=(marker,),
         attestation_path=attestation,
+        trusted_uid=marker.stat().st_uid,
+        platform_name="linux",
     )
 
     assert observed.ready
@@ -131,6 +133,8 @@ def test_live_scanner_isolation_fails_closed_for_each_missing_guard(
         mountinfo_path=mountinfo,
         runtime_markers=runtime_markers,
         attestation_path=attestation,
+        trusted_uid=marker.stat().st_uid,
+        platform_name="linux",
     )
 
     assert not observed.ready
