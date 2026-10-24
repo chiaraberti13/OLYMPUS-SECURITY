@@ -134,6 +134,13 @@
       "sha256": "876fc509197b70fac11e5f9c37145e5d02710fbed855089843f907b23fda2d49"
     },
     {
+      "direction": "output",
+      "name": "olympus.notification",
+      "path": "contracts/olympus.notification/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "d7e1389b0c7c104558fbd1eb032c470209f75404ed938a63467496f4061bc570"
+    },
+    {
       "direction": "shared",
       "name": "olympus.observation",
       "path": "contracts/olympus.observation/1.0.0.schema.json",

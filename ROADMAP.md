@@ -134,7 +134,7 @@ Legenda stato: ✅ implementata · 🟡 parziale · 🗓️ pianificata · ❌ a
 | **Prometheus** (monitoraggio) | monitoring continuo | ♻️ **doppio conflitto**: il noto sistema Prometheus e il backend `observability` già chiamato `prometheus` (`core/observability.py`) | **Scartare il nome**; monitoring → estende `core/observability.py` + scheduler (`D13`) |
 | **Hestia** (secret detection) | secret detection | ♻️ è **Hermes** (nativo: regex+entropia+git history, `hermes/scanner.py`) | **Scartare**: già Hermes |
 | **Hephaestus** (supply-chain) | supply-chain security | 🟡 SBOM `core/sbom.py`, lockfile, pip-audit/gitleaks in CI; nome già **riservato** per hardening/CIS (`OPS-BLUE`) | **Integrare** in `SEC-F` (provenance/SLSA/Cosign) + candidati Trivy/OSV (`OPS-SCAN`); non un modulo nuovo |
-| **Iris** (notifiche) | notifiche | ❌ assente | **Integrare** come `WEB-I` (porta di output sul core), non modulo dominio |
+| **Iris** (notifiche) | notifiche | 🟡 porta `core/notifications.py` (webhook SSRF-safe, redatta, off-by-default) | `WEB-I`: resta canale e-mail + emissione automatica sul loop job Themis |
 | **Chronos** (scheduler) | scheduling | ❌ assente (job store c'è) | **Integrare** come servizio di scheduling su `themis/jobs.py` (`D13`); nome solo se diventa sub-app CLI |
 | **Oracle** (risk scoring) | risk scoring | ♻️ **conflitto di nome** (Oracle DB); parziale in `vulcan/enrichment.prioritize` | **Scartare il nome**; estendere `vulcan` con risk score + confidence |
 
@@ -1643,8 +1643,23 @@ lo stesso port; l'utente locale non deve installare Postgres.
 - [ ] **Resta aperto**: porte/servizi come superficie di primo livello (richiede
   un'estensione del contratto `Asset`) e la vista trend multi-snapshot nel browser
   (richiede uno storico persistente degli snapshot).
-- [ ] **Notifiche**: canali opzionali (webhook/e-mail) su eventi di job e finding,
-  con payload redatto e nessun segreto; disattivate di default.
+- [~] **Notifiche (porta di output sul core).** `core/notifications.py` è la porta
+  "Iris" (non un nuovo modulo dominio): trasforma un `core.Finding` o un
+  `core.ScanJob` in un payload `Notification` **versionato** (`olympus.notification`
+  `1.0.0`, pubblicato nel catalogo schemi) e **redatto** (ogni testo via
+  `safe_terminal_text`, ogni label via `redact_mapping`: nessun segreto), e lo
+  recapita solo quando configurato. **Disattivate di default**: un
+  `NotificationDispatcher` senza canali è un no-op e senza `--webhook` la CLI
+  mostra solo l'anteprima, senza alcuna chiamata di rete. Canale **webhook**
+  `WebhookChannel` con trasporto `PinnedWebhookPoster` **SSRF-safe** (ogni hop
+  vincolato alla `global_address_policy` solo-pubblica; solo schemi `http(s)`);
+  una consegna non-2xx o fallita è riportata, mai sollevata. CLI `olympus vulcan
+  notify --findings … [--min-severity …] [--webhook …]` (anteprima redatta o
+  consegna; exit `5` se una consegna fallisce). Test
+  `tests/unit/test_core_notifications.py`; doc [`docs/findings.md`](docs/findings.md).
+  **Resta da fare:** canale e-mail (stessa porta `NotificationChannel`) ed
+  emissione automatica sugli eventi di job/finding del loop Themis (il motore e i
+  builder per job e finding ci sono già).
 
 **Criterio di completamento:** un operatore confronta due assessment e riceve una
 notifica redatta alla chiusura di un job, senza logica di report duplicata.
