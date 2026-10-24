@@ -88,7 +88,7 @@ di sicurezza forti, release riproducibili e flussi operativi comprensibili.
 | Area | Evidenza nel repository | Gap da chiudere |
 | --- | --- | --- |
 | Architettura | `src/olympus/` contiene moduli separati e un contratto dati comune | runtime `themis api/serve/migrate/workers` nativo e testato dalla wheel; resta la parità completa endpoint/dati legacy (`SEC-A`) |
-| Sicurezza runtime | `core.execution`, `core.http`, `core.pinning`, `aegis.sandbox` | manca un egress allowlist per gli scanner e non sono applicati seccomp/AppArmor |
+| Sicurezza runtime | `core.execution`, `core.http`, `core.pinning`, `aegis.sandbox` | manca un egress allowlist per gli scanner; seccomp è predefinito, AppArmor richiede l'overlay esplicito su host compatibili |
 | Credenziali | i segreti first-party sono letti dall'ambiente e redatti | manca un backend opzionale per secret manager e una policy uniforme di rotazione |
 | Autorizzazione | scope file + conferma esplicita prima dell'esecuzione | lo scope non è ancora un engagement manifest firmato, con scadenza e approvatore |
 | Supply chain | SBOM, hash lock, audit dipendenze e secret scan | mancano attestazioni di build, firma immagini/release e SAST CodeQL bloccante |
@@ -341,7 +341,7 @@ group. Il file dichiara correttamente ciò che manca.
 
 - [~] Eseguire ogni scanner in un namespace/container con filesystem root
   read-only, capability Linux azzerate, `no-new-privileges` e profilo seccomp.
-- [ ] Applicare AppArmor o SELinux dove disponibile e pubblicare un profilo
+- [~] Applicare AppArmor o SELinux dove disponibile e pubblicare un profilo
   versionato nel repository.
 - [ ] Separare control plane e scan plane; consentire egress solo verso IP e porte
   derivati dallo scope già validato.
@@ -357,8 +357,9 @@ nega namespace aggiuntivi e syscall kernel ad alto rischio; il job CI
 `native-container` avvia il runtime con quel profilo e verifica un rifiuto
 `EPERM`. Il runtime locale non dispone di Docker/Podman e non consente `ptrace`,
 quindi la prova kernel container resta demandata alla CI. SEC-B rimane `[~]`:
-la CLI host non è ancora containerizzata obbligatoriamente, AppArmor/SELinux e
-la separazione scan-plane con egress allowlist non sono implementati.
+la CLI host non è ancora containerizzata obbligatoriamente e la separazione
+scan-plane con egress allowlist non è implementata; il profilo AppArmor opzionale
+è descritto nell'avanzamento successivo.
 
 **Avanzamento verificato (2026-10-24, escape test):** la suite container esegue
 ora probe offline e limitati per root filesystem read-only, assenza di file host,
@@ -368,6 +369,15 @@ massimo di 128 tentativi e termina sempre i processi creati. Il test non contatt
 target. Restano aperte la prova di egress verso un target fuori scope e la
 containerizzazione obbligatoria delle esecuzioni CLI dirette; il criterio resta
 pertanto `[~]`.
+
+**Avanzamento verificato (2026-10-24, LSM):** è pubblicato il profilo AppArmor
+versionato `olympus-themis-scanner` con deny espliciti per mount/pivot-root,
+ptrace, kernel memory, securityfs, firmware e percorsi host-sensitive. L'overlay
+Compose è opt-in perché il profilo deve essere caricato dall'amministratore
+dell'host. Su runner Linux compatibili la CI carica il profilo in enforce mode,
+lo associa ai container e prova sia `/proc/self/attr/current` sia il rifiuto di
+un canary sintetico bind-mounted. SELinux e la distribuzione automatica della
+policy restano aperti, quindi il criterio resta `[~]`.
 
 **Criterio di completamento:** un adapter compromesso non può leggere il filesystem
 host, elevare privilegi o raggiungere un indirizzo non autorizzato; le prove sono

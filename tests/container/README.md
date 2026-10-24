@@ -10,5 +10,10 @@ kernel-memory protection, privilege state, namespace denial and PID exhaustion.
 Its fork-bomb simulation has a fixed attempt ceiling and always reaps children.
 Static deployment checks remain contract/unit tests.
 
+When `OLYMPUS_TEST_APPARMOR_PROFILE=olympus-themis-scanner` is set after loading
+the repository profile, every test container is attached to it. The escape probe
+then verifies the active label and confirms that AppArmor denies a synthetic
+canary deliberately bind-mounted below `/run/host-sensitive/`.
+
 This verifies the native runtime boundary (SEC-A); it does not claim scanner
 egress confinement or completed seccomp/AppArmor isolation (SEC-B).

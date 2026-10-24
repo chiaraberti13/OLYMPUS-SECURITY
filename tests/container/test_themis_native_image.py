@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -17,6 +18,10 @@ def test_native_image_runs_migrations_api_web_worker_and_escape_probes(tmp_path:
     docker = shutil.which("docker")
     if docker is None:
         pytest.fail("Docker is required for the explicitly selected container suite")
+    apparmor_profile = os.environ.get("OLYMPUS_TEST_APPARMOR_PROFILE")
+    apparmor_options = (
+        ["--security-opt", f"apparmor={apparmor_profile}"] if apparmor_profile else []
+    )
     subprocess.run(
         [docker, "build", "-f", "docker/Dockerfile", "-t", IMAGE, "."],
         cwd=ROOT,
@@ -37,6 +42,7 @@ def test_native_image_runs_migrations_api_web_worker_and_escape_probes(tmp_path:
             "no-new-privileges:true",
             "--security-opt",
             f"seccomp={SECCOMP_PROFILE}",
+            *apparmor_options,
             "--tmpfs",
             "/tmp:rw,noexec,nosuid,size=128m,mode=1777",  # noqa: S108 - private container tmpfs
             "--tmpfs",
@@ -70,6 +76,7 @@ def test_native_image_runs_migrations_api_web_worker_and_escape_probes(tmp_path:
             "no-new-privileges:true",
             "--security-opt",
             f"seccomp={SECCOMP_PROFILE}",
+            *apparmor_options,
             "--entrypoint",
             "python",
             IMAGE,
@@ -92,6 +99,18 @@ def test_native_image_runs_migrations_api_web_worker_and_escape_probes(tmp_path:
 
     host_canary = tmp_path / "host-only-sensitive-file"
     host_canary.write_text("synthetic host-only canary")
+    lsm_canary = tmp_path / "apparmor-denied-canary"
+    lsm_canary.write_text("synthetic bind-mounted canary")
+    lsm_options = []
+    if apparmor_profile:
+        lsm_options = [
+            "--mount",
+            f"type=bind,source={lsm_canary},target=/run/host-sensitive/canary,readonly",
+            "--env",
+            "LSM_DENIED_PATH=/run/host-sensitive/canary",
+            "--env",
+            f"EXPECTED_APPARMOR_PROFILE={apparmor_profile}",
+        ]
     probes = subprocess.run(
         [
             docker,
@@ -108,12 +127,14 @@ def test_native_image_runs_migrations_api_web_worker_and_escape_probes(tmp_path:
             "no-new-privileges:true",
             "--security-opt",
             f"seccomp={SECCOMP_PROFILE}",
+            *apparmor_options,
             "--tmpfs",
             "/tmp:rw,noexec,nosuid,size=16m,mode=1777",  # noqa: S108
             "--tmpfs",
             "/data:rw,noexec,nosuid,size=16m,uid=10001,gid=10001,mode=0700",
             "--env",
             f"HOST_SECRET_PATH={host_canary}",
+            *lsm_options,
             "--mount",
             f"type=bind,source={ROOT / 'scripts' / 'probe_scanner_container.py'},"
             "target=/probe.py,readonly",

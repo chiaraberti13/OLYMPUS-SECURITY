@@ -217,7 +217,10 @@ Servizi non-root, filesystem root read-only, capability rimosse,
 `no-new-privileges`, tmpfs e limiti memoria/PID sono espliciti. Il worker carica
 inoltre il profilo seccomp default-deny versionato in
 `deploy/security/themis-scanner-seccomp.json`; la migrazione non ha rete. Egress
-allowlist e AppArmor/SELinux restano in SEC-B, come l'obbligo container per le
+allowlist, SELinux e provisioning automatico AppArmor restano in SEC-B. Sugli
+host AppArmor compatibili è disponibile il profilo versionato
+`deploy/security/olympus-themis-scanner.apparmor`, applicabile con l'overlay
+`docker-compose.apparmor.yml`. Resta aperto anche l'obbligo container per le
 esecuzioni CLI dirette. Il test container prova runtime e rifiuto di una syscall,
 senza dichiarare isolamento scanner completo. Il profilo opzionale ZAP mantiene
 la sua chiave API obbligatoria;
@@ -365,7 +368,10 @@ scanner overlay changes only the worker image. Non-root, read-only rootfs,
 dropped capabilities, no-new-privileges and resource limits are explicit.
 The worker also loads the versioned, default-deny seccomp profile from
 `deploy/security/themis-scanner-seccomp.json`; the container test proves a
-forbidden syscall returns `EPERM`. Scanner egress, AppArmor/SELinux and mandatory
+forbidden syscall returns `EPERM`. Compatible AppArmor hosts can load
+`deploy/security/olympus-themis-scanner.apparmor` and apply the
+`docker-compose.apparmor.yml` overlay. Scanner egress, SELinux, automatic
+AppArmor provisioning and mandatory
 containerization of direct host CLI runs remain SEC-B.
 
 The physical VAP source has been removed. Its reviewed revision, digest and

@@ -105,7 +105,10 @@ process-level ones. Do not read the guarantees above as covering them:
   `no-new-privileges` and loads the versioned default-deny profile at
   `deploy/security/themis-scanner-seccomp.json`. Direct host execution has only
   the process controls documented above.
-- **AppArmor / SELinux confinement.** No versioned LSM profile is published yet.
+- **Mandatory AppArmor / SELinux confinement.** A versioned AppArmor profile and
+  opt-in Compose overlay are published, but an administrator must load the
+  policy on a compatible Linux host. SELinux and automatic host provisioning
+  remain open.
 - **Egress allowlisting for scanner processes.** DNS rebinding is closed inside
   Olympus by address pinning (`olympus.core.pinning`), but an external scanner
   binary resolves and connects on its own; only a network policy can bound
@@ -122,6 +125,22 @@ creation. All spawned children are reaped even on failure. This demonstrates
 profile loading and selected kernel controls in CI; it does not demonstrate
 egress containment, mandatory confinement of direct host CLI runs or close
 SEC-B by itself.
+
+### Optional AppArmor enforcement
+
+On Linux hosts with AppArmor enabled, load the repository policy before starting
+the worker overlay:
+
+```bash
+sudo apparmor_parser -r -W deploy/security/olympus-themis-scanner.apparmor
+docker compose -f docker-compose.yml -f docker-compose.apparmor.yml up --build
+```
+
+The profile is named `olympus-themis-scanner`, remains in enforce mode and
+complements rather than replaces the read-only root, dropped capabilities,
+`no-new-privileges` and seccomp controls. Do not silently fall back to
+`apparmor=unconfined`; omit the overlay only on a host where AppArmor is not an
+available LSM and record the residual risk.
 
 ## Operational notes
 

@@ -40,6 +40,11 @@ def _probe_security_state() -> None:
     result = libc.unshare(_CLONE_NEWUSER)
     _require(result == -1 and ctypes.get_errno() == errno.EPERM, "user namespace was created")
 
+    expected_apparmor = os.environ.get("EXPECTED_APPARMOR_PROFILE")
+    if expected_apparmor:
+        current = Path("/proc/self/attr/current").read_text().split()[0]
+        _require(current == expected_apparmor, f"unexpected AppArmor profile: {current}")
+
 
 def _probe_filesystem() -> None:
     try:
@@ -56,6 +61,15 @@ def _probe_filesystem() -> None:
 
     host_secret = os.environ["HOST_SECRET_PATH"]
     _require(not Path(host_secret).exists(), "host-only canary is visible in the container")
+
+    lsm_denied_path = os.environ.get("LSM_DENIED_PATH")
+    if lsm_denied_path:
+        try:
+            Path(lsm_denied_path).read_bytes()
+        except OSError as exc:
+            _require(exc.errno in {errno.EACCES, errno.EPERM}, f"unexpected LSM error: {exc}")
+        else:
+            raise RuntimeError("AppArmor allowed access to the host-sensitive canary")
 
     try:
         with Path("/proc/kcore").open("rb") as stream:

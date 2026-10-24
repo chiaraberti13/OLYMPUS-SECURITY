@@ -118,3 +118,30 @@ def test_container_escape_probe_is_bounded_and_offline() -> None:
         for node in ast.walk(tree)
     )
     assert "http://" not in source and "https://" not in source
+
+
+def test_versioned_apparmor_profile_and_overlay_are_fail_closed() -> None:
+    profile = (ROOT / "deploy/security/olympus-themis-scanner.apparmor").read_text()
+    assert "Policy version: 1.0.0" in profile
+    assert "profile olympus-themis-scanner" in profile
+    assert "flags=(attach_disconnected,mediate_deleted)" in profile
+    assert "deny mount," in profile
+    assert "deny umount," in profile
+    assert "deny pivot_root," in profile
+    assert "deny ptrace," in profile
+    assert "signal (send,receive) peer=olympus-themis-scanner," in profile
+    for path in (
+        "/run/host-sensitive/**",
+        "@{PROC}/mem",
+        "@{PROC}/kmem",
+        "@{PROC}/kcore",
+        "/sys/firmware/**",
+        "/sys/kernel/security/**",
+    ):
+        assert f"deny {path} rwklx," in profile
+
+    overlay = yaml.safe_load((ROOT / "docker-compose.apparmor.yml").read_text())
+    assert set(overlay["services"]) == {"themis-worker"}
+    assert overlay["services"]["themis-worker"]["security_opt"] == [
+        "apparmor=olympus-themis-scanner"
+    ]

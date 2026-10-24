@@ -215,7 +215,25 @@ jobs:
       - name: Validate Compose with deployment placeholders
         env:
           THEMIS_ZAP_API_KEY: ci-placeholder-for-unused-zap-profile
-        run: docker compose config --quiet
+        run: |
+          docker compose config --quiet
+          docker compose -f docker-compose.yml -f docker-compose.apparmor.yml config --quiet
+      - name: Load versioned AppArmor profile when the host supports it
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -r /sys/module/apparmor/parameters/enabled ] && \
+             grep -qx 'Y' /sys/module/apparmor/parameters/enabled; then
+            if ! command -v apparmor_parser >/dev/null; then
+              sudo apt-get update -qq
+              sudo apt-get install -y --no-install-recommends apparmor-utils
+            fi
+            sudo apparmor_parser -r -W deploy/security/olympus-themis-scanner.apparmor
+            echo 'OLYMPUS_TEST_APPARMOR_PROFILE=olympus-themis-scanner' >> "$GITHUB_ENV"
+            echo 'AppArmor profile loaded in enforce mode.'
+          else
+            echo '::notice::AppArmor is unavailable on this runner; contract validation still ran.'
+          fi
       - name: Run the isolated native-image runtime test
         run: make test-container
 
