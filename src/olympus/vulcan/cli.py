@@ -7,7 +7,8 @@ from pathlib import Path
 
 import typer
 
-from olympus.core.enums import FindingStatus, Severity, Source
+from olympus.apollo.attack import build_navigator_layer
+from olympus.core.enums import Confidence, FindingStatus, Severity, Source
 from olympus.core.execution import CancellationRequested, ExecutionPolicyError, safe_terminal_text
 from olympus.core.exit_codes import ExitCode
 from olympus.core.fileio import atomic_write_bytes, atomic_write_text, read_regular_text
@@ -40,6 +41,13 @@ from olympus.vulcan.application import (
     VulcanApplicationService,
     VulcanRankRequest,
     VulcanReportRequest,
+)
+from olympus.vulcan.attack import (
+    ATTACK_MAP_VERSION,
+    AttackMappingError,
+    ReviewedAssociation,
+    associate_all,
+    technique_counts,
 )
 from olympus.vulcan.compare import ScanDiff, diff_findings
 from olympus.vulcan.enrichment import (
@@ -89,6 +97,7 @@ app = typer.Typer(
 )
 _APPLICATION_ERRORS = (
     AggregationError,
+    AttackMappingError,
     CancellationRequested,
     EnrichmentError,
     ExecutionPolicyError,
@@ -97,6 +106,53 @@ _APPLICATION_ERRORS = (
     ValueError,
 )
 DEFAULT_ENRICH_OUTPUT = output_path("vulcan-enrichment.json")
+DEFAULT_ATTACK_OUTPUT = output_path("vulcan-attack.json")
+
+
+def _load_attack_reviews(path: Path) -> dict[str, list[ReviewedAssociation]]:
+    """Load a human-review ATT&CK file: {finding_id: [{technique,name,tactic,...}]}.
+
+    Strict and bounded: unknown structure or an invalid confidence raises an
+    ``AttackMappingError`` so a malformed review file never silently produces an
+    empty or partial overlay.
+    """
+    raw = read_regular_text(path, max_bytes=DEFAULT_MAX_INPUT_BYTES, label="ATT&CK reviews")
+    try:
+        document = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise AttackMappingError(f"review file is not valid JSON: {exc}") from exc
+    if not isinstance(document, dict):
+        raise AttackMappingError("review file must be a JSON object keyed by finding id")
+    reviews: dict[str, list[ReviewedAssociation]] = {}
+    for finding_id, entries in document.items():
+        if not isinstance(entries, list):
+            raise AttackMappingError(f"reviews for {finding_id!r} must be a list")
+        parsed: list[ReviewedAssociation] = []
+        for entry in entries:
+            if not isinstance(entry, dict):
+                raise AttackMappingError(f"each review for {finding_id!r} must be an object")
+            try:
+                confidence = Confidence(str(entry["confidence"]))
+            except (KeyError, ValueError) as exc:
+                raise AttackMappingError(
+                    f"review for {finding_id!r} needs a valid confidence (low|medium|high)"
+                ) from exc
+            try:
+                parsed.append(
+                    ReviewedAssociation(
+                        technique=str(entry["technique"]),
+                        name=str(entry.get("name", "")),
+                        tactic=str(entry["tactic"]),
+                        confidence=confidence,
+                        rationale=str(entry["rationale"]),
+                    )
+                )
+            except KeyError as exc:
+                raise AttackMappingError(
+                    f"review for {finding_id!r} is missing field {exc}"
+                ) from exc
+        reviews[str(finding_id)] = parsed
+    return reviews
 
 
 @app.command()
@@ -316,6 +372,88 @@ def enrich(
     typer.echo(render(records, columns, output_format, title="Findings by real-world risk"))
     typer.echo(
         f"vulcan: enriched {len(loaded)} finding(s); {kev_hits} in CISA KEV; overlay: {output}",
+        err=True,
+    )
+
+
+@app.command()
+def attack(
+    findings: list[Path] = typer.Option(
+        ..., "--findings", help="core.Finding JSON file(s) to map to ATT&CK (repeatable)."
+    ),
+    reviews: Path | None = typer.Option(
+        None,
+        "--reviews",
+        help="Optional human-review JSON ({finding_id: [{technique,name,tactic,confidence,"
+        "rationale}]}); reviewed associations override the automatic mapping.",
+    ),
+    output: Path = typer.Option(DEFAULT_ATTACK_OUTPUT, "--output", help="Overlay JSON output."),
+    navigator: Path | None = typer.Option(
+        None,
+        "--navigator",
+        help="Also write an ATT&CK Navigator layer of the techniques these findings cover.",
+    ),
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.TABLE, "--format", help="Render the associations as table or json."
+    ),
+    max_files: int = typer.Option(DEFAULT_MAX_FILES, "--max-files"),
+    max_input_bytes: int = typer.Option(DEFAULT_MAX_INPUT_BYTES, "--max-input-bytes"),
+    max_items_per_file: int = typer.Option(DEFAULT_MAX_ITEMS_PER_FILE, "--max-items-per-file"),
+    max_total_items: int = typer.Option(DEFAULT_MAX_TOTAL_ITEMS, "--max-total-items"),
+) -> None:
+    """Map offensive findings to MITRE ATT&CK techniques (OPS-RED). Pure & offline.
+
+    Derives technique/tactic/confidence/rationale from each finding's CWEs via a
+    versioned, reviewed mapping, marking every association as ``automatic`` or —
+    when confirmed in ``--reviews`` — ``reviewed``. The finding contract is never
+    mutated. With ``--navigator`` the covered techniques are exported as an ATT&CK
+    Navigator layer, the same format Apollo uses for detections.
+    """
+    try:
+        loaded = load_findings(
+            findings,
+            max_files=max_files,
+            max_bytes=max_input_bytes,
+            max_items_per_file=max_items_per_file,
+            max_total_items=max_total_items,
+        )
+        review_map = _load_attack_reviews(reviews) if reviews is not None else None
+        overlays = associate_all(loaded, reviews=review_map)
+        overlay_json = [overlay.to_dict() for overlay in overlays]
+        atomic_write_text(
+            output, json.dumps(overlay_json, indent=2, sort_keys=True) + "\n", mode=0o600
+        )
+        if navigator is not None:
+            layer = build_navigator_layer(
+                technique_counts(overlays),
+                name="Olympus Vulcan offensive findings",
+                description="ATT&CK techniques covered by Olympus Vulcan findings (OPS-RED).",
+            )
+            atomic_write_text(
+                navigator, json.dumps(layer, indent=2, sort_keys=True) + "\n", mode=0o600
+            )
+    except _APPLICATION_ERRORS as exc:
+        typer.echo(safe_terminal_text(f"vulcan: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+
+    records: list[dict[str, object]] = [
+        {
+            "finding": overlay.finding_id,
+            "technique": association.technique,
+            "tactic": association.tactic,
+            "confidence": association.confidence.value,
+            "source": association.source.value,
+            "name": safe_terminal_text(association.name),
+        }
+        for overlay in overlays
+        for association in overlay.associations
+    ]
+    columns = ["finding", "technique", "tactic", "confidence", "source", "name"]
+    typer.echo(render(records, columns, output_format, title="ATT&CK coverage of findings"))
+    mapped = sum(1 for overlay in overlays if overlay.associations)
+    typer.echo(
+        f"vulcan: mapped {mapped}/{len(overlays)} finding(s) to ATT&CK "
+        f"(map {ATTACK_MAP_VERSION}); overlay: {output}",
         err=True,
     )
 

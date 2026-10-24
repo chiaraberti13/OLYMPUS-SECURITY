@@ -117,7 +117,7 @@ Legenda stato: ✅ implementata · 🟡 parziale · 🗓️ pianificata · ❌ a
 | 6 | Arresto immediato + approvazione invasive | 🟡 | cancellation `core/execution.py`, kill del process-group `themis/sandbox.py` | **Kill switch globale**, classi PASSIVE/ACTIVE/INTRUSIVE, preview → `SEC-G`,`UX-B` |
 | 7 | Deduplicazione + ciclo di vita finding | ✅ | `vulcan/aggregate.py` (`dedupe_findings` per ID + `merge_duplicate_findings` cross-scanner lossless), `FindingStatus` (7 stati), macchina a stati + audit trail + suppression `core/finding_lifecycle.py`/`findings/store.py` (`WEB-C`) | Transizioni, dedup, audit trail, suppression, tagging/ricerca tutti ✅ |
 | 8 | Severità, confidence, risk scoring contestuale | ✅ | `Severity`, `Finding.confidence` (`WEB-C`), `Finding.risk_score()` 0–100 (`WEB-C`), `vulcan/enrichment.prioritize` (KEV>EPSS>CVSS>severità) | Confidence + risk score numerico ✅; mantenere |
-| 9 | Mapping CVE/CWE/CVSS/MITRE ATT&CK | 🟡 | `Finding.cvss` + campi `cve`/`cwe`/`epss`/`kev` strutturati (`WEB-C`); link NVD/MITRE in `vulcan/pdf.py`; EPSS/KEV `vulcan/enrichment.py`; ATT&CK detection `apollo/attack.py`, `Alert.mitre_attack` | Campi strutturati ✅; **ATT&CK offensivo sui finding** → `OPS-RED` |
+| 9 | Mapping CVE/CWE/CVSS/MITRE ATT&CK | ✅ | `Finding.cvss` + campi `cve`/`cwe`/`epss`/`kev` strutturati (`WEB-C`); link NVD/MITRE in `vulcan/pdf.py`; EPSS/KEV `vulcan/enrichment.py`; ATT&CK detection `apollo/attack.py`, `Alert.mitre_attack`; **ATT&CK offensivo sui finding** `vulcan/attack.py` (`OPS-RED`) | Campi strutturati ✅; overlay ATT&CK offensivo ✅ (auto vs reviewed, mapping versionato) |
 | 10 | Inventario centralizzato asset | 🟡 | `core.Asset`, `argus/assets.py`, persistenza per-assessment in Athena; `Asset.engagement_id` opzionale e stamping dal coordinator Athena per id canonici (`WEB-B` slice 2); engagement esposti via API/Web sullo stesso store con scope enforcement (`WEB-B` slice 3) | Engagement leggibili/operabili dai quattro canali ✅; **viste di aggregazione asset cross-engagement** (widget) → `WEB-G` |
 | 11 | Scheduler, code, worker isolati, ripresa job | 🟡 | job store SQLite `themis/jobs.py` (stati+`recover`), `olympus themis jobs recover`, sandbox e worker continuo nativo (`SEC-A`) | Queue+recover+sandbox ✅; **scheduler nativo** ❌ → `D13`; runtime Celery ritirato ✅; parità dati/route legacy → `SEC-A` |
 | 12 | Scansioni incrementali + confronto risultati | 🟡 | `argus/diff.py` (diff recon); **finding/scan diff cross-run** `vulcan/compare.py` + `olympus vulcan diff` + Web `/findings/diff` (`WEB-I` slice 2); **trend severità** `vulcan/trend.py` + `olympus vulcan trend` (`WEB-I` slice 3a) | Finding/scan diff ✅, trend finding ✅; **attack-surface evolution** → `WEB-I` |
@@ -1831,9 +1831,25 @@ i contratti e i controlli di sicurezza descritti nelle sezioni precedenti.
   Metasploit tramite RPC solo dopo l'introduzione dell'engagement manifest
   firmato, con allowlist dei moduli, dry-run predefinito, audit completo, timeout
   e divieto esplicito di persistenza, DoS ed evasione.
-- [ ] **P2 — Mapping MITRE ATT&CK dei finding offensivi:** associare tecnica,
+- [x] **P2 — Mapping MITRE ATT&CK dei finding offensivi:** associare tecnica,
   tattica, confidence e motivazione ai finding Vulcan, conservando il mapping
   versionato e distinguendo associazioni automatiche da revisioni umane.
+  **Fatto:** overlay puro e offline `vulcan/attack.py` (sibling di
+  `vulcan/enrichment.py`: non muta il contratto `Finding`) con una tabella
+  CWE→ATT&CK **versionata** (`ATTACK_MAP_VERSION`) e revisionata; `associate_attack`/
+  `associate_all` derivano per ogni finding `AttackAssociation` (technique, name,
+  tactic, `Confidence`, rationale) marcate `AttackSource.AUTOMATIC`, mentre un file
+  di revisione umana opzionale aggiunge/sovrascrive associazioni marcate
+  `REVIEWED` (precedenza sulle automatiche, nessun duplicato). CWE non mappata →
+  nessuna associazione inventata (assenza onesta); output deterministico e
+  ordinato. I conteggi tecnici alimentano lo **stesso** ATT&CK Navigator di Apollo
+  (`apollo.attack.build_navigator_layer`), così finding offensivi e detection
+  difensive popolano un'unica matrice. CLI `olympus vulcan attack --findings …
+  [--reviews …] [--navigator …] [--format table|json]`. Test
+  `tests/unit/test_vulcan_attack.py` (motore + CLI); doc
+  [`docs/reference.md`](docs/reference.md). La tabella iniziale è volutamente
+  conservativa ed estensibile (il bump di versione la rende una modifica
+  tracciabile).
 - [⏸] **P3 — Proteus simulated delivery:** evolvere la modellazione in campagne
   simulate esclusivamente in lab, con click e credential-harvest sintetici e
   nessun invio o dato riferito a utenti reali.

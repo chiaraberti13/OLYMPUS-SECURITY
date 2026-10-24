@@ -273,6 +273,7 @@ every module; for a single command's full details (every option, with defaults) 
 | `olympus vulcan import --kind findings/assets -i <ndjson> -o <bundle>` | imports portable NDJSON back into a canonical JSON bundle, strict and all-or-nothing |
 | `olympus vulcan sarif-import -i <sarif> -o <bundle> --asset-id <id>` | imports a third-party SARIF 2.1.0 report as a core.Finding bundle (hostile-input safe) |
 | `olympus vulcan sarif-export -i <bundle> -o <sarif>` | exports findings as a SARIF 2.1.0 document for any SARIF consumer (deterministic) |
+| `olympus vulcan attack --findings <f>` | maps findings to MITRE ATT&CK (technique/tactic/confidence/rationale) from a versioned CWE mapping, marking automatic vs human-reviewed; optional `--navigator` layer; offline overlay, contract untouched |
 
 ### Legend of the main options
 
@@ -645,6 +646,7 @@ sempre `--help`, es. `olympus argus scan --help`.
 | `olympus vulcan import --kind findings/assets -i <ndjson> -o <bundle>` | reimporta l'NDJSON portabile in un bundle JSON canonico, strict e all-or-nothing |
 | `olympus vulcan sarif-import -i <sarif> -o <bundle> --asset-id <id>` | importa un report SARIF 2.1.0 di terze parti come bundle core.Finding (sicuro su input ostile) |
 | `olympus vulcan sarif-export -i <bundle> -o <sarif>` | esporta i finding come documento SARIF 2.1.0 per qualsiasi consumer SARIF (deterministico) |
+| `olympus vulcan attack --findings <f>` | mappa i finding su MITRE ATT&CK (tecnica/tattica/confidence/motivazione) da un mapping CWE versionato, distinguendo associazioni automatiche e revisioni umane; layer `--navigator` opzionale; overlay offline, contratto intatto |
 
 ### Legenda delle opzioni principali
 
