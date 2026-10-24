@@ -48,5 +48,10 @@ def test_restrictive_or_unlicensed_references_are_not_vendored() -> None:
         "blacklanternsecurity/bbot",
         "HunxByts/GhostTrack",
     }
-    vendor_names = {path.name.casefold() for path in (ROOT / "vendor").iterdir()}
+    vendor_root = ROOT / "vendor"
+    vendor_names = (
+        {path.name.casefold() for path in vendor_root.iterdir()}
+        if vendor_root.is_dir()
+        else set()
+    )
     assert not {"cybersecurity-projects", "bbot", "ghosttrack"} & vendor_names
