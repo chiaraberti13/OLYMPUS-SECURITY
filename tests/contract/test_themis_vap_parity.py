@@ -75,9 +75,7 @@ def test_legacy_route_inventory_is_complete_and_source_is_retired() -> None:
     assert baseline["legacy_app_sha256"] == (
         "1df54b7b8f0656e470b31b8e6c47476c920428860642a245f9b32847c370d66a"
     )
-    assert baseline["legacy_repository_revision"] == (
-        "6c6b395d79f358372e028fe7094cc673374dd88f"
-    )
+    assert baseline["legacy_repository_revision"] == ("6c6b395d79f358372e028fe7094cc673374dd88f")
     recorded = {_route_key(route) for route in manifest["legacy_routes"]}
     assert len(recorded) == len(manifest["legacy_routes"]) == 39
 
