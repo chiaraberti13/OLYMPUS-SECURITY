@@ -22,6 +22,7 @@ from pathlib import Path
 
 PROFILE_NAME = "olympus-themis-scanner"
 PROFILE_VERSION = "1.0.0"
+PROFILE_SHA256 = "8263574dc0b9db00fb808f7c885163289777ab58f1136f369a13592f7195851b"
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_POLICY = ROOT / "deploy/security/olympus-themis-scanner.apparmor"
 APPARMOR_ENABLED = Path("/sys/module/apparmor/parameters/enabled")
@@ -65,7 +66,10 @@ def _read_policy(path: Path) -> tuple[str, str]:
     )
     if version_marker not in source or len(declaration.findall(source)) != 1:
         raise ProvisioningError("policy identity or version does not match the trusted contract")
-    return source, hashlib.sha256(raw).hexdigest()
+    digest = hashlib.sha256(raw).hexdigest()
+    if digest != PROFILE_SHA256:
+        raise ProvisioningError("policy digest does not match the trusted release profile")
+    return source, digest
 
 
 def _apparmor_available(enabled_path: Path = APPARMOR_ENABLED) -> bool:

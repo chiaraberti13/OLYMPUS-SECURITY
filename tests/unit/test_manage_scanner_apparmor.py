@@ -9,12 +9,7 @@ from scripts import manage_scanner_apparmor as apparmor
 
 def _policy(tmp_path: Path) -> Path:
     policy = tmp_path / "scanner.apparmor"
-    policy.write_text(
-        "# Policy version: 1.0.0\n"
-        "profile olympus-themis-scanner "
-        "flags=(attach_disconnected,mediate_deleted) {\n}\n",
-        encoding="utf-8",
-    )
+    policy.write_bytes(apparmor.DEFAULT_POLICY.read_bytes())
     return policy
 
 
@@ -53,6 +48,13 @@ def test_symlink_policy_is_rejected(tmp_path: Path) -> None:
     alias.symlink_to(policy)
     with pytest.raises(apparmor.ProvisioningError, match="not a symlink"):
         apparmor.inspect(alias)
+
+
+def test_modified_policy_with_valid_identity_is_rejected(tmp_path: Path) -> None:
+    policy = _policy(tmp_path)
+    policy.write_text(policy.read_text() + "# altered\n", encoding="utf-8")
+    with pytest.raises(apparmor.ProvisioningError, match="digest"):
+        apparmor.inspect(policy)
 
 
 def test_install_uses_fixed_argv_without_shell(

@@ -150,6 +150,10 @@ def test_versioned_apparmor_profile_and_overlay_are_fail_closed() -> None:
     tree = ast.parse(provisioner)
     assert 'PROFILE_NAME = "olympus-themis-scanner"' in provisioner
     assert 'PROFILE_VERSION = "1.0.0"' in provisioner
+    assert (
+        'PROFILE_SHA256 = "8263574dc0b9db00fb808f7c885163289777ab58f1136f369a13592f7195851b"'
+        in provisioner
+    )
     assert '[status.parser, "-r", "-W", str(policy.resolve(strict=True))]' in provisioner
     assert not any(
         isinstance(node, ast.Call)
