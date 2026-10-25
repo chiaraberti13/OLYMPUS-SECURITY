@@ -121,7 +121,7 @@ warn_required_dynamic_aliases = true
 # ReportLab (optional 'report' extra) ships no type information, so strict mypy
 # cannot resolve its symbols. The dependency is isolated to olympus.vulcan.pdf.
 [[tool.mypy.overrides]]
-module = ["reportlab.*"]
+module = ["reportlab.*", "keyring.*"]
 ignore_missing_imports = true
 
 # Pytest is a blocking CI check; branch coverage is checked separately so the

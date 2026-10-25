@@ -563,11 +563,23 @@ il report consente di dimostrare manifest, firma, scope e policy effettivi usati
 
 ### Intervento D · `SEC-D` — Gestione credenziali e identità (**P1**)
 
-- [ ] Conservare le variabili d'ambiente come fallback locale, senza introdurre
-  `.env` caricati automaticamente in produzione.
-- [ ] Definire un'interfaccia `SecretProvider` con implementazioni opzionali per
+- [x] Conservare le variabili d'ambiente come fallback locale, senza introdurre
+  `.env` caricati automaticamente in produzione. `core/secrets.EnvSecretProvider`
+  legge l'ambiente **vivo** del processo (valore vuoto o di soli spazi = non
+  impostato) e non carica mai un file `.env`; è il `default_secret_provider()`.
+- [x] Definire un'interfaccia `SecretProvider` con implementazioni opzionali per
   keyring OS e secret manager esterni; i valori devono restare `SecretStr` o byte
-  buffer il più a lungo possibile.
+  buffer il più a lungo possibile. Porta `core/secrets.SecretProvider` (Protocol)
+  con `EnvSecretProvider`, `KeyringSecretProvider` (import `keyring` isolato →
+  `SecretProviderUnavailable` se assente, nessuna dipendenza hard nel core) e
+  `ChainSecretProvider`; `resolve_secret(name, *, provider=None)` è l'unico punto
+  di lookup. Il valore risolto è un `SecretStr` (mascherato in repr/log/traceback,
+  estratto con `.get_secret_value()` solo all'uso). Adottato dai client OSINT di
+  Argus (`NumverifyClient`/`RapidApiMessagingClient.from_env(..., secrets=…)`).
+  Test `tests/unit/test_core_secrets.py` (+ provider iniettato in
+  `tests/unit/test_argus_enrichment.py`); doc
+  [`docs/configuration.md`](docs/configuration.md). **Resta aperto:** OIDC/mTLS
+  (bullet successivo) e rotazione uniforme.
 - [ ] Per AEGIS API, affiancare alle API key hashate un'opzione OIDC/mTLS per
   deployment multiutente; mantenere permessi per azione e revoca immediata.
 - [ ] Rendere uniforme la rotazione: overlap breve, scadenza obbligatoria, audit

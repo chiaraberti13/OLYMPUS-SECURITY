@@ -17,12 +17,12 @@ Safety model:
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import dataclass
 from typing import Protocol
 from urllib.parse import quote, urlencode
 
 from olympus.core.http import HttpClient, HttpRequestError
+from olympus.core.secrets import SecretProvider, resolve_secret
 
 
 class EnrichmentError(RuntimeError):
@@ -79,10 +79,17 @@ class NumverifyClient:
         self._client = client
 
     @classmethod
-    def from_env(cls, client: HttpClient) -> NumverifyClient | None:
-        """Build from ``OLYMPUS_NUMVERIFY_KEY``, or ``None`` if it is not set."""
-        key = os.environ.get("OLYMPUS_NUMVERIFY_KEY", "").strip()
-        return cls(key, client) if key else None
+    def from_env(
+        cls, client: HttpClient, *, secrets: SecretProvider | None = None
+    ) -> NumverifyClient | None:
+        """Build from ``OLYMPUS_NUMVERIFY_KEY`` via ``secrets``, or ``None`` if unset.
+
+        The key is resolved through a :class:`SecretProvider` (default: the
+        environment fallback), so a deployment can source it from a keyring or
+        external secret manager without changing this call site.
+        """
+        secret = resolve_secret("OLYMPUS_NUMVERIFY_KEY", provider=secrets)
+        return cls(secret.get_secret_value(), client) if secret is not None else None
 
     def enrich(self, e164: str) -> PhoneEnrichment:
         """Validate ``e164`` and return carrier/line-type (no breach data)."""
@@ -164,10 +171,12 @@ class RapidApiMessagingClient:
         self._client = client
 
     @classmethod
-    def from_env(cls, client: HttpClient) -> RapidApiMessagingClient | None:
-        """Build from ``OLYMPUS_RAPIDAPI_KEY``, or ``None`` if it is not set."""
-        key = os.environ.get("OLYMPUS_RAPIDAPI_KEY", "").strip()
-        return cls(key, client) if key else None
+    def from_env(
+        cls, client: HttpClient, *, secrets: SecretProvider | None = None
+    ) -> RapidApiMessagingClient | None:
+        """Build from ``OLYMPUS_RAPIDAPI_KEY`` via ``secrets``, or ``None`` if unset."""
+        secret = resolve_secret("OLYMPUS_RAPIDAPI_KEY", provider=secrets)
+        return cls(secret.get_secret_value(), client) if secret is not None else None
 
     def lookup(self, e164: str) -> MessagingPresence:
         """Return messaging presence for ``e164`` (best-effort parsing)."""

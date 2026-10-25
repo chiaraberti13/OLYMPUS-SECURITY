@@ -48,6 +48,22 @@ def test_numverify_active_with_key(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "access_key=secret" in client.calls[0]
 
 
+def test_numverify_key_resolved_via_injected_secret_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # No environment variable set: the key comes from the injected provider,
+    # proving the SecretProvider seam (ROADMAP SEC-D) is the single lookup point.
+    monkeypatch.delenv("OLYMPUS_NUMVERIFY_KEY", raising=False)
+    from olympus.core.secrets import EnvSecretProvider
+
+    provider = EnvSecretProvider(environ={"OLYMPUS_NUMVERIFY_KEY": "from-provider"})
+    client = _FakeClient(body=json.dumps({"carrier": "Demo", "line_type": "mobile"}))
+    adapter = NumverifyClient.from_env(client, secrets=provider)
+    assert adapter is not None
+    adapter.enrich("+16505550123")
+    assert "access_key=from-provider" in client.calls[0]
+
+
 def test_numverify_network_error_wrapped(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OLYMPUS_NUMVERIFY_KEY", "secret")
     adapter = NumverifyClient.from_env(_FakeClient(error=True))

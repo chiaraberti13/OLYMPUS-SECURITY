@@ -60,3 +60,31 @@ propri comandi `olympus policy show|validate|diff|edit`.
 La separazione è voluta: un file descrive *come si parla HTTP*, l'altro
 descrive *quanto lavoro è autorizzato in questo engagement e verso quale
 perimetro*. Vedi [policy di esecuzione editabile](policy.md).
+
+## Segreti e credenziali (`SecretProvider`, `SEC-D`)
+
+I segreti a runtime (API key OSINT, token di servizio) non sono risolti con
+letture sparse di `os.environ`, ma attraverso un'unica porta iniettabile,
+`olympus.core.secrets.SecretProvider`, così una installazione può continuare a
+usare le variabili d'ambiente come **fallback locale** oppure collegare un
+backend più robusto senza toccare i punti di chiamata.
+
+- `EnvSecretProvider` (default) legge le variabili d'ambiente **vive** del
+  processo; un valore assente, vuoto o di soli spazi conta come non impostato.
+  **Non** viene mai caricato automaticamente un file `.env`.
+- `KeyringSecretProvider` legge dal keyring del sistema operativo. È un backend
+  **opzionale**: l'import di `keyring` è isolato e, se il pacchetto non è
+  installato, la costruzione solleva `SecretProviderUnavailable` (il core non
+  dipende da `keyring`). Installalo a parte per abilitarlo.
+- `ChainSecretProvider((keyring, env))` prova i provider in ordine e restituisce
+  il primo segreto trovato — tipicamente keyring con l'ambiente come fallback.
+
+Il valore risolto è un `pydantic.SecretStr`: resta mascherato in `repr`, log e
+traceback e viene estratto con `.get_secret_value()` solo nel punto esatto di
+utilizzo. Esempio di adozione: i client OSINT di Argus
+(`NumverifyClient.from_env`, `RapidApiMessagingClient.from_env`) accettano un
+`secrets: SecretProvider` opzionale e, per default, risolvono
+`OLYMPUS_NUMVERIFY_KEY` / `OLYMPUS_RAPIDAPI_KEY` dall'ambiente.
+
+Rotazione delle credenziali e OIDC/mTLS per l'API multiutente restano tracciati
+in [`ROADMAP.md`](../ROADMAP.md) sotto `SEC-D`.
