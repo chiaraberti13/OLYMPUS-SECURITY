@@ -62,6 +62,29 @@ def test_compose_uses_the_native_image_and_is_fail_closed() -> None:
     assert not any("themis-config" in mount or "themis-tls" in mount for mount in worker["volumes"])
 
 
+def test_compose_separates_control_and_scan_networks_without_dual_homing() -> None:
+    compose = yaml.safe_load((ROOT / "docker-compose.yml").read_text())
+    services = compose["services"]
+
+    assert compose["networks"] == {
+        "control": {"driver": "bridge", "internal": True},
+        "scan-egress": {"driver": "bridge"},
+    }
+    assert services["themis-migrate"]["network_mode"] == "none"
+    assert services["themis-api"]["networks"] == ["control"]
+    assert services["themis-app"]["networks"] == ["control"]
+    for name in ("themis-worker", "zap", "gvm", "nessus"):
+        assert services[name]["networks"] == ["scan-egress"]
+
+    attached = {
+        name: set(service.get("networks", []))
+        for name, service in services.items()
+        if "network_mode" not in service
+    }
+    assert all(len(networks) == 1 for networks in attached.values())
+    assert not any({"control", "scan-egress"} <= networks for networks in attached.values())
+
+
 def test_scanner_seccomp_profile_is_default_deny_and_blocks_namespace_creation() -> None:
     profile = json.loads((ROOT / "deploy/security/themis-scanner-seccomp.json").read_text())
     assert profile["defaultAction"] == "SCMP_ACT_ERRNO"

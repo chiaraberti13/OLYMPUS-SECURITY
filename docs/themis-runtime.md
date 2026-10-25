@@ -217,7 +217,11 @@ Servizi non-root, filesystem root read-only, capability rimosse,
 `no-new-privileges`, tmpfs e limiti memoria/PID sono espliciti. Il worker carica
 inoltre il profilo seccomp default-deny versionato in
 `deploy/security/themis-scanner-seccomp.json`; la migrazione non ha rete. Egress
-allowlist resta in SEC-B. Sugli host AppArmor compatibili il profilo versionato
+allowlist resta in SEC-B. API e Web sono collegati soltanto alla rete Compose
+interna `control`; worker e motori opzionali soltanto a `scan-egress`. Nessun
+servizio è dual-homed e i job attraversano il confine tramite il volume SQLite,
+non tramite una rotta di rete. `scan-egress` non è ancora limitata agli IP e alle
+porte dello scope validato. Sugli host AppArmor compatibili il profilo versionato
 `deploy/security/olympus-themis-scanner.apparmor` si installa fail-closed con
 `sudo python scripts/manage_scanner_apparmor.py install` e si applica con
 l'overlay `docker-compose.apparmor.yml`. L'overlay resta esplicito perché
@@ -382,8 +386,11 @@ Live execution now verifies, inside the application service, a trusted OCI
 marker and pinned image attestation together with read-only rootfs, zero
 effective capabilities, `no-new-privileges` and active seccomp. Host CLI flags
 or environment variables cannot bypass the gate; simulation and disabled-live
-operation remain portable. Scanner egress and scan/control-plane separation
-remain SEC-B.
+operation remain portable. API and Web are attached only to the internal
+`control` Compose network; the worker and optional engines are attached only to
+`scan-egress`, migration has no network, and no service is dual-homed. Jobs cross
+the boundary through the shared SQLite volume rather than a network route.
+Scope-derived IP/port allowlisting on `scan-egress` remains open in SEC-B.
 
 The physical VAP source has been removed. Its reviewed revision, digest and
 immutable route inventory remain in

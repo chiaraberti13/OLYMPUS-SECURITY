@@ -38,7 +38,7 @@ services:
   themis-api:
     <<: *hardening
     networks:
-      - backend
+      - control
     build: *themis-build
     environment: *themis-env
     command:
@@ -71,7 +71,7 @@ services:
   themis-app:
     <<: *hardening
     networks:
-      - backend
+      - control
     build: *themis-build
     environment: *themis-env
     command:
@@ -107,7 +107,7 @@ services:
       - "no-new-privileges:true"
       - "seccomp:./deploy/security/themis-scanner-seccomp.json"
     networks:
-      - backend
+      - scan-egress
     build: *themis-build
     environment: *themis-env
     command:
@@ -143,7 +143,7 @@ services:
     cap_drop:
       - "ALL"
     networks:
-      - backend
+      - scan-egress
     command:
       - "zap.sh"
       - "-daemon"
@@ -164,6 +164,8 @@ services:
   gvm:
     image: greenbone/gvmd:stable
     profiles: ["gvm"]
+    networks:
+      - scan-egress
     restart: unless-stopped
     volumes:
       - gvm-data:/var/lib/gvm
@@ -173,6 +175,8 @@ services:
   nessus:
     image: ${THEMIS_NESSUS_IMAGE:-tenableofficial/nessus:latest}
     profiles: ["commercial-connectors"]
+    networks:
+      - scan-egress
     environment:
       # Provide your own licence/activation via env (never commit these).
       ACTIVATION_CODE: "${NESSUS_ACTIVATION_CODE:-}"
@@ -183,7 +187,12 @@ services:
     # run them externally and point THEMIS at their APIs (see docs/scanner-matrix.md).
 
 networks:
-  backend:
+  # API and Web share only the internal control plane. The worker and optional
+  # engines share the distinct scan plane; no service is dual-homed.
+  control:
+    driver: bridge
+    internal: true
+  scan-egress:
     driver: bridge
 
 volumes:

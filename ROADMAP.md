@@ -343,7 +343,7 @@ group. Il file dichiara correttamente ciò che manca.
   read-only, capability Linux azzerate, `no-new-privileges` e profilo seccomp.
 - [x] Applicare AppArmor o SELinux dove disponibile e pubblicare un profilo
   versionato nel repository.
-- [ ] Separare control plane e scan plane; consentire egress solo verso IP e porte
+- [~] Separare control plane e scan plane; consentire egress solo verso IP e porte
   derivati dallo scope già validato.
 - [ ] Bloccare metadata endpoint cloud, loopback, link-local, reti private non
   dichiarate e redirect fuori scope anche dal network namespace dello scanner.
@@ -357,8 +357,8 @@ nega namespace aggiuntivi e syscall kernel ad alto rischio; il job CI
 `native-container` avvia il runtime con quel profilo e verifica un rifiuto
 `EPERM`. Il runtime locale non dispone di Docker/Podman e non consente `ptrace`,
 quindi la prova kernel container resta demandata alla CI. SEC-B rimane `[~]`:
-la CLI host non è ancora containerizzata obbligatoriamente e la separazione
-scan-plane con egress allowlist non è implementata; il profilo AppArmor opzionale
+la CLI host non è ancora containerizzata obbligatoriamente e l'egress allowlist
+scan-plane non è implementata; il profilo AppArmor opzionale
 è descritto nell'avanzamento successivo.
 
 **Avanzamento verificato (2026-10-24, escape test):** la suite container esegue
@@ -393,7 +393,18 @@ dell'adapter; `themis run`, `workers` e `jobs work` non possono abilitarlo con
 una variabile o un flag host. Simulazione e modalità live disabilitata restano
 portabili e senza traffico. La CI esercita il gate nel container hardened; il
 primo criterio è quindi `[x]`. Separazione scan/control plane ed egress
-scope-derived restano i successivi residui SEC-B.
+scope-derived erano i successivi residui SEC-B; l'avanzamento seguente completa
+la separazione topologica mantenendo aperta la policy egress per job.
+
+**Avanzamento verificato (2026-10-25, separazione reti):** il Compose nativo
+collega API e Web esclusivamente alla rete `control`, dichiarata `internal`, e
+worker più motori opzionali esclusivamente alla rete `scan-egress`; la migrazione
+resta senza rete. Nessun servizio è dual-homed. Il volume SQLite condiviso
+trasporta i job tra i due piani senza creare un percorso di rete dal piano di
+scansione a quello di controllo. Un contract test analizza il Compose e rende
+queste proprietà un gate di regressione. Il criterio congiunto resta `[~]`:
+`scan-egress` consente ancora egress generale e deve essere ristretto, per ogni
+job, agli IP e alle porte derivati dallo scope validato prima di poterlo chiudere.
 
 **Criterio di completamento:** un adapter compromesso non può leggere il filesystem
 host, elevare privilegi o raggiungere un indirizzo non autorizzato; le prove sono

@@ -87,7 +87,10 @@ def test_core_services_drop_privileges_and_capabilities() -> None:
     assert "<<: *hardening" in text
 
 
-def test_compose_defines_a_dedicated_network() -> None:
+def test_compose_defines_separate_control_and_scan_networks() -> None:
     text = _COMPOSE.read_text(encoding="utf-8")
     assert re.search(r"^networks:", text, re.MULTILINE), "no top-level networks block"
-    assert "backend:" in text
+    assert "control:" in text
+    assert "scan-egress:" in text
+    assert "internal: true" in text
+    assert "backend:" not in text

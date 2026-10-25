@@ -103,9 +103,11 @@ commands.
   runtime. Native migrations use SQLite and do not require Redis, Celery,
   SQLAlchemy or Alembic. External scanner binaries are installed separately.
 - **Security boundary:** API and Web require credentials, registered scope and
-  HTTPS for browser sessions. The worker shares only the job store and scope
-  configuration; Docker egress allowlisting, seccomp and AppArmor remain open in
-  `SEC-B`.
+  HTTPS for browser sessions. Compose attaches them only to the internal
+  `control` network; the worker and optional engines use only `scan-egress`,
+  with no dual-homed service, and share jobs through SQLite. Scope-derived
+  egress allowlisting remains open in `SEC-B`; seccomp is mandatory for the
+  worker and AppArmor is available through the explicit host overlay.
 - **Verification references:** `tests/integration/test_themis_native_runtime.py`,
   `scripts/smoke_native_runtime.py`, the native container suite and CI. No live
   scan or production-ready scanner status is inferred here.

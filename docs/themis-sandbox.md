@@ -112,8 +112,14 @@ guarantees above as covering them:
   Olympus by address pinning (`olympus.core.pinning`), but an external scanner
   binary resolves and connects on its own; only a network policy can bound
   where it goes.
-- **Separate control and scanning networks.** A Compose/orchestrator topology
-  concern.
+
+Compose does separate the planes: API and Web are attached only to the internal
+`control` network, while the worker and optional engines are attached only to
+`scan-egress`; migration has no network and no service is dual-homed. The shared
+SQLite volume transfers jobs without opening a control-plane network path. This
+topology is a boundary, not an egress allowlist: `scan-egress` remains externally
+routable until a per-job policy restricts it to validated scope addresses and
+ports.
 
 The container test starts the native runtime under the repository profile and
 probes a denied `process_vm_readv` call. It also runs a bounded, offline escape

@@ -70,7 +70,10 @@ migration), `themis-api` (HTTPS API), `themis-app` (HTTPS web) and
 `themis-worker` (native SQLite worker). TLS certificates, the scoped identity
 register and the registered scopes are mounted read-only and **must be prepared
 before startup** — see `docs/themis-runtime.md` for the required files under
-`.olympus/`.
+`.olympus/`. API and Web use only the internal `control` network; the worker and
+optional scanner engines use only `scan-egress`; migration has no network and no
+service is dual-homed. This separates the planes but does not yet restrict
+scanner egress to scope-derived IP addresses and ports.
 
 ```bash
 docker compose up --build                  # themis-migrate + themis-api + themis-app + themis-worker
