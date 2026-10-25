@@ -381,7 +381,15 @@ docker compose down
 | Scanners | Optional scanner image only on the worker; missing dependencies produce explicit partial coverage |
 | Validation | Clean-wheel smoke plus an executable container suite in CI; all checks use loopback without live scans |
 
-**Real scans, never fabricated:** `olympus themis run <scanner> --target <t> --scope s.json --i-am-authorized` runs a real scanner with explicit states — `live` / `unavailable` / `failed` / `disabled` / `simulation`. Simulation is produced **only** with `--simulate` (or `THEMIS_SIMULATION_MODE=true`); a missing binary yields `unavailable`, never a fake finding. See [`docs/scanner-matrix.md`](docs/scanner-matrix.md) and [`docs/themis-execution-evidence.md`](docs/themis-execution-evidence.md).
+**Real scans, never fabricated:** `olympus themis run <scanner> --target <t>
+--scope s.json --i-am-authorized --signed-manifest engagement.signed.json
+--manifest-public-key approver.pub.pem --engagement-storage .olympus/engagements`
+runs a real scanner only after verifying the signed authorization and binding its
+digest to the result and audit. States remain explicit — `live` / `unavailable` /
+`failed` / `disabled` / `simulation`. Simulation is produced **only** with
+`--simulate`; a missing binary yields `unavailable`, never a fake finding. See
+[`docs/scanner-matrix.md`](docs/scanner-matrix.md) and
+[`docs/themis-execution-evidence.md`](docs/themis-execution-evidence.md).
 
 External scanner **binaries** are installed independently or through the
 optional native worker image. The maintained runtime does not use the archived

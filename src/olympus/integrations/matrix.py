@@ -53,7 +53,8 @@ commercial. Only Nessus, Burp, and Acunetix are proprietary.
 
 > **Simulation is opt-in.** `olympus themis run` never fabricates findings: a \
 missing binary → `unavailable`, live-off → `disabled`, explicit `--simulate` → \
-`simulation`.
+`simulation`. When live is enabled, a signed engagement manifest, pinned public \
+key and revocation store are mandatory before direct execution.
 """
 
 _TABLE_HEAD = (
@@ -96,8 +97,9 @@ vulnerability database needs a free API token.
 `olympus themis run <scanner>` returns an explicit state and never fabricates \
 findings: `unavailable` (missing binary/API, with install instructions + \
 `olympus themis deps` diagnostic), `disabled` (live off), `failed` (real error), \
-or `live`. Commercial/service engines return `unavailable` until configured. \
-Nothing is silently skipped.
+or `live`. A direct live invocation also requires verified signed authorization; \
+commercial/service engines return `unavailable` until configured. Nothing is \
+silently skipped.
 """
 
 

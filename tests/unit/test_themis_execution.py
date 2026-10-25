@@ -13,6 +13,7 @@ import json
 import re
 import stat
 import sys
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from xml.sax.saxutils import quoteattr
 
@@ -28,6 +29,9 @@ from olympus.core.execution import (
     CancellationRequested,
     CancellationToken,
 )
+from olympus.core.models import EngagementScope
+from olympus.core.signing import generate_keypair
+from olympus.engagements.manifest import EngagementManifest, SignedEngagementManifest
 from olympus.themis.adapters.nikto import NiktoAdapter
 from olympus.themis.adapters.nmap import (
     MAX_NMAP_XML_BYTES,
@@ -742,3 +746,187 @@ def test_global_simulation_environment_does_not_enable_native_simulation(
     payload = json.loads(result.stdout)
     assert payload["state"] == "disabled"
     assert payload["findings"] == []
+
+
+def _direct_run_manifest(tmp_path: Path) -> tuple[Path, Path, SignedEngagementManifest]:
+    private_key, public_key = generate_keypair()
+    now = datetime.now(UTC)
+    signed = SignedEngagementManifest.sign_manifest(
+        EngagementManifest(
+            engagement_id="ENG-2026-00001",
+            client="Synthetic Client",
+            owner="Security Owner",
+            approver="Authorized Approver",
+            contract_id="CONTRACT-DIRECT-01",
+            scope=EngagementScope(included=("127.0.0.1",)),
+            valid_from=now - timedelta(minutes=1),
+            expires_at=now + timedelta(hours=1),
+            allowed_techniques=("fake",),
+        ),
+        private_key_pem=private_key,
+    )
+    manifest_path = tmp_path / "manifest.json"
+    key_path = tmp_path / "approver.pub.pem"
+    manifest_path.write_text(signed.model_dump_json(), encoding="utf-8")
+    key_path.write_text(public_key, encoding="utf-8")
+    return manifest_path, key_path, signed
+
+
+def test_direct_live_run_requires_signed_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scope = _scope(tmp_path / "scope.json")
+    monkeypatch.setenv("THEMIS_ENABLE_LIVE_SCANS", "true")
+    monkeypatch.delenv("AEGIS_ENABLE_LIVE_SCANS", raising=False)
+    monkeypatch.delenv("VAP_ENABLE_LIVE_SCANS", raising=False)
+
+    result = runner.invoke(
+        app,
+        [
+            "themis",
+            "run",
+            "fake",
+            "--target",
+            "127.0.0.1",
+            "--scope",
+            str(scope),
+            "--i-am-authorized",
+            "--audit",
+            "",
+        ],
+    )
+
+    assert result.exit_code == 4
+    assert "requires --signed-manifest" in result.output
+
+
+def test_direct_live_run_refuses_manifest_for_another_scanner_and_audits(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scope = _scope(tmp_path / "scope.json")
+    manifest_path, key_path, signed = _direct_run_manifest(tmp_path)
+    audit = tmp_path / "audit.ndjson"
+    monkeypatch.setenv("THEMIS_ENABLE_LIVE_SCANS", "true")
+    monkeypatch.delenv("AEGIS_ENABLE_LIVE_SCANS", raising=False)
+    monkeypatch.delenv("VAP_ENABLE_LIVE_SCANS", raising=False)
+
+    result = runner.invoke(
+        app,
+        [
+            "themis",
+            "run",
+            "nmap",
+            "--target",
+            "127.0.0.1",
+            "--scope",
+            str(scope),
+            "--i-am-authorized",
+            "--signed-manifest",
+            str(manifest_path),
+            "--manifest-public-key",
+            str(key_path),
+            "--engagement-storage",
+            str(tmp_path / "engagements"),
+            "--audit",
+            str(audit),
+        ],
+    )
+
+    assert result.exit_code == 4
+    assert "signed authorization refused" in result.output
+    record = json.loads(audit.read_text(encoding="utf-8"))
+    assert record["action"] == "themis.manifest-authorization"
+    assert record["outcome"] == "refused"
+    assert record["metadata"]["manifest_sha256"] == signed.manifest_sha256
+
+
+def test_direct_simulation_does_not_require_or_store_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scope = _scope(tmp_path / "scope.json")
+    storage = tmp_path / "engagements"
+    monkeypatch.setenv("THEMIS_ENABLE_LIVE_SCANS", "true")
+    monkeypatch.delenv("AEGIS_ENABLE_LIVE_SCANS", raising=False)
+    monkeypatch.delenv("VAP_ENABLE_LIVE_SCANS", raising=False)
+
+    result = runner.invoke(
+        app,
+        [
+            "themis",
+            "run",
+            "nmap",
+            "--target",
+            "127.0.0.1",
+            "--scope",
+            str(scope),
+            "--simulate",
+            "--audit",
+            "",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout)["state"] == "simulation"
+    assert not storage.exists()
+
+
+def test_direct_live_run_verifies_manifest_and_binds_provenance(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scope = _scope(tmp_path / "scope.json")
+    manifest_path, key_path, signed = _direct_run_manifest(tmp_path)
+    audit = tmp_path / "audit.ndjson"
+    monkeypatch.setenv("THEMIS_ENABLE_LIVE_SCANS", "true")
+    monkeypatch.delenv("AEGIS_ENABLE_LIVE_SCANS", raising=False)
+    monkeypatch.delenv("VAP_ENABLE_LIVE_SCANS", raising=False)
+    captured: list[ThemisRunRequest] = []
+
+    class _CaptureApplication:
+        def run(self, request: ThemisRunRequest) -> ScanResult:
+            captured.append(request)
+            return ScanResult(
+                scanner=request.scanner,
+                state=ExecutionState.LIVE,
+                target=request.target,
+                job_id=request.job_id,
+                manifest_sha256=request.manifest_sha256,
+            )
+
+    monkeypatch.setattr(
+        "olympus.themis.application.ThemisApplicationService",
+        _CaptureApplication,
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "themis",
+            "run",
+            "fake",
+            "--target",
+            "127.0.0.1",
+            "--scope",
+            str(scope),
+            "--i-am-authorized",
+            "--signed-manifest",
+            str(manifest_path),
+            "--manifest-public-key",
+            str(key_path),
+            "--engagement-storage",
+            str(tmp_path / "engagements"),
+            "--audit",
+            str(audit),
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["manifest_sha256"] == signed.manifest_sha256
+    assert re.fullmatch(r"THEMIS-[A-F0-9]{32}", payload["job_id"])
+    assert captured[0].manifest_sha256 == signed.manifest_sha256
+    assert captured[0].job_id == payload["job_id"]
+    records = [json.loads(line) for line in audit.read_text(encoding="utf-8").splitlines()]
+    assert [record["action"] for record in records] == ["themis.manifest-authorization"]
+    assert all(
+        record["metadata"]["manifest_sha256"] == signed.manifest_sha256 for record in records
+    )

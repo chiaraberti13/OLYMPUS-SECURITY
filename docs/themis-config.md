@@ -30,9 +30,12 @@ The `THEMIS_SANDBOX_*` family is read by `olympus.themis.sandbox`:
 
 ## Notes
 
-- The **Olympus-native** execution layer prefers `THEMIS_*`. Setting only
-  `THEMIS_ENABLE_LIVE_SCANS=true` enables `olympus themis run`; setting only the
-  legacy `VAP_ENABLE_LIVE_SCANS=true` also works via fallback.
+- The **Olympus-native** execution layer prefers `THEMIS_*`. Setting
+  `THEMIS_ENABLE_LIVE_SCANS=true` makes direct execution eligible, but
+  `olympus themis run` still requires a verified signed manifest, pinned public
+  key, durable engagement store, explicit authorization and scope. The legacy
+  `VAP_ENABLE_LIVE_SCANS=true` value still resolves through the compatibility
+  fallback but grants no authorization by itself.
 - Migration: prefer `THEMIS_*` in new deployments. `AEGIS_*`/`VAP_*` support is
   retained for backward compatibility.
 - The compatibility resolver also maps the legacy VAP-era names

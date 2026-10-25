@@ -79,7 +79,10 @@ esplicitamente:
 ```bash
 export THEMIS_NUCLEI_TEMPLATES=/opt/nuclei-templates   # leggibile dall'utente sandbox
 olympus themis run nuclei --target http://lab.interno --kind url \
-  --scope scope.json --i-am-authorized
+  --scope scope.json --i-am-authorized \
+  --signed-manifest engagement.signed.json \
+  --manifest-public-key approver.pub.pem \
+  --engagement-storage .olympus/engagements
 ```
 
 `whatweb` merita una nota: l'unica esecuzione live catturata è **fallita** su un

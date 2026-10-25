@@ -145,6 +145,18 @@ olympus themis web --engagement-storage ./workspace --scope-directory ./scopes \
   --manifest-public-key ./approver-ed25519-public.pem
 ```
 
+The same store also protects the direct execution path. A live invocation must
+provide the signed document and pinned key explicitly; Olympus rechecks the
+revocation register and binds a generated job ID plus the manifest digest to the
+result and audit. `--simulate` remains offline and intentionally needs neither:
+
+```bash
+olympus themis run nmap --target lab.example --scope ./scopes/lab.json \
+  --i-am-authorized --signed-manifest ./engagement.signed.json \
+  --manifest-public-key ./approver-ed25519-public.pem \
+  --engagement-storage ./workspace
+```
+
 - **API** (`engagements:read` scope): `GET /api/v1/engagements` returns the
   `olympus.themis-engagement-list` contract; `GET /api/v1/engagements/{id}`
   returns the `olympus.engagement` document, or `404` for an unknown id. With no

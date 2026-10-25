@@ -32,6 +32,14 @@ firmato, lo verifica in anteprima e di nuovo al submit, quindi lega il digest al
 job. Senza la chiave fissata resta la modalità compatibile a conferma booleana,
 che non costituisce il profilo protetto SEC-C.
 
+L'esecuzione diretta non è una scorciatoia: quando
+`THEMIS_ENABLE_LIVE_SCANS=true`, `olympus themis run` richiede sempre
+`--signed-manifest`, `--manifest-public-key` e `--engagement-storage`. Verifica
+firma, digest, revoca, finestra, target e scanner prima del servizio applicativo,
+conserva il documento per controlli successivi e assegna un job ID effimero al
+risultato. Autorizzazioni accettate e rifiutate sono registrate nell'audit senza
+copiarvi il manifest. La simulazione resta offline e non richiede un manifest.
+
 L'API conserva il documento firmato verificato, non solo il digest. Prima di
 avviare lo scanner il worker ricarica quel documento e ricontrolla firma,
 digest, revoca, finestra, target e tecnica. Un digest senza documento o un

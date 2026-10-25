@@ -4,6 +4,11 @@ _Captured on 2026-08-25 against a **local authorized lab** (a Python HTTP
 server on 127.0.0.1:8000). No public/third-party system was scanned. Scope
 file authorizes only 127.0.0.1; THEMIS_ENABLE_LIVE_SCANS=true._
 
+> These command transcripts document historical captures. Current direct live
+> execution additionally requires `--signed-manifest`, `--manifest-public-key`
+> and `--engagement-storage`; the retained JSON below predates SEC-C provenance
+> fields and must not be interpreted as present-day authorization evidence.
+
 Binaries present in this environment: nmap 7.94, nikto 2.5, wafw00f 2.x,
 sqlmap 1.10.8, testssl.sh 3.x, whatweb (apt binary — broken Ruby env).
 

@@ -9,7 +9,7 @@ _Generated from `olympus.integrations.scanners` (registry) and `olympus.themis.r
 > ProjectDiscovery probe. The adapter refuses non-probe output with an error
 > naming the collision rather than reporting a clean scan.
 
-> **Simulation is opt-in.** `olympus themis run` never fabricates findings: a missing binary → `unavailable`, live-off → `disabled`, explicit `--simulate` → `simulation`.
+> **Simulation is opt-in.** `olympus themis run` never fabricates findings: a missing binary → `unavailable`, live-off → `disabled`, explicit `--simulate` → `simulation`. When live is enabled, a signed engagement manifest, pinned public key and revocation store are mandatory before direct execution.
 
 | Scanner | Category | Kind | Binary / API | Licence | Auto-install | In image | Native adapter | Live-verified here |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -78,4 +78,4 @@ installed on your machine that Olympus has no adapter for stays `catalog-only`.
 
 ## Unavailable-tool policy
 
-`olympus themis run <scanner>` returns an explicit state and never fabricates findings: `unavailable` (missing binary/API, with install instructions + `olympus themis deps` diagnostic), `disabled` (live off), `failed` (real error), or `live`. Commercial/service engines return `unavailable` until configured. Nothing is silently skipped.
+`olympus themis run <scanner>` returns an explicit state and never fabricates findings: `unavailable` (missing binary/API, with install instructions + `olympus themis deps` diagnostic), `disabled` (live off), `failed` (real error), or `live`. A direct live invocation also requires verified signed authorization; commercial/service engines return `unavailable` until configured. Nothing is silently skipped.

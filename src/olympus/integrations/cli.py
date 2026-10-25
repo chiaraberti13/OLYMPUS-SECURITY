@@ -88,6 +88,100 @@ DEFAULT_IDENTITY_REGISTER = str(state_file_path("themis-api-identities.json"))
 DEFAULT_THEMIS_AUDIT_LOG = str(audit_log_path("themis-audit.ndjson"))
 
 
+def _authorize_direct_live_run(
+    *,
+    signed_manifest_path: Path,
+    trusted_public_key_path: Path,
+    engagement_storage: Path,
+    scanner: str,
+    target: str,
+    audit_path: Path | None,
+) -> tuple[str, str]:
+    """Authorize and retain provenance for a direct live scanner invocation."""
+    import sqlite3
+    from datetime import UTC, datetime
+    from uuid import uuid4
+
+    from olympus.core.execution import StructuredAuditRecord, append_structured_audit
+    from olympus.core.fileio import read_regular_text
+    from olympus.engagements.manifest import SignedEngagementManifest
+    from olympus.engagements.store import (
+        ENGAGEMENTS_DB_NAME,
+        MAX_DOCUMENT_BYTES,
+        SqliteEngagementStore,
+    )
+
+    job_id = f"THEMIS-{uuid4().hex.upper()}"
+    digest: str | None = None
+    store: SqliteEngagementStore | None = None
+    try:
+        signed = SignedEngagementManifest.model_validate_json(
+            read_regular_text(
+                signed_manifest_path,
+                max_bytes=MAX_DOCUMENT_BYTES,
+                label="signed engagement manifest",
+            )
+        )
+        digest = signed.manifest_sha256
+        trusted_public_key = read_regular_text(
+            trusted_public_key_path,
+            max_bytes=64 * 1024,
+            label="manifest public key",
+        )
+        store = SqliteEngagementStore(engagement_storage / ENGAGEMENTS_DB_NAME)
+        store.authorize_and_save_manifest(
+            signed,
+            trusted_public_key_pem=trusted_public_key,
+            target=target,
+            technique=scanner,
+            now=datetime.now(UTC),
+        )
+    except (OSError, sqlite3.Error, ValueError) as exc:
+        if audit_path is not None:
+            metadata: dict[str, object] = {
+                "job_id": job_id,
+                "scanner": scanner,
+                "error_type": type(exc).__name__,
+            }
+            if digest is not None:
+                metadata["manifest_sha256"] = digest
+            append_structured_audit(
+                audit_path,
+                StructuredAuditRecord(
+                    timestamp=datetime.now(UTC).isoformat(),
+                    execution_id=job_id,
+                    action="themis.manifest-authorization",
+                    outcome="refused",
+                    target=target,
+                    metadata=metadata,
+                ),
+            )
+        raise
+    finally:
+        if store is not None:
+            store.close()
+
+    if digest is None:  # defensive: successful parsing always assigns the digest
+        raise RuntimeError("signed-manifest authorization completed without a digest")
+    if audit_path is not None:
+        append_structured_audit(
+            audit_path,
+            StructuredAuditRecord(
+                timestamp=datetime.now(UTC).isoformat(),
+                execution_id=job_id,
+                action="themis.manifest-authorization",
+                outcome="authorized",
+                target=target,
+                metadata={
+                    "job_id": job_id,
+                    "manifest_sha256": digest,
+                    "scanner": scanner,
+                },
+            ),
+        )
+    return job_id, digest
+
+
 def _emit_report(report: Report) -> None:
     typer.echo(json.dumps(report.to_dict(), indent=2, sort_keys=True))
 
@@ -1981,6 +2075,21 @@ def themis_run(
     audit: str = typer.Option(
         DEFAULT_THEMIS_AUDIT_LOG, "--audit", help="Redacted structured audit log."
     ),
+    signed_manifest: str = typer.Option(
+        "",
+        "--signed-manifest",
+        help="Signed engagement manifest required for direct live execution.",
+    ),
+    manifest_public_key: str = typer.Option(
+        "",
+        "--manifest-public-key",
+        help="Pinned Ed25519 approver public key required for direct live execution.",
+    ),
+    engagement_storage: str = typer.Option(
+        "",
+        "--engagement-storage",
+        help="Directory holding the durable signed-manifest and revocation store.",
+    ),
     i_am_authorized: bool = typer.Option(
         False, "--i-am-authorized", help="Confirm documented authorization for a real scan."
     ),
@@ -1998,6 +2107,7 @@ def themis_run(
     binary yields 'unavailable', and live-disabled yields 'disabled' — never
     fabricated findings.
     """
+    import sqlite3
     from pathlib import Path
 
     from olympus.core.execution import AuthorizationRequiredError, CancellationRequested
@@ -2023,6 +2133,40 @@ def themis_run(
         typer.echo("olympus: --scope is required for every real or simulated target", err=True)
         raise typer.Exit(code=ExitCode.USAGE)
     try:
+        live_scans = themis_config.live_enabled()
+    except ThemisConfigError as exc:
+        typer.echo(f"olympus: Themis execution error: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.FAILED) from exc
+
+    job_id: str | None = None
+    manifest_sha256: str | None = None
+    if live_scans and not simulate:
+        if not i_am_authorized:
+            typer.echo("olympus: direct live execution requires --i-am-authorized", err=True)
+            raise typer.Exit(code=ExitCode.NOT_AUTHORIZED)
+        if not signed_manifest or not manifest_public_key or not engagement_storage:
+            typer.echo(
+                "olympus: direct live execution requires --signed-manifest, "
+                "--manifest-public-key and --engagement-storage",
+                err=True,
+            )
+            raise typer.Exit(code=ExitCode.NOT_AUTHORIZED)
+        try:
+            job_id, manifest_sha256 = _authorize_direct_live_run(
+                signed_manifest_path=Path(signed_manifest),
+                trusted_public_key_path=Path(manifest_public_key),
+                engagement_storage=Path(engagement_storage),
+                scanner=scanner,
+                target=target,
+                audit_path=Path(audit) if audit else None,
+            )
+        except (OSError, sqlite3.Error, ValueError) as exc:
+            typer.echo(
+                safe_terminal_text(f"olympus: signed authorization refused: {exc}"),
+                err=True,
+            )
+            raise typer.Exit(code=ExitCode.NOT_AUTHORIZED) from exc
+    try:
         result = ThemisApplicationService().run(
             ThemisRunRequest(
                 scanner=scanner,
@@ -2030,7 +2174,9 @@ def themis_run(
                 target_kind=kind,
                 scope_path=Path(scope),
                 authorized=i_am_authorized,
-                live_enabled=themis_config.live_enabled(),
+                live_enabled=live_scans,
+                job_id=job_id,
+                manifest_sha256=manifest_sha256,
                 simulate=simulate,
                 output_path=Path(output) if output else None,
                 audit_path=Path(audit) if audit else None,

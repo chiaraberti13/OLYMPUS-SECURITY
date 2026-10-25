@@ -537,6 +537,16 @@ retrospettiva di revoca o finestra temporale: quella decisione resta provata
 dall'audit worker correlato. Il profilo lab separato e la modalità compatibile
 senza chiave restano aperti: SEC-C resta `[~]`.
 
+**Avanzamento verificato (2026-10-25, gate esecuzione diretta):**
+`olympus themis run` non può più avviare una scansione live con la sola conferma
+booleana. Quando il live è abilitato richiede documento firmato, chiave pubblica
+Ed25519 fissata e archivio engagement; verifica firma, digest, revoca, finestra,
+target e scanner prima di costruire il servizio applicativo. Il documento viene
+conservato e il risultato/audit ricevono job ID e digest correlabili; anche i
+rifiuti sono auditati senza copiare il manifest. Simulazione e stato live-off
+restano portabili e non creano provenienza fittizia. API/Web senza chiave e il
+profilo lab separato restano aperti, quindi SEC-C resta `[~]`.
+
 **Criterio di completamento:** nessuna live scan può partire con un semplice flag;
 il report consente di dimostrare manifest, firma, scope e policy effettivi usati.
 
