@@ -134,7 +134,7 @@ Legenda stato: ✅ implementata · 🟡 parziale · 🗓️ pianificata · ❌ a
 | **Prometheus** (monitoraggio) | monitoring continuo | ♻️ **doppio conflitto**: il noto sistema Prometheus e il backend `observability` già chiamato `prometheus` (`core/observability.py`) | **Scartare il nome**; monitoring → estende `core/observability.py` + scheduler (`D13`) |
 | **Hestia** (secret detection) | secret detection | ♻️ è **Hermes** (nativo: regex+entropia+git history, `hermes/scanner.py`) | **Scartare**: già Hermes |
 | **Hephaestus** (supply-chain) | supply-chain security | 🟡 SBOM `core/sbom.py`, lockfile, pip-audit/gitleaks in CI; nome già **riservato** per hardening/CIS (`OPS-BLUE`) | **Integrare** in `SEC-F` (provenance/SLSA/Cosign) + candidati Trivy/OSV (`OPS-SCAN`); non un modulo nuovo |
-| **Iris** (notifiche) | notifiche | 🟡 porta `core/notifications.py` (webhook SSRF-safe, redatta, off-by-default) | `WEB-I`: resta canale e-mail + emissione automatica sul loop job Themis |
+| **Iris** (notifiche) | notifiche | 🟡 porta `core/notifications.py` (webhook SSRF-safe + e-mail, redatta, off-by-default) | `WEB-I`: resta l'emissione automatica sul loop job Themis |
 | **Chronos** (scheduler) | scheduling | ❌ assente (job store c'è) | **Integrare** come servizio di scheduling su `themis/jobs.py` (`D13`); nome solo se diventa sub-app CLI |
 | **Oracle** (risk scoring) | risk scoring | ♻️ **conflitto di nome** (Oracle DB); parziale in `vulcan/enrichment.prioritize` | **Scartare il nome**; estendere `vulcan` con risk score + confidence |
 
@@ -1675,13 +1675,17 @@ lo stesso port; l'utente locale non deve installare Postgres.
   mostra solo l'anteprima, senza alcuna chiamata di rete. Canale **webhook**
   `WebhookChannel` con trasporto `PinnedWebhookPoster` **SSRF-safe** (ogni hop
   vincolato alla `global_address_policy` solo-pubblica; solo schemi `http(s)`);
-  una consegna non-2xx o fallita è riportata, mai sollevata. CLI `olympus vulcan
-  notify --findings … [--min-severity …] [--webhook …]` (anteprima redatta o
-  consegna; exit `5` se una consegna fallisce). Test
-  `tests/unit/test_core_notifications.py`; doc [`docs/findings.md`](docs/findings.md).
-  **Resta da fare:** canale e-mail (stessa porta `NotificationChannel`) ed
-  emissione automatica sugli eventi di job/finding del loop Themis (il motore e i
-  builder per job e finding ci sono già).
+  una consegna non-2xx o fallita è riportata, mai sollevata. Canale **e-mail**
+  `EmailChannel` sulla stessa porta: messaggio di testo redatto via `smtplib`
+  (`SmtpEmailTransport`), indirizzi validati contro header-injection, errori SMTP
+  riportati non sollevati. CLI `olympus vulcan notify --findings …
+  [--min-severity …] [--webhook …] [--email-to … --email-from … --smtp-host …]`
+  (anteprima redatta o consegna su uno/entrambi i canali; exit `5` se una consegna
+  fallisce). Test `tests/unit/test_core_notifications.py` (motore + CLI con doppi
+  in memoria, zero rete); doc [`docs/findings.md`](docs/findings.md).
+  **Resta da fare:** emissione automatica sugli eventi di job/finding del loop
+  Themis (motore e builder per job e finding già pronti; il wiring tocca codice
+  Themis).
 
 **Criterio di completamento:** un operatore confronta due assessment e riceve una
 notifica redatta alla chiusura di un job, senza logica di report duplicata.

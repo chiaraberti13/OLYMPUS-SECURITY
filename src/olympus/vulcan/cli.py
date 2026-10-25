@@ -14,9 +14,11 @@ from olympus.core.exit_codes import ExitCode
 from olympus.core.fileio import atomic_write_bytes, atomic_write_text, read_regular_text
 from olympus.core.models import Asset, Finding
 from olympus.core.notifications import (
+    EmailChannel,
     NotificationChannel,
     NotificationDispatcher,
     PinnedWebhookPoster,
+    SmtpEmailTransport,
     WebhookChannel,
     notification_from_finding,
 )
@@ -395,6 +397,14 @@ def notify(
         help="Operator webhook URL (http/https). Omit to preview only — "
         "notifications are OFF by default and nothing leaves the host without it.",
     ),
+    email_to: list[str] = typer.Option(
+        [],
+        "--email-to",
+        help="E-mail recipient(s) (repeatable). Requires --email-from/--smtp-host.",
+    ),
+    email_from: str | None = typer.Option(None, "--email-from", help="E-mail sender address."),
+    smtp_host: str | None = typer.Option(None, "--smtp-host", help="SMTP server host."),
+    smtp_port: int = typer.Option(25, "--smtp-port", help="SMTP server port."),
     min_severity: Severity = typer.Option(
         Severity.MEDIUM, "--min-severity", help="Announce only findings at or above this severity."
     ),
@@ -408,10 +418,11 @@ def notify(
 ) -> None:
     """Build redacted notifications from findings and optionally deliver them.
 
-    Notifications are off by default: without ``--webhook`` the command only
-    previews the redacted payloads and makes no network call. With ``--webhook``
-    each payload is POSTed over an SSRF-safe, public-only transport; the exit code
-    is ``5`` (partial) if any delivery fails, ``0`` otherwise.
+    Notifications are off by default: with no channel the command only previews
+    the redacted payloads and makes no network call. ``--webhook`` POSTs each
+    payload over an SSRF-safe, public-only transport; ``--email-to`` (with
+    ``--email-from`` and ``--smtp-host``) sends them by e-mail. The exit code is
+    ``5`` (partial) if any delivery fails, ``0`` otherwise.
     """
     try:
         loaded = load_findings(
@@ -421,10 +432,14 @@ def notify(
             max_items_per_file=max_items_per_file,
             max_total_items=max_total_items,
         )
-        channels: tuple[NotificationChannel, ...] = ()
+        channels: list[NotificationChannel] = []
         if webhook is not None:
-            channel: NotificationChannel = WebhookChannel(webhook, PinnedWebhookPoster())
-            channels = (channel,)
+            channels.append(WebhookChannel(webhook, PinnedWebhookPoster()))
+        if email_to:
+            if email_from is None or smtp_host is None:
+                raise ValueError("--email-to requires --email-from and --smtp-host")
+            transport = SmtpEmailTransport(smtp_host, smtp_port)
+            channels.append(EmailChannel(transport, email_from, tuple(email_to)))
     except _APPLICATION_ERRORS as exc:
         typer.echo(safe_terminal_text(f"vulcan: {exc}"), err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
@@ -432,7 +447,7 @@ def notify(
     notifications = [
         notification_from_finding(finding) for finding in filter_min_severity(loaded, min_severity)
     ]
-    dispatcher = NotificationDispatcher(channels)
+    dispatcher = NotificationDispatcher(tuple(channels))
 
     records: list[dict[str, object]] = []
     failures = 0
@@ -452,7 +467,11 @@ def notify(
 
     columns = ["kind", "severity", "title", "delivery"]
     typer.echo(render(records, columns, output_format, title="Notifications"))
-    mode = "delivered via webhook" if dispatcher.enabled else "previewed (off by default)"
+    mode = (
+        f"delivered via {len(channels)} channel(s)"
+        if dispatcher.enabled
+        else "previewed (off by default)"
+    )
     typer.echo(
         f"vulcan: {len(notifications)} notification(s) {mode}; {failures} delivery failure(s)",
         err=True,

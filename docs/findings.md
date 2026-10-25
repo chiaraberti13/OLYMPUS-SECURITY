@@ -486,14 +486,23 @@ Three guarantees hold by construction:
   be turned into a request against cloud metadata or an internal service, and
   only `http(s)` schemes are dialled.
 
+Two channels implement the `NotificationChannel` port: a `WebhookChannel`
+(JSON `POST` over the SSRF-safe transport) and an `EmailChannel` (a redacted
+plain-text message over `smtplib`). Both are off until explicitly configured;
+either or both can be enabled at once.
+
 ```bash
 # Preview the redacted notifications for high+ findings (no network, off by default)
 olympus vulcan notify --findings ./findings.json --min-severity high --format json
 
 # Deliver each to an operator webhook (exit 5 if any delivery fails)
 olympus vulcan notify --findings ./findings.json --webhook https://hooks.example/olympus
+
+# Deliver each by e-mail (repeat --email-to for several recipients)
+olympus vulcan notify --findings ./findings.json \
+  --email-to soc@example.com --email-from olympus@example.com --smtp-host mail.example.com
 ```
 
-E-mail delivery and automatic emission on live job/finding events (wiring the
-dispatcher into the Themis job loop) implement the same `NotificationChannel`
-port and are tracked in [`ROADMAP.md`](../ROADMAP.md) under `WEB-I`.
+Automatic emission on live job/finding events (wiring the dispatcher into the
+Themis job loop) uses the same port and is tracked in
+[`ROADMAP.md`](../ROADMAP.md) under `WEB-I`.

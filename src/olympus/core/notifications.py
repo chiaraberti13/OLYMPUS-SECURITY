@@ -30,11 +30,13 @@ protocol so tests inject an in-memory double.
 from __future__ import annotations
 
 import json
+import smtplib
 import urllib.error
 import urllib.request
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
+from email.message import EmailMessage
 from enum import StrEnum
 from typing import Literal, Protocol
 from urllib.parse import urlsplit
@@ -223,6 +225,74 @@ class PinnedWebhookPoster:
             raise WebhookDeliveryError(f"webhook request failed: {exc.reason}") from exc
 
 
+def _email_body(notification: Notification) -> str:
+    """Render the already-redacted notification as a plain-text e-mail body."""
+    lines = [notification.summary, ""]
+    if notification.severity is not None:
+        lines.append(f"Severity: {notification.severity.value}")
+    if notification.engagement_id:
+        lines.append(f"Engagement: {notification.engagement_id}")
+    if notification.occurred_at is not None:
+        lines.append(f"Occurred at: {notification.occurred_at.isoformat()}")
+    lines.extend(f"{key}: {notification.labels[key]}" for key in sorted(notification.labels))
+    lines.extend(["", "— Olympus (automated, authorized security testing)"])
+    return "\n".join(lines)
+
+
+class EmailTransport(Protocol):
+    """Anything able to hand a built :class:`EmailMessage` to a mail server."""
+
+    def send(self, message: EmailMessage) -> None:
+        """Deliver ``message`` or raise on failure."""
+        ...
+
+
+@dataclass(frozen=True)
+class EmailChannel:
+    """Deliver notifications as a plain-text e-mail to one or more recipients."""
+
+    transport: EmailTransport
+    sender: str
+    recipients: tuple[str, ...]
+    name: str = "email"
+
+    def __post_init__(self) -> None:
+        if not self.recipients:
+            raise ValueError("email channel needs at least one recipient")
+        for address in (self.sender, *self.recipients):
+            # A minimal sanity check; the title is already single-line
+            # (safe_terminal_text) so a header cannot be forged via a newline.
+            if "@" not in address or "\n" in address or "\r" in address:
+                raise ValueError(f"invalid e-mail address: {address!r}")
+
+    def send(self, notification: Notification) -> DeliveryResult:
+        message = EmailMessage()
+        message["Subject"] = notification.title
+        message["From"] = self.sender
+        message["To"] = ", ".join(self.recipients)
+        message.set_content(_email_body(notification))
+        try:
+            self.transport.send(message)
+        except (OSError, smtplib.SMTPException) as exc:
+            return DeliveryResult(self.name, delivered=False, detail=f"smtp error: {exc}")
+        return DeliveryResult(
+            self.name, delivered=True, detail=f"sent to {len(self.recipients)} recipient(s)"
+        )
+
+
+@dataclass
+class SmtpEmailTransport:
+    """Default e-mail transport over SMTP (stdlib ``smtplib``)."""
+
+    host: str
+    port: int = 25
+    timeout: float = _DEFAULT_TIMEOUT_SECONDS
+
+    def send(self, message: EmailMessage) -> None:
+        with smtplib.SMTP(self.host, self.port, timeout=self.timeout) as smtp:
+            smtp.send_message(message)
+
+
 @dataclass(frozen=True)
 class NotificationDispatcher:
     """Fan one notification out to every configured channel. Off by default."""
@@ -241,11 +311,14 @@ class NotificationDispatcher:
 
 __all__ = [
     "DeliveryResult",
+    "EmailChannel",
+    "EmailTransport",
     "Notification",
     "NotificationChannel",
     "NotificationDispatcher",
     "NotificationKind",
     "PinnedWebhookPoster",
+    "SmtpEmailTransport",
     "WebhookChannel",
     "WebhookDeliveryError",
     "WebhookPoster",

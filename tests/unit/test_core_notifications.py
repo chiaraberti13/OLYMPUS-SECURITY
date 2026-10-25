@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from email.message import EmailMessage
 from pathlib import Path
 
 import pytest
@@ -22,6 +23,7 @@ from olympus.core.exit_codes import ExitCode
 from olympus.core.models import Finding, ScanJob
 from olympus.core.notifications import (
     DeliveryResult,
+    EmailChannel,
     NotificationDispatcher,
     NotificationKind,
     WebhookChannel,
@@ -48,6 +50,21 @@ class _RecordingPoster:
 class _FailingPoster:
     def post(self, url: str, body: bytes, headers: Mapping[str, str]) -> int:
         raise WebhookDeliveryError("address policy refused destination")
+
+
+class _RecordingMailer:
+    """An in-memory :class:`EmailTransport` that records the messages it is handed."""
+
+    def __init__(self) -> None:
+        self.messages: list[EmailMessage] = []
+
+    def send(self, message: EmailMessage) -> None:
+        self.messages.append(message)
+
+
+class _FailingMailer:
+    def send(self, message: EmailMessage) -> None:
+        raise OSError("connection refused")
 
 
 def _finding(**overrides: object) -> Finding:
@@ -147,6 +164,51 @@ def test_webhook_channel_rejects_non_http_scheme(url: str) -> None:
         WebhookChannel(url, _RecordingPoster())
 
 
+# --- e-mail channel --------------------------------------------------------- #
+
+
+def test_email_channel_builds_a_redacted_message_and_delivers() -> None:
+    mailer = _RecordingMailer()
+    channel = EmailChannel(mailer, "soc@example.com", ("lead@example.com", "ops@example.com"))
+    finding = _finding(
+        title="SQLi",
+        severity=Severity.CRITICAL,
+        description="dump at https://x.example/q?token=SECRET",
+    )
+    result = channel.send(notification_from_finding(finding))
+
+    assert result.delivered is True and "2 recipient(s)" in result.detail
+    (message,) = mailer.messages
+    assert message["From"] == "soc@example.com"
+    assert message["To"] == "lead@example.com, ops@example.com"
+    assert message["Subject"] == "[critical] SQLi"
+    body = message.get_content()
+    assert "SECRET" not in body and "[REDACTED]" in body
+    assert "Severity: critical" in body
+
+
+def test_email_channel_reports_smtp_failure_without_raising() -> None:
+    channel = EmailChannel(_FailingMailer(), "soc@example.com", ("lead@example.com",))
+    result = channel.send(notification_from_finding(_finding()))
+    assert result.delivered is False and "smtp error" in result.detail
+
+
+@pytest.mark.parametrize(
+    ("sender", "recipients"),
+    [("no-at-sign", ("lead@example.com",)), ("soc@example.com", ("bad\r\ninject@example.com",))],
+)
+def test_email_channel_rejects_malformed_addresses(
+    sender: str, recipients: tuple[str, ...]
+) -> None:
+    with pytest.raises(ValueError, match="invalid e-mail address"):
+        EmailChannel(_RecordingMailer(), sender, recipients)
+
+
+def test_email_channel_requires_a_recipient() -> None:
+    with pytest.raises(ValueError, match="recipient"):
+        EmailChannel(_RecordingMailer(), "soc@example.com", ())
+
+
 # --- CLI -------------------------------------------------------------------- #
 
 
@@ -187,3 +249,40 @@ def test_cli_webhook_delivery_reports_failures(
     # A 503 is a delivery failure -> partial exit (not a clean 0).
     assert result.exit_code == int(ExitCode.PARTIAL), result.output
     assert "delivery failure" in result.output
+
+
+def test_cli_email_delivery_sends_via_injected_transport(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    findings = _write_findings(tmp_path)
+    mailer = _RecordingMailer()
+    # Replace the SMTP transport with an in-memory double (no real mail server).
+    monkeypatch.setattr("olympus.vulcan.cli.SmtpEmailTransport", lambda *a, **k: mailer)
+    result = runner.invoke(
+        app,
+        [
+            "vulcan",
+            "notify",
+            "--findings",
+            str(findings),
+            "--email-to",
+            "lead@example.com",
+            "--email-from",
+            "soc@example.com",
+            "--smtp-host",
+            "mail.example.com",
+        ],
+    )
+    assert result.exit_code == int(ExitCode.OK), result.output
+    # One finding clears the MEDIUM threshold and one e-mail is sent for it.
+    assert len(mailer.messages) == 1
+    assert mailer.messages[0]["Subject"] == "[critical] Critical RCE"
+
+
+def test_cli_email_requires_from_and_host(tmp_path: Path) -> None:
+    findings = _write_findings(tmp_path)
+    result = runner.invoke(
+        app,
+        ["vulcan", "notify", "--findings", str(findings), "--email-to", "lead@example.com"],
+    )
+    assert result.exit_code == int(ExitCode.USAGE), result.output
