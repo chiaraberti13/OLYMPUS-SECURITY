@@ -208,6 +208,22 @@ def test_worker_manifest_revalidation_requires_storage_and_key_together(tmp_path
     assert "must be configured together" in result.output
 
 
+def test_live_worker_requires_manifest_store_and_pinned_key_before_startup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("THEMIS_ENABLE_LIVE_SCANS", "true")
+    monkeypatch.delenv("AEGIS_ENABLE_LIVE_SCANS", raising=False)
+    monkeypatch.delenv("VAP_ENABLE_LIVE_SCANS", raising=False)
+
+    result = runner.invoke(
+        app,
+        ["themis", "workers", "--once", "-d", str(tmp_path / "jobs.sqlite3")],
+    )
+
+    assert result.exit_code == 2
+    assert "live workers require --engagement-storage and --manifest-public-key" in result.output
+
+
 def test_runtime_diagnostics_do_not_load_vendored_code_or_mutate_sys_path(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

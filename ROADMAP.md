@@ -429,10 +429,10 @@ cosa e per quanto tempo.
 - [x] Introdurre `EngagementManifest` versionato con cliente/owner, approvatore,
   target inclusi ed esclusi, finestre temporali, tecniche consentite, limiti,
   identificativo del contratto e data di scadenza.
-- [~] Firmare il manifest con Ed25519 riusando `olympus.core.signing`; il
+- [x] Firmare il manifest con Ed25519 riusando `olympus.core.signing`; il
   verificatore a chiave pubblica fissata controlla digest, target, tecnica e
-  finestra, ma non è ancora collegato a tutti i percorsi attivi.
-- [~] Legare ogni job all'hash del manifest e registrarlo in audit, report ed
+  finestra in ogni percorso che può produrre traffico live.
+- [x] Legare ogni job live all'hash del manifest e registrarlo in audit, report ed
   evidenze; impedire il riuso dopo revoca o scadenza. La scadenza è già imposta
   dalla finestra temporale di `authorizes`; la **revoca** è ora applicata da
   `SignedEngagementManifest.authorize(..., revoked=...)`, che rifiuta con
@@ -546,6 +546,17 @@ conservato e il risultato/audit ricevono job ID e digest correlabili; anche i
 rifiuti sono auditati senza copiare il manifest. Simulazione e stato live-off
 restano portabili e non creano provenienza fittizia. API/Web senza chiave e il
 profilo lab separato restano aperti, quindi SEC-C resta `[~]`.
+
+**Avanzamento verificato (2026-10-25, gate worker autorevole):** un worker con
+live abilitato rifiuta ora come `policy_denied` qualsiasi job privo di digest del
+manifest, prima di heartbeat, scope resolution o applicazione scanner. Il
+rifiuto è auditato e redatto anche quando non esiste un digest; un manifest
+legato continua a richiedere documento persistito, chiave fissata e
+rivalidazione. La CLI non avvia inoltre un worker live senza archivio engagement
+e chiave pubblica. La modalità API/Web senza chiave può ancora accodare lavoro
+offline per compatibilità, ma non può più trasformarlo in traffico live tramite
+un worker. Firma e binding sono quindi completi per le esecuzioni live; resta
+aperto soltanto il profilo lab separato, perciò SEC-C rimane `[~]`.
 
 **Criterio di completamento:** nessuna live scan può partire con un semplice flag;
 il report consente di dimostrare manifest, firma, scope e policy effettivi usati.

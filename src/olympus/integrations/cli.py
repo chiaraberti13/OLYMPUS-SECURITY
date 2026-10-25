@@ -762,13 +762,15 @@ def themis_workers(
     try:
         migrate_jobs(Path(database))
         live = live_enabled()
-        if live:
-            require_scanner_isolation()
-        telemetry = observability_from_config()
+        if live and (not engagement_storage or not manifest_public_key):
+            raise ValueError("live workers require --engagement-storage and --manifest-public-key")
         if bool(engagement_storage) != bool(manifest_public_key):
             raise ValueError(
                 "--engagement-storage and --manifest-public-key must be configured together"
             )
+        if live:
+            require_scanner_isolation()
+        telemetry = observability_from_config()
         manifest_authorizer = (
             StoredManifestAuthorizer(
                 Path(engagement_storage) / ENGAGEMENTS_DB_NAME,

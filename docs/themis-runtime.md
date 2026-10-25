@@ -29,8 +29,9 @@ olympus themis workers --database .olympus/themis-jobs.sqlite3 \
 Avviare anche il Web con `--engagement-storage .olympus/engagements
 --manifest-public-key approver-ed25519-public.pem`: il wizard richiede il JSON
 firmato, lo verifica in anteprima e di nuovo al submit, quindi lega il digest al
-job. Senza la chiave fissata resta la modalità compatibile a conferma booleana,
-che non costituisce il profilo protetto SEC-C.
+job. Senza la chiave fissata la modalità compatibile può ancora accodare lavoro
+offline, ma un worker live rifiuta ogni job privo di manifest legato prima
+dell'applicazione scanner.
 
 L'esecuzione diretta non è una scorciatoia: quando
 `THEMIS_ENABLE_LIVE_SCANS=true`, `olympus themis run` richiede sempre
@@ -302,8 +303,9 @@ For API/Web jobs protected by signed manifests, start workers with the same
 `--engagement-storage` and pinned `--manifest-public-key` used by the API and
 Web. The submitting service retains the verified signed document alongside the
 revocation register. The Web wizard verifies it at preview and again at launch;
-without a pinned Web key, its compatibility confirmation mode is not the SEC-C
-protected profile.
+without a pinned Web key, its compatibility confirmation mode may queue offline
+work, but a live worker refuses every job without a bound manifest before the
+scanner application.
 Immediately before scanner execution, the worker reloads it and rechecks the
 signature, digest, revocation status, time window, target and technique. A bound
 digest without its document or without a configured verifier becomes

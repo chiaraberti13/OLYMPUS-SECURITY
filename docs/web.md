@@ -36,8 +36,9 @@ persists the exact document for worker-time revalidation and binds its SHA-256
 digest to the job. A missing, malformed, expired, revoked, out-of-scope or
 wrong-technique manifest is rejected before queueing. Supplying a manifest to a
 server without a pinned key is also rejected. Without this option the legacy
-boolean-confirmation mode remains available for compatibility and must not be
-treated as the SEC-C protected profile.
+boolean-confirmation mode may still queue offline work for compatibility, but a
+live worker refuses every job without a bound manifest before the scanner
+application. It therefore cannot become live traffic by enabling the worker.
 
 The web plane shares its command surface with `olympus themis api`:
 

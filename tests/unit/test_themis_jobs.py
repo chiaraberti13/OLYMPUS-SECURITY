@@ -41,6 +41,16 @@ from olympus.themis.runner import CommandOutput, TerminationCause, TerminationRe
 from olympus.themis.states import ExecutionState
 
 runner = CliRunner()
+_TEST_MANIFEST_SHA256 = "a" * 64
+
+
+class _AcceptingManifestAuthorizer:
+    """Test port for cases that exercise worker behavior below authorization."""
+
+    def authorize(
+        self, *, manifest_sha256: str, target: str, technique: str, now: datetime
+    ) -> None:
+        assert manifest_sha256 == _TEST_MANIFEST_SHA256
 
 
 class _Adapter(ScannerAdapter):
@@ -104,12 +114,14 @@ def test_durable_job_lifecycle(tmp_path: Path) -> None:
         target_kind="host",
         scope_path=_scope(tmp_path / "scope.json"),
         authorized=True,
+        manifest_sha256=_TEST_MANIFEST_SHA256,
     )
     assert job.state is JobState.QUEUED
     worker = ThemisWorker(
         store,
         _service(_Adapter()),
         live_scans=True,
+        manifest_authorizer=_AcceptingManifestAuthorizer(),
     )
     completed = worker.run_next(audit_path=tmp_path / "audit.ndjson")
     assert completed is not None and completed.state is JobState.SUCCEEDED
@@ -272,6 +284,45 @@ def test_worker_denies_bound_manifest_when_revalidation_is_not_configured(
     assert "must-not-leak" not in audit_path.read_text(encoding="utf-8")
 
 
+def test_live_worker_denies_unbound_job_before_application_and_audits(
+    tmp_path: Path,
+) -> None:
+    class _MustNotRun(_Adapter):
+        def run(self, request: ScanRequest) -> ScanResult:
+            raise AssertionError("an unsigned live job reached the scanner application")
+
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    queued = store.submit(
+        scanner="test-engine",
+        target="https://127.0.0.1/?api_key=must-not-leak",
+        target_kind="url",
+        scope_path=_scope(tmp_path / "scope.json"),
+        authorized=True,
+    )
+    audit_path = tmp_path / "audit.ndjson"
+
+    denied = ThemisWorker(
+        store,
+        _service(_MustNotRun()),
+        live_scans=True,
+        manifest_authorizer=_AcceptingManifestAuthorizer(),
+    ).run_next(audit_path=audit_path)
+
+    assert denied is not None and denied.state is JobState.POLICY_DENIED
+    assert denied.error is not None and "requires a signed manifest" in denied.error
+    audit = json.loads(audit_path.read_text(encoding="utf-8"))
+    assert audit["action"] == "themis.manifest-authorization"
+    assert audit["execution_id"] == queued.job_id
+    assert audit["outcome"] == "refused"
+    assert audit["metadata"] == {
+        "error_type": "ManifestAuthorizationError",
+        "job_id": queued.job_id,
+        "scanner": "test-engine",
+    }
+    assert audit["target"] == "https://127.0.0.1/?api_key=[REDACTED]"
+    assert "must-not-leak" not in audit_path.read_text(encoding="utf-8")
+
+
 def test_atomic_claim_and_queue_order(tmp_path: Path) -> None:
     store = ThemisJobStore(tmp_path / "jobs.sqlite3")
     scope = _scope(tmp_path / "scope.json")
@@ -321,11 +372,13 @@ def test_failure_is_persisted_without_secret_fields(tmp_path: Path) -> None:
         target_kind="host",
         scope_path=_scope(tmp_path / "scope.json"),
         authorized=True,
+        manifest_sha256=_TEST_MANIFEST_SHA256,
     )
     result = ThemisWorker(
         store,
         _service(_Broken()),
         live_scans=True,
+        manifest_authorizer=_AcceptingManifestAuthorizer(),
     ).run_next()
     assert result is not None and result.state is JobState.FAILED
     assert result.error == "RuntimeError: controlled failure"
@@ -708,11 +761,12 @@ def test_worker_renews_its_lease_while_a_scan_runs(tmp_path: Path) -> None:
             return ScanResult(scanner=self.name, state=ExecutionState.LIVE, target=request.target)
 
     store = ThemisJobStore(tmp_path / "jobs.sqlite3", lease_seconds=1.0)
-    _submit(store, tmp_path)
+    _submit(store, tmp_path, manifest_sha256=_TEST_MANIFEST_SHA256)
     finished = ThemisWorker(
         store,
         _service(_Slow()),
         live_scans=True,
+        manifest_authorizer=_AcceptingManifestAuthorizer(),
         heartbeat_seconds=0.05,
     ).run_next()
     assert finished is not None and finished.state is JobState.SUCCEEDED
@@ -739,7 +793,12 @@ def test_a_worker_that_loses_its_lease_stops_and_reports_the_new_owner(
             raise AssertionError("the worker was never told to stop")
 
     store = ThemisJobStore(tmp_path / "jobs.sqlite3", backoff_seconds=0.0)
-    job = _submit(store, tmp_path, max_attempts=2)
+    job = _submit(
+        store,
+        tmp_path,
+        max_attempts=2,
+        manifest_sha256=_TEST_MANIFEST_SHA256,
+    )
     original_heartbeat = ThemisJobStore.heartbeat
 
     def held_heartbeat(self: ThemisJobStore, job_id: str, worker_id: str) -> ThemisJob:
@@ -752,6 +811,7 @@ def test_a_worker_that_loses_its_lease_stops_and_reports_the_new_owner(
         store,
         _service(_Blocking()),
         live_scans=True,
+        manifest_authorizer=_AcceptingManifestAuthorizer(),
         worker_id="worker-a",
         heartbeat_seconds=0.05,
     )
@@ -990,8 +1050,18 @@ def test_scan_outcomes_map_onto_distinct_job_states() -> None:
 
 def test_out_of_scope_work_is_denied_not_failed(tmp_path: Path) -> None:
     store = ThemisJobStore(tmp_path / "jobs.sqlite3")
-    _submit(store, tmp_path, target="10.11.12.13")
-    outcome = ThemisWorker(store, _service(_Adapter()), live_scans=True).run_next()
+    _submit(
+        store,
+        tmp_path,
+        target="10.11.12.13",
+        manifest_sha256=_TEST_MANIFEST_SHA256,
+    )
+    outcome = ThemisWorker(
+        store,
+        _service(_Adapter()),
+        live_scans=True,
+        manifest_authorizer=_AcceptingManifestAuthorizer(),
+    ).run_next()
     assert outcome is not None and outcome.state is JobState.POLICY_DENIED
     assert outcome.result is None
 
@@ -1001,8 +1071,13 @@ def test_a_missing_scanner_is_partial_not_failed(tmp_path: Path) -> None:
         binary = "definitely-not-a-real-binary-xyz"
 
     store = ThemisJobStore(tmp_path / "jobs.sqlite3")
-    _submit(store, tmp_path)
-    outcome = ThemisWorker(store, _service(_Missing()), live_scans=True).run_next()
+    _submit(store, tmp_path, manifest_sha256=_TEST_MANIFEST_SHA256)
+    outcome = ThemisWorker(
+        store,
+        _service(_Missing()),
+        live_scans=True,
+        manifest_authorizer=_AcceptingManifestAuthorizer(),
+    ).run_next()
     assert outcome is not None and outcome.state is JobState.PARTIAL
     assert outcome.error is not None and "not installed" in outcome.error
 
@@ -1020,8 +1095,13 @@ def test_cancelled_running_work_is_cancelled_not_failed(tmp_path: Path) -> None:
             raise CancellationRequested("operation cancelled")
 
     store = ThemisJobStore(tmp_path / "jobs.sqlite3")
-    _submit(store, tmp_path)
-    outcome = ThemisWorker(store, _service(_Cancelling()), live_scans=True).run_next()
+    _submit(store, tmp_path, manifest_sha256=_TEST_MANIFEST_SHA256)
+    outcome = ThemisWorker(
+        store,
+        _service(_Cancelling()),
+        live_scans=True,
+        manifest_authorizer=_AcceptingManifestAuthorizer(),
+    ).run_next()
     assert outcome is not None and outcome.state is JobState.CANCELLED
 
 

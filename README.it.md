@@ -260,6 +260,12 @@ olympus themis serve --scope-directory .olympus/scopes \
 olympus themis workers --database .olympus/themis-jobs.sqlite3 --max-concurrent-jobs 1
 ```
 
+Ogni worker live richiede lo stesso archivio revoche e la chiave pubblica
+fissata usati dal control plane: aggiungere `--engagement-storage
+.olympus/engagements --manifest-public-key approver-ed25519-public.pem`. Un job
+senza manifest legato viene rifiutato prima dell'applicazione scanner; un digest
+legato viene ricaricato e rivalidato immediatamente prima dell'esecuzione.
+
 `serve` e `web` sono identici. Le sessioni browser usano HTTPS. Ogni job in
 coda richiede autorizzazione esplicita e scope; le scansioni live sono
 normalmente disabilitate. `workers --once` mantiene gli exit code canonici;

@@ -1090,6 +1090,20 @@ class ThemisWorker:
             record = self.store.execution_record(job.job_id)
             job_cancellation = _JobCancellation(self.store, job.job_id, shutdown=shutdown)
             try:
+                execute_live = live_enabled() if self.live_scans is None else self.live_scans
+                if execute_live and record.manifest_sha256 is None:
+                    from olympus.engagements.manifest import ManifestAuthorizationError
+
+                    authorization_error = ManifestAuthorizationError(
+                        "live worker execution requires a signed manifest bound to the job"
+                    )
+                    self._audit_manifest_authorization(
+                        record,
+                        audit_path,
+                        outcome="refused",
+                        error_type=type(authorization_error).__name__,
+                    )
+                    raise authorization_error
                 if record.manifest_sha256 is not None:
                     try:
                         if self.manifest_authorizer is None:
@@ -1127,9 +1141,7 @@ class ThemisWorker:
                             target_kind=record.target_kind,
                             scope_path=record.scope_path,
                             authorized=record.authorized,
-                            live_enabled=(
-                                live_enabled() if self.live_scans is None else self.live_scans
-                            ),
+                            live_enabled=execute_live,
                             job_id=record.job_id,
                             manifest_sha256=record.manifest_sha256,
                             audit_path=audit_path,
@@ -1159,13 +1171,14 @@ class ThemisWorker:
         error_type: str | None = None,
     ) -> None:
         """Record manifest revalidation without copying the signed document."""
-        if audit_path is None or record.manifest_sha256 is None:
+        if audit_path is None:
             return
         metadata: dict[str, object] = {
             "job_id": record.job_id,
-            "manifest_sha256": record.manifest_sha256,
             "scanner": record.scanner,
         }
+        if record.manifest_sha256 is not None:
+            metadata["manifest_sha256"] = record.manifest_sha256
         if error_type is not None:
             metadata["error_type"] = error_type
         append_structured_audit(

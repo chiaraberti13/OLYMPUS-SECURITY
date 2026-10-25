@@ -334,12 +334,12 @@ olympus themis serve --scope-directory .olympus/scopes \
 olympus themis workers --database .olympus/themis-jobs.sqlite3 --max-concurrent-jobs 1
 ```
 
-Workers that consume API jobs protected by signed manifests must use the same
-revocation store and pinned approver key:
+Every live worker must use the same revocation store and pinned approver key:
 `olympus themis workers --engagement-storage .olympus/engagements
 --manifest-public-key approver-ed25519-public.pem`. A job carrying a manifest
 digest is denied if the worker cannot reload and revalidate that exact signed
-document immediately before scanner execution.
+document immediately before scanner execution. An unsigned queued job is also
+denied before the scanner application whenever live execution is enabled.
 
 All worker processes sharing the database enforce the same running-job cap
 atomically. The secure default is one; set the same `--max-concurrent-jobs`
