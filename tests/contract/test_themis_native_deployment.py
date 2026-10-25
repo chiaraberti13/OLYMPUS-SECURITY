@@ -154,8 +154,17 @@ def test_container_escape_probe_is_bounded_and_offline() -> None:
     assert "errno.EAGAIN" in source
     assert "child.terminate()" in source and "child.kill()" in source
     assert "HOST_SECRET_PATH" in source
+    assert "run_command(" in source
+    assert "signal.SIGTERM, signal.SIG_IGN" in source
+    assert "report.escalated_to_kill" in source
+    assert "report.process_group_signalled" in source
+    assert "_TIMEOUT_PROBE_DEADLINE_SECONDS" in source
     assert not any(
         isinstance(node, ast.Import) and any(alias.name == "socket" for alias in node.names)
+        for node in ast.walk(tree)
+    )
+    assert not any(
+        isinstance(node, ast.Call) and any(keyword.arg == "shell" for keyword in node.keywords)
         for node in ast.walk(tree)
     )
     assert "http://" not in source and "https://" not in source

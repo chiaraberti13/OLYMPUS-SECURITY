@@ -406,6 +406,16 @@ queste proprietà un gate di regressione. Il criterio congiunto resta `[~]`:
 `scan-egress` consente ancora egress generale e deve essere ristretto, per ogni
 job, agli IP e alle porte derivati dallo scope validato prima di poterlo chiudere.
 
+**Avanzamento verificato (2026-10-25, timeout non cooperativo):** il probe
+offline eseguito nel container hardened avvia ora un processo reale che ignora
+`SIGTERM` tramite il runner di produzione. Impone timeout e grace period di 0,5
+secondi, richiede il segnale all'intero process group, l'escalation `SIGKILL`, la
+causa e il limite nel report strutturato e un deadline esterno di 10 secondi. La
+prova non usa shell né rete e il job container mantiene `--network none`. Il
+componente “timeout non cooperativo” del test di fuga è quindi verificato; il
+bullet resta `[~]` perché la connessione fuori scope e la relativa policy egress
+per job non sono ancora implementate.
+
 **Criterio di completamento:** un adapter compromesso non può leggere il filesystem
 host, elevare privilegi o raggiungere un indirizzo non autorizzato; le prove sono
 automatizzate e allegate come evidenza di release.

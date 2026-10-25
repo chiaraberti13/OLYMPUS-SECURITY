@@ -6,11 +6,19 @@ import ctypes
 import errno
 import os
 import subprocess
+import sys
+import time
 from pathlib import Path
+
+from olympus.themis.runner import CommandTimeout, TerminationCause, run_command
+from olympus.themis.sandbox import SandboxPolicy
 
 _CLONE_NEWUSER = 0x10000000
 _PR_GET_NO_NEW_PRIVS = 39
 _MAX_CHILDREN = 128
+_TIMEOUT_SECONDS = 0.5
+_GRACE_SECONDS = 0.5
+_TIMEOUT_PROBE_DEADLINE_SECONDS = 10.0
 
 
 def _require(condition: bool, message: str) -> None:
@@ -101,9 +109,37 @@ def _probe_pid_limit() -> None:
                 child.wait(timeout=2)
 
 
+def _probe_non_cooperative_timeout() -> None:
+    non_cooperative_child = (
+        "import signal,time;signal.signal(signal.SIGTERM, signal.SIG_IGN);time.sleep(60)"
+    )
+    started = time.monotonic()
+    try:
+        run_command(
+            [sys.executable, "-c", non_cooperative_child],
+            timeout=_TIMEOUT_SECONDS,
+            sandbox=SandboxPolicy(grace_seconds=_GRACE_SECONDS),
+        )
+    except CommandTimeout as exc:
+        report = exc.report
+    else:
+        raise RuntimeError("non-cooperative scanner exceeded its timeout without termination")
+
+    elapsed = time.monotonic() - started
+    _require(report.cause is TerminationCause.TIMEOUT, "timeout cause was not preserved")
+    _require(report.limit == "timeout_seconds", "timeout limit was not recorded")
+    _require(report.process_group_signalled, "scanner process group was not signalled")
+    _require(report.escalated_to_kill, "SIGTERM was not escalated to SIGKILL")
+    _require(
+        elapsed < _TIMEOUT_PROBE_DEADLINE_SECONDS,
+        f"timeout probe exceeded its deadline: {elapsed:.2f}s",
+    )
+
+
 def main() -> None:
     _probe_security_state()
     _probe_filesystem()
+    _probe_non_cooperative_timeout()
     _probe_pid_limit()
     print("scanner container escape probes passed")
 

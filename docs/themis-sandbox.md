@@ -126,9 +126,13 @@ probes a denied `process_vm_readv` call. It also runs a bounded, offline escape
 probe with a 32-PID cgroup limit: the probe checks the read-only root, writable
 scratch, absence of a host-only canary, protected kernel memory, zero effective
 capabilities, `no-new-privileges`, seccomp filter mode and denied user-namespace
-creation. All spawned children are reaped even on failure. This demonstrates
-profile loading, mandatory live-runtime attestation and selected kernel controls
-in CI; it does not demonstrate egress containment or close SEC-B by itself.
+creation. A real child that ignores `SIGTERM` is also run through the production
+runner with a 0.5-second timeout and grace period: the probe requires signalling
+the whole process group, `SIGKILL` escalation, a structured timeout report and a
+10-second outer deadline. All spawned children are reaped even on failure. This
+demonstrates profile loading, mandatory live-runtime attestation and selected
+kernel controls in CI; it does not demonstrate egress containment or close SEC-B
+by itself.
 
 ### Optional AppArmor enforcement
 

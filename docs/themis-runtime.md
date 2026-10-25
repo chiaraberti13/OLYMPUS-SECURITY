@@ -230,8 +230,10 @@ verificano nel servizio applicativo il marker OCI e l'attestazione immagine a
 digest fissato insieme a rootfs read-only, capability zero,
 `no-new-privileges` e seccomp attivo. Un comando CLI host non può aggirare il
 gate con flag o variabili; simulazione e live disabilitato restano portabili.
-Il test container prova l'attestazione runtime e il rifiuto di una syscall,
-senza dichiarare isolamento scanner completo. Il profilo opzionale ZAP mantiene
+Il test container prova l'attestazione runtime, il rifiuto di una syscall e la
+terminazione entro un limite di un processo che ignora `SIGTERM`, richiedendo
+segnalazione del process group, escalation `SIGKILL` e report strutturato. Non
+dichiara isolamento scanner completo. Il profilo opzionale ZAP mantiene
 la sua chiave API obbligatoria;
 Compose richiede `THEMIS_ZAP_API_KEY` durante l'interpolazione anche quando
 quel profilo non viene avviato.
