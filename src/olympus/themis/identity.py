@@ -160,6 +160,21 @@ class IdentityRegister(BaseModel):
             raise IdentityError("no usable API identity matches the presented credential")
         return matched
 
+    def authenticate_oidc_subject(
+        self, subject: str, *, moment: datetime | None = None
+    ) -> ApiIdentity:
+        """Map a verified OIDC subject to a current local identity.
+
+        The register remains authoritative for scopes, expiry, rate limiting
+        and immediate revocation; the JWT never grants permissions directly.
+        """
+        if not IDENTITY_ID_PATTERN.fullmatch(subject):
+            raise IdentityError("OIDC subject is not a valid local identity id")
+        identity = self.find(subject)
+        if identity is None or not identity.usable_at(moment or datetime.now(UTC)):
+            raise IdentityError("OIDC subject is not mapped to a usable local identity")
+        return identity
+
     def public_view(self) -> list[dict[str, object]]:
         """Return the register without any credential material."""
         return [

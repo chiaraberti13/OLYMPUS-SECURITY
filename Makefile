@@ -72,6 +72,7 @@ test-mutation:
 		"olympus.themis.legacy_vap.x_approve_legacy_vap_import*" \
 		"olympus.themis.legacy_vap.x_import_legacy_vap_history*" \
 		"olympus.themis.jobs.xǁThemisJobStoreǁclaim_next*" \
+		"olympus.themis.oidc.xǁOidcVerifierǁverify*" \
 		"olympus.themis.sandbox.xǁScannerIsolationStatusǁmissing*" \
 		"olympus.themis.sandbox.x_inspect_scanner_isolation*" \
 		"olympus.themis.sandbox.x__trusted_root_file*" \

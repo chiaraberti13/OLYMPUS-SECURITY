@@ -86,5 +86,22 @@ utilizzo. Esempio di adozione: i client OSINT di Argus
 `secrets: SecretProvider` opzionale e, per default, risolvono
 `OLYMPUS_NUMVERIFY_KEY` / `OLYMPUS_RAPIDAPI_KEY` dall'ambiente.
 
-Rotazione delle credenziali e OIDC/mTLS per l'API multiutente restano tracciati
-in [`ROADMAP.md`](../ROADMAP.md) sotto `SEC-D`.
+### OIDC multiutente offline-first
+
+Themis può affiancare alle API key un bearer OIDC senza contattare il provider
+durante le richieste. L'operatore fissa issuer HTTPS, audience e JWKS locale:
+
+```console
+olympus themis api --identities .olympus/identities.json \
+  --oidc-issuer https://identity.example.test \
+  --oidc-audience olympus-control-plane \
+  --oidc-jwks /etc/olympus/issuer.jwks.json
+```
+
+Discovery e download remoto del JWKS sono disabilitati. Sono accettate solo
+firme asimmetriche RS256, ES256 o EdDSA, con `kid` univoco e durata del token
+non superiore a un'ora. Il claim `sub` identifica una voce del registro locale:
+scope per azione, scadenza, rate limit e revoca provengono sempre da quel
+registro e una revoca ha effetto senza riavvio. Il bearer non viene mai scritto
+nell'audit. La rotazione uniforme delle credenziali resta tracciata in
+[`ROADMAP.md`](../ROADMAP.md) sotto `SEC-D`.

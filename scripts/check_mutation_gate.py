@@ -30,6 +30,7 @@ MUTATED_FUNCTIONS = {
         "x_import_legacy_vap_history",
     ],
     "src/olympus/themis/jobs.py": ["xǁThemisJobStoreǁclaim_next"],
+    "src/olympus/themis/oidc.py": ["xǁOidcVerifierǁverify"],
     "src/olympus/themis/sandbox.py": [
         "xǁScannerIsolationStatusǁmissing",
         "x_inspect_scanner_isolation",

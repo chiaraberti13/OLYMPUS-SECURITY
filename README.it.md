@@ -287,6 +287,12 @@ persistenti — per dar prova delle remediation (`WEB-I` slice 2), e
 `olympus vulcan trend` traccia l'andamento della severità dei finding su una
 serie di run (`WEB-I` slice 3a). Vedi [`docs/web.md`](docs/web.md).
 
+Per i deployment multiutente l'API accetta anche bearer OIDC verificati offline
+con issuer, audience e JWKS locale fissati (`--oidc-issuer`,
+`--oidc-audience`, `--oidc-jwks`). Il subject verificato usa comunque il
+registro locale per scope, scadenza, rate limit e revoca immediata; non vengono
+eseguiti discovery o download remoto delle chiavi.
+
 Dopo aver preparato scope, identità e TLS secondo la
 [`guida al runtime`](docs/themis-runtime.md):
 

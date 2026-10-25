@@ -221,6 +221,11 @@ def themis_api(
     identities: str = typer.Option(
         "", "--identities", help="Identity register with scoped, revocable credentials."
     ),
+    oidc_issuer: str = typer.Option("", "--oidc-issuer", help="Pinned HTTPS OIDC issuer."),
+    oidc_audience: str = typer.Option("", "--oidc-audience", help="Required OIDC audience."),
+    oidc_jwks: str = typer.Option(
+        "", "--oidc-jwks", help="Pinned local JWKS file; discovery is disabled."
+    ),
     audit: str = typer.Option(
         DEFAULT_THEMIS_AUDIT_LOG, "--audit", help="Redacted per-request audit log."
     ),
@@ -283,6 +288,9 @@ def themis_api(
                     scope.strip() for scope in api_key_scopes.split(",") if scope.strip()
                 ),
                 identities_path=Path(identities) if identities else None,
+                oidc_issuer=oidc_issuer or None,
+                oidc_audience=oidc_audience or None,
+                oidc_jwks_path=Path(oidc_jwks) if oidc_jwks else None,
                 audit_path=Path(audit) if audit else None,
                 engagements_database=(
                     Path(engagement_storage) / ENGAGEMENTS_DB_NAME if engagement_storage else None
@@ -333,6 +341,11 @@ def themis_web(
     ),
     identities: str = typer.Option(
         "", "--identities", help="Identity register with scoped, revocable credentials."
+    ),
+    oidc_issuer: str = typer.Option("", "--oidc-issuer", help="Pinned HTTPS OIDC issuer."),
+    oidc_audience: str = typer.Option("", "--oidc-audience", help="Required OIDC audience."),
+    oidc_jwks: str = typer.Option(
+        "", "--oidc-jwks", help="Pinned local JWKS file; discovery is disabled."
     ),
     audit: str = typer.Option(
         DEFAULT_THEMIS_AUDIT_LOG, "--audit", help="Redacted per-request audit log."
@@ -416,6 +429,9 @@ def themis_web(
                     scope.strip() for scope in api_key_scopes.split(",") if scope.strip()
                 ),
                 identities_path=Path(identities) if identities else None,
+                oidc_issuer=oidc_issuer or None,
+                oidc_audience=oidc_audience or None,
+                oidc_jwks_path=Path(oidc_jwks) if oidc_jwks else None,
                 audit_path=Path(audit) if audit else None,
                 engagements_database=(
                     Path(engagement_storage) / ENGAGEMENTS_DB_NAME if engagement_storage else None

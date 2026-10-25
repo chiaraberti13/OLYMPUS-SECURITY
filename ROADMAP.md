@@ -593,8 +593,17 @@ il report consente di dimostrare manifest, firma, scope e policy effettivi usati
   `tests/unit/test_argus_enrichment.py`); doc
   [`docs/configuration.md`](docs/configuration.md). **Resta aperto:** OIDC/mTLS
   (bullet successivo) e rotazione uniforme.
-- [ ] Per AEGIS API, affiancare alle API key hashate un'opzione OIDC/mTLS per
+- [x] Per Themis API, affiancare alle API key hashate un'opzione OIDC per
   deployment multiutente; mantenere permessi per azione e revoca immediata.
+  L'issuer HTTPS, l'audience e un JWKS locale sono fissati esplicitamente: non
+  sono consentiti discovery o fetch di chiavi a runtime. Il `sub` verificato è
+  mappato al registro locale, che resta autorevole per scope per azione, expiry,
+  rate limit e revoca immediata. Algoritmi ammessi: RS256, ES256 ed EdDSA;
+  token e durata sono limitati. CLI API/Web: `--oidc-issuer`,
+  `--oidc-audience`, `--oidc-jwks`. Test sintetici coprono firma/claim errati,
+  lifetime, doppia credenziale, revoca senza restart e audit privo del bearer.
+  mTLS resta un'alternativa futura; la rotazione uniforme è il criterio aperto
+  successivo, pertanto SEC-D rimane `[~]`.
 - [ ] Rendere uniforme la rotazione: overlap breve, scadenza obbligatoria, audit
   dell'identità e mai del segreto.
 - [x] Aggiungere property-based test alla redazione in `core.execution` per query

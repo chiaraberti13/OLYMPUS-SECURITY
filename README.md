@@ -363,6 +363,12 @@ evidence remediation (`WEB-I` slice 2), and `olympus vulcan trend` plots the
 finding-severity trajectory across a series of runs (`WEB-I` slice 3a). See
 [`docs/web.md`](docs/web.md).
 
+For multi-user deployments the API also accepts offline-verified OIDC bearer
+tokens with a pinned issuer, audience and local JWKS (`--oidc-issuer`,
+`--oidc-audience`, `--oidc-jwks`). The verified subject still uses the local
+identity register for route scopes, expiry, rate limits and immediate
+revocation; no discovery or remote key fetch occurs.
+
 After preparing scopes, scoped identities and TLS files as described in
 [`docs/themis-runtime.md`](docs/themis-runtime.md):
 

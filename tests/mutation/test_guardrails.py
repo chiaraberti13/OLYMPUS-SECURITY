@@ -7,7 +7,9 @@ import sqlite3
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import jwt
 import pytest
+from cryptography.hazmat.primitives.asymmetric import rsa
 
 from olympus.athena.application.coordinator import RunOutcome
 from olympus.athena.cli import _exit_code_for
@@ -48,6 +50,7 @@ from olympus.themis.legacy_vap import (
     verify_legacy_vap_snapshot,
 )
 from olympus.themis.model import ScanRequest
+from olympus.themis.oidc import OidcError, OidcVerifier
 from olympus.themis.runner import CommandOutput
 from olympus.themis.sandbox import (
     SCANNER_RUNTIME_ATTESTATION_SHA256,
@@ -56,6 +59,41 @@ from olympus.themis.sandbox import (
     inspect_scanner_isolation,
 )
 from olympus.themis.scope import SsrfBlockedError, resolve_and_validate
+
+
+def test_oidc_verifier_binds_signature_issuer_audience_subject_and_lifetime(
+    tmp_path: Path,
+) -> None:
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    jwk = json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(private_key.public_key()))
+    jwk.update({"kid": "guardrail", "alg": "RS256", "use": "sig"})
+    jwks = tmp_path / "jwks.json"
+    jwks.write_text(json.dumps({"keys": [jwk]}), encoding="utf-8")
+    verifier = OidcVerifier(
+        issuer="https://issuer.example.test", audience="olympus", jwks_path=jwks
+    )
+    now = datetime.now(UTC)
+
+    def token(**overrides: object) -> str:
+        claims: dict[str, object] = {
+            "iss": "https://issuer.example.test",
+            "aud": "olympus",
+            "sub": "analyst",
+            "iat": int(now.timestamp()) - 1,
+            "exp": int((now + timedelta(minutes=5)).timestamp()),
+        }
+        claims.update(overrides)
+        return jwt.encode(claims, private_key, algorithm="RS256", headers={"kid": "guardrail"})
+
+    assert verifier.verify(token()) == "analyst"
+    for invalid in (
+        token(iss="https://other.example.test"),
+        token(aud="other"),
+        token(sub=""),
+        token(exp=int((now + timedelta(hours=2)).timestamp())),
+    ):
+        with pytest.raises(OidcError):
+            verifier.verify(invalid)
 
 
 def test_scanner_runtime_gate_requires_every_kernel_and_image_property(tmp_path: Path) -> None:

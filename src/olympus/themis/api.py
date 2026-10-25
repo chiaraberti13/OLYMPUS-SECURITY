@@ -21,7 +21,7 @@ from uuid import uuid4
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse
-from fastapi.security import APIKeyHeader
+from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import Response
@@ -60,12 +60,14 @@ from olympus.themis.jobs import (
     ThemisJob,
     ThemisJobStore,
 )
+from olympus.themis.oidc import OidcError, OidcVerifier
 
 MAX_REQUEST_BYTES = 64 * 1024
 DEFAULT_MAX_CONCURRENT_REQUESTS = 64
 MAX_CONCURRENT_REQUESTS_LIMIT = 4_096
 DEFAULT_API_KEY_SCOPES = ("capabilities:read",)
 _API_KEY_HEADER = APIKeyHeader(name="X-Olympus-API-Key", auto_error=False)
+_BEARER_HEADER = HTTPBearer(auto_error=False)
 
 #: A caller-supplied trace identifier is echoed, so it must be inert text.
 _TRACE_ID = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
@@ -84,6 +86,11 @@ class ApiSettings:
     api_key_scopes: tuple[str, ...] = DEFAULT_API_KEY_SCOPES
     #: Register of named identities with their own scopes, expiry and limits.
     identities_path: Path | None = None
+    #: Optional offline-first OIDC trust tuple. All values are required
+    #: together; JWKS discovery and remote fetching are deliberately disabled.
+    oidc_issuer: str | None = None
+    oidc_audience: str | None = None
+    oidc_jwks_path: Path | None = None
     #: Where each authenticated request is recorded, redacted.
     audit_path: Path | None = None
     #: The shared engagement database (ROADMAP ``WEB-B``). When set, engagements
@@ -128,6 +135,13 @@ class ApiSettings:
                 "Themis API max_concurrent_requests must be an integer between 1 and "
                 f"{MAX_CONCURRENT_REQUESTS_LIMIT}"
             )
+        oidc_values = (self.oidc_issuer, self.oidc_audience, self.oidc_jwks_path)
+        if any(value is not None for value in oidc_values) and not all(
+            value is not None for value in oidc_values
+        ):
+            raise ValueError("OIDC issuer, audience and local JWKS must be configured together")
+        if self.oidc_issuer is not None and self.identities_path is None:
+            raise ValueError("OIDC requires a local identity register for authorization")
         if not self.api_key and self.identities_path is None:
             raise ValueError("Themis API needs either an API key or an identity register")
         if self.api_key and len(self.api_key) < 32:
@@ -143,6 +157,14 @@ class ApiSettings:
         if self.identities_path is not None:
             # Fail at startup rather than on the first request.
             load_register(self.identities_path)
+        if self.oidc_issuer is not None:
+            assert self.oidc_audience is not None  # noqa: S101 - all-or-none validation
+            assert self.oidc_jwks_path is not None  # noqa: S101 - all-or-none validation
+            OidcVerifier(
+                issuer=self.oidc_issuer,
+                audience=self.oidc_audience,
+                jwks_path=self.oidc_jwks_path,
+            )
         if self.trusted_manifest_public_key_pem is not None:
             if not self.trusted_manifest_public_key_pem.strip():
                 raise ValueError("Themis trusted manifest public key must not be empty")
@@ -278,6 +300,15 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
     store.initialize()
     scope_root = settings.scope_directory.resolve()
     registers = _RegisterSource(settings)
+    oidc: OidcVerifier | None = None
+    if settings.oidc_issuer is not None:
+        assert settings.oidc_audience is not None  # noqa: S101 - validated above
+        assert settings.oidc_jwks_path is not None  # noqa: S101 - validated above
+        oidc = OidcVerifier(
+            issuer=settings.oidc_issuer,
+            audience=settings.oidc_audience,
+            jwks_path=settings.oidc_jwks_path,
+        )
     limiter = RateLimiter()
     concurrency = RequestConcurrencyGate(settings.database, settings.max_concurrent_requests)
 
@@ -303,14 +334,25 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
         async def dependency(
             request: Request,
             supplied: Annotated[str | None, Depends(_API_KEY_HEADER)],
+            bearer: Annotated[HTTPAuthorizationCredentials | None, Depends(_BEARER_HEADER)],
         ) -> Caller:
             try:
-                identity = registers.current().authenticate(supplied or "")
-            except IdentityError as exc:
+                if supplied and bearer is not None:
+                    raise IdentityError("multiple authentication mechanisms supplied")
+                register = registers.current()
+                if bearer is not None:
+                    if oidc is None or bearer.scheme.lower() != "bearer":
+                        raise IdentityError("OIDC bearer authentication is not configured")
+                    identity = register.authenticate_oidc_subject(oidc.verify(bearer.credentials))
+                    request.state.authentication_method = "oidc"
+                else:
+                    identity = register.authenticate(supplied or "")
+                    request.state.authentication_method = "api-key"
+            except (IdentityError, OidcError) as exc:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="missing or invalid API credential",
-                    headers={"WWW-Authenticate": "ApiKey"},
+                    headers={"WWW-Authenticate": "ApiKey, Bearer"},
                 ) from exc
             caller = Caller(identity.identity_id, identity.validated_scopes())
             request.state.identity_id = caller.identity_id
@@ -371,6 +413,9 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
                     outcome=str(response.status_code),
                     metadata={
                         "identity": getattr(request.state, "identity_id", "anonymous"),
+                        "authentication_method": getattr(
+                            request.state, "authentication_method", "none"
+                        ),
                         "correlation_id": correlation_id,
                         "status": response.status_code,
                     },
