@@ -55,6 +55,7 @@ from olympus.themis.sandbox import (
     _trusted_root_file,
     inspect_scanner_isolation,
 )
+from olympus.themis.scope import SsrfBlockedError, resolve_and_validate
 
 
 def test_scanner_runtime_gate_requires_every_kernel_and_image_property(tmp_path: Path) -> None:
@@ -240,6 +241,25 @@ def test_scope_gate_accepts_domain_and_subdomain_but_rejects_suffix_spoof() -> N
         ensure_target_allowed("domain", "notexample.com", allowed)
     with pytest.raises(TargetOutOfScopeError):
         ensure_target_allowed("domain", "attacker.invalid", allowed)
+
+
+def test_themis_lab_scope_requires_intersection_for_every_resolved_address() -> None:
+    assert resolve_and_validate(
+        "lab.example",
+        allowed=(),
+        allowed_cidrs=("10.20.0.0/16",),
+        required_cidrs=("10.20.1.0/24",),
+        resolver=lambda _host: ("10.20.1.7", "10.20.1.8"),
+    ) == ("10.20.1.7", "10.20.1.8")
+
+    with pytest.raises(SsrfBlockedError, match="outside the declared lab profile"):
+        resolve_and_validate(
+            "lab.example",
+            allowed=(),
+            allowed_cidrs=("10.20.0.0/16",),
+            required_cidrs=("10.20.1.0/24",),
+            resolver=lambda _host: ("10.20.1.7", "10.20.2.8"),
+        )
 
 
 def test_redaction_covers_nested_sensitive_keys_and_url_queries() -> None:

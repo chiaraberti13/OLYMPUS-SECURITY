@@ -242,6 +242,7 @@ class ScannerAdapter(ABC):
             host,
             allowed=request.allowed,
             allowed_cidrs=request.allowed_cidrs,
+            required_cidrs=request.required_cidrs,
             resolver=self.resolve,
             progress_check=lambda: policy.check_cancellation(request.cancellation),
         )

@@ -22,7 +22,7 @@ import re
 import sys
 from pathlib import Path
 
-_EXCLUDED_DIRS = {".git", "vendor", "node_modules", "__pycache__", ".mypy_cache"}
+_EXCLUDED_DIRS = {".git", ".mypy_cache", ".venv", "__pycache__", "node_modules", "vendor"}
 _EXTERNAL = ("http://", "https://", "mailto:", "tel:", "//")
 # Inline links: the text in [...] then (target) where target is up to the first
 # whitespace (a title) or the closing paren. Images ![...](...) are included too.

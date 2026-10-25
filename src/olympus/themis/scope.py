@@ -99,6 +99,7 @@ def resolve_and_validate(
     *,
     allowed: tuple[str, ...],
     allowed_cidrs: tuple[str, ...] = (),
+    required_cidrs: tuple[str, ...] = (),
     resolver: Resolver | None = None,
     progress_check: Callable[[], None] | None = None,
 ) -> tuple[str, ...]:
@@ -124,6 +125,7 @@ def resolve_and_validate(
         raise TargetResolutionError(f"authorized target {host} resolved to more than 256 addresses")
     exact_hosts = {_normalize_host(entry) for entry in allowed}
     networks = _networks(allowed_cidrs)
+    required_networks = _networks(required_cidrs)
     for value in normalized:
         if progress_check is not None:
             progress_check()
@@ -135,6 +137,10 @@ def resolve_and_validate(
         ):
             raise SsrfBlockedError(
                 f"authorized hostname {host} resolves to non-global {value} outside IP/CIDR scope"
+            )
+        if required_networks and not any(address in network for network in required_networks):
+            raise SsrfBlockedError(
+                f"authorized target {host} resolves to {value} outside the declared lab profile"
             )
     return normalized
 

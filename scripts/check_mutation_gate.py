@@ -35,6 +35,7 @@ MUTATED_FUNCTIONS = {
         "x_inspect_scanner_isolation",
         "x__trusted_root_file",
     ],
+    "src/olympus/themis/scope.py": ["x_resolve_and_validate"],
     "src/olympus/core/coverage.py": ["xǁCoverageǁstatus"],
     "src/olympus/athena/cli.py": ["x__exit_code_for"],
     "src/olympus/athena/domain/assessment.py": [

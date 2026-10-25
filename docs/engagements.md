@@ -157,6 +157,14 @@ olympus themis run nmap --target lab.example --scope ./scopes/lab.json \
   --engagement-storage ./workspace
 ```
 
+For a directly controlled routed lab, the separate `--lab-policy` path is
+available instead of an engagement manifest. It requires an explicitly named
+policy, a non-empty engagement, an enabled and attributable `[lab]` block, exact
+eligible CIDRs, `--i-am-authorized`, and an HMAC activation signature from
+`OLYMPUS_POLICY_LAB_KEY`. Every resolved address must be inside both the Themis
+scope and the lab CIDRs. The two authorization modes cannot be combined, and
+the lab exception is not available to API, Web, queued jobs, or workers.
+
 - **API** (`engagements:read` scope): `GET /api/v1/engagements` returns the
   `olympus.themis-engagement-list` contract; `GET /api/v1/engagements/{id}`
   returns the `olympus.engagement` document, or `404` for an unknown id. With no

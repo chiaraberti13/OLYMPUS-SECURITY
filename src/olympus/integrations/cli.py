@@ -2092,6 +2092,11 @@ def themis_run(
         "--engagement-storage",
         help="Directory holding the durable signed-manifest and revocation store.",
     ),
+    lab_policy: str = typer.Option(
+        "",
+        "--lab-policy",
+        help="Explicit signed policy file for a direct live scan limited to declared lab CIDRs.",
+    ),
     i_am_authorized: bool = typer.Option(
         False, "--i-am-authorized", help="Confirm documented authorization for a real scan."
     ),
@@ -2142,26 +2147,51 @@ def themis_run(
 
     job_id: str | None = None
     manifest_sha256: str | None = None
+    lab_policy_sha256: str | None = None
+    lab_activation_signature: str | None = None
+    lab_allowed_cidrs: tuple[str, ...] = ()
     if live_scans and not simulate:
         if not i_am_authorized:
             typer.echo("olympus: direct live execution requires --i-am-authorized", err=True)
             raise typer.Exit(code=ExitCode.NOT_AUTHORIZED)
-        if not signed_manifest or not manifest_public_key or not engagement_storage:
+        manifest_options = bool(signed_manifest or manifest_public_key or engagement_storage)
+        if lab_policy and manifest_options:
+            typer.echo(
+                "olympus: --lab-policy and signed-manifest authorization are mutually exclusive",
+                err=True,
+            )
+            raise typer.Exit(code=ExitCode.NOT_AUTHORIZED)
+        if lab_policy:
+            from olympus.core.policy import PolicyError
+            from olympus.themis.lab import load_lab_execution_profile
+
+            try:
+                lab_profile = load_lab_execution_profile(Path(lab_policy))
+            except (OSError, PolicyError, ValueError) as exc:
+                typer.echo(
+                    safe_terminal_text(f"olympus: lab authorization refused: {exc}"), err=True
+                )
+                raise typer.Exit(code=ExitCode.NOT_AUTHORIZED) from exc
+            lab_policy_sha256 = lab_profile.policy_sha256
+            lab_activation_signature = lab_profile.activation_signature
+            lab_allowed_cidrs = lab_profile.allowed_networks
+        elif not signed_manifest or not manifest_public_key or not engagement_storage:
             typer.echo(
                 "olympus: direct live execution requires --signed-manifest, "
-                "--manifest-public-key and --engagement-storage",
+                "--manifest-public-key and --engagement-storage, or an explicit --lab-policy",
                 err=True,
             )
             raise typer.Exit(code=ExitCode.NOT_AUTHORIZED)
         try:
-            job_id, manifest_sha256 = _authorize_direct_live_run(
-                signed_manifest_path=Path(signed_manifest),
-                trusted_public_key_path=Path(manifest_public_key),
-                engagement_storage=Path(engagement_storage),
-                scanner=scanner,
-                target=target,
-                audit_path=Path(audit) if audit else None,
-            )
+            if not lab_policy:
+                job_id, manifest_sha256 = _authorize_direct_live_run(
+                    signed_manifest_path=Path(signed_manifest),
+                    trusted_public_key_path=Path(manifest_public_key),
+                    engagement_storage=Path(engagement_storage),
+                    scanner=scanner,
+                    target=target,
+                    audit_path=Path(audit) if audit else None,
+                )
         except (OSError, sqlite3.Error, ValueError) as exc:
             typer.echo(
                 safe_terminal_text(f"olympus: signed authorization refused: {exc}"),
@@ -2179,6 +2209,9 @@ def themis_run(
                 live_enabled=live_scans,
                 job_id=job_id,
                 manifest_sha256=manifest_sha256,
+                lab_policy_sha256=lab_policy_sha256,
+                lab_activation_signature=lab_activation_signature,
+                lab_allowed_cidrs=lab_allowed_cidrs,
                 simulate=simulate,
                 output_path=Path(output) if output else None,
                 audit_path=Path(audit) if audit else None,

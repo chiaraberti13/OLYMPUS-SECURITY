@@ -172,6 +172,31 @@ HMAC-SHA256 e riporta `"signed": true`. Senza chiave il record viene comunque
 emesso, con digest, ma `"signed": false`: un record non firmato non viene mai
 presentato come firmato.
 
+### Esecuzione diretta Themis nel lab
+
+Il record non firmato resta utile per ispezionare la configurazione, ma non può
+abilitare traffico. Il profilo lab live è un percorso separato e più stretto:
+
+```bash
+export THEMIS_ENABLE_LIVE_SCANS=true
+export OLYMPUS_POLICY_LAB_KEY='<chiave locale da secret provider>'
+olympus themis run nmap --target 10.10.1.7 --scope ./scopes/lab.json \
+  --i-am-authorized --lab-policy ./lab.policy.toml
+```
+
+`--lab-policy` richiede un file esplicito: non usa la discovery implicita. Il
+documento deve avere `engagement`, `[lab].enabled`, attribuzione completa e
+almeno un CIDR ammissibile; la chiave HMAC di almeno 32 byte, risolta tramite il
+`SecretProvider`, è obbligatoria. Il target risolto deve
+appartenere contemporaneamente allo scope JSON di Themis e alla allowlist lab.
+Il controllo viene ripetuto immediatamente prima dell'adapter e registra digest
+della policy e firma dell'attivazione nell'audit, senza registrarne la chiave.
+
+Il profilo lab e il manifest Ed25519 sono mutuamente esclusivi. L'eccezione lab
+vale solo per `themis run`: job, worker, API e Web continuano a richiedere il
+manifest firmato, quindi non esiste un flag globale “allow all”. `--simulate`
+non acquisisce né inventa provenienza lab.
+
 ## Comandi
 
 ```bash

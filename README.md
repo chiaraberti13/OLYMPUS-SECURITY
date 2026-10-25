@@ -391,6 +391,12 @@ digest to the result and audit. States remain explicit — `live` / `unavailable
 [`docs/scanner-matrix.md`](docs/scanner-matrix.md) and
 [`docs/themis-execution-evidence.md`](docs/themis-execution-evidence.md).
 
+A directly controlled routed lab may instead use an explicit `--lab-policy`.
+That narrower path requires a signed HMAC activation record and exact eligible
+CIDRs; each resolved address must be in both the Themis scope and lab allowlist.
+It is mutually exclusive with manifest authorization and is never accepted by
+API, Web, queued jobs, or workers. See [`docs/policy.md`](docs/policy.md).
+
 External scanner **binaries** are installed independently or through the
 optional native worker image. The maintained runtime does not use the archived
 VAP installer or its Redis/Celery stack.

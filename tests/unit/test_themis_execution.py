@@ -162,6 +162,21 @@ def test_scope_checks_current_dns_addresses_and_strict_host_entries() -> None:
         allowed_cidrs=("127.0.0.0/8",),
         resolver=lambda value: ("127.0.0.1",),
     ) == ("127.0.0.1",)
+    assert resolve_and_validate(
+        "lab.example",
+        allowed=(),
+        allowed_cidrs=("10.20.0.0/16",),
+        required_cidrs=("10.20.1.0/24",),
+        resolver=lambda value: ("10.20.1.7",),
+    ) == ("10.20.1.7",)
+    with pytest.raises(SsrfBlockedError, match="outside the declared lab profile"):
+        resolve_and_validate(
+            "lab.example",
+            allowed=(),
+            allowed_cidrs=("10.20.0.0/16",),
+            required_cidrs=("10.20.1.0/24",),
+            resolver=lambda value: ("10.20.2.7",),
+        )
 
 
 def test_url_target_rejects_credentials_and_unsafe_scheme() -> None:
@@ -605,6 +620,38 @@ def test_application_result_carries_job_authorization_provenance(tmp_path: Path)
     assert document["manifest_sha256"] == "d" * 64
 
 
+def test_application_carries_lab_scope_and_audits_signed_policy_provenance(tmp_path: Path) -> None:
+    scope = _scope(tmp_path / "scope.json")
+    audit = tmp_path / "audit.ndjson"
+    captured: list[ScanRequest] = []
+
+    class _LabAdapter(_FakeAdapter):
+        def run(self, request: ScanRequest) -> ScanResult:
+            captured.append(request)
+            return ScanResult(scanner=self.name, state=ExecutionState.LIVE, target=request.target)
+
+    service = _service(_LabAdapter())
+    result = service.run(
+        ThemisRunRequest(
+            scanner="fake",
+            target="127.0.0.1",
+            target_kind="host",
+            scope_path=scope,
+            authorized=True,
+            live_enabled=True,
+            lab_policy_sha256="a" * 64,
+            lab_activation_signature="b" * 64,
+            lab_allowed_cidrs=("10.20.1.0/24",),
+            audit_path=audit,
+        )
+    )
+    assert result.state is ExecutionState.LIVE
+    assert captured[0].required_cidrs == ("10.20.1.0/24",)
+    record = json.loads(audit.read_text(encoding="utf-8"))
+    assert record["metadata"]["lab_policy_sha256"] == "a" * 64
+    assert record["metadata"]["lab_activation_signature"] == "b" * 64
+
+
 @pytest.mark.posix_only
 def test_scope_loader_and_application_output_audit(tmp_path: Path) -> None:
     scope = _scope(tmp_path / "scope.json")
@@ -716,6 +763,46 @@ def test_run_request_rejects_malformed_authorization_provenance(
             live_enabled=False,
             job_id=job_id,
             manifest_sha256=manifest_sha256,
+        )
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"lab_policy_sha256": "A" * 64}, "lowercase"),
+        ({"lab_policy_sha256": "a" * 64}, "declared lab CIDRs"),
+        ({"lab_allowed_cidrs": ("10.0.0.0/8",)}, "lab_policy_sha256"),
+        (
+            {
+                "lab_policy_sha256": "a" * 64,
+                "lab_allowed_cidrs": ("10.0.0.0/8",),
+            },
+            "activation signature",
+        ),
+        (
+            {
+                "job_id": "THEMIS-" + "A" * 32,
+                "manifest_sha256": "b" * 64,
+                "lab_policy_sha256": "c" * 64,
+                "lab_activation_signature": "d" * 64,
+                "lab_allowed_cidrs": ("10.0.0.0/8",),
+            },
+            "mutually exclusive",
+        ),
+    ],
+)
+def test_run_request_rejects_invalid_lab_provenance(
+    tmp_path: Path, kwargs: dict[str, object], message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        ThemisRunRequest(
+            scanner="fake",
+            target="10.0.0.1",
+            target_kind="host",
+            scope_path=tmp_path / "scope.json",
+            authorized=True,
+            live_enabled=True,
+            **kwargs,  # type: ignore[arg-type]
         )
 
 
@@ -930,3 +1017,106 @@ def test_direct_live_run_verifies_manifest_and_binds_provenance(
     assert all(
         record["metadata"]["manifest_sha256"] == signed.manifest_sha256 for record in records
     )
+
+
+def _lab_policy(tmp_path: Path) -> Path:
+    policy = tmp_path / "lab.policy.toml"
+    policy.write_text(
+        """schema_version = "1.0.0"
+engagement = "LAB-SYNTHETIC-01"
+[lab]
+enabled = true
+allowed_networks = ["10.20.1.0/24"]
+activated_by = "synthetic-operator"
+activated_at = 2026-10-25T12:00:00Z
+""",
+        encoding="utf-8",
+    )
+    return policy
+
+
+def test_direct_live_lab_profile_is_explicit_signed_bounded_and_manifest_free(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scope = tmp_path / "scope.json"
+    scope.write_text(
+        json.dumps(
+            {
+                "schema_name": "olympus.themis-scope",
+                "schema_version": "1.0.0",
+                "allowed_hosts": [],
+                "allowed_domains": [],
+                "allowed_cidrs": ["10.20.0.0/16"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("THEMIS_ENABLE_LIVE_SCANS", "true")
+    monkeypatch.setenv("OLYMPUS_POLICY_LAB_KEY", "synthetic-test-key-at-least-32-bytes")
+    monkeypatch.delenv("AEGIS_ENABLE_LIVE_SCANS", raising=False)
+    monkeypatch.delenv("VAP_ENABLE_LIVE_SCANS", raising=False)
+    captured: list[ThemisRunRequest] = []
+
+    class _CaptureApplication:
+        def run(self, request: ThemisRunRequest) -> ScanResult:
+            captured.append(request)
+            return ScanResult(
+                scanner=request.scanner,
+                state=ExecutionState.LIVE,
+                target=request.target,
+            )
+
+    monkeypatch.setattr("olympus.themis.application.ThemisApplicationService", _CaptureApplication)
+    result = runner.invoke(
+        app,
+        [
+            "themis",
+            "run",
+            "fake",
+            "--target",
+            "10.20.1.7",
+            "--scope",
+            str(scope),
+            "--i-am-authorized",
+            "--lab-policy",
+            str(_lab_policy(tmp_path)),
+            "--audit",
+            "",
+        ],
+    )
+    assert result.exit_code == 0
+    assert captured[0].manifest_sha256 is None and captured[0].job_id is None
+    assert captured[0].lab_allowed_cidrs == ("10.20.1.0/24",)
+    assert re.fullmatch(r"[a-f0-9]{64}", captured[0].lab_policy_sha256 or "")
+    assert re.fullmatch(r"[a-f0-9]{64}", captured[0].lab_activation_signature or "")
+
+
+def test_direct_live_lab_profile_requires_signature_and_cannot_mix_manifest_options(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scope = _scope(tmp_path / "scope.json")
+    policy = _lab_policy(tmp_path)
+    monkeypatch.setenv("THEMIS_ENABLE_LIVE_SCANS", "true")
+    monkeypatch.delenv("OLYMPUS_POLICY_LAB_KEY", raising=False)
+    base = [
+        "themis",
+        "run",
+        "fake",
+        "--target",
+        "10.20.1.7",
+        "--scope",
+        str(scope),
+        "--i-am-authorized",
+        "--lab-policy",
+        str(policy),
+        "--audit",
+        "",
+    ]
+    unsigned = runner.invoke(app, base)
+    assert unsigned.exit_code == 4
+    assert "OLYMPUS_POLICY_LAB_KEY" in unsigned.output
+
+    monkeypatch.setenv("OLYMPUS_POLICY_LAB_KEY", "synthetic-test-key-at-least-32-bytes")
+    mixed = runner.invoke(app, [*base, "--signed-manifest", str(tmp_path / "manifest.json")])
+    assert mixed.exit_code == 4
+    assert "mutually exclusive" in mixed.output

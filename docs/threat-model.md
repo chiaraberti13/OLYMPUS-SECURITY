@@ -138,6 +138,9 @@ For an operator running Olympus against authorized targets:
    a missing binary yields `unavailable`, never a fabricated finding.
 2. **Declare scope narrowly.** Use an engagement scope file and, for a lab, the
    `[lab]` policy block with the exact ranges you own — nothing wider.
+   Direct Themis lab execution additionally requires an explicitly selected
+   policy, a signed HMAC activation record and the intersection of both scopes;
+   the lab exception is unavailable to queued workers and control-plane routes.
 3. **Lower the bounds per engagement.** The `olympus.policy.toml` ceilings are
    maxima; set the real timeout/concurrency/deadline for the target.
 4. **Install from the hash-pinned lockfile.** `pip install --require-hashes -r

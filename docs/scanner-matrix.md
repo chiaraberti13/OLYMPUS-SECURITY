@@ -9,7 +9,7 @@ _Generated from `olympus.integrations.scanners` (registry) and `olympus.themis.r
 > ProjectDiscovery probe. The adapter refuses non-probe output with an error
 > naming the collision rather than reporting a clean scan.
 
-> **Simulation is opt-in.** `olympus themis run` never fabricates findings: a missing binary → `unavailable`, live-off → `disabled`, explicit `--simulate` → `simulation`. When live is enabled, a signed engagement manifest, pinned public key and revocation store are mandatory before direct execution.
+> **Simulation is opt-in.** `olympus themis run` never fabricates findings: a missing binary → `unavailable`, live-off → `disabled`, explicit `--simulate` → `simulation`. When live is enabled, direct execution requires either a signed engagement manifest with pinned public key and revocation store, or the separate explicit HMAC-signed lab policy whose exact CIDRs intersect the Themis scope. Queued workers always require the manifest path.
 
 | Scanner | Category | Kind | Binary / API | Licence | Auto-install | In image | Native adapter | Live-verified here |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |

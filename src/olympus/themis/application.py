@@ -89,6 +89,9 @@ class ThemisRunRequest:
     live_enabled: bool
     job_id: str | None = None
     manifest_sha256: str | None = None
+    lab_policy_sha256: str | None = None
+    lab_activation_signature: str | None = None
+    lab_allowed_cidrs: tuple[str, ...] = ()
     simulate: bool = False
     output_path: Path | None = None
     audit_path: Path | None = None
@@ -107,6 +110,20 @@ class ThemisRunRequest:
                 raise ValueError("manifest_sha256 requires a job_id")
             if _MANIFEST_SHA256_RE.fullmatch(self.manifest_sha256) is None:
                 raise ValueError("manifest_sha256 must be a lowercase SHA-256 digest")
+        if self.lab_policy_sha256 is not None:
+            if _MANIFEST_SHA256_RE.fullmatch(self.lab_policy_sha256) is None:
+                raise ValueError("lab_policy_sha256 must be a lowercase SHA-256 digest")
+            if not self.lab_allowed_cidrs:
+                raise ValueError("lab_policy_sha256 requires declared lab CIDRs")
+            if (
+                self.lab_activation_signature is None
+                or _MANIFEST_SHA256_RE.fullmatch(self.lab_activation_signature) is None
+            ):
+                raise ValueError("lab_policy_sha256 requires an HMAC-SHA256 activation signature")
+            if self.manifest_sha256 is not None or self.job_id is not None:
+                raise ValueError("lab and signed-manifest authorization are mutually exclusive")
+        elif self.lab_allowed_cidrs or self.lab_activation_signature is not None:
+            raise ValueError("lab activation provenance requires lab_policy_sha256")
 
 
 @dataclass(frozen=True)
@@ -141,6 +158,7 @@ class ThemisApplicationService:
                     allowed=scope.allowed_hosts,
                     allowed_domains=scope.allowed_domains,
                     allowed_cidrs=scope.allowed_cidrs,
+                    required_cidrs=request.lab_allowed_cidrs,
                     timeout_seconds=request.timeout_seconds,
                     deadline_seconds=request.deadline_seconds,
                     max_output_bytes=request.max_output_bytes,
@@ -194,6 +212,9 @@ class ThemisApplicationService:
             provenance["job_id"] = request.job_id
         if request.manifest_sha256 is not None:
             provenance["manifest_sha256"] = request.manifest_sha256
+        if request.lab_policy_sha256 is not None:
+            provenance["lab_policy_sha256"] = request.lab_policy_sha256
+            provenance["lab_activation_signature"] = request.lab_activation_signature
         append_structured_audit(
             request.audit_path,
             StructuredAuditRecord(

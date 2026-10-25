@@ -315,6 +315,13 @@ legato il digest al risultato e all'audit. Gli stati restano distinti — `live`
 falso. Vedi [`docs/scanner-matrix.md`](docs/scanner-matrix.md) e
 [`docs/themis-execution-evidence.md`](docs/themis-execution-evidence.md).
 
+Un laboratorio instradato sotto controllo diretto può invece usare un
+`--lab-policy` esplicito. Questo percorso più stretto richiede record di
+attivazione HMAC firmato e CIDR ammissibili esatti; ogni indirizzo risolto deve
+appartenere sia allo scope Themis sia alla allowlist lab. È mutuamente esclusivo
+con il manifest e non è accettato da API, Web, job in coda o worker. Vedi
+[`docs/policy.md`](docs/policy.md).
+
 I **binari** degli scanner esterni si installano separatamente o tramite
 l'immagine opzionale del worker nativo. Il runtime mantenuto non usa l'installer
 VAP archiviato o il relativo stack Redis/Celery.

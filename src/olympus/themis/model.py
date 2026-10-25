@@ -29,6 +29,7 @@ class ScanRequest:
     allowed: tuple[str, ...] = ()
     allowed_domains: tuple[str, ...] = ()
     allowed_cidrs: tuple[str, ...] = ()
+    required_cidrs: tuple[str, ...] = ()
     resolved_addresses: tuple[str, ...] = ()
     timeout_seconds: float = 300.0
     deadline_seconds: float = 600.0
@@ -52,6 +53,7 @@ class ScanRequest:
             len(self.allowed) > 1_024
             or len(self.allowed_domains) > 1_024
             or len(self.allowed_cidrs) > 1_024
+            or len(self.required_cidrs) > 1_024
         ):
             raise ValueError("scope lists must each contain at most 1024 entries")
         if not 0.05 <= self.timeout_seconds <= 3_600:
