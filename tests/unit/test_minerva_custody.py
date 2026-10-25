@@ -17,7 +17,10 @@ from olympus.minerva.application import (
     MinervaRecordRequest,
 )
 from olympus.minerva.custody import (
+    CUSTODY_ED25519_PRIVATE_KEY_ENV,
+    CUSTODY_ED25519_PUBLIC_KEY_ENV,
     CUSTODY_KEY_ENV,
+    ED25519_SIGNED_CUSTODY_VERSION,
     GENESIS_HASH,
     SIGNED_CUSTODY_VERSION,
     CustodyAction,
@@ -28,6 +31,8 @@ from olympus.minerva.custody import (
     _legacy_entry_hash,
     append_entry,
     inspect_ledger,
+    load_custody_ed25519_private_key,
+    load_custody_ed25519_public_key,
     load_custody_key,
     load_ledger,
 )
@@ -482,3 +487,140 @@ def test_verify_command_fails_a_signed_ledger_without_a_key(tmp_path: Path, monk
     result = runner.invoke(app, ["minerva", "verify", str(ledger)])
     assert result.exit_code == 1
     assert "no key to verify" in result.output
+
+
+# --- Ed25519 append-path signing (SEC-E) ------------------------------------ #
+
+
+def _ed25519_hex_keys() -> tuple[str, str]:
+    """Return (private_hex, public_hex) for a fresh Ed25519 key pair."""
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    private = Ed25519PrivateKey.generate()
+    private_hex = private.private_bytes_raw().hex()
+    public_hex = private.public_key().public_bytes_raw().hex()
+    return private_hex, public_hex
+
+
+def test_ed25519_append_writes_version_2_2_0_and_third_party_verifies(tmp_path: Path) -> None:
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    ledger = tmp_path / "custody.json"
+    private = Ed25519PrivateKey.generate()
+    append_entry(ledger, _evidence(), CustodyAction.COLLECTED, "alice", ed25519_private_key=private)
+
+    document = json.loads(ledger.read_text(encoding="utf-8"))
+    assert document["schema_version"] == ED25519_SIGNED_CUSTODY_VERSION
+    assert document["signature"]["algorithm"] == "Ed25519"
+
+    # A third party verifies with only the public key — no secret required.
+    public = private.public_key()
+    inspection = inspect_ledger(ledger, ed25519_public_key=public)
+    assert inspection.signed is True
+    assert inspection.signature_verified is True
+    assert inspection.signature_algorithm == "Ed25519"
+
+
+def test_ed25519_chain_is_checked_but_signature_unverified_without_key(tmp_path: Path) -> None:
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    ledger = tmp_path / "custody.json"
+    private = Ed25519PrivateKey.generate()
+    append_entry(ledger, _evidence(), CustodyAction.COLLECTED, "alice", ed25519_private_key=private)
+
+    inspection = inspect_ledger(ledger)
+    assert inspection.signed is True and inspection.signature_verified is False
+
+
+def test_ed25519_wrong_public_key_is_rejected(tmp_path: Path) -> None:
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    ledger = tmp_path / "custody.json"
+    private = Ed25519PrivateKey.generate()
+    append_entry(ledger, _evidence(), CustodyAction.COLLECTED, "alice", ed25519_private_key=private)
+
+    with pytest.raises(CustodyIntegrityError, match="public key does not match"):
+        inspect_ledger(ledger, ed25519_public_key=Ed25519PrivateKey.generate().public_key())
+
+
+def test_ed25519_tampered_entry_is_rejected(tmp_path: Path) -> None:
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    ledger = tmp_path / "custody.json"
+    private = Ed25519PrivateKey.generate()
+    append_entry(ledger, _evidence(), CustodyAction.COLLECTED, "alice", ed25519_private_key=private)
+
+    document = json.loads(ledger.read_text(encoding="utf-8"))
+    document["entries"][0]["actor"] = "mallory"
+    ledger.write_text(json.dumps(document), encoding="utf-8")
+    with pytest.raises(CustodyIntegrityError):
+        inspect_ledger(ledger, ed25519_public_key=private.public_key())
+
+
+def test_ed25519_signed_ledger_refuses_append_without_key(tmp_path: Path) -> None:
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    ledger = tmp_path / "custody.json"
+    private = Ed25519PrivateKey.generate()
+    append_entry(ledger, _evidence(), CustodyAction.COLLECTED, "alice", ed25519_private_key=private)
+
+    with pytest.raises(CustodyKeyError, match=CUSTODY_ED25519_PRIVATE_KEY_ENV):
+        append_entry(ledger, _evidence(), CustodyAction.TRANSFERRED, "bob")
+
+
+def test_ed25519_key_loaders_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    private_hex, public_hex = _ed25519_hex_keys()
+    monkeypatch.setenv(CUSTODY_ED25519_PRIVATE_KEY_ENV, private_hex)
+    monkeypatch.setenv(CUSTODY_ED25519_PUBLIC_KEY_ENV, public_hex)
+    assert load_custody_ed25519_private_key() is not None
+    assert load_custody_ed25519_public_key() is not None
+    # The loaded pair must agree: sign-then-verify round-trips through a ledger.
+    monkeypatch.delenv(CUSTODY_ED25519_PRIVATE_KEY_ENV, raising=False)
+    monkeypatch.delenv(CUSTODY_ED25519_PUBLIC_KEY_ENV, raising=False)
+    assert load_custody_ed25519_private_key() is None
+    assert load_custody_ed25519_public_key() is None
+
+
+def test_ed25519_malformed_keys_raise(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(CUSTODY_ED25519_PRIVATE_KEY_ENV, "not-hex")
+    with pytest.raises(CustodyKeyError, match="hex-encoded"):
+        load_custody_ed25519_private_key()
+    with pytest.raises(CustodyKeyError, match="hex-encoded"):
+        load_custody_ed25519_public_key({CUSTODY_ED25519_PUBLIC_KEY_ENV: "deadbeef"})
+
+
+def test_ed25519_cli_round_trip(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    private_hex, public_hex = _ed25519_hex_keys()
+    evidence = tmp_path / "evidence.json"
+    evidence.write_text(_evidence().model_dump_json(), encoding="utf-8")
+    ledger = tmp_path / "custody.json"
+
+    monkeypatch.setenv(CUSTODY_ED25519_PRIVATE_KEY_ENV, private_hex)
+    record = runner.invoke(
+        app,
+        [
+            "minerva",
+            "record",
+            str(evidence),
+            str(ledger),
+            "--actor",
+            "alice",
+            "--action",
+            "collected",
+        ],
+    )
+    assert record.exit_code == 0, record.output
+    assert json.loads(ledger.read_text())["schema_version"] == ED25519_SIGNED_CUSTODY_VERSION
+
+    # Verify needs only the public key (third party), not the private one.
+    monkeypatch.delenv(CUSTODY_ED25519_PRIVATE_KEY_ENV, raising=False)
+    monkeypatch.setenv(CUSTODY_ED25519_PUBLIC_KEY_ENV, public_hex)
+    verified = runner.invoke(app, ["minerva", "verify", str(ledger)])
+    assert verified.exit_code == 0, verified.output
+    assert "Ed25519 signature verified" in verified.output
+
+    # Without the public key the signature cannot be confirmed -> non-zero exit.
+    monkeypatch.delenv(CUSTODY_ED25519_PUBLIC_KEY_ENV, raising=False)
+    unverified = runner.invoke(app, ["minerva", "verify", str(ledger)])
+    assert unverified.exit_code == 1, unverified.output
+    assert "no key to verify" in unverified.output

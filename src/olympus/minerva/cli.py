@@ -25,6 +25,8 @@ from olympus.minerva.custody import (
     DEFAULT_MAX_ENTRIES,
     DEFAULT_MAX_LEDGER_BYTES,
     CustodyAction,
+    load_custody_ed25519_private_key,
+    load_custody_ed25519_public_key,
     load_custody_key,
 )
 from olympus.minerva.triage import DEFAULT_MAX_ALERT_BYTES, DEFAULT_MAX_ALERTS, export_incident
@@ -127,8 +129,10 @@ def record(
 ) -> None:
     """Append an evidence-digest-anchored event after verifying the complete chain.
 
-    When ``OLYMPUS_CUSTODY_HMAC_KEY`` is set the ledger is written signed (2.1.0);
-    an already-signed ledger requires the key to append.
+    Signing key precedence: ``OLYMPUS_CUSTODY_ED25519_PRIVATE_KEY`` writes a
+    third-party-verifiable 2.2.0 ledger; otherwise ``OLYMPUS_CUSTODY_HMAC_KEY``
+    writes a signed 2.1.0 ledger; otherwise an unsigned 2.0.0 ledger. An
+    already-signed ledger requires the matching key to append.
     """
     try:
         entry = MinervaApplicationService().record(
@@ -142,6 +146,7 @@ def record(
                 max_entries=max_entries,
                 deadline_seconds=deadline,
                 key=load_custody_key(),
+                ed25519_private_key=load_custody_ed25519_private_key(),
             )
         )
     except _APPLICATION_ERRORS as exc:
@@ -160,16 +165,24 @@ def verify(
     max_entries: int = typer.Option(DEFAULT_MAX_ENTRIES, "--max-entries"),
     deadline: float = typer.Option(60.0, "--deadline"),
 ) -> None:
-    """Verify every hash, digest, state, timestamp and (if signed) the HMAC.
+    """Verify every hash, digest, state, timestamp and (if signed) the signature.
 
-    A signed 2.1.0 ledger is fully verified only when ``OLYMPUS_CUSTODY_HMAC_KEY``
-    is set; without the key the chain is checked but the signature is not, which
-    exits non-zero.
+    A signed ledger is fully verified only when the matching key is set: the
+    Ed25519 public key ``OLYMPUS_CUSTODY_ED25519_PUBLIC_KEY`` for a 2.2.0 ledger
+    (third-party verification), or ``OLYMPUS_CUSTODY_HMAC_KEY`` for a 2.1.0 one.
+    Without it the chain is checked but the signature is not, which exits non-zero.
     """
     key = load_custody_key()
     try:
         outcome = MinervaApplicationService().inspect(
-            MinervaLedgerRequest(ledger, max_ledger_bytes, max_entries, deadline, key=key)
+            MinervaLedgerRequest(
+                ledger,
+                max_ledger_bytes,
+                max_entries,
+                deadline,
+                key=key,
+                ed25519_public_key=load_custody_ed25519_public_key(),
+            )
         )
     except _APPLICATION_ERRORS as exc:
         typer.echo(safe_terminal_text(f"minerva: custody integrity failure: {exc}"), err=True)
@@ -177,9 +190,12 @@ def verify(
     if not outcome.evidence_anchored:
         qualifier = "legacy, not digest-anchored"
     elif outcome.signed and outcome.signature_verified:
-        qualifier = "evidence-anchored; HMAC-SHA256 signature verified"
+        qualifier = f"evidence-anchored; {outcome.signature_algorithm} signature verified"
     elif outcome.signed:
-        qualifier = "evidence-anchored; SIGNED but no key to verify the signature"
+        qualifier = (
+            f"evidence-anchored; SIGNED ({outcome.signature_algorithm}) "
+            "but no key to verify the signature"
+        )
     else:
         qualifier = "evidence-anchored; unsigned"
     typer.echo(

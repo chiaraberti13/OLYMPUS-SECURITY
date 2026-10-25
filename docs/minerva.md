@@ -67,3 +67,42 @@ can tighten them. An unkeyed local hash chain detects accidental or
 non-recomputed changes but is not an authenticity signature: preserve the
 verified terminal hash in an independently access-controlled case system when
 protection from an attacker able to rewrite the entire ledger is required.
+
+### Signed ledgers: HMAC 2.1.0 and Ed25519 2.2.0 (`SEC-E`)
+
+Beyond the unsigned `2.0.0` ledger, the append path can sign the chain head
+(`entry_count` + `head_hash`) so a truncation or a full rewrite is caught, not
+just an accidental edit. The mechanism is chosen by the strongest key present:
+
+| Env var | Ledger | Signature | Who can verify |
+| --- | --- | --- | --- |
+| `OLYMPUS_CUSTODY_ED25519_PRIVATE_KEY` | `2.2.0` | Ed25519 (asymmetric) | any third party, with the **public** key only |
+| `OLYMPUS_CUSTODY_HMAC_KEY` | `2.1.0` | HMAC-SHA256 (symmetric) | only a holder of the shared secret |
+| *(none)* | `2.0.0` | — | hash chain only |
+
+The Ed25519 private key is a hex-encoded raw 32-byte seed, resolved through the
+`SecretProvider` seam (`SEC-D`); the public key (`OLYMPUS_CUSTODY_ED25519_PUBLIC_KEY`,
+hex) is read plainly. The `2.2.0` signature embeds the signer's public key, and
+`verify` checks it against the operator-supplied public key (the trust anchor),
+so an attacker cannot re-sign a rewritten ledger under their own key. Ed25519 is
+what makes the chain **verifiable by a third party** — the completion criterion
+for `SEC-E` — because, unlike HMAC, no secret is needed to verify.
+
+```bash
+# Generate a raw Ed25519 key pair as hex (private seed + public key)
+python - <<'PY'
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+k = Ed25519PrivateKey.generate()
+print("private:", k.private_bytes_raw().hex())
+print("public :", k.public_key().public_bytes_raw().hex())
+PY
+
+export OLYMPUS_CUSTODY_ED25519_PRIVATE_KEY=<private-hex>
+olympus minerva record evidence.json custody.json --actor responder --action collected
+# ledger is now 2.2.0; a third party verifies with the public key alone:
+OLYMPUS_CUSTODY_ED25519_PUBLIC_KEY=<public-hex> olympus minerva verify custody.json
+```
+
+Appending to a signed ledger requires the matching key: without it `verify`
+exits non-zero (chain checked, signature unconfirmed) and `record` refuses rather
+than silently stripping the signature.

@@ -17,10 +17,16 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, Literal
 
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+    Ed25519PrivateKey,
+    Ed25519PublicKey,
+)
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from olympus.core.fileio import atomic_write_text, read_regular_text
 from olympus.core.models import Evidence
+from olympus.core.secrets import SecretProvider, resolve_secret
 
 try:  # pragma: no cover - exercised on POSIX; fallback is for Windows
     import fcntl as _fcntl
@@ -31,6 +37,7 @@ GENESIS_HASH = "0" * 64
 CUSTODY_SCHEMA_NAME = "olympus.custody"
 CUSTODY_SCHEMA_VERSION = "2.0.0"
 SIGNED_CUSTODY_VERSION = "2.1.0"
+ED25519_SIGNED_CUSTODY_VERSION = "2.2.0"
 LEGACY_CUSTODY_VERSION = "1.0.0"
 DEFAULT_MAX_LEDGER_BYTES = 50_000_000
 DEFAULT_MAX_ENTRIES = 100_000
@@ -39,6 +46,14 @@ _PROCESS_LOCK = threading.RLock()
 #: HMAC algorithm used to sign a 2.1.0 ledger, and the env var carrying the key.
 CUSTODY_HMAC_ALGORITHM: Literal["HMAC-SHA256"] = "HMAC-SHA256"
 CUSTODY_KEY_ENV = "OLYMPUS_CUSTODY_HMAC_KEY"
+
+#: Ed25519 signs a 2.2.0 ledger with an *asymmetric* key, so a third party can
+#: verify the chain with only the public key — exactly what a court-grade chain
+#: of custody needs (``SEC-E``). The private key is a secret (resolved through the
+#: ``SecretProvider`` seam); the public key is not and is read plainly.
+CUSTODY_ED25519_ALGORITHM: Literal["Ed25519"] = "Ed25519"
+CUSTODY_ED25519_PRIVATE_KEY_ENV = "OLYMPUS_CUSTODY_ED25519_PRIVATE_KEY"
+CUSTODY_ED25519_PUBLIC_KEY_ENV = "OLYMPUS_CUSTODY_ED25519_PUBLIC_KEY"
 
 
 class CustodyAction(StrEnum):
@@ -140,6 +155,35 @@ class _CustodyLedgerV2Signed(BaseModel):
     signature: CustodySignature
 
 
+class CustodyEd25519Signature(BaseModel):
+    """Ed25519 signature over the ledger head, verifiable by a third party.
+
+    Unlike the HMAC signature, verification needs only the ``public_key`` carried
+    here (and an out-of-band trust anchor to compare it against), never the secret
+    signing key. It commits to ``entry_count`` and ``head_hash`` for the same
+    reasons as :class:`CustodySignature`, so truncation and rewrite are caught.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    algorithm: Literal["Ed25519"]
+    entry_count: int = Field(ge=1)
+    head_hash: str = Field(pattern=r"^[a-f0-9]{64}$")
+    #: Raw 32-byte Ed25519 public key, hex-encoded (64 chars).
+    public_key: str = Field(pattern=r"^[a-f0-9]{64}$")
+    #: Raw 64-byte Ed25519 signature, hex-encoded (128 chars).
+    value: str = Field(pattern=r"^[a-f0-9]{128}$")
+
+
+class _CustodyLedgerV2Ed25519Signed(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_name: Literal["olympus.custody"]
+    schema_version: Literal["2.2.0"]
+    entries: list[CustodyEntry]
+    signature: CustodyEd25519Signature
+
+
 class CustodyIntegrityError(ValueError):
     """Raised when a ledger is malformed or its hash/state chain is invalid."""
 
@@ -155,6 +199,8 @@ class LedgerInspection:
     evidence_anchored: bool
     signed: bool = False
     signature_verified: bool = False
+    #: ``"HMAC-SHA256"``, ``"Ed25519"`` or ``None`` for an unsigned ledger.
+    signature_algorithm: str | None = None
 
 
 def _entry_hash(
@@ -251,6 +297,111 @@ def verify_signature(key: bytes, entries: list[CustodyEntry], signature: Custody
         )
 
 
+def _ed25519_signature_payload(entry_count: int, head_hash: str) -> bytes:
+    """Canonical bytes the Ed25519 signature is computed over (2.2.0 ledger)."""
+    payload = {
+        "algorithm": CUSTODY_ED25519_ALGORITHM,
+        "entry_count": entry_count,
+        "head_hash": head_hash,
+        "schema_name": CUSTODY_SCHEMA_NAME,
+        "schema_version": ED25519_SIGNED_CUSTODY_VERSION,
+    }
+    return json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+
+
+def _sign_entries_ed25519(
+    private_key: Ed25519PrivateKey, entries: list[CustodyEntry]
+) -> CustodyEd25519Signature:
+    head_hash = entries[-1].entry_hash
+    signature = private_key.sign(_ed25519_signature_payload(len(entries), head_hash))
+    public_key = private_key.public_key().public_bytes_raw()
+    return CustodyEd25519Signature(
+        algorithm=CUSTODY_ED25519_ALGORITHM,
+        entry_count=len(entries),
+        head_hash=head_hash,
+        public_key=public_key.hex(),
+        value=signature.hex(),
+    )
+
+
+def verify_ed25519_signature(
+    public_key: Ed25519PublicKey,
+    entries: list[CustodyEntry],
+    signature: CustodyEd25519Signature,
+) -> None:
+    """Raise :class:`CustodyIntegrityError` if the Ed25519 signature fails.
+
+    Verification needs only ``public_key`` — a third party with the published key
+    can prove the chain, its length and its head were not altered, without any
+    secret. The caller's ``public_key`` is the trust anchor: the key embedded in
+    the ledger must equal it, so an attacker cannot re-sign a rewritten ledger
+    with their own key and have it accepted.
+    """
+    if signature.entry_count != len(entries):
+        raise CustodyIntegrityError(
+            f"signature commits to {signature.entry_count} entries but the ledger has "
+            f"{len(entries)} (a truncation or an inserted entry)"
+        )
+    if signature.head_hash != entries[-1].entry_hash:
+        raise CustodyIntegrityError("signature head_hash does not match the ledger head")
+    anchor = public_key.public_bytes_raw().hex()
+    if not hmac.compare_digest(anchor, signature.public_key):
+        raise CustodyIntegrityError(
+            "custody signature public key does not match the expected signer"
+        )
+    try:
+        public_key.verify(
+            bytes.fromhex(signature.value),
+            _ed25519_signature_payload(len(entries), entries[-1].entry_hash),
+        )
+    except InvalidSignature as exc:
+        raise CustodyIntegrityError(
+            "custody Ed25519 signature mismatch: wrong key or the ledger was rewritten"
+        ) from exc
+
+
+def load_custody_ed25519_private_key(
+    *, env: dict[str, str] | None = None, provider: SecretProvider | None = None
+) -> Ed25519PrivateKey | None:
+    """Return the Ed25519 signing key from ``OLYMPUS_CUSTODY_ED25519_PRIVATE_KEY``.
+
+    The value is a hex-encoded raw 32-byte seed, resolved through the
+    :class:`~olympus.core.secrets.SecretProvider` seam (``SEC-D``) because it is a
+    secret. ``None`` when unset; a malformed value raises :class:`CustodyKeyError`.
+    """
+    if env is not None:
+        raw = env.get(CUSTODY_ED25519_PRIVATE_KEY_ENV, "").strip()
+    else:
+        secret = resolve_secret(CUSTODY_ED25519_PRIVATE_KEY_ENV, provider=provider)
+        raw = secret.get_secret_value() if secret is not None else ""
+    if not raw:
+        return None
+    try:
+        return Ed25519PrivateKey.from_private_bytes(bytes.fromhex(raw))
+    except (ValueError, TypeError) as exc:
+        raise CustodyKeyError(
+            f"{CUSTODY_ED25519_PRIVATE_KEY_ENV} must be a hex-encoded 32-byte Ed25519 key"
+        ) from exc
+
+
+def load_custody_ed25519_public_key(env: dict[str, str] | None = None) -> Ed25519PublicKey | None:
+    """Return the Ed25519 verification key from ``OLYMPUS_CUSTODY_ED25519_PUBLIC_KEY``.
+
+    A hex-encoded raw 32-byte public key (not a secret, read plainly). ``None``
+    when unset; a malformed value raises :class:`CustodyKeyError`.
+    """
+    source = env if env is not None else os.environ
+    raw = source.get(CUSTODY_ED25519_PUBLIC_KEY_ENV, "").strip()
+    if not raw:
+        return None
+    try:
+        return Ed25519PublicKey.from_public_bytes(bytes.fromhex(raw))
+    except (ValueError, TypeError) as exc:
+        raise CustodyKeyError(
+            f"{CUSTODY_ED25519_PUBLIC_KEY_ENV} must be a hex-encoded 32-byte Ed25519 public key"
+        ) from exc
+
+
 def verify_entries(
     entries: list[CustodyEntry],
     *,
@@ -341,13 +492,16 @@ def inspect_ledger(
     max_entries: int = DEFAULT_MAX_ENTRIES,
     progress_check: Callable[[], None] | None = None,
     key: bytes | None = None,
+    ed25519_public_key: Ed25519PublicKey | None = None,
 ) -> LedgerInspection:
-    """Load and verify a signed 2.1.0, plain 2.0.0, or read-only 1.0.0 ledger.
+    """Load and verify a signed 2.2.0/2.1.0, plain 2.0.0, or read-only 1.0.0 ledger.
 
-    When ``key`` is given and the ledger is signed, the HMAC is verified — a
-    truncation or a full rewrite is caught here. When the ledger is signed but no
-    key is given, the chain is still verified and the result reports
-    ``signed=True, signature_verified=False`` so a caller can refuse to trust it.
+    When the matching key is given and the ledger is signed, the signature is
+    verified — a truncation or a full rewrite is caught here. For a 2.2.0 ledger
+    this is the Ed25519 ``ed25519_public_key`` (third-party verification); for a
+    2.1.0 ledger it is the HMAC ``key``. When the ledger is signed but the key is
+    absent, the chain is still verified and the result reports ``signed=True,
+    signature_verified=False`` so a caller can refuse to trust it.
     """
     if not path.exists():
         if missing_ok:
@@ -360,6 +514,25 @@ def inspect_ledger(
         if not isinstance(payload, dict) or payload.get("schema_name") != CUSTODY_SCHEMA_NAME:
             raise CustodyIntegrityError("invalid custody schema_name")
         version = payload.get("schema_version")
+        if version == ED25519_SIGNED_CUSTODY_VERSION:
+            ed_signed = _CustodyLedgerV2Ed25519Signed.model_validate(payload)
+            if not ed_signed.entries:
+                raise CustodyIntegrityError("custody ledger must contain at least one entry")
+            verify_entries(
+                ed_signed.entries, max_entries=max_entries, progress_check=progress_check
+            )
+            verified = False
+            if ed25519_public_key is not None:
+                verify_ed25519_signature(ed25519_public_key, ed_signed.entries, ed_signed.signature)
+                verified = True
+            return LedgerInspection(
+                tuple(ed_signed.entries),
+                version,
+                True,
+                signed=True,
+                signature_verified=verified,
+                signature_algorithm=CUSTODY_ED25519_ALGORITHM,
+            )
         if version == SIGNED_CUSTODY_VERSION:
             signed = _CustodyLedgerV2Signed.model_validate(payload)
             if not signed.entries:
@@ -370,7 +543,12 @@ def inspect_ledger(
                 verify_signature(key, signed.entries, signed.signature)
                 verified = True
             return LedgerInspection(
-                tuple(signed.entries), version, True, signed=True, signature_verified=verified
+                tuple(signed.entries),
+                version,
+                True,
+                signed=True,
+                signature_verified=verified,
+                signature_algorithm=CUSTODY_HMAC_ALGORITHM,
             )
         if version == CUSTODY_SCHEMA_VERSION:
             document = _CustodyLedgerV2.model_validate(payload)
@@ -430,13 +608,16 @@ def append_entry(
     max_entries: int = DEFAULT_MAX_ENTRIES,
     progress_check: Callable[[], None] | None = None,
     key: bytes | None = None,
+    ed25519_private_key: Ed25519PrivateKey | None = None,
 ) -> CustodyEntry:
     """Verify, lock and append one event, then durably replace the ledger.
 
-    With ``key`` the ledger is written signed (2.1.0) and an existing signed
-    ledger is verified against the key before the append. An existing signed
-    ledger with no key is refused (:class:`CustodyKeyError`): appending unsigned
-    would silently strip the signature.
+    The ledger is written with the strongest key provided: ``ed25519_private_key``
+    produces a third-party-verifiable 2.2.0 ledger (``SEC-E``); otherwise an HMAC
+    ``key`` produces a 2.1.0 ledger; otherwise an unsigned 2.0.0 ledger. An
+    existing signed ledger is verified against the matching key before the append
+    and, if that verification cannot be done (key absent), the append is refused
+    (:class:`CustodyKeyError`) — appending would otherwise strip the signature.
     """
     if progress_check is not None:
         progress_check()
@@ -448,15 +629,24 @@ def append_entry(
             max_entries=max_entries,
             progress_check=progress_check,
             key=key,
+            ed25519_public_key=(
+                ed25519_private_key.public_key() if ed25519_private_key is not None else None
+            ),
         )
         if not inspection.evidence_anchored:
             raise CustodyIntegrityError(
                 "legacy custody 1.0.0 is read-only because it does not anchor evidence digests; "
                 "preserve it and start a 2.0.0 ledger"
             )
-        if inspection.signed and key is None:
+        if inspection.signed and not inspection.signature_verified:
+            required_env = (
+                CUSTODY_ED25519_PRIVATE_KEY_ENV
+                if inspection.signature_algorithm == CUSTODY_ED25519_ALGORITHM
+                else CUSTODY_KEY_ENV
+            )
             raise CustodyKeyError(
-                f"custody ledger is signed; set {CUSTODY_KEY_ENV} to append or verify it"
+                f"custody ledger is signed ({inspection.signature_algorithm}); "
+                f"set {required_env} to append or verify it"
             )
         entries = [entry for entry in inspection.entries if isinstance(entry, CustodyEntry)]
         if len(entries) >= max_entries:
@@ -485,7 +675,15 @@ def append_entry(
         )
         entries.append(entry)
         verify_entries(entries, max_entries=max_entries, progress_check=progress_check)
-        if key is not None:
+        if ed25519_private_key is not None:
+            ed_signature = _sign_entries_ed25519(ed25519_private_key, entries)
+            payload = {
+                "schema_name": CUSTODY_SCHEMA_NAME,
+                "schema_version": ED25519_SIGNED_CUSTODY_VERSION,
+                "entries": [item.model_dump(mode="json") for item in entries],
+                "signature": ed_signature.model_dump(mode="json"),
+            }
+        elif key is not None:
             signature = _sign_entries(key, entries)
             payload = {
                 "schema_name": CUSTODY_SCHEMA_NAME,

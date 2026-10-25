@@ -8,6 +8,10 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+    Ed25519PrivateKey,
+    Ed25519PublicKey,
+)
 from pydantic import ValidationError
 
 from olympus.core.contracts import validate_contract_header
@@ -57,6 +61,7 @@ class MinervaRecordRequest:
     max_entries: int = DEFAULT_MAX_ENTRIES
     deadline_seconds: float = 60.0
     key: bytes | None = None
+    ed25519_private_key: Ed25519PrivateKey | None = None
 
 
 @dataclass(frozen=True)
@@ -66,6 +71,7 @@ class MinervaLedgerRequest:
     max_entries: int = DEFAULT_MAX_ENTRIES
     deadline_seconds: float = 60.0
     key: bytes | None = None
+    ed25519_public_key: Ed25519PublicKey | None = None
 
 
 @dataclass(frozen=True)
@@ -75,6 +81,7 @@ class MinervaLedgerOutcome:
     evidence_anchored: bool
     signed: bool = False
     signature_verified: bool = False
+    signature_algorithm: str | None = None
 
 
 @dataclass(frozen=True)
@@ -115,6 +122,7 @@ class MinervaApplicationService:
             max_entries=request.max_entries,
             progress_check=progress,
             key=request.key,
+            ed25519_private_key=request.ed25519_private_key,
         )
 
     def inspect(self, request: MinervaLedgerRequest) -> MinervaLedgerOutcome:
@@ -126,6 +134,7 @@ class MinervaApplicationService:
             max_entries=request.max_entries,
             progress_check=progress,
             key=request.key,
+            ed25519_public_key=request.ed25519_public_key,
         )
         return MinervaLedgerOutcome(
             inspection.entries,
@@ -133,6 +142,7 @@ class MinervaApplicationService:
             inspection.evidence_anchored,
             signed=inspection.signed,
             signature_verified=inspection.signature_verified,
+            signature_algorithm=inspection.signature_algorithm,
         )
 
     def _progress(self, deadline_seconds: float, operation: str) -> Callable[[], None]:

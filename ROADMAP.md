@@ -596,8 +596,22 @@ ruotabili senza downtime.
 
 ### Intervento E · `SEC-E` — Evidenze e chain of custody verificabili (**P1**)
 
-- [ ] Integrare la firma Ed25519 direttamente nell'append path del ledger Minerva,
-  non solo come firma detached successiva del file.
+- [x] Integrare la firma Ed25519 direttamente nell'append path del ledger Minerva,
+  non solo come firma detached successiva del file. Nuova variante ledger **2.2.0**
+  (`_CustodyLedgerV2Ed25519Signed` + `CustodyEd25519Signature`): `append_entry`
+  firma la testa della catena (`entry_count`+`head_hash`) con **Ed25519** quando è
+  presente `OLYMPUS_CUSTODY_ED25519_PRIVATE_KEY` (seed 32 byte hex, risolto via il
+  `SecretProvider` di `SEC-D`), altrimenti HMAC 2.1.0, altrimenti 2.0.0.
+  `verify_ed25519_signature`/`inspect_ledger` verificano con la **sola chiave
+  pubblica** (`OLYMPUS_CUSTODY_ED25519_PUBLIC_KEY`) — **verifica da parte di un
+  soggetto terzo**, che l'HMAC simmetrico non consente — e vincolano la chiave
+  pubblica incorporata al trust anchor dell'operatore (un attaccante non può
+  rifirmare un ledger riscritto con una propria chiave). Troncamento, riordino,
+  manomissione e sostituzione di chiave sono rilevati; l'append su ledger firmato
+  senza chiave è rifiutato (`CustodyKeyError`). CLI `olympus minerva record`/`verify`
+  caricano le chiavi dall'ambiente. Test `tests/unit/test_minerva_custody.py`
+  (append 2.2.0, verifica terza parte, chiave errata, manomissione, append senza
+  chiave, loader, round-trip CLI); doc [`docs/minerva.md`](docs/minerva.md).
 - [ ] Aggiungere timestamp attendibile RFC 3161 o servizio equivalente per
   attestare anche il momento di acquisizione.
 - [ ] Memorizzare hash, tool/versione, policy, scope, command template, stato di
