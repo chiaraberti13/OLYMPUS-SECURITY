@@ -67,14 +67,15 @@ shared key (`OLYMPUS_THEMIS_API_KEY`).
    it drops any secret still within its rotation overlap. The register is re-read
    when the file changes, so revocation takes effect without a restart.
 2. **Rotate** if the identity must keep working:
-   `olympus themis identities rotate <name> --overlap-seconds 300` issues a new
+   `olympus themis identities rotate <name> --overlap-seconds 300 --expires-in-days 90` issues a new
    secret (printed once) and keeps the previous one valid only briefly; distribute
    the new secret over a secure channel.
 3. **Legacy shared key**: replace `OLYMPUS_THEMIS_API_KEY` with a fresh value and
    restart the API/Web process; prefer migrating to named identities with scopes
    and an expiry (`--expires-in-days`).
 4. **Audit**: review the redacted API audit log for calls authenticated by the
-   compromised key and the scopes they used; confirm no live-scan scope was abused.
+   compromised key and the scopes they used, plus the `themis.identity.*`
+   administration record; confirm no live-scan scope was abused.
 5. **Communicate**: record the revocation/rotation and affected scopes.
 
 ### Post-incident
@@ -142,15 +143,15 @@ Vale per le identità nominate nel register Themis e per la chiave condivisa leg
    annulla ogni secret ancora nell'overlap di rotazione. Il register viene riletto al
    cambiamento del file, quindi la revoca ha effetto senza riavvio.
 2. **Ruota** se l'identità deve continuare a operare:
-   `olympus themis identities rotate <name> --overlap-seconds 300` emette un nuovo
+   `olympus themis identities rotate <name> --overlap-seconds 300 --expires-in-days 90` emette un nuovo
    secret (stampato una sola volta) e mantiene il precedente valido solo per poco;
    distribuisci il nuovo secret su canale sicuro.
 3. **Chiave condivisa legacy**: sostituisci `OLYMPUS_THEMIS_API_KEY` con un nuovo
    valore e riavvia il processo API/Web; preferisci migrare a identità nominate con
    scope e scadenza (`--expires-in-days`).
 4. **Audit**: esamina l'audit log API redatto per le chiamate autenticate dalla chiave
-   compromessa e gli scope usati; conferma che nessuno scope di live-scan sia stato
-   abusato.
+   compromessa, gli scope usati e il record amministrativo `themis.identity.*`;
+   conferma che nessuno scope di live-scan sia stato abusato.
 5. **Comunica**: registra revoca/rotazione e gli scope interessati.
 
 ### Post-incidente

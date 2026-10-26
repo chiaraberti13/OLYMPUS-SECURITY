@@ -160,6 +160,7 @@ only_mutate = [
     "src/olympus/themis/concurrency.py",
     "src/olympus/themis/legacy_vap.py",
     "src/olympus/themis/jobs.py",
+    "src/olympus/themis/identity.py",
     "src/olympus/themis/oidc.py",
     "src/olympus/themis/sandbox.py",
     "src/olympus/themis/scope.py",

@@ -88,6 +88,12 @@ resource caps and read-only credential/scope/TLS mounts; worker mounts exclude
 API identities and TLS private keys. Container smoke runs with no external
 network and no live scanner job. These controls do not claim SEC-B completion.
 
+New and rotated named API credentials have a mandatory bounded expiry. Rotation
+allows at most one hour of overlap and records the identity, expiry and overlap
+in the owner-only audit log without recording either secret or its digest.
+Legacy register entries without an expiry remain readable, but their next
+rotation applies this policy.
+
 ## SEC-A control-plane threat-model review (2026-10-19)
 
 **Scope reviewed:** native API/Web authentication and route scopes, the shared-key

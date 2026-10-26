@@ -28,8 +28,13 @@ register is loaded, so a typo cannot silently grant nothing — or everything.
 
 `olympus.themis-api-identities` (`1.0.0`) is written atomically and owner-only
 (`0600`). It stores, per identity: the id, the **SHA-256 of the secret**, the
-scope set, creation/rotation timestamps, an optional expiry, a revocation flag,
+scope set, creation/rotation timestamps, an expiry, a revocation flag,
 and a per-identity rate limit.
+
+New and rotated credentials expire after 90 days by default. Operators may set
+`--expires-in-days` from 1 through 3650, but cannot create an open-ended
+credential. Registers written by older releases remain readable when an entry
+has no `not_after`; its next rotation applies the mandatory expiry.
 
 Secrets themselves are never stored and never logged. `add` and `rotate` print
 the credential once; if it is lost, rotate again.
@@ -39,7 +44,8 @@ olympus themis identities add ops-console --scopes jobs:read,jobs:write
 olympus themis identities add dashboard --scopes jobs:read --rate-limit 30 \
   --expires-in-days 90
 olympus themis identities list
-olympus themis identities rotate ops-console --overlap-seconds 300
+olympus themis identities rotate ops-console --overlap-seconds 300 \
+  --expires-in-days 90
 olympus themis identities revoke dashboard
 ```
 
@@ -51,7 +57,7 @@ something to keep guessing about.
 ### Rotation with an overlap
 
 `rotate` issues a new secret and keeps the previous one valid for
-`--overlap-seconds` (default 300, max 7 days), so clients can be updated without
+`--overlap-seconds` (default 300, max 1 hour), so clients can be updated without
 an outage. The old secret then stops working on its own — no second command is
 needed. `--overlap-seconds 0` invalidates it immediately.
 
@@ -60,8 +66,20 @@ rotation window.
 
 ### Expiry
 
-`--expires-in-days` sets `not_after`. After that moment the identity
-authenticates nothing, with no cleanup step required.
+`--expires-in-days` sets the mandatory `not_after` on both `add` and `rotate`.
+After that moment the identity authenticates nothing, with no cleanup step
+required.
+
+## Credential administration audit
+
+`add`, `rotate`, and `revoke` append a `StructuredAuditRecord` to the Themis
+audit log (`--audit` overrides the owner-only state-directory default). The
+record includes the identity, action, new expiry and overlap when relevant. It
+never includes the credential or its digest. The audit intent is appended before
+the register changes, so an unavailable audit sink fails closed without issuing
+a credential; `outcome=requested` also avoids claiming completion if the later
+atomic register write fails. This administration trail is separate from the
+request audit below.
 
 ## Rate limiting
 

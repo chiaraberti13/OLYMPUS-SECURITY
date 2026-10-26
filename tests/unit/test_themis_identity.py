@@ -13,11 +13,16 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from hypothesis import given
+from hypothesis import strategies as st
 from typer.testing import CliRunner
 
 from olympus.cli import app
 from olympus.themis.api import ApiSettings, create_app
 from olympus.themis.identity import (
+    DEFAULT_IDENTITY_LIFETIME_DAYS,
+    MAX_IDENTITY_LIFETIME_DAYS,
+    MAX_OVERLAP_SECONDS,
     SCOPES,
     IdentityError,
     IdentityRegister,
@@ -141,6 +146,31 @@ def test_an_expired_identity_authenticates_nothing() -> None:
         register.authenticate(secret, moment=later)
 
 
+@given(st.integers())
+def test_new_credentials_always_have_a_bounded_expiry(expires_in_days: int) -> None:
+    if not 1 <= expires_in_days <= MAX_IDENTITY_LIFETIME_DAYS:
+        with pytest.raises(IdentityError, match="expires_in_days"):
+            add_identity(
+                IdentityRegister(),
+                identity_id="bounded",
+                scopes=["jobs:read"],
+                expires_in_days=expires_in_days,
+            )
+        return
+
+    before = datetime.now(UTC)
+    register, _ = add_identity(
+        IdentityRegister(),
+        identity_id="bounded",
+        scopes=["jobs:read"],
+        expires_in_days=expires_in_days,
+    )
+    identity = register.find("bounded")
+    assert identity is not None and identity.not_after is not None
+    assert before + timedelta(days=expires_in_days) <= identity.not_after
+    assert identity.not_after <= datetime.now(UTC) + timedelta(days=expires_in_days)
+
+
 def test_rotation_keeps_the_previous_secret_for_a_bounded_overlap() -> None:
     register, original = add_identity(IdentityRegister(), identity_id="ops", scopes=["jobs:read"])
     rotated, replacement = rotate_identity(register, "ops", overlap_seconds=300)
@@ -150,6 +180,47 @@ def test_rotation_keeps_the_previous_secret_for_a_bounded_overlap() -> None:
     with pytest.raises(IdentityError):
         rotated.authenticate(original, moment=after_overlap)
     assert rotated.authenticate(replacement, moment=after_overlap).identity_id == "ops"
+
+
+@given(
+    overlap_seconds=st.integers(),
+    expires_in_days=st.integers(),
+)
+def test_rotation_enforces_brief_overlap_and_mandatory_expiry(
+    overlap_seconds: int, expires_in_days: int
+) -> None:
+    register, _ = add_identity(IdentityRegister(), identity_id="ops", scopes=["jobs:read"])
+    valid = (
+        0 <= overlap_seconds <= MAX_OVERLAP_SECONDS
+        and 1 <= expires_in_days <= MAX_IDENTITY_LIFETIME_DAYS
+    )
+    if not valid:
+        with pytest.raises(IdentityError):
+            rotate_identity(
+                register,
+                "ops",
+                overlap_seconds=overlap_seconds,
+                expires_in_days=expires_in_days,
+            )
+        return
+
+    before = datetime.now(UTC)
+    rotated, _ = rotate_identity(
+        register,
+        "ops",
+        overlap_seconds=overlap_seconds,
+        expires_in_days=expires_in_days,
+    )
+    identity = rotated.find("ops")
+    assert identity is not None and identity.not_after is not None
+    assert before + timedelta(days=expires_in_days) <= identity.not_after
+    if overlap_seconds:
+        assert identity.previous_valid_until is not None
+        assert identity.previous_valid_until <= datetime.now(UTC) + timedelta(
+            seconds=overlap_seconds
+        )
+    else:
+        assert identity.previous_valid_until is None
 
 
 def test_rotation_without_overlap_invalidates_the_old_secret_at_once() -> None:
@@ -346,6 +417,7 @@ def test_a_rejected_request_is_audited_as_anonymous(tmp_path: Path) -> None:
 # --- operator surface ------------------------------------------------------ #
 def test_identity_cli_creates_rotates_and_revokes(tmp_path: Path) -> None:
     register_path = tmp_path / "identities.json"
+    audit_path = tmp_path / "identity-audit.ndjson"
     created = runner.invoke(
         app,
         [
@@ -357,11 +429,18 @@ def test_identity_cli_creates_rotates_and_revokes(tmp_path: Path) -> None:
             "jobs:read,jobs:write",
             "-f",
             str(register_path),
+            "--audit",
+            str(audit_path),
         ],
     )
     assert created.exit_code == 0, created.output
     secret = json.loads(created.output)["secret"]
-    assert load_register(register_path).authenticate(secret).identity_id == "ops-console"
+    created_identity = load_register(register_path).authenticate(secret)
+    assert created_identity.identity_id == "ops-console"
+    assert created_identity.not_after is not None
+    assert created_identity.not_after <= datetime.now(UTC) + timedelta(
+        days=DEFAULT_IDENTITY_LIFETIME_DAYS
+    )
 
     listed = runner.invoke(app, ["themis", "identities", "list", "-f", str(register_path)])
     assert json.loads(listed.output)["count"] == 1
@@ -369,17 +448,48 @@ def test_identity_cli_creates_rotates_and_revokes(tmp_path: Path) -> None:
     assert "secret" not in listed.output
 
     rotated = runner.invoke(
-        app, ["themis", "identities", "rotate", "ops-console", "-f", str(register_path)]
+        app,
+        [
+            "themis",
+            "identities",
+            "rotate",
+            "ops-console",
+            "-f",
+            str(register_path),
+            "--audit",
+            str(audit_path),
+        ],
     )
     replacement = json.loads(rotated.output)["secret"]
     assert replacement != secret
 
     revoked = runner.invoke(
-        app, ["themis", "identities", "revoke", "ops-console", "-f", str(register_path)]
+        app,
+        [
+            "themis",
+            "identities",
+            "revoke",
+            "ops-console",
+            "-f",
+            str(register_path),
+            "--audit",
+            str(audit_path),
+        ],
     )
     assert revoked.exit_code == 0
     with pytest.raises(IdentityError):
         load_register(register_path).authenticate(replacement)
+
+    audit_text = audit_path.read_text(encoding="utf-8")
+    records = [json.loads(line) for line in audit_text.splitlines()]
+    assert [record["action"] for record in records] == [
+        "themis.identity.created",
+        "themis.identity.rotated",
+        "themis.identity.revoked",
+    ]
+    assert all(record["metadata"]["identity"] == "ops-console" for record in records)
+    assert secret not in audit_text and replacement not in audit_text
+    assert audit_path.stat().st_mode & 0o777 == 0o600
 
 
 def test_identity_cli_reports_missing_registers_and_bad_scopes(tmp_path: Path) -> None:
@@ -402,3 +512,29 @@ def test_identity_cli_reports_missing_registers_and_bad_scopes(tmp_path: Path) -
         ],
     )
     assert bad.exit_code == 2 and "unknown API scopes" in bad.output
+
+
+def test_identity_cli_does_not_issue_a_credential_when_audit_is_unavailable(
+    tmp_path: Path,
+) -> None:
+    register_path = tmp_path / "identities.json"
+    blocked_parent = tmp_path / "not-a-directory"
+    blocked_parent.write_text("synthetic", encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        [
+            "themis",
+            "identities",
+            "add",
+            "ops",
+            "-f",
+            str(register_path),
+            "--audit",
+            str(blocked_parent / "audit.ndjson"),
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert not register_path.exists()
+    assert "secret" not in result.output

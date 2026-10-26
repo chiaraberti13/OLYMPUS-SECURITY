@@ -5,7 +5,8 @@ apart, no way to give a dashboard read-only access, and no way to take a leaked
 credential out of circulation without breaking every client at once. This module
 replaces it with a small, file-backed identity register:
 
-* **Many identities.** Each has an id, a scope set, an optional expiry, and its
+* **Many identities.** Each has an id, a scope set, a mandatory expiry for new
+  credentials, and its
   own rate limit.
 * **Secrets are never stored.** Only the SHA-256 of a high-entropy token is
   persisted; the token itself is shown once, when it is generated.
@@ -43,7 +44,9 @@ MAX_REGISTER_BYTES = 1_000_000
 MIN_SECRET_CHARACTERS = 32
 DEFAULT_RATE_LIMIT_PER_MINUTE = 120
 MAX_RATE_LIMIT_PER_MINUTE = 100_000
-MAX_OVERLAP_SECONDS = 7 * 24 * 3_600
+DEFAULT_IDENTITY_LIFETIME_DAYS = 90
+MAX_IDENTITY_LIFETIME_DAYS = 3_650
+MAX_OVERLAP_SECONDS = 3_600
 
 IDENTITY_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_.-]{0,63}$")
 
@@ -219,7 +222,7 @@ def add_identity(
     identity_id: str,
     scopes: Iterable[str],
     rate_limit_per_minute: int = DEFAULT_RATE_LIMIT_PER_MINUTE,
-    expires_in_days: int | None = None,
+    expires_in_days: int = DEFAULT_IDENTITY_LIFETIME_DAYS,
 ) -> tuple[IdentityRegister, str]:
     """Add one identity, returning the register and the secret to hand over once."""
     if not IDENTITY_ID_PATTERN.fullmatch(identity_id):
@@ -228,6 +231,7 @@ def add_identity(
         )
     if register.find(identity_id) is not None:
         raise IdentityError(f"API identity already exists: {identity_id}")
+    _validate_lifetime(expires_in_days)
     now = datetime.now(UTC)
     secret = generate_secret()
     identity = ApiIdentity(
@@ -235,7 +239,7 @@ def add_identity(
         secret_sha256=hash_secret(secret),
         scopes=sorted(set(scopes)),
         created_at=now,
-        not_after=now + timedelta(days=expires_in_days) if expires_in_days else None,
+        not_after=now + timedelta(days=expires_in_days),
         rate_limit_per_minute=rate_limit_per_minute,
     )
     identity.validated_scopes()
@@ -244,11 +248,16 @@ def add_identity(
 
 
 def rotate_identity(
-    register: IdentityRegister, identity_id: str, *, overlap_seconds: int = 300
+    register: IdentityRegister,
+    identity_id: str,
+    *,
+    overlap_seconds: int = 300,
+    expires_in_days: int = DEFAULT_IDENTITY_LIFETIME_DAYS,
 ) -> tuple[IdentityRegister, str]:
-    """Issue a new secret, keeping the previous one valid for a bounded overlap."""
+    """Issue an expiring secret, retaining the previous one for a brief overlap."""
     if not 0 <= overlap_seconds <= MAX_OVERLAP_SECONDS:
         raise IdentityError(f"overlap_seconds must be between 0 and {MAX_OVERLAP_SECONDS}")
+    _validate_lifetime(expires_in_days)
     identity = _require(register, identity_id)
     now = datetime.now(UTC)
     secret = generate_secret()
@@ -260,9 +269,16 @@ def rotate_identity(
                 now + timedelta(seconds=overlap_seconds) if overlap_seconds else None
             ),
             "rotated_at": now,
+            "not_after": now + timedelta(days=expires_in_days),
         }
     )
     return _replace(register, rotated), secret
+
+
+def _validate_lifetime(expires_in_days: int) -> None:
+    """Require every newly issued credential to have a bounded lifetime."""
+    if not 1 <= expires_in_days <= MAX_IDENTITY_LIFETIME_DAYS:
+        raise IdentityError(f"expires_in_days must be between 1 and {MAX_IDENTITY_LIFETIME_DAYS}")
 
 
 def revoke_identity(register: IdentityRegister, identity_id: str) -> IdentityRegister:

@@ -1563,6 +1563,33 @@ def _identity_register(path: str, *, create: bool = False) -> IdentityRegister:
     return load_register(location)
 
 
+def _audit_identity_change(
+    audit_path: str,
+    *,
+    action: str,
+    identity_id: str,
+    metadata: dict[str, object] | None = None,
+) -> None:
+    """Audit credential administration by identity, never by credential value."""
+    from datetime import UTC, datetime
+    from pathlib import Path
+    from uuid import uuid4
+
+    from olympus.core.execution import StructuredAuditRecord, append_structured_audit
+
+    append_structured_audit(
+        Path(audit_path),
+        StructuredAuditRecord(
+            timestamp=datetime.now(UTC).isoformat(),
+            execution_id=f"identity-{uuid4().hex}",
+            action=f"themis.identity.{action}",
+            outcome="requested",
+            target=identity_id,
+            metadata={"identity": identity_id, **(metadata or {})},
+        ),
+    )
+
+
 @identities_app.command("init")
 def themis_identities_init(
     register_path: str = typer.Option(DEFAULT_IDENTITY_REGISTER, "--file", "-f"),
@@ -1588,9 +1615,14 @@ def themis_identities_add(
     ),
     rate_limit: int = typer.Option(120, "--rate-limit", min=1, max=100_000),
     expires_in_days: int = typer.Option(
-        0, "--expires-in-days", min=0, max=3_650, help="0 keeps the credential open-ended."
+        90,
+        "--expires-in-days",
+        min=1,
+        max=3_650,
+        help="Mandatory lifetime of the newly issued credential.",
     ),
     register_path: str = typer.Option(DEFAULT_IDENTITY_REGISTER, "--file", "-f"),
+    audit_path: str = typer.Option(DEFAULT_THEMIS_AUDIT_LOG, "--audit"),
 ) -> None:
     """Add one scoped identity and print its secret exactly once."""
     from pathlib import Path
@@ -1604,11 +1636,23 @@ def themis_identities_add(
             identity_id=identity_id,
             scopes=[item.strip() for item in scopes.split(",") if item.strip()],
             rate_limit_per_minute=rate_limit,
-            expires_in_days=expires_in_days or None,
+            expires_in_days=expires_in_days,
         )
     except IdentityError as exc:
         typer.echo(f"olympus: {exc}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
+    identity = updated.find(identity_id)
+    _audit_identity_change(
+        audit_path,
+        action="created",
+        identity_id=identity_id,
+        metadata={
+            "not_after": identity.not_after.isoformat()
+            if identity and identity.not_after
+            else None,
+            "scopes": sorted(identity.scopes) if identity else [],
+        },
+    )
     save_register(Path(register_path), updated)
     _emit_secret(identity_id, secret, "created")
 
@@ -1620,10 +1664,18 @@ def themis_identities_rotate(
         300,
         "--overlap-seconds",
         min=0,
-        max=604_800,
+        max=3_600,
         help="How long the previous secret keeps working; 0 revokes it immediately.",
     ),
+    expires_in_days: int = typer.Option(
+        90,
+        "--expires-in-days",
+        min=1,
+        max=3_650,
+        help="Mandatory lifetime of the replacement credential.",
+    ),
     register_path: str = typer.Option(DEFAULT_IDENTITY_REGISTER, "--file", "-f"),
+    audit_path: str = typer.Option(DEFAULT_THEMIS_AUDIT_LOG, "--audit"),
 ) -> None:
     """Issue a new secret, keeping the old one valid for a bounded overlap."""
     from pathlib import Path
@@ -1635,10 +1687,23 @@ def themis_identities_rotate(
             _identity_register(register_path),
             identity_id,
             overlap_seconds=overlap_seconds,
+            expires_in_days=expires_in_days,
         )
     except IdentityError as exc:
         typer.echo(f"olympus: {exc}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
+    identity = updated.find(identity_id)
+    _audit_identity_change(
+        audit_path,
+        action="rotated",
+        identity_id=identity_id,
+        metadata={
+            "overlap_seconds": overlap_seconds,
+            "not_after": identity.not_after.isoformat()
+            if identity and identity.not_after
+            else None,
+        },
+    )
     save_register(Path(register_path), updated)
     _emit_secret(identity_id, secret, "rotated")
 
@@ -1647,6 +1712,7 @@ def themis_identities_rotate(
 def themis_identities_revoke(
     identity_id: str = typer.Argument(...),
     register_path: str = typer.Option(DEFAULT_IDENTITY_REGISTER, "--file", "-f"),
+    audit_path: str = typer.Option(DEFAULT_THEMIS_AUDIT_LOG, "--audit"),
 ) -> None:
     """Revoke an identity immediately, including any secret still rotating."""
     from pathlib import Path
@@ -1661,6 +1727,7 @@ def themis_identities_revoke(
     except IdentityError as exc:
         typer.echo(f"olympus: {exc}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
+    _audit_identity_change(audit_path, action="revoked", identity_id=identity_id)
     save_register(Path(register_path), updated)
     typer.echo(json.dumps({"identity_id": identity_id, "revoked": True}, indent=2))
 

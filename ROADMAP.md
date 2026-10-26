@@ -602,10 +602,14 @@ il report consente di dimostrare manifest, firma, scope e policy effettivi usati
   token e durata sono limitati. CLI API/Web: `--oidc-issuer`,
   `--oidc-audience`, `--oidc-jwks`. Test sintetici coprono firma/claim errati,
   lifetime, doppia credenziale, revoca senza restart e audit privo del bearer.
-  mTLS resta un'alternativa futura; la rotazione uniforme è il criterio aperto
-  successivo, pertanto SEC-D rimane `[~]`.
-- [ ] Rendere uniforme la rotazione: overlap breve, scadenza obbligatoria, audit
-  dell'identità e mai del segreto.
+  mTLS resta un'alternativa futura; la rotazione uniforme è applicata dal punto
+  successivo.
+- [x] Rendere uniforme la rotazione: le credenziali nominate nuove e ruotate
+  scadono obbligatoriamente (90 giorni predefiniti, 1–3650 consentiti), l'overlap
+  è limitato a un'ora e ogni `add`/`rotate`/`revoke` registra identità, azione,
+  scadenza e overlap senza secret né digest. I register legacy senza scadenza
+  restano leggibili e acquisiscono la policy alla rotazione. Test unitari,
+  property-based, CLI e mutation coprono limiti, continuità e canary anti-leak.
 - [x] Aggiungere property-based test alla redazione in `core.execution` per query
   URL, header, mapping annidati, output scanner, Unicode e chiavi inattese
   (`tests/unit/test_property_security.py`); i casi generati verificano la rimozione
@@ -614,7 +618,7 @@ il report consente di dimostrare manifest, firma, scope e policy effettivi usati
 
 **Criterio di completamento:** nessun segreto compare in log, eccezioni, report,
 telemetria o file temporanei nei test canary; tutte le credenziali di servizio sono
-ruotabili senza downtime.
+ruotabili senza downtime. **SEC-D è completato `[x]`.**
 
 ### Intervento E · `SEC-E` — Evidenze e chain of custody verificabili (**P1**)
 

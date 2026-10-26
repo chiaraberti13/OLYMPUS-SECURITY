@@ -38,6 +38,14 @@ from olympus.themis.adapters.nuclei import NucleiAdapter
 from olympus.themis.api import ApiSettings
 from olympus.themis.base import ParseError
 from olympus.themis.concurrency import RequestConcurrencyGate
+from olympus.themis.identity import (
+    MAX_IDENTITY_LIFETIME_DAYS,
+    MAX_OVERLAP_SECONDS,
+    IdentityError,
+    IdentityRegister,
+    add_identity,
+    rotate_identity,
+)
 from olympus.themis.jobs import JobState as ThemisJobState
 from olympus.themis.jobs import ThemisJobStore
 from olympus.themis.legacy_vap import (
@@ -59,6 +67,34 @@ from olympus.themis.sandbox import (
     inspect_scanner_isolation,
 )
 from olympus.themis.scope import SsrfBlockedError, resolve_and_validate
+
+
+def test_identity_rotation_requires_bounded_lifetime_and_brief_overlap() -> None:
+    register, _ = add_identity(IdentityRegister(), identity_id="operator", scopes=["jobs:read"])
+    for overlap, lifetime in (
+        (-1, 90),
+        (MAX_OVERLAP_SECONDS + 1, 90),
+        (0, 0),
+        (0, MAX_IDENTITY_LIFETIME_DAYS + 1),
+    ):
+        with pytest.raises(IdentityError):
+            rotate_identity(
+                register,
+                "operator",
+                overlap_seconds=overlap,
+                expires_in_days=lifetime,
+            )
+
+    rotated, _ = rotate_identity(
+        register,
+        "operator",
+        overlap_seconds=MAX_OVERLAP_SECONDS,
+        expires_in_days=1,
+    )
+    identity = rotated.find("operator")
+    assert identity is not None
+    assert identity.not_after is not None
+    assert identity.previous_valid_until is not None
 
 
 def test_oidc_verifier_binds_signature_issuer_audience_subject_and_lifetime(
