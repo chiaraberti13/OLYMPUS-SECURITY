@@ -1944,8 +1944,18 @@ consultare `--help`; l'argv prodotto è visibile, redatto e riproducibile.
   `active`/`intrusive` non simulati, false per passivi e simulazioni; uno scanner
   ignoto non è mai sottostimato). Resta il *prompt* interattivo che consuma il
   predicato lungo il percorso di esecuzione.
-- [ ] Evidenziare `simulation`, `unavailable`, `partial` e `failed` come stati
+- [~] Evidenziare `simulation`, `unavailable`, `partial` e `failed` come stati
   distinti: un risultato parziale non deve sembrare “nessuna vulnerabilità”.
+  **Fonte dati fatta:** `olympus/themis/outcome.py` compone un `OutcomeSummary`
+  interface-agnostic da un run concluso, con stati distinti (`clean`, `findings`,
+  `partial`, `cancelled`, `failed`, `unavailable`, `disabled`, `simulation`) e
+  un solo predicato di sicurezza — `trustworthy_empty` è vero **solo** per
+  `clean` (run live a termine, zero finding); ogni altro stato è
+  `conclusive=False`, quindi l'assenza di finding non significa "nessuna
+  vulnerabilità". Fail-safe: uno stato persistito ignoto è trattato come
+  `failed`. Esposto in `olympus themis jobs status --format table` (il default
+  `json` resta invariato). Doc [`docs/safety-preview.md`](docs/safety-preview.md).
+  **Resta da fare:** il rendering distinto nella TUI e nella Web UI.
 - [ ] Integrare un kill switch sempre visibile con feedback su processo terminato,
   cleanup ed evidenze conservate.
 

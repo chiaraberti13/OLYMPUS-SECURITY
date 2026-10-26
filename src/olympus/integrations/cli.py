@@ -1501,17 +1501,50 @@ def themis_jobs_list(
 def themis_jobs_status(
     job_id: str = typer.Argument(...),
     database: str = typer.Option(".olympus/themis-jobs.sqlite3", "--database", "-d"),
+    output_format: str = typer.Option(
+        "json",
+        "--format",
+        help="Output format: json (full contract) or table (human outcome summary).",
+    ),
 ) -> None:
-    """Return one durable job and its normalized result when complete."""
+    """Return one durable job and its normalized result when complete.
+
+    In ``table`` mode the job's result is rendered as an honest outcome summary
+    (ROADMAP ``UX-B``) that keeps simulation, unavailable, failed, cancelled and
+    partial outcomes distinct from a trustworthy empty, so a run that produced no
+    findings for any of those reasons is never read as "no vulnerabilities".
+    """
     from pathlib import Path
 
+    from olympus.core.output import OutputFormat
     from olympus.themis.jobs import ThemisJobStore
 
     try:
-        _emit_job(ThemisJobStore(Path(database)).get(job_id))
+        fmt = OutputFormat(output_format)
+    except ValueError as exc:
+        typer.echo("olympus: --format must be table or json", err=True)
+        raise typer.Exit(code=int(ExitCode.USAGE)) from exc
+
+    try:
+        job = ThemisJobStore(Path(database)).get(job_id)
     except KeyError as exc:
         typer.echo(f"olympus: {exc.args[0]}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
+
+    if fmt is OutputFormat.JSON:
+        _emit_job(job)
+        return
+
+    from olympus.themis.outcome import from_mapping
+
+    typer.echo(f"Job:       {safe_terminal_text(job.job_id)}")
+    typer.echo(f"Scanner:   {safe_terminal_text(job.scanner)}")
+    typer.echo(f"State:     {job.state.value}")
+    if job.result is not None:
+        summary = from_mapping(job.result)
+        typer.echo("\n".join(safe_terminal_text(line) for line in summary.lines()))
+    else:
+        typer.echo("Outcome:   (job has not produced a result yet)")
 
 
 @jobs_app.command("cancel")

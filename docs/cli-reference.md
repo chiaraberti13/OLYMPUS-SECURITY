@@ -1150,6 +1150,7 @@ Return one durable job and its normalized result when complete.
 | --- | --- | --- | --- | --- |
 | `job_id` | argument | yes | — | — |
 | `--database`, `-d` | option | no | — | — |
+| `--format` | option | no | `json` | Output format: json (full contract) or table (human outcome summary). |
 
 ### `olympus themis jobs submit`
 

@@ -80,12 +80,49 @@ dell'operatore (`SEC-H`).
 Il codice `3` è un esito onesto, non un errore del preview: permette a uno
 script di ramificare senza interpretare il testo.
 
+## Dopo il run: esito onesto e distinto
+
+La controparte post-esecuzione del preview è il **summary dell'esito** (`UX-B`):
+un run concluso può trovarsi in stati che a colpo d'occhio si somigliano ma
+significano cose molto diverse, e tutti portano zero finding reali — *simulato*,
+scanner *non disponibile*, *disabilitato*, *fallito*, *annullato* o *parziale* —
+esattamente come un run che è davvero arrivato in fondo senza trovare nulla.
+Confonderli è pericoloso: un parziale non deve mai sembrare "nessuna
+vulnerabilità".
+
+Modulo interface-agnostic: `olympus.themis.outcome`. Fonte unica anche qui, così
+CLI, TUI e Web mostrano lo stesso verdetto.
+
+| Esito (`OutcomeKind`) | Significato | Conclusivo? | Empty = nessuna vulnerabilità? |
+| --- | --- | --- | --- |
+| `clean` | Run live arrivato a termine, nessun finding. | sì | **sì** |
+| `findings` | Run live a termine, uno o più finding. | sì | — |
+| `partial` | Run live interrotto (timeout/budget/segnale): copertura incompleta. | no | no |
+| `cancelled` | Fermato dall'operatore prima della fine. | no | no |
+| `failed` | Avviato ma non concluso: nessuna informazione. | no | no |
+| `unavailable` | Binario/servizio/API assente: non è partito nulla. | no | no |
+| `disabled` | Esecuzione live spenta: non è partito nulla. | no | no |
+| `simulation` | Finding illustrativi, **non** output reale. | no | no |
+
+La proprietà di sicurezza è un solo predicato: `trustworthy_empty` è vero **solo**
+per `clean`. Ogni altro stato è `conclusive=False`: l'assenza di finding non dice
+nulla sull'esposizione del target.
+
+```bash
+# Riepilogo umano dell'esito di un job concluso
+olympus themis jobs status THEMIS-<id> --format table
+```
+
+Il formato predefinito di `jobs status` resta `json` (contratto completo,
+invariato). Il summary è fail-safe: uno stato persistito sconosciuto è trattato
+come `failed`, mai come pulito.
+
 ## Cosa resta da fare
 
-Questa è la fonte dati e la sua esposizione CLI. L'innesto del preview nel
-rendering della TUI e la conferma interattiva in-flow lungo il percorso di
-esecuzione restano follow-up tracciati in [`ROADMAP.md`](../ROADMAP.md) sotto
-`UX-B`.
+Questa è la fonte dati (preview pre-run + summary dell'esito) e la sua
+esposizione CLI. L'innesto nel rendering della TUI e nella Web UI, la conferma
+interattiva in-flow e il kill switch sempre visibile restano follow-up tracciati
+in [`ROADMAP.md`](../ROADMAP.md) sotto `UX-B`.
 
 ## Riferimenti
 
