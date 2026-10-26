@@ -34,16 +34,20 @@ promotion is lab-gated.
 
 Snapshot, offline, on the commit noted below. Re-run `make check` to refresh it.
 
-- **Commit:** `c46fa92` · **Date:** 2026-10-26
+- **Commit:** `f0a5ec0` · **Date:** 2026-10-26
 - `make lint` — **passed** (All checks passed)
-- `make format-check` — **passed** (465 files already formatted)
+- `make format-check` — **passed** (466 files already formatted)
 - `make type` — **passed** (no issues found in 207 source files)
 - `make schemas-check` — **passed** (24 versioned contracts current)
-- `make test-coverage` — **passed** (2343 passed, 65 deselected; first-party branch coverage **80.97 %**, min 75 %)
+- `make test-coverage` — **passed** (2343 passed, 65 deselected; first-party branch coverage **80.93 %**, min 75 %)
 - `make test-mutation` — **passed** (mutation gate 1149/1865 targeted mutants killed, 61.6 %)
 - gitleaks working-tree scan (image `zricethezav/gitleaks:v8.28.0`) — **passed** (no leaks; canary secret still detected)
 - POSIX sandbox suite (`pytest -m "posix_only and not root_only"`) — **passed**
 - `olympus --version` — **passed** (`0.2.0`)
+
+The live checks deferred to the authorized lab are tracked as an explicit
+checklist in [`ROADMAP.md`](../ROADMAP.md) under "Verifiche dal vivo (live) — da
+eseguire in un secondo momento".
 
 Not executable in a plain offline checkout, covered by CI instead (no result is
 claimed here for them): the native-container test (needs a Docker daemon), the

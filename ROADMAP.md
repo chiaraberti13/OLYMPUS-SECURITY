@@ -2160,6 +2160,31 @@ capacità simulata appaia come reale.
 | D12 | Release multi-platform | Runner CI per matrice Python/OS e suite chiaramente separate |
 | D13 | Scansioni programmate e monitoraggio (`OPS-SCAN`) | Scheduler persistente, storage dei run e lab autorizzato per i diff tra scansioni |
 
+### Verifiche dal vivo (live) — da eseguire in un secondo momento
+
+Checklist delle verifiche che richiedono **esecuzione reale** contro bersagli
+veri e **non** possono essere eseguite (né simulate) offline. Si eseguono nel
+**lab locale isolato e autorizzato** (`labs/mars/` + doppio opt-in +
+`make test-live-lab`, vedi [`docs/verification-status.md`](docs/verification-status.md)),
+scansionando solo host che l'operatore possiede. Ogni voce diventa `[x]` solo con
+evidenza reale (evidence manifest, digest, SBOM), mai per dichiarazione.
+
+- [ ] **(D1)** Promuovere gli adapter da `live-tested` a `production-ready`: run reale
+  attraverso lo scope gate + evidence manifest/digest/SBOM/matrice versioni.
+- [ ] **(D2)** Portare `testssl`, `whatweb` e Wapiti a `live-tested` contro i target di lab.
+- [ ] **(D4)** Adapter recon ProjectDiscovery/OSINT verificati su sorgenti/fixture reali.
+- [ ] **(D5)** `nosqlmap` e `wpscan` contro target NoSQL/WordPress controllati (token via SecretProvider).
+- [ ] **(D6)** Exploitation orchestration (Metasploit RPC) con `msfrpcd` isolato e allowlist moduli.
+- [ ] **(D7)** Proteus simulated delivery in lab chiuso con identità sintetiche.
+- [ ] **(D8)** Detection loop con Atomic Red Team su endpoint di test ripristinabile.
+- [ ] **(D9)** Connettori SIEM/EDR (Splunk HEC, Elastic, Microsoft) su endpoint dev dedicati.
+- [ ] **(D10)** CTI live (TAXII 2.1, MISP, OpenCTI) contro istanze di test.
+- [ ] **(D11)** Firma container **Cosign** contro un registry + hardening seccomp/AppArmor.
+- [ ] **(D12)** Release multi-platform sulla matrice OS/Python dei runner CI.
+- [ ] **(D13)** Scansioni programmate e monitoraggio (`OPS-SCAN`) con scheduler e storage dei run.
+- [ ] **(SEC-F)** CodeQL/SAST come gate bloccante e provenance SLSA firmata (GitHub/CI).
+- [ ] **(SEC-F)** Branch protection su `main` (impostazione del titolare del repository).
+
 ## 📅 Pianificazione Temporale
 
 Le durate sono stime per un team piccolo e presuppongono decisioni architetturali
