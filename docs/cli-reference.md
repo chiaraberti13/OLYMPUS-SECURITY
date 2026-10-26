@@ -16,7 +16,7 @@ Emit a MITRE ATT&CK Navigator layer of the techniques the rules cover.
 
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `--rules` | option | no | `examples/input/apollo-ad` | Directory of YAML rules. |
+| `--rules` | option | no | — | Directory of YAML rules. |
 | `--output` | option | yes | — | ATT&CK Navigator layer JSON output. |
 | `--name` | option | no | `Olympus Apollo coverage` | — |
 | `--max-rules` | option | no | `1000` | — |
@@ -29,7 +29,7 @@ Report ATT&CK detection coverage against the telemetry actually available.
 
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `--rules` | option | no | `examples/input/apollo-ad` | Directory of YAML rules. |
+| `--rules` | option | no | — | Directory of YAML rules. |
 | `--events` | option | no | — | NDJSON telemetry whose event types are taken as the data actually ingested. |
 | `--telemetry` | option | no | — | Event type available as telemetry (repeatable); union-ed with --events. |
 | `--format` | option | no | `table` | Render as table (human) or json (machine). |
@@ -60,7 +60,7 @@ Load, bound and validate a non-empty rule directory.
 
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `--rules` | option | no | `examples/input/apollo-ad` | Directory of YAML rules. |
+| `--rules` | option | no | — | Directory of YAML rules. |
 | `--format` | option | no | `table` | Render as table (human) or json (machine). |
 | `--max-rules` | option | no | `1000` | — |
 | `--max-rule-bytes` | option | no | `1000000` | — |
@@ -72,9 +72,9 @@ Evaluate a bounded rule set against a strict streaming NDJSON event source.
 
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `--rules` | option | no | `examples/input/apollo-ad` | Directory of YAML rules. |
+| `--rules` | option | no | — | Directory of YAML rules. |
 | `--events` | option | yes | — | NDJSON file: one core.Event per line. |
-| `--output` | option | no | `apollo-alerts.json` | Alerts JSON output. |
+| `--output` | option | no | — | Alerts JSON output. |
 | `--ecs` | option | no | — | Also write alerts as newline-delimited ECS JSON for a SIEM. |
 | `--ocsf` | option | no | — | Also write alerts as newline-delimited OCSF Detection Findings. |
 | `--max-rules` | option | no | `1000` | — |
@@ -105,7 +105,7 @@ Evaluate one rule against one strict, normalized Event fixture.
 | --- | --- | --- | --- | --- |
 | `rule` | argument | yes | — | — |
 | `event` | argument | yes | — | — |
-| `--output` | option | no | `apollo-alerts.json` | — |
+| `--output` | option | no | — | — |
 | `--ecs` | option | no | — | Also write alerts as newline-delimited ECS JSON for a SIEM. |
 | `--ocsf` | option | no | — | Also write alerts as newline-delimited OCSF Detection Findings. |
 | `--max-rule-bytes` | option | no | `1000000` | — |
@@ -120,9 +120,9 @@ Enumerate in-scope handle(s) across a curated list of public sites.
 | --- | --- | --- | --- | --- |
 | `--username` | option | no | — | Handle to enumerate across sites. |
 | `--input` | option | no | — | File with one handle per line (batch mode). |
-| `--scope` | option | no | `examples/input/argus-accounts-scope.json` | JSON allowlist of authorized handles. |
-| `--log` | option | no | `/root/.local/state/olympus/audit/argus-accounts-blocked.log` | Out-of-scope audit log. |
-| `--sites` | option | no | `examples/input/argus-sites.json` | JSON site registry to check. |
+| `--scope` | option | no | — | JSON allowlist of authorized handles. |
+| `--log` | option | no | — | Out-of-scope audit log. |
+| `--sites` | option | no | — | JSON site registry to check. |
 | `--metadata` | option | no | `False` | Also extract public profile metadata (needs --i-am-authorized). |
 | `--i-am-authorized` | option | no | `False` | Confirm documented authorization for metadata scraping. |
 | `--concurrency` | option | no | `8` | Parallel site checks per handle. |
@@ -158,8 +158,8 @@ Enumerate DNS records for an in-scope domain over DNS-over-HTTPS.
 | --- | --- | --- | --- | --- |
 | `--domain` | option | yes | — | Domain to enumerate DNS records for. |
 | `--types` | option | no | — | Comma-separated record types (default: A,AAAA,MX,TXT,NS,CNAME,SOA). |
-| `--scope` | option | no | `examples/input/argus-scope.json` | JSON scope file listing authorized domains. |
-| `--log` | option | no | `/root/.local/state/olympus/audit/argus-blocked.log` | Path to the out-of-scope audit log. |
+| `--scope` | option | no | — | JSON scope file listing authorized domains. |
+| `--log` | option | no | — | Path to the out-of-scope audit log. |
 | `--output` | option | no | — | If set, export the DNS report as JSON to this path. |
 
 ### `olympus argus doctor`
@@ -174,8 +174,8 @@ Analyze an email address offline; optionally run passive live enrichment.
 | --- | --- | --- | --- | --- |
 | `--email` | option | yes | — | Email address to analyze. |
 | `--enrich` | option | no | `False` | Run passive live MX + Gravatar checks (network, opt-in). |
-| `--scope` | option | no | `examples/input/argus-scope.json` | JSON scope file (domain must be in scope to enrich). |
-| `--log` | option | no | `/root/.local/state/olympus/audit/argus-blocked.log` | Path to the out-of-scope audit log. |
+| `--scope` | option | no | — | JSON scope file (domain must be in scope to enrich). |
+| `--log` | option | no | — | Path to the out-of-scope audit log. |
 | `--i-am-authorized` | option | no | `False` | Confirm authorization for the live enrichment. |
 | `--output` | option | no | — | If set, export the email-intel bundle as JSON to this path. |
 
@@ -186,10 +186,10 @@ Passively check whether an in-scope domain is CDN/WAF-fronted and leaks its orig
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `--domain` | option | yes | — | Domain to assess for CDN/WAF fronting. |
-| `--scope` | option | no | `examples/input/argus-scope.json` | JSON scope file listing authorized domains. |
-| `--log` | option | no | `/root/.local/state/olympus/audit/argus-blocked.log` | Path to the out-of-scope audit log. |
+| `--scope` | option | no | — | JSON scope file listing authorized domains. |
+| `--log` | option | no | — | Path to the out-of-scope audit log. |
 | `--asset-id` | option | no | `AST-ARGUS-FRONT-1` | core.Asset id to attach findings to. |
-| `--output` | option | no | `argus-fronting.json` | Fronting report JSON. |
+| `--output` | option | no | — | Fronting report JSON. |
 
 ### `olympus argus investigate`
 
@@ -201,14 +201,14 @@ Build an OSINT investigation graph by pivoting from a seed entity (flowsint-styl
 | `--seed-value` | option | yes | — | Seed entity value. |
 | `--name` | option | no | `investigation` | Investigation name. |
 | `--depth` | option | no | `1` | How many pivot hops to expand. |
-| `--sites` | option | no | `examples/input/argus-sites.json` | Site registry for username transforms. |
-| `--domain-scope` | option | no | `examples/input/argus-scope.json` | JSON scope for domain/host DNS and Certificate Transparency pivots. |
-| `--ip-scope` | option | no | `examples/input/argus-ip-scope.json` | JSON CIDR scope for optional IP geolocation pivots. |
-| `--account-scope` | option | no | `examples/input/argus-accounts-scope.json` | JSON handle scope for public-account pivots. |
+| `--sites` | option | no | — | Site registry for username transforms. |
+| `--domain-scope` | option | no | — | JSON scope for domain/host DNS and Certificate Transparency pivots. |
+| `--ip-scope` | option | no | — | JSON CIDR scope for optional IP geolocation pivots. |
+| `--account-scope` | option | no | — | JSON handle scope for public-account pivots. |
 | `--geo` | option | no | `False` | Enable IP geolocation/ASN (third-party). |
-| `--log` | option | no | `/root/.local/state/olympus/audit/argus-investigate.log` | Investigation audit log. |
+| `--log` | option | no | — | Investigation audit log. |
 | `--i-am-authorized` | option | no | `False` | Confirm documented authorization for the fan-out. |
-| `--output` | option | no | `argus-investigation.json` | Graph JSON output. |
+| `--output` | option | no | — | Graph JSON output. |
 | `--mermaid` | option | no | — | If set, also write a Mermaid diagram of the graph. |
 | `--dot` | option | no | — | If set, also write a Graphviz DOT graph. |
 | `--graphml` | option | no | — | If set, also write a GraphML graph (Gephi/Neo4j/yEd). |
@@ -221,8 +221,8 @@ Profile in-scope IP address(es): offline classification + opt-in geolocation.
 | --- | --- | --- | --- | --- |
 | `--ip` | option | no | — | IPv4/IPv6 address to profile. |
 | `--input` | option | no | — | File with one IP per line (batch mode). |
-| `--scope` | option | no | `examples/input/argus-ip-scope.json` | JSON scope file of authorized CIDR networks. |
-| `--log` | option | no | `/root/.local/state/olympus/audit/argus-ip-blocked.log` | Out-of-scope audit log. |
+| `--scope` | option | no | — | JSON scope file of authorized CIDR networks. |
+| `--log` | option | no | — | Out-of-scope audit log. |
 | `--geo` | option | no | `False` | Geolocation/ASN via encrypted ipwho.is (third-party, keyless). |
 | `--i-am-authorized` | option | no | `False` | Confirm authorization for the third-party geo lookup. |
 | `--output` | option | no | — | If set, export the IP-intel bundle(s) as JSON to this path. |
@@ -235,8 +235,8 @@ Classify a MAC address offline; optionally resolve its vendor from the OUI regis
 | --- | --- | --- | --- | --- |
 | `--mac` | option | yes | — | MAC address to classify. |
 | `--vendor` | option | no | `False` | Resolve the OUI to a vendor via macvendors.com (network). |
-| `--scope` | option | no | `examples/input/argus-mac-scope.json` | JSON scope file whose OUI allowlist authorizes the vendor lookup. |
-| `--log` | option | no | `/root/.local/state/olympus/audit/argus-mac-blocked.log` | Path to the out-of-scope MAC audit log. |
+| `--scope` | option | no | — | JSON scope file whose OUI allowlist authorizes the vendor lookup. |
+| `--log` | option | no | — | Path to the out-of-scope MAC audit log. |
 | `--i-am-authorized` | option | no | `False` | Confirm documented authorization for the live vendor lookup. |
 | `--output` | option | no | — | If set, export the MAC-intel bundle as JSON to this path. |
 
@@ -258,8 +258,8 @@ Profile in-scope phone number(s): offline parsing + opt-in real lookups.
 | `--number` | option | no | — | E.164 (e.g. +14155550123) or national with --region. |
 | `--input` | option | no | — | File with one number per line (batch mode). |
 | `--region` | option | no | — | ISO region (e.g. US, IT) for national-format numbers. |
-| `--scope` | option | no | `examples/input/argus-phone-scope.json` | JSON scope file of authorized E.164 prefixes. |
-| `--log` | option | no | `/root/.local/state/olympus/audit/argus-phone-blocked.log` | Out-of-scope audit log. |
+| `--scope` | option | no | — | JSON scope file of authorized E.164 prefixes. |
+| `--log` | option | no | — | Out-of-scope audit log. |
 | `--enrich` | option | no | `False` | Carrier/line-type via Numverify (needs OLYMPUS_NUMVERIFY_KEY). |
 | `--breach` | option | no | `False` | Breach-intelligence exposure lookup (keyless third-party API). |
 | `--messaging` | option | no | `False` | Messaging-platform presence (needs OLYMPUS_RAPIDAPI_KEY). |
@@ -283,9 +283,9 @@ Run passive DNS/MX/SPF/DMARC recon against a single in-scope domain.
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `--domain` | option | yes | — | Domain to run passive DNS recon against. |
-| `--scope` | option | no | `examples/input/argus-scope.json` | Path to the JSON scope file listing authorized domains. |
-| `--log` | option | no | `/root/.local/state/olympus/audit/argus-blocked.log` | Path to the out-of-scope audit log. |
-| `--output` | option | no | `argus-assets.json` | Path for the core.Asset-compatible JSON export. |
+| `--scope` | option | no | — | Path to the JSON scope file listing authorized domains. |
+| `--log` | option | no | — | Path to the out-of-scope audit log. |
+| `--output` | option | no | — | Path for the core.Asset-compatible JSON export. |
 
 ### `olympus argus web`
 
@@ -294,8 +294,8 @@ Fetch an in-scope URL once and report its passive HTTP security posture.
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `--url` | option | yes | — | Target URL or host for passive HTTP recon. |
-| `--scope` | option | no | `examples/input/argus-scope.json` | JSON scope file listing authorized domains. |
-| `--log` | option | no | `/root/.local/state/olympus/audit/argus-blocked.log` | Path to the out-of-scope audit log. |
+| `--scope` | option | no | — | JSON scope file listing authorized domains. |
+| `--log` | option | no | — | Path to the out-of-scope audit log. |
 | `--output` | option | no | — | If set, export the web-intel bundle as JSON to this path. |
 
 ### `olympus argus whois`
@@ -305,8 +305,8 @@ Query registration data (registrar, dates, name servers) for an in-scope domain 
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `--domain` | option | yes | — | Domain to query registration data for. |
-| `--scope` | option | no | `examples/input/argus-scope.json` | JSON scope file listing authorized domains. |
-| `--log` | option | no | `/root/.local/state/olympus/audit/argus-blocked.log` | Path to the out-of-scope audit log. |
+| `--scope` | option | no | — | JSON scope file listing authorized domains. |
+| `--log` | option | no | — | Path to the out-of-scope audit log. |
 | `--output` | option | no | — | If set, export the WHOIS report as JSON to this path. |
 
 ### `olympus artemis check-scope`
@@ -316,8 +316,8 @@ Validate URL authorization without performing a network request.
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `--url` | option | yes | — | — |
-| `--scope` | option | no | `examples/input/artemis-scope.json` | — |
-| `--log` | option | no | `/root/.local/state/olympus/audit/artemis-blocked.log` | — |
+| `--scope` | option | no | — | — |
+| `--log` | option | no | — | — |
 
 ### `olympus artemis content`
 
@@ -327,8 +327,8 @@ Discover existing paths/files under an authorized base URL (real dirbusting).
 | --- | --- | --- | --- | --- |
 | `--url` | option | yes | — | Authorized base URL to discover paths under. |
 | `--wordlist` | option | yes | — | Newline-delimited candidate paths. |
-| `--scope` | option | no | `examples/input/artemis-scope.json` | — |
-| `--log` | option | no | `/root/.local/state/olympus/audit/artemis-blocked.log` | — |
+| `--scope` | option | no | — | — |
+| `--log` | option | no | — | — |
 | `--timeout` | option | no | `5.0` | — |
 | `--max-bytes` | option | no | `1000000` | — |
 | `--rate` | option | no | `0.0` | Minimum seconds between requests (politeness throttle). |
@@ -345,8 +345,8 @@ Perform one bounded, scope-safe GET flow and print metadata only.
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `--url` | option | yes | — | — |
-| `--scope` | option | no | `examples/input/artemis-scope.json` | — |
-| `--log` | option | no | `/root/.local/state/olympus/audit/artemis-blocked.log` | — |
+| `--scope` | option | no | — | — |
+| `--log` | option | no | — | — |
 | `--timeout` | option | no | `5.0` | — |
 | `--max-bytes` | option | no | `1000000` | — |
 | `--i-am-authorized` | option | no | `False` | Confirm documented authorization for this live fetch. |
@@ -358,8 +358,8 @@ Identify the technology stack from one scope-safe GET (passive, no extra request
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `--url` | option | yes | — | Base URL to fetch once and fingerprint. |
-| `--scope` | option | no | `examples/input/artemis-scope.json` | — |
-| `--log` | option | no | `/root/.local/state/olympus/audit/artemis-blocked.log` | — |
+| `--scope` | option | no | — | — |
+| `--log` | option | no | — | — |
 | `--timeout` | option | no | `5.0` | — |
 | `--max-bytes` | option | no | `1000000` | — |
 | `--asset-id` | option | no | `AST-ARTEMIS-FP-1` | core.Asset id to attach findings to. |
@@ -373,8 +373,8 @@ Non-exploitatively check a Metabase instance for CVE-2026-72898 exposure.
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `--url` | option | yes | — | Base URL of the Metabase instance to fingerprint. |
-| `--scope` | option | no | `examples/input/artemis-metabase-scope.json` | — |
-| `--log` | option | no | `/root/.local/state/olympus/audit/artemis-blocked.log` | — |
+| `--scope` | option | no | — | — |
+| `--log` | option | no | — | — |
 | `--i-am-authorized` | option | no | `False` | Confirm you are authorized to test this target. |
 | `--output` | option | no | — | Export findings JSON to this path. |
 
@@ -386,8 +386,8 @@ Non-destructively test URL parameters for reflected XSS (marker reflection only)
 | --- | --- | --- | --- | --- |
 | `--url` | option | yes | — | URL to probe (with query params to test). |
 | `--param` | option | no | — | Parameter to test; if omitted, every query parameter is tested. |
-| `--scope` | option | no | `examples/input/artemis-scope.json` | — |
-| `--log` | option | no | `/root/.local/state/olympus/audit/artemis-blocked.log` | — |
+| `--scope` | option | no | — | — |
+| `--log` | option | no | — | — |
 | `--i-am-authorized` | option | no | `False` | Confirm you are authorized to test this target. |
 | `--output` | option | no | — | Export findings JSON to this path. |
 
@@ -573,10 +573,10 @@ Perform bounded TCP discovery only after scope authorization.
 | --- | --- | --- | --- | --- |
 | `target` | argument | yes | — | — |
 | `--ports` | option | no | `80,443` | — |
-| `--scope` | option | no | `examples/input/helios-scope.json` | — |
-| `--log` | option | no | `/root/.local/state/olympus/audit/helios-blocked.log` | — |
+| `--scope` | option | no | — | — |
+| `--log` | option | no | — | — |
 | `--asset-id` | option | no | `AST-HELIOS-00001` | core.Asset id to attach findings to. |
-| `--output` | option | no | `helios-findings.json` | — |
+| `--output` | option | no | — | — |
 | `--timeout` | option | no | `1.0` | Per-port TCP connect timeout. |
 | `--deadline` | option | no | — | Overall budget for the whole scan, in seconds. |
 | `--concurrency` | option | no | `1` | How many ports to probe in parallel (1-64). |
@@ -603,7 +603,7 @@ Scan a path and optionally its Git history, emitting masked SARIF.
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `paths` | argument | yes | — | — |
-| `--output` | option | no | `hermes-results.sarif` | — |
+| `--output` | option | no | — | — |
 | `--entropy-threshold` | option | no | `4.5` | — |
 | `--history` | option | no | `False` | — |
 | `--baseline` | option | no | — | JSON baseline of accepted fingerprints to ignore. |
@@ -874,7 +874,7 @@ Create a stable Incident from one strict, bounded Apollo alert export.
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `alerts` | argument | yes | — | — |
-| `--output` | option | no | `minerva-incident.json` | — |
+| `--output` | option | no | — | — |
 | `--title` | option | yes | — | — |
 | `--owner` | option | no | — | — |
 | `--max-alert-bytes` | option | no | `50000000` | — |
@@ -939,10 +939,10 @@ Build an authorized simulation campaign (unique token per in-scope target).
 | `--landing-url` | option | yes | — | Base URL of the training page. |
 | `--subject` | option | no | `Action required: confirm your account` | Lure email subject. |
 | `--sender` | option | no | `it-support@example.com` | Lure sender address. |
-| `--scope` | option | no | `examples/input/proteus-scope.json` | Authorized email-domain allowlist. |
-| `--log` | option | no | `/root/.local/state/olympus/audit/proteus-blocked.log` | Out-of-scope audit log. |
+| `--scope` | option | no | — | Authorized email-domain allowlist. |
+| `--log` | option | no | — | Out-of-scope audit log. |
 | `--i-am-authorized` | option | no | `False` | Confirm documented authorization for the engagement. |
-| `--output` | option | no | `proteus-campaign.json` | Campaign JSON output. |
+| `--output` | option | no | — | Campaign JSON output. |
 
 ### `olympus proteus email`
 
@@ -960,7 +960,7 @@ Render the training/awareness page a clicker lands on (captures nothing).
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `--engagement` | option | yes | — | Engagement name for the page. |
-| `--output` | option | no | `proteus-training.html` | Training-page HTML output. |
+| `--output` | option | no | — | Training-page HTML output. |
 
 ### `olympus proteus report`
 
@@ -977,8 +977,8 @@ Serve the authenticated native Themis API.
 
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `--database`, `-d` | option | no | `.olympus/themis-jobs.sqlite3` | — |
-| `--scope-directory` | option | no | `.olympus/scopes` | — |
+| `--database`, `-d` | option | no | — | — |
+| `--scope-directory` | option | no | — | — |
 | `--host` | option | no | `127.0.0.1` | — |
 | `--port` | option | no | `8443` | — |
 | `--max-concurrent-requests` | option | no | `64` | — |
@@ -988,7 +988,7 @@ Serve the authenticated native Themis API.
 | `--oidc-issuer` | option | no | — | Pinned HTTPS OIDC issuer. |
 | `--oidc-audience` | option | no | — | Required OIDC audience. |
 | `--oidc-jwks` | option | no | — | Pinned local JWKS file; discovery is disabled. |
-| `--audit` | option | no | `/root/.local/state/olympus/audit/themis-audit.ndjson` | Redacted per-request audit log. |
+| `--audit` | option | no | — | Redacted per-request audit log. |
 | `--engagement-storage` | option | no | — | Directory holding the shared engagements database; enables the engagement read endpoints and engagement-derived scope enforcement. |
 | `--manifest-public-key` | option | no | — | Pinned Ed25519 approver public key; requires --engagement-storage and signed manifests on API job submissions. |
 | `--ssl-certfile` | option | no | — | — |
@@ -1026,8 +1026,8 @@ Add one scoped identity and print its secret exactly once.
 | `--scopes` | option | no | `jobs:read` | Comma-separated scopes granted to this identity. |
 | `--rate-limit` | option | no | `120` | — |
 | `--expires-in-days` | option | no | `90` | Mandatory lifetime of the newly issued credential. |
-| `--file`, `-f` | option | no | `/root/.local/state/olympus/themis-api-identities.json` | — |
-| `--audit` | option | no | `/root/.local/state/olympus/audit/themis-audit.ndjson` | — |
+| `--file`, `-f` | option | no | — | — |
+| `--audit` | option | no | — | — |
 
 ### `olympus themis identities init`
 
@@ -1035,7 +1035,7 @@ Create an empty identity register (owner-only).
 
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `--file`, `-f` | option | no | `/root/.local/state/olympus/themis-api-identities.json` | — |
+| `--file`, `-f` | option | no | — | — |
 
 ### `olympus themis identities list`
 
@@ -1043,7 +1043,7 @@ List identities, their scopes and status.
 
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `--file`, `-f` | option | no | `/root/.local/state/olympus/themis-api-identities.json` | — |
+| `--file`, `-f` | option | no | — | — |
 
 ### `olympus themis identities revoke`
 
@@ -1052,8 +1052,8 @@ Revoke an identity immediately, including any secret still rotating.
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `identity_id` | argument | yes | — | — |
-| `--file`, `-f` | option | no | `/root/.local/state/olympus/themis-api-identities.json` | — |
-| `--audit` | option | no | `/root/.local/state/olympus/audit/themis-audit.ndjson` | — |
+| `--file`, `-f` | option | no | — | — |
+| `--audit` | option | no | — | — |
 
 ### `olympus themis identities rotate`
 
@@ -1064,8 +1064,8 @@ Issue a new secret, keeping the old one valid for a bounded overlap.
 | `identity_id` | argument | yes | — | — |
 | `--overlap-seconds` | option | no | `300` | How long the previous secret keeps working; 0 revokes it immediately. |
 | `--expires-in-days` | option | no | `90` | Mandatory lifetime of the replacement credential. |
-| `--file`, `-f` | option | no | `/root/.local/state/olympus/themis-api-identities.json` | — |
-| `--audit` | option | no | `/root/.local/state/olympus/audit/themis-audit.ndjson` | — |
+| `--file`, `-f` | option | no | — | — |
+| `--audit` | option | no | — | — |
 
 ### `olympus themis info`
 
@@ -1078,7 +1078,7 @@ Cancel queued work or request cooperative cancellation of running work.
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `job_id` | argument | yes | — | — |
-| `--database`, `-d` | option | no | `.olympus/themis-jobs.sqlite3` | — |
+| `--database`, `-d` | option | no | — | — |
 
 ### `olympus themis jobs init`
 
@@ -1086,7 +1086,7 @@ Initialize the private native job database.
 
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `--database`, `-d` | option | no | `.olympus/themis-jobs.sqlite3` | — |
+| `--database`, `-d` | option | no | — | — |
 
 ### `olympus themis jobs list`
 
@@ -1094,7 +1094,7 @@ List durable jobs, optionally filtered by lifecycle state.
 
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `--database`, `-d` | option | no | `.olympus/themis-jobs.sqlite3` | — |
+| `--database`, `-d` | option | no | — | — |
 | `--state` | option | no | — | — |
 | `--limit` | option | no | `100` | — |
 
@@ -1105,7 +1105,7 @@ Delete finished jobs past the retention window; queued/running work is kept.
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `--older-than-days` | option | no | `30` | Keep finished jobs for this long. |
-| `--database`, `-d` | option | no | `.olympus/themis-jobs.sqlite3` | — |
+| `--database`, `-d` | option | no | — | — |
 | `--dry-run` | option | no | `False` | Report what would be deleted. |
 
 ### `olympus themis jobs recover`
@@ -1114,7 +1114,7 @@ Requeue (or fail) jobs whose worker stopped renewing its lease.
 
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `--database`, `-d` | option | no | `.olympus/themis-jobs.sqlite3` | — |
+| `--database`, `-d` | option | no | — | — |
 
 ### `olympus themis jobs status`
 
@@ -1123,7 +1123,7 @@ Return one durable job and its normalized result when complete.
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `job_id` | argument | yes | — | — |
-| `--database`, `-d` | option | no | `.olympus/themis-jobs.sqlite3` | — |
+| `--database`, `-d` | option | no | — | — |
 
 ### `olympus themis jobs submit`
 
@@ -1135,7 +1135,7 @@ Persist one manifest-authorized scan job without executing it.
 | `--target` | option | yes | — | — |
 | `--kind` | option | no | `host` | — |
 | `--scope` | option | yes | — | — |
-| `--database`, `-d` | option | no | `.olympus/themis-jobs.sqlite3` | — |
+| `--database`, `-d` | option | no | — | — |
 | `--idempotency-key` | option | no | — | Resubmitting the same key returns the existing job instead of queueing a second. |
 | `--max-attempts` | option | no | `1` | Execution attempts before the job is failed. |
 | `--signed-manifest` | option | no | — | Signed engagement manifest authorizing this exact target and scanner. |
@@ -1149,8 +1149,8 @@ Claim and execute at most one job; safe for cron/systemd/container loops.
 
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `--database`, `-d` | option | no | `.olympus/themis-jobs.sqlite3` | — |
-| `--audit` | option | no | `.olympus/themis-audit.ndjson` | — |
+| `--database`, `-d` | option | no | — | — |
+| `--audit` | option | no | — | — |
 | `--worker-id` | option | no | — | Stable identity for this worker's leases. |
 
 ### `olympus themis legacy-approve`
@@ -1182,7 +1182,7 @@ Import approved terminal history; never queue or execute a scanner.
 | `--approval` | option | yes | — | Signed-scope import approval receipt. |
 | `--signed-manifest` | option | yes | — | Current signed engagement manifest. |
 | `--manifest-public-key` | option | yes | — | Pinned Ed25519 approver public key. |
-| `--database`, `-d` | option | no | `.olympus/themis-jobs.sqlite3` | Native Themis job database. |
+| `--database`, `-d` | option | no | — | Native Themis job database. |
 | `--revoked` | option | no | — | Revoked manifest identifier; repeat as needed. |
 | `--output`, `-o` | option | yes | — | Create-only import receipt. |
 
@@ -1241,7 +1241,7 @@ Create or upgrade the native SQLite job schema without losing jobs.
 
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `--database`, `-d` | option | no | `.olympus/themis-jobs.sqlite3` | — |
+| `--database`, `-d` | option | no | — | — |
 
 ### `olympus themis retention prune`
 
@@ -1284,7 +1284,7 @@ Run a real scanner with explicit execution states (never implicit simulation).
 | `--max-output-bytes` | option | no | `5000000` | — |
 | `--max-findings` | option | no | `10000` | — |
 | `--output` | option | no | — | Optional private versioned result JSON. |
-| `--audit` | option | no | `/root/.local/state/olympus/audit/themis-audit.ndjson` | Redacted structured audit log. |
+| `--audit` | option | no | — | Redacted structured audit log. |
 | `--signed-manifest` | option | no | — | Signed engagement manifest required for direct live execution. |
 | `--manifest-public-key` | option | no | — | Pinned Ed25519 approver public key required for direct live execution. |
 | `--engagement-storage` | option | no | — | Directory holding the durable signed-manifest and revocation store. |
@@ -1303,7 +1303,7 @@ Submit authorized work to the native Themis API.
 | `--scanner` | option | yes | — | Ready specialist engine. |
 | `--scope-id` | option | yes | — | Server-registered scope identifier. |
 | `--kind` | option | no | `host` | Target kind: host, domain or url. |
-| `--url` | option | no | `http://127.0.0.1:8443` | Base URL of the native Themis API. |
+| `--url` | option | no | — | Base URL of the native Themis API. |
 | `--api-key-env` | option | no | `OLYMPUS_THEMIS_API_KEY` | — |
 | `--i-am-authorized` | option | no | `False` | — |
 
@@ -1321,8 +1321,8 @@ Serve the native Themis web control plane (browser UI over the same core).
 
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `--database`, `-d` | option | no | `.olympus/themis-jobs.sqlite3` | — |
-| `--scope-directory` | option | no | `.olympus/scopes` | — |
+| `--database`, `-d` | option | no | — | — |
+| `--scope-directory` | option | no | — | — |
 | `--host` | option | no | `127.0.0.1` | — |
 | `--port` | option | no | `8600` | — |
 | `--max-concurrent-requests` | option | no | `64` | — |
@@ -1332,7 +1332,7 @@ Serve the native Themis web control plane (browser UI over the same core).
 | `--oidc-issuer` | option | no | — | Pinned HTTPS OIDC issuer. |
 | `--oidc-audience` | option | no | — | Required OIDC audience. |
 | `--oidc-jwks` | option | no | — | Pinned local JWKS file; discovery is disabled. |
-| `--audit` | option | no | `/root/.local/state/olympus/audit/themis-audit.ndjson` | Redacted per-request audit log. |
+| `--audit` | option | no | — | Redacted per-request audit log. |
 | `--engagement-storage` | option | no | — | Directory holding the shared engagements database; enables the engagement pages and engagement-derived scope enforcement. |
 | `--manifest-public-key` | option | no | — | Pinned Ed25519 approver public key; requires --engagement-storage and makes every Web job require a signed manifest. |
 | `--findings-directory` | option | no | — | Directory of core.Finding JSON bundles to review in the browser; enables the Findings pages (read-only producer artifacts). |
@@ -1361,8 +1361,8 @@ Serve the native Themis web control plane (browser UI over the same core).
 
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `--database`, `-d` | option | no | `.olympus/themis-jobs.sqlite3` | — |
-| `--scope-directory` | option | no | `.olympus/scopes` | — |
+| `--database`, `-d` | option | no | — | — |
+| `--scope-directory` | option | no | — | — |
 | `--host` | option | no | `127.0.0.1` | — |
 | `--port` | option | no | `8600` | — |
 | `--max-concurrent-requests` | option | no | `64` | — |
@@ -1372,7 +1372,7 @@ Serve the native Themis web control plane (browser UI over the same core).
 | `--oidc-issuer` | option | no | — | Pinned HTTPS OIDC issuer. |
 | `--oidc-audience` | option | no | — | Required OIDC audience. |
 | `--oidc-jwks` | option | no | — | Pinned local JWKS file; discovery is disabled. |
-| `--audit` | option | no | `/root/.local/state/olympus/audit/themis-audit.ndjson` | Redacted per-request audit log. |
+| `--audit` | option | no | — | Redacted per-request audit log. |
 | `--engagement-storage` | option | no | — | Directory holding the shared engagements database; enables the engagement pages and engagement-derived scope enforcement. |
 | `--manifest-public-key` | option | no | — | Pinned Ed25519 approver public key; requires --engagement-storage and makes every Web job require a signed manifest. |
 | `--findings-directory` | option | no | — | Directory of core.Finding JSON bundles to review in the browser; enables the Findings pages (read-only producer artifacts). |
@@ -1387,8 +1387,8 @@ Run the native worker; SIGINT/SIGTERM cancel the active scan and stop.
 
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `--database`, `-d` | option | no | `.olympus/themis-jobs.sqlite3` | — |
-| `--audit` | option | no | `/root/.local/state/olympus/audit/themis-audit.ndjson` | — |
+| `--database`, `-d` | option | no | — | — |
+| `--audit` | option | no | — | — |
 | `--engagement-storage` | option | no | — | Directory holding signed manifests and their revocation register. |
 | `--manifest-public-key` | option | no | — | Pinned Ed25519 approver public key used to revalidate bound manifests. |
 | `--worker-id` | option | no | — | Stable lease owner. |
@@ -1416,7 +1416,7 @@ Map offensive findings to MITRE ATT&CK techniques (OPS-RED).
 | --- | --- | --- | --- | --- |
 | `--findings` | option | yes | — | core.Finding JSON file(s) to map to ATT&CK (repeatable). |
 | `--reviews` | option | no | — | Optional human-review JSON ({finding_id: [{technique,name,tactic,confidence,rationale}]}); reviewed associations override the automatic mapping. |
-| `--output` | option | no | `vulcan-attack.json` | Overlay JSON output. |
+| `--output` | option | no | — | Overlay JSON output. |
 | `--navigator` | option | no | — | Also write an ATT&CK Navigator layer of the techniques these findings cover. |
 | `--format` | option | no | `table` | Render the associations as table or json. |
 | `--max-files` | option | no | `100` | — |
@@ -1448,7 +1448,7 @@ Overlay CVE risk (CISA KEV + FIRST EPSS) onto findings and rank by urgency.
 | `--kev` | option | no | — | Local CISA KEV catalogue JSON (offline enrichment). |
 | `--epss` | option | no | — | Local FIRST EPSS API JSON response (offline enrichment). |
 | `--fetch` | option | no | `False` | Fetch KEV and EPSS live instead of reading local files. |
-| `--output` | option | no | `vulcan-enrichment.json` | Overlay JSON output. |
+| `--output` | option | no | — | Overlay JSON output. |
 | `--format` | option | no | `table` | Render the ranked view as table or json. |
 | `--max-files` | option | no | `100` | — |
 | `--max-input-bytes` | option | no | `50000000` | — |
@@ -1582,7 +1582,7 @@ Aggregate strict inputs into consistent JSON, Markdown, HTML and PDF views.
 | `--themis-result` | option | no | — | Manifest-bound olympus.themis-result 1.2.0 file(s) (repeatable). |
 | `--signed-manifest` | option | no | — | Signed engagement manifest file(s) matching the Themis results (repeatable). |
 | `--manifest-public-key` | option | no | — | Pinned Ed25519 public key used to verify report authorization provenance. |
-| `--output` | option | no | `vulcan-report.json` | JSON report output path. |
+| `--output` | option | no | — | JSON report output path. |
 | `--markdown` | option | no | — | If set, also write a Markdown report to this path. |
 | `--html` | option | no | — | If set, also write a self-contained HTML report to this path. |
 | `--pdf` | option | no | — | If set, also write a formatted PDF report (needs the 'report' extra). |

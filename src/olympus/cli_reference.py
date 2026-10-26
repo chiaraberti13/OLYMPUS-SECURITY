@@ -15,6 +15,7 @@ unchanged tree yields byte-identical output.
 from __future__ import annotations
 
 from enum import Enum
+from pathlib import Path
 from typing import Any
 
 import typer
@@ -41,12 +42,25 @@ def _cell(text: str) -> str:
 
 
 def _default_repr(default: Any) -> str:
-    """Render a parameter default for the reference, readable and deterministic."""
+    """Render a parameter default for the reference, readable and deterministic.
+
+    Environment-specific defaults (absolute paths from ``core.paths.output_path``,
+    computed ``Path`` objects, state-dir-relative files) differ per machine and
+    would break the drift gate, so they are deliberately not rendered. Stable
+    scalars — flags, counts, enums, plain strings — are shown.
+    """
     if default is None or default == "" or default == []:
         return "—"
+    if isinstance(default, bool):
+        return f"`{default}`"
+    if isinstance(default, int | float):
+        return f"`{default}`"
     if isinstance(default, Enum):
         return f"`{default.value}`"
-    return f"`{default}`"
+    text = str(default)
+    if isinstance(default, Path) or "/" in text or "\\" in text:
+        return "—"
+    return f"`{text}`"
 
 
 def _params(command: Any) -> list[str]:
