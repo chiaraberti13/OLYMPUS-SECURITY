@@ -1924,10 +1924,26 @@ consultare `--help`; l'argv prodotto è visibile, redatto e riproducibile.
 
 ### Intervento B · `UX-B` — Safety preview e conferme proporzionate (**P0/P1**)
 
-- [ ] Prima del run mostrare target normalizzato, scope match, classe di rischio,
+- [~] Prima del run mostrare target normalizzato, scope match, classe di rischio,
   manifest/approvazione, timeout, rate, concorrenza, output e tool esterno.
-- [ ] Per comandi `active` o `intrusive`, richiedere una conferma esplicita che
+  **Fonte dati fatta:** `olympus/themis/preview.py` compone un `SafetyPreview`
+  interface-agnostic (`to_dict()` serializzabile) da un `ThemisRunRequest`
+  pianificato: target normalizzato, esito **statico** di scope
+  (`ensure_allowed`, **nessun DNS**: `in_scope`/`resolution_required`/
+  `out_of_scope`/`blocked`/`invalid`), classe di rischio e spiegazione (riuso di
+  `integrations.activity`), stato autorizzazione (manifest firmato / lab /
+  simulazione), budget (timeout/deadline/output-bytes/findings), percorsi di
+  output e audit, e tool esterno. Esposto come `olympus themis preview`
+  (read-only, offline, `--format table|json`, codice `3` se lo scope bloccherebbe
+  il lancio). Doc [`docs/safety-preview.md`](docs/safety-preview.md). **Resta da
+  fare:** il rendering nel widget TUI e l'innesto in-flow nel percorso di
+  esecuzione.
+- [~] Per comandi `active` o `intrusive`, richiedere una conferma esplicita che
   riporti il target; nessuna conferma aggiuntiva per operazioni passive e locali.
+  Il preview espone già il predicato `requires_confirmation` (true per run
+  `active`/`intrusive` non simulati, false per passivi e simulazioni; uno scanner
+  ignoto non è mai sottostimato). Resta il *prompt* interattivo che consuma il
+  predicato lungo il percorso di esecuzione.
 - [ ] Evidenziare `simulation`, `unavailable`, `partial` e `failed` come stati
   distinti: un risultato parziale non deve sembrare “nessuna vulnerabilità”.
 - [ ] Integrare un kill switch sempre visibile con feedback su processo terminato,

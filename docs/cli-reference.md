@@ -1269,6 +1269,24 @@ Create or upgrade the native SQLite job schema without losing jobs.
 | --- | --- | --- | --- | --- |
 | `--database`, `-d` | option | no | — | — |
 
+### `olympus themis preview`
+
+Show the safety preview of a single planned scan.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `scanner` | argument | yes | — | Scanner to preview, e.g. nmap, nuclei, sqlmap. |
+| `--target` | option | yes | — | The target the scanner would run against. |
+| `--kind` | option | no | `host` | Target kind: host, domain or url. |
+| `--scope` | option | yes | — | Themis scope file authorizing the target. |
+| `--simulate` | option | no | `False` | Preview a simulated run (no live traffic, no authorization). |
+| `--i-am-authorized` | option | no | `False` | Reflect that live authorization would be asserted. |
+| `--timeout` | option | no | `300.0` | — |
+| `--deadline` | option | no | `600.0` | — |
+| `--output`, `-o` | option | no | — | Where a result would be written. |
+| `--audit` | option | no | — | Where the redacted audit entry would go. |
+| `--format` | option | no | `table` | Output format: table (human) or json (machine). |
+
 ### `olympus themis retention prune`
 
 Enforce an age/count/size budget over an artefact directory.

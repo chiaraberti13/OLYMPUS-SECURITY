@@ -1093,6 +1093,93 @@ def themis_capabilities(
         raise typer.Exit(code=int(ExitCode.NOT_AUTHORIZED))
 
 
+@themis_app.command("preview")
+def themis_preview(
+    scanner: str = typer.Argument(..., help="Scanner to preview, e.g. nmap, nuclei, sqlmap."),
+    target: str = typer.Option(..., "--target", help="The target the scanner would run against."),
+    kind: str = typer.Option("host", "--kind", help="Target kind: host, domain or url."),
+    scope: str = typer.Option(..., "--scope", help="Themis scope file authorizing the target."),
+    simulate: bool = typer.Option(
+        False, "--simulate", help="Preview a simulated run (no live traffic, no authorization)."
+    ),
+    i_am_authorized: bool = typer.Option(
+        False, "--i-am-authorized", help="Reflect that live authorization would be asserted."
+    ),
+    timeout: float = typer.Option(300.0, "--timeout", min=0.05, max=3_600),
+    deadline: float = typer.Option(600.0, "--deadline", min=0.05, max=7_200),
+    output: str | None = typer.Option(
+        None, "--output", "-o", help="Where a result would be written."
+    ),
+    audit: str | None = typer.Option(
+        None, "--audit", help="Where the redacted audit entry would go."
+    ),
+    output_format: str = typer.Option(
+        "table", "--format", help="Output format: table (human) or json (machine)."
+    ),
+) -> None:
+    """Show the safety preview of a single planned scan. Runs nothing, offline.
+
+    This answers "what exactly am I about to do?" before a scan is queued or
+    executed: the normalized target, whether it matches the authorized scope,
+    how intrusive the scanner is, which authorization is in force, the resource
+    budget, where output would be written and which external tool would launch.
+    The scope check is static and performs no DNS resolution; a hostname cleared
+    by name is reported as still re-checked against its resolved address at run
+    time (ROADMAP ``UX-B``). No scanner is launched and no target is contacted.
+    """
+    from olympus.core.output import OutputFormat
+    from olympus.themis.application import ThemisRunRequest, load_scope
+    from olympus.themis.config import live_enabled
+    from olympus.themis.preview import preview_run
+
+    if kind not in {"host", "domain", "url"}:
+        typer.echo("olympus: --kind must be host, domain or url", err=True)
+        raise typer.Exit(code=int(ExitCode.USAGE))
+    try:
+        fmt = OutputFormat(output_format)
+    except ValueError as exc:
+        typer.echo("olympus: --format must be table or json", err=True)
+        raise typer.Exit(code=int(ExitCode.USAGE)) from exc
+    try:
+        loaded_scope = load_scope(Path(scope))
+    except (OSError, ValueError) as exc:
+        typer.echo(safe_terminal_text(f"olympus: invalid scope: {exc}"), err=True)
+        raise typer.Exit(code=int(ExitCode.USAGE)) from exc
+
+    try:
+        request = ThemisRunRequest(
+            scanner=scanner,
+            target=target,
+            target_kind=kind,
+            scope_path=Path(scope),
+            authorized=i_am_authorized,
+            live_enabled=live_enabled(),
+            simulate=simulate,
+            timeout_seconds=timeout,
+            deadline_seconds=deadline,
+            output_path=Path(output) if output else None,
+            audit_path=Path(audit) if audit else None,
+        )
+    except ValueError as exc:
+        typer.echo(safe_terminal_text(f"olympus: {exc}"), err=True)
+        raise typer.Exit(code=int(ExitCode.USAGE)) from exc
+
+    preview = preview_run(request, loaded_scope)
+
+    if fmt is OutputFormat.JSON:
+        typer.echo(json.dumps(preview.to_dict(), indent=2, sort_keys=True))
+    else:
+        # Target-derived fields are terminal-sanitized so a hostile hostname
+        # cannot forge lines or inject escape sequences (ROADMAP ``SEC-H``).
+        typer.echo("\n".join(safe_terminal_text(line) for line in preview.lines()))
+
+    # A scope verdict that would block the run is an honest, non-error outcome,
+    # but the exit code distinguishes it so a caller can branch without parsing
+    # text (same discipline as smart-scan's out-of-scope exit).
+    if preview.blocks_launch:
+        raise typer.Exit(code=int(ExitCode.OUT_OF_SCOPE))
+
+
 @themis_app.command("smart-scan")
 def themis_smart_scan(
     objective: str = typer.Option(
