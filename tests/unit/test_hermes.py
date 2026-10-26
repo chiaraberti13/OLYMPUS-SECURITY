@@ -129,6 +129,26 @@ def test_sarif_encodes_untrusted_artifact_path_as_uri_reference() -> None:
     assert urlsplit(uri).netloc == ""
     assert "\r" not in uri and "\n" not in uri
 
+
+def test_sarif_neutralizes_control_sequences_in_message_text() -> None:
+    # ``masked`` is derived from scanned file content; the SARIF export must
+    # neutralize ANSI/OSC and C0/C1 controls and newlines a viewer would render
+    # (SEC-H), even for a hand-crafted or third-party finding fed to the export.
+    finding = SecretFinding(
+        rule="synthetic-rule",
+        path="demo.env",
+        line=1,
+        masked="AK**\x1b[31mFORGED\x1b]8;;http://evil\x07\nsecond line",
+        fingerprint="synthetic-fingerprint",
+    )
+
+    text = to_sarif([finding])["runs"][0]["results"][0]["message"]["text"]
+
+    assert "\x1b" not in text  # ANSI/OSC introducer stripped
+    assert "\x07" not in text  # BEL (OSC terminator) stripped
+    assert "\n" not in text and "\r" not in text  # single line, no forged lines
+    assert text.startswith("Potential secret detected: ")
+
     unc_path = SecretFinding(
         rule="synthetic-rule",
         path="\\\\attacker.invalid\\share\\finding.txt",

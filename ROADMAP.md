@@ -742,9 +742,16 @@ markup Rich, ma la difesa non è sistematica.
   descrizione sono sanitizzati **separatamente** e riuniti con `\n`, così lo split
   sopravvive al re-import (round-trip invariato). Test
   `tests/unit/test_vulcan_sarif.py::test_export_neutralizes_hostile_finding_text`.
-  Restano: protezione spreadsheet (solo *se* si aggiungerà un export CSV/XLSX, oggi
-  assente) e l'export SARIF di Hermes (findings di secret-scan: path locali e
-  snippet già mascherati, superficie target-controllata minore).
+  **SARIF export di Hermes fatto:** in `hermes/sarif.to_sarif` il `message.text`
+  del result incorpora `finding.masked`, derivato dal contenuto del file
+  scansionato (controllato dalla sorgente), e passa ora da `safe_terminal_text`;
+  l'`uri` della location era già percent-encoded da `_artifact_uri`. Così un
+  finding (anche costruito a mano o importato da terzi) con sequenze ANSI/OSC o
+  newline nel valore mascherato non può iniettare controlli o righe forgiate in
+  un viewer SARIF o in un terminale. Test
+  `tests/unit/test_hermes.py::test_sarif_neutralizes_control_sequences_in_message_text`.
+  Resta: protezione spreadsheet (solo *se* si aggiungerà un export CSV/XLSX, oggi
+  assente).
 - [x] Vietare che valori provenienti dal target diventino path, argv, URL di
   follow-up o nomi file senza passare per validazione e scope gate (path traversal,
   SSRF di secondo ordine, argument injection). Argument injection e path traversal

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
+from olympus.core.execution import safe_terminal_text
 from olympus.hermes.scanner import SecretFinding
 
 
@@ -46,7 +47,16 @@ def to_sarif(findings: list[SecretFinding]) -> dict[str, Any]:
                 "results": [
                     {
                         "ruleId": finding.rule,
-                        "message": {"text": f"Potential secret detected: {finding.masked}"},
+                        # ``masked`` is derived from scanned file content, so it is
+                        # target-controlled input a SARIF viewer or terminal renders.
+                        # Neutralize ANSI/OSC and C0/C1 controls and collapse newlines
+                        # so it cannot inject control sequences or forge log lines
+                        # (SEC-H: contextual escaping in every export).
+                        "message": {
+                            "text": safe_terminal_text(
+                                f"Potential secret detected: {finding.masked}"
+                            )
+                        },
                         "partialFingerprints": {"olympusSecretFingerprint": finding.fingerprint},
                         "locations": [
                             {
