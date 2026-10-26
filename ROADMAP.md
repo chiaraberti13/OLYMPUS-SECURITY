@@ -2164,7 +2164,10 @@ capacità simulata appaia come reale.
 
 Le durate sono stime per un team piccolo e presuppongono decisioni architetturali
 rapide. Le attività che richiedono scanner reali devono essere validate solo in un
-lab autorizzato; in assenza del lab restano aperte e non cambiano maturità.
+lab autorizzato; in assenza del lab restano aperte e non cambiano maturità. Il
+percorso legittimo per eseguirle — lab locale isolato `labs/mars/`, doppio opt-in
+e `make test-live-lab` — e l'elenco delle verifiche offline già eseguibili sono
+documentati in [`docs/verification-status.md`](docs/verification-status.md).
 
 ### Fase 0 — Baseline e coerenza documentale (1–2 settimane)
 
