@@ -11,7 +11,6 @@ import json
 import os
 from pathlib import Path
 
-import click
 import typer
 
 from olympus import __version__
@@ -465,7 +464,11 @@ def terminal_ui() -> None:
     from olympus.tui import OlympusTui
 
     root = get_command(app)
-    if not isinstance(root, click.Group):
+    # Typer vendors its own Click, so the root is a TyperGroup that does not
+    # subclass the stdlib ``click.Group``; detect a command group structurally by
+    # its ``commands`` mapping instead (the ``isinstance`` check silently broke
+    # this entry point after the Typer/Click split).
+    if getattr(root, "commands", None) is None:
         raise RuntimeError("Olympus root command is not a command group")
     OlympusTui(root).run()
 

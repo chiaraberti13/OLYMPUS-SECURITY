@@ -8,9 +8,8 @@ import shlex
 import subprocess
 import sys
 from pathlib import Path
-from typing import ClassVar
+from typing import Any, ClassVar
 
-import click
 from rich.text import Text
 from textual import on, work
 from textual.app import App, ComposeResult
@@ -184,7 +183,10 @@ class OlympusTui(App[None]):
         Binding("q", "quit", "Quit"),
     ]
 
-    def __init__(self, root: click.Group) -> None:
+    def __init__(self, root: Any) -> None:
+        # A Click/Typer command group (duck-typed: used only for its ``commands``
+        # mapping). Typed ``Any`` because Typer's vendored ``TyperGroup`` does not
+        # subclass the stdlib ``click.Group``.
         super().__init__()
         self.root_command = root
         self.current_tool = TOOLS[0]

@@ -125,3 +125,31 @@ def test_aegis_is_a_deprecated_alias_for_themis() -> None:
     assert deprecated.exit_code == current.exit_code
     assert "deprecated" in deprecated.stderr.lower()
     assert "olympus themis" in deprecated.stderr
+
+
+def test_ui_command_launches_the_tui_group(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """`olympus ui` must resolve the command group and construct the TUI.
+
+    Regression: Typer vendors its own Click, so the root is a TyperGroup that is
+    not a stdlib ``click.Group``; an ``isinstance`` guard silently broke this
+    entry point with "not a command group". Here we patch the Textual event loop
+    (``run``) so the launch path is exercised headlessly.
+    """
+    import olympus.tui as tui
+
+    captured: dict[str, object] = {}
+    original_init = tui.OlympusTui.__init__
+
+    def _init(self, root):  # type: ignore[no-untyped-def]
+        original_init(self, root)
+        captured["commands"] = sorted(self.root_command.commands)
+
+    monkeypatch.setattr(tui.OlympusTui, "__init__", _init)
+    monkeypatch.setattr(tui.OlympusTui, "run", lambda self: None)
+
+    result = runner.invoke(app, ["ui"])
+
+    assert result.exit_code == 0, result.output
+    assert result.exception is None
+    # The real command group was handed to the TUI (not rejected).
+    assert "themis" in captured["commands"] and "apollo" in captured["commands"]

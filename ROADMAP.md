@@ -1912,6 +1912,12 @@ flag, formati dei file e relazioni tra scope, autorizzazione e output.
   `forms_for_app`, `validate_values`, con `to_dict()` serializzabile): TUI e web
   consumano la stessa fonte derivata dalla command tree, nessuna logica duplicata.
   Test `tests/unit/test_cli_forms.py`; doc [`docs/tui.md`](docs/tui.md).
+- [x] Launcher `olympus ui` ripristinato: la guardia in `cli.py` usava
+  `isinstance(root, click.Group)` contro il `TyperGroup` vendorizzato da Typer
+  (che **non** eredita dallo `click.Group` di stdlib), quindi l'entry point
+  sollevava sempre `RuntimeError` e la TUI era irraggiungibile dalla CLI. Ora il
+  gruppo è rilevato strutturalmente via `.commands`; regressione coperta da
+  `tests/unit/test_cli.py::test_ui_command_launches_the_tui_group`.
 
 **Criterio di completamento:** un nuovo utente può configurare una scansione senza
 consultare `--help`; l'argv prodotto è visibile, redatto e riproducibile.
