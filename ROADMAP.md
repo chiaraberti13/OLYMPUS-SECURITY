@@ -1263,7 +1263,14 @@ riavvio non duplica scansioni né perde lo stato terminale di un job.
   chiaramente cosa è incluso nella wheel e cosa richiede binari esterni.
 - [ ] Pubblicare release candidate e procedura di rollback; evitare release se
   documentazione, schema o maturity ledger sono incoerenti.
-- [ ] Generare una CLI reference dalla command tree per eliminare duplicazioni.
+- [x] Generare una CLI reference dalla command tree per eliminare duplicazioni.
+  `olympus.cli_reference.render_document` introspeziona l'albero Typer reale
+  (`olympus.cli:app`) e produce `docs/cli-reference.md` in modo **deterministico**
+  (gruppi/comandi ordinati, 138 comandi), fonte unica derivata dal codice. Lo
+  script `scripts/generate_cli_reference.py` rigenera il doc e, con `--check`, è
+  un **gate anti-drift** (come `maturity --check`); il test
+  `tests/unit/test_cli_reference.py` fallisce la build se il doc è stale. Nessun
+  help scritto a mano accanto ai decoratori Typer: la duplicazione è eliminata.
 
 **Criterio di completamento:** installazione con `pipx install olympus-security`
 da artifact firmato e smoke test completo fuori dal checkout.
