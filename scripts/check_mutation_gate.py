@@ -41,6 +41,10 @@ MUTATED_FUNCTIONS = {
         "x__unpack",
         "x_load_protected_evidence",
     ],
+    "src/olympus/findings/store.py": [
+        "x__load_encryption_key",
+        "xǁSqliteFindingTransitionStoreǁ_load",
+    ],
     "src/olympus/themis/sandbox.py": [
         "xǁScannerIsolationStatusǁmissing",
         "x_inspect_scanner_isolation",

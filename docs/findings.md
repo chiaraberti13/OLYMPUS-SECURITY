@@ -152,6 +152,14 @@ records are inserted, never replaced or deleted, so the history cannot be
 rewritten through the API (a duplicate `transition_id` is rejected). This answers
 "who accepted this risk, and when?" without trusting the mutable finding.
 
+Set `OLYMPUS_FINDINGS_ENCRYPTION_KEY` to a random value of at least 32
+characters to encrypt each transition document with authenticated encryption.
+The key is resolved through `SecretProvider` and is never stored in SQLite.
+Identifiers and ordering timestamps remain queryable, while actor, reason,
+engagement and status details are ciphertext. Existing plaintext rows remain
+readable during migration; encrypted rows fail closed if the key is missing,
+wrong or the ciphertext was changed.
+
 ### Suppression
 
 Suppressing a finding (accepting the risk, or dismissing it as a false positive)

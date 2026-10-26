@@ -25,7 +25,7 @@ from olympus.athena.scope import TargetOutOfScopeError, ensure_target_allowed
 from olympus.core.coverage import Coverage, RunStatus, exit_code_for
 from olympus.core.execution import redact_mapping, redact_text, safe_terminal_text
 from olympus.core.exit_codes import ExitCode
-from olympus.core.models import EngagementScope, Evidence
+from olympus.core.models import EngagementScope, Evidence, FindingTransition
 from olympus.core.secrets import EnvSecretProvider
 from olympus.core.signing import generate_keypair
 from olympus.engagements.manifest import (
@@ -33,6 +33,11 @@ from olympus.engagements.manifest import (
     ManifestAuthorizationError,
     ManifestVerificationError,
     SignedEngagementManifest,
+)
+from olympus.findings.store import (
+    FINDINGS_ENCRYPTION_KEY_ENV,
+    FindingTransitionStoreError,
+    SqliteFindingTransitionStore,
 )
 from olympus.minerva.custody import (
     AcquisitionProvenance,
@@ -84,6 +89,28 @@ from olympus.themis.sandbox import (
     inspect_scanner_isolation,
 )
 from olympus.themis.scope import SsrfBlockedError, resolve_and_validate
+
+
+def test_encrypted_finding_store_mutation_boundaries(tmp_path: Path) -> None:
+    key = EnvSecretProvider(environ={FINDINGS_ENCRYPTION_KEY_ENV: "f" * 32})
+    store = SqliteFindingTransitionStore(tmp_path / "findings.db", secrets=key)
+    transition = FindingTransition(
+        finding_id="FND-2026-00001",
+        from_status="new",
+        to_status="confirmed",
+        actor="analyst",
+    )
+    store.append(transition)
+    assert store.history(transition.finding_id) == [transition]
+    store.close()
+
+    for environ in ({}, {FINDINGS_ENCRYPTION_KEY_ENV: "x" * 32}):
+        reopened = SqliteFindingTransitionStore(
+            tmp_path / "findings.db", secrets=EnvSecretProvider(environ=environ)
+        )
+        with pytest.raises(FindingTransitionStoreError):
+            reopened.history(transition.finding_id)
+        reopened.close()
 
 
 def test_protected_evidence_mutation_boundaries(tmp_path: Path) -> None:

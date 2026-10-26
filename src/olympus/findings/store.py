@@ -14,11 +14,18 @@ import json
 import sqlite3
 from pathlib import Path
 
+from pydantic import SecretStr
+
 from olympus.core.contracts import validate_contract_header
+from olympus.core.crypto import ENCRYPTION_SCHEME, CryptoError, decrypt_to_text, encrypt_text
 from olympus.core.models import FindingTransition
+from olympus.core.secrets import SecretProvider, resolve_secret
 
 #: Guard against an oversized stored document exhausting memory on load.
 MAX_DOCUMENT_BYTES = 1_000_000
+MAX_STORED_DOCUMENT_BYTES = 2_000_000
+FINDINGS_ENCRYPTION_KEY_ENV = "OLYMPUS_FINDINGS_ENCRYPTION_KEY"
+_MIN_ENCRYPTION_KEY_LENGTH = 32
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS finding_transitions (
@@ -39,8 +46,9 @@ class FindingTransitionStoreError(ValueError):
 class SqliteFindingTransitionStore:
     """An append-only, durable audit log of finding status changes."""
 
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, *, secrets: SecretProvider | None = None) -> None:
         self._path = path
+        self._encryption_key = _load_encryption_key(secrets)
         path.parent.mkdir(parents=True, exist_ok=True)
         with contextlib.suppress(OSError):  # pragma: no cover - platform dependent
             path.parent.chmod(0o700)
@@ -73,7 +81,7 @@ class SqliteFindingTransitionStore:
                     (
                         transition.transition_id,
                         transition.finding_id,
-                        transition.model_dump_json(),
+                        self._encode(transition),
                         transition.occurred_at.isoformat(),
                     ),
                 )
@@ -92,16 +100,50 @@ class SqliteFindingTransitionStore:
         ).fetchall()
         return [self._load(row["document"]) for row in rows]
 
-    @staticmethod
-    def _load(document: str) -> FindingTransition:
-        if len(document.encode("utf-8")) > MAX_DOCUMENT_BYTES:
+    def _encode(self, transition: FindingTransition) -> str:
+        plaintext = transition.model_dump_json()
+        if self._encryption_key is None:
+            return plaintext
+        return encrypt_text(plaintext, self._encryption_key.get_secret_value())
+
+    def _load(self, document: str) -> FindingTransition:
+        stored_bytes = len(document.encode("utf-8"))
+        if stored_bytes > MAX_STORED_DOCUMENT_BYTES:
             raise FindingTransitionStoreError("stored transition document exceeds the size limit")
         try:
             raw = json.loads(document)
         except json.JSONDecodeError as exc:
             raise FindingTransitionStoreError(f"invalid transition JSON: {exc.msg}") from exc
+        if isinstance(raw, dict) and raw.get("scheme") == ENCRYPTION_SCHEME:
+            if self._encryption_key is None:
+                raise FindingTransitionStoreError(
+                    f"encrypted transition requires {FINDINGS_ENCRYPTION_KEY_ENV}"
+                )
+            try:
+                document = decrypt_to_text(document, self._encryption_key.get_secret_value())
+                raw = json.loads(document)
+            except (CryptoError, json.JSONDecodeError) as exc:
+                raise FindingTransitionStoreError(
+                    "encrypted transition authentication failed"
+                ) from exc
+            if len(document.encode("utf-8")) > MAX_DOCUMENT_BYTES:
+                raise FindingTransitionStoreError(
+                    "decrypted transition document exceeds the size limit"
+                )
+        elif stored_bytes > MAX_DOCUMENT_BYTES:
+            raise FindingTransitionStoreError("stored transition document exceeds the size limit")
         try:
             raw = validate_contract_header(raw, schema_name="olympus.finding-transition")
             return FindingTransition.model_validate(raw)
         except ValueError as exc:
             raise FindingTransitionStoreError(str(exc)) from exc
+
+
+def _load_encryption_key(provider: SecretProvider | None) -> SecretStr | None:
+    key = resolve_secret(FINDINGS_ENCRYPTION_KEY_ENV, provider=provider)
+    if key is not None and len(key.get_secret_value()) < _MIN_ENCRYPTION_KEY_LENGTH:
+        raise FindingTransitionStoreError(
+            f"{FINDINGS_ENCRYPTION_KEY_ENV} must contain at least "
+            f"{_MIN_ENCRYPTION_KEY_LENGTH} characters"
+        )
+    return key

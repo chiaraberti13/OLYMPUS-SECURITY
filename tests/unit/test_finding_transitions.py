@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -11,7 +12,12 @@ from pydantic import ValidationError
 from olympus.core.enums import FindingStatus, Source
 from olympus.core.finding_lifecycle import FindingTransitionError, record_transition
 from olympus.core.models import Finding, FindingTransition
-from olympus.findings.store import FindingTransitionStoreError, SqliteFindingTransitionStore
+from olympus.core.secrets import EnvSecretProvider
+from olympus.findings.store import (
+    FINDINGS_ENCRYPTION_KEY_ENV,
+    FindingTransitionStoreError,
+    SqliteFindingTransitionStore,
+)
 
 TRANSITION_ID = re.compile(r"^FTR-\d{4}-\d{5}$")
 
@@ -102,8 +108,6 @@ def test_store_is_append_only_rejecting_duplicate_ids(tmp_path: Path) -> None:
 
 
 def test_store_rejects_a_tampered_document(tmp_path: Path) -> None:
-    import sqlite3
-
     store = SqliteFindingTransitionStore(tmp_path / "ft.db")
     _, record = record_transition(_finding(), FindingStatus.CONFIRMED, actor="a")
     store.append(record)
@@ -120,3 +124,77 @@ def test_store_rejects_a_tampered_document(tmp_path: Path) -> None:
             reopened.history(record.finding_id)
     finally:
         reopened.close()
+
+
+def test_store_encrypts_transition_documents_and_reads_them_with_the_same_key(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "ft.db"
+    provider = EnvSecretProvider(environ={FINDINGS_ENCRYPTION_KEY_ENV: "f" * 32})
+    store = SqliteFindingTransitionStore(path, secrets=provider)
+    finding = _finding()
+    _, record = record_transition(
+        finding,
+        FindingStatus.CONFIRMED,
+        actor="analyst@example.test",
+        reason="credential exposed in synthetic fixture",
+    )
+    store.append(record)
+    store.close()
+
+    connection = sqlite3.connect(str(path))
+    stored = connection.execute("SELECT document FROM finding_transitions").fetchone()[0]
+    connection.close()
+    assert "analyst@example.test" not in stored
+    assert "credential exposed" not in stored
+    assert '"scheme": "olympus.enc.v1"' in stored
+
+    reopened = SqliteFindingTransitionStore(path, secrets=provider)
+    try:
+        assert reopened.history(finding.finding_id) == [record]
+    finally:
+        reopened.close()
+
+
+def test_encrypted_store_fails_closed_without_the_correct_key(tmp_path: Path) -> None:
+    path = tmp_path / "ft.db"
+    provider = EnvSecretProvider(environ={FINDINGS_ENCRYPTION_KEY_ENV: "f" * 32})
+    store = SqliteFindingTransitionStore(path, secrets=provider)
+    finding = _finding()
+    _, record = record_transition(finding, FindingStatus.CONFIRMED, actor="a")
+    store.append(record)
+    store.close()
+
+    for environ in ({}, {FINDINGS_ENCRYPTION_KEY_ENV: "x" * 32}):
+        reopened = SqliteFindingTransitionStore(path, secrets=EnvSecretProvider(environ=environ))
+        try:
+            with pytest.raises(FindingTransitionStoreError):
+                reopened.history(finding.finding_id)
+        finally:
+            reopened.close()
+
+
+def test_store_rejects_a_short_encryption_key(tmp_path: Path) -> None:
+    with pytest.raises(FindingTransitionStoreError, match="at least 32"):
+        SqliteFindingTransitionStore(
+            tmp_path / "ft.db",
+            secrets=EnvSecretProvider(environ={FINDINGS_ENCRYPTION_KEY_ENV: "short"}),
+        )
+
+
+def test_encrypted_store_keeps_legacy_plaintext_rows_readable(tmp_path: Path) -> None:
+    path = tmp_path / "ft.db"
+    finding = _finding()
+    _, legacy = record_transition(finding, FindingStatus.CONFIRMED, actor="legacy")
+    plaintext = SqliteFindingTransitionStore(path, secrets=EnvSecretProvider(environ={}))
+    plaintext.append(legacy)
+    plaintext.close()
+
+    encrypted = SqliteFindingTransitionStore(
+        path,
+        secrets=EnvSecretProvider(environ={FINDINGS_ENCRYPTION_KEY_ENV: "f" * 32}),
+    )
+    try:
+        assert encrypted.history(finding.finding_id) == [legacy]
+    finally:
+        encrypted.close()

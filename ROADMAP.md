@@ -651,9 +651,13 @@ ruotabili senza downtime. **SEC-D è completato `[x]`.**
   dati e definire cancellazione verificabile secondo retention policy. Le
   evidenze Minerva dispongono ora di pacchetti cifrati autenticati, chiave runtime
   separata tramite `SecretProvider`, ripristino fail-closed e cancellazione della
-  sorgente solo dopo verifica round-trip con ricevuta minimizzata. Restano aperte
-  la cifratura dei finding e l'applicazione schedulata e uniforme della retention
-  su backup, snapshot e repliche; per questo la voce resta parziale.
+  sorgente solo dopo verifica round-trip con ricevuta minimizzata. Anche i
+  documenti del lifecycle store dei finding supportano ora cifratura autenticata
+  per record con chiave distinta `OLYMPUS_FINDINGS_ENCRYPTION_KEY`, compatibilità
+  di lettura legacy e rifiuto fail-closed di chiavi mancanti/errate o ciphertext
+  alterato. Restano aperte la cifratura dei bundle finding prodotti dagli scanner
+  e l'applicazione schedulata e uniforme della retention su backup, snapshot e
+  repliche; per questo la voce resta parziale.
 
 **Criterio di completamento:** modifica, riordino, troncamento o sostituzione di una
 evidenza vengono rilevati e la verifica è possibile da un soggetto terzo.

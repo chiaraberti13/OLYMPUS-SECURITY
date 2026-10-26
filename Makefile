@@ -80,6 +80,8 @@ test-mutation:
 		"olympus.minerva.vault.x_load_evidence_encryption_key*" \
 		"olympus.minerva.vault.x__unpack*" \
 		"olympus.minerva.vault.x_load_protected_evidence*" \
+		"olympus.findings.store.x__load_encryption_key*" \
+		"olympus.findings.store.xǁSqliteFindingTransitionStoreǁ_load*" \
 		"olympus.themis.sandbox.xǁScannerIsolationStatusǁmissing*" \
 		"olympus.themis.sandbox.x_inspect_scanner_isolation*" \
 		"olympus.themis.sandbox.x__trusted_root_file*" \
