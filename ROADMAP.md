@@ -1891,13 +1891,27 @@ flag, formati dei file e relazioni tra scope, autorizzazione e output.
 
 ### Intervento A · `UX-A` — Form dinamici derivati dalla CLI (**P1**)
 
-- [ ] Generare controlli TUI dalla metadata Click/Typer: text field, select,
+- [~] Generare controlli TUI dalla metadata Click/Typer: text field, select,
   checkbox, path picker e repeatable option, invece di un'unica stringa libera.
-- [ ] Mostrare required/default/range/example e validare localmente prima del run.
+  **Schema fatto:** `olympus/cli_forms.py` deriva dall'albero Typer reale un
+  `CommandForm` con `FormField` tipizzati — `kind` ∈ {text, integer, number,
+  boolean, choice, path}, più `required`, `default` stabile, `choices` (dagli
+  enum), `minimum`/`maximum` (dai range Click) e flag `multiple` (repeatable).
+  Così una UI sa disegnare checkbox/select/path-picker/numero-con-range invece di
+  una stringa libera. **Resta da fare:** il rendering effettivo come widget
+  Textual.
+- [~] Mostrare required/default/range/example e validare localmente prima del run.
+  Lo schema espone required/default/choices/range per ogni campo e
+  `cli_forms.validate_values(form, values)` **valida localmente** prima di
+  qualunque run (required mancanti, choice non valide, input non numerico, numeri
+  fuori range → errori leggibili). Resta la sola *visualizzazione* nel widget TUI.
 - [ ] Conservare una modalità “raw arguments” per utenti esperti, separata e
   chiaramente indicata.
-- [ ] Riutilizzare lo stesso schema per eventuale web UI, evitando logiche diverse
-  tra CLI e TUI.
+- [x] Riutilizzare lo stesso schema per eventuale web UI, evitando logiche diverse
+  tra CLI e TUI. Lo schema di `cli_forms` è **interface-agnostic** (`form_for`,
+  `forms_for_app`, `validate_values`, con `to_dict()` serializzabile): TUI e web
+  consumano la stessa fonte derivata dalla command tree, nessuna logica duplicata.
+  Test `tests/unit/test_cli_forms.py`; doc [`docs/tui.md`](docs/tui.md).
 
 **Criterio di completamento:** un nuovo utente può configurare una scansione senza
 consultare `--help`; l'argv prodotto è visibile, redatto e riproducibile.
