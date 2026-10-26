@@ -166,6 +166,7 @@ only_mutate = [
     "src/olympus/themis/scope.py",
     "src/olympus/core/coverage.py",
     "src/olympus/minerva/provenance.py",
+    "src/olympus/minerva/vault.py",
     "src/olympus/athena/cli.py",
     "src/olympus/athena/domain/assessment.py",
 ]

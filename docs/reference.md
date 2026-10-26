@@ -263,8 +263,10 @@ every module; for a single command's full details (every option, with defaults) 
 | `olympus apollo rules --rules <dir>` | loads, bounds and validates a non-empty rule directory with unique IDs |
 | `olympus apollo coverage --rules <dir>` | ATT&CK detection-coverage matrix: classifies each technique as covered / partial / no-telemetry against the event types actually ingested (`--events`/`--telemetry`); `--strict` exits non-zero on blind spots |
 | **Minerva** — 🔵 incident response & DFIR | |
+| `olympus minerva protect <artifact> <package> --type <type>` | stores content and metadata in an authenticated encrypted owner-only package; key from the secret provider |
+| `olympus minerva restore <package> <artifact>` | authenticates, decrypts and verifies the digest before publishing plaintext |
 | `olympus minerva triage <alerts> --title <t>` | creates a stable Incident from a strict bounded Apollo export |
-| `olympus minerva record <evidence> <ledger> --actor <a> --action <act>` | locks, verifies and appends a private custody 2.0 entry anchored to the evidence SHA-256 |
+| `olympus minerva record <evidence> <ledger> --actor <a> --action <act>` | locks, verifies and appends a private custody 3.x entry anchored to evidence and acquisition provenance |
 | `olympus minerva verify <ledger>` | verifies hashes, digest identity, transitions and timestamps; missing chains fail |
 | `olympus minerva timeline <ledger>` | prints a verified chronological timeline including evidence digests |
 | **Vulcan** — 🟣 aggregation & reporting | |
@@ -637,8 +639,10 @@ sempre `--help`, es. `olympus argus scan --help`.
 | `olympus apollo rules --rules <dir>` | carica, limita e valida una cartella non vuota con ID di regola univoci |
 | `olympus apollo coverage --rules <dir>` | matrice di copertura ATT&CK: classifica ogni tecnica come covered / partial / no-telemetry rispetto ai tipi di evento realmente ingeriti (`--events`/`--telemetry`); `--strict` esce non-zero sui punti ciechi |
 | **Minerva** — 🔵 incident response & DFIR | |
+| `olympus minerva protect <reperto> <pacchetto> --type <tipo>` | conserva contenuto e metadati in un pacchetto cifrato autenticato owner-only; chiave dal secret provider |
+| `olympus minerva restore <pacchetto> <reperto>` | autentica, decifra e verifica il digest prima di pubblicare il plaintext |
 | `olympus minerva triage <alerts> --title <t>` | crea un Incident stabile da un export Apollo rigoroso e limitato |
-| `olympus minerva record <evidence> <ledger> --actor <a> --action <act>` | blocca, verifica e aggiunge una voce privata custody 2.0 ancorata allo SHA-256 del reperto |
+| `olympus minerva record <evidence> <ledger> --actor <a> --action <act>` | blocca, verifica e aggiunge una voce privata custody 3.x ancorata al reperto e alla provenienza |
 | `olympus minerva verify <ledger>` | verifica hash, identità del digest, transizioni e timestamp; una catena mancante fallisce |
 | `olympus minerva timeline <ledger>` | stampa una timeline verificata che include i digest dei reperti |
 | **Vulcan** — 🟣 aggregazione & report | |

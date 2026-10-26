@@ -647,8 +647,13 @@ ruotabili senza downtime. **SEC-D è completato `[x]`.**
   stati `partial`/`failed`/`cancelled` richiedono un motivo redatto. I ledger 2.x
   restano verificabili senza attribuzione retroattiva; test unitari, property e
   mutation coprono manomissione, segreti e compatibilità.
-- [ ] Cifrare a riposo findings ed evidenze sensibili con chiavi separabili dai
-  dati e definire cancellazione verificabile secondo retention policy.
+- [~] Cifrare a riposo findings ed evidenze sensibili con chiavi separabili dai
+  dati e definire cancellazione verificabile secondo retention policy. Le
+  evidenze Minerva dispongono ora di pacchetti cifrati autenticati, chiave runtime
+  separata tramite `SecretProvider`, ripristino fail-closed e cancellazione della
+  sorgente solo dopo verifica round-trip con ricevuta minimizzata. Restano aperte
+  la cifratura dei finding e l'applicazione schedulata e uniforme della retention
+  su backup, snapshot e repliche; per questo la voce resta parziale.
 
 **Criterio di completamento:** modifica, riordino, troncamento o sostituzione di una
 evidenza vengono rilevati e la verifica è possibile da un soggetto terzo.

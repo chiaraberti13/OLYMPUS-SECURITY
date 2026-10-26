@@ -79,6 +79,10 @@ $ olympus athena run plan.json --storage ./.athena
 La custodia Minerva 3.x vincola ogni nuova acquisizione al digest dell'evidenza,
 alla versione del tool, ai digest di policy/scope, al template del comando
 redatto e allo stato di copertura; vedi la [guida alla custodia](docs/minerva.md).
+Le evidenze sensibili possono essere conservate in un pacchetto cifrato e
+autenticato con `olympus minerva protect` e ripristinate con `olympus minerva
+restore`; la chiave runtime arriva da `OLYMPUS_EVIDENCE_ENCRYPTION_KEY`, mai da
+argv.
 
 > [!TIP]
 > Esegui qualsiasi modulo con `--help` per vederne i comandi, oppure

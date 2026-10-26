@@ -836,6 +836,21 @@ Hash a local artifact and write an evidence reference anchored to its bytes.
 | `--max-bytes` | option | no | `268435456` | — |
 | `--force` | option | no | `False` | Overwrite an existing evidence file (default: refuse). |
 
+### `olympus minerva protect`
+
+Encrypt a local evidence artifact with a runtime-provided secret.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `artifact` | argument | yes | — | — |
+| `output` | argument | yes | — | — |
+| `--type` | option | yes | — | — |
+| `--uri` | option | no | — | — |
+| `--max-bytes` | option | no | `268435456` | — |
+| `--delete-source` | option | no | `False` | — |
+| `--receipt` | option | no | — | — |
+| `--force` | option | no | `False` | — |
+
 ### `olympus minerva record`
 
 Append an evidence-digest-anchored event after verifying the complete chain.
@@ -852,6 +867,17 @@ Append an evidence-digest-anchored event after verifying the complete chain.
 | `--provenance` | option | no | — | Strict acquisition JSON; required for the first/collected custody event. |
 | `--max-provenance-bytes` | option | no | `1000000` | — |
 | `--deadline` | option | no | `60.0` | — |
+
+### `olympus minerva restore`
+
+Authenticate, decrypt and restore a protected evidence artifact.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `protected` | argument | yes | — | — |
+| `output` | argument | yes | — | — |
+| `--max-bytes` | option | no | `419430400` | — |
+| `--force` | option | no | `False` | — |
 
 ### `olympus minerva timeline`
 

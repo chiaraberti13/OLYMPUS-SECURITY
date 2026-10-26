@@ -36,6 +36,11 @@ MUTATED_FUNCTIONS = {
         "x__validate_command_template",
         "x__validate_reason_status",
     ],
+    "src/olympus/minerva/vault.py": [
+        "x_load_evidence_encryption_key",
+        "x__unpack",
+        "x_load_protected_evidence",
+    ],
     "src/olympus/themis/sandbox.py": [
         "xǁScannerIsolationStatusǁmissing",
         "x_inspect_scanner_isolation",

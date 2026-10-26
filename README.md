@@ -79,6 +79,9 @@ $ olympus athena run plan.json --storage ./.athena
 Minerva custody 3.x binds every new acquisition to its evidence digest, tool
 version, policy/scope digests, redacted command template and coverage outcome;
 see [the custody guide](docs/minerva.md).
+Sensitive evidence can be stored as an authenticated encrypted package with
+`olympus minerva protect` and recovered with `olympus minerva restore`; the
+runtime key is supplied through `OLYMPUS_EVIDENCE_ENCRYPTION_KEY`, never argv.
 
 > [!TIP]
 > Run any module with `--help` to see its commands, or

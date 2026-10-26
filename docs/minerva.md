@@ -72,6 +72,31 @@ olympus minerva timeline custody.json --export timeline.json --sign-key case.key
 olympus core verify timeline.json timeline.json.sig --pubkey case.pub.pem
 ```
 
+## Protected evidence at rest
+
+Minerva can bind the artifact digest and metadata inside one authenticated
+encrypted package. Supply a strong runtime secret through the pluggable secret
+provider (the environment fallback is shown here); do not pass it on the command
+line:
+
+```bash
+export OLYMPUS_EVIDENCE_ENCRYPTION_KEY='replace-with-a-random-secret-of-at-least-32-characters'
+olympus minerva protect capture.pcap capture.olympus --type pcap
+olympus minerva restore capture.olympus restored.pcap
+```
+
+Both package and restored output are owner-only (`0600`). Wrong keys, tampering,
+truncation, symlinks, collisions, malformed framing and digest mismatches fail
+before plaintext is published. `--delete-source --receipt receipt.json` removes
+the source only after a decrypt-and-digest round trip and records a minimized
+receipt. Overwrite/unlink is not a guarantee against snapshots, backups,
+copy-on-write storage, SSD wear levelling or replicas; retention must cover those
+storage layers separately.
+
+In italiano: `protect` cifra contenuto e metadati, `restore` verifica prima di
+scrivere. La ricevuta documenta la rimozione locale ma non certifica la
+cancellazione di snapshot, backup o repliche.
+
 `--export` writes the verified timeline as a deterministic
 `olympus.minerva-timeline` JSON artifact; `--sign-key` additionally emits an
 Ed25519 signature envelope over the exact exported bytes (reusing `core.signing`),

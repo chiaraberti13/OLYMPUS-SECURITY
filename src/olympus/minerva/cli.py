@@ -31,6 +31,11 @@ from olympus.minerva.custody import (
     load_custody_key,
 )
 from olympus.minerva.triage import DEFAULT_MAX_ALERT_BYTES, DEFAULT_MAX_ALERTS, export_incident
+from olympus.minerva.vault import (
+    DEFAULT_MAX_PROTECTED_BYTES,
+    protect_evidence,
+    restore_evidence,
+)
 
 app = typer.Typer(help="Minerva — incident response and DFIR.", no_args_is_help=True)
 DEFAULT_LEDGER = output_path("minerva-custody.json")
@@ -115,6 +120,51 @@ def capture(
             f"minerva: captured {evidence.evidence_id} sha256={evidence.sha256} -> {output}"
         )
     )
+
+
+@app.command()
+def protect(
+    artifact: Path,
+    output: Path,
+    evidence_type: str = typer.Option(..., "--type"),
+    uri: str | None = typer.Option(None, "--uri"),
+    max_bytes: int = typer.Option(DEFAULT_MAX_ARTIFACT_BYTES, "--max-bytes"),
+    delete_source: bool = typer.Option(False, "--delete-source"),
+    receipt: Path | None = typer.Option(None, "--receipt"),
+    force: bool = typer.Option(False, "--force"),
+) -> None:
+    """Encrypt a local evidence artifact with a runtime-provided secret."""
+    try:
+        evidence = protect_evidence(
+            artifact,
+            output,
+            evidence_type=evidence_type,
+            uri=uri,
+            max_bytes=max_bytes,
+            overwrite=force,
+            delete_source=delete_source,
+            receipt_path=receipt,
+        )
+    except (OSError, ValueError) as exc:
+        typer.echo(safe_terminal_text(f"minerva: protect error: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    typer.echo(safe_terminal_text(f"minerva: protected {evidence.evidence_id} -> {output}"))
+
+
+@app.command()
+def restore(
+    protected: Path,
+    output: Path,
+    max_bytes: int = typer.Option(DEFAULT_MAX_PROTECTED_BYTES, "--max-bytes"),
+    force: bool = typer.Option(False, "--force"),
+) -> None:
+    """Authenticate, decrypt and restore a protected evidence artifact."""
+    try:
+        evidence = restore_evidence(protected, output, max_bytes=max_bytes, overwrite=force)
+    except (OSError, ValueError) as exc:
+        typer.echo(safe_terminal_text(f"minerva: restore error: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    typer.echo(safe_terminal_text(f"minerva: restored {evidence.evidence_id} -> {output}"))
 
 
 @app.command()

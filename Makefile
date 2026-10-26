@@ -77,6 +77,9 @@ test-mutation:
 		"olympus.themis.oidc.xǁOidcVerifierǁverify*" \
 		"olympus.minerva.provenance.x__validate_command_template*" \
 		"olympus.minerva.provenance.x__validate_reason_status*" \
+		"olympus.minerva.vault.x_load_evidence_encryption_key*" \
+		"olympus.minerva.vault.x__unpack*" \
+		"olympus.minerva.vault.x_load_protected_evidence*" \
 		"olympus.themis.sandbox.xǁScannerIsolationStatusǁmissing*" \
 		"olympus.themis.sandbox.x_inspect_scanner_isolation*" \
 		"olympus.themis.sandbox.x__trusted_root_file*" \

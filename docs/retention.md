@@ -85,3 +85,10 @@ readable in the `-wal` file.
   directory.
 - Retention is not a substitute for encryption at rest, and neither is a
   substitute for not collecting what the engagement does not need.
+
+Minerva protected evidence adds application-layer authenticated encryption. If
+`--delete-source` is requested, deletion happens only after round-trip
+verification and an optional receipt binds the evidence digest to the encrypted
+package digest. That receipt explicitly does not claim erasure from backups,
+snapshots, copy-on-write layers, SSD remapping or replicas; their lifecycle must
+be governed by the deployment retention policy.

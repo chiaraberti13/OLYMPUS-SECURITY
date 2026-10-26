@@ -26,6 +26,7 @@ from olympus.core.coverage import Coverage, RunStatus, exit_code_for
 from olympus.core.execution import redact_mapping, redact_text, safe_terminal_text
 from olympus.core.exit_codes import ExitCode
 from olympus.core.models import EngagementScope, Evidence
+from olympus.core.secrets import EnvSecretProvider
 from olympus.core.signing import generate_keypair
 from olympus.engagements.manifest import (
     EngagementManifest,
@@ -41,6 +42,14 @@ from olympus.minerva.custody import (
     verify_entries,
 )
 from olympus.minerva.provenance import _validate_command_template, _validate_reason_status
+from olympus.minerva.vault import (
+    EVIDENCE_ENCRYPTION_KEY_ENV,
+    ProtectedEvidenceError,
+    _unpack,
+    load_evidence_encryption_key,
+    load_protected_evidence,
+    protect_evidence,
+)
 from olympus.themis.adapters.nmap import NmapAdapter
 from olympus.themis.adapters.nuclei import NucleiAdapter
 from olympus.themis.api import ApiSettings
@@ -75,6 +84,30 @@ from olympus.themis.sandbox import (
     inspect_scanner_isolation,
 )
 from olympus.themis.scope import SsrfBlockedError, resolve_and_validate
+
+
+def test_protected_evidence_mutation_boundaries(tmp_path: Path) -> None:
+    provider = EnvSecretProvider(environ={EVIDENCE_ENCRYPTION_KEY_ENV: "k" * 32})
+    assert load_evidence_encryption_key(provider=provider) == "k" * 32
+    for invalid in ("", "k" * 31):
+        with pytest.raises(ProtectedEvidenceError):
+            load_evidence_encryption_key(
+                provider=EnvSecretProvider(environ={EVIDENCE_ENCRYPTION_KEY_ENV: invalid})
+            )
+    for payload in (b"", b"OLYMPUS-EVIDENCE\x00\x01", b"OLYMPUS-EVIDENCE\x00\x01\x00\x00\x00\x00"):
+        with pytest.raises(ProtectedEvidenceError):
+            _unpack(payload)
+
+    source = tmp_path / "source"
+    package = tmp_path / "package"
+    source.write_bytes(b"bounded evidence")
+    expected = protect_evidence(source, package, evidence_type="pcap", provider=provider)
+    actual, content = load_protected_evidence(package, provider=provider)
+    assert actual == expected
+    assert content == b"bounded evidence"
+    wrong = EnvSecretProvider(environ={EVIDENCE_ENCRYPTION_KEY_ENV: "x" * 32})
+    with pytest.raises(ProtectedEvidenceError):
+        load_protected_evidence(package, provider=wrong)
 
 
 def test_identity_rotation_requires_bounded_lifetime_and_brief_overlap() -> None:
