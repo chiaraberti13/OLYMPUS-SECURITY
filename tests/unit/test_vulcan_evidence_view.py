@@ -9,9 +9,15 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from olympus.cli import app
+from olympus.core.coverage import RunStatus
 from olympus.core.enums import FindingStatus, Severity, Source
 from olympus.core.models import Evidence, Finding
-from olympus.minerva.custody import CustodyAction, CustodyEntry, append_entry
+from olympus.minerva.custody import (
+    AcquisitionProvenance,
+    CustodyAction,
+    CustodyEntry,
+    append_entry,
+)
 from olympus.vulcan.evidence_view import (
     EVIDENCE_ID_RE,
     build_finding_evidence_view,
@@ -200,7 +206,20 @@ def test_cli_evidence_table_and_json(tmp_path: Path) -> None:
 
     # Build a real, verified custody ledger for the evidence.
     ledger = tmp_path / "custody.json"
-    append_entry(ledger, evidence, CustodyAction.COLLECTED, "analyst")
+    append_entry(
+        ledger,
+        evidence,
+        CustodyAction.COLLECTED,
+        "analyst",
+        acquisition=AcquisitionProvenance(
+            tool="nmap",
+            tool_version="7.95",
+            policy_sha256="b" * 64,
+            scope_sha256="c" * 64,
+            command_template=("nmap", "{target}"),
+            coverage_status=RunStatus.CLEAN,
+        ),
+    )
 
     table = runner.invoke(
         app,

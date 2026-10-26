@@ -76,6 +76,10 @@ $ olympus athena run plan.json --storage ./.athena
 | **Themis** | `olympus themis` | Orchestrazione scanner con scope, stato capacità, job SQLite persistenti, cancellazione, audit e stati di esecuzione espliciti. |
 | **TUI unificata** | `olympus ui` | Interfaccia da tastiera su tutti i comandi reali Olympus, con output in streaming e cancellazione del processo. |
 
+La custodia Minerva 3.x vincola ogni nuova acquisizione al digest dell'evidenza,
+alla versione del tool, ai digest di policy/scope, al template del comando
+redatto e allo stato di copertura; vedi la [guida alla custodia](docs/minerva.md).
+
 > [!TIP]
 > Esegui qualsiasi modulo con `--help` per vederne i comandi, oppure
 > `olympus <modulo> <comando> --help` per le opzioni di un comando.

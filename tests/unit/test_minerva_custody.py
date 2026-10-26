@@ -4,11 +4,16 @@ import json
 import stat
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
+from pydantic import ValidationError
 from typer.testing import CliRunner
 
 from olympus.cli import app
+from olympus.core.coverage import RunStatus
 from olympus.core.execution import CancellationRequested, CancellationToken
 from olympus.core.models import Evidence
 from olympus.minerva.application import (
@@ -23,21 +28,51 @@ from olympus.minerva.custody import (
     ED25519_SIGNED_CUSTODY_VERSION,
     GENESIS_HASH,
     SIGNED_CUSTODY_VERSION,
+    AcquisitionProvenance,
     CustodyAction,
+    CustodyEntry,
     CustodyIntegrityError,
     CustodyKeyError,
     LegacyCustodyEntry,
     _entry_hash,
     _legacy_entry_hash,
-    append_entry,
     inspect_ledger,
     load_custody_ed25519_private_key,
     load_custody_ed25519_public_key,
     load_custody_key,
     load_ledger,
 )
+from olympus.minerva.custody import (
+    append_entry as _append_entry,
+)
 
 runner = CliRunner()
+
+
+def _provenance(status: RunStatus = RunStatus.CLEAN) -> AcquisitionProvenance:
+    return AcquisitionProvenance(
+        tool="nmap",
+        tool_version="7.95",
+        policy_sha256="b" * 64,
+        scope_sha256="c" * 64,
+        command_template=("nmap", "-sV", "{target}"),
+        coverage_status=status,
+        partial_reason="one authorized port timed out" if status is RunStatus.PARTIAL else None,
+    )
+
+
+def append_entry(
+    ledger: Path,
+    evidence: Evidence,
+    action: CustodyAction,
+    actor: str,
+    occurred_at: datetime | None = None,
+    **kwargs: Any,
+):
+    """Keep legacy test setup concise while every new collection records provenance."""
+    if action is CustodyAction.COLLECTED:
+        kwargs.setdefault("acquisition", _provenance())
+    return _append_entry(ledger, evidence, action, actor, occurred_at, **kwargs)
 
 
 def _evidence() -> Evidence:
@@ -66,8 +101,106 @@ def test_append_and_load_verified_chain(tmp_path: Path) -> None:
     assert first.evidence_sha256 == _evidence().sha256
     assert load_ledger(ledger) == [first, second]
     payload = json.loads(ledger.read_text(encoding="utf-8"))
-    assert payload["schema_version"] == "2.0.0"
+    assert payload["schema_version"] == "3.0.0"
     assert stat.S_IMODE(ledger.stat().st_mode) == 0o600
+
+
+def test_first_collection_requires_provenance_without_creating_ledger(tmp_path: Path) -> None:
+    ledger = tmp_path / "custody.json"
+    with pytest.raises(CustodyIntegrityError, match="requires acquisition provenance"):
+        _append_entry(ledger, _evidence(), CustodyAction.COLLECTED, "responder")
+    assert not ledger.exists()
+
+
+def test_acquisition_provenance_is_hash_anchored(tmp_path: Path) -> None:
+    ledger = tmp_path / "custody.json"
+    append_entry(ledger, _evidence(), CustodyAction.COLLECTED, "responder")
+    payload = json.loads(ledger.read_text(encoding="utf-8"))
+    payload["entries"][0]["acquisition"]["tool_version"] = "attacker-rewrite"
+    ledger.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(CustodyIntegrityError, match="hash mismatch"):
+        inspect_ledger(ledger)
+
+
+@given(
+    status=st.sampled_from(list(RunStatus)),
+    reason=st.one_of(st.none(), st.sampled_from(["timeout", "operator cancelled"])),
+)
+def test_acquisition_reason_matches_coverage_status(status: RunStatus, reason: str | None) -> None:
+    incomplete = status in {RunStatus.PARTIAL, RunStatus.FAILED, RunStatus.CANCELLED}
+    if incomplete == (reason is not None):
+        assert (
+            AcquisitionProvenance(
+                tool="nmap",
+                tool_version="7.95",
+                policy_sha256="b" * 64,
+                scope_sha256="c" * 64,
+                command_template=("nmap", "{target}"),
+                coverage_status=status,
+                partial_reason=reason,
+            ).coverage_status
+            is status
+        )
+        return
+    with pytest.raises(ValidationError):
+        AcquisitionProvenance(
+            tool="nmap",
+            tool_version="7.95",
+            policy_sha256="b" * 64,
+            scope_sha256="c" * 64,
+            command_template=("nmap", "{target}"),
+            coverage_status=status,
+            partial_reason=reason,
+        )
+
+
+def test_acquisition_rejects_secret_canary() -> None:
+    with pytest.raises(ValidationError, match="placeholders"):
+        AcquisitionProvenance(
+            tool="scanner",
+            tool_version="1.0",
+            policy_sha256="b" * 64,
+            scope_sha256="c" * 64,
+            command_template=("scanner", "--token=super-secret"),
+            coverage_status=RunStatus.CLEAN,
+        )
+
+
+def test_unattributed_2x_ledger_remains_verifiable(tmp_path: Path) -> None:
+    occurred_at = datetime(2026, 8, 14, 9, tzinfo=UTC)
+    digest = _evidence().sha256
+    entry = CustodyEntry(
+        sequence=1,
+        evidence_id=_evidence().evidence_id,
+        evidence_sha256=digest,
+        action=CustodyAction.COLLECTED,
+        actor="legacy-operator",
+        occurred_at=occurred_at,
+        previous_hash=GENESIS_HASH,
+        entry_hash=_entry_hash(
+            1,
+            _evidence().evidence_id,
+            digest,
+            CustodyAction.COLLECTED,
+            "legacy-operator",
+            occurred_at,
+            GENESIS_HASH,
+        ),
+    )
+    ledger = tmp_path / "custody-2.0.json"
+    ledger.write_text(
+        json.dumps(
+            {
+                "schema_name": "olympus.custody",
+                "schema_version": "2.0.0",
+                "entries": [entry.model_dump(mode="json", exclude_none=True)],
+            }
+        ),
+        encoding="utf-8",
+    )
+    inspection = inspect_ledger(ledger)
+    assert inspection.schema_version == "2.0.0"
+    assert inspection.entries == (entry,)
 
 
 def test_tampering_is_detected_before_append(tmp_path: Path) -> None:
@@ -103,6 +236,8 @@ def test_record_and_verify_commands(tmp_path: Path) -> None:
     evidence_path = tmp_path / "evidence.json"
     evidence = Evidence(evidence_type="memory-image", uri="file://case/mem.raw", sha256="a" * 64)
     evidence_path.write_text(evidence.model_dump_json(), encoding="utf-8")
+    provenance_path = tmp_path / "provenance.json"
+    provenance_path.write_text(_provenance().model_dump_json(), encoding="utf-8")
 
     first = runner.invoke(
         app,
@@ -115,6 +250,8 @@ def test_record_and_verify_commands(tmp_path: Path) -> None:
             "responder",
             "--action",
             "collected",
+            "--provenance",
+            str(provenance_path),
         ],
     )
     second = runner.invoke(
@@ -594,6 +731,8 @@ def test_ed25519_cli_round_trip(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     evidence = tmp_path / "evidence.json"
     evidence.write_text(_evidence().model_dump_json(), encoding="utf-8")
     ledger = tmp_path / "custody.json"
+    provenance = tmp_path / "provenance.json"
+    provenance.write_text(_provenance().model_dump_json(), encoding="utf-8")
 
     monkeypatch.setenv(CUSTODY_ED25519_PRIVATE_KEY_ENV, private_hex)
     record = runner.invoke(
@@ -607,6 +746,8 @@ def test_ed25519_cli_round_trip(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
             "alice",
             "--action",
             "collected",
+            "--provenance",
+            str(provenance),
         ],
     )
     assert record.exit_code == 0, record.output

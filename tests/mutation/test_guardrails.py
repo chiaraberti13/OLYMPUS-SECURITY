@@ -25,7 +25,7 @@ from olympus.athena.scope import TargetOutOfScopeError, ensure_target_allowed
 from olympus.core.coverage import Coverage, RunStatus, exit_code_for
 from olympus.core.execution import redact_mapping, redact_text, safe_terminal_text
 from olympus.core.exit_codes import ExitCode
-from olympus.core.models import EngagementScope
+from olympus.core.models import EngagementScope, Evidence
 from olympus.core.signing import generate_keypair
 from olympus.engagements.manifest import (
     EngagementManifest,
@@ -33,6 +33,14 @@ from olympus.engagements.manifest import (
     ManifestVerificationError,
     SignedEngagementManifest,
 )
+from olympus.minerva.custody import (
+    AcquisitionProvenance,
+    CustodyAction,
+    CustodyIntegrityError,
+    append_entry,
+    verify_entries,
+)
+from olympus.minerva.provenance import _validate_command_template, _validate_reason_status
 from olympus.themis.adapters.nmap import NmapAdapter
 from olympus.themis.adapters.nuclei import NucleiAdapter
 from olympus.themis.api import ApiSettings
@@ -95,6 +103,120 @@ def test_identity_rotation_requires_bounded_lifetime_and_brief_overlap() -> None
     assert identity is not None
     assert identity.not_after is not None
     assert identity.previous_valid_until is not None
+
+
+@pytest.mark.parametrize(
+    "template",
+    [
+        ("",),
+        ("x" * 501,),
+        ("scanner\rarg",),
+        ("scanner\narg",),
+        ("scanner\x00arg",),
+    ],
+)
+def test_custody_provenance_rejects_malformed_command_arguments(
+    template: tuple[str, ...],
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match=r"^command template arguments must be non-empty bounded single-line text$",
+    ):
+        _validate_command_template(template)
+
+
+def test_custody_provenance_preserves_command_argument_boundaries() -> None:
+    assert _validate_command_template(("X", "x" * 500)) == ("X", "x" * 500)
+
+
+@pytest.mark.parametrize(
+    "template",
+    [
+        ("https://scanner.test/?token=synthetic-value",),
+        ("scanner", "positional", "--token=synthetic-value"),
+        ("scanner", "--token", "synthetic-value", "tail"),
+        ("scanner", "--token", "synthetic-value"),
+        ("scanner", "--token=synthetic=value", "safe"),
+        ("scanner", "--token={value"),
+        ("scanner", "--token=value}"),
+    ],
+)
+def test_custody_provenance_rejects_secret_bearing_templates(
+    template: tuple[str, ...],
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match=r"^command template must contain placeholders, not secret values$",
+    ):
+        _validate_command_template(template)
+
+
+def test_custody_provenance_accepts_placeholders_and_non_secret_flags() -> None:
+    assert _validate_command_template(
+        ("scanner", "--token={token}", "--output=result.json", "{target}")
+    ) == ("scanner", "--token={token}", "--output=result.json", "{target}")
+    assert _validate_command_template(("scanner", "--token", "{token}")) == (
+        "scanner",
+        "--token",
+        "{token}",
+    )
+    assert _validate_command_template(("scanner", "--token")) == ("scanner", "--token")
+
+
+@pytest.mark.parametrize(
+    "status",
+    [RunStatus.PARTIAL, RunStatus.FAILED, RunStatus.CANCELLED],
+)
+def test_custody_provenance_requires_reason_for_incomplete_status(status: RunStatus) -> None:
+    with pytest.raises(
+        ValueError,
+        match=r"^partial_reason is required for incomplete coverage$",
+    ):
+        _validate_reason_status(status, None)
+    _validate_reason_status(status, "synthetic timeout")
+
+
+@pytest.mark.parametrize("status", [RunStatus.CLEAN, RunStatus.FINDINGS])
+def test_custody_provenance_rejects_reason_for_complete_status(status: RunStatus) -> None:
+    _validate_reason_status(status, None)
+    with pytest.raises(
+        ValueError,
+        match=r"^partial_reason is only valid for incomplete coverage$",
+    ):
+        _validate_reason_status(status, "unexpected reason")
+
+
+def test_custody_provenance_is_complete_redacted_and_hash_anchored(tmp_path: Path) -> None:
+    with pytest.raises(ValueError):
+        AcquisitionProvenance(
+            tool="scanner",
+            tool_version="1",
+            policy_sha256="a" * 64,
+            scope_sha256="b" * 64,
+            command_template=("scanner", "--token=raw-secret"),
+            coverage_status=RunStatus.PARTIAL,
+        )
+    provenance = AcquisitionProvenance(
+        tool="scanner",
+        tool_version="1",
+        policy_sha256="a" * 64,
+        scope_sha256="b" * 64,
+        command_template=("scanner", "--token={token}", "{target}"),
+        coverage_status=RunStatus.PARTIAL,
+        partial_reason="one authorized target timed out",
+    )
+    entry = append_entry(
+        tmp_path / "custody.json",
+        Evidence(evidence_type="scan", uri="file://result.json", sha256="c" * 64),
+        CustodyAction.COLLECTED,
+        "operator",
+        acquisition=provenance,
+    )
+    altered = entry.model_copy(
+        update={"acquisition": provenance.model_copy(update={"tool_version": "2"})}
+    )
+    with pytest.raises(CustodyIntegrityError, match="hash mismatch"):
+        verify_entries([altered], require_acquisition=True)
 
 
 def test_oidc_verifier_binds_signature_issuer_audience_subject_and_lifetime(

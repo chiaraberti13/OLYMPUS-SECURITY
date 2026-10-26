@@ -14,9 +14,10 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from olympus.cli import app
+from olympus.core.coverage import RunStatus
 from olympus.core.models import Evidence
 from olympus.core.signing import generate_keypair, verify
-from olympus.minerva.custody import CustodyAction, append_entry
+from olympus.minerva.custody import AcquisitionProvenance, CustodyAction, append_entry
 
 runner = CliRunner()
 
@@ -24,7 +25,20 @@ runner = CliRunner()
 def _ledger(tmp_path: Path) -> Path:
     ledger = tmp_path / "custody.json"
     evidence = Evidence(evidence_type="disk-image", uri="file://case/d.raw", sha256="b" * 64)
-    append_entry(ledger, evidence, CustodyAction.COLLECTED, "responder")
+    append_entry(
+        ledger,
+        evidence,
+        CustodyAction.COLLECTED,
+        "responder",
+        acquisition=AcquisitionProvenance(
+            tool="nmap",
+            tool_version="7.95",
+            policy_sha256="b" * 64,
+            scope_sha256="c" * 64,
+            command_template=("nmap", "{target}"),
+            coverage_status=RunStatus.CLEAN,
+        ),
+    )
     append_entry(ledger, evidence, CustodyAction.ANALYZED, "forensics")
     return ledger
 

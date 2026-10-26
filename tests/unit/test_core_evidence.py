@@ -102,6 +102,21 @@ def test_captured_evidence_round_trips_into_the_custody_ledger(tmp_path: Path) -
     artifact.write_bytes(b"disk image contents")
     evidence_file = tmp_path / "evidence.json"
     ledger = tmp_path / "custody.json"
+    provenance = tmp_path / "provenance.json"
+    provenance.write_text(
+        json.dumps(
+            {
+                "tool": "olympus-minerva-capture",
+                "tool_version": "0.2.0",
+                "policy_sha256": "a" * 64,
+                "scope_sha256": "b" * 64,
+                "command_template": ["olympus", "minerva", "capture", "{artifact}"],
+                "coverage_status": "clean",
+                "partial_reason": None,
+            }
+        ),
+        encoding="utf-8",
+    )
 
     captured = runner.invoke(
         app, ["minerva", "capture", str(artifact), str(evidence_file), "--type", "disk-image"]
@@ -117,6 +132,8 @@ def test_captured_evidence_round_trips_into_the_custody_ledger(tmp_path: Path) -
             "responder",
             "--action",
             "collected",
+            "--provenance",
+            str(provenance),
         ],
     )
 

@@ -16,6 +16,7 @@ from olympus.core.output import OutputFormat, render
 from olympus.core.paths import output_path
 from olympus.minerva.application import (
     DEFAULT_MAX_EVIDENCE_BYTES,
+    DEFAULT_MAX_PROVENANCE_BYTES,
     MinervaApplicationService,
     MinervaLedgerRequest,
     MinervaRecordRequest,
@@ -125,6 +126,14 @@ def record(
     max_evidence_bytes: int = typer.Option(DEFAULT_MAX_EVIDENCE_BYTES, "--max-evidence-bytes"),
     max_ledger_bytes: int = typer.Option(DEFAULT_MAX_LEDGER_BYTES, "--max-ledger-bytes"),
     max_entries: int = typer.Option(DEFAULT_MAX_ENTRIES, "--max-entries"),
+    provenance: Path | None = typer.Option(
+        None,
+        "--provenance",
+        help="Strict acquisition JSON; required for the first/collected custody event.",
+    ),
+    max_provenance_bytes: int = typer.Option(
+        DEFAULT_MAX_PROVENANCE_BYTES, "--max-provenance-bytes"
+    ),
     deadline: float = typer.Option(60.0, "--deadline"),
 ) -> None:
     """Append an evidence-digest-anchored event after verifying the complete chain.
@@ -147,6 +156,8 @@ def record(
                 deadline_seconds=deadline,
                 key=load_custody_key(),
                 ed25519_private_key=load_custody_ed25519_private_key(),
+                provenance_path=provenance,
+                max_provenance_bytes=max_provenance_bytes,
             )
         )
     except _APPLICATION_ERRORS as exc:
@@ -249,10 +260,23 @@ def timeline(
             "actor": entry.actor,
             "evidence_id": entry.evidence_id,
             "evidence_sha256": getattr(entry, "evidence_sha256", None),
+            "acquisition": (
+                entry.acquisition.model_dump(mode="json")
+                if hasattr(entry, "acquisition") and entry.acquisition is not None
+                else None
+            ),
         }
         for entry in outcome.entries
     ]
-    columns = ["seq", "occurred_at", "action", "actor", "evidence_id", "evidence_sha256"]
+    columns = [
+        "seq",
+        "occurred_at",
+        "action",
+        "actor",
+        "evidence_id",
+        "evidence_sha256",
+        "acquisition",
+    ]
     typer.echo(render(records, columns, output_format, title=f"Custody timeline ({len(records)})"))
 
     if sign_key is not None and export is None:

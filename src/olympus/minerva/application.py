@@ -22,6 +22,7 @@ from olympus.core.models import Evidence, Incident
 from olympus.minerva.custody import (
     DEFAULT_MAX_ENTRIES,
     DEFAULT_MAX_LEDGER_BYTES,
+    AcquisitionProvenance,
     CustodyAction,
     CustodyEntry,
     CustodyRecord,
@@ -37,6 +38,7 @@ from olympus.minerva.triage import (
 )
 
 DEFAULT_MAX_EVIDENCE_BYTES = 1_000_000
+DEFAULT_MAX_PROVENANCE_BYTES = 1_000_000
 
 
 @dataclass(frozen=True)
@@ -62,6 +64,8 @@ class MinervaRecordRequest:
     deadline_seconds: float = 60.0
     key: bytes | None = None
     ed25519_private_key: Ed25519PrivateKey | None = None
+    provenance_path: Path | None = None
+    max_provenance_bytes: int = DEFAULT_MAX_PROVENANCE_BYTES
 
 
 @dataclass(frozen=True)
@@ -113,6 +117,19 @@ class MinervaApplicationService:
             max_bytes=request.max_evidence_bytes,
         )
         progress()
+        acquisition = (
+            load_acquisition_provenance(
+                request.provenance_path, max_bytes=request.max_provenance_bytes
+            )
+            if request.provenance_path is not None
+            else None
+        )
+        if request.provenance_path is not None:
+            _ensure_distinct(
+                request.provenance_path,
+                (request.evidence_path, request.ledger_path),
+                "provenance input and evidence/ledger",
+            )
         return append_entry(
             request.ledger_path,
             evidence,
@@ -123,6 +140,7 @@ class MinervaApplicationService:
             progress_check=progress,
             key=request.key,
             ed25519_private_key=request.ed25519_private_key,
+            acquisition=acquisition,
         )
 
     def inspect(self, request: MinervaLedgerRequest) -> MinervaLedgerOutcome:
@@ -172,6 +190,23 @@ def load_evidence(path: Path, *, max_bytes: int = DEFAULT_MAX_EVIDENCE_BYTES) ->
     except ValidationError as exc:
         details = exc.errors(include_input=False, include_url=False)
         raise ValueError(f"invalid evidence contract: {details}") from exc
+
+
+def load_acquisition_provenance(
+    path: Path, *, max_bytes: int = DEFAULT_MAX_PROVENANCE_BYTES
+) -> AcquisitionProvenance:
+    """Load strict, bounded acquisition context without following symlinks."""
+    try:
+        payload = json.loads(
+            read_regular_text(path, max_bytes=max_bytes, label="acquisition provenance")
+        )
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"invalid acquisition provenance JSON: {exc.msg}") from exc
+    try:
+        return AcquisitionProvenance.model_validate(payload)
+    except ValidationError as exc:
+        details = exc.errors(include_input=False, include_url=False)
+        raise ValueError(f"invalid acquisition provenance: {details}") from exc
 
 
 def _ensure_distinct(source: Path, excluded: tuple[Path, ...], label: str) -> None:

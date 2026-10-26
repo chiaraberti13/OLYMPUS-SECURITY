@@ -66,7 +66,7 @@ Each row is a threat and the implemented control that addresses it.
 | **A poisoned or substituted dependency** | A CycloneDX SBOM of the runtime closure, a `pip --require-hashes` lockfile from real PyPI hashes, and a blocking pip-audit gate on that closure. | `olympus.core.sbom`, `olympus.core.lockfile`, `.github/workflows/ci.yml` |
 | **A drifting or mutable base image** | Mandatory container images pinned by digest; Go scanners pinned to versions; a test guards against regression. | `docker/Dockerfile.scanners`, `docker-compose.yml` |
 | **The catalogue overstating what it can run** | The maturity ledger is re-derived from the repository on every test run; a claim without an adapter, evidence, or a parser test fails the build. | `olympus.integrations.maturity` |
-| **Tampering with the custody ledger (truncation / full rewrite)** | The chain of custody can be HMAC-SHA256 signed with an operator key; the signature commits to the entry count and the chain head, so dropping entries or rewriting the ledger without the key is rejected on verify. The bare hash chain already catches reorder, deletion and fork. | `olympus.minerva.custody` |
+| **Tampering with custody or acquisition provenance** | Custody 3.x includes evidence digest, tool/version, policy and scope digests, redacted command template, coverage status and incomplete-result reason in the entry hash. HMAC or Ed25519 signatures commit to the count and chain head, so edits, truncation and full rewrite are rejected; Ed25519 supports third-party verification with a pinned public key. | `olympus.minerva.custody` |
 | **Disputed provenance of an exported artifact** | Any artifact (ledger, evidence, SBOM, report) can be Ed25519 signed; a third party verifies with the operator's public key alone, and verification is pinned to that trusted key so a forgery re-signed under a different key is rejected. | `olympus.core.signing` |
 
 ## SEC-A runtime migration review (2026-10-05)
@@ -126,14 +126,11 @@ Honesty is a control here too. These are open, and tracked in
 
 - **Egress allowlist on scanner processes.** Scanner subprocesses are sandboxed
   for host isolation but do not yet run behind an egress allowlist.
-- **Trusted timestamp for the ledger.** Minerva's chain-of-custody can be
-  **HMAC-SHA256 signed** (`OLYMPUS_CUSTODY_HMAC_KEY`, detects truncation and full
-  rewrite), and any artifact — a ledger, evidence, an SBOM, a report — can now be
-  **Ed25519 signed** for independent third-party verification via
-  `olympus core sign`/`verify` with a pinned public key (`olympus.core.signing`).
-  Still open: a trusted timestamp anchor (RFC 3161) so the *time* of each event
-  is independently attestable, and wiring the Ed25519 signature into the ledger
-  append path itself (today it is a detached signature over the ledger file).
+- **Trusted timestamp for the ledger.** Minerva's chain-of-custody is signed
+  directly in its append path with **Ed25519** for third-party verification,
+  and custody 3.x binds acquisition provenance to the chain. Still open: a
+  trusted timestamp anchor (RFC 3161) so the *time* of each event is
+  independently attestable.
 
 ## Deployment hardening
 

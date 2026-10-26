@@ -32,6 +32,10 @@ MUTATED_FUNCTIONS = {
     "src/olympus/themis/jobs.py": ["xǁThemisJobStoreǁclaim_next"],
     "src/olympus/themis/identity.py": ["x__validate_lifetime", "x_rotate_identity"],
     "src/olympus/themis/oidc.py": ["xǁOidcVerifierǁverify"],
+    "src/olympus/minerva/provenance.py": [
+        "x__validate_command_template",
+        "x__validate_reason_status",
+    ],
     "src/olympus/themis/sandbox.py": [
         "xǁScannerIsolationStatusǁmissing",
         "x_inspect_scanner_isolation",

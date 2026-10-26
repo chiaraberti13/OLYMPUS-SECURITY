@@ -27,6 +27,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 from olympus.core.fileio import atomic_write_text, read_regular_text
 from olympus.core.models import Evidence
 from olympus.core.secrets import SecretProvider, resolve_secret
+from olympus.minerva.provenance import AcquisitionProvenance as AcquisitionProvenance
 
 try:  # pragma: no cover - exercised on POSIX; fallback is for Windows
     import fcntl as _fcntl
@@ -35,19 +36,22 @@ except ImportError:  # pragma: no cover
 
 GENESIS_HASH = "0" * 64
 CUSTODY_SCHEMA_NAME = "olympus.custody"
-CUSTODY_SCHEMA_VERSION = "2.0.0"
-SIGNED_CUSTODY_VERSION = "2.1.0"
-ED25519_SIGNED_CUSTODY_VERSION = "2.2.0"
+CUSTODY_SCHEMA_VERSION = "3.0.0"
+SIGNED_CUSTODY_VERSION = "3.1.0"
+ED25519_SIGNED_CUSTODY_VERSION = "3.2.0"
+UNATTRIBUTED_CUSTODY_VERSION = "2.0.0"
+UNATTRIBUTED_SIGNED_CUSTODY_VERSION = "2.1.0"
+UNATTRIBUTED_ED25519_SIGNED_CUSTODY_VERSION = "2.2.0"
 LEGACY_CUSTODY_VERSION = "1.0.0"
 DEFAULT_MAX_LEDGER_BYTES = 50_000_000
 DEFAULT_MAX_ENTRIES = 100_000
 _PROCESS_LOCK = threading.RLock()
 
-#: HMAC algorithm used to sign a 2.1.0 ledger, and the env var carrying the key.
+#: HMAC algorithm used to sign a 3.1.0 ledger, and the env var carrying the key.
 CUSTODY_HMAC_ALGORITHM: Literal["HMAC-SHA256"] = "HMAC-SHA256"
 CUSTODY_KEY_ENV = "OLYMPUS_CUSTODY_HMAC_KEY"
 
-#: Ed25519 signs a 2.2.0 ledger with an *asymmetric* key, so a third party can
+#: Ed25519 signs a 3.2.0 ledger with an *asymmetric* key, so a third party can
 #: verify the chain with only the public key — exactly what a court-grade chain
 #: of custody needs (``SEC-E``). The private key is a secret (resolved through the
 #: ``SecretProvider`` seam); the public key is not and is read plainly.
@@ -92,9 +96,10 @@ class _EntryBase(BaseModel):
 
 
 class CustodyEntry(_EntryBase):
-    """One immutable v2 custody event anchored to the evidence digest."""
+    """One immutable custody event anchored to the evidence digest."""
 
     evidence_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    acquisition: AcquisitionProvenance | None = None
 
     @field_validator("evidence_sha256")
     @classmethod
@@ -115,7 +120,7 @@ class _CustodyLedgerV2(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     schema_name: Literal["olympus.custody"]
-    schema_version: Literal["2.0.0"]
+    schema_version: Literal["2.0.0", "3.0.0"]
     entries: list[CustodyEntry]
 
 
@@ -150,7 +155,7 @@ class _CustodyLedgerV2Signed(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     schema_name: Literal["olympus.custody"]
-    schema_version: Literal["2.1.0"]
+    schema_version: Literal["2.1.0", "3.1.0"]
     entries: list[CustodyEntry]
     signature: CustodySignature
 
@@ -179,7 +184,7 @@ class _CustodyLedgerV2Ed25519Signed(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     schema_name: Literal["olympus.custody"]
-    schema_version: Literal["2.2.0"]
+    schema_version: Literal["2.2.0", "3.2.0"]
     entries: list[CustodyEntry]
     signature: CustodyEd25519Signature
 
@@ -211,8 +216,9 @@ def _entry_hash(
     actor: str,
     occurred_at: datetime,
     previous_hash: str,
+    acquisition: AcquisitionProvenance | None = None,
 ) -> str:
-    payload = {
+    payload: dict[str, Any] = {
         "action": action.value,
         "actor": actor,
         "evidence_id": evidence_id,
@@ -221,6 +227,8 @@ def _entry_hash(
         "previous_hash": previous_hash,
         "sequence": sequence,
     }
+    if acquisition is not None:
+        payload["acquisition"] = acquisition.model_dump(mode="json")
     canonical = json.dumps(payload, separators=(",", ":"), sort_keys=True)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
@@ -250,33 +258,42 @@ def load_custody_key(env: dict[str, str] | None = None) -> bytes | None:
     return raw.encode("utf-8") if raw else None
 
 
-def _signature_payload(entry_count: int, head_hash: str) -> bytes:
+def _signature_payload(entry_count: int, head_hash: str, schema_version: str) -> bytes:
     """Canonical bytes the HMAC is computed over."""
     payload = {
         "algorithm": CUSTODY_HMAC_ALGORITHM,
         "entry_count": entry_count,
         "head_hash": head_hash,
         "schema_name": CUSTODY_SCHEMA_NAME,
-        "schema_version": SIGNED_CUSTODY_VERSION,
+        "schema_version": schema_version,
     }
     return json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
 
 
-def _compute_signature(key: bytes, entry_count: int, head_hash: str) -> str:
-    return hmac.new(key, _signature_payload(entry_count, head_hash), hashlib.sha256).hexdigest()
+def _compute_signature(key: bytes, entry_count: int, head_hash: str, schema_version: str) -> str:
+    return hmac.new(
+        key, _signature_payload(entry_count, head_hash, schema_version), hashlib.sha256
+    ).hexdigest()
 
 
-def _sign_entries(key: bytes, entries: list[CustodyEntry]) -> CustodySignature:
+def _sign_entries(
+    key: bytes, entries: list[CustodyEntry], schema_version: str = SIGNED_CUSTODY_VERSION
+) -> CustodySignature:
     head_hash = entries[-1].entry_hash
     return CustodySignature(
         algorithm=CUSTODY_HMAC_ALGORITHM,
         entry_count=len(entries),
         head_hash=head_hash,
-        value=_compute_signature(key, len(entries), head_hash),
+        value=_compute_signature(key, len(entries), head_hash, schema_version),
     )
 
 
-def verify_signature(key: bytes, entries: list[CustodyEntry], signature: CustodySignature) -> None:
+def verify_signature(
+    key: bytes,
+    entries: list[CustodyEntry],
+    signature: CustodySignature,
+    schema_version: str = SIGNED_CUSTODY_VERSION,
+) -> None:
     """Raise :class:`CustodyIntegrityError` if the HMAC or its commitments fail.
 
     The chain must already be verified (:func:`verify_entries`) so ``entries`` is
@@ -290,30 +307,34 @@ def verify_signature(key: bytes, entries: list[CustodyEntry], signature: Custody
         )
     if signature.head_hash != entries[-1].entry_hash:
         raise CustodyIntegrityError("signature head_hash does not match the ledger head")
-    expected = _compute_signature(key, len(entries), entries[-1].entry_hash)
+    expected = _compute_signature(key, len(entries), entries[-1].entry_hash, schema_version)
     if not hmac.compare_digest(expected, signature.value):
         raise CustodyIntegrityError(
             "custody signature mismatch: wrong key or the ledger was rewritten"
         )
 
 
-def _ed25519_signature_payload(entry_count: int, head_hash: str) -> bytes:
-    """Canonical bytes the Ed25519 signature is computed over (2.2.0 ledger)."""
+def _ed25519_signature_payload(entry_count: int, head_hash: str, schema_version: str) -> bytes:
+    """Canonical bytes the Ed25519 signature is computed over."""
     payload = {
         "algorithm": CUSTODY_ED25519_ALGORITHM,
         "entry_count": entry_count,
         "head_hash": head_hash,
         "schema_name": CUSTODY_SCHEMA_NAME,
-        "schema_version": ED25519_SIGNED_CUSTODY_VERSION,
+        "schema_version": schema_version,
     }
     return json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
 
 
 def _sign_entries_ed25519(
-    private_key: Ed25519PrivateKey, entries: list[CustodyEntry]
+    private_key: Ed25519PrivateKey,
+    entries: list[CustodyEntry],
+    schema_version: str = ED25519_SIGNED_CUSTODY_VERSION,
 ) -> CustodyEd25519Signature:
     head_hash = entries[-1].entry_hash
-    signature = private_key.sign(_ed25519_signature_payload(len(entries), head_hash))
+    signature = private_key.sign(
+        _ed25519_signature_payload(len(entries), head_hash, schema_version)
+    )
     public_key = private_key.public_key().public_bytes_raw()
     return CustodyEd25519Signature(
         algorithm=CUSTODY_ED25519_ALGORITHM,
@@ -328,6 +349,7 @@ def verify_ed25519_signature(
     public_key: Ed25519PublicKey,
     entries: list[CustodyEntry],
     signature: CustodyEd25519Signature,
+    schema_version: str = ED25519_SIGNED_CUSTODY_VERSION,
 ) -> None:
     """Raise :class:`CustodyIntegrityError` if the Ed25519 signature fails.
 
@@ -352,7 +374,7 @@ def verify_ed25519_signature(
     try:
         public_key.verify(
             bytes.fromhex(signature.value),
-            _ed25519_signature_payload(len(entries), entries[-1].entry_hash),
+            _ed25519_signature_payload(len(entries), entries[-1].entry_hash, schema_version),
         )
     except InvalidSignature as exc:
         raise CustodyIntegrityError(
@@ -407,6 +429,8 @@ def verify_entries(
     *,
     max_entries: int = DEFAULT_MAX_ENTRIES,
     progress_check: Callable[[], None] | None = None,
+    require_acquisition: bool = False,
+    allow_acquisition: bool = True,
 ) -> None:
     """Validate ordering, timestamps, hashes, digests and per-evidence state."""
     _validate_entry_limit(max_entries)
@@ -429,6 +453,7 @@ def verify_entries(
             entry.actor,
             entry.occurred_at,
             entry.previous_hash,
+            entry.acquisition,
         )
         if entry.sequence != expected_sequence:
             raise CustodyIntegrityError("custody sequence is not contiguous")
@@ -445,6 +470,16 @@ def verify_entries(
         if prior_action is None and entry.action is not CustodyAction.COLLECTED:
             raise CustodyIntegrityError(
                 f"first custody action for {entry.evidence_id} must be collected"
+            )
+        if not allow_acquisition and entry.acquisition is not None:
+            raise CustodyIntegrityError("custody 2.x entries cannot contain acquisition provenance")
+        if prior_action is None and require_acquisition and entry.acquisition is None:
+            raise CustodyIntegrityError(
+                f"first custody entry for {entry.evidence_id} requires acquisition provenance"
+            )
+        if prior_action is not None and entry.acquisition is not None:
+            raise CustodyIntegrityError(
+                f"acquisition provenance is only valid on the first entry for {entry.evidence_id}"
             )
         if prior_action is not None and entry.action is CustodyAction.COLLECTED:
             raise CustodyIntegrityError(
@@ -494,12 +529,12 @@ def inspect_ledger(
     key: bytes | None = None,
     ed25519_public_key: Ed25519PublicKey | None = None,
 ) -> LedgerInspection:
-    """Load and verify a signed 2.2.0/2.1.0, plain 2.0.0, or read-only 1.0.0 ledger.
+    """Load and verify a 3.x ledger or a compatible read-only/legacy ledger.
 
     When the matching key is given and the ledger is signed, the signature is
-    verified — a truncation or a full rewrite is caught here. For a 2.2.0 ledger
+    verified — a truncation or a full rewrite is caught here. For an Ed25519 ledger
     this is the Ed25519 ``ed25519_public_key`` (third-party verification); for a
-    2.1.0 ledger it is the HMAC ``key``. When the ledger is signed but the key is
+    HMAC ledger it is the HMAC ``key``. When the ledger is signed but the key is
     absent, the chain is still verified and the result reports ``signed=True,
     signature_verified=False`` so a caller can refuse to trust it.
     """
@@ -514,16 +549,29 @@ def inspect_ledger(
         if not isinstance(payload, dict) or payload.get("schema_name") != CUSTODY_SCHEMA_NAME:
             raise CustodyIntegrityError("invalid custody schema_name")
         version = payload.get("schema_version")
-        if version == ED25519_SIGNED_CUSTODY_VERSION:
+        if version in {
+            ED25519_SIGNED_CUSTODY_VERSION,
+            UNATTRIBUTED_ED25519_SIGNED_CUSTODY_VERSION,
+        }:
             ed_signed = _CustodyLedgerV2Ed25519Signed.model_validate(payload)
             if not ed_signed.entries:
                 raise CustodyIntegrityError("custody ledger must contain at least one entry")
+            attributed = version == ED25519_SIGNED_CUSTODY_VERSION
             verify_entries(
-                ed_signed.entries, max_entries=max_entries, progress_check=progress_check
+                ed_signed.entries,
+                max_entries=max_entries,
+                progress_check=progress_check,
+                require_acquisition=attributed,
+                allow_acquisition=attributed,
             )
             verified = False
             if ed25519_public_key is not None:
-                verify_ed25519_signature(ed25519_public_key, ed_signed.entries, ed_signed.signature)
+                verify_ed25519_signature(
+                    ed25519_public_key,
+                    ed_signed.entries,
+                    ed_signed.signature,
+                    schema_version=version,
+                )
                 verified = True
             return LedgerInspection(
                 tuple(ed_signed.entries),
@@ -533,14 +581,21 @@ def inspect_ledger(
                 signature_verified=verified,
                 signature_algorithm=CUSTODY_ED25519_ALGORITHM,
             )
-        if version == SIGNED_CUSTODY_VERSION:
+        if version in {SIGNED_CUSTODY_VERSION, UNATTRIBUTED_SIGNED_CUSTODY_VERSION}:
             signed = _CustodyLedgerV2Signed.model_validate(payload)
             if not signed.entries:
                 raise CustodyIntegrityError("custody ledger must contain at least one entry")
-            verify_entries(signed.entries, max_entries=max_entries, progress_check=progress_check)
+            attributed = version == SIGNED_CUSTODY_VERSION
+            verify_entries(
+                signed.entries,
+                max_entries=max_entries,
+                progress_check=progress_check,
+                require_acquisition=attributed,
+                allow_acquisition=attributed,
+            )
             verified = False
             if key is not None:
-                verify_signature(key, signed.entries, signed.signature)
+                verify_signature(key, signed.entries, signed.signature, schema_version=version)
                 verified = True
             return LedgerInspection(
                 tuple(signed.entries),
@@ -550,11 +605,18 @@ def inspect_ledger(
                 signature_verified=verified,
                 signature_algorithm=CUSTODY_HMAC_ALGORITHM,
             )
-        if version == CUSTODY_SCHEMA_VERSION:
+        if version in {CUSTODY_SCHEMA_VERSION, UNATTRIBUTED_CUSTODY_VERSION}:
             document = _CustodyLedgerV2.model_validate(payload)
             if not document.entries:
                 raise CustodyIntegrityError("custody ledger must contain at least one entry")
-            verify_entries(document.entries, max_entries=max_entries, progress_check=progress_check)
+            attributed = version == CUSTODY_SCHEMA_VERSION
+            verify_entries(
+                document.entries,
+                max_entries=max_entries,
+                progress_check=progress_check,
+                require_acquisition=attributed,
+                allow_acquisition=attributed,
+            )
             return LedgerInspection(tuple(document.entries), version, True)
         if version == LEGACY_CUSTODY_VERSION:
             legacy = _CustodyLedgerV1.model_validate(payload)
@@ -566,7 +628,8 @@ def inspect_ledger(
             return LedgerInspection(tuple(legacy.entries), version, False)
         raise CustodyIntegrityError(
             f"unsupported custody version {version!r}; supported: "
-            f"{SIGNED_CUSTODY_VERSION}, {CUSTODY_SCHEMA_VERSION} "
+            f"{ED25519_SIGNED_CUSTODY_VERSION}, {SIGNED_CUSTODY_VERSION}, "
+            f"{CUSTODY_SCHEMA_VERSION}, legacy 2.x "
             f"(and read-only {LEGACY_CUSTODY_VERSION})"
         )
     except json.JSONDecodeError as exc:
@@ -609,12 +672,13 @@ def append_entry(
     progress_check: Callable[[], None] | None = None,
     key: bytes | None = None,
     ed25519_private_key: Ed25519PrivateKey | None = None,
+    acquisition: AcquisitionProvenance | None = None,
 ) -> CustodyEntry:
     """Verify, lock and append one event, then durably replace the ledger.
 
     The ledger is written with the strongest key provided: ``ed25519_private_key``
-    produces a third-party-verifiable 2.2.0 ledger (``SEC-E``); otherwise an HMAC
-    ``key`` produces a 2.1.0 ledger; otherwise an unsigned 2.0.0 ledger. An
+    produces a third-party-verifiable 3.2.0 ledger (``SEC-E``); otherwise an HMAC
+    ``key`` produces a 3.1.0 ledger; otherwise an unsigned 3.0.0 ledger. An
     existing signed ledger is verified against the matching key before the append
     and, if that verification cannot be done (key absent), the append is refused
     (:class:`CustodyKeyError`) — appending would otherwise strip the signature.
@@ -636,7 +700,7 @@ def append_entry(
         if not inspection.evidence_anchored:
             raise CustodyIntegrityError(
                 "legacy custody 1.0.0 is read-only because it does not anchor evidence digests; "
-                "preserve it and start a 2.0.0 ledger"
+                "preserve it and start a 3.0.0 ledger"
             )
         if inspection.signed and not inspection.signature_verified:
             required_env = (
@@ -655,6 +719,22 @@ def append_entry(
         sequence = len(entries) + 1
         previous_hash = entries[-1].entry_hash if entries else GENESIS_HASH
         digest = evidence.sha256.lower()
+        prior_entry = next(
+            (item for item in entries if item.evidence_id == evidence.evidence_id), None
+        )
+        if prior_entry is None and action is not CustodyAction.COLLECTED:
+            raise CustodyIntegrityError(
+                f"first custody action for {evidence.evidence_id} must be collected"
+            )
+        if prior_entry is None and acquisition is None:
+            raise CustodyIntegrityError(
+                f"first custody entry for {evidence.evidence_id} requires acquisition provenance"
+            )
+        if prior_entry is not None and acquisition is not None:
+            raise CustodyIntegrityError(
+                "acquisition provenance is only valid on the first entry for "
+                f"{evidence.evidence_id}"
+            )
         entry = CustodyEntry(
             sequence=sequence,
             evidence_id=evidence.evidence_id,
@@ -663,6 +743,7 @@ def append_entry(
             actor=actor,
             occurred_at=timestamp,
             previous_hash=previous_hash,
+            acquisition=acquisition,
             entry_hash=_entry_hash(
                 sequence,
                 evidence.evidence_id,
@@ -671,30 +752,47 @@ def append_entry(
                 actor,
                 timestamp,
                 previous_hash,
+                acquisition,
             ),
         )
         entries.append(entry)
-        verify_entries(entries, max_entries=max_entries, progress_check=progress_check)
+        attributed = any(item.acquisition is not None for item in entries)
+        verify_entries(
+            entries,
+            max_entries=max_entries,
+            progress_check=progress_check,
+            require_acquisition=attributed,
+            allow_acquisition=attributed,
+        )
         if ed25519_private_key is not None:
-            ed_signature = _sign_entries_ed25519(ed25519_private_key, entries)
+            version = (
+                ED25519_SIGNED_CUSTODY_VERSION
+                if attributed
+                else UNATTRIBUTED_ED25519_SIGNED_CUSTODY_VERSION
+            )
+            ed_signature = _sign_entries_ed25519(
+                ed25519_private_key, entries, schema_version=version
+            )
             payload = {
                 "schema_name": CUSTODY_SCHEMA_NAME,
-                "schema_version": ED25519_SIGNED_CUSTODY_VERSION,
+                "schema_version": version,
                 "entries": [item.model_dump(mode="json") for item in entries],
                 "signature": ed_signature.model_dump(mode="json"),
             }
         elif key is not None:
-            signature = _sign_entries(key, entries)
+            version = SIGNED_CUSTODY_VERSION if attributed else UNATTRIBUTED_SIGNED_CUSTODY_VERSION
+            signature = _sign_entries(key, entries, schema_version=version)
             payload = {
                 "schema_name": CUSTODY_SCHEMA_NAME,
-                "schema_version": SIGNED_CUSTODY_VERSION,
+                "schema_version": version,
                 "entries": [item.model_dump(mode="json") for item in entries],
                 "signature": signature.model_dump(mode="json"),
             }
         else:
+            version = CUSTODY_SCHEMA_VERSION if attributed else UNATTRIBUTED_CUSTODY_VERSION
             payload = {
                 "schema_name": CUSTODY_SCHEMA_NAME,
-                "schema_version": CUSTODY_SCHEMA_VERSION,
+                "schema_version": version,
                 "entries": [item.model_dump(mode="json") for item in entries],
             }
         content = json.dumps(payload, indent=2, sort_keys=True) + "\n"
