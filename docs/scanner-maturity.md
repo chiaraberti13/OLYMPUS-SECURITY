@@ -158,6 +158,28 @@ Il meccanismo non cambia (vedi `ROADMAP.md`, Fase 5 e prerequisiti D1/D2):
 A ogni passo si aggiorna `DECLARED` in `olympus/integrations/maturity.py`. Se si
 salta un passo, il verificatore se ne accorge.
 
+## Adapter opzionali via plugin (entry point, `DEV-B`)
+
+Un'installazione professionale può distribuire adapter aggiuntivi come pacchetti
+separati, esponendoli nel gruppo di entry point `olympus.scanner_adapters`. La
+scoperta è **default-deny** e verificata (`olympus/themis/plugins.py`):
+
+- viene caricato **solo** un plugin il cui nome è nell'allowlist dell'operatore
+  (`OLYMPUS_SCANNER_PLUGIN_ALLOWLIST`, nomi separati da virgola; vuota = nessun
+  plugin). Un plugin presente ma non approvato è **saltato** e riportato, mai
+  caricato implicitamente;
+- un plugin approvato deve risultare una sottoclasse **concreta** di
+  `ScannerAdapter`, altrimenti è **rifiutato** con motivazione (anche se l'import
+  fallisce: un plugin difettoso non interrompe la scoperta degli altri);
+- un plugin **non può mai oscurare** un adapter nativo: `available_adapters()`
+  dà sempre precedenza al registry di prima parte, quindi un plugin approvato col
+  nome `nmap` non sostituisce l'adapter integrato.
+
+In questo modo la superficie di supply-chain resta esplicita: un entry point
+malevolo sul sistema non viene eseguito finché l'operatore non ne approva il nome.
+La **firma crittografica** dei plugin (oltre all'allowlist per nome) è tracciata a
+parte in [`ROADMAP.md`](../ROADMAP.md) sotto `DEV-B`.
+
 ## Riferimenti
 
 - Catalogo e licenze: [`docs/scanner-matrix.md`](scanner-matrix.md)

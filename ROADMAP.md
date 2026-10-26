@@ -1149,8 +1149,21 @@ CI; nessuna logica di dominio dipende da Typer, Textual, FastAPI o SQLite.
 
 - [ ] Estrarre un protocollo pubblico stabile per adapter: metadata, capability,
   input, argv, parser, health check, maturity ed evidence manifest.
-- [ ] Scoprire adapter opzionali tramite entry point Python, mantenendo una
+- [~] Scoprire adapter opzionali tramite entry point Python, mantenendo una
   allowlist di plugin firmati/approvati per le installazioni professionali.
+  **Discovery + allowlist approvata fatta:** `olympus/themis/plugins.py` scopre
+  gli adapter esposti nel gruppo entry point `olympus.scanner_adapters` in modo
+  **default-deny** — carica solo i nomi nell'allowlist dell'operatore
+  (`OLYMPUS_SCANNER_PLUGIN_ALLOWLIST`), riporta i presenti-non-approvati come
+  `skipped` (mai caricati) e gli approvati-non-validi come `rejected` con
+  motivazione (un import fallito non interrompe la scoperta); ogni plugin deve
+  essere una sottoclasse **concreta** di `ScannerAdapter`. `available_adapters()`
+  unisce ai nativi dando **precedenza di prima parte** (un plugin non può
+  oscurare un adapter integrato come `nmap`); accessor `registry.adapter_classes`.
+  Test `tests/unit/test_themis_plugins.py`; doc
+  [`docs/scanner-maturity.md`](docs/scanner-maturity.md). **Resta da fare:** la
+  verifica della **firma crittografica** dei plugin (oltre all'allowlist per
+  nome), che poggia sul release-signing di `SEC-F`.
 - [ ] Validare output scanner con schema versionato e quarantena dei record non
   conformi; mai “best effort” silenzioso.
 - [x] Fornire un template e contract test riutilizzabile per nuovi adapter.

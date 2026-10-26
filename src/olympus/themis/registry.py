@@ -54,6 +54,16 @@ def implemented() -> list[str]:
     return sorted(_ADAPTERS)
 
 
+def adapter_classes() -> dict[str, type[ScannerAdapter]]:
+    """Return a copy of the first-party name-to-adapter-class mapping.
+
+    Public accessor used by :mod:`olympus.themis.plugins` to merge approved
+    entry-point plugins with the native adapters without reaching into module
+    internals; the returned dict is a copy, so callers cannot mutate the registry.
+    """
+    return dict(_ADAPTERS)
+
+
 def get_adapter(name: str) -> ScannerAdapter:
     """Return a fresh adapter instance for ``name``, or raise if unimplemented."""
     factory = _ADAPTERS.get(name)
