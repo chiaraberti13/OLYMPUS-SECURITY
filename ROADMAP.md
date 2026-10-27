@@ -118,7 +118,7 @@ Legenda stato: ✅ implementata · 🟡 parziale · 🗓️ pianificata · ❌ a
 | 7 | Deduplicazione + ciclo di vita finding | ✅ | `vulcan/aggregate.py` (`dedupe_findings` per ID + `merge_duplicate_findings` cross-scanner lossless), `FindingStatus` (7 stati), macchina a stati + audit trail + suppression `core/finding_lifecycle.py`/`findings/store.py` (`WEB-C`) | Transizioni, dedup, audit trail, suppression, tagging/ricerca tutti ✅ |
 | 8 | Severità, confidence, risk scoring contestuale | ✅ | `Severity`, `Finding.confidence` (`WEB-C`), `Finding.risk_score()` 0–100 (`WEB-C`), `vulcan/enrichment.prioritize` (KEV>EPSS>CVSS>severità) | Confidence + risk score numerico ✅; mantenere |
 | 9 | Mapping CVE/CWE/CVSS/MITRE ATT&CK | ✅ | `Finding.cvss` + campi `cve`/`cwe`/`epss`/`kev` strutturati (`WEB-C`); link NVD/MITRE in `vulcan/pdf.py`; EPSS/KEV `vulcan/enrichment.py`; ATT&CK detection `apollo/attack.py`, `Alert.mitre_attack`; **ATT&CK offensivo sui finding** `vulcan/attack.py` (`OPS-RED`) | Campi strutturati ✅; overlay ATT&CK offensivo ✅ (auto vs reviewed, mapping versionato) |
-| 10 | Inventario centralizzato asset | 🟡 | `core.Asset`, `argus/assets.py`, persistenza per-assessment in Athena; `Asset.engagement_id` opzionale e stamping dal coordinator Athena per id canonici (`WEB-B` slice 2); engagement esposti via API/Web sullo stesso store con scope enforcement (`WEB-B` slice 3) | Engagement leggibili/operabili dai quattro canali ✅; **viste di aggregazione asset cross-engagement** (widget) → `WEB-G` |
+| 10 | Inventario centralizzato asset | 🟡 | `core.Asset`, `argus/assets.py`, persistenza per-assessment in Athena; `Asset.engagement_id` opzionale e stamping dal coordinator Athena per id canonici (`WEB-B` slice 2); engagement esposti via API/Web sullo stesso store con scope enforcement (`WEB-B` slice 3) | Engagement leggibili/operabili dai quattro canali ✅; **viste di aggregazione asset cross-engagement** (widget top-asset-per-esposizione sulla dashboard, `WEB-G`) ✅ |
 | 11 | Scheduler, code, worker isolati, ripresa job | 🟡 | job store SQLite `themis/jobs.py` (stati+`recover`), `olympus themis jobs recover`, sandbox e worker continuo nativo (`SEC-A`) | Queue+recover+sandbox ✅; **scheduler nativo** ❌ → `D13`; runtime Celery ritirato ✅; parità dati/route legacy → `SEC-A` |
 | 12 | Scansioni incrementali + confronto risultati | 🟡 | `argus/diff.py` (diff recon); **finding/scan diff cross-run** `vulcan/compare.py` + `olympus vulcan diff` + Web `/findings/diff` (`WEB-I` slice 2); **trend severità** `vulcan/trend.py` + `olympus vulcan trend` (`WEB-I` slice 3a) | Finding/scan diff ✅, trend finding ✅; **attack-surface evolution** → `WEB-I` |
 | 13 | Dashboard, notifiche, report JSON/CSV/HTML/PDF/SARIF | 🟡 | report JSON/MD/HTML/PDF `vulcan/`, SARIF `hermes/sarif.py`, OCSF/ECS/NDJSON `apollo/` | **CSV** ❌ (basso costo) → `WEB-I`; **dashboard/notifiche** → `WEB-G`/`WEB-I` |
@@ -1708,9 +1708,12 @@ nessuno stadio) o senza autorizzazione (il motore non esegue mai nulla).
   widget **finding per severità/scanner** sulla dashboard (`GET /`), scope-gated
   a `findings:read` e attivo solo con `--findings-directory`, che riusa
   `vulcan.aggregate.severity_breakdown` e `source_breakdown` (quest'ultimo elenca
-  solo le sorgenti che hanno prodotto finding, ordinate per conteggio) e linka
-  alla vista findings filtrata per severità e per sorgente; degrada onestamente
-  (assente) se non configurato o non leggibile; e
+  solo le sorgenti che hanno prodotto finding, ordinate per conteggio) e
+  `asset_breakdown` (aggregazione asset cross-engagement: top asset per
+  esposizione, severità peggiore prima, poi conteggio), linkando alla vista
+  findings filtrata per severità, per sorgente e per asset (filtro testo che già
+  matcha l'`asset_id`); degrada onestamente (assente) se non configurato o non
+  leggibile; e
   il widget **scanner readiness** (`GET /`), scope-gated a `capabilities:read`,
   che proietta fedelmente l'inventario capability (`integrations.capabilities.inventory`
   — stessa fonte di `olympus themis capabilities` e della pagina Tools) in
@@ -1722,7 +1725,8 @@ nessuno stadio) o senza autorizzazione (il motore non esegue mai nulla).
   solo quando esistono job, rispondendo a «quanto lavoro è ancora in volo e quanto
   è finito bene?». Test `tests/unit/test_themis_web.py`; doc
   [`docs/web.md`](docs/web.md).
-  **Resta:** widget asset/incident.
+  **Resta:** widget incident (richiede uno store incident cablato nel control
+  plane web).
 - [ ] Responsive, accessibile (lega a `UX-E`), bilingue IT/EN, con onboarding e
   modalità Advanced.
 

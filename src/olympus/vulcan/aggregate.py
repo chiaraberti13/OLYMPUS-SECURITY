@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, TypeVar
 
@@ -464,6 +465,46 @@ def source_breakdown(findings: Sequence[Finding]) -> dict[str, int]:
         key = finding.source.value
         counts[key] = counts.get(key, 0) + 1
     return dict(sorted(counts.items(), key=lambda item: (-item[1], item[0])))
+
+
+@dataclass(frozen=True)
+class AssetExposure:
+    """How exposed a single asset is, summarised across its findings."""
+
+    asset_id: str
+    finding_count: int
+    highest_severity: Severity
+
+
+def asset_breakdown(findings: Sequence[Finding]) -> list[AssetExposure]:
+    """Summarise findings per affected asset, worst-exposed first.
+
+    Each asset that carries at least one finding is reported once, with its
+    finding count and the single highest severity observed on it. The list is
+    ordered by that highest severity (critical first), then by descending
+    finding count, then by ``asset_id`` for a stable, deterministic result — so
+    a caller can show "which assets need attention first" without re-sorting.
+    """
+    worst: dict[str, Severity] = {}
+    counts: dict[str, int] = {}
+    for finding in findings:
+        asset_id = finding.asset_id
+        counts[asset_id] = counts.get(asset_id, 0) + 1
+        current = worst.get(asset_id)
+        if current is None or _SEVERITY_ORDER[finding.severity] < _SEVERITY_ORDER[current]:
+            worst[asset_id] = finding.severity
+    exposures = [
+        AssetExposure(asset_id=asset_id, finding_count=counts[asset_id], highest_severity=severity)
+        for asset_id, severity in worst.items()
+    ]
+    exposures.sort(
+        key=lambda item: (
+            _SEVERITY_ORDER[item.highest_severity],
+            -item.finding_count,
+            item.asset_id,
+        )
+    )
+    return exposures
 
 
 def filter_min_severity(findings: Sequence[Finding], minimum: Severity) -> list[Finding]:

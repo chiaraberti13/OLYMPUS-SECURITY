@@ -116,6 +116,7 @@ from olympus.themis.jobs import (
 )
 from olympus.vulcan.aggregate import (
     AggregationError,
+    asset_breakdown,
     load_findings,
     severity_breakdown,
     source_breakdown,
@@ -855,6 +856,10 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             else:
                 breakdown = severity_breakdown(catalogue)
                 sources = source_breakdown(catalogue)
+                # Top assets by exposure (WEB-G asset aggregation): worst-exposed
+                # first, capped so the card stays compact. The drill-down uses the
+                # findings text filter, which already matches the asset id.
+                assets = asset_breakdown(catalogue)[:5]
                 findings_summary = {
                     "total": len(catalogue),
                     "levels": [
@@ -863,6 +868,14 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                     ],
                     "sources": [
                         {"source": source, "count": count} for source, count in sources.items()
+                    ],
+                    "assets": [
+                        {
+                            "asset_id": exposure.asset_id,
+                            "count": exposure.finding_count,
+                            "severity": exposure.highest_severity.value,
+                        }
+                        for exposure in assets
                     ],
                 }
         # Scanner-readiness widget (WEB-G): only for an identity that may read

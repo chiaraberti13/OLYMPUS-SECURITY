@@ -48,6 +48,17 @@
     {% endfor %}
   </div>
   {% endif %}
+  {% if findings_summary.assets %}
+  <h3>Top assets by exposure</h3>
+  <div class="tiles">
+    {% for item in findings_summary.assets %}
+    <div class="tile">
+      <span class="tile-value"><a class="button-link" href="/findings?text={{ item.asset_id | urlencode }}">{{ item.count }}</a></span>
+      <span class="tile-label">{{ item.asset_id }} · <span class="severity severity-{{ item.severity }}">{{ item.severity }}</span></span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
 </section>
 {% endif %}
 {% if scanner_readiness %}

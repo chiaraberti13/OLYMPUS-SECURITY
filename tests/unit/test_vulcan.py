@@ -12,6 +12,7 @@ from olympus.core.execution import CancellationRequested, CancellationToken
 from olympus.core.models import Alert, Asset, Finding
 from olympus.vulcan.aggregate import (
     AggregationError,
+    asset_breakdown,
     dedupe_alerts,
     dedupe_findings,
     load_assets,
@@ -233,6 +234,25 @@ def test_source_breakdown_counts_only_producing_sources_ordered() -> None:
     # descending then source name — not every member of the Source enum.
     assert list(counts.items()) == [("argus", 3), ("minerva", 1), ("vulcan", 1)]
     assert source_breakdown([]) == {}
+
+
+def test_asset_breakdown_orders_by_worst_severity_then_count() -> None:
+    findings = [
+        _finding("a1", Severity.LOW, asset_id="AST-A"),
+        _finding("a2", Severity.CRITICAL, asset_id="AST-A"),
+        _finding("b1", Severity.HIGH, asset_id="AST-B"),
+        _finding("b2", Severity.HIGH, asset_id="AST-B"),
+        _finding("c1", Severity.HIGH, asset_id="AST-C"),
+    ]
+    exposures = asset_breakdown(findings)
+    # AST-A is worst (critical) despite fewer-than-tied counts; AST-B and AST-C
+    # share the highest severity (high) so the higher finding count wins.
+    assert [(e.asset_id, e.finding_count, e.highest_severity) for e in exposures] == [
+        ("AST-A", 2, Severity.CRITICAL),
+        ("AST-B", 2, Severity.HIGH),
+        ("AST-C", 1, Severity.HIGH),
+    ]
+    assert asset_breakdown([]) == []
 
 
 def test_build_report_and_markdown() -> None:

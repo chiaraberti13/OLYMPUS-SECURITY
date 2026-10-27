@@ -1446,6 +1446,10 @@ def test_dashboard_shows_findings_by_severity_for_a_findings_reader(tmp_path: Pa
     # The by-source breakdown lists only producing sources, drilling in too.
     assert "By source" in page.text
     assert "/findings?source=artemis" in page.text
+    # Top assets by exposure, drilling into the findings via the text filter.
+    assert "Top assets by exposure" in page.text
+    assert "AST-2026-00001" in page.text
+    assert "/findings?text=AST-2026-00001" in page.text
 
 
 def test_dashboard_widget_hidden_without_findings_read_scope(tmp_path: Path) -> None:
