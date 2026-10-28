@@ -36,7 +36,7 @@
 
 | Fase | Focus | Stato | Interventi principali |
 | --- | --- | --- | --- |
-| 0 | Baseline e coerenza documentale | `[x]` | `DEV-G` ✓, `DEV-H` ✓, `DEV-C` ✓ (suite e coverage) |
+| 0 | Baseline e coerenza documentale | `[~]` | `DEV-G` ✓, `DEV-H` ✓, `DEV-C` `[~]` (gate locali via `make check`; workflow CI rimosso in 58ba209 → nessun enforcement automatico) |
 | 1 | Security hardening (**P0**) | `[~]` | `SEC-A`, `SEC-B`, `SEC-C`, `SEC-H`, `UX-B` |
 | 2 | Architettura e qualità di release | `[~]` | `DEV-A`, `DEV-B`, `DEV-C`, `DEV-D`, `DEV-E`, `SEC-F` |
 | 3 | UX operativa bilingue | `[ ]` | `UX-A`, `UX-C`, `UX-D`, `UX-E`, `UX-F`, `UX-G` |
@@ -171,7 +171,7 @@ riorganizzati nelle 7 milestone richieste con criteri di accettazione misurabili
 
 | Milestone | Obiettivo | Stato verificato | Attività (ID) | Criterio di accettazione |
 | --- | --- | --- | --- | --- |
-| M1 Fondamenta | base stabile e coerente | 🟡 `DEV-I` ✅, `SEC-A` ✅, suite/coverage ✅ | `DEV-G`,`DEV-H`,`DEV-C` | link checker in CI verde; 0 import runtime da `vendor/` |
+| M1 Fondamenta | base stabile e coerente | 🟡 `DEV-I` ✅, `SEC-A` ✅, suite/coverage ✅ (gate locali via `make check`; workflow CI rimosso in 58ba209 → nessun enforcement automatico) | `DEV-G`,`DEV-H`,`DEV-C` | **ripristinare un workflow CI** (link checker/gate verdi su push/PR); 0 import runtime da `vendor/` |
 | M2 Sicurezza operativa | guardrail attivi | 🟡 scope/sandbox ✅ | `SEC-B`,`SEC-C`,`SEC-G`,`SEC-H`,`UX-B` | dry-run+kill switch end-to-end; parser fuzzing in CI |
 | M3 Modello dati & Finding Engine | finding ricchi e tracciabili | 🟡 stati+dedup ✅ | `WEB-C` (+`Finding.confidence`/risk score, CVE/CWE/EPSS/KEV strutturati) | lifecycle completo con audit; dedup senza perdita evidenza |
 | M4 Asset & Vulnerability management | engagement centrale | 🟡 Themis ✅, asset parziale | `WEB-B`,`WEB-D` | stesso engagement/asset da CLI/TUI/API/Web |
@@ -1219,9 +1219,14 @@ senza modificare il core, ma non può bypassare scope, policy, audit o sandbox.
 
 ### Intervento C · `DEV-C` — Compatibilità e qualità misurabile (**P1**)
 
-- [x] Rendere Mypy un gate CI bloccante sul codice first-party e aggiungere
-  `ruff format --check`: il job obbligatorio esegue lint, format, type checking
-  strict e test; il repository è stato normalizzato dal formatter.
+- [~] Rendere Mypy un gate CI bloccante sul codice first-party e aggiungere
+  `ruff format --check`: lint, format-check, type checking strict, coverage e il
+  gate offline del registro deroghe (`audit-exceptions`) sono concatenati in
+  `make check` ed eseguiti localmente (repository normalizzato dal formatter).
+  **Regressione (commit 58ba209):** il workflow GitHub Actions che rispecchiava
+  questi gate è stato rimosso dal repository, quindi **oggi non c'è enforcement
+  automatico su push/PR**: i gate restano eseguibili via `make check` /
+  `make audit` / `make secrets-scan` finché un workflow CI non viene ripristinato.
 - [x] Estendere la CI a Python 3.11, 3.12, 3.13 e 3.14 su Ubuntu e aggiungere
   build della wheel e smoke test CLI portabili su macOS e Windows.
 - [x] Isolare i test real-kernel della sandbox in `tests/platform/posix/`,

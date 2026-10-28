@@ -1,4 +1,4 @@
-.PHONY: install lint format-check type test test-unit test-contract test-integration test-container test-live-lab test-portable test-posix test-coverage test-mutation benchmark benchmark-standard schemas schemas-check contract-goldens check demo clean
+.PHONY: install lint format-check type test test-unit test-contract test-integration test-container test-live-lab test-portable test-posix test-coverage test-mutation audit audit-exceptions secrets-scan benchmark benchmark-standard schemas schemas-check contract-goldens check demo clean
 
 PYTHON ?= python
 
@@ -6,8 +6,11 @@ install:
 	$(PYTHON) -m pip install -e ".[dev]"
 
 # --------------------------------------------------------------------------- #
-# Local mirrors of the blocking first-party quality gates. CI also enforces
-# package smoke tests, pip-audit and gitleaks on every pull request.
+# First-party quality gates. These run locally and are the authoritative gate:
+# `make check` chains them. A GitHub Actions workflow that mirrored them was
+# removed from the repository (commit 58ba209), so there is currently no
+# automatic enforcement on push/PR — run `make check` (and the supply-chain
+# targets below) before publishing until a CI workflow is restored.
 # --------------------------------------------------------------------------- #
 lint:
 	$(PYTHON) -m ruff check .
@@ -92,6 +95,23 @@ test-mutation:
 		"olympus.athena.domain.assessment.x_derive_terminal_state*"
 	$(PYTHON) scripts/check_mutation_gate.py
 
+# --------------------------------------------------------------------------- #
+# Supply-chain gates. audit-exceptions is offline and deterministic (it only
+# validates the time-boxed waiver registry) so it joins `make check`; audit and
+# secrets-scan need the network and an external binary, so they stay separate.
+# --------------------------------------------------------------------------- #
+audit-exceptions:
+	$(PYTHON) scripts/check_audit_exceptions.py .github/audit-exceptions.toml
+
+# Dependency vulnerability gate: pip-audit over the installed runtime closure.
+# Requires `pip install pip-audit` and network access to the advisory database.
+audit:
+	$(PYTHON) -m pip_audit
+
+# Secret scan of the working tree and history. Requires the gitleaks binary.
+secrets-scan:
+	gitleaks detect --no-banner --redact
+
 # Deterministic offline performance baselines; add --enforce to apply budgets.
 benchmark:
 	$(PYTHON) scripts/benchmark_hot_paths.py --profile quick
@@ -113,6 +133,7 @@ check:
 	$(MAKE) format-check
 	$(MAKE) type
 	$(MAKE) schemas-check
+	$(MAKE) audit-exceptions
 	$(MAKE) test-coverage
 	$(MAKE) test-mutation
 
