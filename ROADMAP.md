@@ -30,9 +30,9 @@ CLI per registrare una transizione di stato (presente solo in API/Web) → aggiu
 riparte da `…00001` in ogni processo, quindi un chiamante a vita breve (CLI, worker
 riavviato) rigenererebbe id già presenti nel ledger append-only dei finding →
 aggiunto `SqliteFindingTransitionStore.next_transition_id` che alloca l'id dal
-contenuto persistito. **Follow-up tracciato:** lo stesso allocatore andrebbe usato
-anche dal gestore transizioni Web per renderlo sicuro ai riavvii (oggi mascherato
-dal processo long-lived) — vedi `WEB-C`.
+contenuto persistito; il gestore transizioni **Web** usa ora lo stesso allocatore
+(follow-up chiuso il 2026-10-28), quindi un worker riavviato non collide più con
+il ledger esistente — vedi `WEB-C`.
 
 ## Legenda
 
@@ -1667,9 +1667,11 @@ stesso store, lo stesso modello e lo stesso scope enforcement. **`WEB-B` complet
   `SqliteFindingTransitionStore.next_transition_id(year)` alloca l'id dallo stato
   persistito (collision-free cross-processo), usato dalla CLI. Test
   `tests/unit/test_vulcan.py` e `tests/unit/test_finding_transitions.py`; doc
-  [`docs/cli-reference.md`](docs/cli-reference.md). **Resta (follow-up):** far usare
-  `next_transition_id` anche al gestore transizioni Web, per renderlo sicuro ai
-  riavvii del processo (oggi mascherato dal processo long-lived).
+  [`docs/cli-reference.md`](docs/cli-reference.md). **Follow-up completato
+  (2026-10-28):** anche il gestore transizioni Web (`POST /findings/{id}/transition`)
+  alloca ora l'id con `next_transition_id`, quindi un worker riavviato non collide
+  più con il ledger esistente (prima mascherato dal processo long-lived). Test
+  `tests/unit/test_themis_web.py::test_a_transition_does_not_collide_with_pre_existing_ledger_ids`.
 
 **Criterio di completamento (soddisfatto):** un finding attraversa tutto il ciclo
 di vita con audit; la deduplica non perde evidenza né remediation; ogni finding è

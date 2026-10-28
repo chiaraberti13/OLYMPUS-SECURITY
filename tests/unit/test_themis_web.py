@@ -1204,6 +1204,40 @@ def test_a_transition_is_recorded_and_updates_the_effective_status(tmp_path: Pat
     assert bundle["status"] == "new"
 
 
+def test_a_transition_does_not_collide_with_pre_existing_ledger_ids(tmp_path: Path) -> None:
+    """A restarted worker must not regenerate a transition id already persisted."""
+    from olympus.core.enums import FindingStatus, Source
+    from olympus.core.finding_lifecycle import record_transition
+    from olympus.core.models import Finding
+    from olympus.findings.store import SqliteFindingTransitionStore
+
+    client = _findings_client(tmp_path)
+    # Simulate history written by an earlier process: an id new_id() would reissue.
+    store = SqliteFindingTransitionStore(tmp_path / "finding-transitions.sqlite3")
+    try:
+        other = Finding(
+            finding_id="FND-2026-09999",
+            asset_id="AST-X",
+            source=Source.THEMIS,
+            title="other",
+            status=FindingStatus.NEW,
+        )
+        _, prior = record_transition(other, FindingStatus.CONFIRMED, actor="prior-process")
+        store.append(prior.model_copy(update={"transition_id": store.next_transition_id(2026)}))
+    finally:
+        store.close()
+
+    _login(client)
+    csrf = _findings_csrf(client)
+    moved = client.post(
+        "/findings/FND-2026-00001/transition",
+        data={"target": "confirmed", "reason": "verified", "csrf_token": csrf},
+        follow_redirects=False,
+    )
+    # Without the store-allocated id this would 409 on the duplicate FTR-2026-00001.
+    assert moved.status_code == 303, moved.text
+
+
 def test_a_transition_requires_a_valid_csrf_token(tmp_path: Path) -> None:
     client = _findings_client(tmp_path)
     _login(client)
