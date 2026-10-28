@@ -1575,10 +1575,10 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         browser is a report, not a page.
         """
         chosen = format.strip().lower()
-        renderers = {"json", "md", "markdown", "html", "sarif", "csv"}
+        renderers = {"json", "md", "markdown", "html", "sarif", "csv", "pdf"}
         if chosen not in renderers:
             raise HTTPException(
-                status_code=422, detail="format must be one of json, md, html, sarif, csv"
+                status_code=422, detail="format must be one of json, md, html, sarif, csv, pdf"
             )
         if findings_directory is None:
             raise HTTPException(status_code=400, detail="no findings directory is configured")
@@ -1617,6 +1617,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         # (json/csv/sarif) are always the full set. An unknown value is full.
         section: ReportSection = "executive" if report_section.strip() == "executive" else "full"
 
+        body: str | bytes
         if chosen == "json":
             body = json.dumps(report.model_dump(mode="json"), indent=2, sort_keys=True) + "\n"
             media_type, extension = "application/json", "json"
@@ -1632,6 +1633,16 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             # against formula injection by the renderer).
             body = render_report_csv(report)
             media_type, extension = "text/csv; charset=utf-8", "csv"
+        elif chosen == "pdf":
+            # Formatted PDF of the filtered findings; needs the optional 'report'
+            # extra (reportlab). The section parameter does not apply to the PDF.
+            from olympus.vulcan.pdf import PdfUnavailableError, render_report_pdf
+
+            try:
+                body = render_report_pdf(report)
+            except PdfUnavailableError as exc:
+                raise HTTPException(status_code=503, detail=_safe(str(exc))) from exc
+            media_type, extension = "application/pdf", "pdf"
         else:
             body = render_report_html(report, section=section)
             media_type, extension = "text/html; charset=utf-8", "html"

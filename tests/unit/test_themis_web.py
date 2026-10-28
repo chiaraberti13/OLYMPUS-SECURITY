@@ -1326,6 +1326,17 @@ def test_report_reflects_the_same_filter_as_the_table(tmp_path: Path) -> None:
     assert "Server banner disclosed" not in report.text
 
 
+def test_report_exports_pdf(tmp_path: Path) -> None:
+    client = _findings_client(tmp_path, _FINDING)
+    _login(client)
+    response = client.get("/findings/report", params={"format": "pdf"})
+    assert response.status_code == 200, response.text
+    assert response.headers["content-type"] == "application/pdf"
+    assert "attachment" in response.headers["content-disposition"]
+    assert "olympus-report-olympus-findings.pdf" in response.headers["content-disposition"]
+    assert response.content.startswith(b"%PDF-")
+
+
 def test_report_executive_section_is_a_summary(tmp_path: Path) -> None:
     client = _findings_client(tmp_path, _FINDING)
     _login(client)
@@ -1343,7 +1354,7 @@ def test_report_executive_section_is_a_summary(tmp_path: Path) -> None:
 def test_report_rejects_an_unknown_format(tmp_path: Path) -> None:
     client = _findings_client(tmp_path)
     _login(client)
-    assert client.get("/findings/report", params={"format": "pdf"}).status_code == 422
+    assert client.get("/findings/report", params={"format": "docx"}).status_code == 422
 
 
 def test_report_exports_sarif_of_the_filtered_findings(tmp_path: Path) -> None:

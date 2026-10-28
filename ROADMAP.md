@@ -1807,7 +1807,11 @@ lo stesso port; l'utente locale non deve installare Postgres.
   json/csv/sarif restano sempre completi); default `full`, retrocompatibile.
   Test `tests/unit/test_vulcan.py`, `tests/unit/test_themis_web.py`; doc
   [`docs/web.md`](docs/web.md), [`docs/cli-reference.md`](docs/cli-reference.md).
-  **Resta da fare:** PDF dal browser (oggi CLI-only `olympus vulcan report --pdf`).
+  **PDF dal browser fatto:** `GET /findings/report?format=pdf` riusa
+  `vulcan.pdf.render_report_pdf` (extra `report`/reportlab) e serve
+  `application/pdf` come download; se l'extra manca degrada onestamente con
+  `503` (`PdfUnavailableError` sanitizzato), senza fingere un PDF. Pulsante PDF
+  nella barra export dei findings. Test `tests/unit/test_themis_web.py`.
 - [x] **Report comparison / scan diff (slice 2).** Motore puro e offline
   `vulcan/compare.diff_findings` → `ScanDiff` che classifica ogni finding logico
   come **new** (regressione o nuova scoperta), **resolved** (prova che una

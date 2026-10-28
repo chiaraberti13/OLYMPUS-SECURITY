@@ -105,7 +105,7 @@ as on the API.
 | `GET /` | Dashboard: job totals, a state histogram, the ten most recent jobs, an assessment-progress widget (percent complete, in-flight / finished / clean-completion counts, from the authoritative terminal-state partition) shown whenever there are jobs, and — for a `findings:read` identity with `--findings-directory` — a findings-by-severity widget (with a by-source/scanner breakdown and a top-assets-by-exposure list, worst severity first) linking into the filtered findings view; a `capabilities:read` identity also sees a scanner-readiness widget (ready / installed / adapted / catalogued) drawn from the capability inventory, linking to the tools page; and — for an `incidents:read` identity with `--incidents-directory` — an incidents-by-status widget summarising the `core.Incident` documents produced by `olympus minerva triage`. |
 | `GET /jobs` | Every job, newest first. |
 | `GET /findings` | Findings, filtered and ranked by risk exactly as the CLI does (requires `findings:read`); available only with `--findings-directory`. |
-| `GET /findings/report` | Download a Vulcan report of the currently filtered findings as Markdown, HTML, JSON, CSV or SARIF (requires `findings:read`); the CSV is spreadsheet-safe (cells neutralised against formula injection). |
+| `GET /findings/report` | Download a Vulcan report of the currently filtered findings as Markdown, HTML, JSON, CSV, SARIF or PDF (requires `findings:read`); the CSV is spreadsheet-safe (cells neutralised against formula injection); PDF needs the `report` extra and returns `503` when it is not installed. |
 | `GET /findings/diff` | Compare a baseline run against the current findings — new / resolved / persistent (requires `findings:read`); available only with `--baseline-directory`. `?format=json` returns the machine-readable diff. |
 | `GET /findings/{id}` | Finding detail, evidence chain and lifecycle history (requires `findings:read`). |
 | `POST /findings/{id}/transition` | Record a lifecycle transition for one finding (requires `findings:write`, CSRF-protected); available only with `--findings-storage`. |
@@ -168,8 +168,8 @@ degrade honestly rather than pretending there are no findings.
 The findings view offers a one-click **Vulcan report** of exactly what is on
 screen. `GET /findings/report` takes the same filter query parameters as
 `GET /findings` (status, severity, source, text, KEV, has-CVE, min-risk,
-`engagement`, `asset`, `tag`) plus `format` (`md`, `html`, `json`, `csv` or `sarif`)
-and `report_section` (`full` or `executive`, applied to `md`/`html` only),
+`engagement`, `asset`, `tag`) plus `format` (`md`, `html`, `json`, `csv`, `sarif`
+or `pdf`) and `report_section` (`full` or `executive`, applied to `md`/`html` only),
 narrows the
 catalogue with the identical `vulcan.search.FindingFilter` (so the report is
 exactly the filtered table), builds the canonical `SecurityReport` with
@@ -188,7 +188,11 @@ field such as `=HYPERLINK(...)` is shown as literal text rather than executed by
 a spreadsheet. The `sarif` format
 emits SARIF 2.1.0 (`application/sarif+json`) of the filtered findings via the
 shared `vulcan.sarif.findings_to_sarif`, so the browser feeds the same
-interoperability format as `olympus vulcan sarif-export`. The response is a
+interoperability format as `olympus vulcan sarif-export`. The `pdf` format
+renders a formatted PDF (`application/pdf`) via the shared
+`vulcan.pdf.render_report_pdf`; it needs the optional `report` extra (reportlab)
+and the endpoint returns `503` when that extra is not installed rather than
+serving a broken file. The response is a
 download (`Content-Disposition: attachment`), so what reaches the browser is a
 report, not a page. When set, `engagement` both filters the findings to that
 engagement and labels the report; it is sanitised (`SEC-H`) and slugified for the
