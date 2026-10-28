@@ -216,3 +216,34 @@ def test_preview_does_no_dns_resolution(monkeypatch: pytest.MonkeyPatch) -> None
     preview = preview_run(_request("httpx", "app.example.com"), SCOPE)
     assert isinstance(preview, SafetyPreview)
     assert preview.scope_decision is ScopeDecision.RESOLUTION_REQUIRED
+
+
+def test_planned_command_shows_the_redacted_argv_for_a_native_adapter() -> None:
+    """A native scanner's dry-run argv is surfaced before any run (SEC-G)."""
+    preview = preview_run(_request("nmap", "10.0.0.5"), SCOPE)
+    assert preview.planned_command is not None
+    assert preview.planned_command[0] == "nmap"
+    assert "10.0.0.5" in preview.planned_command
+    # It is shown as plain tokens in the rendered lines, never launched.
+    assert any(line.startswith("Planned command:") for line in preview.lines())
+
+
+def test_planned_command_redacts_url_query_secrets() -> None:
+    """A target-controlled URL cannot leak a secret into the dry-run preview."""
+    preview = preview_run(
+        _request("httpx", "http://10.0.0.5/x?token=secret", target_kind="url"),
+        SCOPE,
+    )
+    assert preview.scope_decision is ScopeDecision.IN_SCOPE
+    assert preview.planned_command is not None
+    joined = " ".join(preview.planned_command)
+    assert "secret" not in joined
+    assert "[REDACTED]" in joined
+
+
+def test_planned_command_is_absent_when_the_launch_is_blocked() -> None:
+    """No run is planned for a blocked target, so no command is shown."""
+    preview = preview_run(_request("nmap", "203.0.113.9"), SCOPE)
+    assert preview.blocks_launch is True
+    assert preview.planned_command is None
+    assert preview.to_dict()["planned_command"] is None

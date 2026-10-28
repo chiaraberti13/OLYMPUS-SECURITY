@@ -693,8 +693,20 @@ corredata da SBOM e attestazione; la verifica fallisce su artifact alterati.
 - [ ] Consentire le operazioni intrusive solo se esplicitamente abilitate nel
   manifest firmato; mantenere DoS, persistenza, credential harvesting reale ed
   evasione fuori dallo scope di prodotto.
-- [ ] Implementare dry-run con visualizzazione dell'argv redatto, destinazioni,
-  rate/deadline e file che verranno creati.
+- [~] Implementare dry-run con visualizzazione dell'argv redatto, destinazioni,
+  rate/deadline e file che verranno creati. **Fatto:** `olympus themis preview`
+  (motore puro e offline `themis/preview.preview_run`, nessun processo lanciato,
+  nessuna risoluzione DNS) mostra ora il **comando pianificato redatto**
+  (`SafetyPreview.planned_command`: ogni token passa da `redact_url` + `safe_terminal_text`,
+  così userinfo/segreti di query non trapelano e un target ostile non forgia
+  output), oltre a destinazione normalizzata, budget timeout/deadline/output/findings
+  e i path di output/audit che verrebbero creati; assente onestamente per scanner
+  senza adapter nativo o per target bloccati. Il campo è sul modello condiviso
+  `SafetyPreview` (serializzato in `to_dict()`), quindi disponibile anche agli
+  altri consumatori. Test `tests/unit/test_themis_preview.py`. **Resta:**
+  renderizzare il comando pianificato anche nell'anteprima guidata Web/TUI, e un
+  flag `--dry-run` esplicito sui percorsi di esecuzione reale (oggi il dry-run è
+  il comando `preview` dedicato).
 - [ ] Applicare un kill switch coerente a CLI, TUI, API e worker, con cancellazione
   del process group e stato finale non ambiguo.
 

@@ -127,6 +127,15 @@ class SafetyPreview:
     #: separate concern owned by ``olympus themis doctor``; it is not re-derived
     #: here so the preview stays deterministic and environment-independent.
     external_tool: str
+    #: The redacted argument vector the scanner *would* run (SEC-G dry-run), or
+    #: ``None`` when it cannot be shown offline: a scanner with no native
+    #: execution adapter (remote-API/unimplemented), or a blocked/invalid target
+    #: for which no run is planned. Every token is passed through ``redact_url``
+    #: (userinfo and query values stripped) and ``safe_terminal_text`` (control
+    #: sequences neutralized), so a hostile target cannot leak a secret or forge
+    #: terminal output into the preview. It is the *planned* command only — no
+    #: process is launched and no DNS is resolved to produce it.
+    planned_command: tuple[str, ...] | None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -155,6 +164,9 @@ class SafetyPreview:
             "output_path": self.output_path,
             "audit_path": self.audit_path,
             "external_tool": self.external_tool,
+            "planned_command": list(self.planned_command)
+            if self.planned_command is not None
+            else None,
         }
 
     def lines(self) -> list[str]:
@@ -173,6 +185,12 @@ class SafetyPreview:
             f"Budget:         timeout {self.timeout_seconds:g}s, "
             f"deadline {self.deadline_seconds:g}s, "
             f"max output {self.max_output_bytes} bytes, max findings {self.max_findings}",
+            "Planned command: "
+            + (
+                " ".join(self.planned_command)
+                if self.planned_command is not None
+                else "(no native command: remote-API or unimplemented scanner)"
+            ),
             f"Result output:  {self.output_path or '(not written to a file)'}",
             f"Audit log:      {self.audit_path or '(not written to a file)'}",
             f"Confirmation:   {'required' if self.requires_confirmation else 'not required'}",
@@ -216,6 +234,43 @@ def _authorization_detail(request: ThemisRunRequest) -> str:
     if request.lab_policy_sha256 is not None:
         parts.append("under a signed live-lab activation")
     return "; ".join(parts) + "."
+
+
+def _planned_command(
+    request: ThemisRunRequest, host: str | None, blocks_launch: bool
+) -> tuple[str, ...] | None:
+    """Return the redacted argv a native adapter would run, or ``None``.
+
+    Strictly offline: it builds the argument vector with the adapter's
+    :meth:`~olympus.themis.base.ScannerAdapter.build_argv` (which uses no I/O and
+    does not resolve DNS), then redacts every token. ``None`` is returned when no
+    run is planned (a blocking scope verdict or an unparseable target) or the
+    scanner has no native execution adapter (remote-API or unimplemented).
+    """
+    if blocks_launch or host is None:
+        return None
+    # Lazy imports: the adapter registry pulls in the whole adapter chain, which
+    # we must not import at module load (and only need on this offline path).
+    from olympus.core.execution import redact_url, safe_terminal_text
+    from olympus.themis.model import ScanRequest
+    from olympus.themis.registry import UnknownScannerError, get_adapter
+
+    try:
+        adapter = get_adapter(request.scanner)
+    except UnknownScannerError:
+        return None
+    try:
+        scan_request = ScanRequest(
+            scanner=request.scanner,
+            target=request.target,
+            target_kind=request.target_kind,
+            timeout_seconds=request.timeout_seconds,
+            deadline_seconds=request.deadline_seconds,
+        )
+        argv = adapter.build_argv(host, scan_request)
+    except (ValueError, OSError):
+        return None
+    return tuple(safe_terminal_text(redact_url(token)) for token in argv)
 
 
 def preview_run(request: ThemisRunRequest, scope: ThemisScope) -> SafetyPreview:
@@ -276,6 +331,7 @@ def preview_run(request: ThemisRunRequest, scope: ThemisScope) -> SafetyPreview:
         output_path=str(request.output_path) if request.output_path is not None else None,
         audit_path=str(request.audit_path) if request.audit_path is not None else None,
         external_tool=external_tool,
+        planned_command=_planned_command(request, normalized, decision in _BLOCKING_DECISIONS),
     )
 
 

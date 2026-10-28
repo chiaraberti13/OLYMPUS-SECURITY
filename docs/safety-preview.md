@@ -18,6 +18,7 @@ della classificazione di rischio.
 | Esito scope (statico) | `olympus.themis.scope.ensure_allowed` — **nessuna attività di rete** |
 | Classe di rischio + spiegazione | `olympus.integrations.activity` (`PASSIVE`/`ACTIVE`/`INTRUSIVE`) |
 | Tool esterno | `ScannerSpec.binary` (o marcatore "remote API service") |
+| Comando pianificato (argv redatto) | `adapter.build_argv` offline, ogni token via `redact_url` + `safe_terminal_text` (SEC-G); `None` per scanner senza adapter nativo o target bloccato |
 | Target normalizzato, budget, output, autorizzazione | il `ThemisRunRequest` pianificato |
 
 Così CLI, TUI e Web control plane mostrano lo **stesso** `SafetyPreview`
