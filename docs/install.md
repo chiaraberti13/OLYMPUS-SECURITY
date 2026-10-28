@@ -101,7 +101,7 @@ down -v` if you want to preserve evidence and jobs.
 (apt/pip/go/git/gem). Check what is actually present:
 
 ```bash
-olympus themis scanners --check      # per-scanner binary availability + licence
+olympus themis scanners --check      # per-scanner binary availability, licence + risk class
 olympus themis deps                  # web stack + every scanner binary + version
 ```
 

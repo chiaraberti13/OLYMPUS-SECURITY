@@ -61,6 +61,12 @@ def test_themis_scanners_check_reports_binaries() -> None:
     assert payload["count"] == 24
     assert "available_binaries" in payload
     assert all("binary" in row and "licence" in row for row in payload["scanners"])
+    # SEC-G: every scanner row carries its reviewed risk class (passive/active/
+    # intrusive); an unmapped scanner would surface as active, never passive.
+    by_name = {row["name"]: row for row in payload["scanners"]}
+    assert all(row["risk"] in {"passive", "active", "intrusive"} for row in payload["scanners"])
+    assert by_name["subfinder"]["risk"] == "passive"
+    assert by_name["nmap"]["risk"] == "active"
 
 
 def test_themis_info_command() -> None:

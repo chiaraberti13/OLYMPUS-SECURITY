@@ -679,8 +679,17 @@ corredata da SBOM e attestazione; la verifica fallisce su artifact alterati.
 
 ### Intervento G · `SEC-G` — Guardrail per capacità offensive (**P1**)
 
-- [ ] Classificare ogni comando come `passive`, `active`, `intrusive` o
+- [~] Classificare ogni comando come `passive`, `active`, `intrusive` o
   `destructive-prohibited` e mostrare la classe prima dell'esecuzione.
+  **Fatto:** la tassonomia `RiskClass` (`passive`/`active`/`intrusive`) con mappa
+  per-scanner rivista (`integrations/activity.py`; non mappato → `active`, mai
+  `passive`) è mostrata **prima dell'esecuzione** nell'anteprima di sicurezza
+  (Web guided flow, TUI, CLI `olympus themis preview`) e ora anche nel **catalogo
+  scanner** `olympus themis scanners --check` (campo `risk` per ogni voce). Test
+  `tests/integration/test_vendored_integration.py`. **Resta:** la classe esplicita
+  `destructive-prohibited` come confine di prodotto dichiarato (DoS/persistenza/
+  credential-harvesting/evasione fuori scope) e una colonna rischio nel
+  `docs/scanner-matrix.md` generato.
 - [ ] Consentire le operazioni intrusive solo se esplicitamente abilitate nel
   manifest firmato; mantenere DoS, persistenza, credential harvesting reale ed
   evasione fuori dallo scope di prodotto.

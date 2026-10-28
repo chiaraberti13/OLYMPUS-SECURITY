@@ -871,6 +871,8 @@ def themis_scanners(
     ),
 ) -> None:
     """List the complete Themis scanner catalogue (all 24 integrations)."""
+    from olympus.integrations.activity import classify
+
     specs = scanner_registry.REGISTRY
     if not check:
         typer.echo(
@@ -885,6 +887,10 @@ def themis_scanners(
         {
             "name": spec.name,
             "category": spec.category,
+            # Reviewed risk class (SEC-G): surfaced here so the operator sees how
+            # intrusive a scanner is from the catalogue, not only in a per-scan
+            # preview. An unmapped scanner defaults to ``active``, never passive.
+            "risk": classify(spec).risk.value,
             "binary": spec.binary,
             "licence": spec.licence,
             "redistributable": spec.redistributable,
