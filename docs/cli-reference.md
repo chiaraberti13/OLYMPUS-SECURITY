@@ -1679,6 +1679,24 @@ Import a third-party SARIF 2.1.0 report as a core.Finding JSON bundle.
 | `--asset-id` | option | yes | — | Olympus asset id these SARIF results pertain to. |
 | `--source` | option | no | `manual` | Provenance stamped on the imported findings. |
 
+### `olympus vulcan transition`
+
+Record an audited finding lifecycle transition (CLI parity with the Web UI).
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--finding-id` | option | yes | — | The finding to move, e.g. FND-2026-00001. |
+| `--to-status` | option | yes | — | Target lifecycle status (triaged, confirmed, closed, ...). |
+| `--findings` | option | yes | — | core.Finding JSON bundle(s) that contain the finding (repeatable). |
+| `--database` | option | yes | — | Append-only finding-lifecycle SQLite store to record into. |
+| `--reason` | option | no | — | Why the finding is moved; required for an accepted-risk or false-positive move. |
+| `--actor` | option | no | `cli` | Who is recording the transition (captured in the audit record). |
+| `--format` | option | no | `table` | Render as a table (human) or json (machine). |
+| `--max-files` | option | no | `100` | — |
+| `--max-input-bytes` | option | no | `50000000` | — |
+| `--max-items-per-file` | option | no | `100000` | — |
+| `--max-total-items` | option | no | `200000` | — |
+
 ### `olympus vulcan trend`
 
 Show the finding severity trend across an ordered series of runs.

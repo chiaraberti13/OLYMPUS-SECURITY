@@ -12,6 +12,7 @@ from olympus.core.enums import Confidence, FindingStatus, Severity, Source
 from olympus.core.execution import CancellationRequested, ExecutionPolicyError, safe_terminal_text
 from olympus.core.exit_codes import ExitCode
 from olympus.core.fileio import atomic_write_bytes, atomic_write_text, read_regular_text
+from olympus.core.finding_lifecycle import SUPPRESSED_STATUSES, record_transition
 from olympus.core.models import Asset, Finding
 from olympus.core.notifications import (
     EmailChannel,
@@ -24,6 +25,7 @@ from olympus.core.notifications import (
 )
 from olympus.core.output import OutputFormat, render, render_table
 from olympus.core.paths import output_path
+from olympus.findings.store import SqliteFindingTransitionStore
 from olympus.minerva.application import (
     MinervaApplicationService,
     MinervaLedgerRequest,
@@ -1214,3 +1216,99 @@ def findings_evidence(
         f"custody signature: {view.custody_signature()}",
         err=True,
     )
+
+
+@app.command()
+def transition(
+    finding_id: str = typer.Option(
+        ..., "--finding-id", help="The finding to move, e.g. FND-2026-00001."
+    ),
+    to_status: FindingStatus = typer.Option(
+        ..., "--to-status", help="Target lifecycle status (triaged, confirmed, closed, ...)."
+    ),
+    findings: list[Path] = typer.Option(
+        ..., "--findings", help="core.Finding JSON bundle(s) that contain the finding (repeatable)."
+    ),
+    database: Path = typer.Option(
+        ..., "--database", help="Append-only finding-lifecycle SQLite store to record into."
+    ),
+    reason: str = typer.Option(
+        "",
+        "--reason",
+        help="Why the finding is moved; required for an accepted-risk or false-positive move.",
+    ),
+    actor: str = typer.Option(
+        "cli", "--actor", help="Who is recording the transition (captured in the audit record)."
+    ),
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.TABLE, "--format", help="Render as a table (human) or json (machine)."
+    ),
+    max_files: int = typer.Option(DEFAULT_MAX_FILES, "--max-files"),
+    max_input_bytes: int = typer.Option(DEFAULT_MAX_INPUT_BYTES, "--max-input-bytes"),
+    max_items_per_file: int = typer.Option(DEFAULT_MAX_ITEMS_PER_FILE, "--max-items-per-file"),
+    max_total_items: int = typer.Option(DEFAULT_MAX_TOTAL_ITEMS, "--max-total-items"),
+) -> None:
+    """Record an audited finding lifecycle transition (CLI parity with the Web UI).
+
+    The move is validated against the shared state machine
+    (:mod:`olympus.core.finding_lifecycle`) over the finding's *effective* status
+    — the latest recorded transition folded over the bundle's base status — and
+    appended to the same append-only store the API and Web UI use, so a triage
+    decision taken from the terminal is identical to one taken in the browser. An
+    accepted-risk or false-positive move requires a non-empty ``--reason``.
+    History is never rewritten.
+    """
+    store: SqliteFindingTransitionStore | None = None
+    try:
+        loaded = load_findings(
+            findings,
+            max_files=max_files,
+            max_bytes=max_input_bytes,
+            max_items_per_file=max_items_per_file,
+            max_total_items=max_total_items,
+        )
+        finding = next((item for item in loaded if item.finding_id == finding_id), None)
+        if finding is None:
+            typer.echo(
+                safe_terminal_text(f"vulcan: no finding {finding_id!r} in the given bundles"),
+                err=True,
+            )
+            raise typer.Exit(code=ExitCode.USAGE)
+        if to_status in SUPPRESSED_STATUSES and not reason.strip():
+            typer.echo(
+                "vulcan: an accepted-risk or false-positive move requires --reason",
+                err=True,
+            )
+            raise typer.Exit(code=ExitCode.USAGE)
+        store = SqliteFindingTransitionStore(database)
+        history = store.history(finding_id)
+        effective = (
+            finding.model_copy(update={"status": history[-1].to_status}) if history else finding
+        )
+        _, built = record_transition(
+            effective, to_status, actor=actor.strip() or "cli", reason=reason.strip()
+        )
+        # new_id restarts per process, so allocate a store-unique id to keep the
+        # append-only ledger collision-free across separate CLI invocations.
+        record = built.model_copy(
+            update={"transition_id": store.next_transition_id(built.occurred_at.year)}
+        )
+        store.append(record)
+    except _APPLICATION_ERRORS as exc:
+        typer.echo(safe_terminal_text(f"vulcan: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    finally:
+        if store is not None:
+            store.close()
+
+    records: list[dict[str, object]] = [
+        {
+            "finding_id": record.finding_id,
+            "from": record.from_status.value,
+            "to": record.to_status.value,
+            "actor": safe_terminal_text(record.actor),
+            "transition_id": record.transition_id,
+        }
+    ]
+    columns = ["finding_id", "from", "to", "actor", "transition_id"]
+    typer.echo(render(records, columns, output_format, title="Finding transition recorded"))

@@ -91,6 +91,29 @@ class SqliteFindingTransitionStore:
             ) from exc
         return transition.transition_id
 
+    def next_transition_id(self, year: int) -> str:
+        """Allocate the next collision-free ``FTR-<year>-NNNNN`` id from stored state.
+
+        The shared :func:`olympus.core.ids.new_id` generator restarts its counter
+        at ``1`` in every process, so a short-lived caller (a CLI invocation, a
+        restarted worker) would regenerate ids that already exist in this
+        append-only ledger. This derives the next sequence number from the ids
+        actually persisted for ``year``, so the id is unique regardless of process
+        lifetime. The format matches ``new_id`` (prefix ``FTR``, zero-padded to at
+        least five digits).
+        """
+        prefix = f"FTR-{year}-"
+        rows = self._conn.execute(
+            "SELECT transition_id FROM finding_transitions WHERE transition_id LIKE ?",
+            (prefix + "%",),
+        ).fetchall()
+        highest = 0
+        for row in rows:
+            suffix = str(row["transition_id"])[len(prefix) :]
+            if suffix.isdigit():
+                highest = max(highest, int(suffix))
+        return f"{prefix}{highest + 1:05d}"
+
     def history(self, finding_id: str) -> list[FindingTransition]:
         """Return every transition for ``finding_id``, oldest first."""
         rows = self._conn.execute(

@@ -7,6 +7,33 @@
 > Le priorità qui indicate sono basate sul codice e sulla documentazione realmente
 > presenti nel repository, non sulla precedente versione monolitica `OLYMPUS.py`.
 
+### Snapshot audit 2026-10-28 (`main` @ `b5cc491`)
+
+Audit 360° di codice, contratti, sicurezza e dichiarazioni. **Verificato pulito:**
+`ruff check` e `ruff format` sull'intero repo; `mypy --strict` su 213 file
+first-party; suite completa (unit/contract/integration, esclusi container/live_lab
+opt-in) verde con branch coverage ~81–82% (≥75%); nessuno stub/placeholder o
+`except: pass` sospetto (i soli riscontri sono testo di documentazione, placeholder
+legittimi di templating e fallback `fsync` coperti da `pragma`); superficie di
+terminal-injection della CLI sanitizzata (`core.output.render_table` + echo
+first-party/enum); kill del process-group dello scanner (`themis/runner` usa
+`start_new_session` + `os.killpg`); store SQLite dei finding indicizzato sulla
+query hot. **Nessun nuovo P0/P1 di codice.** **Lacune confermate aperte** (con
+disposizione): SEC-B blocco egress a livello namespace → **bloccato** (richiede
+container runtime); ripristino workflow CI → **bloccato** (decisione owner, commit
+`58ba209`); RFC-3161/SLSA/Cosign/branch-protection → dipendono da servizi/infra
+esterni; DEV-A confini architetturali, WEB-H Postgres/RBAC, UX-E accessibilità/i18n,
+WEB-J backup/restore → interventi ampi pianificati. **Finding dell'audit risolti in
+questo ciclo:** (1) parità CLI/Web del ciclo di vita finding — mancava un comando
+CLI per registrare una transizione di stato (presente solo in API/Web) → aggiunto
+`olympus vulcan transition`; (2) **difetto di unicità id cross-processo** — `new_id`
+riparte da `…00001` in ogni processo, quindi un chiamante a vita breve (CLI, worker
+riavviato) rigenererebbe id già presenti nel ledger append-only dei finding →
+aggiunto `SqliteFindingTransitionStore.next_transition_id` che alloca l'id dal
+contenuto persistito. **Follow-up tracciato:** lo stesso allocatore andrebbe usato
+anche dal gestore transizioni Web per renderlo sicuro ai riavvii (oggi mascherato
+dal processo long-lived) — vedi `WEB-C`.
+
 ## Legenda
 
 - `[x]` già presente e verificabile nel repository;
@@ -115,7 +142,7 @@ Legenda stato: ✅ implementata · 🟡 parziale · 🗓️ pianificata · ❌ a
 | 4 | Dry-run e controlli perimetro autorizzato | 🟡 | scope gate `themis/scope.py`,`athena/scope.py`,`core/addresses.py`+`core/pinning.py` (SSRF); autorizzazione `core/execution.ExecutionPolicy`, `--i-am-authorized` | Scope ✅; **dry-run universale** → `SEC-G` |
 | 5 | RBAC, segreti, audit log, rate limiting | 🟡 | `themis/identity.py` (hash delle credenziali, permessi/scadenza/limiti per identità), audit middleware `themis/api.py`, redaction `core/execution.py` | Base ✅; **RBAC/OIDC multiutente** → `WEB-H`; **SecretProvider** → `SEC-D` |
 | 6 | Arresto immediato + approvazione invasive | 🟡 | cancellation `core/execution.py`, kill del process-group `themis/sandbox.py` | **Kill switch globale**, classi PASSIVE/ACTIVE/INTRUSIVE, preview → `SEC-G`,`UX-B` |
-| 7 | Deduplicazione + ciclo di vita finding | ✅ | `vulcan/aggregate.py` (`dedupe_findings` per ID + `merge_duplicate_findings` cross-scanner lossless), `FindingStatus` (7 stati), macchina a stati + audit trail + suppression `core/finding_lifecycle.py`/`findings/store.py` (`WEB-C`) | Transizioni, dedup, audit trail, suppression, tagging/ricerca tutti ✅; filtri `FindingFilter` ora in parità CLI (`olympus vulcan rank --min-severity/--status/--source/--asset/--kev-only/--has-cve/--tag/--text/--min-risk`) e Web |
+| 7 | Deduplicazione + ciclo di vita finding | ✅ | `vulcan/aggregate.py` (`dedupe_findings` per ID + `merge_duplicate_findings` cross-scanner lossless), `FindingStatus` (7 stati), macchina a stati + audit trail + suppression `core/finding_lifecycle.py`/`findings/store.py` (`WEB-C`) | Transizioni, dedup, audit trail, suppression, tagging/ricerca tutti ✅; filtri `FindingFilter` ora in parità CLI (`olympus vulcan rank …`) e Web; transizioni di stato ora anche da CLI (`olympus vulcan transition`, parità con API/Web) con id allocato dal ledger (`next_transition_id`, collision-free cross-processo) |
 | 8 | Severità, confidence, risk scoring contestuale | ✅ | `Severity`, `Finding.confidence` (`WEB-C`), `Finding.risk_score()` 0–100 (`WEB-C`), `vulcan/enrichment.prioritize` (KEV>EPSS>CVSS>severità) | Confidence + risk score numerico ✅; mantenere |
 | 9 | Mapping CVE/CWE/CVSS/MITRE ATT&CK | ✅ | `Finding.cvss` + campi `cve`/`cwe`/`epss`/`kev` strutturati (`WEB-C`); link NVD/MITRE in `vulcan/pdf.py`; EPSS/KEV `vulcan/enrichment.py`; ATT&CK detection `apollo/attack.py`, `Alert.mitre_attack`; **ATT&CK offensivo sui finding** `vulcan/attack.py` (`OPS-RED`) | Campi strutturati ✅; overlay ATT&CK offensivo ✅ (auto vs reviewed, mapping versionato) |
 | 10 | Inventario centralizzato asset | 🟡 | `core.Asset`, `argus/assets.py`, persistenza per-assessment in Athena; `Asset.engagement_id` opzionale e stamping dal coordinator Athena per id canonici (`WEB-B` slice 2); engagement esposti via API/Web sullo stesso store con scope enforcement (`WEB-B` slice 3) | Engagement leggibili/operabili dai quattro canali ✅; **viste di aggregazione asset cross-engagement** (widget top-asset-per-esposizione sulla dashboard, `WEB-G`) ✅ |
@@ -1629,6 +1656,20 @@ stesso store, lo stesso modello e lo stesso scope enforcement. **`WEB-B` complet
   `findings:read`/`findings:write`. Template `web_templates/findings.html` +
   `finding_detail.html`, stili same-origin (CSP senza inline), test in
   `tests/unit/test_themis_web.py`. Doc: [`docs/web.md`](docs/web.md).
+- [x] **Parità CLI del ciclo di vita (audit 2026-10-28).** La transizione di
+  stato, finora solo in API/Web, è ora disponibile da CLI con
+  `olympus vulcan transition --finding-id … --to-status … --findings … --database …
+  [--reason … --actor …]`: stessa macchina a stati (`record_transition`), stesso
+  store append-only, stato *effettivo* ripiegato dallo storico sulla base del
+  bundle, suppressioni (`accepted`/`false_positive`) che richiedono `--reason`.
+  **Fix di unicità id:** poiché `core.ids.new_id` riparte da `…00001` per processo,
+  un chiamante a vita breve rigenererebbe id già presenti nel ledger; il nuovo
+  `SqliteFindingTransitionStore.next_transition_id(year)` alloca l'id dallo stato
+  persistito (collision-free cross-processo), usato dalla CLI. Test
+  `tests/unit/test_vulcan.py` e `tests/unit/test_finding_transitions.py`; doc
+  [`docs/cli-reference.md`](docs/cli-reference.md). **Resta (follow-up):** far usare
+  `next_transition_id` anche al gestore transizioni Web, per renderlo sicuro ai
+  riavvii del processo (oggi mascherato dal processo long-lived).
 
 **Criterio di completamento (soddisfatto):** un finding attraversa tutto il ciclo
 di vita con audit; la deduplica non perde evidenza né remediation; ogni finding è

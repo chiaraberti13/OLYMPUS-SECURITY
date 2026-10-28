@@ -107,6 +107,24 @@ def test_store_is_append_only_rejecting_duplicate_ids(tmp_path: Path) -> None:
         store.close()
 
 
+def test_next_transition_id_is_collision_free_against_stored_state(tmp_path: Path) -> None:
+    path = tmp_path / "ft.db"
+    store = SqliteFindingTransitionStore(path)
+    try:
+        # An empty ledger allocates the first id for the year.
+        first = store.next_transition_id(2026)
+        assert first == "FTR-2026-00001"
+        _, record = record_transition(_finding(), FindingStatus.CONFIRMED, actor="a")
+        store.append(record.model_copy(update={"transition_id": first}))
+        # The next allocation skips the persisted id even in a brand-new process
+        # where new_id() would restart at FTR-2026-00001.
+        assert store.next_transition_id(2026) == "FTR-2026-00002"
+        # A different calendar year keeps its own sequence.
+        assert store.next_transition_id(2027) == "FTR-2027-00001"
+    finally:
+        store.close()
+
+
 def test_store_rejects_a_tampered_document(tmp_path: Path) -> None:
     store = SqliteFindingTransitionStore(tmp_path / "ft.db")
     _, record = record_transition(_finding(), FindingStatus.CONFIRMED, actor="a")

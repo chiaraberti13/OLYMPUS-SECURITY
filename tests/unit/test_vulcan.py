@@ -393,6 +393,54 @@ def test_cli_report_executive_section(tmp_path: Path) -> None:
     assert bad.exit_code != 0
 
 
+def test_cli_transition_records_an_audited_lifecycle_move(tmp_path: Path) -> None:
+    from olympus.findings.store import SqliteFindingTransitionStore
+
+    findings_path = _write(tmp_path / "f.json", [_finding("SQLi", Severity.CRITICAL)])
+    db = tmp_path / "transitions.sqlite3"
+    finding_id = json.loads(findings_path.read_text())[0]["finding_id"]
+
+    def run(to_status: str, *extra: str) -> object:
+        return runner.invoke(
+            app,
+            [
+                "vulcan",
+                "transition",
+                "--finding-id",
+                finding_id,
+                "--to-status",
+                to_status,
+                "--findings",
+                str(findings_path),
+                "--database",
+                str(db),
+                "--format",
+                "json",
+                *extra,
+            ],
+        )
+
+    first = run("triaged")
+    assert first.exit_code == 0, first.output
+    # A second, separate invocation reads the effective status and gets a unique id.
+    second = run("confirmed")
+    assert second.exit_code == 0, second.output
+    store = SqliteFindingTransitionStore(db)
+    try:
+        history = store.history(finding_id)
+    finally:
+        store.close()
+    assert [t.to_status.value for t in history] == ["triaged", "confirmed"]
+    assert len({t.transition_id for t in history}) == 2  # no id collision
+
+    # An illegal move is refused and appends nothing.
+    illegal = run("new")
+    assert illegal.exit_code != 0
+    # A suppression without a reason is refused.
+    suppress = run("accepted")
+    assert suppress.exit_code != 0
+
+
 def test_cli_rank(tmp_path: Path) -> None:
     findings_path = _write(
         tmp_path / "f.json", [_finding("low", Severity.LOW), _finding("crit", Severity.CRITICAL)]
