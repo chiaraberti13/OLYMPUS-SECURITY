@@ -26,7 +26,7 @@
 - **[Quick start](#-quick-start)** — a verified recon → assessment → report path.
 - **[Configuration](#-configuration)** — scope files, config, and secrets.
 - **[Project structure](#-project-structure)** — how the repository is laid out.
-- **[Development](#-development)** — required CI checks and local commands.
+- **[Development](#-development)** — the `make check` quality gates and CI status.
 - **[Security model](#-security-model)** — scope, authorization, SSRF, audit.
 - **[Migration](#-migration--specialist-engines)** — native Argus, Themis and specialist engines.
 - **[Licences](#-licence-scope)** — GPL-3.0 native code plus preserved third-party licences.
@@ -151,7 +151,7 @@ not be read as exhaustive. A partial run is never reported as a clean one; see
 Honesty over breadth — `requires-python = ">=3.11"` states what installs, not
 what is verified:
 
-| | Verified in CI | Not verified |
+| | Verified by the test suite | Not verified |
 | --- | --- | --- |
 | **OS** | Ubuntu portable suite plus dedicated POSIX sandbox suite; macOS and Windows portable CLI smoke | Linux-only sandbox guarantees on macOS/Windows |
 | **Python** | portable suite on 3.11–3.14; POSIX sandbox suite on 3.11 | future Python releases; POSIX sandbox on 3.12–3.14 |
@@ -160,7 +160,8 @@ Olympus is developed and exercised on Linux. The core and CLI are written to be
 portable, and the sandbox layer (`olympus.themis.sandbox`) is POSIX-specific by
 design — user drop and `setrlimit` have no Windows equivalent. Its real-kernel
 tests are isolated under `tests/platform/posix/`, use strict registered markers
-and run in a dedicated Ubuntu CI job. Widening this matrix further is tracked in
+and run in a dedicated Ubuntu test job (`make test-posix`; in CI when a workflow
+is configured). Widening this matrix further is tracked in
 [`ROADMAP.md`](ROADMAP.md) as `DEV-C`.
 
 ## ⚙️ Configuration
@@ -213,15 +214,22 @@ security behaviour.
 ## 🧪 Development
 
 Ruff, strict type checking, portable pytest, POSIX sandbox tests and a first-party
-branch-coverage floor are mandatory CI gates. Functional readiness additionally
-requires real execution evidence; a green CI run alone is not called parity.
+branch-coverage floor are the blocking quality gates, chained by `make check`.
+Functional readiness additionally requires real execution evidence; green gates
+alone are not called parity.
+
+> **Continuous integration status.** The GitHub Actions workflow that ran these
+> gates on every push/PR was removed from the repository (commit `58ba209`), so
+> there is currently **no automatic enforcement** — only `.github/workflows/labels.yml`
+> remains. Until a CI workflow is restored, run `make check` locally before
+> publishing (and `make audit` / `make secrets-scan` for the supply-chain gates).
 
 ```bash
-make lint      # Ruff; required in CI
+make lint      # Ruff
 make test      # pytest on the current host
-make test-coverage # pytest + branch coverage gate; required in CI
+make test-coverage # pytest + branch coverage gate
 make type      # strict mypy gate over first-party code
-make check     # run the complete local quality suite
+make check     # run the complete local quality suite (the authoritative gate)
 ```
 
 Generate a CycloneDX SBOM of the installed runtime — no external tool needed:
@@ -289,7 +297,7 @@ catalogue, not an implementation claim. Today:
 No adapter is `production-ready` yet: the Definition of Done — per-adapter
 evidence manifest with digests, SBOM, vulnerability scan and documented version
 compatibility — is not met for any engine. `olympus themis capabilities` reports
-this per engine, and a CI job can enforce it with
+this per engine, and a gate can enforce it with
 `olympus themis capabilities --min-maturity live-tested --count 12`. The
 declarations are cross-checked against the repository on every test run, so the
 table cannot quietly drift; see [`docs/scanner-maturity.md`](docs/scanner-maturity.md).
@@ -307,7 +315,7 @@ olympus themis capabilities                 # ready state here + project maturit
 olympus themis doctor --scanner nuclei      # one engine: binary/version, adapter, maturity
 olympus themis doctor --scanner all         # the same, for every catalogued engine
 olympus themis matrix                       # classification matrix, generated from the registry
-olympus themis matrix --check               # CI gate: fail if docs/scanner-matrix.md drifted
+olympus themis matrix --check               # drift gate: fail if docs/scanner-matrix.md drifted
 olympus themis jobs init                    # durable local job store
 olympus themis jobs submit nmap --target example.com --scope scope.json \
   --signed-manifest signed-manifest.json --manifest-public-key approver-public.pem \
@@ -392,7 +400,7 @@ docker compose down
 | Storage | `themis-data`; keep legacy VAP data separate, native migration refuses foreign databases |
 | Security | Mandatory identities/TLS, non-root, read-only rootfs, capabilities dropped, live scans disabled |
 | Scanners | Optional scanner image only on the worker; missing dependencies produce explicit partial coverage |
-| Validation | Clean-wheel smoke plus an executable container suite in CI; all checks use loopback without live scans |
+| Validation | Clean-wheel smoke plus an executable container suite (`make test-container`); all checks use loopback without live scans |
 
 **Real scans, never fabricated:** `olympus themis run <scanner> --target <t>
 --scope s.json --i-am-authorized --signed-manifest engagement.signed.json

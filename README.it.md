@@ -26,7 +26,7 @@
 - **[Avvio rapido](#-avvio-rapido)** — un percorso verificato recon → assessment → report.
 - **[Configurazione](#-configurazione)** — file di scope, config e segreti.
 - **[Struttura del progetto](#-struttura-del-progetto)** — com'è organizzato il repository.
-- **[Sviluppo](#-sviluppo)** — controlli CI obbligatori e comandi locali.
+- **[Sviluppo](#-sviluppo)** — i gate di qualità `make check` e lo stato della CI.
 - **[Modello di sicurezza](#-modello-di-sicurezza)** — scope, autorizzazione, SSRF, audit.
 - **[Migrazione](#-migrazione--motori-specialistici)** — Argus nativo, Themis e motori specialistici.
 - **[Licenze](#-ambito-delle-licenze)** — codice Olympus GPL-3.0 e licenze delle dipendenze preservate.
@@ -175,15 +175,24 @@ esecuzione e comportamento di sicurezza.
 
 ## 🧪 Sviluppo
 
-Ruff e l'intera suite pytest sono gate CI obbligatori. Il type checking resta
-un controllo locale aggiuntivo. La prontezza funzionale richiede inoltre prove
-di esecuzione reali: una CI verde, da sola, non viene definita parità.
+Ruff, type checking strict, pytest portabile, i test della sandbox POSIX e il
+floor di branch coverage first-party sono i gate di qualità bloccanti, concatenati
+da `make check`. La prontezza funzionale richiede inoltre prove di esecuzione
+reali: gate verdi, da soli, non vengono definiti parità.
+
+> **Stato della continuous integration.** Il workflow GitHub Actions che eseguiva
+> questi gate su ogni push/PR è stato rimosso dal repository (commit `58ba209`),
+> quindi **oggi non c'è enforcement automatico** — sotto `.github/workflows/` resta
+> solo `labels.yml`. Finché un workflow CI non viene ripristinato, esegui
+> `make check` in locale prima di pubblicare (e `make audit` / `make secrets-scan`
+> per i gate di supply chain).
 
 ```bash
-make lint      # Ruff; obbligatorio in CI
-make test      # pytest; obbligatorio in CI
-make type      # mypy; controllo locale aggiuntivo
-make check     # esegue l'intera suite locale
+make lint      # Ruff
+make test      # pytest sull'host corrente
+make test-coverage # pytest + gate di branch coverage
+make type      # gate mypy strict sul codice first-party
+make check     # esegue l'intera suite locale (il gate autorevole)
 ```
 
 Vedi [`docs/architecture/`](docs/architecture) per le decisioni di progetto
@@ -317,7 +326,7 @@ docker compose down
 | Archivio | `themis-data`; dati VAP separati, la migrazione nativa rifiuta database estranei |
 | Sicurezza | Identità/TLS obbligatori, non-root, rootfs read-only, capability rimosse, live disabilitato |
 | Scanner | Immagine opzionale soltanto sul worker; dipendenze assenti producono coverage parziale esplicita |
-| Verifiche | Smoke della wheel e suite container eseguibile in CI, su loopback senza scansioni live |
+| Verifiche | Smoke della wheel e suite container eseguibile (`make test-container`), su loopback senza scansioni live |
 
 **Scansioni reali, mai inventate:** `olympus themis run <scanner> --target <t>
 --scope s.json --i-am-authorized --signed-manifest engagement.signed.json
