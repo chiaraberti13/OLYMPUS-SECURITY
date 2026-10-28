@@ -33,6 +33,8 @@ from olympus.vulcan.report import (
     render_html,
     render_markdown,
     render_report_csv,
+    render_report_html,
+    render_report_markdown,
 )
 
 runner = CliRunner()
@@ -348,6 +350,49 @@ def test_cli_report_writes_csv(tmp_path: Path) -> None:
     assert "SQLi" in body
 
 
+def test_cli_report_executive_section(tmp_path: Path) -> None:
+    finding = _finding("SQLi", Severity.CRITICAL)
+    findings_path = _write(tmp_path / "f.json", [finding])
+    out = tmp_path / "report.json"
+    md = tmp_path / "report.md"
+    result = runner.invoke(
+        app,
+        [
+            "vulcan",
+            "report",
+            "--engagement",
+            "demo-eng",
+            "--findings",
+            str(findings_path),
+            "--output",
+            str(out),
+            "--markdown",
+            str(md),
+            "--section",
+            "executive",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    body = md.read_text(encoding="utf-8")
+    assert "## Summary" in body and "SQLi" in body
+    assert "## Assets" not in body  # executive drops the asset inventory
+    # An invalid section is rejected.
+    bad = runner.invoke(
+        app,
+        [
+            "vulcan",
+            "report",
+            "--engagement",
+            "e",
+            "--findings",
+            str(findings_path),
+            "--section",
+            "x",
+        ],
+    )
+    assert bad.exit_code != 0
+
+
 def test_cli_rank(tmp_path: Path) -> None:
     findings_path = _write(
         tmp_path / "f.json", [_finding("low", Severity.LOW), _finding("crit", Severity.CRITICAL)]
@@ -484,6 +529,34 @@ def test_render_report_csv_is_spreadsheet_safe() -> None:
     # with a leading apostrophe so a spreadsheet shows it as literal text.
     assert rows[1][title_index] == '\'=HYPERLINK("http://evil","x")'
     assert rows[2][title_index] == "normal finding"
+
+
+def test_report_executive_section_omits_technical_detail() -> None:
+    assets = [Asset(asset_type=AssetType.HOST, hostname="h1", source=Source.ARGUS)]
+    alerts = [Alert(event_id="EVT-1", title="brute force", source=Source.APOLLO)]
+    finding = Finding(
+        asset_id="AST-1",
+        source=Source.ARTEMIS,
+        title="SQLi",
+        severity=Severity.CRITICAL,
+        description="SENSITIVE technical detail",
+        remediation="patch the parameter",
+    )
+    model = build_report_model("eng", assets, [finding], alerts)
+
+    for render in (render_report_markdown, render_report_html):
+        full = render(model)
+        executive = render(model, section="executive")
+        # The full report keeps the per-finding detail and the appendices.
+        assert "SENSITIVE technical detail" in full
+        # The executive summary keeps the headline (title, severity, counts) but
+        # drops the technical detail, remediation and the alert/provenance blocks.
+        assert "SQLi" in executive
+        assert "SENSITIVE technical detail" not in executive
+        assert "patch the parameter" not in executive
+        assert "brute force" not in executive
+    # Default stays full (backward compatible).
+    assert render_report_markdown(model) == render_report_markdown(model, section="full")
 
 
 def test_render_html_sets_restrictive_csp() -> None:

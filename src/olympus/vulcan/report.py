@@ -10,6 +10,7 @@ import re
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal
 
 from olympus.core.execution import safe_terminal_text
 from olympus.core.fileio import atomic_write_text
@@ -22,6 +23,11 @@ from olympus.core.models import (
     SecurityReport,
 )
 from olympus.vulcan.aggregate import rank_findings, severity_breakdown
+
+#: Which slice of the canonical report a human-facing renderer emits. ``full`` is
+#: every section; ``executive`` is the counts, severity table and a compact
+#: one-line finding overview for a decision-maker.
+ReportSection = Literal["full", "executive"]
 
 
 def build_report_model(
@@ -58,8 +64,15 @@ def build_report(
     return build_report_model(engagement, assets, findings, alerts).model_dump(mode="json")
 
 
-def render_report_markdown(report: SecurityReport) -> str:
-    """Render all canonical report sections with Markdown metacharacters escaped."""
+def render_report_markdown(report: SecurityReport, *, section: ReportSection = "full") -> str:
+    """Render the canonical report sections with Markdown metacharacters escaped.
+
+    ``section="full"`` (the default) renders every section verbatim. ``"executive"``
+    renders a decision-maker summary: the counts and severity table plus a compact
+    one-line-per-finding overview (severity, title, asset, risk), omitting the
+    per-finding technical detail, the asset inventory, the alert list and the
+    authorization-provenance appendix.
+    """
     breakdown = report.summary.severity_breakdown
     lines: list[str] = [
         f"# Security report — {_markdown_text(report.engagement)}",
@@ -77,6 +90,17 @@ def render_report_markdown(report: SecurityReport) -> str:
     ]
     for level in ("critical", "high", "medium", "low", "info"):
         lines.append(f"| {level} | {breakdown[level]} |")
+
+    if section == "executive":
+        lines += ["", "## Findings (ranked)"]
+        if not report.findings:
+            lines.append("_No findings._")
+        for finding in report.findings:
+            lines.append(
+                f"- [{finding.severity.value.upper()}] {_markdown_text(finding.title)} "
+                f"— {_markdown_text(finding.asset_id)} (risk {finding.risk_score():.0f})"
+            )
+        return "\n".join(lines) + "\n"
 
     lines += ["", "## Assets"]
     if not report.assets:
@@ -169,8 +193,13 @@ _REPORT_CSP = (
 )
 
 
-def render_report_html(report: SecurityReport) -> str:
-    """Render a self-contained, escaped HTML view of every report section."""
+def render_report_html(report: SecurityReport, *, section: ReportSection = "full") -> str:
+    """Render a self-contained, escaped HTML view of the report.
+
+    ``section="full"`` (the default) emits every section; ``"executive"`` emits
+    the severity breakdown and a compact ranked finding overview only, omitting
+    the asset inventory, per-finding detail, alerts and provenance appendix.
+    """
     breakdown = report.summary.severity_breakdown
     generated = report.generated_at.astimezone(UTC).strftime("%Y-%m-%d %H:%M UTC")
     parts: list[str] = [
@@ -192,8 +221,25 @@ def render_report_html(report: SecurityReport) -> str:
         + "</tr><tr>"
         + "".join(f"<td>{breakdown[level]}</td>" for level in _SEVERITY_COLORS)
         + "</tr></table>",
-        "<h2>Assets</h2>",
     ]
+    if section == "executive":
+        parts.append("<h2>Findings (ranked)</h2>")
+        if not report.findings:
+            parts.append("<p>No findings.</p>")
+        else:
+            parts.append("<ul>")
+            for finding in report.findings:
+                color = _SEVERITY_COLORS[finding.severity.value]
+                parts.append(
+                    f"<li><span class='sev' style='background:{color}'>"
+                    f"{finding.severity.value.upper()}</span> "
+                    f"{_html_text(finding.title)} — {_html_text(finding.asset_id)} "
+                    f"(risk {finding.risk_score():.0f})</li>"
+                )
+            parts.append("</ul>")
+        parts.append("</body></html>")
+        return "".join(parts)
+    parts.append("<h2>Assets</h2>")
     if not report.assets:
         parts.append("<p>No assets.</p>")
     else:

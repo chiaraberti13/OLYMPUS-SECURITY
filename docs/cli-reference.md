@@ -1646,6 +1646,7 @@ Aggregate strict inputs into consistent JSON, Markdown, HTML and PDF views.
 | `--kev` | option | no | — | Local CISA KEV catalogue JSON: adds KEV flags to the PDF (offline). |
 | `--epss` | option | no | — | Local FIRST EPSS response JSON: adds EPSS scores to the PDF (offline). |
 | `--min-severity` | option | no | — | Only include findings at or above this severity. |
+| `--section` | option | no | `full` | Markdown/HTML report scope: 'full' (every section) or 'executive' (summary + severity table + compact finding overview). |
 | `--max-files` | option | no | `100` | — |
 | `--max-input-bytes` | option | no | `50000000` | — |
 | `--max-total-input-bytes` | option | no | `200000000` | — |

@@ -1797,10 +1797,17 @@ lo stesso port; l'utente locale non deve installare Postgres.
   `render_report_markdown`/`render_report_html`/JSON dump): nessuna logica di
   rendering duplicata, quindi il report dal browser è identico a quello della
   CLI per lo stesso set. Servito come download (`Content-Disposition: attachment`);
-  etichetta engagement sanitizzata (`SEC-H`) e slug per il filename. Test
-  `tests/unit/test_themis_web.py`; doc [`docs/web.md`](docs/web.md). **Resta da
-  fare:** sezioni executive/tecnico selezionabili, PDF dal browser (oggi CLI-only
-  `olympus vulcan report --pdf`).
+  etichetta engagement sanitizzata (`SEC-H`) e slug per il filename.
+  **Sezioni executive/tecnico selezionabili fatte:** `report.ReportSection`
+  (`full`/`executive`) sui renderer Markdown/HTML — `executive` rende sintesi,
+  tabella severità e un elenco finding compatto (una riga per severità/titolo/
+  asset/rischio), omettendo dettaglio tecnico, inventario asset, alert e appendice
+  di provenienza. Esposta da CLI `olympus vulcan report --section executive|full`
+  e da Web `GET /findings/report?report_section=executive` (i formati macchina
+  json/csv/sarif restano sempre completi); default `full`, retrocompatibile.
+  Test `tests/unit/test_vulcan.py`, `tests/unit/test_themis_web.py`; doc
+  [`docs/web.md`](docs/web.md), [`docs/cli-reference.md`](docs/cli-reference.md).
+  **Resta da fare:** PDF dal browser (oggi CLI-only `olympus vulcan report --pdf`).
 - [x] **Report comparison / scan diff (slice 2).** Motore puro e offline
   `vulcan/compare.diff_findings` → `ScanDiff` che classifica ogni finding logico
   come **new** (regressione o nuova scoperta), **resolved** (prova che una

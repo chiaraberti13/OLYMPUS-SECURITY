@@ -1326,6 +1326,20 @@ def test_report_reflects_the_same_filter_as_the_table(tmp_path: Path) -> None:
     assert "Server banner disclosed" not in report.text
 
 
+def test_report_executive_section_is_a_summary(tmp_path: Path) -> None:
+    client = _findings_client(tmp_path, _FINDING)
+    _login(client)
+    full = client.get("/findings/report", params={"format": "md"})
+    executive = client.get(
+        "/findings/report", params={"format": "md", "report_section": "executive"}
+    )
+    assert full.status_code == 200 and executive.status_code == 200
+    # The finding headline survives; the full report's asset inventory does not.
+    assert "Reflected XSS in search" in executive.text
+    assert "## Assets" in full.text
+    assert "## Assets" not in executive.text
+
+
 def test_report_rejects_an_unknown_format(tmp_path: Path) -> None:
     client = _findings_client(tmp_path)
     _login(client)

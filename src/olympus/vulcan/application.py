@@ -32,6 +32,7 @@ from olympus.vulcan.enrichment import EpssScore, KevEntry, enrich_findings
 from olympus.vulcan.pdf import render_report_pdf
 from olympus.vulcan.provenance import load_authorization_provenance
 from olympus.vulcan.report import (
+    ReportSection,
     build_report_model,
     render_report_csv,
     render_report_html,
@@ -57,6 +58,8 @@ class VulcanReportRequest:
     render_html: bool = False
     render_csv: bool = False
     render_pdf: bool = False
+    #: Which section slice the Markdown/HTML renderers emit ("full" or "executive").
+    section: ReportSection = "full"
     #: Optional KEV/EPSS catalogues; when present and ``render_pdf`` is set, the
     #: PDF's known-vulnerabilities table shows EPSS scores and KEV membership.
     kev_catalog: dict[str, KevEntry] = field(default_factory=dict)
@@ -169,11 +172,15 @@ class VulcanApplicationService:
         )
         json_content = json.dumps(report.model_dump(mode="json"), indent=2, sort_keys=True) + "\n"
         _ensure_output_size(json_content.encode(), request.max_output_bytes, "JSON")
-        markdown = render_report_markdown(report) if request.render_markdown else None
+        markdown = (
+            render_report_markdown(report, section=request.section)
+            if request.render_markdown
+            else None
+        )
         if markdown is not None:
             _ensure_output_size(markdown.encode(), request.max_output_bytes, "Markdown")
         progress()
-        html = render_report_html(report) if request.render_html else None
+        html = render_report_html(report, section=request.section) if request.render_html else None
         if html is not None:
             _ensure_output_size(html.encode(), request.max_output_bytes, "HTML")
         progress()

@@ -125,6 +125,7 @@ from olympus.vulcan.aggregate import (
 from olympus.vulcan.compare import diff_findings
 from olympus.vulcan.evidence_view import build_finding_evidence_view
 from olympus.vulcan.report import (
+    ReportSection,
     build_report_model,
     render_report_csv,
     render_report_html,
@@ -1559,6 +1560,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         min_risk: str = "",
         tag: str = "",
         asset: str = "",
+        report_section: str = "full",
         session: WebSession = reads_findings,
     ) -> Response:
         """Export a Vulcan report of the *currently filtered* findings (ROADMAP ``WEB-I``).
@@ -1611,6 +1613,9 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         label = _safe(engagement.strip()) or "olympus-findings"
         slug = re.sub(r"[^A-Za-z0-9._-]+", "-", label).strip("-")[:64] or "olympus-findings"
         report = build_report_model(label, [], matched, [])
+        # Markdown/HTML may be scoped to an executive summary; machine formats
+        # (json/csv/sarif) are always the full set. An unknown value is full.
+        section: ReportSection = "executive" if report_section.strip() == "executive" else "full"
 
         if chosen == "json":
             body = json.dumps(report.model_dump(mode="json"), indent=2, sort_keys=True) + "\n"
@@ -1620,7 +1625,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             body = json.dumps(findings_to_sarif(matched), indent=2, sort_keys=True) + "\n"
             media_type, extension = "application/sarif+json", "sarif.json"
         elif chosen in {"md", "markdown"}:
-            body = render_report_markdown(report)
+            body = render_report_markdown(report, section=section)
             media_type, extension = "text/markdown; charset=utf-8", "md"
         elif chosen == "csv":
             # Spreadsheet-safe CSV of the filtered findings (cells neutralised
@@ -1628,7 +1633,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             body = render_report_csv(report)
             media_type, extension = "text/csv; charset=utf-8", "csv"
         else:
-            body = render_report_html(report)
+            body = render_report_html(report, section=section)
             media_type, extension = "text/html; charset=utf-8", "html"
         return Response(
             content=body,

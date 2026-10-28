@@ -168,7 +168,8 @@ degrade honestly rather than pretending there are no findings.
 The findings view offers a one-click **Vulcan report** of exactly what is on
 screen. `GET /findings/report` takes the same filter query parameters as
 `GET /findings` (status, severity, source, text, KEV, has-CVE, min-risk,
-`engagement`, `asset`, `tag`) plus `format` (`md`, `html`, `json`, `csv` or `sarif`),
+`engagement`, `asset`, `tag`) plus `format` (`md`, `html`, `json`, `csv` or `sarif`)
+and `report_section` (`full` or `executive`, applied to `md`/`html` only),
 narrows the
 catalogue with the identical `vulcan.search.FindingFilter` (so the report is
 exactly the filtered table), builds the canonical `SecurityReport` with
@@ -176,7 +177,11 @@ exactly the filtered table), builds the canonical `SecurityReport` with
 `render_report_markdown` / `render_report_html` / `render_report_csv` / the
 model's JSON dump — no
 rendering logic is duplicated in the web layer, so a report from the browser is
-byte-for-byte what the CLI produces for the same finding set. The `csv` format
+byte-for-byte what the CLI produces for the same finding set. With
+`report_section=executive` the Markdown/HTML renderers emit a decision-maker
+summary — counts, severity table and a one-line-per-finding overview — omitting
+the per-finding detail, asset inventory, alerts and provenance appendix (the
+same `--section executive` the CLI offers; machine formats stay full). The `csv` format
 emits one spreadsheet-safe row per ranked finding (`text/csv`); every cell is
 neutralised against CSV formula injection, so an attacker-controlled finding
 field such as `=HYPERLINK(...)` is shown as literal text rather than executed by

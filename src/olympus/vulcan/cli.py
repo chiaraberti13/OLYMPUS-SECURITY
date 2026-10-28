@@ -221,6 +221,12 @@ def report(
     min_severity: Severity | None = typer.Option(
         None, "--min-severity", help="Only include findings at or above this severity."
     ),
+    section: str = typer.Option(
+        "full",
+        "--section",
+        help="Markdown/HTML report scope: 'full' (every section) or 'executive' "
+        "(summary + severity table + compact finding overview).",
+    ),
     max_files: int = typer.Option(DEFAULT_MAX_FILES, "--max-files"),
     max_input_bytes: int = typer.Option(DEFAULT_MAX_INPUT_BYTES, "--max-input-bytes"),
     max_total_input_bytes: int = typer.Option(
@@ -232,6 +238,9 @@ def report(
     deadline: float = typer.Option(120.0, "--deadline"),
 ) -> None:
     """Aggregate strict inputs into consistent JSON, Markdown, HTML and PDF views."""
+    if section not in ("full", "executive"):
+        typer.echo("vulcan: --section must be 'full' or 'executive'", err=True)
+        raise typer.Exit(code=ExitCode.USAGE)
     outputs = tuple(
         path for path in (output, markdown, html_output, csv_output, pdf_output) if path is not None
     )
@@ -274,6 +283,7 @@ def report(
                 render_html=html_output is not None,
                 render_csv=csv_output is not None,
                 render_pdf=pdf_output is not None,
+                section="executive" if section == "executive" else "full",
                 kev_catalog=kev_catalog,
                 epss_scores=epss_scores,
                 max_files=max_files,
