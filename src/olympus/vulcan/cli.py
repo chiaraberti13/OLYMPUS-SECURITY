@@ -579,6 +579,33 @@ def rank(
     output_format: OutputFormat = typer.Option(
         OutputFormat.TABLE, "--format", help="Render as a table (human) or json (machine)."
     ),
+    min_severity: Severity | None = typer.Option(
+        None, "--min-severity", help="Keep only findings at or above this severity."
+    ),
+    status_filter: FindingStatus | None = typer.Option(
+        None, "--status", help="Keep only findings in this lifecycle status."
+    ),
+    source: Source | None = typer.Option(
+        None, "--source", help="Keep only findings from this producing module."
+    ),
+    asset: str = typer.Option(
+        "", "--asset", help="Keep only findings on this exact asset id (case-insensitive)."
+    ),
+    kev_only: bool = typer.Option(
+        False, "--kev-only", help="Keep only findings flagged in the CISA KEV catalogue."
+    ),
+    has_cve: bool = typer.Option(
+        False, "--has-cve", help="Keep only findings that carry at least one CVE."
+    ),
+    tags: list[str] = typer.Option(
+        [], "--tag", help="Keep only findings carrying ALL given tags (repeatable)."
+    ),
+    text: str = typer.Option(
+        "", "--text", help="Case-insensitive substring across title, asset, CVE/CWE, tags."
+    ),
+    min_risk: float | None = typer.Option(
+        None, "--min-risk", min=0.0, max=100.0, help="Keep only findings at/above this risk score."
+    ),
     max_files: int = typer.Option(DEFAULT_MAX_FILES, "--max-files"),
     max_input_bytes: int = typer.Option(DEFAULT_MAX_INPUT_BYTES, "--max-input-bytes"),
     max_total_input_bytes: int = typer.Option(
@@ -588,7 +615,13 @@ def rank(
     max_total_items: int = typer.Option(DEFAULT_MAX_TOTAL_ITEMS, "--max-total-items"),
     deadline: float = typer.Option(60.0, "--deadline"),
 ) -> None:
-    """Load strict findings and print exact-ID-deduplicated severity ranking."""
+    """Load strict findings and print exact-ID-deduplicated severity ranking.
+
+    Optional filters reuse the shared :class:`~olympus.vulcan.search.FindingFilter`
+    — the same criteria the Web findings view offers — so the CLI narrows a
+    finding set identically to the browser. Filtering is applied after ranking, so
+    the surviving findings keep their risk order.
+    """
     try:
         ranked = VulcanApplicationService().rank(
             VulcanRankRequest(
@@ -604,6 +637,18 @@ def rank(
     except _APPLICATION_ERRORS as exc:
         typer.echo(safe_terminal_text(f"vulcan: {exc}"), err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
+    finding_filter = FindingFilter(
+        statuses=frozenset({status_filter}) if status_filter is not None else frozenset(),
+        sources=frozenset({source}) if source is not None else frozenset(),
+        min_severity=min_severity,
+        asset_id=asset.strip() or None,
+        kev_only=kev_only,
+        has_cve=True if has_cve else None,
+        tags=frozenset(tag.strip() for tag in tags if tag.strip()),
+        text=text.strip(),
+        min_risk_score=min_risk,
+    )
+    selected = search_findings(ranked, finding_filter)
     columns = ["severity", "title", "source", "asset_id", "finding_id"]
     records: list[dict[str, object]] = [
         {
@@ -613,7 +658,7 @@ def rank(
             "asset_id": finding.asset_id,
             "finding_id": finding.finding_id,
         }
-        for finding in ranked
+        for finding in selected
     ]
     typer.echo(render(records, columns, output_format, title="Findings (ranked)"))
 

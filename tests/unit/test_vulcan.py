@@ -360,6 +360,46 @@ def test_cli_rank(tmp_path: Path) -> None:
     assert payload[0]["severity"] == "critical"
 
 
+def test_cli_rank_filters_reuse_the_shared_finding_filter(tmp_path: Path) -> None:
+    low = _finding("low banner", Severity.LOW, asset_id="AST-1")
+    crit = _finding("crit sqli", Severity.CRITICAL, asset_id="AST-2")
+    findings_path = _write(tmp_path / "f.json", [low, crit])
+    # --min-severity narrows exactly like the Web findings view.
+    result = runner.invoke(
+        app,
+        [
+            "vulcan",
+            "rank",
+            "--findings",
+            str(findings_path),
+            "--format",
+            "json",
+            "--min-severity",
+            "high",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert [row["severity"] for row in payload] == ["critical"]
+    # --asset is exact and case-insensitive.
+    scoped = runner.invoke(
+        app,
+        [
+            "vulcan",
+            "rank",
+            "--findings",
+            str(findings_path),
+            "--format",
+            "json",
+            "--asset",
+            "ast-1",
+        ],
+    )
+    assert scoped.exit_code == 0, scoped.output
+    scoped_payload = json.loads(scoped.output)
+    assert [row["asset_id"] for row in scoped_payload] == ["AST-1"]
+
+
 def test_cli_report_bad_input(tmp_path: Path) -> None:
     (tmp_path / "bad.json").write_text("{not json", encoding="utf-8")
     result = runner.invoke(

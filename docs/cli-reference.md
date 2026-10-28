@@ -1609,6 +1609,15 @@ Load strict findings and print exact-ID-deduplicated severity ranking.
 | --- | --- | --- | --- | --- |
 | `--findings` | option | yes | — | core.Finding JSON file(s) to rank (repeatable). |
 | `--format` | option | no | `table` | Render as a table (human) or json (machine). |
+| `--min-severity` | option | no | — | Keep only findings at or above this severity. |
+| `--status` | option | no | — | Keep only findings in this lifecycle status. |
+| `--source` | option | no | — | Keep only findings from this producing module. |
+| `--asset` | option | no | — | Keep only findings on this exact asset id (case-insensitive). |
+| `--kev-only` | option | no | `False` | Keep only findings flagged in the CISA KEV catalogue. |
+| `--has-cve` | option | no | `False` | Keep only findings that carry at least one CVE. |
+| `--tag` | option | no | — | Keep only findings carrying ALL given tags (repeatable). |
+| `--text` | option | no | — | Case-insensitive substring across title, asset, CVE/CWE, tags. |
+| `--min-risk` | option | no | — | Keep only findings at/above this risk score. |
 | `--max-files` | option | no | `100` | — |
 | `--max-input-bytes` | option | no | `50000000` | — |
 | `--max-total-input-bytes` | option | no | `200000000` | — |
