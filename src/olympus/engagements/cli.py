@@ -85,7 +85,17 @@ def create(
 
     store = _open_store(storage)
     try:
-        store.save(engagement)
+        # new_id() restarts per process, so allocate a store-unique id instead of
+        # trusting the model default; create() then refuses to overwrite, so a
+        # second `engagement create` can never silently destroy the first.
+        engagement = engagement.model_copy(
+            update={"engagement_id": store.next_engagement_id(engagement.created_at.year)}
+        )
+        try:
+            store.create(engagement)
+        except EngagementStoreError as exc:
+            typer.echo(f"engagement: {exc}", err=True)
+            raise typer.Exit(code=ExitCode.USAGE) from exc
     finally:
         store.close()
     typer.echo(json.dumps(_summary(engagement), indent=2, sort_keys=True))

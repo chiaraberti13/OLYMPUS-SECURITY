@@ -108,6 +108,34 @@ def test_store_require_returns_or_raises(tmp_path: Path) -> None:
         store.close()
 
 
+def test_store_create_refuses_to_overwrite_an_existing_id(tmp_path: Path) -> None:
+    store = SqliteEngagementStore(tmp_path / "engagements.db")
+    try:
+        first = _engagement("First").model_copy(update={"engagement_id": "ENG-2026-00001"})
+        store.create(first)
+        # A second engagement minted with the same id (as new_id() would after a
+        # process restart) must NOT silently replace the first — it fails closed.
+        clash = _engagement("Second").model_copy(update={"engagement_id": "ENG-2026-00001"})
+        with pytest.raises(EngagementStoreError, match="already exists"):
+            store.create(clash)
+        assert store.require("ENG-2026-00001").name == "First"  # original preserved
+    finally:
+        store.close()
+
+
+def test_store_next_engagement_id_is_collision_free(tmp_path: Path) -> None:
+    store = SqliteEngagementStore(tmp_path / "engagements.db")
+    try:
+        assert store.next_engagement_id(2026) == "ENG-2026-00001"
+        store.create(_engagement().model_copy(update={"engagement_id": "ENG-2026-00001"}))
+        # The next allocation skips the persisted id even though new_id() would
+        # restart at ENG-2026-00001 in a fresh process.
+        assert store.next_engagement_id(2026) == "ENG-2026-00002"
+        assert store.next_engagement_id(2027) == "ENG-2027-00001"
+    finally:
+        store.close()
+
+
 def test_store_rejects_symlink_database(tmp_path: Path) -> None:
     target = tmp_path / "real.db"
     target.touch()

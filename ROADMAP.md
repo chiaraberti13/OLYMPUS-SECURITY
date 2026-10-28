@@ -32,7 +32,15 @@ riavviato) rigenererebbe id già presenti nel ledger append-only dei finding →
 aggiunto `SqliteFindingTransitionStore.next_transition_id` che alloca l'id dal
 contenuto persistito; il gestore transizioni **Web** usa ora lo stesso allocatore
 (follow-up chiuso il 2026-10-28), quindi un worker riavviato non collide più con
-il ledger esistente — vedi `WEB-C`.
+il ledger esistente — vedi `WEB-C`; (3) **perdita di dati negli engagement (P0)** —
+lo stesso difetto `new_id` cross-processo colpiva lo store engagement in modo più
+grave: due invocazioni `olympus engagement create` coniavano entrambe
+`ENG-<anno>-00001` e il `save()` basato su `INSERT OR REPLACE` sovrascriveva
+silenziosamente il primo engagement con il secondo (perdita del perimetro
+autorizzato). Risolto con `SqliteEngagementStore.next_engagement_id` (alloca l'id
+dallo stato persistito) + `create()` insert-only fail-closed (rifiuta di
+sovrascrivere un id esistente, ultima linea di difesa); la CLI `create` usa ora
+entrambi — vedi `WEB-B`.
 
 ## Legenda
 
@@ -1568,6 +1576,21 @@ job-lifecycle/cancellation/SSE passano (`tests/unit/test_themis_web.py`).
 **Criterio di completamento (soddisfatto):** lo stesso engagement è leggibile e
 operabile identicamente dai quattro canali (CLI, TUI via core, API, Web), con lo
 stesso store, lo stesso modello e lo stesso scope enforcement. **`WEB-B` completo.**
+
+- [x] **Hardening (2026-10-28, P0 data-loss).** La creazione engagement si
+  appoggiava a `new_id()`, che riparte da `…00001` in ogni processo: due
+  `olympus engagement create` separati coniavano lo stesso `ENG-<anno>-00001` e
+  `save()` (`INSERT OR REPLACE`) sovrascriveva silenziosamente il primo record —
+  perdita del perimetro autorizzato di un engagement reale. Corretto con
+  `SqliteEngagementStore.next_engagement_id(year)` (deriva il prossimo progressivo
+  dagli id canonici già persistiti, unico a prescindere dalla vita del processo) e
+  `SqliteEngagementStore.create()` insert-only **fail-closed** (su id già presente
+  solleva `EngagementStoreError` invece di sovrascrivere); la CLI `create` alloca
+  l'id dallo store e usa `create()`, mentre `import` conserva `save()` per
+  preservare gli id importati. Regressione coperta in unit e integration
+  (`test_store_create_refuses_to_overwrite_an_existing_id`,
+  `test_store_next_engagement_id_is_collision_free`,
+  `test_engagement_create_twice_does_not_lose_the_first`).
 
 ### Intervento C · `WEB-C` — Finding management e lifecycle (**P1**)
 

@@ -87,6 +87,58 @@ class SqliteEngagementStore:
             )
         return engagement.engagement_id
 
+    def create(self, engagement: Engagement) -> str:
+        """Insert a *new* engagement, refusing to overwrite an existing id.
+
+        Unlike :meth:`save` (``INSERT OR REPLACE``, used for updates and import),
+        this is fail-closed: if ``engagement.engagement_id`` already exists it
+        raises :class:`EngagementStoreError` instead of silently replacing the
+        stored engagement. That matters because :func:`olympus.core.ids.new_id`
+        restarts its counter per process, so two separate ``engagement create``
+        invocations would otherwise both mint ``ENG-<year>-00001`` and the second
+        would destroy the first. Callers should allocate the id with
+        :meth:`next_engagement_id`; this method is the last line of defence.
+        """
+        try:
+            with self._conn:
+                self._conn.execute(
+                    "INSERT INTO engagements"
+                    "(engagement_id, document, created_at, updated_at) VALUES (?, ?, ?, ?)",
+                    (
+                        engagement.engagement_id,
+                        engagement.canonical_json(),
+                        engagement.created_at.isoformat(),
+                        engagement.updated_at.isoformat(),
+                    ),
+                )
+        except sqlite3.IntegrityError as exc:
+            raise EngagementStoreError(
+                f"engagement_id already exists: {engagement.engagement_id!r}"
+            ) from exc
+        return engagement.engagement_id
+
+    def next_engagement_id(self, year: int) -> str:
+        """Allocate the next collision-free ``ENG-<year>-NNNNN`` id from stored state.
+
+        The shared :func:`olympus.core.ids.new_id` generator restarts at ``1`` in
+        every process, so a short-lived caller (a CLI invocation) would regenerate
+        ids that already exist. This derives the next sequence number from the
+        canonical ids actually persisted for ``year`` (``ENG-YYYY-NNNNN``), so it
+        is unique regardless of process lifetime. The format matches ``new_id``
+        (prefix ``ENG``, zero-padded to five digits).
+        """
+        prefix = f"ENG-{year}-"
+        rows = self._conn.execute(
+            "SELECT engagement_id FROM engagements WHERE engagement_id LIKE ?",
+            (prefix + "%",),
+        ).fetchall()
+        highest = 0
+        for row in rows:
+            suffix = str(row["engagement_id"])[len(prefix) :]
+            if suffix.isdigit():
+                highest = max(highest, int(suffix))
+        return f"{prefix}{highest + 1:05d}"
+
     def get(self, engagement_id: str) -> Engagement | None:
         """Return the stored engagement, or ``None`` if it does not exist."""
         row = self._conn.execute(
