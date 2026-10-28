@@ -25,6 +25,13 @@ from olympus.core.notifications import (
 )
 from olympus.core.output import OutputFormat, render, render_table
 from olympus.core.paths import output_path
+from olympus.findings.encryption import (
+    FINDINGS_ENCRYPTION_KEY_ENV,
+    FindingsEncryptionError,
+    decrypt_findings_document,
+    encrypt_findings_document,
+    looks_encrypted,
+)
 from olympus.findings.store import SqliteFindingTransitionStore
 from olympus.minerva.application import (
     MinervaApplicationService,
@@ -896,6 +903,79 @@ def import_command(
     typer.echo(
         json.dumps({"kind": kind, "imported": len(records), "output": str(output)}, indent=2)
     )
+
+
+@app.command("encrypt-bundle")
+def encrypt_bundle_command(
+    input_file: Path = typer.Option(
+        ..., "--input", "-i", help="Plaintext core.* JSON bundle to protect at rest."
+    ),
+    output: Path = typer.Option(..., "--output", "-o", help="Encrypted envelope file to write."),
+) -> None:
+    """Encrypt a finding/asset JSON bundle at rest with the findings key (SEC-E).
+
+    The bundle is encrypted with authenticated symmetric encryption; the key is
+    resolved from ``OLYMPUS_FINDINGS_ENCRYPTION_KEY`` through the SecretProvider
+    and never written into the output. The envelope is read back transparently by
+    every loader (``olympus vulcan ...`` and the Web UI) when the same key is set,
+    so findings can rest encrypted without a separate decrypt step before review.
+    Fail-closed: without a configured key nothing is written.
+    """
+    try:
+        text = read_regular_text(input_file, max_bytes=_MAX_IMPORT_BYTES, label="bundle encrypt")
+    except (OSError, ValueError) as exc:
+        typer.echo(safe_terminal_text(f"vulcan: cannot read bundle: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    if looks_encrypted(text):
+        typer.echo("vulcan: input is already an encryption envelope", err=True)
+        raise typer.Exit(code=ExitCode.USAGE)
+    try:
+        json.loads(text)
+    except json.JSONDecodeError as exc:
+        typer.echo(safe_terminal_text(f"vulcan: bundle is not valid JSON: {exc.msg}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    try:
+        envelope = encrypt_findings_document(text)
+    except FindingsEncryptionError as exc:
+        typer.echo(safe_terminal_text(f"vulcan: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    atomic_write_text(output, envelope, mode=0o600)
+    typer.echo(json.dumps({"encrypted": str(input_file), "output": str(output)}, indent=2))
+
+
+@app.command("decrypt-bundle")
+def decrypt_bundle_command(
+    input_file: Path = typer.Option(
+        ..., "--input", "-i", help="Encrypted envelope file to decrypt."
+    ),
+    output: Path = typer.Option(..., "--output", "-o", help="Plaintext JSON bundle to write."),
+) -> None:
+    """Decrypt a bundle envelope produced by ``encrypt-bundle`` (SEC-E).
+
+    The inverse of :func:`encrypt_bundle_command`, for export or migration. The
+    key is resolved from ``OLYMPUS_FINDINGS_ENCRYPTION_KEY`` through the
+    SecretProvider. Fail-closed: a missing key, a wrong key or a tampered
+    ciphertext exits ``2`` and writes nothing.
+    """
+    try:
+        text = read_regular_text(input_file, max_bytes=_MAX_IMPORT_BYTES, label="bundle decrypt")
+    except (OSError, ValueError) as exc:
+        typer.echo(safe_terminal_text(f"vulcan: cannot read envelope: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    if not looks_encrypted(text):
+        typer.echo(
+            f"vulcan: input is not an Olympus encryption envelope "
+            f"(set {FINDINGS_ENCRYPTION_KEY_ENV} and encrypt with 'encrypt-bundle' first)",
+            err=True,
+        )
+        raise typer.Exit(code=ExitCode.USAGE)
+    try:
+        plaintext = decrypt_findings_document(text, max_bytes=_MAX_IMPORT_BYTES)
+    except FindingsEncryptionError as exc:
+        typer.echo(safe_terminal_text(f"vulcan: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    atomic_write_text(output, plaintext, mode=0o600)
+    typer.echo(json.dumps({"decrypted": str(input_file), "output": str(output)}, indent=2))
 
 
 @app.command("sarif-import")

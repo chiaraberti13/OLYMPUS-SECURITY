@@ -21,11 +21,19 @@ from olympus.core.crypto import ENCRYPTION_SCHEME, CryptoError, decrypt_to_text,
 from olympus.core.models import FindingTransition
 from olympus.core.secrets import SecretProvider, resolve_secret
 
+# The finding encryption-key policy (env name, minimum length) is defined once in
+# olympus.findings.encryption and shared with the bundle-at-rest path; it is
+# re-exported here so existing importers of FINDINGS_ENCRYPTION_KEY_ENV keep working.
+from olympus.findings.encryption import (
+    FINDINGS_ENCRYPTION_KEY_ENV,
+)
+from olympus.findings.encryption import (
+    MIN_ENCRYPTION_KEY_LENGTH as _MIN_ENCRYPTION_KEY_LENGTH,
+)
+
 #: Guard against an oversized stored document exhausting memory on load.
 MAX_DOCUMENT_BYTES = 1_000_000
 MAX_STORED_DOCUMENT_BYTES = 2_000_000
-FINDINGS_ENCRYPTION_KEY_ENV = "OLYMPUS_FINDINGS_ENCRYPTION_KEY"
-_MIN_ENCRYPTION_KEY_LENGTH = 32
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS finding_transitions (

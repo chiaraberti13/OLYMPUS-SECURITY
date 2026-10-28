@@ -1116,6 +1116,55 @@ def test_findings_list_renders_and_filters_like_the_cli(tmp_path: Path) -> None:
     assert "1 of 2" in filtered.text
 
 
+def test_findings_list_transparently_decrypts_bundles_at_rest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A findings bundle stored encrypted (SEC-E) is read like any other by the Web UI."""
+    from olympus.findings.encryption import FINDINGS_ENCRYPTION_KEY_ENV, encrypt_findings_document
+
+    key = "k" * 32
+    monkeypatch.setenv(FINDINGS_ENCRYPTION_KEY_ENV, key)
+    directory = tmp_path / "enc-findings"
+    directory.mkdir()
+    (directory / "bundle-0.json").write_text(encrypt_findings_document(json.dumps([_FINDING])))
+
+    client = _client(
+        tmp_path,
+        findings_directory=directory,
+        findings_database=tmp_path / "finding-transitions.sqlite3",
+    )
+    _login(client)
+    page = client.get("/findings")
+    assert page.status_code == 200, page.text
+    assert "Reflected XSS in search" in page.text  # decrypted and rendered
+    assert "1 of 1" in page.text
+
+
+def test_findings_list_is_honest_when_encrypted_without_key(tmp_path: Path) -> None:
+    """Without the key, an encrypted bundle fails closed — never shown as empty results."""
+    from olympus.core.secrets import EnvSecretProvider
+    from olympus.findings.encryption import encrypt_findings_document
+
+    directory = tmp_path / "enc-findings"
+    directory.mkdir()
+    envelope = encrypt_findings_document(
+        json.dumps([_FINDING]),
+        provider=EnvSecretProvider(environ={"OLYMPUS_FINDINGS_ENCRYPTION_KEY": "k" * 32}),
+    )
+    (directory / "bundle-0.json").write_text(envelope)
+
+    client = _client(
+        tmp_path,
+        findings_directory=directory,
+        findings_database=tmp_path / "finding-transitions.sqlite3",
+    )
+    _login(client)
+    page = client.get("/findings")
+    assert page.status_code == 200, page.text
+    assert "Reflected XSS in search" not in page.text  # not silently decrypted
+    assert "could not be read" in page.text or "unavailable" in page.text.lower()
+
+
 def test_findings_list_filters_by_tag_and_engagement(tmp_path: Path) -> None:
     tagged = {
         **_FINDING,

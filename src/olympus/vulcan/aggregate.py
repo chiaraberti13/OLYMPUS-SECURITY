@@ -14,6 +14,12 @@ from olympus.core.contracts import ContractCompatibilityError, validate_contract
 from olympus.core.enums import Confidence, Severity
 from olympus.core.fileio import read_regular_text
 from olympus.core.models import Alert, Asset, Finding, Observation, ScanJob, SecurityReport
+from olympus.core.secrets import SecretProvider
+from olympus.findings.encryption import (
+    FindingsEncryptionError,
+    decrypt_findings_document,
+    is_encryption_envelope,
+)
 
 DEFAULT_MAX_INPUT_BYTES = 50_000_000
 DEFAULT_MAX_FILES = 100
@@ -119,18 +125,32 @@ def _load_array(
     max_bytes: int = DEFAULT_MAX_INPUT_BYTES,
     max_items: int = DEFAULT_MAX_ITEMS_PER_FILE,
     progress_check: Callable[[], None] | None = None,
+    secrets: SecretProvider | None = None,
 ) -> list[_ModelT]:
-    """Load a bounded versioned collection or one named legacy array/object."""
+    """Load a bounded versioned collection or one named legacy array/object.
+
+    A bundle stored at rest as an Olympus encryption envelope (``SEC-E``) is
+    transparently decrypted here with the findings key (via ``secrets``, the
+    process environment by default), so every consumer — the CLI and the Web UI —
+    reads encrypted and plaintext bundles the same way. Decryption is fail-closed:
+    an envelope with no key, a wrong key or a tampered ciphertext raises rather
+    than loading partial data; a plaintext bundle keeps loading unchanged.
+    """
     if not 1 <= max_items <= 1_000_000:
         raise AggregationError("max_items must be between 1 and 1000000")
     if progress_check is not None:
         progress_check()
     try:
-        raw = json.loads(read_regular_text(path, max_bytes=max_bytes, label="aggregation input"))
+        text = read_regular_text(path, max_bytes=max_bytes, label="aggregation input")
+        raw = json.loads(text)
+        if is_encryption_envelope(raw):
+            raw = json.loads(decrypt_findings_document(text, provider=secrets, max_bytes=max_bytes))
     except FileNotFoundError as exc:
         raise AggregationError(f"input file not found: {path}") from exc
     except json.JSONDecodeError as exc:
         raise AggregationError(f"invalid JSON input {path}: {exc.msg}") from exc
+    except FindingsEncryptionError as exc:
+        raise AggregationError(f"{path}: {exc}") from exc
     except (OSError, ValueError) as exc:
         raise AggregationError(str(exc)) from exc
 
@@ -218,6 +238,7 @@ def load_assets(
     max_items_per_file: int = DEFAULT_MAX_ITEMS_PER_FILE,
     max_total_items: int = DEFAULT_MAX_TOTAL_ITEMS,
     progress_check: Callable[[], None] | None = None,
+    secrets: SecretProvider | None = None,
 ) -> list[Asset]:
     """Load bounded shared assets from supported producer envelopes."""
     return _load_many(
@@ -228,6 +249,7 @@ def load_assets(
         max_items_per_file=max_items_per_file,
         max_total_items=max_total_items,
         progress_check=progress_check,
+        secrets=secrets,
     )
 
 
@@ -239,6 +261,7 @@ def load_findings(
     max_items_per_file: int = DEFAULT_MAX_ITEMS_PER_FILE,
     max_total_items: int = DEFAULT_MAX_TOTAL_ITEMS,
     progress_check: Callable[[], None] | None = None,
+    secrets: SecretProvider | None = None,
 ) -> list[Finding]:
     """Load bounded shared findings from supported producer envelopes."""
     return _load_many(
@@ -249,6 +272,7 @@ def load_findings(
         max_items_per_file=max_items_per_file,
         max_total_items=max_total_items,
         progress_check=progress_check,
+        secrets=secrets,
     )
 
 
@@ -260,6 +284,7 @@ def load_alerts(
     max_items_per_file: int = DEFAULT_MAX_ITEMS_PER_FILE,
     max_total_items: int = DEFAULT_MAX_TOTAL_ITEMS,
     progress_check: Callable[[], None] | None = None,
+    secrets: SecretProvider | None = None,
 ) -> list[Alert]:
     """Load bounded shared alerts from supported producer envelopes."""
     return _load_many(
@@ -270,6 +295,7 @@ def load_alerts(
         max_items_per_file=max_items_per_file,
         max_total_items=max_total_items,
         progress_check=progress_check,
+        secrets=secrets,
     )
 
 
@@ -282,6 +308,7 @@ def _load_many(
     max_items_per_file: int,
     max_total_items: int,
     progress_check: Callable[[], None] | None,
+    secrets: SecretProvider | None = None,
 ) -> list[_ModelT]:
     if not 1 <= max_files <= 1_000:
         raise AggregationError("max_files must be between 1 and 1000")
@@ -301,6 +328,7 @@ def _load_many(
                 max_bytes=max_bytes,
                 max_items=max_items_per_file,
                 progress_check=progress_check,
+                secrets=secrets,
             )
         )
         if len(loaded) > max_total_items:

@@ -1471,6 +1471,15 @@ Map offensive findings to MITRE ATT&CK techniques (OPS-RED).
 | `--max-items-per-file` | option | no | `100000` | — |
 | `--max-total-items` | option | no | `200000` | — |
 
+### `olympus vulcan decrypt-bundle`
+
+Decrypt a bundle envelope produced by ``encrypt-bundle`` (SEC-E).
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--input`, `-i` | option | yes | — | Encrypted envelope file to decrypt. |
+| `--output`, `-o` | option | yes | — | Plaintext JSON bundle to write. |
+
 ### `olympus vulcan diff`
 
 Compare two assessment runs: what is new, resolved and still persistent.
@@ -1484,6 +1493,15 @@ Compare two assessment runs: what is new, resolved and still persistent.
 | `--max-input-bytes` | option | no | `50000000` | — |
 | `--max-items-per-file` | option | no | `100000` | — |
 | `--max-total-items` | option | no | `200000` | — |
+
+### `olympus vulcan encrypt-bundle`
+
+Encrypt a finding/asset JSON bundle at rest with the findings key (SEC-E).
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--input`, `-i` | option | yes | — | Plaintext core.* JSON bundle to protect at rest. |
+| `--output`, `-o` | option | yes | — | Encrypted envelope file to write. |
 
 ### `olympus vulcan enrich`
 

@@ -160,6 +160,29 @@ engagement and status details are ciphertext. Existing plaintext rows remain
 readable during migration; encrypted rows fail closed if the key is missing,
 wrong or the ciphertext was changed.
 
+### Encrypting finding bundles at rest
+
+The immutable `core.Finding`/`core.Asset` JSON **bundles** that producers (the
+scanners, Athena) emit and the CLI and Web UI review can also be stored
+encrypted, protected by the **same** `OLYMPUS_FINDINGS_ENCRYPTION_KEY` resolved
+through `SecretProvider` — one key for findings at rest wherever they live, never
+written into the ciphertext.
+
+```bash
+# Encrypt a bundle produced by a scan for storage at rest:
+olympus vulcan encrypt-bundle -i findings.json -o findings.enc.json
+# ...and decrypt it again for export or migration:
+olympus vulcan decrypt-bundle -i findings.enc.json -o findings.json
+```
+
+Encryption is **transparent on read**: every loader (`olympus vulcan rank |
+report | diff | trend | ...` and the Web UI findings pages) detects the envelope
+and decrypts it in place when the key is set, so an encrypted bundle needs no
+separate decrypt step before review. A plaintext bundle keeps loading unchanged,
+so enabling encryption never strands bundles written earlier. Reads are
+**fail-closed**: an encrypted bundle presented with no key, a wrong key or a
+tampered ciphertext is rejected rather than shown as empty or partial results.
+
 ### Suppression
 
 Suppressing a finding (accepting the risk, or dismissing it as a false positive)

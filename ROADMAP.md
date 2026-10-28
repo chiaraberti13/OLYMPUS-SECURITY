@@ -40,7 +40,15 @@ silenziosamente il primo engagement con il secondo (perdita del perimetro
 autorizzato). Risolto con `SqliteEngagementStore.next_engagement_id` (alloca l'id
 dallo stato persistito) + `create()` insert-only fail-closed (rifiuta di
 sovrascrivere un id esistente, ultima linea di difesa); la CLI `create` usa ora
-entrambi — vedi `WEB-B`.
+entrambi — vedi `WEB-B`; (4) **cifratura a riposo dei bundle finding (`SEC-E`)** —
+i documenti del lifecycle store erano già cifrabili, ma gli immutabili bundle JSON
+`core.Finding`/`core.Asset` prodotti dagli scanner restavano in chiaro su disco →
+policy di chiave single-source in `olympus/findings/encryption.py` (condivisa con
+il lifecycle store), cifratura/decifratura via `olympus vulcan encrypt-bundle`/
+`decrypt-bundle` con la **stessa** chiave `OLYMPUS_FINDINGS_ENCRYPTION_KEY` e
+**decifratura trasparente** nel choke point unico di load (`vulcan.aggregate`), così
+CLI e Web UI leggono bundle cifrati e in chiaro in modo identico; fail-closed su
+chiave assente/errata o ciphertext alterato, compatibilità legacy — vedi `SEC-E`.
 
 ## Legenda
 
@@ -690,9 +698,19 @@ ruotabili senza downtime. **SEC-D è completato `[x]`.**
   documenti del lifecycle store dei finding supportano ora cifratura autenticata
   per record con chiave distinta `OLYMPUS_FINDINGS_ENCRYPTION_KEY`, compatibilità
   di lettura legacy e rifiuto fail-closed di chiavi mancanti/errate o ciphertext
-  alterato. Restano aperte la cifratura dei bundle finding prodotti dagli scanner
-  e l'applicazione schedulata e uniforme della retention su backup, snapshot e
-  repliche; per questo la voce resta parziale.
+  alterato. **Bundle finding cifrati a riposo fatto (2026-10-28):** la policy di
+  chiave è ora single-source in `olympus/findings/encryption.py` (nome env,
+  lunghezza minima, risoluzione via `SecretProvider`), condivisa dal lifecycle
+  store e dalla nuova via bundle; gli immutabili bundle JSON `core.Finding`/
+  `core.Asset` prodotti da scanner e Athena possono essere cifrati con la **stessa**
+  chiave (`olympus vulcan encrypt-bundle`/`decrypt-bundle`) e vengono **decifrati
+  in modo trasparente dal choke point unico di caricamento** `vulcan.aggregate.
+  load_findings`/`load_assets`, così CLI e Web UI leggono bundle cifrati e in chiaro
+  in modo identico; lettura fail-closed (chiave assente/errata o ciphertext alterato
+  → rifiuto, mai risultati vuoti/parziali) e compatibilità legacy in chiaro. Resta
+  aperta solo l'applicazione schedulata e uniforme della retention su backup,
+  snapshot e repliche (richiede infrastruttura di deployment); per questo la voce
+  resta parziale.
 
 **Criterio di completamento:** modifica, riordino, troncamento o sostituzione di una
 evidenza vengono rilevati e la verifica è possibile da un soggetto terzo.
