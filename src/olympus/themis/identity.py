@@ -60,6 +60,7 @@ SCOPES: tuple[str, ...] = (
     "engagements:read",
     "findings:read",
     "findings:write",
+    "incidents:read",
 )
 
 

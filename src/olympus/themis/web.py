@@ -64,7 +64,7 @@ from olympus.core.finding_lifecycle import (
     allowed_transitions,
     record_transition,
 )
-from olympus.core.models import Engagement, Finding
+from olympus.core.models import Engagement, Finding, Incident
 from olympus.core.observability import Correlation, Observability, observability_from_config
 from olympus.engagements.manifest import SignedEngagementManifest
 from olympus.engagements.resolve import (
@@ -95,6 +95,7 @@ from olympus.integrations.smartscan import (
     objectives,
     propose_pipeline,
 )
+from olympus.minerva.triage import incident_status_breakdown, load_incidents
 from olympus.themis.api import (
     MAX_REQUEST_BYTES,
     ApiSettings,
@@ -588,6 +589,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
     findings_directory = settings.findings_directory
     findings_database = settings.findings_database
     baseline_findings_directory = settings.baseline_findings_directory
+    incidents_directory = settings.incidents_directory
 
     def _load_findings_from(directory: Path) -> list[Finding]:
         """Load every ``*.json`` finding bundle in ``directory``, bounded.
@@ -616,6 +618,22 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         """Load the configured current-findings directory (see :func:`_load_findings_from`)."""
         assert findings_directory is not None  # noqa: S101 - callers guard on configuration
         return _load_findings_from(findings_directory)
+
+    def _load_incidents_catalogue() -> list[Incident] | None:
+        """Load the configured incident directory, or ``None`` when unreadable.
+
+        Each file is a read-only ``olympus.incident`` document produced by
+        ``olympus minerva triage`` (:func:`load_incidents`). A missing, broken or
+        malformed directory returns ``None`` so the dashboard honestly omits the
+        incident widget rather than inventing a count.
+        """
+        assert incidents_directory is not None  # noqa: S101 - callers guard on configuration
+        root = incidents_directory.resolve()
+        try:
+            paths = sorted(path for path in root.glob("*.json") if path.is_file())
+            return load_incidents(paths)
+        except (OSError, ValueError):
+            return None
 
     def _open_transition_store() -> SqliteFindingTransitionStore | None:
         """Open the append-only lifecycle store, or ``None`` when not configured."""
@@ -892,6 +910,30 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 "ready": sum(1 for item in adapted if item.ready),
                 "available": sum(1 for item in adapted if item.available),
             }
+        # Incidents-by-status widget (WEB-G): only for an identity that may read
+        # incidents, and only when an incident directory is configured and
+        # readable — otherwise the card is simply absent. "open" is the one
+        # not-yet-worked status; the rest of the lifecycle is shown for context.
+        incident_summary: dict[str, object] | None = None
+        if incidents_directory is not None and "incidents:read" in session.scopes:
+            incidents = _load_incidents_catalogue()
+            if incidents is not None:
+                status_counts = incident_status_breakdown(incidents)
+                incident_summary = {
+                    "total": len(incidents),
+                    "open": status_counts["open"],
+                    "statuses": [
+                        {"status": status, "count": status_counts[status]}
+                        for status in (
+                            "open",
+                            "triaged",
+                            "contained",
+                            "eradicated",
+                            "recovered",
+                            "closed",
+                        )
+                    ],
+                }
         return _page(
             request,
             "dashboard.html",
@@ -904,6 +946,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 "assessment_progress": assessment_progress,
                 "findings_summary": findings_summary,
                 "scanner_readiness": scanner_readiness,
+                "incident_summary": incident_summary,
                 "csrf_token": _csrf_token(session.nonce),
             },
         )

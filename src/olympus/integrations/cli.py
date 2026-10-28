@@ -380,6 +380,13 @@ def themis_web(
         help="Directory of core.Finding JSON bundles from an earlier run; enables "
         "the Scan diff page (new/resolved/persistent vs the current findings).",
     ),
+    incidents_directory: str = typer.Option(
+        "",
+        "--incidents-directory",
+        help="Directory of core.Incident JSON documents (olympus minerva triage "
+        "output); enables the dashboard incidents-by-status widget for an "
+        "incidents:read identity (read-only producer artifacts).",
+    ),
     ssl_certfile: str = typer.Option("", "--ssl-certfile"),
     ssl_keyfile: str = typer.Option("", "--ssl-keyfile"),
 ) -> None:
@@ -450,6 +457,7 @@ def themis_web(
                 baseline_findings_directory=(
                     Path(baseline_directory) if baseline_directory else None
                 ),
+                incidents_directory=(Path(incidents_directory) if incidents_directory else None),
                 max_concurrent_requests=max_concurrent_requests,
             )
         )

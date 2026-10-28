@@ -117,6 +117,12 @@ class ApiSettings:
     #: the effective status of a finding is folded from this history over the
     #: bundle's base status. Without it, the Web UI shows findings read-only.
     findings_database: Path | None = None
+    #: Directory of ``core.Incident`` JSON documents the Web dashboard summarises
+    #: (ROADMAP ``WEB-G`` incident widget). When set, a ``incidents:read`` identity
+    #: sees an incidents-by-status widget; when ``None`` the widget is simply
+    #: absent. Read-only private producer artifacts, exactly as
+    #: :func:`olympus.minerva.triage.export_incident` writes them — never a store.
+    incidents_directory: Path | None = None
     #: Pinned Ed25519 approver key. When configured, every API/Web job submission
     #: must carry a signed manifest and is rejected unless it authorizes the
     #: exact engagement, scanner, target and current time.
@@ -176,6 +182,7 @@ class ApiSettings:
         for label, directory in (
             ("findings", self.findings_directory),
             ("baseline findings", self.baseline_findings_directory),
+            ("incidents", self.incidents_directory),
         ):
             if directory is None:
                 continue

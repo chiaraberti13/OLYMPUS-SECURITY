@@ -1383,6 +1383,7 @@ Serve the native Themis web control plane (browser UI over the same core).
 | `--findings-directory` | option | no | — | Directory of core.Finding JSON bundles to review in the browser; enables the Findings pages (read-only producer artifacts). |
 | `--findings-storage` | option | no | — | Append-only SQLite finding-lifecycle store; enables recording triage decisions (status transitions) from the browser. |
 | `--baseline-directory` | option | no | — | Directory of core.Finding JSON bundles from an earlier run; enables the Scan diff page (new/resolved/persistent vs the current findings). |
+| `--incidents-directory` | option | no | — | Directory of core.Incident JSON documents (olympus minerva triage output); enables the dashboard incidents-by-status widget for an incidents:read identity (read-only producer artifacts). |
 | `--ssl-certfile` | option | no | — | — |
 | `--ssl-keyfile` | option | no | — | — |
 
@@ -1423,6 +1424,7 @@ Serve the native Themis web control plane (browser UI over the same core).
 | `--findings-directory` | option | no | — | Directory of core.Finding JSON bundles to review in the browser; enables the Findings pages (read-only producer artifacts). |
 | `--findings-storage` | option | no | — | Append-only SQLite finding-lifecycle store; enables recording triage decisions (status transitions) from the browser. |
 | `--baseline-directory` | option | no | — | Directory of core.Finding JSON bundles from an earlier run; enables the Scan diff page (new/resolved/persistent vs the current findings). |
+| `--incidents-directory` | option | no | — | Directory of core.Incident JSON documents (olympus minerva triage output); enables the dashboard incidents-by-status widget for an incidents:read identity (read-only producer artifacts). |
 | `--ssl-certfile` | option | no | — | — |
 | `--ssl-keyfile` | option | no | — | — |
 

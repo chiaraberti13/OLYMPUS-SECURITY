@@ -1701,7 +1701,7 @@ nessuno stadio) o senza autorizzazione (il motore non esegue mai nulla).
 
 ### Intervento G · `WEB-G` — Dashboard, accessibilità, i18n (**P2**)
 
-- [~] Dashboard con widget che rispondono a domande operative reali (asset, job
+- [x] Dashboard con widget che rispondono a domande operative reali (asset, job
   in corso, scansioni completate, finding per severità/scanner, incident aperti,
   attività recente, scanner readiness, avanzamento assessment); nessun widget
   decorativo. **Fatto finora:** totali e istogramma stati job + job recenti; e il
@@ -1723,10 +1723,18 @@ nessuno stadio) o senza autorizzazione (il motore non esegue mai nulla).
   (nessuna query extra) sulla partizione autorevole `TERMINAL_STATES`: percentuale
   completata, job in corso / terminati / completati con successo pulito, presente
   solo quando esistono job, rispondendo a «quanto lavoro è ancora in volo e quanto
-  è finito bene?». Test `tests/unit/test_themis_web.py`; doc
-  [`docs/web.md`](docs/web.md).
-  **Resta:** widget incident (richiede uno store incident cablato nel control
-  plane web).
+  è finito bene?»; e il widget **incident per stato** (`GET /`), scope-gated a
+  `incidents:read` e attivo solo con `--incidents-directory`, che riusa
+  `minerva.triage.load_incidents` + `incident_status_breakdown` sui documenti
+  `core.Incident` prodotti da `olympus minerva triage` (artefatti read-only, mai
+  uno store), mostrando il totale e il conteggio per ogni stato del ciclo di vita
+  (open→closed) con etichette testuali oltre al colore; degrada onestamente
+  (assente) se non configurato o non leggibile. Test
+  `tests/unit/test_themis_web.py` e `tests/unit/test_minerva_triage.py`; doc
+  [`docs/web.md`](docs/web.md), [`docs/cli-reference.md`](docs/cli-reference.md).
+  **Tutti i widget operativi previsti sono implementati** (asset, job in corso,
+  scansioni completate, finding per severità/scanner, incident per stato,
+  attività recente, scanner readiness, avanzamento assessment).
 - [ ] Responsive, accessibile (lega a `UX-E`), bilingue IT/EN, con onboarding e
   modalità Advanced.
 

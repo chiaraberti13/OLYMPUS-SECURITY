@@ -1051,6 +1051,24 @@ def _findings_client(
     )
 
 
+def _incidents_dir(tmp_path: Path, statuses: tuple[str, ...] = ("open", "triaged")) -> Path:
+    from olympus.core.enums import IncidentStatus, Source
+    from olympus.core.models import Incident
+    from olympus.minerva.triage import export_incident
+
+    directory = tmp_path / "incidents"
+    directory.mkdir(parents=True, exist_ok=True)
+    for index, status in enumerate(statuses, start=1):
+        incident = Incident(
+            incident_id=f"INC-2026-{index:05d}",
+            title=f"Synthetic incident {index}",
+            source=Source.MINERVA,
+            status=IncidentStatus(status),
+        )
+        export_incident(incident, directory / f"incident-{index}.json")
+    return directory
+
+
 def _findings_csrf(client: TestClient, finding_id: str = "FND-2026-00001") -> str:
     page = client.get(f"/findings/{finding_id}")
     assert page.status_code == 200, page.text
@@ -1510,3 +1528,33 @@ def test_dashboard_assessment_progress_tracks_terminal_jobs(tmp_path: Path) -> N
     assert "Assessment progress" in page.text
     assert "50%" in page.text
     assert "in flight" in page.text
+
+
+def test_dashboard_shows_incidents_by_status_for_an_incidents_reader(tmp_path: Path) -> None:
+    client = _client(
+        tmp_path,
+        incidents_directory=_incidents_dir(tmp_path, ("open", "open", "triaged")),
+    )
+    _login(client)
+    page = client.get("/")
+    assert page.status_code == 200
+    assert "Incidents by status" in page.text
+    # The lifecycle statuses are all rendered as labels (not colour-only).
+    assert ">open<" in page.text
+    assert ">closed<" in page.text
+
+
+def test_dashboard_incident_widget_hidden_without_incidents_read_scope(tmp_path: Path) -> None:
+    client = _client(
+        tmp_path,
+        api_key_scopes=("jobs:read",),
+        incidents_directory=_incidents_dir(tmp_path),
+    )
+    _login(client)
+    assert "Incidents by status" not in client.get("/").text
+
+
+def test_dashboard_incident_widget_absent_without_incidents_directory(tmp_path: Path) -> None:
+    client = _client(tmp_path)  # no incidents_directory
+    _login(client)
+    assert "Incidents by status" not in client.get("/").text

@@ -72,6 +72,20 @@
   </div>
 </section>
 {% endif %}
+{% if incident_summary %}
+<section class="card">
+  <h2>Incidents by status</h2>
+  <div class="tiles">
+    <div class="tile"><span class="tile-value">{{ incident_summary.total }}</span><span class="tile-label">incidents total</span></div>
+    {% for item in incident_summary.statuses %}
+    <div class="tile">
+      <span class="tile-value">{{ item.count }}</span>
+      <span class="tile-label"><span class="state state-{{ item.status }}">{{ item.status }}</span></span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
 <section class="card">
   <h2>Recent jobs</h2>
   {% if recent %}

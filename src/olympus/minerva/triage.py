@@ -17,6 +17,8 @@ from olympus.core.models import Alert, Incident
 
 DEFAULT_MAX_ALERT_BYTES = 50_000_000
 DEFAULT_MAX_ALERTS = 100_000
+DEFAULT_MAX_INCIDENT_BYTES = 10_000_000
+DEFAULT_MAX_INCIDENTS = 100_000
 _SEVERITY_RANK = {
     Severity.INFO: 0,
     Severity.LOW: 1,
@@ -102,6 +104,61 @@ def load_alerts(
             details = exc.errors(include_input=False, include_url=False)
             raise ValueError(f"invalid alert contract: {details}") from exc
     return _unique_alerts(alerts)
+
+
+def load_incidents(
+    paths: Sequence[Path],
+    *,
+    max_files: int = 1_000,
+    max_bytes: int = DEFAULT_MAX_INCIDENT_BYTES,
+    max_incidents: int = DEFAULT_MAX_INCIDENTS,
+    progress_check: Callable[[], None] | None = None,
+) -> list[Incident]:
+    """Load one private Incident document per path, strict and bounded.
+
+    Each file is a single ``olympus.incident`` document, exactly as
+    :func:`export_incident` writes it — a read-only consumer of producer
+    artifacts, never a store. Loading stops at ``max_files`` and ``max_incidents``
+    so a hostile or runaway directory cannot exhaust memory, and every document
+    is validated against the shared contract header and the ``Incident`` model.
+    """
+    if not 1 <= max_files <= 1_000_000:
+        raise ValueError("max_files must be between 1 and 1000000")
+    if not 1 <= max_incidents <= 1_000_000:
+        raise ValueError("max_incidents must be between 1 and 1000000")
+    if len(paths) > max_files:
+        raise ValueError(f"incident input exceeds the {max_files} file limit")
+    incidents: list[Incident] = []
+    for path in paths:
+        if progress_check is not None:
+            progress_check()
+        try:
+            payload = json.loads(
+                read_regular_text(path, max_bytes=max_bytes, label="incident input")
+            )
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"invalid incident JSON: {exc.msg}") from exc
+        validate_contract_header(payload, schema_name="olympus.incident")
+        try:
+            incidents.append(Incident.model_validate(payload))
+        except ValidationError as exc:
+            details = exc.errors(include_input=False, include_url=False)
+            raise ValueError(f"invalid incident contract: {details}") from exc
+        if len(incidents) > max_incidents:
+            raise ValueError(f"incident collection exceeds the {max_incidents} incident limit")
+    return incidents
+
+
+def incident_status_breakdown(incidents: Sequence[Incident]) -> dict[str, int]:
+    """Return a count of incidents per lifecycle status (all statuses present).
+
+    Every :class:`IncidentStatus` is reported, including zero counts, so a caller
+    renders a stable, complete lifecycle view in a fixed order.
+    """
+    counts = {status.value: 0 for status in IncidentStatus}
+    for incident in incidents:
+        counts[incident.status.value] += 1
+    return counts
 
 
 def _unique_alerts(alerts: Sequence[Alert]) -> list[Alert]:

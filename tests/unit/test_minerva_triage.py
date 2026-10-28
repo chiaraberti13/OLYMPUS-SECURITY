@@ -7,11 +7,17 @@ import pytest
 from typer.testing import CliRunner
 
 from olympus.cli import app
-from olympus.core.enums import Severity, Source
+from olympus.core.enums import IncidentStatus, Severity, Source
 from olympus.core.execution import CancellationRequested, CancellationToken
 from olympus.core.models import Alert, Incident
 from olympus.minerva.application import MinervaApplicationService, MinervaTriageRequest
-from olympus.minerva.triage import export_incident, load_alerts, triage_alerts
+from olympus.minerva.triage import (
+    export_incident,
+    incident_status_breakdown,
+    load_alerts,
+    load_incidents,
+    triage_alerts,
+)
 
 runner = CliRunner()
 
@@ -196,3 +202,49 @@ def test_triage_rejects_conflicting_duplicate_alerts() -> None:
     conflict = first.model_copy(update={"title": "different"})
     with pytest.raises(ValueError, match="conflicting duplicate"):
         triage_alerts([first, conflict], "Incident")
+
+
+def _incident(incident_id: str, status: IncidentStatus) -> Incident:
+    return Incident(
+        incident_id=incident_id, title=f"Case {incident_id}", source=Source.MINERVA, status=status
+    )
+
+
+def test_load_incidents_round_trips_exported_documents(tmp_path: Path) -> None:
+    directory = tmp_path / "incidents"
+    directory.mkdir()
+    open_case = _incident("INC-2026-00001", IncidentStatus.OPEN)
+    triaged_case = _incident("INC-2026-00002", IncidentStatus.TRIAGED)
+    export_incident(open_case, directory / "a.json")
+    export_incident(triaged_case, directory / "b.json")
+    loaded = load_incidents(sorted(directory.glob("*.json")))
+    assert [incident.incident_id for incident in loaded] == ["INC-2026-00001", "INC-2026-00002"]
+    assert loaded == [open_case, triaged_case]
+
+
+def test_load_incidents_rejects_a_non_incident_document(tmp_path: Path) -> None:
+    bad = tmp_path / "bad.json"
+    bad.write_text(json.dumps({"schema_name": "olympus.finding", "schema_version": "1.0.0"}))
+    with pytest.raises(ValueError):
+        load_incidents([bad])
+
+
+def test_load_incidents_enforces_the_file_limit(tmp_path: Path) -> None:
+    path = tmp_path / "only.json"
+    export_incident(_incident("INC-2026-00001", IncidentStatus.OPEN), path)
+    with pytest.raises(ValueError, match="file limit"):
+        load_incidents([path, path], max_files=1)
+
+
+def test_incident_status_breakdown_covers_every_status() -> None:
+    counts = incident_status_breakdown(
+        [
+            _incident("INC-2026-00001", IncidentStatus.OPEN),
+            _incident("INC-2026-00002", IncidentStatus.OPEN),
+            _incident("INC-2026-00003", IncidentStatus.TRIAGED),
+        ]
+    )
+    assert counts["open"] == 2
+    assert counts["triaged"] == 1
+    assert counts["closed"] == 0
+    assert set(counts) == {status.value for status in IncidentStatus}
