@@ -703,6 +703,9 @@ def test_preview_shows_risk_and_does_not_queue_until_launch(
     assert "Olympus is about to run" in preview.text
     assert "nmap" in preview.text
     assert "Active" in preview.text  # the risk class is shown
+    # The redacted planned command (dry-run) is shown before launch (SEC-G).
+    assert "Planned command" in preview.text
+    assert "127.0.0.1" in preview.text
     # Nothing was queued by previewing.
     jobs = client.get("/jobs")
     assert "nmap" not in jobs.text or "No jobs" in jobs.text

@@ -702,11 +702,13 @@ corredata da SBOM e attestazione; la verifica fallisce su artifact alterati.
   output), oltre a destinazione normalizzata, budget timeout/deadline/output/findings
   e i path di output/audit che verrebbero creati; assente onestamente per scanner
   senza adapter nativo o per target bloccati. Il campo è sul modello condiviso
-  `SafetyPreview` (serializzato in `to_dict()`), quindi disponibile anche agli
-  altri consumatori. Test `tests/unit/test_themis_preview.py`. **Resta:**
-  renderizzare il comando pianificato anche nell'anteprima guidata Web/TUI, e un
-  flag `--dry-run` esplicito sui percorsi di esecuzione reale (oggi il dry-run è
-  il comando `preview` dedicato).
+  `SafetyPreview` (serializzato in `to_dict()`); la stessa logica è esposta come
+  helper pubblico `preview.planned_command(scanner, target, target_kind, scope)` e
+  resa anche nell'**anteprima guidata Web** (`POST /assessments/preview`, riga
+  "Planned command" prima della conferma). Test `tests/unit/test_themis_preview.py`
+  e `tests/unit/test_themis_web.py`. **Resta:** il comando pianificato
+  nell'anteprima TUI e un flag `--dry-run` esplicito sui percorsi di esecuzione
+  reale (oggi il dry-run è il comando `preview` dedicato).
 - [ ] Applicare un kill switch coerente a CLI, TUI, API e worker, con cancellazione
   del process group e stato finale non ambiguo.
 

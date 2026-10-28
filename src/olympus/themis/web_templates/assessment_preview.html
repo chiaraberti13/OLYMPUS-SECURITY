@@ -23,6 +23,15 @@
     </dd>
     <dt>Target</dt>
     <dd><code>{{ target_display }}</code> <span class="muted">({{ target_kind }})</span></dd>
+    <dt>Planned command</dt>
+    <dd>
+      {% if planned_command %}
+      <code>{{ planned_command | join(" ") }}</code>
+      <br><span class="muted">The exact command that would run (redacted). Nothing has run yet.</span>
+      {% else %}
+      <span class="muted">No native command (remote-API or unimplemented scanner).</span>
+      {% endif %}
+    </dd>
     <dt>Registered scope</dt>
     <dd><code>{{ scope_id }}</code></dd>
     {% if engagement_id %}

@@ -114,7 +114,7 @@ as on the API.
 | `GET /assessments/new` | Guided New Assessment wizard (requires `jobs:write`): engagement → target → scope → activity → tool or automatic. |
 | `GET /assessments/smart` | Smart Scan form (requires `jobs:write`): objective → target → scope → engagement → risk ceiling. |
 | `POST /assessments/smart/plan` | Proposes a deterministic, scope- and policy-aware pipeline; queues nothing (requires `jobs:write`, CSRF-protected). |
-| `POST /assessments/preview` | Renders the "Olympus is about to run" preview with the `PASSIVE`/`ACTIVE`/`INTRUSIVE` risk level; queues nothing (requires `jobs:write`, CSRF-protected). |
+| `POST /assessments/preview` | Renders the "Olympus is about to run" preview with the `PASSIVE`/`ACTIVE`/`INTRUSIVE` risk level and the redacted **planned command** the scan would run (SEC-G dry-run; built offline, nothing launched); queues nothing (requires `jobs:write`, CSRF-protected). |
 | `POST /jobs` | Typed, scope-gated job submission from the preview's launch form (requires `jobs:write`). An optional engagement scopes the target. |
 | `GET /jobs/{id}` | Job detail with a live state line and, with `jobs:cancel`, a **Cancel** button wired to real Olympus cancellation. |
 | `POST /jobs/{id}/cancel` | Cancel a job (CSRF-protected). |

@@ -1155,7 +1155,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             engagement_name = _safe(engagement.name)
 
         try:
-            _registered_scope(scope_root, submission.scope_id)
+            scope_path = _registered_scope(scope_root, submission.scope_id)
         except HTTPException as exc:
             return _back(f"Scope rejected: {exc.detail}", code=exc.status_code)
 
@@ -1163,6 +1163,21 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             manifest_sha256 = authorize_submission_manifest(settings, submission)
         except HTTPException as exc:
             return _back(f"Authorization rejected: {exc.detail}", code=exc.status_code)
+
+        # Redacted dry-run command (SEC-G): the exact argv the scan would run,
+        # built offline from the same shared preview helper the CLI uses. Shown
+        # before confirmation; ``None`` degrades to an honest "not shown" note.
+        planned_command_tokens: list[str] | None = None
+        try:
+            from olympus.themis.application import load_scope
+            from olympus.themis.preview import planned_command
+
+            tokens = planned_command(
+                resolved, submission.target, submission.target_kind, load_scope(scope_path)
+            )
+            planned_command_tokens = list(tokens) if tokens is not None else None
+        except (OSError, ValueError):
+            planned_command_tokens = None
 
         needs_confirmation = scanner_profile.risk is not RiskClass.PASSIVE
         return _page(
@@ -1176,6 +1191,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 "risk": scanner_profile.risk.value,
                 "risk_label": _RISK_LABELS[scanner_profile.risk],
                 "risk_explanation": RISK_EXPLANATION[scanner_profile.risk],
+                "planned_command": planned_command_tokens,
                 "needs_confirmation": needs_confirmation,
                 # The raw target is what the launch form must resubmit (and what
                 # /jobs re-validates); the safe copy is only ever displayed.

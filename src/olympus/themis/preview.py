@@ -236,19 +236,18 @@ def _authorization_detail(request: ThemisRunRequest) -> str:
     return "; ".join(parts) + "."
 
 
-def _planned_command(
-    request: ThemisRunRequest, host: str | None, blocks_launch: bool
+def _build_planned_command(
+    scanner: str, target: str, target_kind: str, host: str
 ) -> tuple[str, ...] | None:
-    """Return the redacted argv a native adapter would run, or ``None``.
+    """Return the redacted argv a native adapter would run for ``host``, or ``None``.
 
     Strictly offline: it builds the argument vector with the adapter's
     :meth:`~olympus.themis.base.ScannerAdapter.build_argv` (which uses no I/O and
-    does not resolve DNS), then redacts every token. ``None`` is returned when no
-    run is planned (a blocking scope verdict or an unparseable target) or the
-    scanner has no native execution adapter (remote-API or unimplemented).
+    does not resolve DNS), then redacts every token with ``redact_url`` (userinfo
+    and query secrets stripped) and ``safe_terminal_text`` (control sequences
+    neutralized). ``None`` when the scanner has no native execution adapter
+    (remote-API or unimplemented) or the argv cannot be built.
     """
-    if blocks_launch or host is None:
-        return None
     # Lazy imports: the adapter registry pulls in the whole adapter chain, which
     # we must not import at module load (and only need on this offline path).
     from olympus.core.execution import redact_url, safe_terminal_text
@@ -256,21 +255,51 @@ def _planned_command(
     from olympus.themis.registry import UnknownScannerError, get_adapter
 
     try:
-        adapter = get_adapter(request.scanner)
+        adapter = get_adapter(scanner)
     except UnknownScannerError:
         return None
     try:
-        scan_request = ScanRequest(
-            scanner=request.scanner,
-            target=request.target,
-            target_kind=request.target_kind,
-            timeout_seconds=request.timeout_seconds,
-            deadline_seconds=request.deadline_seconds,
-        )
+        scan_request = ScanRequest(scanner=scanner, target=target, target_kind=target_kind)
         argv = adapter.build_argv(host, scan_request)
     except (ValueError, OSError):
         return None
     return tuple(safe_terminal_text(redact_url(token)) for token in argv)
+
+
+def _planned_command(
+    request: ThemisRunRequest, host: str | None, blocks_launch: bool
+) -> tuple[str, ...] | None:
+    """Redacted planned argv for a ``preview_run`` request, or ``None``.
+
+    ``None`` when no run is planned (a blocking scope verdict or an unparseable
+    target); otherwise delegates to :func:`_build_planned_command`.
+    """
+    if blocks_launch or host is None:
+        return None
+    return _build_planned_command(request.scanner, request.target, request.target_kind, host)
+
+
+def planned_command(
+    scanner: str, target: str, target_kind: str, scope: ThemisScope
+) -> tuple[str, ...] | None:
+    """Public offline dry-run: the redacted argv a scan would run, or ``None``.
+
+    Reusable by any interface (CLI preview, Web guided flow) that already holds a
+    loaded :class:`ThemisScope`. The host is derived exactly as the runtime does
+    (:func:`olympus.themis.scope.ensure_allowed`, no DNS), so a target the scope
+    does not authorize — or a scanner without a native adapter — yields ``None``.
+    """
+    try:
+        host = ensure_allowed(
+            target_kind,
+            target,
+            scope.allowed_hosts,
+            scope.allowed_domains,
+            scope.allowed_cidrs,
+        )
+    except (SsrfBlockedError, OutOfScopeError, TargetValidationError):
+        return None
+    return _build_planned_command(scanner, target, target_kind, host)
 
 
 def preview_run(request: ThemisRunRequest, scope: ThemisScope) -> SafetyPreview:
@@ -339,5 +368,6 @@ __all__ = [
     "SCOPE_EXPLANATION",
     "SafetyPreview",
     "ScopeDecision",
+    "planned_command",
     "preview_run",
 ]
