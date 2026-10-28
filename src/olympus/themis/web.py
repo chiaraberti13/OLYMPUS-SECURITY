@@ -126,6 +126,7 @@ from olympus.vulcan.compare import diff_findings
 from olympus.vulcan.evidence_view import build_finding_evidence_view
 from olympus.vulcan.report import (
     build_report_model,
+    render_report_csv,
     render_report_html,
     render_report_markdown,
 )
@@ -1550,10 +1551,10 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         browser is a report, not a page.
         """
         chosen = format.strip().lower()
-        renderers = {"json", "md", "markdown", "html", "sarif"}
+        renderers = {"json", "md", "markdown", "html", "sarif", "csv"}
         if chosen not in renderers:
             raise HTTPException(
-                status_code=422, detail="format must be one of json, md, html, sarif"
+                status_code=422, detail="format must be one of json, md, html, sarif, csv"
             )
         if findings_directory is None:
             raise HTTPException(status_code=400, detail="no findings directory is configured")
@@ -1598,6 +1599,11 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         elif chosen in {"md", "markdown"}:
             body = render_report_markdown(report)
             media_type, extension = "text/markdown; charset=utf-8", "md"
+        elif chosen == "csv":
+            # Spreadsheet-safe CSV of the filtered findings (cells neutralised
+            # against formula injection by the renderer).
+            body = render_report_csv(report)
+            media_type, extension = "text/csv; charset=utf-8", "csv"
         else:
             body = render_report_html(report)
             media_type, extension = "text/html; charset=utf-8", "html"

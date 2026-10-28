@@ -199,6 +199,12 @@ def report(
     html_output: Path | None = typer.Option(
         None, "--html", help="If set, also write a self-contained HTML report to this path."
     ),
+    csv_output: Path | None = typer.Option(
+        None,
+        "--csv",
+        help="If set, also write a spreadsheet-safe CSV of the ranked findings "
+        "to this path (cells neutralised against formula injection).",
+    ),
     pdf_output: Path | None = typer.Option(
         None,
         "--pdf",
@@ -227,7 +233,7 @@ def report(
 ) -> None:
     """Aggregate strict inputs into consistent JSON, Markdown, HTML and PDF views."""
     outputs = tuple(
-        path for path in (output, markdown, html_output, pdf_output) if path is not None
+        path for path in (output, markdown, html_output, csv_output, pdf_output) if path is not None
     )
     try:
         kev_catalog = (
@@ -266,6 +272,7 @@ def report(
                 min_severity=min_severity,
                 render_markdown=markdown is not None,
                 render_html=html_output is not None,
+                render_csv=csv_output is not None,
                 render_pdf=pdf_output is not None,
                 kev_catalog=kev_catalog,
                 epss_scores=epss_scores,
@@ -283,6 +290,8 @@ def report(
             export_text(outcome.markdown, markdown)
         if html_output is not None and outcome.html is not None:
             export_text(outcome.html, html_output)
+        if csv_output is not None and outcome.csv is not None:
+            export_text(outcome.csv, csv_output)
         if pdf_output is not None and outcome.pdf is not None:
             atomic_write_bytes(pdf_output, outcome.pdf, mode=0o600)
     except PdfUnavailableError as exc:

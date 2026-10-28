@@ -27,7 +27,13 @@ from olympus.vulcan.application import (
     VulcanRankRequest,
     VulcanReportRequest,
 )
-from olympus.vulcan.report import build_report, render_html, render_markdown
+from olympus.vulcan.report import (
+    build_report,
+    build_report_model,
+    render_html,
+    render_markdown,
+    render_report_csv,
+)
 
 runner = CliRunner()
 
@@ -316,6 +322,32 @@ def test_cli_report_end_to_end(tmp_path: Path) -> None:
     assert md.exists()
 
 
+def test_cli_report_writes_csv(tmp_path: Path) -> None:
+    findings_path = _write(tmp_path / "f.json", [_finding("SQLi", Severity.CRITICAL)])
+    out = tmp_path / "report.json"
+    csv_path = tmp_path / "report.csv"
+    result = runner.invoke(
+        app,
+        [
+            "vulcan",
+            "report",
+            "--engagement",
+            "demo-eng",
+            "--findings",
+            str(findings_path),
+            "--output",
+            str(out),
+            "--csv",
+            str(csv_path),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert csv_path.exists()
+    body = csv_path.read_text(encoding="utf-8")
+    assert body.startswith("finding_id,severity,status,source,asset_id")
+    assert "SQLi" in body
+
+
 def test_cli_rank(tmp_path: Path) -> None:
     findings_path = _write(
         tmp_path / "f.json", [_finding("low", Severity.LOW), _finding("crit", Severity.CRITICAL)]
@@ -387,6 +419,31 @@ def test_render_html_is_self_contained() -> None:
     markdown = render_markdown("eng", [asset], [_finding("XSS<script>", Severity.HIGH)], [alert])
     assert "<script>" not in markdown
     assert "APL-ONE" in markdown
+
+
+def test_render_report_csv_is_spreadsheet_safe() -> None:
+    import csv as _csv
+    import io as _io
+
+    model = build_report_model(
+        "eng",
+        [],
+        [
+            _finding('=HYPERLINK("http://evil","x")', Severity.HIGH),
+            _finding("normal finding", Severity.LOW),
+        ],
+        [],
+    )
+    csv_text = render_report_csv(model)
+    assert "\r\n" in csv_text  # RFC 4180 line terminator
+    rows = list(_csv.reader(_io.StringIO(csv_text)))
+    assert rows[0][:5] == ["finding_id", "severity", "status", "source", "asset_id"]
+    assert len(rows) == 3  # header + two findings, one row per finding
+    title_index = rows[0].index("title")
+    # The HIGH finding ranks first; its formula-injection title is neutralised
+    # with a leading apostrophe so a spreadsheet shows it as literal text.
+    assert rows[1][title_index] == '\'=HYPERLINK("http://evil","x")'
+    assert rows[2][title_index] == "normal finding"
 
 
 def test_render_html_sets_restrictive_csp() -> None:

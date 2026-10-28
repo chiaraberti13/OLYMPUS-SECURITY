@@ -1284,6 +1284,7 @@ def test_report_renders_in_each_format_as_a_download(tmp_path: Path) -> None:
         ("md", "text/markdown"),
         ("html", "text/html"),
         ("json", "application/json"),
+        ("csv", "text/csv"),
     ):
         response = client.get(
             "/findings/report", params={"format": fmt, "engagement": "ENG-2026-00001"}

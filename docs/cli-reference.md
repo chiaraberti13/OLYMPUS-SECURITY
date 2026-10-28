@@ -1632,6 +1632,7 @@ Aggregate strict inputs into consistent JSON, Markdown, HTML and PDF views.
 | `--output` | option | no | — | JSON report output path. |
 | `--markdown` | option | no | — | If set, also write a Markdown report to this path. |
 | `--html` | option | no | — | If set, also write a self-contained HTML report to this path. |
+| `--csv` | option | no | — | If set, also write a spreadsheet-safe CSV of the ranked findings to this path (cells neutralised against formula injection). |
 | `--pdf` | option | no | — | If set, also write a formatted PDF report (needs the 'report' extra). |
 | `--kev` | option | no | — | Local CISA KEV catalogue JSON: adds KEV flags to the PDF (offline). |
 | `--epss` | option | no | — | Local FIRST EPSS response JSON: adds EPSS scores to the PDF (offline). |

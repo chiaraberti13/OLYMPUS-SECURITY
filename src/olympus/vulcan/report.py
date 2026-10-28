@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import csv
 import html
+import io
 import json
 import re
 from collections.abc import Sequence
@@ -260,6 +262,78 @@ def render_html(
 ) -> str:
     """Backward-compatible HTML renderer using one canonical report model."""
     return render_report_html(build_report_model(engagement, assets, findings, alerts))
+
+
+#: Header row of the findings CSV export, in a fixed order so the output is
+#: stable and diff-friendly across runs.
+_CSV_COLUMNS = (
+    "finding_id",
+    "severity",
+    "status",
+    "source",
+    "asset_id",
+    "engagement_id",
+    "title",
+    "cvss",
+    "risk_score",
+    "cves",
+    "cwes",
+    "kev",
+    "tags",
+    "description",
+    "remediation",
+)
+
+
+def _csv_cell(value: object) -> str:
+    """Return one spreadsheet-safe CSV cell.
+
+    Text is first stripped of terminal control sequences (ANSI/OSC, C0/C1) like
+    every other renderer. Then CSV formula injection is neutralized: a cell whose
+    first character is one a spreadsheet treats as a formula (``= + - @`` or a
+    leading tab/CR) is prefixed with an apostrophe, so an attacker-controlled
+    finding field such as ``=HYPERLINK(...)`` is shown as literal text instead of
+    being executed when the file is opened in Excel, LibreOffice or Sheets.
+    """
+    text = safe_terminal_text(value) if isinstance(value, str) else str(value)
+    if text and text[0] in "=+-@\t\r":
+        return "'" + text
+    return text
+
+
+def render_report_csv(report: SecurityReport) -> str:
+    """Render the ranked findings as one spreadsheet-safe CSV document.
+
+    The CSV is the tabular, findings-focused view of the same canonical report
+    model every other renderer uses — one row per finding, in ranked order, with
+    a fixed header. Every cell is neutralized against CSV formula injection
+    (:func:`_csv_cell`), and the standard RFC 4180 CRLF line terminator is used so
+    the file imports cleanly into common spreadsheet tools.
+    """
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, lineterminator="\r\n")
+    writer.writerow(_CSV_COLUMNS)
+    for finding in report.findings:
+        writer.writerow(
+            [
+                _csv_cell(finding.finding_id),
+                _csv_cell(finding.severity.value),
+                _csv_cell(finding.status.value),
+                _csv_cell(finding.source.value),
+                _csv_cell(finding.asset_id),
+                _csv_cell(finding.engagement_id or ""),
+                _csv_cell(finding.title),
+                _csv_cell("" if finding.cvss is None else finding.cvss),
+                _csv_cell(f"{finding.risk_score():.1f}"),
+                _csv_cell(" ".join(finding.cves())),
+                _csv_cell(" ".join(finding.cwes())),
+                _csv_cell("yes" if finding.kev else "no"),
+                _csv_cell(" ".join(finding.tags)),
+                _csv_cell(finding.description),
+                _csv_cell(finding.remediation),
+            ]
+        )
+    return buffer.getvalue()
 
 
 def export_report(report: dict[str, object] | SecurityReport, path: Path) -> None:

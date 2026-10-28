@@ -121,7 +121,7 @@ Legenda stato: ✅ implementata · 🟡 parziale · 🗓️ pianificata · ❌ a
 | 10 | Inventario centralizzato asset | 🟡 | `core.Asset`, `argus/assets.py`, persistenza per-assessment in Athena; `Asset.engagement_id` opzionale e stamping dal coordinator Athena per id canonici (`WEB-B` slice 2); engagement esposti via API/Web sullo stesso store con scope enforcement (`WEB-B` slice 3) | Engagement leggibili/operabili dai quattro canali ✅; **viste di aggregazione asset cross-engagement** (widget top-asset-per-esposizione sulla dashboard, `WEB-G`) ✅ |
 | 11 | Scheduler, code, worker isolati, ripresa job | 🟡 | job store SQLite `themis/jobs.py` (stati+`recover`), `olympus themis jobs recover`, sandbox e worker continuo nativo (`SEC-A`) | Queue+recover+sandbox ✅; **scheduler nativo** ❌ → `D13`; runtime Celery ritirato ✅; parità dati/route legacy → `SEC-A` |
 | 12 | Scansioni incrementali + confronto risultati | 🟡 | `argus/diff.py` (diff recon); **finding/scan diff cross-run** `vulcan/compare.py` + `olympus vulcan diff` + Web `/findings/diff` (`WEB-I` slice 2); **trend severità** `vulcan/trend.py` + `olympus vulcan trend` (`WEB-I` slice 3a) | Finding/scan diff ✅, trend finding ✅; **attack-surface evolution** → `WEB-I` |
-| 13 | Dashboard, notifiche, report JSON/CSV/HTML/PDF/SARIF | 🟡 | report JSON/MD/HTML/PDF `vulcan/`, SARIF `hermes/sarif.py`, OCSF/ECS/NDJSON `apollo/` | **CSV** ❌ (basso costo) → `WEB-I`; **dashboard/notifiche** → `WEB-G`/`WEB-I` |
+| 13 | Dashboard, notifiche, report JSON/CSV/HTML/PDF/SARIF | 🟡 | report JSON/MD/HTML/PDF/CSV `vulcan/` (`render_report_csv`, spreadsheet-safe), SARIF `hermes/sarif.py`, OCSF/ECS/NDJSON `apollo/` | **CSV** ✅ (`olympus vulcan report --csv`, Web `GET /findings/report?format=csv`); **dashboard** ✅; **notifiche** → `WEB-I` |
 | 14 | API, webhook, CI/CD, ticketing, SIEM, CTI | 🟡 | API tipizzata `themis/api.py`; CTI nativo Metis (`metis/misp.py`,`stix.py`) | API+CTI ✅; **webhook/ticketing/CI** → `WEB-J`; **SIEM** → `OPS-BLUE` |
 | 15 | Test unit/integration/e2e + demo sicuro | ✅ | ~132 file di test (unit/contract/integration/container/live_lab), demo `labs/mars/`; web-security + job-lifecycle della Web UI nativa, tools page dal capability inventory, wizard New Assessment guidato con anteprima di rischio e findings review/triage nel browser con audit (`tests/unit/test_themis_web.py`, `tests/unit/test_scanner_activity.py`, `WEB-A`/`WEB-C`/`WEB-D`/`WEB-E`) | Estendere e2e Web sulle slice successive (`WEB-F`/`WEB-G`) |
 
@@ -759,8 +759,15 @@ markup Rich, ma la difesa non è sistematica.
   newline nel valore mascherato non può iniettare controlli o righe forgiate in
   un viewer SARIF o in un terminale. Test
   `tests/unit/test_hermes.py::test_sarif_neutralizes_control_sequences_in_message_text`.
-  Resta: protezione spreadsheet (solo *se* si aggiungerà un export CSV/XLSX, oggi
-  assente).
+  **CSV export fatto:** `vulcan/report.render_report_csv` emette una riga per
+  finding (ordinamento per rischio) con ogni cella sanitizzata da
+  `safe_terminal_text` e protetta da **formula injection** (`_csv_cell`: prefisso
+  apostrofo quando la cella inizia con `=`, `+`, `-`, `@` o tab/CR), così un
+  campo controllato dal target come `=HYPERLINK(...)` resta testo letterale e non
+  viene eseguito all'apertura in un foglio di calcolo; disponibile da CLI
+  (`olympus vulcan report --csv`) e dal browser (`GET /findings/report?format=csv`,
+  `text/csv`). Test `tests/unit/test_vulcan.py::test_render_report_csv_is_spreadsheet_safe`.
+  Resta: export XLSX (non previsto al momento; il CSV copre il caso tabellare).
 - [x] Vietare che valori provenienti dal target diventino path, argv, URL di
   follow-up o nomi file senza passare per validazione e scope gate (path traversal,
   SSRF di secondo ordine, argument injection). Argument injection e path traversal

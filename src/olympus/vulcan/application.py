@@ -31,7 +31,12 @@ from olympus.vulcan.aggregate import (
 from olympus.vulcan.enrichment import EpssScore, KevEntry, enrich_findings
 from olympus.vulcan.pdf import render_report_pdf
 from olympus.vulcan.provenance import load_authorization_provenance
-from olympus.vulcan.report import build_report_model, render_report_html, render_report_markdown
+from olympus.vulcan.report import (
+    build_report_model,
+    render_report_csv,
+    render_report_html,
+    render_report_markdown,
+)
 
 DEFAULT_MAX_OUTPUT_BYTES = 100_000_000
 DEFAULT_MAX_TOTAL_INPUT_BYTES = 200_000_000
@@ -50,6 +55,7 @@ class VulcanReportRequest:
     min_severity: Severity | None = None
     render_markdown: bool = False
     render_html: bool = False
+    render_csv: bool = False
     render_pdf: bool = False
     #: Optional KEV/EPSS catalogues; when present and ``render_pdf`` is set, the
     #: PDF's known-vulnerabilities table shows EPSS scores and KEV membership.
@@ -80,6 +86,7 @@ class VulcanReportOutcome:
     report: SecurityReport
     markdown: str | None
     html: str | None
+    csv: str | None = None
     pdf: bytes | None = None
 
 
@@ -170,6 +177,10 @@ class VulcanApplicationService:
         if html is not None:
             _ensure_output_size(html.encode(), request.max_output_bytes, "HTML")
         progress()
+        csv_content = render_report_csv(report) if request.render_csv else None
+        if csv_content is not None:
+            _ensure_output_size(csv_content.encode(), request.max_output_bytes, "CSV")
+        progress()
         pdf = None
         if request.render_pdf:
             overlay = None
@@ -180,7 +191,7 @@ class VulcanApplicationService:
             pdf = render_report_pdf(report, enrichments=overlay)
             _ensure_output_size(pdf, request.max_output_bytes, "PDF")
         progress()
-        return VulcanReportOutcome(report, markdown, html, pdf)
+        return VulcanReportOutcome(report, markdown, html, csv_content, pdf)
 
     def rank(self, request: VulcanRankRequest) -> tuple[Finding, ...]:
         if not 1 <= request.max_files <= 1_000:
