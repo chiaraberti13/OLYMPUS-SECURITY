@@ -137,7 +137,8 @@ CLI uses — no security or presentation logic is re-implemented in the page:
   strict, bounded `load_findings` the CLI uses. The bundles are **read-only
   producer artifacts**; the page never rewrites them.
 - **List and filter.** The filter form reuses `vulcan.search.FindingFilter`
-  (status, minimum severity, source, engagement, tags, CISA KEV, has-CVE, free
+  (status, minimum severity, source, engagement, exact asset, tags, CISA KEV,
+  has-CVE, free
   text, minimum risk) and the result is ranked by `vulcan.view.rank_by_risk`, so
   the browser produces the same set an operator gets from
   `olympus vulcan findings list` — tags use AND semantics like the CLI `--tag`.
@@ -167,7 +168,7 @@ degrade honestly rather than pretending there are no findings.
 The findings view offers a one-click **Vulcan report** of exactly what is on
 screen. `GET /findings/report` takes the same filter query parameters as
 `GET /findings` (status, severity, source, text, KEV, has-CVE, min-risk,
-`engagement`, `tag`) plus `format` (`md`, `html`, `json`, `csv` or `sarif`),
+`engagement`, `asset`, `tag`) plus `format` (`md`, `html`, `json`, `csv` or `sarif`),
 narrows the
 catalogue with the identical `vulcan.search.FindingFilter` (so the report is
 exactly the filtered table), builds the canonical `SecurityReport` with

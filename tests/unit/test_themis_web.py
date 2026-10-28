@@ -1135,6 +1135,23 @@ def test_findings_list_filters_by_tag_and_engagement(tmp_path: Path) -> None:
     assert "Tagged XSS" in eng.text and "Plain SQLi" not in eng.text
 
 
+def test_findings_list_filters_by_exact_asset(tmp_path: Path) -> None:
+    on_asset = {**_FINDING, "finding_id": "FND-2026-00020", "asset_id": "AST-2026-00001"}
+    other = {
+        **_FINDING,
+        "finding_id": "FND-2026-00021",
+        "title": "Other asset finding",
+        "asset_id": "AST-2026-00002",
+    }
+    client = _findings_client(tmp_path, on_asset, other)
+    _login(client)
+    scoped = client.get("/findings", params={"asset": "AST-2026-00001"})
+    assert scoped.status_code == 200
+    assert "Reflected XSS in search" in scoped.text
+    assert "Other asset finding" not in scoped.text
+    assert "1 of 2" in scoped.text
+
+
 def test_report_honours_the_tag_filter(tmp_path: Path) -> None:
     tagged = {**_FINDING, "finding_id": "FND-2026-00010", "title": "Tagged XSS", "tags": ["web"]}
     plain = {**_FINDING, "finding_id": "FND-2026-00011", "title": "Plain SQLi"}
@@ -1465,10 +1482,10 @@ def test_dashboard_shows_findings_by_severity_for_a_findings_reader(tmp_path: Pa
     # The by-source breakdown lists only producing sources, drilling in too.
     assert "By source" in page.text
     assert "/findings?source=artemis" in page.text
-    # Top assets by exposure, drilling into the findings via the text filter.
+    # Top assets by exposure, drilling into the findings via the exact asset filter.
     assert "Top assets by exposure" in page.text
     assert "AST-2026-00001" in page.text
-    assert "/findings?text=AST-2026-00001" in page.text
+    assert "/findings?asset=AST-2026-00001" in page.text
 
 
 def test_dashboard_widget_hidden_without_findings_read_scope(tmp_path: Path) -> None:

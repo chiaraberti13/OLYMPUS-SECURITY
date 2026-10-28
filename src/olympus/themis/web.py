@@ -408,6 +408,7 @@ def _finding_filter_from_params(
     min_risk: str,
     engagement: str = "",
     tag: str = "",
+    asset: str = "",
 ) -> tuple[FindingFilter, dict[str, str]]:
     """Build a :class:`FindingFilter` from raw query params, plus an echo dict.
 
@@ -433,6 +434,7 @@ def _finding_filter_from_params(
         sources=frozenset({source_value}) if source_value is not None else frozenset(),
         min_severity=min_severity,
         engagement_id=engagement.strip() or None,
+        asset_id=asset.strip() or None,
         kev_only=bool(kev_only),
         has_cve=True if has_cve else None,
         tags=tags,
@@ -444,6 +446,7 @@ def _finding_filter_from_params(
         "severity": severity,
         "source": source,
         "engagement": engagement,
+        "asset": asset,
         "tag": tag,
         "text": text,
         "kev_only": "on" if kev_only else "",
@@ -877,7 +880,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 sources = source_breakdown(catalogue)
                 # Top assets by exposure (WEB-G asset aggregation): worst-exposed
                 # first, capped so the card stays compact. The drill-down uses the
-                # findings text filter, which already matches the asset id.
+                # exact asset filter so it shows only that asset's findings.
                 assets = asset_breakdown(catalogue)[:5]
                 findings_summary = {
                     "total": len(catalogue),
@@ -1467,6 +1470,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         min_risk: str = "",
         engagement: str = "",
         tag: str = "",
+        asset: str = "",
         session: WebSession = reads_findings,
     ) -> Response:
         """List findings, filtered and ranked exactly as the CLI does.
@@ -1486,6 +1490,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             min_risk=min_risk,
             engagement=engagement,
             tag=tag,
+            asset=asset,
         )
         base_context: dict[str, object] = {
             "configured": findings_directory is not None,
@@ -1537,6 +1542,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         has_cve: str = "",
         min_risk: str = "",
         tag: str = "",
+        asset: str = "",
         session: WebSession = reads_findings,
     ) -> Response:
         """Export a Vulcan report of the *currently filtered* findings (ROADMAP ``WEB-I``).
@@ -1573,6 +1579,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             min_risk=min_risk,
             engagement=engagement,
             tag=tag,
+            asset=asset,
         )
         store = _open_transition_store()
         try:

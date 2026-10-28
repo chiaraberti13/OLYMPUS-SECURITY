@@ -57,6 +57,14 @@ def test_filter_by_status_and_source() -> None:
     assert _titles(themis) == ["Open port 22"]
 
 
+def test_filter_by_exact_asset_id_is_case_insensitive() -> None:
+    findings = _findings()
+    assert _titles(search_findings(findings, FindingFilter(asset_id="AST-2"))) == ["Open port 22"]
+    # Case-insensitive, and exact (a substring of another id does not match).
+    assert _titles(search_findings(findings, FindingFilter(asset_id="ast-1"))) == ["Log4Shell"]
+    assert search_findings(findings, FindingFilter(asset_id="AST")) == []
+
+
 def test_min_severity_is_a_threshold() -> None:
     findings = _findings()
     assert _titles(search_findings(findings, FindingFilter(min_severity=Severity.HIGH))) == [

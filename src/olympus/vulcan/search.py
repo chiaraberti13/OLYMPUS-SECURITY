@@ -39,6 +39,11 @@ class FindingFilter:
     sources: frozenset[Source] = field(default_factory=frozenset)
     min_severity: Severity | None = None
     engagement_id: str | None = None
+    #: Exact affected-asset id (case-insensitive). Unlike ``text`` — which
+    #: substring-matches many fields — this constrains to one asset precisely, so
+    #: an "assets by exposure" drill-down shows that asset's findings and nothing
+    #: that merely mentions the id elsewhere.
+    asset_id: str | None = None
     kev_only: bool = False
     has_cve: bool | None = None
     #: A finding must carry **all** of these tags (case-insensitive).
@@ -60,6 +65,8 @@ class FindingFilter:
         ):
             return False
         if self.engagement_id is not None and finding.engagement_id != self.engagement_id:
+            return False
+        if self.asset_id is not None and finding.asset_id.casefold() != self.asset_id.casefold():
             return False
         if self.kev_only and not finding.kev:
             return False
