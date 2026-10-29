@@ -6,7 +6,14 @@ from textual.widgets import Checkbox, Input, RichLog
 from typer.main import get_command
 
 from olympus.cli import app
-from olympus.tui.app import CommandScreen, ConfirmRunScreen, HelpScreen, OlympusTui
+from olympus.core.exit_codes import ExitCode
+from olympus.tui.app import (
+    CommandScreen,
+    ConfirmRunScreen,
+    HelpScreen,
+    OlympusTui,
+    describe_completion,
+)
 from olympus.tui.catalog import TOOLS, commands_for
 
 
@@ -78,10 +85,75 @@ def test_command_screen_executes_real_cli_without_shell() -> None:
                 screen = interface.screen
                 if isinstance(screen, CommandScreen) and screen.process is None:
                     status = str(screen.query_one("#status-bar").render())
-                    if "Completed" in status:
+                    if "exit 0" in status:
                         break
                 await asyncio.sleep(0.02)
-            assert "exit code 0" in str(interface.screen.query_one("#status-bar").render())
+            # A clean run is labelled Success distinctly, not an ambiguous "completed".
+            status = str(interface.screen.query_one("#status-bar").render())
+            assert "Success" in status and "exit 0" in status
+
+    asyncio.run(scenario())
+
+
+def test_describe_completion_keeps_states_distinct() -> None:
+    """A partial/failed/cancelled run must never read as a plain success (UX-B)."""
+    ok_status, _, ok_style = describe_completion(False, ExitCode.OK)
+    assert "Success" in ok_status and ok_style == "green"
+
+    partial_status, _, partial_style = describe_completion(False, ExitCode.PARTIAL)
+    assert "Partial" in partial_status and "NOT exhaustive" in partial_status
+    assert partial_style != "green"  # a partial run is not shown like a clean one
+
+    failed_status, _, _ = describe_completion(False, ExitCode.FAILED)
+    assert "Failed" in failed_status
+
+    scope_status, _, _ = describe_completion(False, ExitCode.OUT_OF_SCOPE)
+    assert "Blocked" in scope_status
+
+    # An unknown external code is normalized to a failure, never silently success.
+    unknown_status, _, unknown_style = describe_completion(False, 137)
+    assert "Failed" in unknown_status and unknown_style == "red"
+
+
+def test_describe_completion_reports_cancellation() -> None:
+    """A cancelled run is labelled as terminated regardless of the raw signal code."""
+    for return_code in (int(ExitCode.CANCELLED), -15, 143):
+        status, log, style = describe_completion(True, return_code)
+        assert "Cancelled" in status and "terminated" in status
+        assert "terminated" in log
+        assert style == "red"
+    # Even without the flag, the canonical cancelled code is reported as cancelled.
+    status, _, _ = describe_completion(False, ExitCode.CANCELLED)
+    assert "Cancelled" in status
+
+
+def test_kill_switch_marks_cancelled_and_terminates_process() -> None:
+    """The always-available cancel sets the cancelled state and terminates the process."""
+
+    class _FakeProcess:
+        def __init__(self) -> None:
+            self.terminated = False
+            self.killed = False
+
+        def terminate(self) -> None:
+            self.terminated = True
+
+        def kill(self) -> None:
+            self.killed = True
+
+    async def scenario() -> None:
+        screen = _screen_for(("core", "export-schemas"))
+        interface = OlympusTui(get_command(app))
+        async with interface.run_test(size=(140, 42)) as pilot:
+            interface.push_screen(screen)
+            await pilot.pause()
+            fake = _FakeProcess()
+            screen.process = fake  # type: ignore[assignment]
+            screen.action_cancel_command()
+            await pilot.pause()
+            assert fake.terminated
+            assert screen._cancelled
+            assert "Cancelling" in str(screen.query_one("#status-bar").render())
 
     asyncio.run(scenario())
 

@@ -81,6 +81,15 @@ single argument box:
   first opens a confirmation modal naming the exact invocation and the target, and
   starts the process only after you confirm. Passive and local commands (no
   authorization gate) run with no extra friction.
+- **Kill switch and distinct outcome states (`UX-B`):** the **CANCEL** button and
+  `Ctrl+C` are always available while a command runs; cancelling terminates the
+  process and, if it ignores the signal, force-kills it after a short grace
+  period, reporting *Cancelled — the process was terminated* (never a misleading
+  "success"). When a run finishes, its canonical exit code
+  (`olympus.core.exit_codes`, shared by every command) is shown as a distinct,
+  colour-coded state — success, findings, usage error, blocked (out of scope),
+  refused, **partial (coverage incomplete, not exhaustive)**, failed or
+  cancelled — so a partial or failed run is never read as "no vulnerabilities".
 
 Both the guided form and the raw mode consume the same `cli_forms` schema, so the
 TUI and a future web UI stay in lockstep with the CLI. See

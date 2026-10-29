@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import os
 import shlex
 import subprocess
@@ -21,6 +22,7 @@ from textual.widgets.option_list import Option
 
 from olympus import __version__
 from olympus.cli_forms import CommandForm, FieldKind, FormField, form_for, validate_values
+from olympus.core.exit_codes import ExitCode, normalize_exit_code
 from olympus.tui.catalog import TOOLS, CommandSpec, ToolSpec, commands_for
 
 TOP_BAR = " Menu     Configuration     Operations     Quit!"
@@ -29,6 +31,45 @@ STATUS_HINT = " Enter: select/run   Tab: next panel   F1: help   F5: run   Esc: 
 #: The flag every Olympus command uses to gate a real authorized active operation.
 #: Its presence in the built argv is the signal for a proportionate confirmation.
 AUTHORIZATION_FLAG = "--i-am-authorized"
+
+#: Grace period before the kill switch escalates SIGTERM to SIGKILL.
+KILL_GRACE_SECONDS = 3.0
+
+#: Distinct label and colour per canonical CLI exit code (``core.exit_codes``), so
+#: the TUI never shows a partial, failed or cancelled run as a plain success —
+#: "no findings" must not be confused with "could not look" (UX-B, honesty of state).
+_EXIT_LABELS: dict[ExitCode, tuple[str, str]] = {
+    ExitCode.OK: ("Success — full coverage, nothing to report", "green"),
+    ExitCode.FINDINGS: ("Findings present — review the output", "yellow"),
+    ExitCode.USAGE: ("Usage error — bad input or arguments", "red"),
+    ExitCode.OUT_OF_SCOPE: ("Blocked — target out of authorized scope", "red"),
+    ExitCode.NOT_AUTHORIZED: ("Refused — an authorization flag was required", "red"),
+    ExitCode.PARTIAL: ("Partial — coverage incomplete, NOT exhaustive", "yellow"),
+    ExitCode.FAILED: ("Failed — nothing completed", "red"),
+    ExitCode.CANCELLED: ("Cancelled — stopped on request", "red"),
+}
+
+
+def describe_completion(cancelled: bool, return_code: int) -> tuple[str, str, str]:
+    """Return ``(status, log_line, style)`` for a finished run, states kept distinct.
+
+    A run the operator cancelled, or any non-zero/unknown exit, is labelled as its
+    own state rather than being collapsed into "completed": a partial run (exit 5)
+    or a failure (exit 6) must never read as a clean success.
+    """
+    if cancelled or return_code == ExitCode.CANCELLED:
+        return (
+            "Cancelled — the process was terminated.",
+            "Run cancelled; the process was terminated. Output captured so far is kept above.",
+            "red",
+        )
+    code = normalize_exit_code(return_code)
+    label, style = _EXIT_LABELS[code]
+    return (
+        f"{label} (exit {return_code}).",
+        f"Process exited with code {return_code}: {label}.",
+        style,
+    )
 
 
 class HelpScreen(ModalScreen[None]):
@@ -120,6 +161,7 @@ class CommandScreen(Screen[None]):
         super().__init__()
         self.command = command
         self.process: asyncio.subprocess.Process | None = None
+        self._cancelled = False
         # The guided form is derived from the same interface-agnostic schema the
         # web UI consumes (UX-A); a group or a schema we cannot derive degrades to
         # the raw-arguments box rather than failing to open the screen.
@@ -275,6 +317,7 @@ class CommandScreen(Screen[None]):
         return None
 
     def _start(self, arguments: list[str]) -> None:
+        self._cancelled = False
         output = self.query_one("#output", RichLog)
         output.clear()
         invoked = " ".join((*self.command.path, *arguments))
@@ -331,8 +374,22 @@ class CommandScreen(Screen[None]):
         if self.process is None:
             self.notify("No command is running.")
             return
-        self.process.terminate()
-        self.query_one("#status-bar", Static).update(" Cancellation requested… ")
+        self._cancelled = True
+        with contextlib.suppress(ProcessLookupError):
+            self.process.terminate()
+        self.query_one("#status-bar", Static).update(
+            " Cancelling… terminating the process (will force-kill if it ignores). "
+        )
+        self._escalate_kill()
+
+    @work(group="olympus-kill")
+    async def _escalate_kill(self) -> None:
+        """Force-kill if the process ignores the termination request within the grace period."""
+        await asyncio.sleep(KILL_GRACE_SECONDS)
+        process = self.process
+        if process is not None:
+            with contextlib.suppress(ProcessLookupError):
+                process.kill()
 
     @work(exclusive=True, group="olympus-command")
     async def _execute(self, arguments: list[str]) -> None:
@@ -355,9 +412,9 @@ class CommandScreen(Screen[None]):
             while line := await stream.readline():
                 output.write(line.decode("utf-8", "replace").rstrip("\n"))
             return_code = await self.process.wait()
-            style = "green" if return_code == 0 else "red"
-            output.write(Text(f"Process exited with code {return_code}.", style=f"bold {style}"))
-            status_bar.update(f" Completed with exit code {return_code}. ")
+            status_text, log_text, style = describe_completion(self._cancelled, return_code)
+            output.write(Text(log_text, style=f"bold {style}"))
+            status_bar.update(f" {status_text} ")
         except (OSError, subprocess.SubprocessError) as exc:
             output.write(Text(f"Unable to start command: {exc}", style="bold red"))
             status_bar.update(" Execution failed to start. ")

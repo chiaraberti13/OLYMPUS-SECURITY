@@ -2517,9 +2517,28 @@ costruito come `list[str]` senza shell e riproducibile. **`UX-A` completo.**
   vulnerabilità". Fail-safe: uno stato persistito ignoto è trattato come
   `failed`. Esposto in `olympus themis jobs status --format table` (il default
   `json` resta invariato). Doc [`docs/safety-preview.md`](docs/safety-preview.md).
-  **Resta da fare:** il rendering distinto nella TUI e nella Web UI.
-- [ ] Integrare un kill switch sempre visibile con feedback su processo terminato,
-  cleanup ed evidenze conservate.
+  **Stati distinti nella TUI fatto (2026-10-29):** al termine di un run la TUI
+  mappa il codice di uscita canonico (`core.exit_codes.ExitCode` 0–7, condiviso da
+  **ogni** comando) in uno stato etichettato e colorato distinto
+  (`describe_completion`): success, findings, usage, blocked (out-of-scope),
+  refused, **partial — NOT exhaustive**, failed, cancelled; un codice esterno
+  ignoto è normalizzato a *failed*, mai mostrato come successo. Così un run parziale
+  (uscita 5) o fallito (6) non appare mai come "nessuna vulnerabilità". **Resta da
+  fare:** il rendering degli stati Themis-specifici `simulation`/`unavailable`
+  (non derivabili dal solo codice di uscita) nel percorso Themis dedicato e nella
+  Web UI.
+- [x] Integrare un kill switch sempre visibile con feedback su processo terminato,
+  cleanup ed evidenze conservate. **Fatto (2026-10-29):** la TUI espone sempre il
+  pulsante CANCEL e il binding `Ctrl+C`; `action_cancel_command` segna il run come
+  annullato, invia `terminate()` e, dopo una grazia (`KILL_GRACE_SECONDS`),
+  **escala a `kill()`** se il processo ignora il segnale (`_escalate_kill`). Il
+  completamento riporta uno stato *Cancelled — the process was terminated*
+  distinto (mai "success" per via del codice di segnale), e l'output catturato
+  fino a quel punto resta nel log. Coperto da `tests/unit/test_tui.py`
+  (`describe_completion` per ogni stato + cancellazione; kill switch segna annullato
+  e termina il processo). *Nota di onestà:* il cleanup del process-group reale e la
+  conservazione delle evidenze su disco sono proprietà del sottoprocesso
+  (`themis/sandbox.py`, `core/retention.py`), non simulati dalla TUI.
 
 **Criterio di completamento:** test di usabilità dimostrano che gli utenti non
 confondono simulazione, successo senza finding e copertura incompleta.
