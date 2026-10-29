@@ -445,3 +445,5 @@ publicly available information; active modules connect only to targets inside a
 declared scope. Use it exclusively where you have **documented permission**
 (your own systems, a signed engagement, or a lab you control). Misuse is your
 responsibility alone.
+
+Athena audit sequences are assigned transactionally by SQLite across CLI restarts and concurrent writers. Explicit duplicate sequences are rejected without overwriting history. See [ADR-008](docs/architecture/adr-008-durable-athena-audit.md) for upgrade guidance and the remaining state/audit crash-consistency limit.

@@ -3,11 +3,399 @@
 > **Obiettivo:** consolidare Olympus come piattaforma Red/Blue/Purple Team sicura,
 > verificabile, distribuibile e usabile in contesti professionali autorizzati.
 >
-> **Stato rilevato:** analisi del branch `main` effettuata il 24 settembre 2026.
+> **Stato rilevato:** audit trasversale del branch `main` effettuato il 28 ottobre 2026 (baseline `b5cc491`).
 > Le priorità qui indicate sono basate sul codice e sulla documentazione realmente
 > presenti nel repository, non sulla precedente versione monolitica `OLYMPUS.py`.
 
-### Snapshot audit 2026-10-28 (`main` @ `b5cc491`)
+## Riconciliazione audit 2026-10-28
+
+Questa sezione è lo **stato canonico aggiornato** delle disposizioni dell'audit;
+prevale sulle descrizioni storiche delle sezioni successive. Gli ID madri restano
+stabili; gli ID figli identificano incrementi autonomi. [Audit](docs/ecosystem-audit.md),
+[inventario baseline](docs/verify/audit-2026-10-28-inventory.json) e
+[verifiche](docs/verification-status.md) distinguono osservazione da dimostrazione.
+Nessun conteggio storico di test, adapter o claim CI costituisce prova attuale.
+
+Correzioni di stato: `SEC-D` riaperto `[~]` per log TUI; `DEV-B` `[~]` per wiring
+runtime/abstract/duplicati oltre alla firma; `DEV-G`/`DEV-H` `[~]` per deriva e ADR;
+`UX-A` schema implementato ma consumer TUI/Web mancanti; `OPS-PURPLE` matrice
+presenza telemetria implementata, catena tecnica→regola→test non completata.
+`UX-G` doctor globale già implementato; resta onboarding. `UX-F` report multilivello
+presente in Vulcan/Web, resta validazione utenti. `SEC-A`/`DEV-A` runtime nativo
+presente; `D3` non è più bloccato dall'assenza vendor, eventuale parità storica resta
+nel manifest dedicato. `[x]` indica criteri testati nello scope indicato, non
+production readiness. I gate CI, SBOM/hash lock e wheel automatici delle vecchie
+sezioni sono **non attivi** dopo rimozione workflow: `DEV-C-01` aperto.
+
+Milestone aggiornate: **M1** integrità dati/controlli locali e claim verificabili;
+**M2** confinamento e stato affidabile; **M3** flussi end-to-end, recovery e UX;
+**M4** integrazioni/release/scalabilità motivate. Uscita = tutti i criteri delle
+slice associate soddisfatti con evidenze, senza promuovere attività bloccate.
+Priorità: `SEC-E-01` P0 riprodotto e indipendente per primo; `SEC-B-01` P0 rimane
+bloccato per validazione kernel/lab e richiede implementazione articolata. Nessun
+P1 sostituisce il P0 implementabile. Dipendenze solo tra figli o prerequisiti D;
+D1–D13 sono gate esterni, non completamenti delle madri (evita cicli).
+
+Campi comuni per tutte le schede: tipo **correzione** salvo DEV-C/DEV-D/WEB-J/UX-A/
+UX-E/OPS-SCAN (**integrazione/verifica/potenziamento**); incertezza media, alta
+per L/XL e per lab; DoD = criteri+test indicati, documentazione IT/EN pertinente,
+nessun segreto, diff revisionato, commit tracciato e stato remoto esplicito.
+I dettagli sotto sono normativi per ciascuna riga, non task generici senza owner.
+
+| ID | Titolo | Priorità | Owner | Taglia | Milestone | Stato |
+|---|---|---|---|---|---|---|
+| `SEC-E-01` | Audit Athena durevole dopo restart | P0 | Data/Backend/AppSec | M | M1 | [x] |
+| `SEC-B-01` | Egress scanner e DNS vincolati allo scope | P0 | Security/Scanner/SRE | XL | M2 | [⏸] |
+| `SEC-H-01` | Rifiuto directory symlink API | P1 | AppSec/Backend | S | M1 | [ ] |
+| `SEC-H-02` | Letture FIFO non bloccanti | P1 | AppSec/Backend | S | M1 | [ ] |
+| `SEC-D-01` | Redazione argomenti nel log TUI | P1 | AppSec/UX | S | M1 | [ ] |
+| `SEC-G-01` | Cancellazione TUI completa | P1 | Backend/QA | M | M2 | [ ] |
+| `DEV-E-01` | Transizioni Athena concorrenti e audit atomico | P1 | Data/Architect | L | M2 | [ ] |
+| `SEC-E-02` | Verifica digest risultati in lettura | P1 | Data/AppSec | S | M1 | [ ] |
+| `DEV-B-01` | Plugin concreti e realmente integrati | P1 | Scanner/Architect | L | M3 | [ ] |
+| `DEV-D-01` | Versionamento fisico degli store | P1 | Data | L | M3 | [ ] |
+| `WEB-J-01` | Backup e restore coordinato | P1 | Data/SRE/Privacy | L | M3 | [ ] |
+| `WEB-J-02` | Retention e privacy di sistema | P2 | Privacy/Data | L | M3 | [ ] |
+| `DEV-C-01` | Ripristino enforcement qualità e release | P1 | QA/SRE | L | M1 | [ ] |
+| `SEC-F-01` | Build scanner riproducibile e licenze | P1 | SRE/Governance | L | M2 | [⏸] |
+| `SEC-F-02` | Chiusura dipendenze SBOM conforme ai marker | P1 | Supply-chain/Backend | M | M1 | [ ] |
+| `DEV-G-01` | Riconciliazione dichiarazioni e inventario | P1 | Writer/QA/Product | M | M1 | [~] |
+| `UX-A-01` | Parità TUI e consumer form | P1 | UX/Frontend/Product | L | M3 | [ ] |
+| `WEB-A-01` | Ripresa SSE visibile | P1 | Frontend/Backend | M | M3 | [ ] |
+| `WEB-B-01` | Store guasto distinto da vuoto | P1 | Frontend/UX | M | M3 | [ ] |
+| `WEB-G-01` | Conteggi dashboard corretti | P2 | Data/Frontend | S | M3 | [ ] |
+| `OPS-PURPLE-01` | Coverage telemetria distinta da detection | P1 | Detection/QA | M | M2 | [ ] |
+| `UX-E-01` | Accessibilità e parità IT/EN dimostrate | P1 | Accessibility/I18n/QA | L | M3 | [ ] |
+| `DEV-E-02` | Modello single-node e soglie scalabilità | P2 | Architect/SRE | L | M4 | [ ] |
+| `DEV-E-03` | Allocazione ID atomica engagement/finding | P2 | Data/Backend | M | M3 | [ ] |
+| `OPS-SCAN-01` | Integrazioni motivate e promozione maturità | P2 | Product/Scanner/Blue | XL | M4 | [⏸] |
+
+### SEC-E-01 — Audit Athena durevole dopo restart
+
+- Componente/superfici: Athena / CLI.
+- Problema/evidenza: Dinamica: sqlite.append_audit sostituisce la stessa chiave; coordinator._sequence riparte da zero.
+- Gravità/probabilità/impatto e motivo P0: Perdita dello storico durante recover/cancel; probabilità alta al riavvio, impatto probatorio alto.
+- Soluzione: INSERT rigoroso e allocazione sequenza atomica nel sink persistente.
+- Dipendenze/blocchi: nessuna.
+- Accettazione misurabile: Duplicati rifiutati; prefisso invariato dopo recover/cancel; due connessioni senza perdita.
+- Test: unit duplicate/rollback/concurrency e integrazione CLI restart.
+- DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+
+Implementazione 2026-10-29: `append_audit(..., sequence=None)` assegna la
+sequenza sotto `BEGIN IMMEDIATE`; il sink persistente non usa il contatore locale.
+INSERT esplicito rifiuta duplicati. Quattro regressioni fallivano prima della
+correzione; 51 test mirati sono passati il 28 ottobre. Verifica finale sul merge: 51 test mirati passati, lint/type/schema/mutation
+passati. La slice è `[x]`; la suite generale mantiene gli stessi 17 fallimenti
+ambientali baseline (2468 passati), non è dichiarata verde. [ADR-008](docs/architecture/adr-008-durable-athena-audit.md).
+Nessuna migrazione; prefisso esistente preservato, eventi già persi non recuperati.
+La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
+
+### SEC-B-01 — Egress scanner e DNS vincolati allo scope
+
+- Componente/superfici: Themis / container / adapter.
+- Problema/evidenza: Statica: base.py valida DNS; nmap.py usa ancora hostname; scan-egress senza allowlist.
+- Gravità/probabilità/impatto e motivo P0: Possibile traffico fuori scope; impatto critico, probabilità dipende dal motore; exploit non eseguito.
+- Soluzione: Pinning compatibile con ogni protocollo ed egress per-job fail-closed.
+- Dipendenze/blocchi: D1,D11: runtime isolato e lab.
+- Accettazione misurabile: DNS variabile, redirect e endpoint non autorizzato non ricevono traffico; cancellazione pulisce policy.
+- Test: lab negativo packet capture; nessun mock come prova egress.
+- DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+
+### SEC-H-01 — Rifiuto directory symlink API
+
+- Componente/superfici: Themis API/Web.
+- Problema/evidenza: Statica e semantica stdlib: api.ApiSettings.validate resolve prima di is_symlink.
+- Gravità/probabilità/impatto e motivo P1: Controllo inefficace su directory configurate; impatto alto, probabilità dipende da accesso locale.
+- Soluzione: Validare path originale e documentare parent symlink/TOCTOU.
+- Dipendenze/blocchi: nessuna.
+- Accettazione misurabile: Quattro directory rifiutano link validi/rotti; directory normali accettate.
+- Test: test startup API parametrizzati.
+- DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+
+### SEC-H-02 — Letture FIFO non bloccanti
+
+- Componente/superfici: core.fileio / consumer.
+- Problema/evidenza: Primitiva OS riprodotta: open FIFO blocca prima di fstat; fileio.py:65,110.
+- Gravità/probabilità/impatto e motivo P1: DoS locale con input speciale; probabilità condizionata, impatto disponibilità alto.
+- Soluzione: Aprire senza blocco e verificare descriptor; mantenere no-follow e limiti.
+- Dipendenze/blocchi: nessuna.
+- Accettazione misurabile: Entrambe le API rifiutano FIFO entro deadline; file normali e link testati.
+- Test: subprocess locale con timeout e cleanup.
+- DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+
+### SEC-D-01 — Redazione argomenti nel log TUI
+
+- Componente/superfici: TUI / core.
+- Problema/evidenza: Statica: tui/app.py stampa argv grezzo.
+- Gravità/probabilità/impatto e motivo P1: Potenziale esposizione token/URL nel terminale; probabilità condizionata, impatto alto.
+- Soluzione: Formatter condiviso redatto senza alterare argv eseguito.
+- Dipendenze/blocchi: nessuna.
+- Accettazione misurabile: Token sintetici assenti da log e errori; comando riceve argomenti originali.
+- Test: pilot TUI e URL/userinfo/query fixtures.
+- DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+
+### SEC-G-01 — Cancellazione TUI completa
+
+- Componente/superfici: TUI / subprocess.
+- Problema/evidenza: Statica: terminate solo figlio immediato, nessun gruppo/cleanup robusto.
+- Gravità/probabilità/impatto e motivo P1: Rischio figli sopravvissuti, non riprodotto; impatto alto.
+- Soluzione: Lifecycle gruppo processi e terminate/wait/kill bounded multipiattaforma.
+- Dipendenze/blocchi: nessuna.
+- Accettazione misurabile: Nessun figlio sintetico resta dopo cancel/errore/chiusura.
+- Test: processi locali e test Windows/POSIX.
+- DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+
+### DEV-E-01 — Transizioni Athena concorrenti e audit atomico
+
+- Componente/superfici: Athena / SQLite.
+- Problema/evidenza: Statica: transizioni senza CAS; stato e append audit in transazioni separate.
+- Gravità/probabilità/impatto e motivo P1: Race o crash può lasciare stato senza audit; rischio dedotto alto.
+- Soluzione: CAS sullo stato persistito e unità di lavoro stato+audit; outbox se necessaria.
+- Dipendenze/blocchi: SEC-E-01.
+- Accettazione misurabile: Due writer non applicano transizioni incompatibili; fault injection non perde audit di stato.
+- Test: concorrenza e crash injection.
+- DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+
+### SEC-E-02 — Verifica digest risultati in lettura
+
+- Componente/superfici: Athena / result store.
+- Problema/evidenza: Statica: load_result legge document senza sha256/length salvati.
+- Gravità/probabilità/impatto e motivo P1: Corruzione JSON valida non rilevata; probabilità non misurata, impatto alto.
+- Soluzione: Verificare digest/lunghezza e binding identity prima del consumo.
+- Dipendenze/blocchi: nessuna.
+- Accettazione misurabile: Alterazione sintatticamente valida rifiutata; risultato integro leggibile.
+- Test: tamper e compatibilità.
+- DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+
+### DEV-B-01 — Plugin concreti e realmente integrati
+
+- Componente/superfici: Themis/Athena/preview/capabilities.
+- Problema/evidenza: Dinamica: classe astratta accettata; statica: available_adapters non consumata dal runtime.
+- Gravità/probabilità/impatto e motivo P1: Plugin dichiarato integrato non eseguibile; impatto funzionale alto.
+- Soluzione: Rifiuto abstract/duplicati; resolver unico, metadata distribuzione/versione; no override native.
+- Dipendenze/blocchi: nessuna.
+- Accettazione misurabile: Plugin fixture percorre preview/run/capabilities; duplicati/abstract rifiutati prima import quando possibile.
+- Test: contract plugin, fake offline; provenienza firmata resta SEC-F.
+- DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+
+### DEV-D-01 — Versionamento fisico degli store
+
+- Componente/superfici: Athena/engagements/findings.
+- Problema/evidenza: Statica: CREATE IF NOT EXISTS; solo job store ha user_version.
+- Gravità/probabilità/impatto e motivo P1: Upgrade futuro non controllato; rischio dedotto.
+- Soluzione: Versioni fisiche, migrazioni transazionali e rifiuto schema futuro.
+- Dipendenze/blocchi: nessuna.
+- Accettazione misurabile: Fixture vecchie migrate senza perdita; future rifiutate; rollback documentato.
+- Test: upgrade/interruption/restore.
+- DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+
+### WEB-J-01 — Backup e restore coordinato
+
+- Componente/superfici: Tutti gli store/evidenze/identità.
+- Problema/evidenza: Statica: backup Metis parziale; verify_backup non esegue integrity_check/FK.
+- Gravità/probabilità/impatto e motivo P1: Recovery piattaforma non dimostrato; impatto alto.
+- Soluzione: Snapshot coerente con digest/versioni, chiavi separate, integrity/FK e restore drill.
+- Dipendenze/blocchi: DEV-D-01.
+- Accettazione misurabile: Ripristino engagement/job/finding/custody coerente; RPO/RTO misurati su dataset dichiarato.
+- Test: backup concorrente, corruzione, restore in directory pulita.
+- DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+
+### WEB-J-02 — Retention e privacy di sistema
+
+- Componente/superfici: core/Metis/Minerva/store/backup.
+- Problema/evidenza: Statica: primitive retention presenti, applicazione globale non dimostrata.
+- Gravità/probabilità/impatto e motivo P2: Policy diverse possono cancellare prove o lasciare copie; rischio dedotto.
+- Soluzione: Policy per engagement, legal hold, minimizzazione, chiavi e backup; documentare accessi e finalità.
+- Dipendenze/blocchi: WEB-J-01.
+- Accettazione misurabile: Dry-run/hold rispettati e job attivi preservati; nessuna promessa di cancellazione fisica assoluta.
+- Test: fixture retention e review governance senza claim conformità.
+- DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+
+### DEV-C-01 — Ripristino enforcement qualità e release
+
+- Componente/superfici: CI/packaging/Python/OS.
+- Problema/evidenza: Statica: solo labels.yml; make check locale, nessun lock runtime committato.
+- Gravità/probabilità/impatto e motivo P1: Release non automaticamente verificata; impatto alto.
+- Soluzione: Workflow least privilege con pin SHA, matrice 3.11–3.14/OS, wheel, test, coverage/mutation, schema/link/security; branch policy verificata.
+- Dipendenze/blocchi: runner/repository policy per enforcement remoto.
+- Accettazione misurabile: Run remoti verdi sul commit pubblicato e check richiesti; nessuna riduzione soglie.
+- Test: CI reale, wheel clean install, container separato. Il 29 ottobre la suite locale mantiene 17 fallimenti sandbox EINVAL/chown già osservati al baseline; rieseguire su host POSIX idoneo senza ridurre i gate. Gitleaks assente, hash lock timed out: verifiche ancora aperte.
+- DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+
+### SEC-F-01 — Build scanner riproducibile e licenze
+
+- Componente/superfici: Docker/catalogo/release.
+- Problema/evidenza: Statica: pip/git/gem mobili e || true; WPScan non-OSI classificato OSS.
+- Gravità/probabilità/impatto e motivo P1: Composizione immagine e diritto distribuzione non dimostrati; impatto alto.
+- Soluzione: Pin/hash/versioni, manifest installato, mandatory vs optional, revisione licenze per versione; SBOM/advisory/signing.
+- Dipendenze/blocchi: D11,D12.
+- Accettazione misurabile: Due build confrontabili; dipendenze obbligatorie mancanti falliscono; licenze provenienti da fonti upstream.
+- Test: container/SBOM/pip-audit/Gitleaks/SAST; verifica legale separata.
+- DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+
+### SEC-F-02 — Chiusura dipendenze SBOM conforme ai marker
+
+- Componente/superfici: core.sbom/core.lockfile.
+- Problema/evidenza: Statica: _direct_dependencies interpreta extra con regex, non marker PEP 508 completi.
+- Gravità/probabilità/impatto e motivo P1: SBOM/lock possono includere/escludere dipendenze errate; rischio dedotto.
+- Soluzione: Parser standard requisiti e propagazione extra transitivi; schema CycloneDX validato.
+- Dipendenze/blocchi: nessuna.
+- Accettazione misurabile: Marker piattaforma/Python/extra complessi e dipendenze transitive corrispondono installazione.
+- Test: unit marker matrix e clean-install closure.
+- DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+
+### DEV-G-01 — Riconciliazione dichiarazioni e inventario
+
+- Componente/superfici: Docs/README/roadmap/ADR.
+- Problema/evidenza: Statica: audit storico, testing, verification-status e roadmap contengono claim CI obsoleti.
+- Gravità/probabilità/impatto e motivo P1: Operatori possono confondere codice/test storico con readiness.
+- Soluzione: Snapshot attuale distinto; inventario generato, link gate, completare ADR 003–005 e policy mypy coerente.
+- Dipendenze/blocchi: nessuna.
+- Accettazione misurabile: Nessun claim CI corrente senza run; stati aggiornati e ID tracciabili.
+- Test: doc links, confronto registry/documenti e revisione bilingue.
+- DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+
+### UX-A-01 — Parità TUI e consumer form
+
+- Componente/superfici: CLI/TUI/Web.
+- Problema/evidenza: Dinamica: config/engagement/policy assenti TUI; statica: cli_forms non consumato.
+- Gravità/probabilità/impatto e motivo P1: Onboarding incompleto e claim intero albero falso.
+- Soluzione: Navigazione completa e form realmente collegati mantenendo escape hatch.
+- Dipendenze/blocchi: nessuna.
+- Accettazione misurabile: Configurazione→engagement→assessment→report guidati; campi tipizzati/parità errori.
+- Test: pilot e E2E offline, test usabilità.
+- DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+
+### WEB-A-01 — Ripresa SSE visibile
+
+- Componente/superfici: Web JS / API events.
+- Problema/evidenza: Statica: app.js close su error, server termina stream dopo 300s.
+- Gravità/probabilità/impatto e motivo P1: Job lunghi perdono aggiornamenti; probabilità alta oltre limite.
+- Soluzione: Retry bounded, stato connessione, refresh manuale e terminal close.
+- Dipendenze/blocchi: nessuna.
+- Accettazione misurabile: Disconnessione/ripresa e job oltre 300s aggiornano stato senza duplicazione.
+- Test: browser reale SSE interrotto.
+- DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+
+### WEB-B-01 — Store guasto distinto da vuoto
+
+- Componente/superfici: Web engagement/dashboard.
+- Problema/evidenza: Statica: eccezioni convertite in [] o widget omessi.
+- Gravità/probabilità/impatto e motivo P1: Guasti mascherati da assenza dati; impatto decisionale alto.
+- Soluzione: Stati unavailable/not-configured/empty distinti con errori redatti.
+- Dipendenze/blocchi: nessuna.
+- Accettazione misurabile: Store corrotto non mostra onboarding vuoto; widget non disponibili espliciti.
+- Test: TestClient negativo e browser.
+- DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+
+### WEB-G-01 — Conteggi dashboard corretti
+
+- Componente/superfici: Web/store.
+- Problema/evidenza: Statica: list(limit=200) etichettata jobs total.
+- Gravità/probabilità/impatto e motivo P2: Conteggi parziali fuorvianti con più job.
+- Soluzione: Aggregati SQL o etichetta finestra esplicita, nessuna omissione job attivi.
+- Dipendenze/blocchi: nessuna.
+- Accettazione misurabile: Fixture >200 job produce totali veri o finestra chiaramente dichiarata.
+- Test: integrazione dashboard.
+- DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+
+### OPS-PURPLE-01 — Coverage telemetria distinta da detection
+
+- Componente/superfici: Apollo/Athena/Purple.
+- Problema/evidenza: Dinamica: dict solo event_type accettato e JSON malformato ignorato.
+- Gravità/probabilità/impatto e motivo P1: Falsa fiducia copertura; impatto alto.
+- Soluzione: Validare Event, contare scarti/troncamento; distinguere presence/schema/match/test pass.
+- Dipendenze/blocchi: nessuna.
+- Accettazione misurabile: Input invalidi non covered; test detection lega atteso/osservato e FP.
+- Test: contratti negativi e regressione regole; lab D8 separato.
+- DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+
+### UX-E-01 — Accessibilità e parità IT/EN dimostrate
+
+- Componente/superfici: TUI/Web/docs.
+- Problema/evidenza: Statica: lang=en/stringhe EN; TestClient non browser; live region assente.
+- Gravità/probabilità/impatto e motivo P1: Fruibilità non dimostrata, impatto utenti alto.
+- Soluzione: Cataloghi IT/EN, tastiera/focus/live region, browser axe e review screen reader/contrasto.
+- Dipendenze/blocchi: nessuna.
+- Accettazione misurabile: Flussi critici in due lingue; zero issue critiche automatiche e checklist manuale registrata.
+- Test: browser/keyboard/screen reader; nessuna certificazione presunta.
+- DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+
+### DEV-E-02 — Modello single-node e soglie scalabilità
+
+- Componente/superfici: Web sessioni/rate limit/SQLite.
+- Problema/evidenza: Statica: chiave sessione e rate limiter locali al processo.
+- Gravità/probabilità/impatto e motivo P2: Multiworker incoerente; rischio dedotto.
+- Soluzione: Documentare single-worker; misurare p95/lock/errori prima di session store/Postgres.
+- Dipendenze/blocchi: DEV-E-01.
+- Accettazione misurabile: Carico dichiarato e SLO misurati; migrare solo se SQLite viola budget riproducibile.
+- Test: load/recovery/multiworker.
+- DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+
+### OPS-SCAN-01 — Integrazioni motivate e promozione maturità
+
+- Componente/superfici: Themis/Apollo/Metis/Vulcan.
+- Problema/evidenza: Inventario: 24 catalogati, 15 adapter; live storico non rieseguito.
+- Gravità/probabilità/impatto e motivo P2: Espansione non verificata accresce manutenzione e rischio.
+- Soluzione: Completare adapter e flussi prima di nuovi tool; schede proposta e gate per ogni livello.
+- Dipendenze/blocchi: SEC-B-01,SEC-F-01; D1–D13 secondo capability.
+- Accettazione misurabile: Ogni promozione ha fixture, compatibilità, licenza, lab e owner; nessuna catalogazione chiamata integrazione.
+- Test: contract/offline/lab/release secondo livello.
+- DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+
+### DEV-E-03 — Allocazione ID atomica engagement/finding
+
+- Tipo: correzione; componenti/superfici: engagement create e lifecycle finding CLI/API/Web.
+- Evidenza statica: commit remoti f55825d/91d60d4 allocano next_*_id con SELECT separato dall'INSERT; non prenotano ID per writer simultanei. La perdita per sovrascrittura è già corretta dal create/append insert-only.
+- Problema/P2: conflitti operativi possibili sotto concorrenza, probabilità condizionata al carico e impatto su disponibilità; nessuna race dinamica dichiarata.
+- Soluzione/alternative: allocazione+create transazionali, oppure UUID compatibili con i contratti dopo ADR; non presentare la sola MAX+1 letta come garanzia concorrente.
+- Dipendenze: nessuna; owner Data/Backend, M/incertezza media, milestone M3.
+- Accettazione/test: due connessioni sincronizzate creano due record distinti senza perdita o errori duplicato; test restart, concorrenza e rollback, preservare contratti ID.
+- DoD: criteri e campi comuni, test/documentazione, commit e verifica remota; stato `[ ]`. Link: [audit](docs/ecosystem-audit.md).
+
+### Schede proposte e maturità — OPS-SCAN-01
+
+Tutte sono **proposte**, salvo cataloghi/adapter già inventariati. Nessuna nuova
+licenza/versione è attestata: verifica upstream della versione selezionata prima
+distribuzione, registrazione in THIRD_PARTY_NOTICES e budget manutenzione obbligatori.
+Contratto comune scanner: ScannerAdapter/ScanRequest→ScanResult→Finding/Evidence
+versionati, readiness distinta da maturity, parser bounded, capability offline o
+network-active esplicita, argv senza shell e scope/manifest per attività attive.
+Manutenzione: owner Scanner con review trimestrale versioni/CVE/parser, fixture per
+ogni versione supportata; stime L/alta incertezza per ciascun nuovo adapter.
+Accettazione comune: fixture positive/negative, timeout/cancel/partial, nessun
+clean su errore, SBOM/licenza/manifest, lab autorizzato per promozione; milestone
+M4 dopo SEC-B-01/SEC-F-01, DoD comune. Alternative e benefici specifici:
+
+| Proposta / utenti e problema | Destinazione e capability | Alternative/decisione | Requisiti, rischi e test specifici |
+|---|---|---|---|
+| SAST per sviluppatori engagement | Themis adapter Semgrep o Bandit → Finding/SARIF | scegliere su corpus, non installare entrambi senza delta; CodeQL resta SAST progetto | regole/versioni/licenze da verificare; checkout read-only senza esecuzione; fixture false positive e path traversal |
+| SCA/container/IaC per AppSec | Themis Trivy oppure OSV-Scanner, core SBOM | prima correggere SBOM nativo; Syft/Grype solo se necessario input immagini/SPDX, Checkov/KICS solo se IaC non coperto | DB offline versionato, freshness esplicita, niente socket Docker privilegiato; fixture vulnerabile/corretta e DB assente |
+| DAST per operatori Web | completare ZAP catalogato in Themis | nessun nuovo modulo; preferire adapter esistente ove sufficiente | daemon isolato, auth API, contesto scope, limiti crawl; redirect/cancel/lab D1 |
+| Recon per assessment | Argus + adapter subfinder/theHarvester/dnsx/naabu/amass | selezionare lacuna rispetto Argus/Nmap, non cinque wrapper automatici | D4, sorgenti e licenze/API; rate limit/provenance e target scoped |
+| WordPress/NoSQL | Themis wpscan/nosqlmap catalogati | differire finché caso utente e laboratorio disponibili | D5, token secret provider/licenza WPScan; fixture/versioni e false positive |
+| TLS/fuzzing Web | Themis sslscan/ffuf opzionali | differiti P3: sovrapposizione testssl/dirsearch, richiedere delta misurabile | richieste bounded e scope path/host; benchmark comparativo su lab |
+| SIEM/EDR, CTI per SOC | Apollo ECS/OCSF, Metis STIX/MISP/TAXII/OpenCTI | completare import/export offline prima dei client remoti | D9/D10, identità least privilege, dedup/provenance/retention; contract replay e sandbox server |
+| Purple validation | Athena orchestration + Apollo/Minerva, Atomic Red Team | prima OPS-PURPLE-01; Metasploit RPC solo nel gate D6 esistente | D8/D6, allowlist tecniche, snapshot endpoint, undo e telemetria; atteso/osservato e FP/FN |
+| File pattern / hardening | YARA via Apollo/Minerva; Hephaestus solo se dominio autonomo motivato | P3; preferire adapter/config check esistente, non creare modulo ora | corpus benigno/malevolo sintetico, licenze regole/benchmark e risorse bounded |
+| Scheduling/notifiche/ticketing | Themis jobs, core.notifications e Vulcan | completare WEB-I/WEB-J e D13; no Iris/Chronos duplicati | outbox/idempotenza, approvazione scope ad ogni run, segreti redatti; retry/offline/expiry tests |
+
+Non intervento motivato: duplicati Hermes/Hestia, Aegis/Themis, Oracle/risk engine,
+Prometheus/observability e scanner già esclusi da OPS-SCAN restano esclusi. Cloud
+Prowler/ScoutSuite e verifica live segreti TruffleHog non entrano nello scope
+corrente senza nuovo threat model/mandato. Criterio di riesame: caso d'uso documentato,
+delta capability misurato, owner e controlli/lab disponibili. Nessun tool terzo
+rinominato. Catalogato→implementato→offline verificato→lab verificato→candidato
+release→rilasciato richiede evidenza distinta ad ogni passo; nessun tag disponibile
+nel clone dimostra una release in questa sessione.
+
+### Snapshot concorrente 2026-10-28, riconciliato il 29 ottobre
+
+I quattro commit remoti 91d60d4, 108a30b, f55825d, e177498 sono preservati.
+Le verifiche del ciclo concorrente riportate sotto sono storiche e non sono
+state rieseguite dal presente audit sul loro ambiente. Lo stato corrente è
+nella riconciliazione e in docs/verification-status.md. La precedente conclusione
+“nessun nuovo P0/P1” è superata dai finding SEC-E-01 e dalle altre slice.
 
 Audit 360° di codice, contratti, sicurezza e dichiarazioni. **Verificato pulito:**
 `ruff check` e `ruff format` sull'intero repo; `mypy --strict` su 213 file
@@ -18,7 +406,7 @@ legittimi di templating e fallback `fsync` coperti da `pragma`); superficie di
 terminal-injection della CLI sanitizzata (`core.output.render_table` + echo
 first-party/enum); kill del process-group dello scanner (`themis/runner` usa
 `start_new_session` + `os.killpg`); store SQLite dei finding indicizzato sulla
-query hot. **Nessun nuovo P0/P1 di codice.** **Lacune confermate aperte** (con
+query hot. **Lacune confermate aperte** (con
 disposizione): SEC-B blocco egress a livello namespace → **bloccato** (richiede
 container runtime); ripristino workflow CI → **bloccato** (decisione owner, commit
 `58ba209`); RFC-3161/SLSA/Cosign/branch-protection → dipendono da servizi/infra
@@ -79,7 +467,7 @@ chiave assente/errata o ciphertext alterato, compatibilità legacy — vedi `SEC
 
 | Fase | Focus | Stato | Interventi principali |
 | --- | --- | --- | --- |
-| 0 | Baseline e coerenza documentale | `[~]` | `DEV-G` ✓, `DEV-H` ✓, `DEV-C` `[~]` (gate locali via `make check`; workflow CI rimosso in 58ba209 → nessun enforcement automatico) |
+| 0 | Baseline e coerenza documentale | `[~]` | `DEV-G` `[~]`, `DEV-H` `[~]`, `DEV-C` `[~]` (gate locali via `make check`; workflow CI rimosso in 58ba209 → nessun enforcement automatico) |
 | 1 | Security hardening (**P0**) | `[~]` | `SEC-A`, `SEC-B`, `SEC-C`, `SEC-H`, `UX-B` |
 | 2 | Architettura e qualità di release | `[~]` | `DEV-A`, `DEV-B`, `DEV-C`, `DEV-D`, `DEV-E`, `SEC-F` |
 | 3 | UX operativa bilingue | `[ ]` | `UX-A`, `UX-C`, `UX-D`, `UX-E`, `UX-F`, `UX-G` |
@@ -116,8 +504,8 @@ La base corrente include già controlli importanti:
 - [x] redazione di segreti e parametri sensibili da log e audit;
 - [x] sandbox dei processi scanner con drop dei privilegi e `rlimit` POSIX;
 - [x] API AEGIS con identità, permessi per scope, revoca, limiti del body e rate limit;
-- [x] SBOM CycloneDX, lockfile con hash, `pip-audit` e `gitleaks` bloccanti in CI;
-- [x] wheel buildata e installata in ambiente pulito durante la pipeline;
+- [~] generatori SBOM/hash lock e comandi audit presenti; enforcement CI assente (`DEV-C-01`, `SEC-F-01/02`);
+- [~] packaging wheel disponibile; installazione locale registrata nelle verifiche, pipeline da ripristinare;
 - [x] test offline e ledger di maturità per non sovrastimare gli adapter scanner.
 
 La roadmap non deve quindi riproporre attività già concluse come “modularizzare lo
@@ -133,10 +521,10 @@ di sicurezza forti, release riproducibili e flussi operativi comprensibili.
 | Architettura | `src/olympus/` contiene moduli separati e un contratto dati comune | runtime `themis api/serve/migrate/workers` nativo e testato dalla wheel; resta la parità completa endpoint/dati legacy (`SEC-A`) |
 | Sicurezza runtime | `core.execution`, `core.http`, `core.pinning`, `aegis.sandbox` | manca un egress allowlist per gli scanner; seccomp è predefinito, AppArmor richiede l'overlay esplicito su host compatibili |
 | Credenziali | i segreti first-party sono letti dall'ambiente e redatti | manca un backend opzionale per secret manager e una policy uniforme di rotazione |
-| Autorizzazione | scope file + conferma esplicita prima dell'esecuzione | lo scope non è ancora un engagement manifest firmato, con scadenza e approvatore |
+| Autorizzazione | scope file + conferma esplicita prima dell'esecuzione | manifest firmato/scadenza/revoca implementati; resta validazione live completa |
 | Supply chain | SBOM, hash lock, audit dipendenze e secret scan | mancano attestazioni di build, firma immagini/release e SAST CodeQL bloccante |
-| Qualità | Ruff lint/format, Mypy strict, pytest portabile 3.11–3.14, branch coverage first-party ≥75% e mutation score mirato ≥35% per funzione sono gate obbligatori; unit/contract/integration sono separate e la sandbox POSIX ha un job dedicato | CodeQL/SAST bloccante; live-lab senza casi eseguibili. La suite container nativa SEC-A è eseguibile e collegata alla CI |
-| Input ostili | report HTML Vulcan con `html.escape`; RichLog TUI con `markup=False` | `themis/adapters/nmap.py` parsa XML con `xml.etree` considerandolo “trusted local”, ma banner e script output sono controllati dal target; nessun fuzzing dei parser |
+| Qualità | Ruff/Mypy/test/schema/coverage/mutation sono comandi locali; matrice dichiarata 3.11–3.14 non rieseguita qui | CI qualità assente; container/live lab opt-in presenti ma non eseguiti nell'audit |
+| Input ostili | report HTML Vulcan con `html.escape`; RichLog TUI con `markup=False` | Nmap usa defusedxml e test fuzz/corpus; resta revisione completa dei consumer e SEC-H-01/02 |
 | Scanner | ledger in `integrations/maturity.py` con prove verificabili | 12 `live-tested`, 3 `offline-tested`, 0 `production-ready` |
 | TUI | esecuzione senza shell e streaming dell'output | un solo campo libero per gli argomenti, UI solo inglese, poco supporto decisionale |
 | Documentazione | README bilingue, threat model, ADR e guide operative | link interni corretti, ma manca un link checker in CI; alcuni conteggi non allineati |
@@ -229,13 +617,19 @@ coerente con la Fase 7 del cruscotto.
 
 ## 🛡️ Prospettiva Cybersecurity (Analisi e Rinforzo)
 
+Le note datate delle implementazioni sotto conservano la storia del progetto.
+Le menzioni di job CI nelle note precedenti alla rimozione workflow non sono
+stato corrente: vedere DEV-C-01 e verification-status. I criteri di accettazione
+restano requisiti, non prove di esecuzione.
+
+
 ### Stato di sicurezza attuale
 
 Non è stato rilevato hardcoding di API key o password nel codice first-party
 analizzato. `src/olympus/core/config.py` carica impostazioni da TOML e variabili
-d'ambiente; i moduli che richiedono token usano variabili dedicate. La CI esegue
-inoltre `gitleaks` sul working tree e, su `main`, sull'intera history, con un canary
-che verifica che lo scanner sia realmente funzionante.
+d'ambiente; i moduli che richiedono token usano variabili dedicate. Il comando locale Gitleaks è disponibile quando il binario è installato.
+Il workflow qualità è assente: scansione working tree/history e canary non sono
+attualmente imposti in CI (`DEV-C-01`).
 
 La parità VAP è stata classificata, lo storico terminale dispone di una migrazione
 fail-closed e il sorgente vendorizzato è stato rimosso. Restano l'isolamento di
@@ -661,7 +1055,7 @@ il report consente di dimostrare manifest, firma, scope e policy effettivi usati
 
 **Criterio di completamento:** nessun segreto compare in log, eccezioni, report,
 telemetria o file temporanei nei test canary; tutte le credenziali di servizio sono
-ruotabili senza downtime. **SEC-D è completato `[x]`.**
+ruotabili senza downtime. **SEC-D resta `[~]`: la gestione identità è implementata, ma SEC-D-01 (redazione TUI) è aperto.**
 
 ### Intervento E · `SEC-E` — Evidenze e chain of custody verificabili (**P1**)
 

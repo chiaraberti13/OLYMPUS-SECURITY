@@ -5,6 +5,10 @@ documento descrive la scala con cui Olympus dichiara *quanto* ogni integrazione 
 stata davvero validata, e il meccanismo che impedisce a quella dichiarazione di
 mentire.
 
+> Stato enforcement al 29 ottobre 2026: i test descritti sotto sono gate locali.
+> Il workflow qualità CI è assente (`DEV-C-01`); i riferimenti storici alla CI
+> non attestano esecuzioni automatiche correnti.
+
 Modulo di riferimento: `olympus.integrations.maturity`.
 Comando: `olympus themis capabilities`.
 
@@ -42,14 +46,14 @@ sbagliato non deve mai risultare una scansione pulita.
 | --- | --- |
 | `catalog-only` | Esiste una `ScannerSpec`. Non esegue nulla. |
 | `adapter-ready` | Adapter registrato in `olympus.themis.registry`: Olympus sa costruire la command line e possiede codice di parsing. Nessuno dei due è dimostrato. |
-| `offline-tested` | Il parser è esercitato contro output reale registrato: una regressione **fa fallire la build**. |
+| `offline-tested` | Il parser è esercitato contro output reale registrato: una regressione **fa fallire il test quando eseguito**. |
 | `live-tested` | L'adapter è stato eseguito end-to-end contro un motore reale in un lab autorizzato, e l'evidenza è committata. |
 | `production-ready` | `live-tested` **più** l'intera Definition of Done: evidence manifest con digest, SBOM, vulnerability scan, compatibilità di versione documentata. |
 
 ## Lo stato oggi
 
 _Il blocco seguente è generato da `olympus.integrations.maturity` tramite
-`olympus themis maturity --write`. Non modificarlo a mano: un test di CI
+`olympus themis maturity --write`. Non modificarlo a mano: un test locale
 (`tests/unit/test_scanner_maturity.py`) fallisce se diverge dal registry._
 
 <!-- GENERATED:maturity-status START -->
@@ -100,8 +104,7 @@ segnala ogni affermazione che lo supera:
 - qualsiasi stadio sopra `catalog-only` ha davvero un adapter registrato;
 - qualsiasi stadio sopra `catalog-only` cita un'evidenza, **e quel file esiste**;
 - `offline-tested` e oltre richiedono una funzione `test_<scanner>_parser*` da
-  qualche parte in `tests/unit/` — se il test non c'è, l'affermazione "una
-  regressione fa fallire la build" è falsa. La ricerca copre l'intera suite, così
+  qualche parte in `tests/unit/` — se il test non c'è, manca la prova offline della dichiarazione. La ricerca copre l'intera suite, così
   gli adapter si possono raggruppare per famiglia senza vincolarli a un file solo;
 - `production-ready` non convive con un blocker aperto;
 - un adapter registrato ma **non** dichiarato è anch'esso una deriva: sottostimare

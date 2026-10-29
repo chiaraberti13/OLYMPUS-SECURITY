@@ -1,14 +1,15 @@
 # Test suite boundaries
 
 Olympus separates tests by the kind of boundary they exercise. The directory
-layout assigns the corresponding strict pytest marker; CI invokes the regular
-suites independently so a failure is attributed to the right boundary.
+layout assigns the corresponding strict pytest marker. The Makefile exposes
+separate local suites. No quality CI workflow currently invokes them automatically
+(DEV-C-01); the only workflow in this checkout synchronizes labels.
 
-| Suite | Location | Purpose | Default CI |
+| Suite | Location | Purpose | Execution |
 | --- | --- | --- | --- |
-| Unit | `tests/unit/` | One component at a time; no uncontrolled external effects | Yes, Python 3.11–3.14 |
-| Contract | `tests/contract/` | Versioned schemas, compatibility, manifests, and adapter policies | Yes, Python 3.11–3.14 |
-| Integration | `tests/integration/` | Offline CLI and workflows across components, using fixtures or fakes | Yes, Python 3.11–3.14 |
+| Unit | `tests/unit/` | One component at a time; no uncontrolled external effects | Local; CI matrix pending |
+| Contract | `tests/contract/` | Versioned schemas, compatibility, manifests, and adapter policies | Local; CI matrix pending |
+| Integration | `tests/integration/` | Offline CLI and workflows across components, using fixtures or fakes | Local; CI matrix pending |
 | Container | `tests/container/` | Behavior requiring Docker/Podman or a container kernel boundary | No; explicit opt-in |
 | Live lab | `tests/live_lab/` | Network-active validation against a declared, authorized, isolated lab | No; explicit opt-in and authorization acknowledgement |
 
@@ -27,7 +28,9 @@ suite command with no matching tests exits non-zero (pytest's “no tests
 collected” status); an empty future suite therefore cannot be reported as
 validated.
 
-At the time of this split, container and live-lab directories intentionally
-contain no test cases. The CI status makes no claim about container isolation or
-scanner behavior against live targets. Those claims require dedicated tests and,
-for network-active behavior, evidence from an authorized lab.
+Container and live-lab test files are present; their execution is explicitly
+opt-in and was not performed by the 2026-10-28/29 audit. API/Web TestClient and
+Textual pilot tests are offline integration checks, not real browser or screen
+reader validation. See [verification status](verification-status.md) for actual
+commands, outcomes and environment limitations. Never infer a passed suite from
+its presence or from an older run on a different commit.

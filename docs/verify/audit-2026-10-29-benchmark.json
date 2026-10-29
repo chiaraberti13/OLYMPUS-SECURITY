@@ -1,0 +1,73 @@
+{
+  "platform": "linux",
+  "profile": "quick",
+  "python": "3.12.14",
+  "results": {
+    "access_log_ingest": {
+      "budget": {
+        "cpu_seconds": 4.5,
+        "peak_mib": 128.0,
+        "wall_seconds": 5.0
+      },
+      "budget_status": "not_enforced",
+      "input_items": 1000,
+      "median_cpu_seconds": 0.15524,
+      "median_wall_seconds": 0.155415,
+      "output_count": 1000,
+      "peak_mib": 0.007,
+      "samples": 3,
+      "worst_cpu_seconds": 0.16538,
+      "worst_wall_seconds": 0.165522
+    },
+    "finding_deduplication": {
+      "budget": {
+        "cpu_seconds": 2.3,
+        "peak_mib": 64.0,
+        "wall_seconds": 2.5
+      },
+      "budget_status": "not_enforced",
+      "input_items": 2000,
+      "median_cpu_seconds": 0.001447,
+      "median_wall_seconds": 0.001452,
+      "output_count": 1000,
+      "peak_mib": 0.043,
+      "samples": 3,
+      "worst_cpu_seconds": 0.001873,
+      "worst_wall_seconds": 0.001875
+    },
+    "large_report_render": {
+      "budget": {
+        "cpu_seconds": 4.5,
+        "peak_mib": 128.0,
+        "wall_seconds": 5.0
+      },
+      "budget_status": "not_enforced",
+      "input_items": 1200,
+      "median_cpu_seconds": 0.116824,
+      "median_wall_seconds": 0.116829,
+      "output_count": 287264,
+      "peak_mib": 1.369,
+      "samples": 3,
+      "worst_cpu_seconds": 0.120042,
+      "worst_wall_seconds": 0.122443
+    },
+    "themis_queue_lifecycle": {
+      "budget": {
+        "cpu_seconds": 12.0,
+        "peak_mib": 128.0,
+        "wall_seconds": 15.0
+      },
+      "budget_status": "not_enforced",
+      "input_items": 50,
+      "median_cpu_seconds": 0.255547,
+      "median_wall_seconds": 0.41246,
+      "output_count": 50,
+      "peak_mib": 0.019,
+      "samples": 3,
+      "worst_cpu_seconds": 0.263297,
+      "worst_wall_seconds": 0.438382
+    }
+  },
+  "schema_name": "olympus.performance-benchmark",
+  "schema_version": "1.0.0"
+}

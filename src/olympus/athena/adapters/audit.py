@@ -25,7 +25,7 @@ class InMemoryAuditSink:
 
 
 class SqliteAuditSink:
-    """Persist audit events through the shared SQLite repository."""
+    """Persist events with store-assigned sequences, independent of producer restarts."""
 
     def __init__(self, repository: SqliteAssessmentRepository) -> None:
         self._repo = repository
@@ -33,7 +33,7 @@ class SqliteAuditSink:
     def append(self, event: AuditEvent) -> None:
         self._repo.append_audit(
             event.assessment_id,
-            event.sequence,
+            None,
             event.timestamp,
             event.action,
             event.outcome,

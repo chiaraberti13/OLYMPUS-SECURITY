@@ -3,6 +3,14 @@
 _This is an analysis for review. **No tool below is implemented yet** — per the
 project rule, additions that materially expand scope are proposed here first._
 
+Current disposition (2026-10-29): this proposal list is historical. The canonical
+selection and acceptance criteria are **OPS-SCAN-01 in ROADMAP.md**. ZAP,
+Burp/Acunetix, subfinder and theHarvester are catalogue entries without native
+adapters, not verified capabilities. Native Python-runtime SBOM and Vulcan
+EPSS/KEV enrichment exist; Syft is a possible container-artifact complement, not
+a replacement for a supposedly absent runtime SBOM. No live-secret verification
+or cloud assessment is authorized by this document.
+
 ## Method
 
 For each capability area we state whether the **current** Olympus/Themis set

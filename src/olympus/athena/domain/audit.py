@@ -1,7 +1,8 @@
 """Append-only audit event contract for Athena.
 
 Audit events are minimal and redaction-safe by construction: they carry a
-monotonic per-assessment sequence, an action, an outcome, and a small
+producer-local per-assessment sequence (reassigned durably by persistent sinks),
+an action, an outcome, and a small
 allowlisted metadata object. Targets are represented minimally; credentials,
 HTTP bodies, environment values, exception text, and raw findings are never
 recorded.

@@ -1,172 +1,190 @@
-# Olympus ecosystem audit
+# Audit multidisciplinare — 28 ottobre 2026
 
-_Historical audit date: 2026-08-27. The Themis runtime, deployment and parity
-sections below were rechecked against main on 2026-10-18; the other module
-snapshots and verification claims remain historical._
+Baseline `main`: `b5cc491ac466fc5875a40266151e3aa55730c82e`, versione package 0.2.0.
+Clone nuovo, working tree pulito, origin HTTPS del repository chiaraberti13/OLYMPUS-SECURITY;
+nessun tag nel clone. Commit recenti: PDF Web b5cc491, sezioni report 0b8d671,
+riconciliazione CI 2cdbffd/352b9dc. Nessuna modifica concorrente presente localmente.
+Le prospettive prodotto, architettura, AppSec/offensive, Blue/DFIR, backend,
+frontend, UX/accessibilità, dati, QA/SRE, privacy e documentazione sono analisi
+tecniche degli agenti, non consultazioni con persone reali.
 
-> **Current Themis status:** API, Web, migrations and workers run from the native
-> wheel. The VAP tree is archived and is not a supported runtime. Its route and
-> data-contract differences are tracked in
-> [`parity/themis-vap-runtime.json`](parity/themis-vap-runtime.json). Do not use
-> this historical audit as evidence that legacy VAP was booted or that scanner
-> live execution was verified in the current environment.
+La slice P0 `SEC-E-01` è stata implementata e verificata (commit `e8dea67`,
+51 test mirati dopo merge); il finding descrive il baseline. Restano aperti il
+confinamento scanner P0 e gli altri gap tracciati: nessuna readiness professionale
+è dichiarata. Esiti e limiti finali nella pagina verification-status.
 
-> Method: the CLI tree was introspected live (`typer`/`click`), module sources
-> and imports were read, the 24 vendored scanners were parsed for their real
-> external binaries, and the vendored Themis web app was booted to confirm routes
-> and migrations. Presence of source files is **not** treated as completeness.
+## Riallineamento del 29 ottobre
 
-## 1. Status legend
+`origin/main` è avanzato a `e177498e7982c5ae41abc2207de561e42ec8791d`.
+I commit 91d60d4/108a30b/f55825d/e177498 sono stati integrati senza riscrittura:
+transizioni finding da CLI, allocazione ID per restart, creazione engagement
+insert-only, cifratura bundle finding/asset. Revisionati i diff di codice/test/docs;
+la verifica generale è ripetuta sul merge `bca1daa`. L'inventario JSON resta una
+fotografia del baseline, non viene falsamente presentato come albero finale.
 
-- **source present** — code exists in the repo.
-- **integration connected** — wired into the `olympus` CLI and imports resolve.
-- **dependency installed** — required Python/system deps present in this env.
-- **startup verified** — the tool starts / a command runs here.
-- **basic execution verified** — a real (non-simulated) command produced output here.
-- **e2e verified** — a representative end-to-end workflow ran here.
-- **not executable here** — blocked by a sandbox limitation (no daemon, no binary, no network).
+Le allocazioni `next_engagement_id` e `next_transition_id` correggono restart
+sequenziali ma leggono prima di un INSERT distinto: non prenotano l'ID contro
+writer simultanei. INSERT protegge la perdita dati; rimane possibile un conflitto
+operativo. Disposizione `DEV-E-03` (rischio statico, non race riprodotta).
+La branch API GitHub indica `protected=false` e nessun required status check al
+momento della lettura; nessuna policy remota è stata modificata.
 
-## 2. Tool inventory (overview)
+## Metodo e copertura
 
-| Tool | Kind | Purpose | CLI entry | Integrated | Tests | Status here |
-| --- | --- | --- | --- | --- | --- | --- |
-| core | native | Shared data contract (models, enums, ids, http, config, output) | `olympus core` | ✅ | 8 files | basic execution verified |
-| argus | native | Scope-first OSINT & passive recon | `olympus argus` | ✅ | 29 files | basic execution verified |
-| athena | native | Assessment orchestration (plans, jobs, SQLite, audit) | `olympus athena` | ✅ | 5 files | e2e verified (offline) |
-| helios | native | Scoped network attack-surface mapping | `olympus helios` | ✅ | 1 file | basic execution verified |
-| artemis | native | Scoped web assessment (fingerprint, content, XSS) | `olympus artemis` | ✅ | 8 files | basic execution verified |
-| proteus | native | Scoped social-engineering campaign modelling | `olympus proteus` | ✅ | 1 file | basic execution verified |
-| hermes | native | Secret / sensitive-data scanning (SARIF) | `olympus hermes` | ✅ | 1 file | basic execution verified |
-| apollo | native | Detection rules engine (red/blue) | `olympus apollo` | ✅ | 5 files | basic execution verified |
-| minerva | native | Incident triage & chain of custody | `olympus minerva` | ✅ | 2 files | basic execution verified |
-| vulcan | native | Aggregation, dedup, ranking, reporting | `olympus vulcan` | ✅ | 1 file | basic execution verified |
-| metis | native | Capability routing, planning, CTI cases and guided labs | `olympus metis` | ✅ | 1 file | e2e verified (offline) |
-| themis | native; archived VAP source | Specialist-engine control plane | `olympus themis` | ✅ | execution/jobs/capability contracts and VAP parity inventory | native jobs e2e covered by CI; no live scanner claim |
+Inventario di **632 file tracciati**, 234 sotto src, 215 sotto tests, 55 sotto docs;
+418 file Python complessivi. [Manifest baseline](verify/audit-2026-10-28-inventory.json)
+registra ogni percorso, dimensione e digest. È un inventario, non prova che ogni
+riga sia stata revisionata. Ispezione semantica mirata di tutte le famiglie di
+componenti di prima parte, contratti, test, deployment e documentazione; profondità
+maggiore su autorizzazione, esecuzione, persistenza, UI e release.
+**L'audit non è una revisione esaustiva riga per riga né una certificazione.**
+Resta parziale nella verifica dinamica: browser/accessibilità manuale, scanner
+reali, container, licenze upstream, matrice OS/Python, carico e crash/restore
+completo richiedono le attività canoniche indicate sotto.
 
-Ruff and the complete automated test suite are blocking CI checks.
+Presenti: src/olympus, tests, pyproject, Makefile, README IT/EN, ROADMAP,
+SECURITY, threat model, ADR, schemas, examples, Docker/Compose/deploy/labs.
+Assenti: AGENTS.md, vendor runtime, lock/constraints runtime con hash committato,
+workflow qualità/release (esiste solo labels.yml), suite browser Playwright/axe.
+Schemi generati esaminati tramite catalogo/check; fixture/esempi tramite contratti
+ed esecuzioni test; immagini binarie non sottoposte ad analisi semantica; Git
+object/cache/build esclusi. Nessuna attività network-active verso target.
 
-## 3. Per-tool detail
+Stack verificato in pyproject: Python >=3.11, Typer/Click, Textual, Pydantic 2,
+SQLite stdlib, FastAPI/Jinja2/uvicorn extra API, reportlab extra report,
+Prometheus/OTel opzionali. Dipendenze prevalentemente con limite minimo, quindi
+installazioni future non riproducibili senza lock. Installazione pulita locale
+in venv Python 3.12.14 con dev/api/report/observability. Offline-first significa
+fixture e import/export locali; lookup/feed/scanner richiedono rete e autorizzazione.
 
-### Native Olympus modules
+## Mappa responsabilità e contratti
 
-All eleven native modules are real implementations (no TODO/NotImplementedError/
-placeholder found in `src/olympus`). They share the `core` contract, use
-injected HTTP/DNS ports (offline-testable), and enforce scope on network-active
-commands.
+| Componente | Responsabilità/entry point e I/O | Superfici e maturità/criticità |
+|---|---|---|
+| core | modelli Pydantic, execution/scope HTTP/pinning, file I/O, crypto, contratti JSON, SBOM/retention/observability | CLI e servizi condivisi; FIFO e marker SBOM da correggere |
+| engagements / findings | manifest firmati, revoca, record engagement SQLite; lifecycle finding e transizioni | CLI/API/Web; schema fisico/backup da uniformare |
+| Argus | recon/OSINT DNS/RDAP/HTTP, pipeline/graph/diff | CLI/TUI, adapter Athena; lookup dipendono dalla rete, test offline non equivalgono a lab |
+| Athena | dominio/ports/application separati, coordinator e SQLite, piani/result/audit | CLI/TUI; adapter dns/whois/web-headers/themis (quest'ultimo nmap); P0 audit restart |
+| Themis | 15 adapter, parser/runner/sandbox, SQLite jobs/lease/retry/recovery | CLI/TUI/API/Web/worker; egress, plugin e release non completi |
+| Helios / Artemis | discovery rete / assessment web, HTTP e scope condivisi | CLI/TUI; validazione live limitata dal lab |
+| Hermes | secret scanning file/git, baseline, SARIF | CLI/TUI e hook; segreti sintetici nei test, non prova Gitleaks history |
+| Apollo | Event ingest, regole exact-match, Sigma subset, ECS/OCSF | CLI/TUI/Purple; coverage non dimostra detection end-to-end |
+| Minerva | incident triage, timeline, evidence vault e custody firmata | CLI/TUI, lettura dashboard; non case management Web completo |
+| Metis | planner/capability e CTI case SQLite, STIX/MISP subset offline | CLI/TUI; import/export non connettori live, backup parziale |
+| Vulcan | dedup/rank, CVE/EPSS/KEV, finding diff/trend, JSON/MD/HTML/CSV/PDF/SARIF | CLI/TUI e Web; punto unico per remediation/retest/report |
+| Proteus | modello campagne e training sintetico | CLI/TUI; nessun servizio reale invio/harvesting dimostrato |
+| integrations / tui | catalogo readiness/maturity e navigazione Click | discovery plugin separata da runtime; TUI esclude config/engagement/policy |
+| tests/scripts/tools | unit/contract/integration/property/mutation, schema/link, benchmark, labels | gate locali; browser e enforcement remoto mancanti |
+| docker/deploy/labs | wheel native, split control/scan, attestation/AppArmor, lab Mars | configurazioni presenti, esecuzione non verificata qui |
 
-| Module | Subcommands | Key deps | External binaries | Services/DB | Config/env | Outputs | Docker |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| core | export-schemas | pydantic | none | none | OLYMPUS_CONFIG, olympus.toml | JSON schemas | n/a |
-| argus | accounts, diff, dns, doctor, email, fronting, investigate, ip, mac, myip, phone, pipeline, scan, web, whois | pydantic, dnspython, phonenumbers, rich | none (stdlib HTTP) | none | scope/pipeline JSONs; OLYMPUS_NUMVERIFY_KEY, OLYMPUS_RAPIDAPI_KEY (optional) | Asset/Finding JSON, versioned event graphs, NDJSON audit, Mermaid/DOT/GraphML | n/a |
-| athena | plan validate, run, status, cancel, recover, adapters | pydantic, typer | none | SQLite (local file) | plan JSON, --storage dir | assessment JSON, audit, reports | n/a |
-| helios | scan | pydantic | none | none | scope JSON | findings JSON | n/a |
-| artemis | check-scope, content, fetch, fingerprint, metabase, xss | pydantic | none | none | scope JSON, wordlists | findings JSON | n/a |
-| proteus | campaign, email, page, report | core policy/contracts | none | none | recipient/sender/landing scope JSON | protected versioned campaign JSON, report JSON, training HTML | n/a |
-| hermes | scan | core policy/contracts | Git (optional history) | none | paths, versioned baseline, resource limits | masked SARIF, private baseline | n/a |
-| apollo | rules, run, test | core policy/contracts, pydantic | none | none | versioned YAML rules, versioned NDJSON events, strict resource limits | versioned atomic alert JSON with rule/MITRE trace | n/a |
-| minerva | record, timeline, triage, verify | core policy/contracts | none | private locked custody file | strict Apollo/evidence contracts, file/item/deadline limits | stable private incident JSON; custody 2.0 anchored to evidence digest | n/a |
-| vulcan | rank, report | core policy/contracts | none | none | strict producer envelopes, aggregate byte/item/deadline limits | one canonical report; atomic JSON/safe Markdown/self-contained HTML | n/a |
-| metis | capabilities, recommend, plan, labs, case | core file safety, pydantic, SQLite | none | private SQLite case store | strict objectives, scope entries, source/confidence and ingest limits | versioned plans/cases, safe Markdown and JSON reports | n/a |
+## Flussi, utenti e risultati
 
-### Argus (native migration complete) — `olympus argus`
+Operatori assessment: installazione→doctor→configurazione manuale TLS/identità/scope→
+engagement firmato→preview→job→finding→triage→report. Il Web è collegato ai servizi,
+ma onboarding, autorizzazione e creazione engagement richiedono ancora CLI/admin.
+La TUI usa argomenti liberi: schema form presente non significa form consumato.
+Il percorso Athena recovery/cancel può perdere audit (P0 riprodotto).
+Finding lifecycle/dedup e report esistono; correlazione/retest multi-run non deve
+essere confusa con validazione automatica della vulnerabilità. Le fixture parser
+non dimostrano falsi positivi/negativi del motore né compatibilità versione reale.
 
-- **Source:** `src/olympus/argus/`; last compared standalone revision
-  `1c7a831…`. No duplicated source or runtime passthrough remains under
-  `vendor/`.
-- **CLI:** `accounts, diff, dns, doctor, email, fronting, investigate, ip, mac,
-  myip, phone, pipeline, scan, web, whois`.
-- **Deps:** `phonenumbers, rich` and optional `dnspython`; no standalone Argus
-  package, external binary or service is required.
-- **Verified here:** the full suite passes while `vendor/argus` is absent;
-  `tests/unit/test_argus_native_replacement.py` prevents restoration of the
-  removed passthrough and checks the complete native command surface.
-- **Pipeline:** deterministic typed event expansion, recursive deduplication,
-  blacklist and resource bounds. Active pivots require authorization and a
-  scope gate.
+SOC/DFIR: ingest→Event→regola→Alert→Minerva→custody→Vulcan è composto da servizi
+reali, con subset Sigma/STIX/MISP dichiarati. Coverage Apollo misura presenza tipo
+telemetria, non prova regola efficace. Connettori SIEM/EDR/CTI e loop Atomic richiedono
+lab. Governance: retention/accessi/provenance disponibili come primitive; non è
+provata conformità normativa o conservazione probatoria opponibile.
 
-### Themis (native control plane; archived VAP source) — `olympus themis`
+Metriche di uscita prodotto: successo dei flussi critici offline; zero errori
+presentati come clean/empty; zero perdita audit; tempo onboarding misurato con
+operatori; denominatori FP/FN su dataset annotato; tempo triage/retest; p95/lock
+sotto carico dichiarato. Nessun valore misurato viene inventato.
 
-- **Source:** `vendor/vulnerability-assessment-platform/` (upstream rev
-  `6c6b395…`, GPL-3.0-only). Complete FastAPI app (~40 routes), 24 scanners, SQLAlchemy +
-  3 Alembic migrations, Celery/Redis, report generator, templates, static,
-  assets, tests.
-- **Native runtime:** `api`, `serve`/`web`, `migrate` and `workers` use the same
-  authenticated native application, scope registry, redacted audit and SQLite
-  job store. Live scans are disabled by default; outcomes remain partial or
-  failed when a scanner is unavailable. Native jobs retain queued/running,
-  succeeded/partial/failed/timed-out/cancelled/policy-denied states.
-- **Archived source:** the GPL-3.0 VAP web app, scanner catalogue and database
-  are preserved for provenance. The native wheel and containers do not load or
-  execute it. Legacy database import and full route/data parity are not
-  implemented; see `docs/parity/themis-vap-runtime.json`.
-- **Dependencies:** `pip install -e ".[themis]"` installs the native API/Web
-  runtime. Native migrations use SQLite and do not require Redis, Celery,
-  SQLAlchemy or Alembic. External scanner binaries are installed separately.
-- **Security boundary:** API and Web require credentials, registered scope and
-  HTTPS for browser sessions. Compose attaches them only to the internal
-  `control` network; the worker and optional engines use only `scan-egress`,
-  with no dual-homed service, and share jobs through SQLite. Scope-derived
-  egress allowlisting remains open in `SEC-B`; seccomp is mandatory for the
-  worker and AppArmor is available through the explicit host overlay.
-- **Verification references:** `tests/integration/test_themis_native_runtime.py`,
-  `scripts/smoke_native_runtime.py`, the native container suite and CI. No live
-  scan or production-ready scanner status is inferred here.
+## Finding e disposizioni canoniche
 
-## 4. Incomplete, unverified, or simulated components (honest findings)
+Fatti statici, riproduzioni dinamiche e rischi dedotti sono distinti nella tabella.
+Ogni finding ha un ID figlio di una voce esistente in ROADMAP; le madri non sono
+completate dalla singola slice. Priorità P0 audit deriva da perdita verificata;
+P0 egress da controllo di confinamento assente, senza exploit live eseguito.
 
-- **The archived vendored web app is not a supported runtime.** The native
-  `olympus themis run` path uses explicit states
-  (`live`/`unavailable`/`failed`/`disabled`/`simulation`) that **never** emits a
-  simulated finding unless `--simulate` (or `THEMIS_SIMULATION_MODE=true`) is
-  explicitly given. Six scanners have real native adapters (nmap, nikto, wafw00f,
-  sqlmap, whatweb, testssl); four were verified live end-to-end here against a
-  local lab (see `docs/themis-execution-evidence.md`). The remaining 18 native
-  adapters are pending. `olympus themis doctor`
-  reports the live-scan flag and binary availability so the operator knows which
-  scanners can run for real.
-- **No scanner binaries are installed in this sandbox** and there is **no Docker
-  daemon**, so **no live scan and no container `up` was executed here.** Scanner
-  live execution is therefore "not executable here"; it is reproducible outside
-  the sandbox via `docker-compose.scanners.yml` / the vendored `installer.sh`.
-- **`olympus themis scan`** is an authenticated client for the native
-  `/api/v1/jobs` endpoint. It requires an explicit authorization confirmation,
-  a server-registered scope id and HTTPS for non-loopback servers. The API-to-
-  SQLite lifecycle is verified offline; live execution still requires a ready
-  specialist engine.
-- **5 scanners are API/commercial** (zap, openvas, nessus, burp, acunetix) and
-  cannot be auto-installed; they retain their integration and require manual
-  setup (see `docs/scanner-matrix.md`).
-- **Athena** live-network end-to-end tests are opt-in and were not run; its
-  offline e2e (plan→run→report via SQLite) is verified.
+| ID / madre | Evidenza e natura | Conseguenza | Disposizione |
+|---|---|---|---|
+| `SEC-E-01` | Dinamica: sqlite.append_audit sostituisce la stessa chiave; coordinator._sequence riparte da zero | Perdita dello storico durante recover/cancel; probabilità alta al riavvio, impatto probatorio alto | P0: INSERT rigoroso e allocazione sequenza atomica nel sink persistente; [roadmap](../ROADMAP.md#riconciliazione-audit-2026-10-28) |
+| `SEC-B-01` | Statica: base.py valida DNS; nmap.py usa ancora hostname; scan-egress senza allowlist | Possibile traffico fuori scope; impatto critico, probabilità dipende dal motore; exploit non eseguito | P0: Pinning compatibile con ogni protocollo ed egress per-job fail-closed; [roadmap](../ROADMAP.md#riconciliazione-audit-2026-10-28) |
+| `SEC-H-01` | Statica e semantica stdlib: api.ApiSettings.validate resolve prima di is_symlink | Controllo inefficace su directory configurate; impatto alto, probabilità dipende da accesso locale | P1: Validare path originale e documentare parent symlink/TOCTOU; [roadmap](../ROADMAP.md#riconciliazione-audit-2026-10-28) |
+| `SEC-H-02` | Primitiva OS riprodotta: open FIFO blocca prima di fstat; fileio.py:65,110 | DoS locale con input speciale; probabilità condizionata, impatto disponibilità alto | P1: Aprire senza blocco e verificare descriptor; mantenere no-follow e limiti; [roadmap](../ROADMAP.md#riconciliazione-audit-2026-10-28) |
+| `SEC-D-01` | Statica: tui/app.py stampa argv grezzo | Potenziale esposizione token/URL nel terminale; probabilità condizionata, impatto alto | P1: Formatter condiviso redatto senza alterare argv eseguito; [roadmap](../ROADMAP.md#riconciliazione-audit-2026-10-28) |
+| `SEC-G-01` | Statica: terminate solo figlio immediato, nessun gruppo/cleanup robusto | Rischio figli sopravvissuti, non riprodotto; impatto alto | P1: Lifecycle gruppo processi e terminate/wait/kill bounded multipiattaforma; [roadmap](../ROADMAP.md#riconciliazione-audit-2026-10-28) |
+| `DEV-E-01` | Statica: transizioni senza CAS; stato e append audit in transazioni separate | Race o crash può lasciare stato senza audit; rischio dedotto alto | P1: CAS sullo stato persistito e unità di lavoro stato+audit; outbox se necessaria; [roadmap](../ROADMAP.md#riconciliazione-audit-2026-10-28) |
+| `SEC-E-02` | Statica: load_result legge document senza sha256/length salvati | Corruzione JSON valida non rilevata; probabilità non misurata, impatto alto | P1: Verificare digest/lunghezza e binding identity prima del consumo; [roadmap](../ROADMAP.md#riconciliazione-audit-2026-10-28) |
+| `DEV-B-01` | Dinamica: classe astratta accettata; statica: available_adapters non consumata dal runtime | Plugin dichiarato integrato non eseguibile; impatto funzionale alto | P1: Rifiuto abstract/duplicati; resolver unico, metadata distribuzione/versione; no override native; [roadmap](../ROADMAP.md#riconciliazione-audit-2026-10-28) |
+| `DEV-D-01` | Statica: CREATE IF NOT EXISTS; solo job store ha user_version | Upgrade futuro non controllato; rischio dedotto | P1: Versioni fisiche, migrazioni transazionali e rifiuto schema futuro; [roadmap](../ROADMAP.md#riconciliazione-audit-2026-10-28) |
+| `WEB-J-01` | Statica: backup Metis parziale; verify_backup non esegue integrity_check/FK | Recovery piattaforma non dimostrato; impatto alto | P1: Snapshot coerente con digest/versioni, chiavi separate, integrity/FK e restore drill; [roadmap](../ROADMAP.md#riconciliazione-audit-2026-10-28) |
+| `WEB-J-02` | Statica: primitive retention presenti, applicazione globale non dimostrata | Policy diverse possono cancellare prove o lasciare copie; rischio dedotto | P2: Policy per engagement, legal hold, minimizzazione, chiavi e backup; documentare accessi e finalità; [roadmap](../ROADMAP.md#riconciliazione-audit-2026-10-28) |
+| `DEV-C-01` | Statica: solo labels.yml; make check locale, nessun lock runtime committato | Release non automaticamente verificata; impatto alto | P1: Workflow least privilege con pin SHA, matrice 3.11–3.14/OS, wheel, test, coverage/mutation, schema/link/security; branch policy verificata; [roadmap](../ROADMAP.md#riconciliazione-audit-2026-10-28) |
+| `SEC-F-01` | Statica: pip/git/gem mobili e || true; WPScan non-OSI classificato OSS | Composizione immagine e diritto distribuzione non dimostrati; impatto alto | P1: Pin/hash/versioni, manifest installato, mandatory vs optional, revisione licenze per versione; SBOM/advisory/signing; [roadmap](../ROADMAP.md#riconciliazione-audit-2026-10-28) |
+| `SEC-F-02` | Statica: _direct_dependencies interpreta extra con regex, non marker PEP 508 completi | SBOM/lock possono includere/escludere dipendenze errate; rischio dedotto | P1: Parser standard requisiti e propagazione extra transitivi; schema CycloneDX validato; [roadmap](../ROADMAP.md#riconciliazione-audit-2026-10-28) |
+| `DEV-G-01` | Statica: audit storico, testing, verification-status e roadmap contengono claim CI obsoleti | Operatori possono confondere codice/test storico con readiness | P1: Snapshot attuale distinto; inventario generato, link gate, completare ADR 003–005 e policy mypy coerente; [roadmap](../ROADMAP.md#riconciliazione-audit-2026-10-28) |
+| `UX-A-01` | Dinamica: config/engagement/policy assenti TUI; statica: cli_forms non consumato | Onboarding incompleto e claim intero albero falso | P1: Navigazione completa e form realmente collegati mantenendo escape hatch; [roadmap](../ROADMAP.md#riconciliazione-audit-2026-10-28) |
+| `WEB-A-01` | Statica: app.js close su error, server termina stream dopo 300s | Job lunghi perdono aggiornamenti; probabilità alta oltre limite | P1: Retry bounded, stato connessione, refresh manuale e terminal close; [roadmap](../ROADMAP.md#riconciliazione-audit-2026-10-28) |
+| `WEB-B-01` | Statica: eccezioni convertite in [] o widget omessi | Guasti mascherati da assenza dati; impatto decisionale alto | P1: Stati unavailable/not-configured/empty distinti con errori redatti; [roadmap](../ROADMAP.md#riconciliazione-audit-2026-10-28) |
+| `WEB-G-01` | Statica: list(limit=200) etichettata jobs total | Conteggi parziali fuorvianti con più job | P2: Aggregati SQL o etichetta finestra esplicita, nessuna omissione job attivi; [roadmap](../ROADMAP.md#riconciliazione-audit-2026-10-28) |
+| `OPS-PURPLE-01` | Dinamica: dict solo event_type accettato e JSON malformato ignorato | Falsa fiducia copertura; impatto alto | P1: Validare Event, contare scarti/troncamento; distinguere presence/schema/match/test pass; [roadmap](../ROADMAP.md#riconciliazione-audit-2026-10-28) |
+| `UX-E-01` | Statica: lang=en/stringhe EN; TestClient non browser; live region assente | Fruibilità non dimostrata, impatto utenti alto | P1: Cataloghi IT/EN, tastiera/focus/live region, browser axe e review screen reader/contrasto; [roadmap](../ROADMAP.md#riconciliazione-audit-2026-10-28) |
+| `DEV-E-02` | Statica: chiave sessione e rate limiter locali al processo | Multiworker incoerente; rischio dedotto | P2: Documentare single-worker; misurare p95/lock/errori prima di session store/Postgres; [roadmap](../ROADMAP.md#riconciliazione-audit-2026-10-28) |
+| `OPS-SCAN-01` | Inventario: 24 catalogati, 15 adapter; live storico non rieseguito | Espansione non verificata accresce manutenzione e rischio | P2: Completare adapter e flussi prima di nuovi tool; schede proposta e gate per ogni livello; [roadmap](../ROADMAP.md#riconciliazione-audit-2026-10-28) |
 
-## 5. Missing dependencies / services for full operation
+## Decisioni e compromessi
 
-| Need | For | How to obtain |
-| --- | --- | --- |
-| Scanner binaries (19 OSS) | live Themis scans | `docker-compose.scanners.yml` / `installer.sh` / `olympus themis deps` |
-| Commercial engines (5) | nessus/burp/acunetix/zap/openvas | manual install + licence/API config |
-| Docker daemon | native container suite and deployment | host Docker Engine |
-| VAP tools/runtime | no native operation; archived source only | not required or supported by Olympus |
+- **Audit durevole:** adottare sequenza assegnata nello store, non offset del
+  coordinator (race tra processi) né solo INSERT (romperebbe recovery dopo una
+  transizione). Conservare INSERT rigoroso per import esplicito. ADR-008 registra
+  i limiti: stato/audit non ancora unica transazione, nessuna protezione da DBA ostile.
+- **SQLite:** conservare default single-node. Postgres e code esterne hanno costi
+  di gestione; introdurli solo con misure di lock/p95/RPO e requisiti multi-host.
+- **Tool:** completare moduli competenti prima di aggiungerne. Nessun nuovo modulo
+  mitologico necessario; Hermes non è asset inventory, Themis non va duplicato in
+  Aegis, Hephaestus resta proposta da giustificare. Proposte sotto OPS-SCAN-01.
+- **Maturità:** catalogato/implementato/offline/lab/candidato/rilasciato sono fasi
+  diverse. `live-tested` nel ledger è storico, non verifica della sessione. Un
+  candidato richiede DoD, manifest/digest/SBOM/advisory/versioni; rilasciato richiede
+  tag/artefatti firmati e run verificabili. Nessun adapter promosso qui.
+- **UI e sicurezza:** correggere stati e flussi prima di espandere catalogo.
+  Single-worker Web finché sessioni e quota per processo non sono rese condivise.
+- **Supply chain/licenze:** metadata del catalogo non sono verifica legale. La
+  classificazione WPScan non-OSI/OSS va riconciliata; Nmap richiede verifica della
+  licenza della versione distribuita. Nessuna compatibilità legale attestata.
 
-## 6. Historical verification and current references
+Alternative, owner, dipendenze e criteri di riesame sono nella roadmap. Evidenze
+storiche restano in git; questo documento sostituisce lo snapshot operativo 2026-08.
+Le verifiche eseguite e i limiti sono in [verification status](verification-status.md).
 
-See `docs/scanner-matrix.md` for the per-scanner matrix and
-`docs/vap-to-themis-rename.md` for the rename verification. Ecosystem-level:
+## Inventario completo scanner al baseline
 
-- `python -m olympus.cli --help` / `themis --help` — CLI tree present.
-- `olympus themis scanners --check` — all 24 listed with binary availability.
-- `olympus doctor` / `olympus themis doctor` / `olympus argus doctor` — real diagnostics.
-- `olympus argus phone --number +390212345678` — real offline OSINT output.
-- `olympus themis jobs submit/list/status/cancel/work` — durable native lifecycle.
-- Native Themis route parity is contract-tested against both source trees.
-- `python scripts/smoke_native_runtime.py` and `make test-container` are the
-  documented native runtime checks; execute them in the current host/CI before
-  claiming they pass for a new revision. Docker is not assumed present here.
-- Full test suite and Ruff pass as blocking CI checks.
+Licenze: metadata dichiarati, non verifica legale/upstream. Esecuzione network-active; parser/fixture offline. Prerequisiti comuni: adapter, binario/API, autorizzazione/scope/sandbox. Superfici CLI/API/Web e TUI tramite CLI; contratto ScanRequest/ScanResult/Finding. Test tests/unit/test_themis* e contract. Limiti: SEC-B-01, versioni/lab non rieseguiti, nessuna promozione di maturità.
 
-## 7. Confirmation
-
-No tool in this audit is represented as complete **solely because its source is
-present**. Each row above records the *verified* status (integration, imports,
-startup, execution) reached in this environment, and every simulated-by-default
-or not-executable-here limitation is stated explicitly rather than hidden.
+| Nome | Responsabilità | Prerequisito | Licenza dichiarata | Maturità storica | Evidenza/limite |
+|---|---|---|---|---|---|
+| nmap | Network port & service enumeration | nmap | GPL-2.0 | live-tested | docs/themis-execution-evidence.md; Definition of Done incomplete: no per-adapter evidence manifest or SBOM. |
+| nikto | Web server misconfiguration scan | nikto | GPL-2.0 | live-tested | docs/themis-execution-evidence.md; Definition of Done incomplete: no per-adapter evidence manifest or SBOM. |
+| whatweb | Web technology fingerprinting | whatweb | GPL-3.0 | offline-tested | tests/unit/test_themis_execution.py; No authorized live run yet: the captured run failed on a broken Ruby environment, so the adapter has never parsed real engine output. |
+| wafw00f | WAF detection | wafw00f | BSD-3-Clause | live-tested | docs/themis-execution-evidence.md; Definition of Done incomplete: no per-adapter evidence manifest or SBOM. |
+| sqlmap | SQL injection detection/exploitation | sqlmap | GPL-2.0 | live-tested | docs/themis-execution-evidence.md; Definition of Done incomplete: no per-adapter evidence manifest or SBOM. |
+| arjun | HTTP parameter discovery | arjun | AGPL-3.0 | live-tested | docs/themis-execution-evidence.md; Definition of Done incomplete: no per-adapter evidence manifest or SBOM. |
+| wapiti | Web application vulnerability scan | wapiti | GPL-2.0 | offline-tested | tests/unit/test_themis_execution.py; No authorized live run through the scope-gate yet: the committed evidence is a real wapiti JSON report (labs/mars) exercising the parser only. |
+| commix | Command-injection detection | commix | GPL-3.0 | live-tested | docs/themis-execution-evidence.md; Definition of Done incomplete: no per-adapter evidence manifest or SBOM. |
+| xsstrike | XSS detection | xsstrike | GPL-3.0 | live-tested | docs/themis-execution-evidence.md; Definition of Done incomplete: no per-adapter evidence manifest or SBOM. |
+| dirsearch | Content/path discovery | dirsearch | GPL-2.0 | live-tested | docs/themis-execution-evidence.md; Definition of Done incomplete: no per-adapter evidence manifest or SBOM. |
+| nosqlmap | NoSQL injection detection | nosqlmap | GPL-3.0 | catalog-only | Nessun adapter |
+| nuclei | Template-based vulnerability scan | nuclei | MIT | live-tested | docs/themis-execution-evidence.md; Definition of Done incomplete: no per-adapter evidence manifest or SBOM. |
+| httpx | Fast HTTP probing/toolkit | httpx | MIT | live-tested | docs/themis-execution-evidence.md; Definition of Done incomplete: no per-adapter evidence manifest or SBOM. |
+| katana | Crawling / endpoint discovery | katana | MIT | live-tested | docs/themis-execution-evidence.md; Definition of Done incomplete: no per-adapter evidence manifest or SBOM. |
+| subfinder | Passive subdomain enumeration | subfinder | MIT | catalog-only | Nessun adapter |
+| dalfox | XSS scanning/parameter analysis | dalfox | MIT | live-tested | docs/themis-execution-evidence.md; Definition of Done incomplete: no per-adapter evidence manifest or SBOM. |
+| testssl | TLS/SSL configuration analysis | testssl.sh | GPL-2.0 | offline-tested | tests/unit/test_themis_execution.py; No authorized live run yet: the captured evidence covers the parser only. |
+| theharvester | OSINT email/subdomain harvesting | theHarvester | GPL-2.0 | catalog-only | Nessun adapter |
+| wpscan | WordPress vulnerability scan | wpscan | WPScan Public Source (non-OSI) | catalog-only | Nessun adapter |
+| zap | OWASP ZAP DAST (API/daemon) | API/daemon e credenziali | Apache-2.0 | catalog-only | Nessun adapter |
+| openvas | OpenVAS/GVM network vulnerability scan | API/daemon e credenziali | GPL-2.0 | catalog-only | Nessun adapter |
+| nessus | Tenable Nessus vulnerability scan | API/daemon e credenziali | Commercial (Tenable) | catalog-only | Nessun adapter |
+| burp | PortSwigger Burp Suite (Pro API) | API/daemon e credenziali | Commercial (PortSwigger) | catalog-only | Nessun adapter |
+| acunetix | Invicti/Acunetix DAST | API/daemon e credenziali | Commercial (Invicti) | catalog-only | Nessun adapter |

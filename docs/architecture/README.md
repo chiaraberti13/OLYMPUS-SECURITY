@@ -15,6 +15,7 @@ design survives after the people and the pull request that made it
 | ADR-005 | Signed engagement manifest | Planned | `SEC-C` |
 | [ADR-006](adr-006-aegis-to-themis-rename.md) | Rename the AEGIS subsystem to Themis | Accepted | `DEV-I` |
 | [ADR-007](adr-007-web-control-plane.md) | Native web control plane (FastAPI + HTMX + SSE) | Accepted | `WEB-A`…`WEB-H` |
+| [ADR-008](adr-008-durable-athena-audit.md) | Durable Athena audit sequencing across restart and concurrent writers | Accepted | `SEC-E-01` |
 
 ## Rules
 

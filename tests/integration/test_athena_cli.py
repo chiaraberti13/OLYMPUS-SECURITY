@@ -268,3 +268,52 @@ def test_status_missing(tmp_path: Path) -> None:
 def test_cancel_missing(tmp_path: Path) -> None:
     result = runner.invoke(app, ["athena", "cancel", "ASM-9999", "--storage", str(tmp_path / "s")])
     assert result.exit_code == 2
+
+
+@pytest.mark.parametrize("operation", ["recover", "cancel"])
+def test_restart_lifecycle_preserves_audit_prefix(tmp_path: Path, operation: str) -> None:
+    """A new CLI coordinator must append after the previous process's history."""
+    from olympus.athena.adapters.sqlite import SqliteAssessmentRepository
+    from olympus.athena.domain.assessment import Assessment, AssessmentState, Job, JobState
+    from olympus.athena.domain.contracts import load_plan
+
+    storage = tmp_path / "store"
+    repo = SqliteAssessmentRepository(storage / "athena.db")
+    plan_path = _plan_file(tmp_path, ["dns"])
+    plan_id = repo.save_plan(load_plan(json.loads(plan_path.read_text())))
+    job = Job(job_id="J1", adapter="dns", target_kind="domain", target_value="example.com")
+    repo.save_assessment(Assessment(assessment_id="A1", plan_id=plan_id, jobs=(job,)))
+    repo.transition_assessment("A1", AssessmentState.RUNNING)
+    repo.transition_job(job, JobState.RUNNING)
+    repo.append_audit("A1", 0, "t0", "assessment_created", "planned", None, "{}")
+    repo.append_audit("A1", 1, "t1", "job_started", "running", "J1", "{}")
+    prefix = repo.audit_events("A1")
+    repo.close()
+
+    args = ["athena", operation]
+    if operation == "cancel":
+        args.append("A1")
+    args.extend(["--storage", str(storage)])
+    result = runner.invoke(app, args)
+    assert result.exit_code == 0, result.output
+    repo = SqliteAssessmentRepository(storage / "athena.db")
+    try:
+        events = repo.audit_events("A1")
+        assert events[:2] == prefix
+        expected = (
+            ["job_recovered", "assessment_recovered"]
+            if operation == "recover"
+            else ["assessment_cancelled"]
+        )
+        assert [e["action"] for e in events[2:]] == expected
+        assert [e["sequence"] for e in events] == list(range(len(events)))
+    finally:
+        repo.close()
+    # Repeating the terminal lifecycle command is a no-op, not a duplicate append.
+    repeated = runner.invoke(app, args)
+    assert repeated.exit_code == 0, repeated.output
+    repo = SqliteAssessmentRepository(storage / "athena.db")
+    try:
+        assert repo.audit_events("A1") == events
+    finally:
+        repo.close()

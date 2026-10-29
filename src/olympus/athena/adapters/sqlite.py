@@ -269,17 +269,31 @@ class SqliteAssessmentRepository:
     def append_audit(
         self,
         assessment_id: str,
-        sequence: int,
+        sequence: int | None,
         timestamp: str,
         action: str,
         outcome: str,
         job_id: str | None,
         metadata: str,
     ) -> None:
-        """Persist one audit row (used by the SQLite audit sink)."""
+        """Append without replacement; ``None`` allocates a durable sequence.
+
+        Explicit sequences are preserved and duplicates raise IntegrityError.
+        The persistent sink requests allocation because producer counters reset
+        after a restart. Acquire the write lock before reading MAX so independent
+        connections cannot allocate the same sequence. Failure rolls back both
+        allocation and insertion; existing rows are never rewritten.
+        """
         with self._conn:
+            if sequence is None:
+                self._conn.execute("BEGIN IMMEDIATE")
+                row = self._conn.execute(
+                    "SELECT COALESCE(MAX(sequence), -1) + 1 FROM audit WHERE assessment_id = ?",
+                    (assessment_id,),
+                ).fetchone()
+                sequence = int(row[0])
             self._conn.execute(
-                "INSERT OR REPLACE INTO audit(assessment_id, sequence, timestamp, action, "
+                "INSERT INTO audit(assessment_id, sequence, timestamp, action, "
                 "outcome, job_id, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (assessment_id, sequence, timestamp, action, outcome, job_id, metadata),
             )
