@@ -2485,15 +2485,27 @@ costruito come `list[str]` senza shell e riproducibile. **`UX-A` completo.**
   simulazione), budget (timeout/deadline/output-bytes/findings), percorsi di
   output e audit, e tool esterno. Esposto come `olympus themis preview`
   (read-only, offline, `--format table|json`, codice `3` se lo scope bloccherebbe
-  il lancio). Doc [`docs/safety-preview.md`](docs/safety-preview.md). **Resta da
-  fare:** il rendering nel widget TUI e l'innesto in-flow nel percorso di
-  esecuzione.
-- [~] Per comandi `active` o `intrusive`, richiedere una conferma esplicita che
+  il lancio). Doc [`docs/safety-preview.md`](docs/safety-preview.md). **Innesto
+  in-flow iniziale fatto (2026-10-29):** prima di un'operazione attiva la TUI mostra
+  l'invocazione esatta e il target nella `ConfirmRunScreen` (vedi il punto
+  conferme). **Resta da fare:** il rendering del `SafetyPreview` completo
+  (decisione di scope, manifest/approvazione, budget, tool esterno) in un widget
+  dedicato del percorso di esecuzione Themis.
+- [x] Per comandi `active` o `intrusive`, richiedere una conferma esplicita che
   riporti il target; nessuna conferma aggiuntiva per operazioni passive e locali.
-  Il preview espone già il predicato `requires_confirmation` (true per run
+  Il preview Themis espone già il predicato `requires_confirmation` (true per run
   `active`/`intrusive` non simulati, false per passivi e simulazioni; uno scanner
-  ignoto non è mai sottostimato). Resta il *prompt* interattivo che consuma il
-  predicato lungo il percorso di esecuzione.
+  ignoto non è mai sottostimato). **Prompt interattivo fatto (2026-10-29):** la TUI
+  (`tui.app.CommandScreen`) innesta il predicato nel percorso di esecuzione — prima
+  di lanciare, se l'argv costruito contiene `--i-am-authorized` (il gate universale
+  di operazione attiva autorizzata del prodotto, in modalità guidata **o** raw)
+  apre una `ConfirmRunScreen` modale che riporta l'invocazione esatta e il target,
+  e il processo parte **solo** dopo conferma esplicita; i comandi passivi/locali
+  (senza il gate) partono senza attrito aggiuntivo. Coperto da
+  `tests/unit/test_tui.py` (conferma richiesta, annulla→nessun run, conferma→run
+  con l'argv autorizzato, passivo→nessun modale). Il predicato Themis
+  `requires_confirmation` resta la fonte per il percorso di esecuzione Themis
+  dedicato.
 - [~] Evidenziare `simulation`, `unavailable`, `partial` e `failed` come stati
   distinti: un risultato parziale non deve sembrare “nessuna vulnerabilità”.
   **Fonte dati fatta:** `olympus/themis/outcome.py` compone un `OutcomeSummary`

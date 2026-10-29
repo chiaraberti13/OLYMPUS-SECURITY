@@ -75,6 +75,12 @@ single argument box:
 - A **Raw arguments mode (expert)** checkbox keeps the original free-text path:
   when enabled the typed fields are ignored and the string is split with
   `shlex.split` (still no shell). A command with no options shows only this box.
+- **Proportionate confirmation (`UX-B`):** when the invocation about to run
+  includes the authorization flag `--i-am-authorized` — the product's universal
+  gate for a real authorized active operation, in guided or raw mode — the TUI
+  first opens a confirmation modal naming the exact invocation and the target, and
+  starts the process only after you confirm. Passive and local commands (no
+  authorization gate) run with no extra friction.
 
 Both the guided form and the raw mode consume the same `cli_forms` schema, so the
 TUI and a future web UI stay in lockstep with the CLI. See

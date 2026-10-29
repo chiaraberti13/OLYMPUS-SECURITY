@@ -26,6 +26,10 @@ from olympus.tui.catalog import TOOLS, CommandSpec, ToolSpec, commands_for
 TOP_BAR = " Menu     Configuration     Operations     Quit!"
 STATUS_HINT = " Enter: select/run   Tab: next panel   F1: help   F5: run   Esc: back   Q: quit"
 
+#: The flag every Olympus command uses to gate a real authorized active operation.
+#: Its presence in the built argv is the signal for a proportionate confirmation.
+AUTHORIZATION_FLAG = "--i-am-authorized"
+
 
 class HelpScreen(ModalScreen[None]):
     """Compact keyboard reference."""
@@ -52,6 +56,54 @@ class HelpScreen(ModalScreen[None]):
     @on(Button.Pressed, "#close-help")
     def close_help(self) -> None:
         self.dismiss()
+
+
+class ConfirmRunScreen(ModalScreen[bool]):
+    """Proportionate confirmation before an authorized active operation (UX-B).
+
+    Dismissed with ``True`` to proceed or ``False`` to cancel. It names the exact
+    invocation and the target so the operator sees what will run against whom
+    before anything starts; passive and local commands never reach this screen.
+    """
+
+    BINDINGS: ClassVar[list[Binding | tuple[str, str] | tuple[str, str, str]]] = [
+        Binding("escape", "deny", "Cancel"),
+        Binding("enter", "confirm", "Confirm"),
+    ]
+
+    def __init__(self, path: tuple[str, ...], arguments: list[str], target: str | None) -> None:
+        super().__init__()
+        self._invocation = " ".join(("olympus", *path, *arguments))
+        self._target = target
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="confirm-dialog"):
+            yield Static(" CONFIRM ACTIVE OPERATION ", classes="dialog-title")
+            target_line = f"Target:     {self._target}\n" if self._target else ""
+            yield Static(
+                "This command performs an authorized active operation.\n\n"
+                f"{target_line}"
+                f"Command:    {self._invocation}\n\n"
+                "It runs only against systems you are authorized to test. Proceed?",
+                id="confirm-copy",
+            )
+            with Horizontal(id="confirm-actions"):
+                yield Button("CONFIRM (Enter)", id="confirm-run", variant="primary")
+                yield Button("CANCEL (Esc)", id="deny-run")
+
+    @on(Button.Pressed, "#confirm-run")
+    def confirm_pressed(self) -> None:
+        self.dismiss(True)
+
+    @on(Button.Pressed, "#deny-run")
+    def deny_pressed(self) -> None:
+        self.dismiss(False)
+
+    def action_confirm(self) -> None:
+        self.dismiss(True)
+
+    def action_deny(self) -> None:
+        self.dismiss(False)
 
 
 class CommandScreen(Screen[None]):
@@ -173,21 +225,56 @@ class CommandScreen(Screen[None]):
         if self.process is not None:
             self.notify("A command is already running.", severity="warning")
             return
+        arguments = self._prepare_arguments()
+        if arguments is None:
+            return
+        # Proportionate friction (UX-B): an authorized active operation asks for an
+        # explicit confirmation naming the target; passive and local commands run
+        # straight away. The authorization flag is the product's universal
+        # active-operation gate, so it is the honest signal in a generic launcher.
+        if AUTHORIZATION_FLAG in arguments:
+            self.app.push_screen(
+                ConfirmRunScreen(self.command.path, arguments, self._target_hint(arguments)),
+                self._resume_after_confirm,
+            )
+            return
+        self._start(arguments)
+
+    def _prepare_arguments(self) -> list[str] | None:
+        """Return the argv to run, or ``None`` after notifying about a problem."""
         form = self.form
         raw_mode = form is None or self.query_one("#raw-toggle", Checkbox).value
         if form is None or raw_mode:
             try:
-                arguments = shlex.split(self.query_one("#arguments", Input).value)
+                return shlex.split(self.query_one("#arguments", Input).value)
             except ValueError as exc:
                 self.notify(f"Invalid arguments: {exc}", severity="error")
-                return
+                return None
+        values = self._collect_values(form)
+        errors = validate_values(form, values)
+        if errors:
+            self.notify("\n".join(errors[:6]), severity="error", title="Fix these fields")
+            return None
+        return self._build_argv(form, values)
+
+    def _resume_after_confirm(self, confirmed: bool | None) -> None:
+        if confirmed:
+            arguments = self._prepare_arguments()
+            if arguments is not None:
+                self._start(arguments)
         else:
-            values = self._collect_values(form)
-            errors = validate_values(form, values)
-            if errors:
-                self.notify("\n".join(errors[:6]), severity="error", title="Fix these fields")
-                return
-            arguments = self._build_argv(form, values)
+            self.query_one("#status-bar", Static).update(" Operation cancelled before launch. ")
+
+    @staticmethod
+    def _target_hint(arguments: list[str]) -> str | None:
+        """Best-effort target shown in the confirmation: the value after a target flag."""
+        target_flags = ("--target", "--host", "--url", "--domain", "--base-url")
+        for index, token in enumerate(arguments[:-1]):
+            if token in target_flags:
+                return arguments[index + 1]
+        return None
+
+    def _start(self, arguments: list[str]) -> None:
         output = self.query_one("#output", RichLog)
         output.clear()
         invoked = " ".join((*self.command.path, *arguments))

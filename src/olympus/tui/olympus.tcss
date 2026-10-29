@@ -229,3 +229,27 @@ HelpScreen {
     width: 16;
     align-horizontal: center;
 }
+
+ConfirmRunScreen {
+    align: center middle;
+    background: #000000 65%;
+}
+
+#confirm-dialog {
+    width: 76;
+    height: auto;
+    padding: 1 2;
+    background: $olympus-blue;
+    border: double $olympus-yellow;
+}
+
+#confirm-copy {
+    height: auto;
+    color: $olympus-paper;
+    margin: 1 0;
+}
+
+#confirm-actions {
+    height: 3;
+    align-horizontal: center;
+}

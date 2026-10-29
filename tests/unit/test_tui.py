@@ -6,7 +6,7 @@ from textual.widgets import Checkbox, Input, RichLog
 from typer.main import get_command
 
 from olympus.cli import app
-from olympus.tui.app import CommandScreen, HelpScreen, OlympusTui
+from olympus.tui.app import CommandScreen, ConfirmRunScreen, HelpScreen, OlympusTui
 from olympus.tui.catalog import TOOLS, commands_for
 
 
@@ -132,6 +132,77 @@ def test_guided_form_blocks_run_on_invalid_value() -> None:
             # The run never started: no process, and the output log stayed empty.
             assert screen.process is None
             assert screen.query_one("#output", RichLog).lines == []
+
+    asyncio.run(scenario())
+
+
+def test_active_command_requires_confirmation_before_running() -> None:
+    """An authorized active operation opens a confirmation modal and starts nothing yet."""
+
+    async def scenario() -> None:
+        screen = _screen_for(("argus", "accounts"))
+        interface = OlympusTui(get_command(app))
+        started: list[list[str]] = []
+        screen._start = started.append  # type: ignore[method-assign]
+        async with interface.run_test(size=(140, 42)) as pilot:
+            interface.push_screen(screen)
+            await pilot.pause()
+            screen.query_one("#field-username", Input).value = "acme"
+            screen.query_one("#field-i_am_authorized", Checkbox).value = True
+            await pilot.pause()
+            screen.action_run_command()
+            await pilot.pause()
+            assert isinstance(interface.screen, ConfirmRunScreen)
+            assert started == []  # nothing ran before the operator confirmed
+            await pilot.press("escape")  # cancel
+            await pilot.pause()
+            assert not isinstance(interface.screen, ConfirmRunScreen)
+            assert started == []  # cancelling the confirmation runs nothing
+
+    asyncio.run(scenario())
+
+
+def test_confirmation_confirm_starts_the_run() -> None:
+    """Confirming the modal starts exactly the authorized invocation, without a shell."""
+
+    async def scenario() -> None:
+        screen = _screen_for(("argus", "accounts"))
+        interface = OlympusTui(get_command(app))
+        started: list[list[str]] = []
+        screen._start = started.append  # type: ignore[method-assign]
+        async with interface.run_test(size=(140, 42)) as pilot:
+            interface.push_screen(screen)
+            await pilot.pause()
+            screen.query_one("#field-username", Input).value = "acme"
+            screen.query_one("#field-i_am_authorized", Checkbox).value = True
+            await pilot.pause()
+            screen.action_run_command()
+            await pilot.pause()
+            assert isinstance(interface.screen, ConfirmRunScreen)
+            await pilot.press("enter")  # confirm
+            await pilot.pause()
+            assert len(started) == 1
+            assert "--i-am-authorized" in started[0]
+            assert "--username" in started[0] and "acme" in started[0]
+
+    asyncio.run(scenario())
+
+
+def test_passive_command_runs_without_confirmation() -> None:
+    """A command with no authorization gate never shows the confirmation modal."""
+
+    async def scenario() -> None:
+        screen = _screen_for(("core", "export-schemas"))
+        interface = OlympusTui(get_command(app))
+        started: list[list[str]] = []
+        screen._start = started.append  # type: ignore[method-assign]
+        async with interface.run_test(size=(140, 42)) as pilot:
+            interface.push_screen(screen)
+            await pilot.pause()
+            screen.action_run_command()
+            await pilot.pause()
+            assert not isinstance(interface.screen, ConfirmRunScreen)
+            assert started == [[]]  # ran straight away with no extra arguments
 
     asyncio.run(scenario())
 
