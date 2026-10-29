@@ -74,7 +74,7 @@ $ olympus athena run plan.json --storage ./.athena
 | **Metis** | `olympus metis` | Deterministic capability routing, engagement plans, CTI cases, IOC correlation and operational reports. |
 | **core** | `olympus core` | Shared data-contract utilities (`export-schemas`, versioned migration manifest). |
 | **Themis** | `olympus themis` | Scope-gated scanner orchestration, capability readiness and maturity, durable SQLite jobs, cancellation, audit and explicit execution states. Native for 15 of 24 catalogued engines; API, Web, migrations and workers require no vendor tree. |
-| **Unified TUI** | `olympus ui` | Keyboard-first interface over every real Olympus command, with streamed output and process cancellation. |
+| **Unified TUI** | `olympus ui` | Keyboard-first interface over every real Olympus command, with guided typed forms (locally validated before run), streamed output and process cancellation. |
 
 Minerva custody 3.x binds every new acquisition to its evidence digest, tool
 version, policy/scope digests, redacted command template and coverage outcome;

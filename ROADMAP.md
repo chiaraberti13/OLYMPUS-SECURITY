@@ -2427,22 +2427,33 @@ flag, formati dei file e relazioni tra scope, autorizzazione e output.
 
 ### Intervento A · `UX-A` — Form dinamici derivati dalla CLI (**P1**)
 
-- [~] Generare controlli TUI dalla metadata Click/Typer: text field, select,
+- [x] Generare controlli TUI dalla metadata Click/Typer: text field, select,
   checkbox, path picker e repeatable option, invece di un'unica stringa libera.
   **Schema fatto:** `olympus/cli_forms.py` deriva dall'albero Typer reale un
   `CommandForm` con `FormField` tipizzati — `kind` ∈ {text, integer, number,
   boolean, choice, path}, più `required`, `default` stabile, `choices` (dagli
   enum), `minimum`/`maximum` (dai range Click) e flag `multiple` (repeatable).
-  Così una UI sa disegnare checkbox/select/path-picker/numero-con-range invece di
-  una stringa libera. **Resta da fare:** il rendering effettivo come widget
-  Textual.
-- [~] Mostrare required/default/range/example e validare localmente prima del run.
+  **Rendering fatto (2026-10-29):** `tui.app.CommandScreen` disegna un widget per
+  campo dal `CommandForm` — `Checkbox` per i boolean, `Select` per le choice
+  (enum), `Input` tipizzato per text/integer/number/path (placeholder con
+  range/default; path come input testuale validato, non un file-browser modale) —
+  in un pannello scrollabile `#fields`, al posto dell'unica stringa libera. L'argv
+  è costruito in modo sicuro come `list[str]` (`--flag valore`, un boolean solo se
+  attivo, posizionali come valore nudo nell'ordine di dichiarazione), **mai** una
+  stringa shell. Repeatable → un `--flag valore` per voce (input separato da spazi).
+- [x] Mostrare required/default/range/example e validare localmente prima del run.
   Lo schema espone required/default/choices/range per ogni campo e
   `cli_forms.validate_values(form, values)` **valida localmente** prima di
   qualunque run (required mancanti, choice non valide, input non numerico, numeri
-  fuori range → errori leggibili). Resta la sola *visualizzazione* nel widget TUI.
-- [ ] Conservare una modalità “raw arguments” per utenti esperti, separata e
-  chiaramente indicata.
+  fuori range → errori leggibili). **Visualizzazione fatta (2026-10-29):** ogni
+  campo mostra flag, marcatore `*` per i required e help; i vincoli (range/default)
+  sono nel placeholder; un valore non valido blocca il run con gli errori di
+  `validate_values` e nessun processo viene avviato.
+- [x] Conservare una modalità “raw arguments” per utenti esperti, separata e
+  chiaramente indicata. Una checkbox **Raw arguments mode (expert)** affianca il
+  form guidato: quando attiva, i campi tipizzati sono ignorati e la stringa libera
+  è divisa con `shlex.split` (nessuna shell), preservando il percorso esperto
+  originale; una command senza opzioni mostra solo il campo raw.
 - [x] Riutilizzare lo stesso schema per eventuale web UI, evitando logiche diverse
   tra CLI e TUI. Lo schema di `cli_forms` è **interface-agnostic** (`form_for`,
   `forms_for_app`, `validate_values`, con `to_dict()` serializzabile): TUI e web
@@ -2455,8 +2466,11 @@ flag, formati dei file e relazioni tra scope, autorizzazione e output.
   gruppo è rilevato strutturalmente via `.commands`; regressione coperta da
   `tests/unit/test_cli.py::test_ui_command_launches_the_tui_group`.
 
-**Criterio di completamento:** un nuovo utente può configurare una scansione senza
-consultare `--help`; l'argv prodotto è visibile, redatto e riproducibile.
+**Criterio di completamento (soddisfatto):** un nuovo utente può configurare una
+scansione senza consultare `--help` — i campi tipizzati con flag, required e
+vincoli sono sullo schermo — e l'argv prodotto è visibile (stampato prima del run),
+costruito come `list[str]` senza shell e riproducibile. **`UX-A` completo.**
+(La safety preview in-flow e il kill switch sempre visibile restano in `UX-B`.)
 
 ### Intervento B · `UX-B` — Safety preview e conferme proporzionate (**P0/P1**)
 

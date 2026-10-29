@@ -14,12 +14,13 @@ from rich.text import Text
 from textual import on, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen, Screen
-from textual.widgets import Button, Input, Label, OptionList, RichLog, Static
+from textual.widgets import Button, Checkbox, Input, Label, OptionList, RichLog, Select, Static
 from textual.widgets.option_list import Option
 
 from olympus import __version__
+from olympus.cli_forms import CommandForm, FieldKind, FormField, form_for, validate_values
 from olympus.tui.catalog import TOOLS, CommandSpec, ToolSpec, commands_for
 
 TOP_BAR = " Menu     Configuration     Operations     Quit!"
@@ -67,6 +68,17 @@ class CommandScreen(Screen[None]):
         super().__init__()
         self.command = command
         self.process: asyncio.subprocess.Process | None = None
+        # The guided form is derived from the same interface-agnostic schema the
+        # web UI consumes (UX-A); a group or a schema we cannot derive degrades to
+        # the raw-arguments box rather than failing to open the screen.
+        try:
+            self.form: CommandForm | None = form_for(command.path)
+        except (KeyError, ValueError):
+            self.form = None
+
+    @staticmethod
+    def field_widget_id(field: FormField) -> str:
+        return f"field-{field.name}"
 
     def compose(self) -> ComposeResult:
         yield Static(TOP_BAR, id="menu-bar")
@@ -79,17 +91,58 @@ class CommandScreen(Screen[None]):
             with Vertical(id="command-details", classes="pane"):
                 yield Label(self.command.description, id="command-description")
                 yield Label(self.command.usage, id="command-usage")
-            yield Label("Arguments", classes="field-label")
+            fields = self.form.fields if self.form is not None else ()
+            with VerticalScroll(id="fields", classes="pane"):
+                for field in fields:
+                    yield from self._compose_field(field)
+                if not fields:
+                    yield Label(
+                        "This command takes no options; press F5 to run.", classes="field-hint"
+                    )
+            # Raw-arguments mode: a clearly-separated expert path. When enabled the
+            # typed fields are ignored and the string is split without a shell.
+            yield Checkbox("Raw arguments mode (expert)", id="raw-toggle")
+            yield Label("Raw arguments", classes="field-label", id="arguments-label")
             yield Input(placeholder="Options and arguments for this command", id="arguments")
             with Horizontal(id="actions"):
                 yield Button("RUN (F5)", id="run", variant="primary")
                 yield Button("CANCEL (Ctrl+C)", id="cancel")
                 yield Button("BACK (Esc)", id="back")
             yield RichLog(id="output", wrap=True, markup=False, max_lines=5_000)
-        yield Static(" Ready. Enter arguments, then press F5. ", id="status-bar")
+        yield Static(" Ready. Fill the fields, then press F5. ", id="status-bar")
+
+    def _compose_field(self, field: FormField) -> ComposeResult:
+        marker = " *" if field.required else ""
+        repeat = " (repeatable: space-separated)" if field.multiple else ""
+        label = f"{field.flags[0] if field.flags else field.name}{marker}"
+        detail = " ".join(part for part in (field.help, repeat) if part).strip()
+        yield Label(f"{label}  {detail}".rstrip(), classes="field-label")
+        widget_id = self.field_widget_id(field)
+        if field.kind is FieldKind.BOOLEAN:
+            yield Checkbox(value=field.default == "True", id=widget_id)
+        elif field.kind is FieldKind.CHOICE and field.choices:
+            options = [(choice, choice) for choice in field.choices]
+            initial = field.default if field.default in field.choices else Select.BLANK
+            yield Select(options, value=initial, allow_blank=True, id=widget_id)
+        else:
+            placeholder = self._placeholder(field)
+            yield Input(value=field.default or "", placeholder=placeholder, id=widget_id)
+
+    @staticmethod
+    def _placeholder(field: FormField) -> str:
+        bits: list[str] = [field.kind.value]
+        if field.minimum is not None or field.maximum is not None:
+            bits.append(f"range {field.minimum}..{field.maximum}")
+        if field.default:
+            bits.append(f"default {field.default}")
+        return ", ".join(bits)
 
     def on_mount(self) -> None:
-        self.query_one("#arguments", Input).focus()
+        first = self.query("#fields Input, #fields Select, #fields Checkbox")
+        if first:
+            first.first().focus()
+        else:
+            self.query_one("#arguments", Input).focus()
 
     @on(Input.Submitted, "#arguments")
     def submitted(self) -> None:
@@ -120,17 +173,72 @@ class CommandScreen(Screen[None]):
         if self.process is not None:
             self.notify("A command is already running.", severity="warning")
             return
-        raw = self.query_one("#arguments", Input).value
-        try:
-            arguments = shlex.split(raw)
-        except ValueError as exc:
-            self.notify(f"Invalid arguments: {exc}", severity="error")
-            return
+        form = self.form
+        raw_mode = form is None or self.query_one("#raw-toggle", Checkbox).value
+        if form is None or raw_mode:
+            try:
+                arguments = shlex.split(self.query_one("#arguments", Input).value)
+            except ValueError as exc:
+                self.notify(f"Invalid arguments: {exc}", severity="error")
+                return
+        else:
+            values = self._collect_values(form)
+            errors = validate_values(form, values)
+            if errors:
+                self.notify("\n".join(errors[:6]), severity="error", title="Fix these fields")
+                return
+            arguments = self._build_argv(form, values)
         output = self.query_one("#output", RichLog)
         output.clear()
         invoked = " ".join((*self.command.path, *arguments))
         output.write(Text(f"$ olympus {invoked}", style="bold yellow"))
         self._execute(arguments)
+
+    def _collect_values(self, form: CommandForm) -> dict[str, object]:
+        """Read the rendered widgets into a {field name: value} map for validation."""
+        values: dict[str, object] = {}
+        for field in form.fields:
+            widget = self.query_one(f"#{self.field_widget_id(field)}")
+            if isinstance(widget, Checkbox):
+                values[field.name] = widget.value
+            elif isinstance(widget, Select):
+                selected = widget.value
+                if selected is not Select.BLANK:
+                    values[field.name] = str(selected)
+            elif isinstance(widget, Input):
+                text = widget.value.strip()
+                if not text:
+                    continue
+                values[field.name] = text.split() if field.multiple else text
+        return values
+
+    @staticmethod
+    def _build_argv(form: CommandForm, values: dict[str, object]) -> list[str]:
+        """Turn validated field values into a safe argv list (never a shell string).
+
+        Options are emitted as ``--flag value`` (a boolean only when true); a
+        positional parameter (no leading ``-`` in its flags) is emitted as a bare
+        value, in declaration order, so the argv matches what the CLI expects.
+        """
+        argv: list[str] = []
+        for field in form.fields:
+            if field.name not in values:
+                continue
+            value = values[field.name]
+            flag = next((item for item in field.flags if item.startswith("--")), None)
+            if flag is None and field.flags and field.flags[0].startswith("-"):
+                flag = field.flags[0]
+            if field.kind is FieldKind.BOOLEAN:
+                if value is True and flag is not None:
+                    argv.append(flag)
+                continue
+            entries = value if isinstance(value, list) else [value]
+            for entry in entries:
+                if flag is None:  # positional parameter: a bare value, in order
+                    argv.append(str(entry))
+                else:
+                    argv.extend([flag, str(entry)])
+        return argv
 
     def action_cancel_command(self) -> None:
         if self.process is None:

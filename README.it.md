@@ -74,7 +74,7 @@ $ olympus athena run plan.json --storage ./.athena
 | **Metis** | `olympus metis` | Routing deterministico delle competenze, piani d'ingaggio, casi CTI, correlazione IOC e report operativi. |
 | **core** | `olympus core` | Utility del contratto dati condiviso (es. `export-schemas`). |
 | **Themis** | `olympus themis` | Orchestrazione scanner con scope, stato capacità, job SQLite persistenti, cancellazione, audit e stati di esecuzione espliciti. |
-| **TUI unificata** | `olympus ui` | Interfaccia da tastiera su tutti i comandi reali Olympus, con output in streaming e cancellazione del processo. |
+| **TUI unificata** | `olympus ui` | Interfaccia da tastiera su tutti i comandi reali Olympus, con form tipizzati guidati (validati localmente prima del run), output in streaming e cancellazione del processo. |
 
 La custodia Minerva 3.x vincola ogni nuova acquisizione al digest dell'evidenza,
 alla versione del tool, ai digest di policy/scope, al template del comando

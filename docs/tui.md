@@ -56,6 +56,26 @@ re-deriving the CLI's shape (`UX-A` bullet 4):
   value leaks into the schema), the same determinism discipline as the CLI
   reference.
 
-Rendering these fields as live Textual widgets, and the separate "raw arguments"
-expert mode, build on this schema and are tracked in
+### Guided form in the execution view
+
+The execution screen renders this schema as live Textual widgets instead of a
+single argument box:
+
+- a **checkbox** for each boolean flag, a **select** for each choice (enum), and
+  a typed **input** for text / integer / number / path fields (the placeholder
+  shows the range and default; a path is a validated text input, not a modal file
+  browser). Repeatable options take space-separated values.
+- Required fields are marked with `*`. Pressing **F5** first runs
+  `validate_values` locally; if anything is invalid the run is **blocked** with
+  the errors and no subprocess is started.
+- The entered values are turned into a safe `argv` list — `--flag value` pairs (a
+  boolean only when enabled, positionals as bare values in declaration order),
+  **never** a shell string — and the exact `olympus …` invocation is printed
+  before it runs.
+- A **Raw arguments mode (expert)** checkbox keeps the original free-text path:
+  when enabled the typed fields are ignored and the string is split with
+  `shlex.split` (still no shell). A command with no options shows only this box.
+
+Both the guided form and the raw mode consume the same `cli_forms` schema, so the
+TUI and a future web UI stay in lockstep with the CLI. See
 [`ROADMAP.md`](../ROADMAP.md) under `UX-A`.

@@ -148,6 +148,34 @@ Input:focus {
     border: solid $olympus-yellow;
 }
 
+#fields {
+    height: auto;
+    max-height: 18;
+    margin-bottom: 1;
+    scrollbar-color: $olympus-ivory;
+    scrollbar-background: $olympus-blue-dark;
+}
+
+#fields Select {
+    margin-bottom: 1;
+}
+
+#fields Checkbox, #raw-toggle {
+    height: 3;
+    background: $olympus-blue-dark;
+    color: $olympus-paper;
+    border: solid $olympus-ivory;
+}
+
+#fields Checkbox:focus, #raw-toggle:focus {
+    border: solid $olympus-yellow;
+}
+
+.field-hint {
+    height: 1;
+    color: $olympus-yellow;
+}
+
 #actions {
     height: 3;
     margin: 1 0;
