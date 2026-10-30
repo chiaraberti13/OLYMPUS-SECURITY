@@ -7,7 +7,9 @@ from pathlib import Path
 
 import pytest
 
+from olympus.core.enums import Severity, Source
 from olympus.core.execution import Cancellation, CancellationRequested
+from olympus.core.models import Finding
 from olympus.core.notifications import NotificationKind
 from olympus.themis.jobs import (
     SCHEMA_VERSION,
@@ -18,7 +20,9 @@ from olympus.themis.jobs import (
 )
 from olympus.themis.model import ScanResult
 from olympus.themis.runtime import (
+    MAX_FINDING_NOTIFICATIONS,
     WorkerStop,
+    finding_notifications,
     job_notifier,
     migrate_jobs,
     notification_from_themis_job,
@@ -299,3 +303,65 @@ def test_job_notifier_never_lets_a_delivery_error_crash_the_worker() -> None:
 
     on_job = job_notifier(_Boom())  # type: ignore[arg-type]
     on_job(_terminal_job())  # must not raise
+
+
+def _finding_dict(severity: Severity, index: int) -> dict[str, object]:
+    return Finding(
+        asset_id="AST-X",
+        source=Source.THEMIS,
+        title=f"issue {index}",
+        severity=severity,
+        finding_id=f"FND-2026-{index:05d}",
+    ).model_dump(mode="json")
+
+
+def _job_with_findings(*findings: dict[str, object]) -> ThemisJob:
+    return _terminal_job(JobState.PARTIAL).model_copy(
+        update={"result": {"findings": list(findings)}}
+    )
+
+
+def test_finding_notifications_filters_sorts_and_skips_malformed() -> None:
+    job = _job_with_findings(
+        _finding_dict(Severity.INFO, 1),
+        _finding_dict(Severity.HIGH, 2),
+        _finding_dict(Severity.CRITICAL, 3),
+        {"not": "a finding"},  # malformed entry is skipped, never raised
+    )
+    notes = finding_notifications(job, minimum_severity=Severity.HIGH)
+    # INFO is below the floor and the malformed entry is dropped; most-severe first.
+    assert [n.severity for n in notes] == [Severity.CRITICAL, Severity.HIGH]
+
+
+def test_finding_notifications_are_capped() -> None:
+    many = [_finding_dict(Severity.CRITICAL, i) for i in range(1, MAX_FINDING_NOTIFICATIONS + 10)]
+    job = _job_with_findings(*many)
+    notes = finding_notifications(job, minimum_severity=Severity.INFO)
+    assert len(notes) == MAX_FINDING_NOTIFICATIONS  # a noisy scan cannot flood the sink
+
+
+def test_finding_notifications_empty_without_result() -> None:
+    assert finding_notifications(_terminal_job(), minimum_severity=Severity.INFO) == []
+
+
+def test_job_notifier_emits_job_and_findings_when_severity_set() -> None:
+    sent: list[object] = []
+
+    class _Dispatcher:
+        def dispatch(self, notification: object) -> tuple[object, ...]:
+            sent.append(notification)
+            return ()
+
+    job = _job_with_findings(_finding_dict(Severity.HIGH, 1), _finding_dict(Severity.CRITICAL, 2))
+    job_notifier(_Dispatcher(), finding_min_severity=Severity.HIGH)(job)  # type: ignore[arg-type]
+    assert len(sent) == 3  # one job notification plus two finding notifications
+
+    only_job: list[object] = []
+
+    class _JobOnly:
+        def dispatch(self, notification: object) -> tuple[object, ...]:
+            only_job.append(notification)
+            return ()
+
+    job_notifier(_JobOnly())(job)  # type: ignore[arg-type]
+    assert len(only_job) == 1  # no per-finding emission unless a severity floor is set

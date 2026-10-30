@@ -541,9 +541,16 @@ SSRF-safe channels:
 ```bash
 # Notify an operator webhook each time a job finishes (no channel => no network)
 olympus themis workers --notify-webhook https://hooks.example/olympus
+
+# Also emit one notification per finding at or above a severity (bounded)
+olympus themis workers --notify-webhook https://hooks.example/olympus \
+  --notify-finding-severity high
 ```
 
-Only terminal jobs notify (a requeued retry does not), a delivery failure is
-reported rather than raised, and a notification problem can never crash the
-worker loop. Per-finding emission inside the job loop uses the same port and is
-tracked in [`ROADMAP.md`](../ROADMAP.md) under `WEB-I`.
+Only terminal jobs notify (a requeued retry does not); with
+`--notify-finding-severity` the worker additionally emits one redacted
+notification per finding at or above that severity, ordered most-severe first and
+capped so a noisy scan cannot flood the sink (malformed finding records are
+skipped, never raised). A delivery failure is reported rather than raised, and a
+notification problem can never crash the worker loop. Both the manual `vulcan
+notify` command and the worker use the same Iris port.

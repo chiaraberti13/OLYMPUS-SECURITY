@@ -1447,6 +1447,7 @@ Run the native worker; SIGINT/SIGTERM cancel the active scan and stop.
 | `--notify-email-from` | option | no | — | Notification e-mail sender address. |
 | `--notify-smtp-host` | option | no | — | SMTP host for job notifications. |
 | `--notify-smtp-port` | option | no | `25` | SMTP port. |
+| `--notify-finding-severity` | option | no | — | Also emit one notification per finding at or above this severity (bounded). Omit to notify only on job completion. |
 
 ### `olympus ui`
 

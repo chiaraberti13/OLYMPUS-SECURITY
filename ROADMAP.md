@@ -2358,12 +2358,23 @@ lo stesso port; l'utente locale non deve installare Postgres.
   costruzione SSRF-safe del canale webhook di `vulcan notify`. Test
   `tests/unit/test_themis_runtime.py` (builder redatto e control-safe, redazione
   del segreto-URL nell'errore, dispatch solo terminale, un sink che solleva non
-  propaga). **Resta da fare:** emissione per-finding nel loop (il builder
-  `notification_from_finding` è pronto; l'aggancio ai finding prodotti dal job
-  resta un passo successivo).
+  propaga). **Emissione per-finding fatta (2026-10-30):** con
+  `--notify-finding-severity <sev>` il worker emette anche una notifica redatta
+  **per finding** del job al di sopra della soglia, riusando
+  `notification_from_finding`; `themis/runtime.finding_notifications` legge i
+  finding dal documento di risultato del job, filtra per severità, ordina
+  dal più grave e **limita** il numero (`MAX_FINDING_NOTIFICATIONS`) così una
+  scansione rumorosa non può inondare il sink, saltando in modo difensivo i
+  record malformati (mai sollevato). Senza la soglia resta la sola notifica di
+  job. Test aggiuntivi in `tests/unit/test_themis_runtime.py` (filtro+ordine+skip,
+  cap, assenza di risultato, job+finding vs solo-job). **`Iris` completo per il
+  percorso worker** (job e finding); l'emissione da API/Web sullo stesso port
+  resta un'estensione futura non bloccante.
 
-**Criterio di completamento:** un operatore confronta due assessment e riceve una
-notifica redatta alla chiusura di un job, senza logica di report duplicata.
+**Criterio di completamento (soddisfatto):** un operatore confronta due assessment
+e riceve una notifica redatta alla chiusura di un job (e, se richiesto, per i
+finding sopra soglia), senza logica di report duplicata — lo stesso port Iris è
+usato dal `vulcan notify` manuale e dal worker automatico.
 
 ### Intervento J · `WEB-J` — Operabilità dei dati (**P2**)
 

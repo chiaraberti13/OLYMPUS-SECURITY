@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 import typer
 
 from olympus.core.coverage import RunStatus, classify_run_status, exit_code_for
+from olympus.core.enums import Severity
 from olympus.core.execution import safe_terminal_text
 from olympus.core.exit_codes import ExitCode, normalize_exit_code
 from olympus.core.paths import audit_log_path, state_file_path
@@ -789,6 +790,12 @@ def themis_workers(
         None, "--notify-smtp-host", help="SMTP host for job notifications."
     ),
     notify_smtp_port: int = typer.Option(25, "--notify-smtp-port", help="SMTP port."),
+    notify_finding_severity: Severity | None = typer.Option(
+        None,
+        "--notify-finding-severity",
+        help="Also emit one notification per finding at or above this severity "
+        "(bounded). Omit to notify only on job completion.",
+    ),
 ) -> None:
     """Run the native worker; SIGINT/SIGTERM cancel the active scan and stop."""
     import sqlite3
@@ -862,7 +869,11 @@ def themis_workers(
     # also dispatches a redacted notification, alongside the existing JSON output.
     on_job: Callable[[ThemisJob], None] = emit_job
     if notify_channels:
-        on_job = job_notifier(NotificationDispatcher(tuple(notify_channels)), also=emit_job)
+        on_job = job_notifier(
+            NotificationDispatcher(tuple(notify_channels)),
+            also=emit_job,
+            finding_min_severity=notify_finding_severity,
+        )
 
     try:
         worker = ThemisWorker(

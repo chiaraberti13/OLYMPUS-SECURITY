@@ -6,15 +6,24 @@ import contextlib
 import signal
 import sqlite3
 import threading
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from types import FrameType
 from typing import Protocol
 
+from pydantic import ValidationError
+
+from olympus.core.enums import Severity
 from olympus.core.execution import Cancellation, redact_mapping, redact_text, safe_terminal_text
-from olympus.core.notifications import Notification, NotificationDispatcher, NotificationKind
+from olympus.core.models import Finding
+from olympus.core.notifications import (
+    Notification,
+    NotificationDispatcher,
+    NotificationKind,
+    notification_from_finding,
+)
 from olympus.themis.jobs import (
     SCHEMA_VERSION,
     TERMINAL_STATES,
@@ -23,6 +32,19 @@ from olympus.themis.jobs import (
     ThemisJobStore,
     redact_error,
 )
+
+#: Ascending severity rank, so a per-finding notification floor can be applied
+#: without importing the reporting layer (vulcan) into the engine.
+_SEVERITY_RANK: dict[Severity, int] = {
+    Severity.INFO: 0,
+    Severity.LOW: 1,
+    Severity.MEDIUM: 2,
+    Severity.HIGH: 3,
+    Severity.CRITICAL: 4,
+}
+
+#: Hard cap on per-job finding notifications, so a noisy scan cannot flood a sink.
+MAX_FINDING_NOTIFICATIONS = 50
 
 
 @dataclass(frozen=True)
@@ -173,26 +195,65 @@ def notification_from_themis_job(job: ThemisJob) -> Notification:
     )
 
 
+def finding_notifications(
+    job: ThemisJob,
+    *,
+    minimum_severity: Severity,
+    cap: int = MAX_FINDING_NOTIFICATIONS,
+) -> list[Notification]:
+    """Build bounded, redacted per-finding notifications from a job's result.
+
+    Reads the findings a job carried in its result document, keeps those at or
+    above ``minimum_severity``, orders them most-severe first and caps the count
+    so a noisy scan cannot flood a sink. Parsing is defensive: a malformed finding
+    entry is skipped, never raised, so one bad record cannot suppress the rest.
+    """
+    raw = job.result.get("findings") if job.result else None
+    if not isinstance(raw, list):
+        return []
+    floor = _SEVERITY_RANK[minimum_severity]
+    kept: list[Finding] = []
+    for item in raw:
+        if not isinstance(item, Mapping):
+            continue
+        try:
+            finding = Finding.model_validate(dict(item))
+        except ValidationError:
+            continue
+        if _SEVERITY_RANK.get(finding.severity, 0) >= floor:
+            kept.append(finding)
+    kept.sort(key=lambda finding: _SEVERITY_RANK.get(finding.severity, 0), reverse=True)
+    return [notification_from_finding(finding) for finding in kept[:cap]]
+
+
 def job_notifier(
     dispatcher: NotificationDispatcher,
     *,
     also: Callable[[ThemisJob], None] | None = None,
+    finding_min_severity: Severity | None = None,
 ) -> Callable[[ThemisJob], None]:
-    """Return an ``on_job`` callback that emits a notification on terminal jobs.
+    """Return an ``on_job`` callback that emits notifications on terminal jobs.
 
     Wraps an existing callback (``also``) so the worker keeps its current output
     and additionally dispatches a redacted :class:`Notification` once a job
-    reaches a terminal state (a requeued retry, still ``QUEUED``, is skipped). The
-    dispatcher is off by default — with no channels it is a no-op — and delivery
-    never raises (failures are reported inside the dispatcher), but the dispatch
-    is still guarded so a notification problem can never crash the worker loop.
+    reaches a terminal state (a requeued retry, still ``QUEUED``, is skipped).
+    When ``finding_min_severity`` is set, it also emits one bounded, redacted
+    notification per finding at or above that severity (see
+    :func:`finding_notifications`); left unset, only the job-level notification is
+    sent. The dispatcher is off by default — with no channels it is a no-op — and
+    every dispatch is guarded so a notification problem can never crash the loop.
     """
 
     def _on_job(job: ThemisJob) -> None:
         if also is not None:
             also(job)
-        if job.state in TERMINAL_STATES:
-            with contextlib.suppress(Exception):
-                dispatcher.dispatch(notification_from_themis_job(job))
+        if job.state not in TERMINAL_STATES:
+            return
+        with contextlib.suppress(Exception):
+            dispatcher.dispatch(notification_from_themis_job(job))
+        if finding_min_severity is not None:
+            for notification in finding_notifications(job, minimum_severity=finding_min_severity):
+                with contextlib.suppress(Exception):
+                    dispatcher.dispatch(notification)
 
     return _on_job
