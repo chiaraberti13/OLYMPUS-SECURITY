@@ -2343,9 +2343,24 @@ lo stesso port; l'utente locale non deve installare Postgres.
   (anteprima redatta o consegna su uno/entrambi i canali; exit `5` se una consegna
   fallisce). Test `tests/unit/test_core_notifications.py` (motore + CLI con doppi
   in memoria, zero rete); doc [`docs/findings.md`](docs/findings.md).
-  **Resta da fare:** emissione automatica sugli eventi di job/finding del loop
-  Themis (motore e builder per job e finding già pronti; il wiring tocca codice
-  Themis).
+  **Emissione automatica sulla chiusura job fatta (2026-10-30):** il worker
+  nativo Themis emette ora una notifica redatta a ogni job **terminale**.
+  `themis/runtime.notification_from_themis_job` mappa il `ThemisJob` nativo sul
+  contratto `olympus.notification` (testo via `safe_terminal_text`+`redact_text`,
+  errore via `redact_error`, label via `redact_mapping`: nessun controllo di
+  terminale forgiato né segreto in chiaro) e `job_notifier(dispatcher, also=…)`
+  avvolge il callback `on_job` del loop `work_queue` — dispatch **solo** sugli
+  stati terminali (un retry rimesso in coda è saltato), delivery mai sollevata e
+  comunque isolata così un problema di notifica non può bloccare il worker.
+  Esposto su `olympus themis workers --notify-webhook … [--notify-email-to … /
+  --notify-email-from … / --notify-smtp-host …]`, **spento di default** (nessun
+  canale → nessuna chiamata di rete; resta solo l'output JSON per job); stessa
+  costruzione SSRF-safe del canale webhook di `vulcan notify`. Test
+  `tests/unit/test_themis_runtime.py` (builder redatto e control-safe, redazione
+  del segreto-URL nell'errore, dispatch solo terminale, un sink che solleva non
+  propaga). **Resta da fare:** emissione per-finding nel loop (il builder
+  `notification_from_finding` è pronto; l'aggancio ai finding prodotti dal job
+  resta un passo successivo).
 
 **Criterio di completamento:** un operatore confronta due assessment e riceve una
 notifica redatta alla chiusura di un job, senza logica di report duplicata.

@@ -12,6 +12,7 @@ never reported as working.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -772,15 +773,45 @@ def themis_workers(
     ),
     poll_interval: float = typer.Option(1.0, "--poll-interval", min=0.05, max=30.0),
     once: bool = typer.Option(False, "--once", help="Process at most one job and exit."),
+    notify_webhook: str | None = typer.Option(
+        None,
+        "--notify-webhook",
+        help="Emit a redacted notification to this webhook (http/https) when a job "
+        "finishes. Off by default — nothing leaves the host without it.",
+    ),
+    notify_email_to: list[str] = typer.Option(
+        [], "--notify-email-to", help="Notification e-mail recipient(s) (repeatable)."
+    ),
+    notify_email_from: str | None = typer.Option(
+        None, "--notify-email-from", help="Notification e-mail sender address."
+    ),
+    notify_smtp_host: str | None = typer.Option(
+        None, "--notify-smtp-host", help="SMTP host for job notifications."
+    ),
+    notify_smtp_port: int = typer.Option(25, "--notify-smtp-port", help="SMTP port."),
 ) -> None:
     """Run the native worker; SIGINT/SIGTERM cancel the active scan and stop."""
     import sqlite3
 
+    from olympus.core.notifications import (
+        EmailChannel,
+        NotificationChannel,
+        NotificationDispatcher,
+        PinnedWebhookPoster,
+        SmtpEmailTransport,
+        WebhookChannel,
+    )
     from olympus.core.observability import observability_from_config
     from olympus.engagements.store import ENGAGEMENTS_DB_NAME, StoredManifestAuthorizer
     from olympus.themis.config import live_enabled
     from olympus.themis.jobs import JobStoreError, ThemisJobStore, ThemisWorker, generate_worker_id
-    from olympus.themis.runtime import WorkerStop, migrate_jobs, work_queue, worker_signals
+    from olympus.themis.runtime import (
+        WorkerStop,
+        job_notifier,
+        migrate_jobs,
+        work_queue,
+        worker_signals,
+    )
     from olympus.themis.sandbox import SandboxError, require_scanner_isolation
 
     try:
@@ -803,6 +834,21 @@ def themis_workers(
             if manifest_public_key
             else None
         )
+        notify_channels: list[NotificationChannel] = []
+        if notify_webhook is not None:
+            notify_channels.append(WebhookChannel(notify_webhook, PinnedWebhookPoster()))
+        if notify_email_to:
+            if notify_email_from is None or notify_smtp_host is None:
+                raise ValueError(
+                    "--notify-email-to requires --notify-email-from and --notify-smtp-host"
+                )
+            notify_channels.append(
+                EmailChannel(
+                    SmtpEmailTransport(notify_smtp_host, notify_smtp_port),
+                    notify_email_from,
+                    tuple(notify_email_to),
+                )
+            )
     except (OSError, sqlite3.Error, ValueError, JobStoreError, SandboxError) as exc:
         typer.echo(f"olympus: native worker unavailable: {exc}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
@@ -811,6 +857,12 @@ def themis_workers(
 
     def emit_job(job: ThemisJob) -> None:
         typer.echo(json.dumps(job.model_dump(mode="json"), sort_keys=True))
+
+    # Notifications are off unless a channel was configured: then each finished job
+    # also dispatches a redacted notification, alongside the existing JSON output.
+    on_job: Callable[[ThemisJob], None] = emit_job
+    if notify_channels:
+        on_job = job_notifier(NotificationDispatcher(tuple(notify_channels)), also=emit_job)
 
     try:
         worker = ThemisWorker(
@@ -846,7 +898,7 @@ def themis_workers(
                 audit_path=Path(audit) if audit else None,
                 poll_seconds=poll_interval,
                 once=once,
-                on_job=emit_job,
+                on_job=on_job,
             )
     except (OSError, sqlite3.Error, ValueError, JobStoreError) as exc:
         typer.echo(f"olympus: native worker failed: {exc}", err=True)

@@ -1442,6 +1442,11 @@ Run the native worker; SIGINT/SIGTERM cancel the active scan and stop.
 | `--max-concurrent-jobs` | option | no | `1` | Shared cap for running jobs across workers using this database. |
 | `--poll-interval` | option | no | `1.0` | — |
 | `--once` | option | no | `False` | Process at most one job and exit. |
+| `--notify-webhook` | option | no | — | Emit a redacted notification to this webhook (http/https) when a job finishes. Off by default — nothing leaves the host without it. |
+| `--notify-email-to` | option | no | — | Notification e-mail recipient(s) (repeatable). |
+| `--notify-email-from` | option | no | — | Notification e-mail sender address. |
+| `--notify-smtp-host` | option | no | — | SMTP host for job notifications. |
+| `--notify-smtp-port` | option | no | `25` | SMTP port. |
 
 ### `olympus ui`
 

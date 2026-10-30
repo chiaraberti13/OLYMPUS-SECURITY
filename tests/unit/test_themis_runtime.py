@@ -8,9 +8,23 @@ from pathlib import Path
 import pytest
 
 from olympus.core.execution import Cancellation, CancellationRequested
-from olympus.themis.jobs import SCHEMA_VERSION, JobState, SchemaVersionError, ThemisJobStore
+from olympus.core.notifications import NotificationKind
+from olympus.themis.jobs import (
+    SCHEMA_VERSION,
+    JobState,
+    SchemaVersionError,
+    ThemisJob,
+    ThemisJobStore,
+)
 from olympus.themis.model import ScanResult
-from olympus.themis.runtime import WorkerStop, migrate_jobs, work_queue, worker_signals
+from olympus.themis.runtime import (
+    WorkerStop,
+    job_notifier,
+    migrate_jobs,
+    notification_from_themis_job,
+    work_queue,
+    worker_signals,
+)
 from olympus.themis.states import ExecutionState
 
 
@@ -137,7 +151,6 @@ def test_queue_wait_is_interruptible_and_does_not_busy_spin() -> None:
 
 
 def test_queue_continues_after_failed_job(tmp_path: Path) -> None:
-    from olympus.themis.jobs import ThemisJob
 
     store = ThemisJobStore(tmp_path / "jobs.sqlite3")
     job = store.submit(
@@ -218,3 +231,71 @@ def test_default_worker_never_generates_live_traffic(tmp_path: Path) -> None:
     final = ThemisWorker(store, live_scans=False).run_next()
     assert final is not None and final.state is JobState.PARTIAL
     assert final.result is not None and final.result["findings"] == []
+
+
+def _terminal_job(state: JobState = JobState.SUCCEEDED, *, error: str | None = None) -> ThemisJob:
+    from datetime import UTC, datetime
+
+    moment = datetime(2026, 1, 1, tzinfo=UTC)
+    return ThemisJob(
+        job_id="THEMIS-" + "A" * 32,
+        scanner="nmap",
+        target="10.0.0.1",
+        target_kind="host",
+        scope_name="lab",
+        state=state,
+        authorized=True,
+        attempts=1,
+        max_attempts=3,
+        created_at=moment,
+        updated_at=moment,
+        available_at=moment,
+        error=error,
+    )
+
+
+def test_notification_from_themis_job_is_redacted_and_control_safe() -> None:
+    job = _terminal_job().model_copy(update={"target": "10.0.0.1\x1b[31m\nInjected"})
+    notification = notification_from_themis_job(job)
+    assert notification.kind is NotificationKind.JOB
+    assert "succeeded" in notification.title
+    # Control bytes from a target-controlled field never reach the payload.
+    assert "\x1b" not in notification.summary and "\n" not in notification.summary
+    assert notification.labels["scanner"] == "nmap"
+    assert notification.labels["state"] == "succeeded"
+
+
+def test_notification_redacts_url_secret_in_error() -> None:
+    # The error redaction contract covers URL query secrets and filesystem paths.
+    job = _terminal_job(
+        JobState.FAILED, error="callback failed https://hook.example/p?token=SECRETVALUE123456"
+    )
+    notification = notification_from_themis_job(job)
+    assert "SECRETVALUE123456" not in notification.summary
+
+
+def test_job_notifier_dispatches_only_on_terminal_states() -> None:
+    sent: list[object] = []
+    seen: list[ThemisJob] = []
+
+    class _Dispatcher:
+        def dispatch(self, notification: object) -> tuple[object, ...]:
+            sent.append(notification)
+            return ()
+
+    on_job = job_notifier(_Dispatcher(), also=seen.append)  # type: ignore[arg-type]
+    terminal = _terminal_job()
+    on_job(terminal)
+    on_job(terminal.model_copy(update={"state": JobState.QUEUED}))  # a requeued retry
+
+    assert len(sent) == 1  # only the terminal job produced a notification
+    assert len(seen) == 2  # the wrapped callback always runs
+
+
+def test_job_notifier_never_lets_a_delivery_error_crash_the_worker() -> None:
+    class _Boom:
+        def dispatch(self, notification: object) -> tuple[object, ...]:
+            raise RuntimeError("sink exploded")
+
+    on_job = job_notifier(_Boom())  # type: ignore[arg-type]
+    on_job(_terminal_job())  # must not raise

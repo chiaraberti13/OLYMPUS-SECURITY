@@ -534,6 +534,16 @@ olympus vulcan notify --findings ./findings.json \
   --email-to soc@example.com --email-from olympus@example.com --smtp-host mail.example.com
 ```
 
-Automatic emission on live job/finding events (wiring the dispatcher into the
-Themis job loop) uses the same port and is tracked in
-[`ROADMAP.md`](../ROADMAP.md) under `WEB-I`.
+The native Themis worker can emit the same redacted notification automatically
+when a job reaches a terminal state — still off by default and over the same
+SSRF-safe channels:
+
+```bash
+# Notify an operator webhook each time a job finishes (no channel => no network)
+olympus themis workers --notify-webhook https://hooks.example/olympus
+```
+
+Only terminal jobs notify (a requeued retry does not), a delivery failure is
+reported rather than raised, and a notification problem can never crash the
+worker loop. Per-finding emission inside the job loop uses the same port and is
+tracked in [`ROADMAP.md`](../ROADMAP.md) under `WEB-I`.

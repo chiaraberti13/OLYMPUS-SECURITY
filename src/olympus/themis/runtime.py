@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import signal
 import sqlite3
 import threading
@@ -12,8 +13,16 @@ from pathlib import Path
 from types import FrameType
 from typing import Protocol
 
-from olympus.core.execution import Cancellation
-from olympus.themis.jobs import SCHEMA_VERSION, SchemaVersionError, ThemisJob, ThemisJobStore
+from olympus.core.execution import Cancellation, redact_mapping, redact_text, safe_terminal_text
+from olympus.core.notifications import Notification, NotificationDispatcher, NotificationKind
+from olympus.themis.jobs import (
+    SCHEMA_VERSION,
+    TERMINAL_STATES,
+    SchemaVersionError,
+    ThemisJob,
+    ThemisJobStore,
+    redact_error,
+)
 
 
 @dataclass(frozen=True)
@@ -130,3 +139,60 @@ def work_queue(
         if job is None:
             stop.wait(poll_seconds)
     return WorkerResult(processed, last_job, stop.is_cancelled())
+
+
+def notification_from_themis_job(job: ThemisJob) -> Notification:
+    """Build a redacted notification announcing a Themis job's terminal state.
+
+    The Iris output port (:mod:`olympus.core.notifications`) owns the contract and
+    redaction; this adapter maps the themis-native :class:`ThemisJob` onto it so a
+    worker can emit on job completion. Every text goes through
+    :func:`safe_terminal_text` and labels through :func:`redact_mapping`, so a
+    target-controlled scanner name or error can neither forge terminal lines nor
+    leak a secret into the delivered payload.
+    """
+    summary = f"scanner {job.scanner} on {job.target_kind} {job.target} is {job.state.value}"
+    if job.error:
+        # The store already redacts errors on completion; redact again here so a
+        # directly built or imported job cannot leak a secret into the payload.
+        summary += f" ({redact_error(job.error)})"
+    labels = redact_mapping(
+        {
+            "job_id": job.job_id,
+            "scanner": job.scanner,
+            "state": job.state.value,
+            "target_kind": job.target_kind,
+            "scope": job.scope_name,
+        }
+    )
+    return Notification(
+        kind=NotificationKind.JOB,
+        title=safe_terminal_text(f"job {job.job_id}: {job.state.value}"),
+        summary=safe_terminal_text(redact_text(summary)),
+        labels={key: safe_terminal_text(str(value)) for key, value in labels.items()},
+    )
+
+
+def job_notifier(
+    dispatcher: NotificationDispatcher,
+    *,
+    also: Callable[[ThemisJob], None] | None = None,
+) -> Callable[[ThemisJob], None]:
+    """Return an ``on_job`` callback that emits a notification on terminal jobs.
+
+    Wraps an existing callback (``also``) so the worker keeps its current output
+    and additionally dispatches a redacted :class:`Notification` once a job
+    reaches a terminal state (a requeued retry, still ``QUEUED``, is skipped). The
+    dispatcher is off by default — with no channels it is a no-op — and delivery
+    never raises (failures are reported inside the dispatcher), but the dispatch
+    is still guarded so a notification problem can never crash the worker loop.
+    """
+
+    def _on_job(job: ThemisJob) -> None:
+        if also is not None:
+            also(job)
+        if job.state in TERMINAL_STATES:
+            with contextlib.suppress(Exception):
+                dispatcher.dispatch(notification_from_themis_job(job))
+
+    return _on_job
