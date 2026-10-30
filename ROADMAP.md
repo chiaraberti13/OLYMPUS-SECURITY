@@ -489,6 +489,7 @@ chiave assente/errata o ciphertext alterato, compatibilità legacy — vedi `SEC
 | 5 | Production readiness scanner | `[ ]` | `D1`, `D2` |
 | 6 | Distribuzione e osservabilità | `[~]` | `DEV-E`, `DEV-F`, `SEC-F` |
 | 7 | Rename Themis + Web control plane | `[~]` | `DEV-I` ✓, `WEB-A` ✓, `WEB-B` ✓, `WEB-C` ✓, `WEB-D` ✓, `WEB-E` ✓, `WEB-F` ✓, `WEB-G`…`WEB-J` |
+| 8 | Comunicazione, adozione e vetrina pubblica | `[ ]` | `COMM-A`, `COMM-B`, `COMM-C`, `COMM-D`, `COMM-E` |
 
 L'ordine di esecuzione concordato per la Fase 7 mette le **fondamenta dati prima
 delle interfacce**: `DEV-I` (rename) → `WEB-B` (engagement entità di primo
@@ -2654,6 +2655,81 @@ dal management e un allegato tecnico verificabile senza duplicare i dati.
 e completa la prima operazione passiva senza consultare documentazione esterna;
 gli script possono consumare ogni comando in JSON senza parsing di testo.
 
+## 📣 Prospettiva Comunicazione & Adozione (Vetrina pubblica)
+
+Olympus è tecnicamente solido, ma la sua forza non è ancora *visibile* all'esterno.
+Questa prospettiva porta il progetto da "forte sul codice" a "trovato, provato,
+citato e installabile", **senza mai allentare i guardrail**: ogni artefatto
+pubblico (sito, report, Action, demo) ribadisce scope e autorizzazione, non invita
+all'uso non autorizzato e non sovrastima la maturità delle capability. Nessun
+target reale e nessun dato reale: la vetrina usa esclusivamente il lab locale
+autorizzato (`labs/mars/`) e dati fittizi/sintetici. Gli ID sono `COMM-*`.
+
+### Intervento A · `COMM-A` — Sito di documentazione pubblico bilingue (**P2**)
+
+- [ ] Generare da `docs/` un sito statico brandizzato (es. Astro Starlight o MkDocs
+  Material), IT/EN, con quickstart, architettura, threat model, scanner-maturity e
+  galleria; deploy su Pages/Vercel con build in CI, mantenendo `docs/` come unica
+  fonte della verità (nessuna divergenza dal repo).
+- [ ] Ricerca, navigazione e versioni; link canonici dal README e dal sito personale.
+- [ ] SEO di base (sitemap, meta description, OpenGraph) sulle pagine ad alto intento.
+
+**Criterio di completamento:** la documentazione esistente è navigabile come sito
+pubblico, rigenerata in CI dalla stessa fonte `docs/`, senza divergere dal codice.
+
+### Intervento B · `COMM-B` — Report di esempio pubblico da lab autorizzato (**P1/P2**)
+
+- [ ] Eseguire la catena `recon → scan → enrich → report` end-to-end **solo** contro
+  `labs/mars/` (doppio opt-in, `make test-live-lab`) e pubblicare un **report di
+  esempio** (PDF/HTML Vulcan) versionato e redatto, con metodologia, executive
+  summary, finding → impatto → remediation ed evidenze.
+- [ ] Marcare chiaramente l'origine (lab sintetico autorizzato), senza alcun target
+  reale; nessun segreto o dato personale negli artifact (DoD punto 6).
+- [ ] Collegare il report da README e sito come dimostrazione dell'output professionale.
+
+**Criterio di completamento:** esiste un report pubblico riproducibile dal lab che
+mostra la qualità del deliverable senza esporre bersagli reali né invitare all'uso
+non autorizzato.
+
+### Intervento C · `COMM-C` — Distribuzione a basso attrito (**P2**)
+
+- [ ] Completare la pubblicazione su **PyPI** via Trusted Publishing (aggancia
+  `DEV-F`/`SEC-F`): `pipx install olympus-security`, badge versione e quickstart
+  verificato.
+- [ ] Pubblicare una **GitHub Action** riutilizzabile che esegua di default solo
+  capability **passive e scope-safe** (es. secret scan Hermes, `core sbom`, recon
+  passivo Argus su domini dichiarati), con scope e `--i-am-authorized` obbligatori
+  per qualunque operazione attiva e nessun default pericoloso.
+- [ ] Documentare l'uso in CI e pubblicare l'Action nel Marketplace.
+
+**Criterio di completamento:** un utente installa Olympus con un comando e lo usa in
+CI tramite un'Action che non espone alcuna operazione attiva senza scope e
+autorizzazione espliciti.
+
+### Intervento D · `COMM-D` — Onboarding e asset visivi (**P2/P3**)
+
+- [ ] README con **asciinema/GIF** del percorso `recon → assessment → report`,
+  screenshot della TUI e diagramma architettura coerente con la Prospettiva Designer.
+- [ ] "good first issue", esempi copiabili e guida al primo contributo (riuso di
+  `CONTRIBUTING.md`).
+
+**Criterio di completamento:** un nuovo visitatore capisce in meno di un minuto cosa
+fa Olympus e come iniziare, dal solo README.
+
+### Intervento E · `COMM-E` — Plugin SDK e plugin di esempio (**P3**)
+
+- [ ] Documentare e stabilizzare il **plugin SDK** (aggancia `adr-004`) e pubblicare
+  un **plugin di esempio** in un repository separato, con contract test, come
+  riferimento per i contributi esterni.
+
+**Criterio di completamento:** un terzo può scrivere un plugin seguendo l'SDK
+documentato e il plugin di esempio, senza modificare il core.
+
+**Criterio di completamento (Comunicazione & Adozione):** ogni artefatto pubblico è
+riproducibile dalla stessa fonte del repo, ribadisce scope e autorizzazione, non usa
+né target né dati reali, e converte il visitatore in utente o contributore senza
+sovrastimare la maturità delle capability.
+
 ## 🧭 Backlog Operativo Consolidato
 
 Questa sezione incorpora gli interventi ancora validi della precedente roadmap
@@ -2986,6 +3062,18 @@ committata e verificabile secondo `docs/scanner-maturity.md`.
 
 **Exit gate:** release firmata, riproducibile, monitorabile e ripristinabile.
 
+### Fase 8 — Comunicazione, adozione e vetrina pubblica (trasversale, continua)
+
+- [ ] Pubblicare il sito docs bilingue da `docs/` con build in CI (`COMM-A`).
+- [ ] Generare e pubblicare il report di esempio dal lab autorizzato `labs/mars/` (`COMM-B`).
+- [ ] Completare la distribuzione PyPI e una GitHub Action scope-safe (`COMM-C`, aggancio `DEV-F`/`SEC-F`).
+- [ ] Rifinire README e onboarding con asciinema, screenshot e diagramma (`COMM-D`).
+- [ ] Stabilizzare e documentare il plugin SDK con un plugin di esempio (`COMM-E`).
+
+**Exit gate:** Olympus è installabile con un comando, documentato come sito pubblico,
+dimostrato da un report di lab riproducibile e utilizzabile in CI, senza che alcun
+materiale pubblico inviti all'uso non autorizzato o sovrastimi le capability.
+
 ## Ordine di priorità raccomandato
 
 | Ordine | Deliverable | Ruolo guida | Dipendenza |
@@ -3001,6 +3089,8 @@ committata e verificabile secondo `docs/scanner-maturity.md`.
 | 8 | Ingest Zeek/Sysmon e primo `athena purple` (`OPS-BLUE`, `OPS-PURPLE`) | Cybersecurity + Development | Fixture reali e lab ripetibile |
 | 9 | Release firmata PyPI/container (`DEV-F`, `SEC-F`) | Development + Cybersecurity | Gate precedenti verdi |
 | 10 | Wizard, reporting, CLI coerente e accessibilità IT/EN (`UX-C`…`UX-G`) | UX | Flussi e contratti stabilizzati |
+| 11 | Report di esempio da lab + sito docs pubblico (`COMM-B`, `COMM-A`) | Comunicazione + Cybersecurity | Lab autorizzato + `docs/` coerente |
+| 12 | Distribuzione PyPI/Action, onboarding e plugin SDK (`COMM-C`, `COMM-D`, `COMM-E`) | Comunicazione + Development | Release firmata (`DEV-F`/`SEC-F`) e SDK (`adr-004`) |
 
 ## 📈 Indicatori di avanzamento
 
@@ -3016,6 +3106,9 @@ committata e verificabile secondo `docs/scanner-maturity.md`.
 | Link interni rotti | ≥ 6 file → 0 (verifica manuale del 24/09/2026) | 0, garantito dalla CI | link checker `DEV-G` |
 | Lingue dell'interfaccia | 1 (EN) | 2 (IT/EN) | cataloghi `UX-E` |
 | Formati di report Vulcan | 4 (JSON, Markdown, HTML, PDF con tabella NVD/EPSS) | mantenere e arricchire | `src/olympus/vulcan/` + test |
+| Sito di documentazione pubblico | assente | pubblicato e linkato, rigenerato in CI | workflow Pages/Vercel (`COMM-A`) |
+| Pacchetto installabile da PyPI | assente | `pipx install olympus-security` | PyPI + Trusted Publishing (`COMM-C`/`SEC-F`) |
+| GitHub Action pubblicata | assente | nel Marketplace, passiva/scope-safe di default | repo Action + README (`COMM-C`) |
 
 Gli indicatori si aggiornano solo dalla fonte indicata: un valore senza prova
 verificabile resta al valore precedente.
@@ -3031,6 +3124,8 @@ verificabile resta al valore precedente.
 | Lab autorizzato non disponibile blocca la maturità degli scanner | Alta | Medio | lavoro offline su parser e contratti; nessuna promozione senza evidenza (`D1`–`D12`) |
 | Dichiarazioni di maturità più ottimistiche delle prove | Media | Alto | tabelle generate dal ledger e verifica in CI (`DEV-G`) |
 | Complessità UX che induce errori operativi | Media | Medio | safety preview, stati di coverage distinti, test con utenti (`UX-B`, `UX-D`) |
+| Materiale di vetrina (sito/report/Action) interpretato come invito all'uso non autorizzato | Media | Alto | scope e autorizzazione ribaditi ovunque, report solo da `labs/mars`, Action passiva di default, nessun target reale (`COMM-A`–`COMM-C`) |
+| Dipendenza da hosting esterni per la vetrina pubblica | Bassa | Basso | sito statico riproducibile e rigenerato in CI dalla fonte `docs/` (`COMM-A`) |
 
 ## Definition of Done trasversale
 
