@@ -85,17 +85,14 @@ def create(
 
     store = _open_store(storage)
     try:
-        # new_id() restarts per process, so allocate a store-unique id instead of
-        # trusting the model default; create() then refuses to overwrite, so a
-        # second `engagement create` can never silently destroy the first.
-        engagement = engagement.model_copy(
-            update={"engagement_id": store.next_engagement_id(engagement.created_at.year)}
-        )
-        try:
-            store.create(engagement)
-        except EngagementStoreError as exc:
-            typer.echo(f"engagement: {exc}", err=True)
-            raise typer.Exit(code=ExitCode.USAGE) from exc
+        # Allocate the id and insert atomically: new_id() restarts per process, so
+        # the id is derived from stored state, and create_next() keeps the read and
+        # the write in one transaction (with a bounded retry on the primary key) so
+        # even concurrent `engagement create` runs get distinct ids with no loss.
+        engagement = store.create_next(engagement)
+    except EngagementStoreError as exc:
+        typer.echo(f"engagement: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
     finally:
         store.close()
     typer.echo(json.dumps(_summary(engagement), indent=2, sort_keys=True))

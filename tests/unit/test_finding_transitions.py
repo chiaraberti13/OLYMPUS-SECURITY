@@ -89,6 +89,71 @@ def test_store_appends_and_returns_history_oldest_first(tmp_path: Path) -> None:
         store.close()
 
 
+def test_store_append_next_allocates_distinct_ids(tmp_path: Path) -> None:
+    # Two stores on the same ledger (CLI and a restarted worker) append without
+    # colliding; each gets a distinct id derived from persisted state.
+    database = tmp_path / "ft.db"
+    a = SqliteFindingTransitionStore(database)
+    b = SqliteFindingTransitionStore(database)
+    try:
+        finding = _finding(FindingStatus.NEW)
+        moved, first = record_transition(finding, FindingStatus.CONFIRMED, actor="a")
+        _, second = record_transition(moved, FindingStatus.IN_REMEDIATION, actor="a")
+        stored_first = a.append_next(first)
+        stored_second = b.append_next(second)
+        assert stored_first.transition_id != stored_second.transition_id
+        assert [r.to_status for r in a.history(finding.finding_id)] == [
+            FindingStatus.CONFIRMED,
+            FindingStatus.IN_REMEDIATION,
+        ]
+    finally:
+        a.close()
+        b.close()
+
+
+def test_store_append_next_is_concurrency_safe(tmp_path: Path) -> None:
+    # DEV-E-03: concurrent appends to the shared append-only ledger each get a
+    # distinct id with no lost record and no surfaced duplicate error.
+    import threading
+
+    database = tmp_path / "ft.db"
+    SqliteFindingTransitionStore(database).close()
+    finding = _finding(FindingStatus.NEW)
+    _, built = record_transition(finding, FindingStatus.CONFIRMED, actor="a")
+    worker_count = 8
+    barrier = threading.Barrier(worker_count)
+    ids: list[str] = []
+    errors: list[str] = []
+    lock = threading.Lock()
+
+    def worker() -> None:
+        store = SqliteFindingTransitionStore(database)
+        try:
+            barrier.wait()
+            stored = store.append_next(built)
+            with lock:
+                ids.append(stored.transition_id)
+        except Exception as exc:
+            with lock:
+                errors.append(repr(exc))
+        finally:
+            store.close()
+
+    threads = [threading.Thread(target=worker) for _ in range(worker_count)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert errors == []
+    assert len(set(ids)) == worker_count  # every appended id is distinct
+    verify = SqliteFindingTransitionStore(database)
+    try:
+        assert len(verify.history(finding.finding_id)) == worker_count  # all persisted
+    finally:
+        verify.close()
+
+
 def test_store_is_owner_only(tmp_path: Path) -> None:
     path = tmp_path / "ft.db"
     store = SqliteFindingTransitionStore(path)

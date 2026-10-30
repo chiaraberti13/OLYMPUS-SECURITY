@@ -136,6 +136,65 @@ def test_store_next_engagement_id_is_collision_free(tmp_path: Path) -> None:
         store.close()
 
 
+def test_store_create_next_allocates_distinct_ids(tmp_path: Path) -> None:
+    # Two stores on the same database (two interfaces/processes) each allocate and
+    # insert without colliding; the id is derived from persisted state.
+    a = SqliteEngagementStore(tmp_path / "engagements.db")
+    b = SqliteEngagementStore(tmp_path / "engagements.db")
+    try:
+        first = a.create_next(_engagement("first"))
+        second = b.create_next(_engagement("second"))
+        assert first.engagement_id == "ENG-2026-00001"
+        assert second.engagement_id == "ENG-2026-00002"
+        names = {item.name for item in a.list()}
+        assert names == {"first", "second"}  # neither record was lost
+    finally:
+        a.close()
+        b.close()
+
+
+def test_store_create_next_is_concurrency_safe(tmp_path: Path) -> None:
+    # DEV-E-03: synchronized writers racing for the same sequence number must each
+    # get a distinct id — no lost record and no surfaced duplicate error.
+    import threading
+
+    database = tmp_path / "engagements.db"
+    SqliteEngagementStore(database).close()  # create the file once up front
+    worker_count = 8
+    barrier = threading.Barrier(worker_count)
+    ids: list[str] = []
+    errors: list[str] = []
+    lock = threading.Lock()
+
+    def worker(index: int) -> None:
+        store = SqliteEngagementStore(database)
+        try:
+            barrier.wait()
+            created = store.create_next(_engagement(f"client-{index}"))
+            with lock:
+                ids.append(created.engagement_id)
+        except Exception as exc:
+            with lock:
+                errors.append(repr(exc))
+        finally:
+            store.close()
+
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(worker_count)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert errors == []  # no writer failed with a duplicate-id or lock error
+    assert len(ids) == worker_count
+    assert len(set(ids)) == worker_count  # every id is distinct
+    verify = SqliteEngagementStore(database)
+    try:
+        assert {item.engagement_id for item in verify.list()} == set(ids)  # all persisted
+    finally:
+        verify.close()
+
+
 def test_store_rejects_symlink_database(tmp_path: Path) -> None:
     target = tmp_path / "real.db"
     target.touch()

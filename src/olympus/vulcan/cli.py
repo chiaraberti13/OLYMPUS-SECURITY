@@ -1368,12 +1368,11 @@ def transition(
         _, built = record_transition(
             effective, to_status, actor=actor.strip() or "cli", reason=reason.strip()
         )
-        # new_id restarts per process, so allocate a store-unique id to keep the
-        # append-only ledger collision-free across separate CLI invocations.
-        record = built.model_copy(
-            update={"transition_id": store.next_transition_id(built.occurred_at.year)}
-        )
-        store.append(record)
+        # Allocate the id and append atomically: new_id restarts per process, and
+        # append_next() keeps the id read and the insert in one transaction (with a
+        # bounded retry on the primary key) so concurrent writers keep the
+        # append-only ledger collision-free without a surfaced duplicate error.
+        record = store.append_next(built)
     except _APPLICATION_ERRORS as exc:
         typer.echo(safe_terminal_text(f"vulcan: {exc}"), err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc

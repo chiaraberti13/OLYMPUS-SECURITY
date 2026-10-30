@@ -1857,13 +1857,12 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             except (FindingTransitionError, ValidationError) as exc:
                 raise HTTPException(status_code=422, detail=_safe(str(exc))) from exc
             # ``new_id`` restarts its counter per process, so a restarted worker
-            # would regenerate ids already in this append-only ledger. Allocate a
-            # store-unique id from persisted state instead (same fix as the CLI).
-            record = built.model_copy(
-                update={"transition_id": store.next_transition_id(built.occurred_at.year)}
-            )
+            # would regenerate ids already in this append-only ledger. append_next
+            # allocates a store-unique id and inserts it in one transaction (with a
+            # bounded retry on the primary key), so concurrent requests stay
+            # collision-free without a surfaced duplicate error.
             try:
-                store.append(record)
+                store.append_next(built)
             except FindingTransitionStoreError as exc:
                 raise HTTPException(status_code=409, detail=_safe(str(exc))) from exc
         finally:

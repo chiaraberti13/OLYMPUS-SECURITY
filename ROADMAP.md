@@ -67,7 +67,7 @@ I dettagli sotto sono normativi per ciascuna riga, non task generici senza owner
 | `OPS-PURPLE-01` | Coverage telemetria distinta da detection | P1 | Detection/QA | M | M2 | [ ] |
 | `UX-E-01` | Accessibilità e parità IT/EN dimostrate | P1 | Accessibility/I18n/QA | L | M3 | [ ] |
 | `DEV-E-02` | Modello single-node e soglie scalabilità | P2 | Architect/SRE | L | M4 | [ ] |
-| `DEV-E-03` | Allocazione ID atomica engagement/finding | P2 | Data/Backend | M | M3 | [ ] |
+| `DEV-E-03` | Allocazione ID atomica engagement/finding | P2 | Data/Backend | M | M3 | [x] |
 | `OPS-SCAN-01` | Integrazioni motivate e promozione maturità | P2 | Product/Scanner/Blue | XL | M4 | [⏸] |
 
 ### SEC-E-01 — Audit Athena durevole dopo restart
@@ -351,7 +351,21 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
 - Soluzione/alternative: allocazione+create transazionali, oppure UUID compatibili con i contratti dopo ADR; non presentare la sola MAX+1 letta come garanzia concorrente.
 - Dipendenze: nessuna; owner Data/Backend, M/incertezza media, milestone M3.
 - Accettazione/test: due connessioni sincronizzate creano due record distinti senza perdita o errori duplicato; test restart, concorrenza e rollback, preservare contratti ID.
-- DoD: criteri e campi comuni, test/documentazione, commit e verifica remota; stato `[ ]`. Link: [audit](docs/ecosystem-audit.md).
+- **Fatto (2026-10-30):** `SqliteEngagementStore.create_next` e
+  `SqliteFindingTransitionStore.append_next` allocano l'id (SELECT del massimo) e
+  inseriscono **nella stessa transazione**, con retry limitato sul vincolo di
+  chiave primaria: due writer in gara sullo stesso progressivo non possono
+  riuscire entrambi — il perdente colpisce il vincolo UNIQUE, ricalcola sul record
+  ormai committato e prende l'id successivo — quindi ciascuno ottiene un id
+  distinto senza record persi né errore duplicato affiorante. I tre chiamanti
+  (`engagement create` CLI, `vulcan transition` CLI, gestore transizioni Web)
+  usano ora i metodi atomici invece di `next_*_id`+`create/append` separati; i
+  primitivi insert-only restano come ultima linea di difesa. Contratti ID
+  (`ENG-YYYY-NNNNN`, `FTR-YYYY-NNNNN`) invariati. Test di concorrenza con 8 writer
+  sincronizzati (barrier) in `tests/unit/test_engagements.py` e
+  `tests/unit/test_finding_transitions.py`: tutti gli id distinti, tutti persistiti,
+  zero errori.
+- DoD: criteri e campi comuni, test/documentazione, commit e verifica remota; stato `[x]`. Link: [audit](docs/ecosystem-audit.md).
 
 ### Schede proposte e maturità — OPS-SCAN-01
 

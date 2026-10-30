@@ -117,6 +117,46 @@ class SqliteEngagementStore:
             ) from exc
         return engagement.engagement_id
 
+    def create_next(
+        self, engagement: Engagement, *, year: int | None = None, attempts: int = 8
+    ) -> Engagement:
+        """Allocate a collision-free id and insert the engagement atomically.
+
+        The id allocation (a ``SELECT`` of the current maximum) and the ``INSERT``
+        run in the **same transaction**, and the ``engagement_id`` primary key plus
+        a bounded retry make the pair safe under concurrent writers: two callers
+        racing for the same sequence number cannot both succeed — the loser hits
+        the UNIQUE constraint, recomputes against the now-committed row and takes
+        the next id — so each gets a distinct id with neither a lost record nor a
+        surfaced duplicate error. Returns the stored engagement with its id set.
+
+        This supersedes calling :meth:`next_engagement_id` and :meth:`create`
+        separately, where the gap between the read and the write is a race window.
+        """
+        target_year = engagement.created_at.year if year is None else year
+        for _ in range(attempts):
+            candidate = engagement.model_copy(
+                update={"engagement_id": self.next_engagement_id(target_year)}
+            )
+            try:
+                with self._conn:
+                    self._conn.execute(
+                        "INSERT INTO engagements"
+                        "(engagement_id, document, created_at, updated_at) VALUES (?, ?, ?, ?)",
+                        (
+                            candidate.engagement_id,
+                            candidate.canonical_json(),
+                            candidate.created_at.isoformat(),
+                            candidate.updated_at.isoformat(),
+                        ),
+                    )
+            except sqlite3.IntegrityError:
+                continue  # another writer took this id; recompute and retry
+            return candidate
+        raise EngagementStoreError(
+            f"could not allocate a unique engagement id after {attempts} attempts"
+        )
+
     def next_engagement_id(self, year: int) -> str:
         """Allocate the next collision-free ``ENG-<year>-NNNNN`` id from stored state.
 

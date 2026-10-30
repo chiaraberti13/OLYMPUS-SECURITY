@@ -99,6 +99,46 @@ class SqliteFindingTransitionStore:
             ) from exc
         return transition.transition_id
 
+    def append_next(
+        self, transition: FindingTransition, *, year: int | None = None, attempts: int = 8
+    ) -> FindingTransition:
+        """Allocate a collision-free id and append the transition atomically.
+
+        The id allocation (a ``SELECT`` of the current maximum) and the ``INSERT``
+        run in the **same transaction**, and the ``transition_id`` primary key plus
+        a bounded retry make the pair safe under concurrent writers: two callers
+        racing for the same sequence number cannot both succeed — the loser hits
+        the UNIQUE constraint, recomputes against the now-committed row and takes
+        the next id — so each append gets a distinct id with neither a lost record
+        nor a surfaced duplicate error. Returns the stored transition with its id.
+
+        This supersedes calling :meth:`next_transition_id` and :meth:`append`
+        separately, where the gap between the read and the write is a race window.
+        """
+        target_year = transition.occurred_at.year if year is None else year
+        for _ in range(attempts):
+            candidate = transition.model_copy(
+                update={"transition_id": self.next_transition_id(target_year)}
+            )
+            try:
+                with self._conn:
+                    self._conn.execute(
+                        "INSERT INTO finding_transitions"
+                        "(transition_id, finding_id, document, occurred_at) VALUES (?, ?, ?, ?)",
+                        (
+                            candidate.transition_id,
+                            candidate.finding_id,
+                            self._encode(candidate),
+                            candidate.occurred_at.isoformat(),
+                        ),
+                    )
+            except sqlite3.IntegrityError:
+                continue  # another writer took this id; recompute and retry
+            return candidate
+        raise FindingTransitionStoreError(
+            f"could not allocate a unique transition id after {attempts} attempts"
+        )
+
     def next_transition_id(self, year: int) -> str:
         """Allocate the next collision-free ``FTR-<year>-NNNNN`` id from stored state.
 
