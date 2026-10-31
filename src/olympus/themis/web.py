@@ -1873,9 +1873,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         )
 
     @app.get("/jobs/{job_id}/events", include_in_schema=False)
-    def job_events(
-        request: Request, job_id: str, session: WebSession = reads_jobs
-    ) -> Response:
+    def job_events(request: Request, job_id: str, session: WebSession = reads_jobs) -> Response:
         del session
         # WEB-A-01 resume: on an automatic reconnect the browser re-sends the id
         # of the last event it delivered as ``Last-Event-ID``. Seeding the last
