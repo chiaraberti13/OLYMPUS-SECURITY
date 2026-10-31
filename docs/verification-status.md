@@ -22,12 +22,15 @@ On commit `bf3e22d`, GitHub Actions `ci` run
 [41225520765](https://github.com/chiaraberti13/OLYMPUS-SECURITY/actions/runs/41225520765)
 and CodeQL run
 [41225520745](https://github.com/chiaraberti13/OLYMPUS-SECURITY/actions/runs/41225520745)
-were observed. CodeQL and the `quality`, Gitleaks, pip-audit, package, container,
-POSIX, Windows and macOS jobs passed. Pytest/coverage failed: the newly added
-`/incidents` route was missing from the parity inventory, and the POSIX UI
-shutdown test exposed that app shutdown did not always await screen unmount.
-Both issues are corrected in the pending local change; no rerun is yet available.
-The separate Vercel status was also failure. Branch-protection inspection was
+were observed. On commit `50d7496`, CI run
+[41226041648](https://github.com/chiaraberti13/OLYMPUS-SECURITY/actions/runs/41226041648)
+passed quality, Gitleaks, pip-audit, wheel, container, POSIX, Windows, macOS,
+and pytest on Python 3.12–3.14. Python 3.11 still failed the TUI shutdown test:
+Textual does not call the initial `on_shutdown` method. The pending local fix
+moves awaited process cleanup to `CommandScreen.on_unmount`; its TUI suite passes
+locally, but the corrected workflow has not run yet. The `/incidents` parity
+inventory mismatch from the first run is corrected in the later published
+commit. The separate Vercel status was failure. Branch-protection inspection was
 denied by GitHub integration (403), so required-check enforcement remains
 unverified. See the current [ecosystem audit](ecosystem-audit.md) and
 [roadmap](../ROADMAP.md) for scope-specific status.

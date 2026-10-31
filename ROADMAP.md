@@ -188,9 +188,11 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
   parent e child. Aggiunto al job Windows portable-smoke un test dedicato che
   usa taskkill `/T /F` e verifica il child; il run Windows portable-smoke
   `41225520765` è passato. Lo stesso run ha rivelato che l'uscita dell'App non
-  sempre attendeva l'unmount della schermata su POSIX: aggiunto cleanup sincrono
-  nel lifecycle `on_shutdown`, verificato localmente. In attesa del rerun CI del
-  nuovo commit; la voce resta aperta.
+  sempre attendeva l'unmount della schermata su POSIX: il cleanup aggiunto in
+  `on_shutdown` non era un hook Textual. Nel run `41226041648`, Python 3.12–3.14
+  passano ma Python 3.11 fallisce sullo shutdown; il fix locale sposta il reap
+  async in `CommandScreen.on_unmount`, verificato col Pilot su Python 3.12. Il
+  rerun CI resta pendente e la voce aperta.
 
 ### DEV-E-01 — Transizioni Athena concorrenti e audit atomico
 
@@ -383,12 +385,13 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
   decisionali collegati nell'indice. Il gate link Markdown è stato aggiunto al
   job `quality`. Verifiche locali: 70 Markdown senza link interni rotti,
   `olympus themis matrix --check` senza drift e Mypy strict su 217 file. Run
-  GitHub `41225520765` osservato: quality, wheel, container, Gitleaks,
-  pip-audit, POSIX e smoke Windows/macOS verdi; le suite fallivano per il nuovo
-  route `/incidents` non ancora riflesso nel manifest parità e per il test TUI
-  shutdown; corretti localmente, rerun non ancora osservato. CodeQL
-  `41225520745` verde. Branch protection non accessibile (API 403); confronto
-  bilingue end-to-end ancora aperto.
+  GitHub `41226041648` osservato: quality, wheel, container, Gitleaks, pip-audit,
+  POSIX, Windows/macOS e pytest Python 3.12–3.14 verdi; Python 3.11 ha trovato
+  che il primo hook di shutdown non veniva chiamato da Textual. Corretto
+  localmente con `CommandScreen.on_unmount` async; rerun CI pendente. Il run
+  precedente `41225520765` aveva inoltre trovato `/incidents` assente dal
+  manifest parità, ora aggiornato. CodeQL `41225520745` verde. Branch protection
+  non accessibile (API 403); confronto bilingue end-to-end ancora aperto.
 
 ### UX-A-01 — Parità TUI e consumer form
 

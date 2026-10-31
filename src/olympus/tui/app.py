@@ -309,13 +309,9 @@ class CommandScreen(Screen[None]):
         else:
             self.notify("Cancel the running command before leaving.", severity="warning")
 
-    def on_unmount(self) -> None:
-        """Stop a running process tree when the operator closes the TUI."""
-        process = self.process
-        if process is not None and process.returncode is None:
-            self._cancelled = True
-            _signal_process_tree(process, force=False)
-            self._escalate_kill()
+    async def on_unmount(self) -> None:
+        """Stop and reap a running command tree before the screen is removed."""
+        await self.stop_for_shutdown()
 
     async def stop_for_shutdown(self) -> None:
         """Boundedly reap the command tree when the owning app is exiting."""
@@ -529,12 +525,6 @@ class OlympusTui(App[None]):
         self.root_command = root
         self.current_tool = TOOLS[0]
         self.current_commands: tuple[CommandSpec, ...] = ()
-
-    async def on_shutdown(self) -> None:
-        """Stop and reap active command trees before the app event loop closes."""
-        for screen in self.screen_stack:
-            if isinstance(screen, CommandScreen):
-                await screen.stop_for_shutdown()
 
     def compose(self) -> ComposeResult:
         yield Static(TOP_BAR, id="menu-bar")

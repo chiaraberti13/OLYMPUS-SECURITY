@@ -170,6 +170,9 @@ def test_kill_switch_marks_cancelled_and_terminates_process(
             assert fake.terminated
             assert screen._cancelled
             assert "Cancelling" in str(screen.query_one("#status-bar").render())
+            # The fake process only models the signal path. The dedicated process
+            # tree tests cover awaited shutdown with a real subprocess.
+            screen.process = None
 
     asyncio.run(scenario())
 
