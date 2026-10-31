@@ -207,6 +207,26 @@ def test_sqlite_result_cap(tmp_path: Path) -> None:
     repo.close()
 
 
+def test_sqlite_result_read_rejects_valid_json_tampering(tmp_path: Path) -> None:
+    repo = SqliteAssessmentRepository(tmp_path / "athena.db")
+    plan_id = repo.save_plan(load_plan(_plan_dict()))
+    job = Job(job_id="J1", adapter="dns", target_kind="domain", target_value="example.com")
+    repo.save_assessment(Assessment(assessment_id="A1", plan_id=plan_id, jobs=(job,)))
+    document = AssessmentResult(
+        assessment_id="A1",
+        job=job.to_contract("A1").model_copy(update={"state": "succeeded"}),
+    ).canonical_json()
+    result_id = repo.save_result("A1", "J1", document)
+    tampered = document.replace("example.com", "example.org")
+    assert json.loads(tampered)["job"]["target_value"] == "example.org"
+    repo._conn.execute("UPDATE results SET document = ? WHERE result_id = ?", (tampered, result_id))
+    repo._conn.commit()
+
+    with pytest.raises(ValueError, match="digest does not match"):
+        repo.load_result(result_id)
+    repo.close()
+
+
 def test_sqlite_transition_missing_assessment(tmp_path: Path) -> None:
     from olympus.athena.domain.assessment import AssessmentState
 

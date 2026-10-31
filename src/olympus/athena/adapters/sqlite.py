@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+import hmac
 import json
 import sqlite3
 from pathlib import Path
@@ -251,15 +252,33 @@ class SqliteAssessmentRepository:
 
     def load_result(self, result_id: str) -> str | None:
         row = self._conn.execute(
-            "SELECT document FROM results WHERE result_id = ?", (result_id,)
+            "SELECT assessment_id, job_id, document, sha256, length FROM results "
+            "WHERE result_id = ?",
+            (result_id,),
         ).fetchone()
         if row is None:
             return None
         document = str(row["document"])
+        encoded = document.encode("utf-8")
+        if len(encoded) > MAX_RESULT_BYTES:
+            raise ResultTooLargeError(f"stored result {result_id} exceeds {MAX_RESULT_BYTES} bytes")
+        if len(encoded) != int(row["length"]):
+            raise ValueError(f"stored result {result_id} length does not match its metadata")
+        digest = hashlib.sha256(encoded).hexdigest()
+        if not hmac.compare_digest(digest, str(row["sha256"])):
+            raise ValueError(f"stored result {result_id} digest does not match its metadata")
+        expected_id = f"RES-{digest[:16]}-{row['job_id']}"
+        if result_id != expected_id:
+            raise ValueError(f"stored result {result_id} identity does not match its metadata")
         try:
-            return load_result(json.loads(document)).canonical_json()
+            result = load_result(json.loads(document))
         except json.JSONDecodeError as exc:
             raise ValueError(f"stored result {result_id} is not valid JSON") from exc
+        if result.assessment_id != row["assessment_id"] or result.job.job_id != row["job_id"]:
+            raise ValueError(
+                f"stored result {result_id} document identity does not match its metadata"
+            )
+        return result.canonical_json()
 
     # -- recovery ---------------------------------------------------------- #
     def running_jobs(self) -> list[tuple[str, Job]]:

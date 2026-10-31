@@ -53,7 +53,7 @@ I dettagli sotto sono normativi per ciascuna riga, non task generici senza owner
 | `SEC-D-01` | Redazione argomenti nel log TUI | P1 | AppSec/UX | S | M1 | [x] |
 | `SEC-G-01` | Cancellazione TUI completa | P1 | Backend/QA | M | M2 | [~] |
 | `DEV-E-01` | Transizioni Athena concorrenti e audit atomico | P1 | Data/Architect | L | M2 | [~] |
-| `SEC-E-02` | Verifica digest risultati in lettura | P1 | Data/AppSec | S | M1 | [ ] |
+| `SEC-E-02` | Verifica digest risultati in lettura | P1 | Data/AppSec | S | M1 | [x] |
 | `DEV-B-01` | Plugin concreti e realmente integrati | P1 | Scanner/Architect | L | M3 | [ ] |
 | `DEV-D-01` | Versionamento fisico degli store | P1 | Data | L | M3 | [ ] |
 | `WEB-J-01` | Backup e restore coordinato | P1 | Data/SRE/Privacy | L | M3 | [ ] |
@@ -214,6 +214,13 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
 - Accettazione misurabile: Alterazione sintatticamente valida rifiutata; risultato integro leggibile.
 - Test: tamper e compatibilità.
 - DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+- Stato (verifica locale 2026-10-31, `[x]`): `load_result` confronta byte length,
+  SHA-256, result ID derivato e assessment/job identity prima di restituire il
+  documento normalizzato; applica anche il limite massimo in lettura. Un test
+  altera in SQLite un documento ancora JSON valido e ne verifica il rifiuto.
+  Il digest rileva alterazioni dei dati senza aggiornamento coerente dei metadati;
+  non è una firma e non protegge da un writer DB che modifica insieme documento,
+  digest e lunghezza.
 
 ### DEV-B-01 — Plugin concreti e realmente integrati
 
