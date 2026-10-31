@@ -1,0 +1,23 @@
+# Small demonstration wordlist for authorized content discovery.
+# One candidate path per line; comments (#) and blanks are ignored.
+robots.txt
+sitemap.xml
+.git/config
+.env
+admin
+login
+dashboard
+api
+api/v1
+backup
+backup.zip
+config.php
+phpinfo.php
+wp-admin
+wp-login.php
+server-status
+.htpasswd
+uploads
+static
+health
+metrics

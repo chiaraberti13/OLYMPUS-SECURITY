@@ -1,0 +1,67 @@
+name: Roadmap item
+description: Track work on an intervention listed in ROADMAP.md.
+title: "[ID] short description"
+labels: ["roadmap"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Every roadmap issue maps to one intervention in `ROADMAP.md`.
+        If none fits, propose the new intervention in `ROADMAP.md` first.
+  - type: input
+    id: roadmap-id
+    attributes:
+      label: Roadmap ID
+      description: The intervention identifier, e.g. SEC-H, DEV-C, UX-G, OPS-BLUE, or a prerequisite such as D2.
+      placeholder: DEV-C
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - "SEC — Cybersecurity"
+        - "DEV — Development"
+        - "UX — Design"
+        - "OPS — Red/Blue/Purple backlog"
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: As defined in ROADMAP.md.
+      options:
+        - "P0 — blocks safe use or a reliable release"
+        - "P1 — high value, high priority"
+        - "P2 — important improvement"
+        - "P3 — later evolution"
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope of this issue
+      description: Which checkbox(es) of the intervention this issue covers.
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Completion criterion and evidence
+      description: How completion will be proven (test, CI run, committed evidence).
+    validations:
+      required: true
+  - type: textarea
+    id: blockers
+    attributes:
+      label: Prerequisites or blockers
+      description: Lab, credentials, infrastructure or other interventions required (see the D1–D12 table).
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety
+      options:
+        - label: This issue contains no secrets, real target data or personal data.
+          required: true

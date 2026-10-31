@@ -1,0 +1,122 @@
+"""Native Themis catalogue, compatibility and retired VAP-source guardrails."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from typer.testing import CliRunner
+
+from olympus.cli import app
+
+runner = CliRunner()
+ROOT = Path(__file__).resolve().parents[2]
+LEGACY_SOURCE = ROOT / "vendor" / "vulnerability-assessment-platform"
+
+EXPECTED_VAP_SCANNERS = {
+    "acunetix",
+    "arjun",
+    "burp",
+    "commix",
+    "dalfox",
+    "dirsearch",
+    "httpx",
+    "katana",
+    "nessus",
+    "nikto",
+    "nmap",
+    "nosqlmap",
+    "nuclei",
+    "openvas",
+    "sqlmap",
+    "subfinder",
+    "testssl",
+    "theharvester",
+    "wafw00f",
+    "wapiti",
+    "whatweb",
+    "wpscan",
+    "xsstrike",
+    "zap",
+}
+
+
+def test_legacy_vap_source_is_physically_removed() -> None:
+    assert not LEGACY_SOURCE.exists()
+    assert not (ROOT / "vendor").exists()
+
+
+def test_themis_scanners_command_lists_all_24() -> None:
+    result = runner.invoke(app, ["themis", "scanners"])
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["count"] == 24
+    assert set(payload["scanners"]) == EXPECTED_VAP_SCANNERS
+
+
+def test_themis_scanners_check_reports_binaries() -> None:
+    result = runner.invoke(app, ["themis", "scanners", "--check"])
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["count"] == 24
+    assert "available_binaries" in payload
+    assert all("binary" in row and "licence" in row for row in payload["scanners"])
+    # SEC-G: every scanner row carries its reviewed risk class (passive/active/
+    # intrusive); an unmapped scanner would surface as active, never passive.
+    by_name = {row["name"]: row for row in payload["scanners"]}
+    assert all(row["risk"] in {"passive", "active", "intrusive"} for row in payload["scanners"])
+    assert by_name["subfinder"]["risk"] == "passive"
+    assert by_name["nmap"]["risk"] == "active"
+
+
+def test_themis_info_command() -> None:
+    result = runner.invoke(app, ["themis", "info"])
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["scanners"] == 24
+    assert payload["vendor_required"] is False
+    assert "install_hint" in payload
+
+
+def test_serve_requires_native_authentication() -> None:
+    result = runner.invoke(app, ["themis", "serve"])
+    assert result.exit_code == 2
+    assert "credential register" in result.output
+
+
+def test_serve_rejects_non_loopback_bind_without_tls() -> None:
+    result = runner.invoke(app, ["themis", "serve", "--host", "192.0.2.10"])
+    assert result.exit_code == 2
+    assert "TLS" in result.output
+
+
+def test_themis_and_vap_compatibility_are_registered() -> None:
+    result = runner.invoke(app, ["--help"])
+    assert result.exit_code == 0
+    assert "argus-native" not in result.output
+    assert "argus" in result.output
+    assert "themis" in result.output
+    assert "vap" in result.output
+
+
+def test_vap_alias_is_deprecated_and_forwards() -> None:
+    result = runner.invoke(app, ["vap", "scanners"])
+    assert result.exit_code == 0, result.output
+    assert "deprecated" in result.output.lower()
+    assert '"count": 24' in result.output
+
+
+def test_doctor_commands_run_without_vendor_source() -> None:
+    for argv in (["doctor"], ["themis", "doctor"], ["argus", "doctor"]):
+        result = runner.invoke(app, argv)
+        assert result.exit_code == 0, (argv, result.output)
+        payload = json.loads(result.output)
+        assert payload.get("checks")
+
+    reported = json.loads(runner.invoke(app, ["themis", "doctor"]).output)
+    native = next(item for item in reported["checks"] if item["name"] == "runtime:native")
+    assert native["ok"] is True
+    assert not any(item["name"].startswith("vendor:") for item in reported["checks"])
+    info = json.loads(runner.invoke(app, ["themis", "info"]).output)
+    assert info["runtime"] == "native"
+    assert info["vendor_required"] is False

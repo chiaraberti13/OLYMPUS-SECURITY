@@ -1,0 +1,12 @@
+schema_name: olympus.apollo-rule
+schema_version: 1.0.0
+rule_id: APL-RT-DNS-C2-BEACON
+title: High-entropy TXT queries at a regular interval (DNS-tunneled C2 beacon)
+event_type: network.dns
+conditions:
+  query_type: TXT
+  query_entropy: high
+  query_interval_regular: "true"
+severity: high
+mitre_attack:
+  - T1071.004

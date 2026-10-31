@@ -1,0 +1,10 @@
+{
+  "schema_name": "olympus.event",
+  "schema_version": "1.0.0",
+  "event_id": "EVT-2026-00001",
+  "event_type": "process.start",
+  "source": "apollo",
+  "observed_at": "2026-08-14T00:00:00Z",
+  "asset_id": "AST-2026-00001",
+  "attributes": {"image": "powershell.exe", "encoded": "true"}
+}

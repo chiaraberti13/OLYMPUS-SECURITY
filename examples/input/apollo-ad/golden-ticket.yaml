@@ -1,0 +1,12 @@
+schema_name: olympus.apollo-rule
+schema_version: 1.0.0
+rule_id: APL-AD-GOLDEN-TICKET
+title: Kerberos golden ticket anomaly (forged TGT)
+event_type: windows.security
+conditions:
+  event_id: 4769
+  tgt_anomaly: forged-lifetime
+  account_domain_mismatch: true
+severity: critical
+mitre_attack:
+  - T1558.001

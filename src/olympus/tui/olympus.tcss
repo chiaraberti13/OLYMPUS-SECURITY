@@ -1,0 +1,255 @@
+$olympus-blue: #4d50ef;
+$olympus-blue-dark: #3537b9;
+$olympus-ivory: #f3efc4;
+$olympus-yellow: #fff32b;
+$olympus-ink: #070707;
+$olympus-paper: #f2f2f2;
+$olympus-red: #a21414;
+
+Screen {
+    background: #262626;
+    color: $olympus-ivory;
+}
+
+#menu-bar {
+    dock: top;
+    height: 1;
+    background: $olympus-paper;
+    color: $olympus-ink;
+    text-style: bold;
+    padding: 0 1;
+}
+
+#help-key {
+    layer: overlay;
+    dock: right;
+    height: 1;
+    width: 9;
+    background: $olympus-paper;
+    color: $olympus-ink;
+    text-style: bold;
+}
+
+#workspace, #command-frame {
+    height: 1fr;
+    margin: 1 2 2 2;
+    padding: 1;
+    background: $olympus-blue;
+    border: double $olympus-ivory;
+}
+
+#brand {
+    height: 1;
+    width: auto;
+    align-horizontal: center;
+    color: $olympus-yellow;
+    text-style: bold;
+}
+
+#browser {
+    height: 1fr;
+    margin-top: 1;
+}
+
+.pane {
+    height: 1fr;
+    background: $olympus-blue;
+    border: solid $olympus-ivory;
+    padding: 0 1;
+}
+
+#tools-pane {
+    width: 29;
+}
+
+#commands-pane {
+    width: 34;
+    margin-left: 1;
+}
+
+#description-pane {
+    width: 1fr;
+    margin-left: 1;
+}
+
+.pane-title, .dialog-title {
+    height: 1;
+    color: $olympus-ivory;
+    text-style: bold;
+    content-align: center middle;
+}
+
+OptionList {
+    height: 1fr;
+    background: $olympus-blue;
+    color: $olympus-ivory;
+    border: none;
+    scrollbar-color: $olympus-ivory;
+    scrollbar-color-hover: $olympus-yellow;
+    scrollbar-color-active: $olympus-yellow;
+    scrollbar-background: $olympus-blue-dark;
+}
+
+OptionList > .option-list--option-highlighted {
+    background: $olympus-ink;
+    color: $olympus-yellow;
+    text-style: bold;
+}
+
+#tool-title {
+    margin-top: 1;
+    height: auto;
+}
+
+#description, #usage {
+    margin-top: 1;
+    height: auto;
+    color: $olympus-paper;
+}
+
+#status-bar {
+    dock: bottom;
+    height: 1;
+    background: $olympus-paper;
+    color: $olympus-red;
+    text-style: bold;
+    padding: 0 1;
+}
+
+#command-details {
+    height: auto;
+    min-height: 5;
+    margin: 1 0;
+}
+
+#command-description {
+    color: $olympus-paper;
+}
+
+#command-usage {
+    margin-top: 1;
+    color: $olympus-yellow;
+}
+
+.field-label {
+    height: 1;
+    color: $olympus-ivory;
+    text-style: bold;
+}
+
+Input {
+    height: 3;
+    background: $olympus-blue-dark;
+    color: $olympus-paper;
+    border: solid $olympus-ivory;
+}
+
+Input:focus {
+    border: solid $olympus-yellow;
+}
+
+#fields {
+    height: auto;
+    max-height: 18;
+    margin-bottom: 1;
+    scrollbar-color: $olympus-ivory;
+    scrollbar-background: $olympus-blue-dark;
+}
+
+#fields Select {
+    margin-bottom: 1;
+}
+
+#fields Checkbox, #raw-toggle {
+    height: 3;
+    background: $olympus-blue-dark;
+    color: $olympus-paper;
+    border: solid $olympus-ivory;
+}
+
+#fields Checkbox:focus, #raw-toggle:focus {
+    border: solid $olympus-yellow;
+}
+
+.field-hint {
+    height: 1;
+    color: $olympus-yellow;
+}
+
+#actions {
+    height: 3;
+    margin: 1 0;
+}
+
+Button {
+    min-width: 18;
+    height: 3;
+    margin-right: 1;
+    background: $olympus-blue-dark;
+    color: $olympus-ivory;
+    border: solid $olympus-ivory;
+}
+
+Button:focus, Button:hover, Button.-primary {
+    background: $olympus-ink;
+    color: $olympus-yellow;
+    border: solid $olympus-yellow;
+}
+
+#output {
+    height: 1fr;
+    background: $olympus-ink;
+    color: $olympus-paper;
+    border: solid $olympus-ivory;
+    padding: 0 1;
+    scrollbar-color: $olympus-ivory;
+    scrollbar-background: $olympus-blue-dark;
+}
+
+HelpScreen {
+    align: center middle;
+    background: #000000 55%;
+}
+
+#help-dialog {
+    width: 66;
+    height: 18;
+    padding: 1 2;
+    background: $olympus-blue;
+    border: double $olympus-ivory;
+}
+
+#help-copy {
+    height: 1fr;
+    color: $olympus-paper;
+    margin: 1 0;
+}
+
+#close-help {
+    width: 16;
+    align-horizontal: center;
+}
+
+ConfirmRunScreen {
+    align: center middle;
+    background: #000000 65%;
+}
+
+#confirm-dialog {
+    width: 76;
+    height: auto;
+    padding: 1 2;
+    background: $olympus-blue;
+    border: double $olympus-yellow;
+}
+
+#confirm-copy {
+    height: auto;
+    color: $olympus-paper;
+    margin: 1 0;
+}
+
+#confirm-actions {
+    height: 3;
+    align-horizontal: center;
+}

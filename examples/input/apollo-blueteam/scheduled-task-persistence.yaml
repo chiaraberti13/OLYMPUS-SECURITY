@@ -1,0 +1,12 @@
+schema_name: olympus.apollo-rule
+schema_version: 1.0.0
+rule_id: APL-BT-SCHTASK
+title: Scheduled task registered by a non-administrative user (persistence)
+event_type: windows.security
+conditions:
+  event_id: "4698"
+  task_runs_as_system: "true"
+  creator_is_admin: "false"
+severity: medium
+mitre_attack:
+  - T1053.005

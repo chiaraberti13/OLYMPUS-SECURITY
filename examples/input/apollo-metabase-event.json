@@ -1,0 +1,14 @@
+{
+  "schema_name": "olympus.event",
+  "schema_version": "1.0.0",
+  "event_id": "EVT-2026-09001",
+  "event_type": "web.request",
+  "source": "apollo",
+  "observed_at": "2026-08-15T00:00:00Z",
+  "asset_id": "AST-2026-09001",
+  "attributes": {
+    "http_method": "POST",
+    "http_path": "/api/session/reset_password",
+    "injection_detected": "sql"
+  }
+}

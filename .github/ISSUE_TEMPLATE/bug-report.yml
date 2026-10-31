@@ -1,0 +1,62 @@
+name: Bug report
+description: Behaviour differs from what the code or documentation promises. Not for security vulnerabilities.
+title: "bug: short description"
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Security vulnerabilities must be reported privately** — see SECURITY.md.
+        Never paste credentials, API keys, personal data or real target information.
+  - type: input
+    id: module
+    attributes:
+      label: Module and command
+      placeholder: "olympus apollo run ..."
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Olympus version or commit
+      placeholder: "0.x.y or commit SHA"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: "OS, Python version, container or host"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Use lab or synthetic targets only.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual behaviour
+      description: State whether the result was clean, findings, partial, failed or cancelled.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs
+      render: text
+  - type: input
+    id: roadmap-id
+    attributes:
+      label: Related roadmap ID (if any)
+      placeholder: "SEC-H"
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety
+      options:
+        - label: I removed secrets, personal data and real target details.
+          required: true

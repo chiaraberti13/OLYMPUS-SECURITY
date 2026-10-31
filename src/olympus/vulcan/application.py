@@ -1,0 +1,329 @@
+"""Application services for bounded Vulcan aggregation and reporting."""
+
+from __future__ import annotations
+
+import json
+import stat
+import time
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from olympus.core.enums import Severity
+from olympus.core.execution import Cancellation, ExecutionPolicy, NeverCancelled
+from olympus.core.fileio import read_regular_text
+from olympus.core.models import Finding, SecurityReport
+from olympus.engagements.manifest import EngagementManifest, SignedEngagementManifest
+from olympus.vulcan.aggregate import (
+    DEFAULT_MAX_FILES,
+    DEFAULT_MAX_INPUT_BYTES,
+    DEFAULT_MAX_ITEMS_PER_FILE,
+    DEFAULT_MAX_TOTAL_ITEMS,
+    AggregationError,
+    dedupe_alerts,
+    dedupe_assets,
+    dedupe_findings,
+    filter_min_severity,
+    load_alerts,
+    load_assets,
+    load_findings,
+    merge_duplicate_findings,
+    rank_findings,
+)
+from olympus.vulcan.engagement_report import EngagementReportContext, engagement_context
+from olympus.vulcan.enrichment import EpssScore, KevEntry, enrich_findings
+from olympus.vulcan.pdf import render_report_pdf
+from olympus.vulcan.provenance import load_authorization_provenance
+from olympus.vulcan.report import (
+    ReportSection,
+    build_report_model,
+    render_report_csv,
+    render_report_html,
+    render_report_markdown,
+)
+
+DEFAULT_MAX_OUTPUT_BYTES = 100_000_000
+DEFAULT_MAX_TOTAL_INPUT_BYTES = 200_000_000
+#: Upper bound for an engagement-manifest file read for report front matter.
+_MAX_MANIFEST_BYTES = 256_000
+
+
+def _load_engagement_context(path: Path) -> EngagementReportContext:
+    """Load an engagement manifest (signed or plain) into report front matter.
+
+    Accepts either a ``SignedEngagementManifest`` envelope — whose embedded
+    manifest is used — or a bare ``EngagementManifest``. This restates the
+    manifest for the reader and is not an authorization decision, so the
+    signature is not verified here; a bounded, strict parse rejects malformed
+    input with a ``ValueError`` (Pydantic ``ValidationError``).
+    """
+    raw = json.loads(read_regular_text(path, max_bytes=_MAX_MANIFEST_BYTES, label="manifest"))
+    if isinstance(raw, dict) and raw.get("schema_name") == "olympus.signed-engagement-manifest":
+        return engagement_context(SignedEngagementManifest.model_validate(raw).manifest)
+    return engagement_context(EngagementManifest.model_validate(raw))
+
+
+@dataclass(frozen=True)
+class VulcanReportRequest:
+    engagement: str
+    asset_paths: tuple[Path, ...] = ()
+    finding_paths: tuple[Path, ...] = ()
+    alert_paths: tuple[Path, ...] = ()
+    themis_result_paths: tuple[Path, ...] = ()
+    signed_manifest_paths: tuple[Path, ...] = ()
+    trusted_manifest_public_key_pem: str | None = None
+    #: Optional engagement manifest (signed or plain) whose scope, methodology and
+    #: disclaimer parametrize the reusable Markdown/HTML report sections (SEC-C).
+    engagement_manifest_path: Path | None = None
+    excluded_paths: tuple[Path, ...] = ()
+    min_severity: Severity | None = None
+    render_markdown: bool = False
+    render_html: bool = False
+    render_csv: bool = False
+    render_pdf: bool = False
+    #: Which section slice the Markdown/HTML renderers emit ("full" or "executive").
+    section: ReportSection = "full"
+    #: Optional KEV/EPSS catalogues; when present and ``render_pdf`` is set, the
+    #: PDF's known-vulnerabilities table shows EPSS scores and KEV membership.
+    kev_catalog: dict[str, KevEntry] = field(default_factory=dict)
+    epss_scores: dict[str, EpssScore] = field(default_factory=dict)
+    max_files: int = DEFAULT_MAX_FILES
+    max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES
+    max_total_input_bytes: int = DEFAULT_MAX_TOTAL_INPUT_BYTES
+    max_items_per_file: int = DEFAULT_MAX_ITEMS_PER_FILE
+    max_total_items: int = DEFAULT_MAX_TOTAL_ITEMS
+    max_output_bytes: int = DEFAULT_MAX_OUTPUT_BYTES
+    deadline_seconds: float = 120.0
+
+
+@dataclass(frozen=True)
+class VulcanRankRequest:
+    finding_paths: tuple[Path, ...]
+    max_files: int = DEFAULT_MAX_FILES
+    max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES
+    max_total_input_bytes: int = DEFAULT_MAX_TOTAL_INPUT_BYTES
+    max_items_per_file: int = DEFAULT_MAX_ITEMS_PER_FILE
+    max_total_items: int = DEFAULT_MAX_TOTAL_ITEMS
+    deadline_seconds: float = 60.0
+
+
+@dataclass(frozen=True)
+class VulcanReportOutcome:
+    report: SecurityReport
+    markdown: str | None
+    html: str | None
+    csv: str | None = None
+    pdf: bytes | None = None
+
+
+@dataclass(frozen=True)
+class VulcanApplicationService:
+    """Load producer contracts once and build every report view consistently."""
+
+    cancellation: Cancellation = field(default_factory=NeverCancelled)
+
+    def report(self, request: VulcanReportRequest) -> VulcanReportOutcome:
+        engagement = _single_line(request.engagement, "engagement", 500)
+        all_inputs = (
+            request.asset_paths
+            + request.finding_paths
+            + request.alert_paths
+            + request.themis_result_paths
+            + request.signed_manifest_paths
+            + (
+                (request.engagement_manifest_path,)
+                if request.engagement_manifest_path is not None
+                else ()
+            )
+        )
+        _validate_limits(request)
+        _validate_input_set(all_inputs, request.max_files, request.max_total_input_bytes)
+        _validate_output_conflicts(all_inputs, request.excluded_paths)
+        _validate_output_limit(request.max_output_bytes)
+        progress = self._progress(request.deadline_seconds, "Vulcan report")
+        assets = dedupe_assets(
+            load_assets(
+                request.asset_paths,
+                max_files=request.max_files,
+                max_bytes=request.max_input_bytes,
+                max_items_per_file=request.max_items_per_file,
+                max_total_items=request.max_total_items,
+                progress_check=progress,
+            )
+        )
+        findings = merge_duplicate_findings(
+            dedupe_findings(
+                load_findings(
+                    request.finding_paths,
+                    max_files=request.max_files,
+                    max_bytes=request.max_input_bytes,
+                    max_items_per_file=request.max_items_per_file,
+                    max_total_items=request.max_total_items,
+                    progress_check=progress,
+                )
+            )
+        )
+        alerts = dedupe_alerts(
+            load_alerts(
+                request.alert_paths,
+                max_files=request.max_files,
+                max_bytes=request.max_input_bytes,
+                max_items_per_file=request.max_items_per_file,
+                max_total_items=request.max_total_items,
+                progress_check=progress,
+            )
+        )
+        if len(assets) + len(findings) + len(alerts) > request.max_total_items:
+            raise AggregationError(
+                f"aggregate exceeds the {request.max_total_items} total item limit"
+            )
+        if request.min_severity is not None:
+            findings = filter_min_severity(findings, request.min_severity)
+        if assets:
+            known_assets = {asset.asset_id for asset in assets}
+            missing = sorted({finding.asset_id for finding in findings} - known_assets)
+            if missing:
+                sample = ", ".join(missing[:5])
+                raise AggregationError(f"findings reference unknown report assets: {sample}")
+        progress()
+        authorization_provenance = load_authorization_provenance(
+            request.themis_result_paths,
+            request.signed_manifest_paths,
+            trusted_public_key_pem=request.trusted_manifest_public_key_pem,
+        )
+        report = build_report_model(
+            engagement,
+            assets,
+            findings,
+            alerts,
+            authorization_provenance=authorization_provenance,
+        )
+        engagement_ctx = (
+            _load_engagement_context(request.engagement_manifest_path)
+            if request.engagement_manifest_path is not None
+            else None
+        )
+        json_content = json.dumps(report.model_dump(mode="json"), indent=2, sort_keys=True) + "\n"
+        _ensure_output_size(json_content.encode(), request.max_output_bytes, "JSON")
+        markdown = (
+            render_report_markdown(report, section=request.section, engagement=engagement_ctx)
+            if request.render_markdown
+            else None
+        )
+        if markdown is not None:
+            _ensure_output_size(markdown.encode(), request.max_output_bytes, "Markdown")
+        progress()
+        html = (
+            render_report_html(report, section=request.section, engagement=engagement_ctx)
+            if request.render_html
+            else None
+        )
+        if html is not None:
+            _ensure_output_size(html.encode(), request.max_output_bytes, "HTML")
+        progress()
+        csv_content = render_report_csv(report) if request.render_csv else None
+        if csv_content is not None:
+            _ensure_output_size(csv_content.encode(), request.max_output_bytes, "CSV")
+        progress()
+        pdf = None
+        if request.render_pdf:
+            overlay = None
+            if request.kev_catalog or request.epss_scores:
+                overlay = enrich_findings(
+                    report.findings, kev=request.kev_catalog, epss=request.epss_scores
+                )
+            pdf = render_report_pdf(report, enrichments=overlay)
+            _ensure_output_size(pdf, request.max_output_bytes, "PDF")
+        progress()
+        return VulcanReportOutcome(report, markdown, html, csv_content, pdf)
+
+    def rank(self, request: VulcanRankRequest) -> tuple[Finding, ...]:
+        if not 1 <= request.max_files <= 1_000:
+            raise AggregationError("max_files must be between 1 and 1000")
+        if not 1 <= request.max_input_bytes <= 1_000_000_000:
+            raise AggregationError("max_input_bytes must be between 1 and 1000000000")
+        if not 1 <= request.max_total_input_bytes <= 1_000_000_000:
+            raise AggregationError("max_total_input_bytes must be between 1 and 1000000000")
+        if not 1 <= request.max_items_per_file <= 1_000_000:
+            raise AggregationError("max_items_per_file must be between 1 and 1000000")
+        if not 1 <= request.max_total_items <= 1_000_000:
+            raise AggregationError("max_total_items must be between 1 and 1000000")
+        _validate_input_set(request.finding_paths, request.max_files, request.max_total_input_bytes)
+        progress = self._progress(request.deadline_seconds, "Vulcan rank")
+        findings = load_findings(
+            request.finding_paths,
+            max_files=request.max_files,
+            max_bytes=request.max_input_bytes,
+            max_items_per_file=request.max_items_per_file,
+            max_total_items=request.max_total_items,
+            progress_check=progress,
+        )
+        progress()
+        return tuple(rank_findings(merge_duplicate_findings(dedupe_findings(findings))))
+
+    def _progress(self, deadline_seconds: float, operation: str) -> Callable[[], None]:
+        policy = ExecutionPolicy(deadline_seconds=deadline_seconds)
+        deadline = time.monotonic() + policy.deadline_seconds
+
+        def check() -> None:
+            policy.check_cancellation(self.cancellation)
+            if time.monotonic() >= deadline:
+                raise TimeoutError(f"{operation} deadline exceeded")
+
+        return check
+
+
+def _single_line(value: str, label: str, maximum: int) -> str:
+    if not 1 <= len(value) <= maximum:
+        raise AggregationError(f"{label} must contain between 1 and {maximum} characters")
+    if value != value.strip() or any(character in value for character in "\r\n\x00"):
+        raise AggregationError(f"{label} must be trimmed single-line text without NUL")
+    return value
+
+
+def _validate_output_conflicts(inputs: tuple[Path, ...], outputs: tuple[Path, ...]) -> None:
+    resolved_inputs = {path.resolve() for path in inputs}
+    resolved_outputs = [path.resolve() for path in outputs]
+    if len(resolved_outputs) != len(set(resolved_outputs)):
+        raise AggregationError("JSON, Markdown and HTML output paths must be distinct")
+    if resolved_inputs.intersection(resolved_outputs):
+        raise AggregationError("report output paths must not overwrite input files")
+
+
+def _validate_output_limit(max_output_bytes: int) -> None:
+    if not 1 <= max_output_bytes <= 1_000_000_000:
+        raise AggregationError("max_output_bytes must be between 1 and 1000000000")
+
+
+def _validate_limits(request: VulcanReportRequest) -> None:
+    if not 1 <= request.max_files <= 1_000:
+        raise AggregationError("max_files must be between 1 and 1000")
+    if not 1 <= request.max_input_bytes <= 1_000_000_000:
+        raise AggregationError("max_input_bytes must be between 1 and 1000000000")
+    if not 1 <= request.max_total_input_bytes <= 1_000_000_000:
+        raise AggregationError("max_total_input_bytes must be between 1 and 1000000000")
+    if not 1 <= request.max_items_per_file <= 1_000_000:
+        raise AggregationError("max_items_per_file must be between 1 and 1000000")
+    if not 1 <= request.max_total_items <= 1_000_000:
+        raise AggregationError("max_total_items must be between 1 and 1000000")
+
+
+def _validate_input_set(inputs: tuple[Path, ...], max_files: int, max_total_bytes: int) -> None:
+    if len(inputs) > max_files:
+        raise AggregationError(f"input set exceeds the {max_files} file limit")
+    total = 0
+    for path in inputs:
+        try:
+            metadata = path.lstat()
+        except FileNotFoundError as exc:
+            raise AggregationError(f"input file not found: {path}") from exc
+        if path.is_symlink() or not stat.S_ISREG(metadata.st_mode):
+            raise AggregationError(f"aggregation input must be a non-symlink regular file: {path}")
+        total += metadata.st_size
+        if total > max_total_bytes:
+            raise AggregationError(f"input set exceeds the {max_total_bytes} aggregate byte limit")
+
+
+def _ensure_output_size(content: bytes, maximum: int, label: str) -> None:
+    if len(content) > maximum:
+        raise AggregationError(f"{label} report exceeds the {maximum} byte output limit")

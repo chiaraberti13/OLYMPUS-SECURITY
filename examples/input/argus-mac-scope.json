@@ -1,0 +1,5 @@
+{
+  "engagement": "olympus-demo-corp-2026",
+  "allowed_ouis": ["00:1A:2B"],
+  "excluded_ouis": []
+}

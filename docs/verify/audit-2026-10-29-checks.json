@@ -1,0 +1,147 @@
+{
+  "audit_date": "2026-10-28",
+  "final_verification_date": "2026-10-29",
+  "initial_sha": "b5cc491ac466fc5875a40266151e3aa55730c82e",
+  "remote_integrated_sha": "e177498e7982c5ae41abc2207de561e42ec8791d",
+  "tested_merge_sha": "bca1daa54ed38c2f73cb4a733f1ae4fea9db0ea6",
+  "environment": {
+    "python": "3.12.14",
+    "platform": "Linux",
+    "install": "clean venv; editable .[dev,api,report,observability]; separate wheel venv .[api,report]",
+    "pip": "26.2.2 after updating bootstrap pip 25.0.1",
+    "live_scans": false
+  },
+  "changed_code_digests": {
+    "src/olympus/athena/adapters/sqlite.py": "04fcae6dcb34b9f77b389d6a03f0394afb8827e37ff3152009a262250fb5b6b4",
+    "src/olympus/athena/adapters/audit.py": "0893e5645434cc5b7dfb91b3ed713d35ddc308b95fde7e506ac2da75381dd7bd",
+    "src/olympus/athena/domain/audit.py": "bbc62807e0ba2bfa6f183e4b978c5f7058599d81e1dfb542c9bb8b3a49899fd1",
+    "tests/unit/test_athena_audit_durability.py": "ca211d81a84c62d93f3f19cd46e3cf8ebb34853e10852a4744bcd47e08242a3d",
+    "tests/integration/test_athena_cli.py": "6de13e589a1ae6130890dfc96f3401e3591ab307f21b9d81c8aeea77e6e18da9"
+  },
+  "checks": [
+    {
+      "command": "python -m pip install -e \".[dev,api,report,observability]\"",
+      "status": "passed"
+    },
+    {
+      "command": "pytest targeted Athena unit/integration selection (4 files)",
+      "status": "passed",
+      "tests": 51
+    },
+    {
+      "command": "four new regression cases before implementation",
+      "date": "2026-10-28",
+      "status": "failed_as_expected",
+      "tests_failed": 4,
+      "note": "Observed in the prior turn; temporary raw log no longer retained."
+    },
+    {
+      "command": "make lint format-check type schemas-check audit-exceptions",
+      "status": "passed",
+      "mypy_source_files": 214,
+      "versioned_contracts": 24
+    },
+    {
+      "command": "make test-coverage",
+      "status": "failed",
+      "passed": 2468,
+      "failed": 17,
+      "deselected": 67,
+      "failed_tests": [
+        "tests/platform/posix/test_themis_sandbox_posix.py::test_each_run_gets_a_private_scratch_directory_that_is_removed_afterwards",
+        "tests/platform/posix/test_themis_sandbox_posix.py::test_two_runs_never_share_a_scratch_directory",
+        "tests/platform/posix/test_themis_sandbox_posix.py::test_a_cooperative_child_is_stopped_by_sigterm_without_escalation",
+        "tests/platform/posix/test_themis_sandbox_posix.py::test_the_whole_process_group_dies_not_just_the_scanner",
+        "tests/platform/posix/test_themis_sandbox_posix.py::test_output_limit_and_cancellation_carry_their_own_causes",
+        "tests/platform/posix/test_themis_sandbox_posix.py::test_a_clean_exit_is_reported_as_completed",
+        "tests/platform/posix/test_themis_sandbox_posix.py::test_a_fatal_signal_is_distinguished_from_a_resource_violation",
+        "tests/platform/posix/test_themis_sandbox_posix.py::test_a_killed_scanner_fails_with_a_recorded_cause",
+        "tests/unit/test_themis_execution.py::test_runner_executes_real_process",
+        "tests/unit/test_themis_execution.py::test_runner_timeout",
+        "tests/unit/test_themis_execution.py::test_runner_caps_output_sanitizes_environment_and_cancels",
+        "tests/unit/test_themis_execution.py::test_state_live_runs_real_process",
+        "tests/unit/test_themis_execution.py::test_nonzero_process_is_failed_before_parser",
+        "tests/unit/test_themis_execution.py::test_raw_evidence_is_bounded_and_redacted",
+        "tests/unit/test_themis_execution.py::test_state_failed_on_parse_error",
+        "tests/unit/test_themis_execution.py::test_scope_loader_and_application_output_audit",
+        "tests/unit/test_themis_jobs.py::test_durable_job_lifecycle"
+      ],
+      "cause": "Same 17 baseline sandbox failures: chown to sandbox user raises EINVAL in this host; no sandbox gate relaxed or test disabled."
+    },
+    {
+      "command": "python scripts/check_branch_coverage.py .coverage-report.json",
+      "status": "passed",
+      "covered_branches": 4022,
+      "num_branches": 4964,
+      "percent": 81.02336825141015,
+      "minimum": 75,
+      "note": "Standalone numeric gate; does not turn the failing pytest suite green."
+    },
+    {
+      "command": "make test-mutation",
+      "status": "passed",
+      "killed": 1231,
+      "targeted": 1991,
+      "percent_rounded": 61.8,
+      "note": "Configured targeted function gate; not mutation coverage of all code or of the new SQL method."
+    },
+    {
+      "command": "pip wheel --no-deps .; clean wheel install [api,report]; olympus --version; pip check",
+      "status": "passed",
+      "version": "0.2.0"
+    },
+    {
+      "command": "wheel-python scripts/smoke_native_runtime.py from outside repository",
+      "status": "passed",
+      "scope": "loopback native migrations/API/HTTPS Web/worker, live scanning disabled; temporary synthetic credentials"
+    },
+    {
+      "command": "make audit",
+      "status": "passed_with_skip",
+      "note": "Initial scan reported 12 advisory entries (6 unique IDs) for bootstrap pip 25.0.1; after pip==26.2.2, no known vulnerabilities found. Local olympus-security 0.2.0 not on PyPI is skipped by pip-audit."
+    },
+    {
+      "command": "olympus core sbom --reproducible",
+      "status": "generated",
+      "note": "CycloneDX 1.5 output, not independently schema/conformance validated; marker correctness tracked SEC-F-02."
+    },
+    {
+      "command": "timeout 120 olympus core lock --extra api --extra report --output <scratch>/runtime-lock.txt",
+      "status": "timed_out",
+      "exit_code": 124,
+      "note": "No lock produced; hash-locked clean installation not demonstrated."
+    },
+    {
+      "command": "make secrets-scan",
+      "status": "unavailable",
+      "exit_code": 127,
+      "note": "gitleaks executable absent; no history/canary scan claimed."
+    },
+    {
+      "command": "python scripts/benchmark_hot_paths.py --profile quick",
+      "status": "completed",
+      "note": "Synthetic offline diagnostic; budgets not enforced, not a load/SLO proof."
+    },
+    {
+      "command": "python scripts/check_doc_links.py",
+      "status": "passed",
+      "note": "Internal links only; external URLs not fetched."
+    },
+    {
+      "command": "container/live-lab/CodeQL/browser/manual accessibility/Python-OS matrix",
+      "status": "not_executed",
+      "note": "No Docker/Podman/Gitleaks binaries; no browser suite or CodeQL workflow; no authorized live fixture environment configured. Tested Python 3.12/Linux only."
+    },
+    {
+      "command": "pytest test_maturity_docs.py test_scanner_maturity.py test_threat_model.py",
+      "status": "passed",
+      "note": "Documentation-related regressions rerun after final documentation changes."
+    },
+    {
+      "command": "canonical roadmap slice IDs/table/detail and dependency DAG validation",
+      "status": "passed",
+      "slices": 25
+    }
+  ],
+  "publication": "Recorded separately after push; this file is not proof of publication."
+}

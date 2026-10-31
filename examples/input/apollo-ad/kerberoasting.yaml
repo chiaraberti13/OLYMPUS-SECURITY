@@ -1,0 +1,12 @@
+schema_name: olympus.apollo-rule
+schema_version: 1.0.0
+rule_id: APL-AD-KERBEROAST
+title: Kerberoasting via RC4 service ticket request
+event_type: windows.security
+conditions:
+  event_id: 4769
+  ticket_encryption_type: rc4-hmac
+  service_name_is_krbtgt: false
+severity: high
+mitre_attack:
+  - T1558.003

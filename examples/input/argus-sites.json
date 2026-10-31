@@ -1,0 +1,123 @@
+[
+  {
+    "name": "GitHub",
+    "url_template": "https://github.com/{username}",
+    "present_status": [200],
+    "absent_status": [404],
+    "metadata_patterns": {
+      "bio": "<meta name=\"description\" content=\"([^\"]*)\""
+    }
+  },
+  {
+    "name": "GitLab",
+    "url_template": "https://gitlab.com/{username}",
+    "present_status": [200],
+    "absent_status": [404]
+  },
+  {
+    "name": "Reddit",
+    "url_template": "https://www.reddit.com/user/{username}",
+    "present_status": [200],
+    "absent_status": [404]
+  },
+  {
+    "name": "Twitch",
+    "url_template": "https://www.twitch.tv/{username}",
+    "present_status": [200],
+    "absent_status": [404]
+  },
+  {
+    "name": "Telegram",
+    "url_template": "https://t.me/{username}",
+    "present_status": [200],
+    "absent_status": [404]
+  },
+  {
+    "name": "Keybase",
+    "url_template": "https://keybase.io/{username}",
+    "present_status": [200],
+    "absent_status": [404]
+  },
+  {
+    "name": "Medium",
+    "url_template": "https://medium.com/@{username}",
+    "present_status": [200],
+    "absent_status": [404]
+  },
+  {
+    "name": "Dev.to",
+    "url_template": "https://dev.to/{username}",
+    "present_status": [200],
+    "absent_status": [404]
+  },
+  {
+    "name": "Replit",
+    "url_template": "https://replit.com/@{username}",
+    "present_status": [200],
+    "absent_status": [404]
+  },
+  {
+    "name": "HackerNews",
+    "url_template": "https://news.ycombinator.com/user?id={username}",
+    "present_status": [200],
+    "absent_status": [404],
+    "absent_body": "No such user."
+  },
+  {
+    "name": "Pinterest",
+    "url_template": "https://www.pinterest.com/{username}",
+    "present_status": [200],
+    "absent_status": [404]
+  },
+  {
+    "name": "SoundCloud",
+    "url_template": "https://soundcloud.com/{username}",
+    "present_status": [200],
+    "absent_status": [404]
+  },
+  {
+    "name": "npm",
+    "url_template": "https://www.npmjs.com/~{username}",
+    "present_status": [200],
+    "absent_status": [404]
+  },
+  {
+    "name": "PyPI",
+    "url_template": "https://pypi.org/user/{username}/",
+    "present_status": [200],
+    "absent_status": [404]
+  },
+  {
+    "name": "DockerHub",
+    "url_template": "https://hub.docker.com/u/{username}",
+    "present_status": [200],
+    "absent_status": [404]
+  },
+  {
+    "name": "About.me",
+    "url_template": "https://about.me/{username}",
+    "present_status": [200],
+    "absent_status": [404]
+  },
+  {
+    "name": "TikTok",
+    "url_template": "https://www.tiktok.com/@{username}",
+    "present_status": [200],
+    "absent_status": [404],
+    "metadata_patterns": {
+      "followers": "\"followerCount\":(\\d+)",
+      "following": "\"followingCount\":(\\d+)",
+      "likes": "\"heartCount\":(\\d+)",
+      "videos": "\"videoCount\":(\\d+)",
+      "bio": "\"signature\":\"([^\"]*)\"",
+      "avatar": "\"avatarLarger\":\"([^\"]*)\"",
+      "verified": "\"verified\":(true|false)"
+    }
+  },
+  {
+    "name": "YouTube",
+    "url_template": "https://www.youtube.com/@{username}",
+    "present_status": [200],
+    "absent_status": [404]
+  }
+]

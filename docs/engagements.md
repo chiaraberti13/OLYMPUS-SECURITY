@@ -1,0 +1,198 @@
+# Engagements
+
+An **engagement** is Olympus's top-level container for an authorized assessment.
+It owns the perimeter (included and excluded targets) and the authorization
+reference; assets, scans, jobs, findings, evidence, alerts, incidents and
+reports are associated with it by `engagement_id`. CLI, TUI, API and the Web UI
+reference the **same** `olympus.engagement` contract and the **same** database,
+never a private per-interface notion of scope (ROADMAP `WEB-B`).
+
+## Contract
+
+`olympus.engagement` (`src/olympus/core/models.py`, versioned like every other
+contract) carries:
+
+- `engagement_id` (e.g. `ENG-2026-00001`), `name`, `client`, `status`
+  (`planned` / `active` / `closed`);
+- `scope`: an `EngagementScope` with `included` (at least one) and optional
+  `excluded` targets. A host is in scope when it matches an included entry (the
+  entry covers itself and its subdomains) **and** does not match an excluded
+  entry. IP/CIDR matching is a planned extension; until then list IPs verbatim;
+- `authorization_reference`: a contract/approval id — never a secret;
+- timestamps, `tags` and a free-form string `metadata` map;
+- a deterministic `digest()` over the canonical encoding.
+
+## CLI
+
+The engagement database lives in the `--storage` directory (`engagements.db`,
+written owner-only).
+
+```bash
+# Create an engagement with an explicit in/out-of-scope perimeter
+olympus engagement create --name "ACME Oct 2026" --client ACME \
+  --include example.com --include api.example.com \
+  --exclude prod-db.example.com \
+  --authorization-reference CONTRACT-123 \
+  --storage ./workspace
+
+# List engagements (most recent first) and show one in full
+olympus engagement list --storage ./workspace
+olympus engagement show ENG-2026-00001 --storage ./workspace
+```
+
+Every command prints JSON for machine use. `show` on an unknown id exits `2`
+(usage), consistent with the canonical Olympus exit codes.
+
+### Portability — export and import (`WEB-J`)
+
+Engagements move between installations through portable, **versioned NDJSON**:
+one engagement per line, each the deterministic `olympus.engagement` document.
+Export is sorted by id (so the file is diffable and a round-trip is verifiable);
+import is strict and **all-or-nothing** — the whole file is parsed and validated
+against the contract before anything is written, so a malformed record imports
+nothing. Existing engagements with the same id are replaced (upsert).
+
+```bash
+# Export all engagements (or selected ids) to a portable NDJSON bundle
+olympus engagement export --storage ./workspace -o engagements.ndjson
+olympus engagement export --storage ./workspace --id ENG-2026-00001 -o one.ndjson
+
+# Import them into another installation's store without data loss
+olympus engagement import --storage /other/workspace -i engagements.ndjson
+```
+
+A malformed or incompatible bundle exits `2` (usage) and writes nothing.
+
+## Linking objects to an engagement
+
+Every engagement-scoped contract — `Asset`, `Finding`, `Event`, `Evidence`,
+`Alert`, `Incident` and `Observation` — carries an optional `engagement_id`
+(`core/models.py`, via the shared `EngagementScopedModel` base). It ties the
+object to the engagement that owns it, so CLI, TUI, API and Web scope the same
+objects identically instead of each inventing a private notion of ownership.
+
+The field is **optional and additive** (the contract stays at `schema_version`
+`1.0.0`): objects produced outside any engagement, or persisted before `WEB-B`,
+leave it `None`. When set it must be a canonical engagement id
+(`ENG-YYYY-NNNNN`); the value is upper-cased and validated, and a malformed id
+raises a `ValidationError`.
+
+```python
+from olympus.core.models import Finding
+from olympus.core.enums import Source
+
+finding = Finding(
+    asset_id="AST-2026-00001",
+    source=Source.THEMIS,
+    title="Outdated component",
+    engagement_id="ENG-2026-00001",  # ties this finding to the engagement
+)
+```
+
+### Association primitives
+
+Rather than copy the `engagement_id` by hand, producers use the helpers on the
+`Engagement` model so the link is set the same way everywhere:
+
+- `engagement.stamp(obj)` returns a **copy** of any engagement-scoped object
+  (`Asset`, `Finding`, `Alert`, …) linked to the engagement, without mutating the
+  original. The concrete type is preserved (a stamped `Finding` is a `Finding`).
+- `engagement.stamp_all(objects)` stamps an iterable in one call.
+- `engagement.covers(host)` forwards to `EngagementScope.covers`, so a producer
+  can scope-check a host against the engagement without reaching into `scope`.
+
+```python
+from olympus.engagements.store import SqliteEngagementStore
+
+store = SqliteEngagementStore(Path("./workspace/engagements.db"))
+engagement = store.require("ENG-2026-00001")  # raises if the id is unknown
+
+if engagement.covers("api.example.com"):
+    findings = engagement.stamp_all(raw_findings)  # each linked to ENG-2026-00001
+```
+
+`SqliteEngagementStore.require(engagement_id)` resolves an engagement or raises
+`EngagementStoreError`, so an unknown id fails loudly at the source instead of
+silently stamping objects with a dangling reference.
+
+### Signed manifest revocation (SEC-C)
+
+The shared SQLite store also persists signed-manifest revocations. Call
+`revoke_manifest(signed_manifest, trusted_public_key_pem=...)` to verify the
+manifest digest and signature before recording its digest and manifest id.
+`authorize_manifest(...)` loads that durable revocation set and
+delegates target, technique, and time checks to the signed-manifest verifier.
+The database is local owner-only state, not a tamper-evident or distributed
+revocation service. CLI submission always uses it; API and Web submissions use
+it whenever their pinned manifest public key is configured, and workers recheck
+the retained document immediately before execution.
+
+## API and Web (slice 3)
+
+The same engagements are readable over the HTTP control plane and the browser
+UI, backed by the **same** store. The shared behaviour (opening the store for a
+short-lived read, deriving the scoped host from a typed target, answering
+whether an engagement authorizes a target) lives once in
+`olympus.engagements.resolve` and both interfaces call it, so the two are
+genuinely identical rather than merely similar.
+
+Start either service with `--engagement-storage <dir>` pointing at the directory
+that holds `engagements.db`:
+
+```bash
+olympus themis api --engagement-storage ./workspace --scope-directory ./scopes
+olympus themis web --engagement-storage ./workspace --scope-directory ./scopes \
+  --manifest-public-key ./approver-ed25519-public.pem
+```
+
+The same store also protects the direct execution path. A live invocation must
+provide the signed document and pinned key explicitly; Olympus rechecks the
+revocation register and binds a generated job ID plus the manifest digest to the
+result and audit. `--simulate` remains offline and intentionally needs neither:
+
+```bash
+olympus themis run nmap --target lab.example --scope ./scopes/lab.json \
+  --i-am-authorized --signed-manifest ./engagement.signed.json \
+  --manifest-public-key ./approver-ed25519-public.pem \
+  --engagement-storage ./workspace
+```
+
+For a directly controlled routed lab, the separate `--lab-policy` path is
+available instead of an engagement manifest. It requires an explicitly named
+policy, a non-empty engagement, an enabled and attributable `[lab]` block, exact
+eligible CIDRs, `--i-am-authorized`, and an HMAC activation signature from
+`OLYMPUS_POLICY_LAB_KEY`. Every resolved address must be inside both the Themis
+scope and the lab CIDRs. The two authorization modes cannot be combined, and
+the lab exception is not available to API, Web, queued jobs, or workers.
+
+- **API** (`engagements:read` scope): `GET /api/v1/engagements` returns the
+  `olympus.themis-engagement-list` contract; `GET /api/v1/engagements/{id}`
+  returns the `olympus.engagement` document, or `404` for an unknown id. With no
+  store configured the routes answer `503` ("not configured") rather than an
+  empty list that would falsely imply there are no engagements.
+- **Web** (`engagements:read` scope): `GET /engagements` and
+  `GET /engagements/{id}` browse the same engagements, read-only (engagements are
+  created from the CLI), with the same redaction as the rest of the UI. When a
+  trusted manifest key is configured, its assessment preview and launch forms
+  also require and independently verify the signed document before queueing.
+
+### Scope enforcement derived from the engagement
+
+A job submission may carry an optional `engagement_id` (canonical
+`ENG-YYYY-NNNNN`). When present, both `POST /api/v1/jobs` and the web
+new-assessment form resolve the engagement from the shared store and refuse any
+target outside its perimeter **before** the job is queued — using the
+engagement's own `covers()` logic, with the host taken from the typed target (a
+`url` target by its hostname). An out-of-scope target is `422`, an unknown
+engagement `404`, and an `engagement_id` with no store configured `400`. The
+check is identical on the API and the Web, so an engagement's scope is enforced
+the same way from every channel.
+
+## Status
+
+`WEB-B` is **complete**. The shared contract, the store and the CLI (slice 1),
+the optional `engagement_id` on the core scoped contracts with the association
+primitives and the Athena/Themis produce-time wiring (slice 2), and the API/Web
+exposure with engagement-derived scope enforcement (slice 3) are all in place —
+on this one model and store, read and operated identically from CLI, TUI, API
+and Web.

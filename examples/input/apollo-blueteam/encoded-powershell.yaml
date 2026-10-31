@@ -1,0 +1,12 @@
+schema_name: olympus.apollo-rule
+schema_version: 1.0.0
+rule_id: APL-BT-PWSH-ENCODED
+title: PowerShell launched with an encoded command
+event_type: windows.security
+conditions:
+  event_id: "4688"
+  process_name: powershell.exe
+  has_encoded_command: "true"
+severity: high
+mitre_attack:
+  - T1059.001

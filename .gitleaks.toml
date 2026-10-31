@@ -1,0 +1,35 @@
+# Gitleaks configuration for Olympus.
+#
+# Production code under src/ is scanned for real secrets with the full default
+# rule set. Test and example directories hold *synthetic, by-design* fixtures
+# (fake API keys used to exercise the tools, documentation-range sample data),
+# so they are allowlisted to avoid false positives — no real credential ever
+# lives there.
+
+title = "Olympus gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Synthetic fixtures and documentation samples contain no real secrets."
+paths = [
+  '''tests/.*''',
+  '''examples/.*''',
+  # Vendored upstream tools carry their own synthetic fixtures and example
+  # configs (placeholder .env.example values, test data). No real secret is
+  # committed under vendor/.
+  '''vendor/.*''',
+]
+regexes = [
+  # Placeholder API-key values used by unit tests (never real credentials).
+  '''OLYMPUS_(NUMVERIFY|RAPIDAPI)_KEY''',
+  # Source identifiers, not secrets: the custody Ed25519 key environment
+  # variable names (SEC-E), the cryptography library type names
+  # (``Ed25519PrivateKey``) and the parameter/docstring identifiers
+  # (``ed25519_private_key``). The real key material lives only in the
+  # environment/keyring, never in the source, so the generic-api-key rule
+  # matching the word "private key" in these identifiers is a false positive.
+  # This matches the identifier spelling only, never a hex/base64 key value.
+  '''(?i)ed25519_?(private|public)_?key''',
+]

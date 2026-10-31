@@ -1,0 +1,12 @@
+schema_name: olympus.apollo-rule
+schema_version: 1.0.0
+rule_id: APL-BT-OFFICE-SHELL
+title: Office application spawned a command shell (malicious document)
+event_type: windows.sysmon
+conditions:
+  event_id: "1"
+  parent_image_is_office: "true"
+  child_is_shell: "true"
+severity: high
+mitre_attack:
+  - T1204.002

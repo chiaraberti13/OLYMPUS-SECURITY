@@ -1,0 +1,4 @@
+{
+  "engagement": "olympus-demo-corp-2026",
+  "allowed_networks": ["192.0.2.0/24", "2001:db8::/32"]
+}

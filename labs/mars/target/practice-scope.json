@@ -1,0 +1,6 @@
+{
+  "engagement": "mars-practice-range",
+  "allowed_origins": ["http://127.0.0.1:8081"],
+  "allowed_path_prefixes": ["/"],
+  "allowed_ip_networks": ["127.0.0.0/8"]
+}

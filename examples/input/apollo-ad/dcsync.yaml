@@ -1,0 +1,12 @@
+schema_name: olympus.apollo-rule
+schema_version: 1.0.0
+rule_id: APL-AD-DCSYNC
+title: Active Directory DCSync (replication) by non-DC principal
+event_type: windows.security
+conditions:
+  event_id: 4662
+  property_access: DS-Replication-Get-Changes-All
+  actor_is_domain_controller: false
+severity: critical
+mitre_attack:
+  - T1003.006

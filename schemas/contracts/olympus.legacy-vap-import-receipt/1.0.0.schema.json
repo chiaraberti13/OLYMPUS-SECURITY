@@ -1,0 +1,149 @@
+{
+  "$defs": {
+    "LegacyVapImportReceiptEntry": {
+      "additionalProperties": false,
+      "description": "One idempotently imported terminal record with minimized provenance.",
+      "properties": {
+        "configuration_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Configuration Sha256"
+        },
+        "findings_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Findings Sha256"
+        },
+        "job_id": {
+          "pattern": "^THEMIS-[A-F0-9]{32}$",
+          "title": "Job Id",
+          "type": "string"
+        },
+        "migration_key": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Migration Key",
+          "type": "string"
+        },
+        "native_job_state": {
+          "enum": [
+            "partial",
+            "failed",
+            "cancelled"
+          ],
+          "title": "Native Job State",
+          "type": "string"
+        },
+        "native_scanner": {
+          "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+          "title": "Native Scanner",
+          "type": "string"
+        },
+        "target_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Target Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "migration_key",
+        "job_id",
+        "target_sha256",
+        "native_scanner",
+        "native_job_state"
+      ],
+      "title": "LegacyVapImportReceiptEntry",
+      "type": "object"
+    }
+  },
+  "$id": "urn:olympus:schema:olympus.legacy-vap-import-receipt:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Create-only receipt for a non-executable historical import.",
+  "properties": {
+    "approval_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Approval Sha256",
+      "type": "string"
+    },
+    "backup_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Backup Sha256",
+      "type": "string"
+    },
+    "engagement_id": {
+      "pattern": "^ENG-[0-9]{4}-[0-9]{5}$",
+      "title": "Engagement Id",
+      "type": "string"
+    },
+    "executable_jobs_created": {
+      "const": 0,
+      "default": 0,
+      "title": "Executable Jobs Created",
+      "type": "integer"
+    },
+    "historical_execution_authorized": {
+      "const": false,
+      "default": false,
+      "title": "Historical Execution Authorized",
+      "type": "boolean"
+    },
+    "imported_count": {
+      "maximum": 100000,
+      "minimum": 1,
+      "title": "Imported Count",
+      "type": "integer"
+    },
+    "imports": {
+      "items": {
+        "$ref": "#/$defs/LegacyVapImportReceiptEntry"
+      },
+      "maxItems": 100000,
+      "minItems": 1,
+      "title": "Imports",
+      "type": "array"
+    },
+    "schema_name": {
+      "const": "olympus.legacy-vap-import-receipt",
+      "default": "olympus.legacy-vap-import-receipt",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "signed_manifest_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Signed Manifest Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "approval_sha256",
+    "backup_sha256",
+    "signed_manifest_sha256",
+    "engagement_id",
+    "imported_count",
+    "imports"
+  ],
+  "title": "LegacyVapImportReceipt",
+  "type": "object"
+}

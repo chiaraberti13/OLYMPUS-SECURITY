@@ -1,0 +1,11 @@
+schema_name: olympus.apollo-rule
+schema_version: 1.0.0
+rule_id: APL-METABASE-RESETPW-SQLI
+title: Metabase reset-password SQL injection attempt
+event_type: web.request
+conditions:
+  http_path: /api/session/reset_password
+  injection_detected: sql
+severity: critical
+mitre_attack:
+  - T1190

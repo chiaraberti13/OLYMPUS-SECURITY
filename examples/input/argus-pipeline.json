@@ -1,0 +1,31 @@
+{
+  "schema_name": "olympus.argus-pipeline-preset",
+  "schema_version": "1.0.0",
+  "name": "offline-osint-intake",
+  "seeds": [
+    {
+      "type": "url",
+      "value": "https://portal.lab.example/login",
+      "tags": ["authorized-fixture"]
+    },
+    {
+      "type": "email",
+      "value": "soc@lab.example",
+      "tags": ["authorized-fixture"]
+    },
+    {
+      "type": "phone",
+      "value": "+390212345678",
+      "tags": ["synthetic-fixture"]
+    }
+  ],
+  "modules": [
+    "url-host",
+    "email-domain",
+    "domain-parent",
+    "phone-profile"
+  ],
+  "blacklist": [],
+  "max_depth": 3,
+  "max_events": 100
+}

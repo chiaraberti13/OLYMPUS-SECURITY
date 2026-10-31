@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "asset_id": "AST-2026-00001",
+      "cvss": null,
+      "description": "A bounded TCP handshake succeeded on 192.0.2.10:443.",
+      "evidence": [
+        "tcp://192.0.2.10:443"
+      ],
+      "finding_id": "FND-2026-00001",
+      "first_seen": "2026-08-14T07:43:32.267724Z",
+      "last_seen": "2026-08-14T07:43:32.267733Z",
+      "references": [],
+      "remediation": "",
+      "schema_name": "olympus.finding",
+      "schema_version": "1.0.0",
+      "severity": "info",
+      "source": "helios",
+      "status": "new",
+      "title": "TCP port 443 exposed"
+    }
+  ],
+  "schema_name": "olympus.helios-findings",
+  "schema_version": "1.0.0"
+}

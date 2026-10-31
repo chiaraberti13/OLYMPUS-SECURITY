@@ -1,0 +1,178 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "olympus-security"
+version = "0.2.0"
+description = "Olympus — an offensive-security platform (Red + Blue) with a shared data contract."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "GPL-3.0-only" }
+authors = [{ name = "Olympus Security" }]
+dependencies = [
+    # The TUI traverses the Click command tree emitted by Typer; keep this
+    # runtime contract explicit instead of relying on Typer's dependency set.
+    "click>=8.1",
+    "pydantic>=2.6",
+    "typer>=0.12",
+    "dnspython>=2.6",
+    "phonenumbers>=8.13",
+    "rich>=13.0",
+    "textual>=0.85",
+    # Authenticated symmetric encryption for sensitive CTI at rest (Metis §2).
+    # A vetted library, not hand-rolled crypto: Fernet (AES-128-CBC + HMAC) with
+    # an scrypt KDF.
+    "cryptography>=42.0",
+    # Scanner output is untrusted XML; defusedxml disables entity expansion
+    # and external references at the parser boundary.
+    "defusedxml>=0.7.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "pre-commit>=3.7",
+    "httpx>=0.27",
+    "pyyaml>=6.0",  # Validate native deployment contracts without a Docker daemon.
+    "hypothesis>=6.98",
+    "mutmut>=3.5,<4",
+    "types-defusedxml>=0.7.0",
+]
+api = [
+    "fastapi>=0.109",
+    "PyJWT[crypto]>=2.10,<3",
+    "uvicorn[standard]>=0.27",
+    # The native web control plane (olympus themis web) renders server-side
+    # templates and parses typed HTML forms; both ship with the API surface so
+    # `.[api]` is enough to run and test it.
+    "jinja2>=3.1",
+    "python-multipart>=0.0.6",
+]
+observability = [
+    "prometheus-client>=0.19",
+    "opentelemetry-api>=1.27",
+    "opentelemetry-sdk>=1.27",
+    "opentelemetry-exporter-otlp-proto-http>=1.27",
+]
+# Native Themis API/Web runtime. Migrations and workers use stdlib SQLite and
+# the core application service; no vendored app, Redis, Celery or Alembic.
+# External scanner binaries are installed separately (docker/Dockerfile.scanners).
+themis = [
+    "fastapi>=0.109",
+    "PyJWT[crypto]>=2.10,<3",
+    "uvicorn[standard]>=0.27",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.6",
+]
+# Deprecated alias for the Themis extra (kept for backward compatibility).
+vap = [
+    "olympus-security[themis]",
+]
+# Formatted PDF reports (Vulcan). ReportLab is a pure-Python engine with no
+# system binaries, so `olympus vulcan report --pdf` and `athena run --report`
+# stay fully offline and reproducible. Without this extra the other report
+# formats (JSON/Markdown/HTML) are unaffected.
+report = [
+    "reportlab>=4.0",
+]
+
+[project.scripts]
+olympus = "olympus.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/olympus"]
+
+# ---------------------------------------------------------------------------
+# Quality tooling
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "C4", "SIM", "PTH", "RUF"]
+# S101 (assert) is fine in tests; handled per-file below.
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S603"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["typer.Option", "typer.Argument"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["olympus"]
+
+# Mypy is a blocking CI check over first-party code.
+[tool.mypy]
+python_version = "3.11"
+strict = true
+plugins = ["pydantic.mypy"]
+mypy_path = "src"
+packages = ["olympus"]
+warn_unused_configs = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+# ReportLab (optional 'report' extra) ships no type information, so strict mypy
+# cannot resolve its symbols. The dependency is isolated to olympus.vulcan.pdf.
+[[tool.mypy.overrides]]
+module = ["reportlab.*", "keyring.*"]
+ignore_missing_imports = true
+
+# Pytest is a blocking CI check; branch coverage is checked separately so the
+# threshold measures executed control-flow edges, not the combined line metric.
+[tool.pytest.ini_options]
+addopts = "-q --strict-markers"
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = [
+    "unit: isolated component tests with external effects mocked or absent",
+    "contract: versioned schema and adapter boundary tests",
+    "integration: offline tests across multiple Olympus components or CLI flows",
+    "container: tests requiring a container runtime (explicit opt-in)",
+    "live_lab: tests against an explicitly authorized isolated lab (explicit opt-in)",
+    "posix_only: exercises POSIX process isolation and kernel-enforced limits",
+    "linux_only: requires Linux-specific kernel interfaces such as /proc",
+    "root_only: requires a privileged parent that can drop to the sandbox user",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["olympus"]
+
+# Mutation testing runs only against security and correctness boundaries with
+# a dedicated, fast test selection. It is POSIX-only, so CI runs it on Ubuntu.
+[tool.mutmut]
+source_paths = ["src/olympus"]
+only_mutate = [
+    "src/olympus/athena/scope.py",
+    "src/olympus/core/execution.py",
+    "src/olympus/engagements/manifest.py",
+    "src/olympus/themis/adapters/nmap.py",
+    "src/olympus/themis/api.py",
+    "src/olympus/themis/concurrency.py",
+    "src/olympus/themis/legacy_vap.py",
+    "src/olympus/themis/jobs.py",
+    "src/olympus/themis/identity.py",
+    "src/olympus/themis/oidc.py",
+    "src/olympus/themis/sandbox.py",
+    "src/olympus/themis/scope.py",
+    "src/olympus/core/coverage.py",
+    "src/olympus/minerva/provenance.py",
+    "src/olympus/minerva/vault.py",
+    "src/olympus/findings/store.py",
+    "src/olympus/athena/cli.py",
+    "src/olympus/athena/domain/assessment.py",
+]
+pytest_add_cli_args_test_selection = ["tests/mutation/"]
+process_isolation = "forkserver"
+
+[tool.olympus.coverage]
+branch_fail_under = 75.0

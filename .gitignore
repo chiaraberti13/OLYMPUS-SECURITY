@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+build/
+dist/
+# Test / coverage
+.pytest_cache/
+.coverage
+.coverage-report.json
+mutants/
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+# Secrets / env — NEVER commit
+.env
+*.pem
+*.key
+/.olympus/
+
+# Engagement-local execution policy (bounds, declared scope and lab ranges).
+# It describes one engagement's authorized surface: it belongs to the operator,
+# not to the repository. See docs/policy.md.
+/olympus.policy.toml
+/olympus.toml
+# OS
+.DS_Store
+
+# Default report names. Reports default to a plain filename in the working
+# directory, so running the CLI from a checkout drops them at the repo root.
+# They are outputs of a demo run, never sources.
+/apollo-alerts.json
+/argus-assets.json
+/argus-dns.json
+/argus-email.json
+/argus-fronting.json
+/argus-investigation.json
+/argus-web.json
+/argus-whois.json
+/helios-findings.json
+/hermes-results.sarif
+/minerva-custody.json
+/minerva-incident.json
+/proteus-campaign.json
+/proteus-training.html
+/vulcan-report.json
+/vulcan-report.md
+/vulcan-report.html
+
+# Hypothesis example database (local test cache)
+.hypothesis/
+__pycache__/
+*.pyc

@@ -1,0 +1,20 @@
+# Mars — cyber range. A segmented, isolated target environment for practising
+# the Olympus tools against a legal, synthetic, vulnerable-by-design target.
+services:
+  target-web:
+    image: python:3.11-alpine
+    working_dir: /srv
+    command: ["python", "/srv/target/app.py"]
+    environment:
+      # Bind all interfaces *inside the container*; the host mapping below keeps
+      # the range reachable only from the host's loopback.
+      MARS_BIND_HOST: "0.0.0.0"
+    volumes:
+      - ./target:/srv/target:ro
+    # The practice app binds 127.0.0.1 inside the container; expose it to the
+    # host loopback only, so the range is never reachable off this machine.
+    ports:
+      - "127.0.0.1:8081:8081"
+    networks: [dmz]
+networks:
+  dmz:

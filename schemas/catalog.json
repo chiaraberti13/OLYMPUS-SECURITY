@@ -1,0 +1,174 @@
+{
+  "contracts": [
+    {
+      "direction": "shared",
+      "name": "olympus.alert",
+      "path": "contracts/olympus.alert/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "46c028e0abd0567252db2ac54692b3558a08a7b9ada797cf865946e242745817"
+    },
+    {
+      "direction": "output",
+      "name": "olympus.argus-pipeline",
+      "path": "contracts/olympus.argus-pipeline/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "49ed7446997e3d1ea77f8e18cda7b1de9b6a6958dca8df788e345d8e6cfc2a77"
+    },
+    {
+      "direction": "input",
+      "name": "olympus.argus-pipeline-preset",
+      "path": "contracts/olympus.argus-pipeline-preset/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "cba1a64167f7b1782d410fe4696c9179bae05a3b6d47e57367021dd81acee5bd"
+    },
+    {
+      "direction": "shared",
+      "name": "olympus.asset",
+      "path": "contracts/olympus.asset/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "6f5393cffd30154a4976f6b620bc36b5b1f52656ab27479b8239dbbdd05870cd"
+    },
+    {
+      "direction": "input",
+      "name": "olympus.athena.plan",
+      "path": "contracts/olympus.athena.plan/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "7c054ec93129cc73d960f7b0603873384c17096b417800200ecdaf5c15fcdcdb"
+    },
+    {
+      "direction": "output",
+      "name": "olympus.athena.result",
+      "path": "contracts/olympus.athena.result/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "15a6e8dc45b98fce5e00a776c93ba9478cdd44c3e9a17eb4270a800a2d164345"
+    },
+    {
+      "direction": "shared",
+      "name": "olympus.engagement",
+      "path": "contracts/olympus.engagement/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "dc33512c942fbbc1a13e2ac68f70ca61f9911680bea35d4e21f7e4e1f31ade02"
+    },
+    {
+      "direction": "input",
+      "name": "olympus.engagement-manifest",
+      "path": "contracts/olympus.engagement-manifest/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "bd433d2a5edcf22bc4c1fcfd7621431c0a9f0c203da77bf4897ee2b7604fceb6"
+    },
+    {
+      "direction": "shared",
+      "name": "olympus.event",
+      "path": "contracts/olympus.event/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "6cdd4e2cd970ad60e0846fe70c44494d7433c114d15eb824d0ccf93afaa8b3a1"
+    },
+    {
+      "direction": "shared",
+      "name": "olympus.evidence",
+      "path": "contracts/olympus.evidence/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "60a486341663b846262310b181bada8c748460119d28cec02cdd80a80ee06857"
+    },
+    {
+      "direction": "shared",
+      "name": "olympus.finding",
+      "path": "contracts/olympus.finding/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "f2bb7ceac01764c5cf4e51ee56408f66634f82fe91b703dd52b5e2f6cf4d9f23"
+    },
+    {
+      "direction": "shared",
+      "name": "olympus.finding-transition",
+      "path": "contracts/olympus.finding-transition/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "37ebc5d2762401509b9318622b3ae4e2626c61cfde2e5cf0082d055979fb4071"
+    },
+    {
+      "direction": "shared",
+      "name": "olympus.incident",
+      "path": "contracts/olympus.incident/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "4134d58557048e70a2de4c62095dcfcb536953328ad05bb2ccb67b00115c6018"
+    },
+    {
+      "direction": "output",
+      "name": "olympus.legacy-vap-conversion-plan",
+      "path": "contracts/olympus.legacy-vap-conversion-plan/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "9e006463d63161a54060d3da0b1318dbfe376ecbe9eb72cf09c0d2ef16814eab"
+    },
+    {
+      "direction": "output",
+      "name": "olympus.legacy-vap-import-approval",
+      "path": "contracts/olympus.legacy-vap-import-approval/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "31910d0c0c22fb1d944c3049a3d2f943eb8c1da8e99ab202a424d4f815d66a88"
+    },
+    {
+      "direction": "output",
+      "name": "olympus.legacy-vap-import-receipt",
+      "path": "contracts/olympus.legacy-vap-import-receipt/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "8eb96389eca503bfe11579824025084873cbccc2e09f6b045a2e0d43e44e9d72"
+    },
+    {
+      "direction": "output",
+      "name": "olympus.legacy-vap-snapshot",
+      "path": "contracts/olympus.legacy-vap-snapshot/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "bbf75da6303af2aae6189b78717ffc3edc85d4e88e36a82711d9a48d7a538975"
+    },
+    {
+      "direction": "output",
+      "name": "olympus.metis-case",
+      "path": "contracts/olympus.metis-case/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "13a85e310fe6c00e751b2215e279fcf5a0cfc11b484286b21cff1c19236617aa"
+    },
+    {
+      "direction": "output",
+      "name": "olympus.metis-plan",
+      "path": "contracts/olympus.metis-plan/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "876fc509197b70fac11e5f9c37145e5d02710fbed855089843f907b23fda2d49"
+    },
+    {
+      "direction": "output",
+      "name": "olympus.notification",
+      "path": "contracts/olympus.notification/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "d7e1389b0c7c104558fbd1eb032c470209f75404ed938a63467496f4061bc570"
+    },
+    {
+      "direction": "shared",
+      "name": "olympus.observation",
+      "path": "contracts/olympus.observation/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "eda499c5a19e69edd810a52a64a2952afdd10877f183440a8638626f65f9386d"
+    },
+    {
+      "direction": "shared",
+      "name": "olympus.scan-job",
+      "path": "contracts/olympus.scan-job/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "0134ac2715c110faf22816f4d87345a211f10ba9e0b38c1c19dc58114454d9bd"
+    },
+    {
+      "direction": "output",
+      "name": "olympus.security-report",
+      "path": "contracts/olympus.security-report/1.1.0.schema.json",
+      "schema_version": "1.1.0",
+      "sha256": "4cefb122d111292231c117a80319c2d30c0025a0d72bfa4d17b0ead9cc7058fc"
+    },
+    {
+      "direction": "input",
+      "name": "olympus.signed-engagement-manifest",
+      "path": "contracts/olympus.signed-engagement-manifest/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "3f9c08ca36d407693074ce6ff25cb3773538b8706942f36ae3e236144daab1c2"
+    }
+  ],
+  "schema_name": "olympus.schema-catalog",
+  "schema_version": "1.0.0"
+}

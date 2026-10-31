@@ -1,0 +1,158 @@
+{
+  "$defs": {
+    "PipelineEdge": {
+      "additionalProperties": false,
+      "description": "One provenance edge between emitted events.",
+      "properties": {
+        "module": {
+          "title": "Module",
+          "type": "string"
+        },
+        "source_event_id": {
+          "title": "Source Event Id",
+          "type": "string"
+        },
+        "target_event_id": {
+          "title": "Target Event Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_event_id",
+        "target_event_id",
+        "module"
+      ],
+      "title": "PipelineEdge",
+      "type": "object"
+    },
+    "ReconEvent": {
+      "additionalProperties": false,
+      "description": "Normalized event stored in the pipeline document.",
+      "properties": {
+        "attributes": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Attributes",
+          "type": "object"
+        },
+        "depth": {
+          "maximum": 8,
+          "minimum": 0,
+          "title": "Depth",
+          "type": "integer"
+        },
+        "discovered_by": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Discovered By",
+          "type": "string"
+        },
+        "event_id": {
+          "pattern": "^evt-[a-f0-9]{24}$",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_type": {
+          "$ref": "#/$defs/ReconEventType"
+        },
+        "tags": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "title": "Tags",
+          "type": "array"
+        },
+        "value": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id",
+        "event_type",
+        "value",
+        "depth",
+        "discovered_by"
+      ],
+      "title": "ReconEvent",
+      "type": "object"
+    },
+    "ReconEventType": {
+      "enum": [
+        "domain",
+        "email",
+        "host",
+        "ip",
+        "phone",
+        "url",
+        "username"
+      ],
+      "title": "ReconEventType",
+      "type": "string"
+    }
+  },
+  "$id": "urn:olympus:schema:olympus.argus-pipeline:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Portable, bounded pipeline result.",
+  "properties": {
+    "blocked": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 100000,
+      "title": "Blocked",
+      "type": "array"
+    },
+    "edges": {
+      "items": {
+        "$ref": "#/$defs/PipelineEdge"
+      },
+      "maxItems": 200000,
+      "title": "Edges",
+      "type": "array"
+    },
+    "events": {
+      "items": {
+        "$ref": "#/$defs/ReconEvent"
+      },
+      "maxItems": 100000,
+      "title": "Events",
+      "type": "array"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "schema_name": {
+      "const": "olympus.argus-pipeline",
+      "default": "olympus.argus-pipeline",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "truncated": {
+      "default": false,
+      "title": "Truncated",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "name",
+    "events",
+    "edges"
+  ],
+  "title": "PipelineDocument",
+  "type": "object"
+}

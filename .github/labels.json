@@ -1,0 +1,52 @@
+[
+  {
+    "name": "area:security",
+    "color": "D73A4A",
+    "description": "Cybersecurity, guardrails and threat-model work"
+  },
+  {
+    "name": "area:dev",
+    "color": "0075CA",
+    "description": "Architecture, code quality, CI and release engineering"
+  },
+  {
+    "name": "area:ux",
+    "color": "7057FF",
+    "description": "CLI, TUI, accessibility and user experience"
+  },
+  {
+    "name": "area:ops",
+    "color": "0E8A16",
+    "description": "Red, Blue and Purple Team operational capabilities"
+  },
+  {
+    "name": "P0",
+    "color": "B60205",
+    "description": "Blocks safe use or a reliable release"
+  },
+  {
+    "name": "P1",
+    "color": "D93F0B",
+    "description": "High value and high priority"
+  },
+  {
+    "name": "P2",
+    "color": "FBCA04",
+    "description": "Important improvement"
+  },
+  {
+    "name": "P3",
+    "color": "C2E0C6",
+    "description": "Later evolution"
+  },
+  {
+    "name": "roadmap",
+    "color": "5319E7",
+    "description": "Tracks an intervention in ROADMAP.md"
+  },
+  {
+    "name": "bug",
+    "color": "D73A4A",
+    "description": "Behaviour differs from the documented contract"
+  }
+]

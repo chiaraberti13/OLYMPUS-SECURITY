@@ -1,0 +1,7 @@
+../../etc/passwd
+/etc/passwd
+..\\windows\\system32
+sub/dir/report.json
+..
+.
+

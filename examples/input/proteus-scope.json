@@ -1,0 +1,5 @@
+{
+  "engagement": "olympus-demo-corp-2026",
+  "allowed_domains": ["olympusdemocorp.example", "example.com"],
+  "allowed_landing_origins": ["https://training.olympusdemocorp.example"]
+}

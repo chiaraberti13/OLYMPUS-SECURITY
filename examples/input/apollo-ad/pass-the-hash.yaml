@@ -1,0 +1,13 @@
+schema_name: olympus.apollo-rule
+schema_version: 1.0.0
+rule_id: APL-AD-PASS-THE-HASH
+title: NTLM pass-the-hash network logon
+event_type: windows.security
+conditions:
+  event_id: 4624
+  logon_type: 3
+  authentication_package: NTLM
+  key_length: 0
+severity: high
+mitre_attack:
+  - T1550.002

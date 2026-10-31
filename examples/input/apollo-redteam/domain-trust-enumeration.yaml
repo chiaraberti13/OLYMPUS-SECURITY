@@ -1,0 +1,12 @@
+schema_name: olympus.apollo-rule
+schema_version: 1.0.0
+rule_id: APL-RT-DOMAIN-TRUST-ENUM
+title: Domain trust enumeration via nltest (AD discovery)
+event_type: windows.sysmon
+conditions:
+  event_id: "1"
+  process_name: nltest.exe
+  command_line_flag: /domain_trusts
+severity: low
+mitre_attack:
+  - T1482

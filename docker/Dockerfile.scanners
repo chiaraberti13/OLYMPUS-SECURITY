@@ -1,0 +1,108 @@
+# Native THEMIS worker image WITH the open-source scanner binaries baked in.
+#
+# The default stack (docker-compose.yml) builds the native, Python-only THEMIS
+# image; a scanner whose external binary is absent reports "tool not installed"
+# and everything else works. This image adds every *redistributable* scanner so
+# those integrations run end to end inside the container. Use it with:
+#
+#     docker compose -f docker-compose.yml -f docker-compose.scanners.yml up --build
+#
+# Coverage of the 24-scanner catalogue:
+#   apt      : nmap, nikto, whatweb  (+ dnsutils/whois/testssl helpers)
+#   pip      : sqlmap, wafw00f, arjun, wapiti3, dirsearch, xsstrike, commix,
+#              theHarvester
+#   go       : nuclei, httpx, katana, subfinder, dalfox
+#   git      : testssl.sh, NoSQLMap
+#   gem      : wpscan            (WPScan Public Source licence; free API token
+#                                 required for the vulnerability database)
+#   API/daemon or commercial (NOT installable here — see docs/scanner-matrix.md
+#   and `olympus themis deps`): zap, openvas, nessus, burp, acunetix.
+#
+# Every extra *scanner* install is best-effort ("|| true") so a single
+# unavailable tool never fails the image build; `olympus themis deps` reports what
+# is actually present at runtime. The mandatory base image and the Go toolchain
+# targets, by contrast, are pinned: the base by digest and the Go scanners to
+# exact versions, so a rebuild is reproducible instead of tracking a moving tag.
+#
+# To refresh the base digest: `docker manifest inspect python:3.11-slim`.
+FROM python:3.11-slim@sha256:9534e5a8e315485d4061ed659af0fd78a284c015f9b73661b41d6bab25604534
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    DEBIAN_FRONTEND=noninteractive \
+    GOBIN=/usr/local/bin \
+    PATH=/usr/local/go/bin:/usr/local/bin:$PATH
+
+# Mandatory toolchain + helpers (strict): the pip/go/gem/git layers below need
+# these, so a failure here *should* fail the build.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        dnsutils whois curl ca-certificates git \
+        golang-go ruby ruby-dev build-essential bsdmainutils \
+    && rm -rf /var/lib/apt/lists/*
+
+# apt-native scanners (best-effort, as the catalogue note promises): a scanner
+# the distribution no longer ships — e.g. nikto was dropped from recent Debian —
+# must NOT fail the whole image. Install them tolerantly and let
+# `olympus themis deps` report what is actually present at runtime.
+RUN apt-get update \
+    && (apt-get install -y --no-install-recommends nmap whatweb || true) \
+    && (apt-get install -y --no-install-recommends nikto || true) \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Python scanners (best-effort).
+COPY pyproject.toml README.md LICENSE ./
+COPY src ./src
+COPY --chown=0:0 deploy/security/scanner-runtime-attestation.json \
+    /etc/olympus/scanner-runtime.json
+# Pin the trust anchor's mode: root-owned, not group/other writable, or
+# require_scanner_isolation() rejects it (COPY preserves the context's 0664).
+RUN chmod 0444 /etc/olympus/scanner-runtime.json
+RUN pip install --no-cache-dir ".[api,report]" \
+    && (pip install --no-cache-dir \
+          sqlmap wafw00f arjun wapiti3 dirsearch commix theHarvester || true)
+
+# XSStrike + NoSQLMap + testssl.sh (git-distributed) into /opt with launchers.
+RUN set -eux; \
+    git clone --depth 1 https://github.com/s0md3v/XSStrike /opt/xsstrike || true; \
+    if [ -f /opt/xsstrike/xsstrike.py ]; then \
+        printf '#!/bin/sh\nexec python /opt/xsstrike/xsstrike.py "$@"\n' > /usr/local/bin/xsstrike; \
+        chmod +x /usr/local/bin/xsstrike; fi; \
+    git clone --depth 1 https://github.com/codingo/NoSQLMap /opt/nosqlmap || true; \
+    if [ -f /opt/nosqlmap/nosqlmap.py ]; then \
+        printf '#!/bin/sh\nexec python /opt/nosqlmap/nosqlmap.py "$@"\n' > /usr/local/bin/nosqlmap; \
+        chmod +x /usr/local/bin/nosqlmap; fi; \
+    git clone --depth 1 https://github.com/drwetter/testssl.sh /opt/testssl || true; \
+    if [ -f /opt/testssl/testssl.sh ]; then \
+        ln -sf /opt/testssl/testssl.sh /usr/local/bin/testssl.sh; fi
+
+# Go-based ProjectDiscovery / dalfox scanners (best-effort, but version-pinned:
+# a build tracking @latest is not reproducible). Bump these deliberately.
+RUN set -eux; \
+    go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@v3.11.1 || true; \
+    go install github.com/projectdiscovery/httpx/cmd/httpx@v1.11.0 || true; \
+    go install github.com/projectdiscovery/katana/cmd/katana@v1.7.0 || true; \
+    go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@v2.16.0 || true; \
+    go install github.com/hahwul/dalfox/v2@v2.13.0 || true
+
+# WordPress scanner (Ruby gem; needs a free WPScan API token for the vuln DB).
+RUN gem install wpscan || true
+
+# The best-effort scanner installs above can pull an older transitive pin (seen:
+# a scanner dragged typing_extensions down to 4.10, where pydantic_core's
+# ``Sentinel`` import fails and *olympus itself* no longer imports in the image).
+# Re-assert the controlling runtime's own constraint LAST so the worker always
+# starts, whatever a scanner's loose deps resolved to.
+RUN pip install --no-cache-dir --no-deps --upgrade "typing_extensions>=4.13" \
+    && python -c "import olympus, pydantic_core"  # fail the build if the closure is broken
+
+RUN groupadd --gid 10001 olympus \
+    && useradd --uid 10001 --gid 10001 --no-create-home olympus \
+    && mkdir /data && chown 10001:10001 /data
+ENV OLYMPUS_STATE_DIR=/data/state
+USER 10001:10001
+WORKDIR /data
+ENTRYPOINT ["olympus"]
+CMD ["themis", "workers", "--database", "/data/themis-jobs.sqlite3", "--audit", "/data/themis-audit.ndjson"]

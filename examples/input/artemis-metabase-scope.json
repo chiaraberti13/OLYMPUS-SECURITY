@@ -1,0 +1,6 @@
+{
+  "engagement": "olympus-demo-corp-2026",
+  "allowed_origins": ["https://metabase.olympusdemocorp.example"],
+  "allowed_path_prefixes": ["/api"],
+  "allowed_ip_networks": ["192.0.2.0/24", "2001:db8::/32"]
+}

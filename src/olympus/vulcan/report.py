@@ -1,0 +1,550 @@
+"""Build and safely render one canonical Vulcan security report."""
+
+from __future__ import annotations
+
+import csv
+import html
+import io
+import json
+import re
+from collections.abc import Sequence
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Literal
+
+from olympus.core.execution import safe_terminal_text
+from olympus.core.fileio import atomic_write_text
+from olympus.core.models import (
+    Alert,
+    Asset,
+    AuthorizationProvenance,
+    Finding,
+    ReportSummary,
+    SecurityReport,
+)
+from olympus.vulcan.aggregate import rank_findings, severity_breakdown
+from olympus.vulcan.engagement_report import EngagementReportContext
+
+#: Which slice of the canonical report a human-facing renderer emits. ``full`` is
+#: every section; ``executive`` is the counts, severity table and a compact
+#: one-line finding overview for a decision-maker.
+ReportSection = Literal["full", "executive"]
+
+
+def build_report_model(
+    engagement: str,
+    assets: Sequence[Asset],
+    findings: Sequence[Finding],
+    alerts: Sequence[Alert],
+    *,
+    authorization_provenance: Sequence[AuthorizationProvenance] = (),
+    generated_at: datetime | None = None,
+) -> SecurityReport:
+    """Assemble the canonical report model used by every output renderer."""
+    ranked = rank_findings(findings)
+    return SecurityReport(
+        engagement=engagement,
+        generated_at=generated_at or datetime.now(UTC),
+        summary=ReportSummary(
+            assets=len(assets),
+            findings=len(findings),
+            alerts=len(alerts),
+            severity_breakdown=severity_breakdown(findings),
+        ),
+        assets=list(assets),
+        findings=ranked,
+        alerts=list(alerts),
+        authorization_provenance=list(authorization_provenance),
+    )
+
+
+def build_report(
+    engagement: str, assets: list[Asset], findings: list[Finding], alerts: list[Alert]
+) -> dict[str, object]:
+    """Backward-compatible JSON mapping built from the canonical report model."""
+    return build_report_model(engagement, assets, findings, alerts).model_dump(mode="json")
+
+
+def _executive_summary_sentence(report: SecurityReport) -> str:
+    """Return a one-paragraph, count-driven executive summary for the report."""
+    breakdown = report.summary.severity_breakdown
+    assets = len(report.assets)
+    findings = len(report.findings)
+    urgent = breakdown["critical"] + breakdown["high"]
+    if findings == 0:
+        return (
+            f"No findings were identified across {assets} assessed asset(s) within the "
+            "authorized scope and window."
+        )
+    distribution = ", ".join(
+        f"{breakdown[level]} {level}" for level in ("critical", "high", "medium", "low", "info")
+    )
+    urgency = (
+        f" {urgent} finding(s) at high or critical severity warrant prompt remediation."
+        if urgent
+        else " No finding reached high or critical severity."
+    )
+    return (
+        f"This assessment examined {assets} asset(s) and identified {findings} finding(s) "
+        f"({distribution})." + urgency
+    )
+
+
+def _engagement_markdown(context: EngagementReportContext, report: SecurityReport) -> list[str]:
+    """Render the reusable, manifest-parametrized sections as Markdown lines.
+
+    Scope, methodology and the authorization disclaimer are properties of the
+    engagement, so they come straight from the signed manifest and read the same
+    for every report of that engagement. Every manifest-derived value is escaped
+    like any other untrusted text.
+    """
+    valid_from, expires_at = context.window_utc()
+    included = ", ".join(_markdown_text(item) for item in context.scope_included) or "_none_"
+    excluded = ", ".join(_markdown_text(item) for item in context.scope_excluded) or "_none_"
+    techniques = ", ".join(_markdown_text(item) for item in context.allowed_techniques) or "_none_"
+    return [
+        "",
+        "## Scope",
+        f"- Engagement: {_markdown_text(context.engagement_id)}",
+        f"- Client: {_markdown_text(context.client)}",
+        f"- Contract: {_markdown_text(context.contract_id)}",
+        f"- Authorized by: {_markdown_text(context.approver)} (owner "
+        f"{_markdown_text(context.owner)})",
+        f"- Window: {valid_from} to {expires_at}",
+        f"- In scope: {included}",
+        f"- Out of scope: {excluded}",
+        f"- Limits: targets {context.max_targets}, concurrency {context.max_concurrency}, "
+        f"runtime {context.max_runtime_seconds}s",
+        "",
+        "## Methodology",
+        "Only techniques authorized by the signed engagement manifest were exercised, "
+        "within the scope and window above:",
+        f"- Authorized techniques: {techniques}",
+        "- Each manifest-bound result carries an Ed25519 signature, verified target scope "
+        "and verified technique (see Authorization provenance).",
+        "",
+        "## Disclaimer",
+        f"This report is confidential to {_markdown_text(context.client)} and describes the "
+        f"state of the authorized systems during the engagement window ({valid_from} to "
+        f"{expires_at}). Testing was authorized by {_markdown_text(context.approver)} under "
+        f"contract {_markdown_text(context.contract_id)}. Findings may not be exhaustive and "
+        "represent the systems only at the time of assessment.",
+        "",
+        "## Executive summary",
+        _markdown_text(_executive_summary_sentence(report)),
+    ]
+
+
+def _engagement_html(context: EngagementReportContext, report: SecurityReport) -> list[str]:
+    """Render the reusable, manifest-parametrized sections as escaped HTML parts."""
+    valid_from, expires_at = context.window_utc()
+    included = ", ".join(_html_text(item) for item in context.scope_included) or "none"
+    excluded = ", ".join(_html_text(item) for item in context.scope_excluded) or "none"
+    techniques = ", ".join(_html_text(item) for item in context.allowed_techniques) or "none"
+    return [
+        "<h2>Scope</h2><ul>",
+        f"<li>Engagement: {_html_text(context.engagement_id)}</li>",
+        f"<li>Client: {_html_text(context.client)}</li>",
+        f"<li>Contract: {_html_text(context.contract_id)}</li>",
+        f"<li>Authorized by: {_html_text(context.approver)} (owner "
+        f"{_html_text(context.owner)})</li>",
+        f"<li>Window: {_html_text(valid_from)} to {_html_text(expires_at)}</li>",
+        f"<li>In scope: {included}</li>",
+        f"<li>Out of scope: {excluded}</li>",
+        f"<li>Limits: targets {context.max_targets}, concurrency {context.max_concurrency}, "
+        f"runtime {context.max_runtime_seconds}s</li></ul>",
+        "<h2>Methodology</h2>",
+        "<p>Only techniques authorized by the signed engagement manifest were exercised, "
+        "within the scope and window above.</p>",
+        f"<p>Authorized techniques: {techniques}</p>",
+        "<h2>Disclaimer</h2>",
+        f"<p>This report is confidential to {_html_text(context.client)} and describes the "
+        f"state of the authorized systems during the engagement window "
+        f"({_html_text(valid_from)} to {_html_text(expires_at)}). Testing was authorized by "
+        f"{_html_text(context.approver)} under contract {_html_text(context.contract_id)}. "
+        "Findings may not be exhaustive and represent the systems only at the time of "
+        "assessment.</p>",
+        "<h2>Executive summary</h2>",
+        f"<p>{_html_text(_executive_summary_sentence(report))}</p>",
+    ]
+
+
+def render_report_markdown(
+    report: SecurityReport,
+    *,
+    section: ReportSection = "full",
+    engagement: EngagementReportContext | None = None,
+) -> str:
+    """Render the canonical report sections with Markdown metacharacters escaped.
+
+    ``section="full"`` (the default) renders every section verbatim. ``"executive"``
+    renders a decision-maker summary: the counts and severity table plus a compact
+    one-line-per-finding overview (severity, title, asset, risk), omitting the
+    per-finding technical detail, the asset inventory, the alert list and the
+    authorization-provenance appendix.
+
+    When ``engagement`` is supplied, the reusable, manifest-parametrized sections
+    (scope, methodology, disclaimer and an executive summary) are inserted after
+    the counts in either section, so reports stay consistent across engagements.
+    """
+    breakdown = report.summary.severity_breakdown
+    lines: list[str] = [
+        f"# Security report — {_markdown_text(report.engagement)}",
+        "",
+        f"_Generated {report.generated_at.astimezone(UTC).strftime('%Y-%m-%d %H:%M UTC')} "
+        "by Olympus Vulcan._",
+        "",
+        "## Summary",
+        f"- Assets: {len(report.assets)}",
+        f"- Findings: {len(report.findings)}",
+        f"- Alerts: {len(report.alerts)}",
+        "",
+        "| Severity | Count |",
+        "| --- | --- |",
+    ]
+    for level in ("critical", "high", "medium", "low", "info"):
+        lines.append(f"| {level} | {breakdown[level]} |")
+
+    if engagement is not None:
+        lines += _engagement_markdown(engagement, report)
+
+    if section == "executive":
+        lines += ["", "## Findings (ranked)"]
+        if not report.findings:
+            lines.append("_No findings._")
+        for finding in report.findings:
+            lines.append(
+                f"- [{finding.severity.value.upper()}] {_markdown_text(finding.title)} "
+                f"— {_markdown_text(finding.asset_id)} (risk {finding.risk_score():.0f})"
+            )
+        return "\n".join(lines) + "\n"
+
+    lines += ["", "## Assets"]
+    if not report.assets:
+        lines.append("_No assets._")
+    for asset in report.assets:
+        label = asset.hostname or ", ".join(asset.ip_addresses) or asset.asset_id
+        lines.append(
+            f"- {_markdown_text(asset.asset_id)} — {_markdown_text(label)} "
+            f"({_markdown_text(asset.asset_type.value)}, {_markdown_text(asset.source.value)})"
+        )
+
+    lines += ["", "## Findings (ranked)"]
+    if not report.findings:
+        lines.append("_No findings._")
+    for finding in report.findings:
+        lines += [
+            "",
+            f"### [{finding.severity.value.upper()}] {_markdown_text(finding.title)}",
+            f"- ID: {_markdown_text(finding.finding_id)}",
+            f"- Source: {_markdown_text(finding.source.value)}",
+            f"- Asset: {_markdown_text(finding.asset_id)}",
+        ]
+        if finding.cvss is not None:
+            lines.append(f"- CVSS: {finding.cvss}")
+        if finding.description:
+            lines.append(f"- {_markdown_text(finding.description)}")
+        if finding.remediation:
+            lines.append(f"- **Remediation:** {_markdown_text(finding.remediation)}")
+
+    lines += ["", "## Alerts"]
+    if not report.alerts:
+        lines.append("_No alerts._")
+    for alert in report.alerts:
+        provenance = (
+            f"rule {_markdown_text(alert.rule_id)}" if alert.rule_id else "rule unavailable"
+        )
+        if alert.mitre_attack:
+            provenance += "; MITRE " + ", ".join(
+                _markdown_text(item) for item in alert.mitre_attack
+            )
+        lines.append(
+            f"- [{alert.severity.value.upper()}] {_markdown_text(alert.title)} "
+            f"({_markdown_text(alert.alert_id)}; {provenance})"
+        )
+    lines += ["", "## Authorization provenance"]
+    if not report.authorization_provenance:
+        lines.append("_No manifest-bound scanner results supplied._")
+    for item in report.authorization_provenance:
+        lines += [
+            "",
+            f"### Job {_markdown_text(item.job_id)}",
+            f"- Manifest SHA-256: `{item.manifest_sha256}`",
+            f"- Manifest: {_markdown_text(item.manifest_id)}; engagement "
+            f"{_markdown_text(item.engagement_id)}",
+            f"- Scanner/result: {_markdown_text(item.scanner)} / "
+            f"{_markdown_text(item.result_state)}",
+            "- Verification: Ed25519 signature, target scope and technique verified",
+            f"- Validity: {item.valid_from.astimezone(UTC).isoformat()} to "
+            f"{item.expires_at.astimezone(UTC).isoformat()}",
+            f"- Policy limits: targets={item.max_targets}, concurrency={item.max_concurrency}, "
+            f"runtime={item.max_runtime_seconds}s",
+        ]
+    return "\n".join(lines) + "\n"
+
+
+def render_markdown(
+    engagement: str, assets: list[Asset], findings: list[Finding], alerts: list[Alert]
+) -> str:
+    """Backward-compatible renderer using a newly built canonical model."""
+    return render_report_markdown(build_report_model(engagement, assets, findings, alerts))
+
+
+_SEVERITY_COLORS = {
+    "critical": "#7f1d1d",
+    "high": "#b45309",
+    "medium": "#a16207",
+    "low": "#3f6212",
+    "info": "#374151",
+}
+
+# A restrictive Content-Security-Policy embedded in the exported report. The
+# document is self-contained (inline ``<style>`` and ``style=`` attributes, no
+# scripts, no external assets), so ``default-src 'none'`` forbids script, object
+# and frame execution while ``style-src 'unsafe-inline'`` permits only the inline
+# styling this renderer emits. Even if attacker-controlled finding text ever
+# escaped HTML escaping, the browser would refuse to execute injected scripts.
+_REPORT_CSP = (
+    "default-src 'none'; style-src 'unsafe-inline'; img-src 'none'; "
+    "base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+)
+
+
+def render_report_html(
+    report: SecurityReport,
+    *,
+    section: ReportSection = "full",
+    engagement: EngagementReportContext | None = None,
+) -> str:
+    """Render a self-contained, escaped HTML view of the report.
+
+    ``section="full"`` (the default) emits every section; ``"executive"`` emits
+    the severity breakdown and a compact ranked finding overview only, omitting
+    the asset inventory, per-finding detail, alerts and provenance appendix.
+
+    When ``engagement`` is supplied, the reusable, manifest-parametrized sections
+    (scope, methodology, disclaimer and an executive summary) are inserted after
+    the counts in either section, so reports stay consistent across engagements.
+    """
+    breakdown = report.summary.severity_breakdown
+    generated = report.generated_at.astimezone(UTC).strftime("%Y-%m-%d %H:%M UTC")
+    parts: list[str] = [
+        "<!doctype html><html lang='en'><head><meta charset='utf-8'>",
+        f'<meta http-equiv="Content-Security-Policy" content="{_REPORT_CSP}">',
+        f"<title>Security report — {_html_text(report.engagement)}</title>",
+        "<style>body{font-family:system-ui,sans-serif;max-width:60rem;margin:2rem auto;"
+        "padding:0 1rem;color:#111}h1{margin-bottom:0}.meta{color:#666}"
+        ".sev{display:inline-block;padding:.1rem .5rem;border-radius:.3rem;color:#fff;"
+        "font-size:.8rem}.card{border:1px solid #ddd;border-radius:.5rem;padding:1rem;"
+        "margin:.75rem 0}table{border-collapse:collapse}td,th{border:1px solid #ddd;"
+        "padding:.3rem .6rem;text-align:left}</style></head><body>",
+        f"<h1>Security report — {_html_text(report.engagement)}</h1>",
+        f"<p class='meta'>Generated {generated} by Olympus Vulcan · "
+        f"{len(report.assets)} assets · {len(report.findings)} findings · "
+        f"{len(report.alerts)} alerts</p>",
+        "<h2>Severity breakdown</h2><table><tr>"
+        + "".join(f"<th>{level}</th>" for level in _SEVERITY_COLORS)
+        + "</tr><tr>"
+        + "".join(f"<td>{breakdown[level]}</td>" for level in _SEVERITY_COLORS)
+        + "</tr></table>",
+    ]
+    if engagement is not None:
+        parts += _engagement_html(engagement, report)
+    if section == "executive":
+        parts.append("<h2>Findings (ranked)</h2>")
+        if not report.findings:
+            parts.append("<p>No findings.</p>")
+        else:
+            parts.append("<ul>")
+            for finding in report.findings:
+                color = _SEVERITY_COLORS[finding.severity.value]
+                parts.append(
+                    f"<li><span class='sev' style='background:{color}'>"
+                    f"{finding.severity.value.upper()}</span> "
+                    f"{_html_text(finding.title)} — {_html_text(finding.asset_id)} "
+                    f"(risk {finding.risk_score():.0f})</li>"
+                )
+            parts.append("</ul>")
+        parts.append("</body></html>")
+        return "".join(parts)
+    parts.append("<h2>Assets</h2>")
+    if not report.assets:
+        parts.append("<p>No assets.</p>")
+    else:
+        parts.append("<ul>")
+        for asset in report.assets:
+            label = asset.hostname or ", ".join(asset.ip_addresses) or asset.asset_id
+            parts.append(
+                f"<li>{_html_text(asset.asset_id)} — {_html_text(label)} "
+                f"({_html_text(asset.asset_type.value)}, {_html_text(asset.source.value)})</li>"
+            )
+        parts.append("</ul>")
+    parts.append("<h2>Findings (ranked)</h2>")
+    if not report.findings:
+        parts.append("<p>No findings.</p>")
+    for finding in report.findings:
+        color = _SEVERITY_COLORS[finding.severity.value]
+        parts.append(
+            f"<div class='card'><span class='sev' style='background:{color}'>"
+            f"{finding.severity.value.upper()}</span> "
+            f"<strong>{_html_text(finding.title)}</strong>"
+            f"<p class='meta'>{_html_text(finding.finding_id)} · "
+            f"{_html_text(finding.source.value)} · {_html_text(finding.asset_id)}"
+            + (f" · CVSS {finding.cvss}" if finding.cvss is not None else "")
+            + "</p>"
+            + (f"<p>{_html_text(finding.description)}</p>" if finding.description else "")
+            + (
+                f"<p><strong>Remediation:</strong> {_html_text(finding.remediation)}</p>"
+                if finding.remediation
+                else ""
+            )
+            + "</div>"
+        )
+    parts.append("<h2>Alerts</h2>")
+    if not report.alerts:
+        parts.append("<p>No alerts.</p>")
+    for alert in report.alerts:
+        provenance = f"rule {alert.rule_id}" if alert.rule_id else "rule unavailable"
+        if alert.mitre_attack:
+            provenance += "; MITRE " + ", ".join(alert.mitre_attack)
+        parts.append(
+            f"<div class='card'><strong>[{alert.severity.value.upper()}] "
+            f"{_html_text(alert.title)}</strong><p class='meta'>{_html_text(alert.alert_id)} · "
+            f"{_html_text(alert.source.value)} · {_html_text(provenance)}</p></div>"
+        )
+    parts.append("<h2>Authorization provenance</h2>")
+    if not report.authorization_provenance:
+        parts.append("<p>No manifest-bound scanner results supplied.</p>")
+    for item in report.authorization_provenance:
+        parts.append(
+            "<div class='card'><strong>Job "
+            f"{_html_text(item.job_id)}</strong>"
+            f"<p class='meta'>Manifest SHA-256 {_html_text(item.manifest_sha256)} · "
+            f"{_html_text(item.manifest_id)} · {_html_text(item.engagement_id)}</p>"
+            f"<p>{_html_text(item.scanner)} / {_html_text(item.result_state)} · "
+            "Ed25519 signature, target scope and technique verified</p>"
+            f"<p class='meta'>Valid {item.valid_from.astimezone(UTC).isoformat()} to "
+            f"{item.expires_at.astimezone(UTC).isoformat()} · targets {item.max_targets} · "
+            f"concurrency {item.max_concurrency} · runtime {item.max_runtime_seconds}s</p></div>"
+        )
+    parts.append("</body></html>")
+    return "".join(parts)
+
+
+def render_html(
+    engagement: str, assets: list[Asset], findings: list[Finding], alerts: list[Alert]
+) -> str:
+    """Backward-compatible HTML renderer using one canonical report model."""
+    return render_report_html(build_report_model(engagement, assets, findings, alerts))
+
+
+#: Header row of the findings CSV export, in a fixed order so the output is
+#: stable and diff-friendly across runs.
+_CSV_COLUMNS = (
+    "finding_id",
+    "severity",
+    "status",
+    "source",
+    "asset_id",
+    "engagement_id",
+    "title",
+    "cvss",
+    "risk_score",
+    "cves",
+    "cwes",
+    "kev",
+    "tags",
+    "description",
+    "remediation",
+)
+
+
+def _csv_cell(value: object) -> str:
+    """Return one spreadsheet-safe CSV cell.
+
+    Text is first stripped of terminal control sequences (ANSI/OSC, C0/C1) like
+    every other renderer. Then CSV formula injection is neutralized: a cell whose
+    first character is one a spreadsheet treats as a formula (``= + - @`` or a
+    leading tab/CR) is prefixed with an apostrophe, so an attacker-controlled
+    finding field such as ``=HYPERLINK(...)`` is shown as literal text instead of
+    being executed when the file is opened in Excel, LibreOffice or Sheets.
+    """
+    text = safe_terminal_text(value) if isinstance(value, str) else str(value)
+    if text and text[0] in "=+-@\t\r":
+        return "'" + text
+    return text
+
+
+def render_report_csv(report: SecurityReport) -> str:
+    """Render the ranked findings as one spreadsheet-safe CSV document.
+
+    The CSV is the tabular, findings-focused view of the same canonical report
+    model every other renderer uses — one row per finding, in ranked order, with
+    a fixed header. Every cell is neutralized against CSV formula injection
+    (:func:`_csv_cell`), and the standard RFC 4180 CRLF line terminator is used so
+    the file imports cleanly into common spreadsheet tools.
+    """
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, lineterminator="\r\n")
+    writer.writerow(_CSV_COLUMNS)
+    for finding in report.findings:
+        writer.writerow(
+            [
+                _csv_cell(finding.finding_id),
+                _csv_cell(finding.severity.value),
+                _csv_cell(finding.status.value),
+                _csv_cell(finding.source.value),
+                _csv_cell(finding.asset_id),
+                _csv_cell(finding.engagement_id or ""),
+                _csv_cell(finding.title),
+                _csv_cell("" if finding.cvss is None else finding.cvss),
+                _csv_cell(f"{finding.risk_score():.1f}"),
+                _csv_cell(" ".join(finding.cves())),
+                _csv_cell(" ".join(finding.cwes())),
+                _csv_cell("yes" if finding.kev else "no"),
+                _csv_cell(" ".join(finding.tags)),
+                _csv_cell(finding.description),
+                _csv_cell(finding.remediation),
+            ]
+        )
+    return buffer.getvalue()
+
+
+def export_report(report: dict[str, object] | SecurityReport, path: Path) -> None:
+    """Durably write one canonical JSON report."""
+    payload = report.model_dump(mode="json") if isinstance(report, SecurityReport) else report
+    atomic_write_text(path, json.dumps(payload, indent=2, sort_keys=True) + "\n")
+
+
+def export_text(content: str, path: Path) -> None:
+    """Durably write one Markdown or HTML report."""
+    atomic_write_text(path, content)
+
+
+def export_markdown(markdown: str, path: Path) -> None:
+    """Compatibility alias for an atomic Markdown export."""
+    export_text(markdown, path)
+
+
+def _html_text(value: str) -> str:
+    """HTML-escape text that may be attacker-controlled, after neutralizing
+    terminal control sequences (ANSI/OSC, C0/C1). ``html.escape`` alone leaves
+    ESC/BEL and other controls intact, so a finding title carrying escape codes
+    would reach an operator who opens or ``cat``s the exported report."""
+    return html.escape(safe_terminal_text(value))
+
+
+def _markdown_text(value: str) -> str:
+    # safe_terminal_text strips terminal control sequences and collapses the
+    # value onto one line; Markdown metacharacters are then escaped so target
+    # text cannot forge structure in the rendered report.
+    escaped = safe_terminal_text(value).replace("\\", "\\\\")
+    for character in "`*_[]<>|":
+        escaped = escaped.replace(character, f"\\{character}")
+    # CommonMark/GFM may turn bare URLs in ordinary text into clickable links.
+    # Reports are often opened in a browser; keep target-controlled URLs visible
+    # without making them navigation or tracking links.
+    escaped = re.sub(
+        r"(?i)\bhttps?://", lambda match: match.group(0).replace("://", "&#58;//"), escaped
+    )
+    return escaped

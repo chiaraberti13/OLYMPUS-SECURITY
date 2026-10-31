@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Scan diff · Olympus Themis{% endblock %}
+{% block content %}
+{% if not configured %}
+<section class="card">
+  <h1>Scan diff</h1>
+  <p class="muted">
+    The scan diff compares an earlier run against the current findings. It needs
+    both a current findings directory (<code>--findings-directory</code>
+    {{ "set" if has_current else "not set" }}) and a baseline directory
+    (<code>--baseline-directory</code> {{ "set" if has_baseline else "not set" }}).
+    Point both at folders of <code>core.Finding</code> JSON bundles to compare them.
+  </p>
+</section>
+{% elif error %}
+<section class="card">
+  <h1>Scan diff</h1>
+  <p class="alert" role="alert">Findings could not be read: {{ error }}</p>
+</section>
+{% else %}
+<section class="card">
+  <h1>Scan diff</h1>
+  <p class="muted">Baseline vs current, matched by logical identity (same asset + same vulnerability).</p>
+  <div class="tiles">
+    <div class="tile"><span class="tile-value">{{ summary.new }}</span><span class="tile-label">New</span></div>
+    <div class="tile"><span class="tile-value">{{ summary.resolved }}</span><span class="tile-label">Resolved</span></div>
+    <div class="tile"><span class="tile-value">{{ summary.persistent }}</span><span class="tile-label">Persistent</span></div>
+    <div class="tile"><span class="tile-value">{{ summary.worsened }}</span><span class="tile-label">Worsened</span></div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>New <span class="muted">— present now, absent in the baseline</span></h2>
+  {% if new %}
+  <table>
+    <thead><tr><th scope="col">Risk</th><th scope="col">Severity</th><th scope="col">Title</th><th scope="col">Asset</th><th scope="col">CVE</th></tr></thead>
+    <tbody>
+      {% for finding in new %}
+      <tr>
+        <td>{{ finding.risk }}</td>
+        <td><span class="severity severity-{{ finding.severity }}">{{ finding.severity_label }}</span></td>
+        <td><a href="/findings/{{ finding.finding_id }}">{{ finding.title }}</a></td>
+        <td class="target">{{ finding.asset }}</td>
+        <td class="target">{{ finding.cve }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="muted">No new findings since the baseline.</p>{% endif %}
+</section>
+
+<section class="card">
+  <h2>Resolved <span class="muted">— in the baseline, gone now</span></h2>
+  {% if resolved %}
+  <table>
+    <thead><tr><th scope="col">Risk</th><th scope="col">Severity</th><th scope="col">Title</th><th scope="col">Asset</th><th scope="col">CVE</th></tr></thead>
+    <tbody>
+      {% for finding in resolved %}
+      <tr>
+        <td>{{ finding.risk }}</td>
+        <td><span class="severity severity-{{ finding.severity }}">{{ finding.severity_label }}</span></td>
+        <td>{{ finding.title }}</td>
+        <td class="target">{{ finding.asset }}</td>
+        <td class="target">{{ finding.cve }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="muted">Nothing from the baseline was resolved.</p>{% endif %}
+</section>
+
+<section class="card">
+  <h2>Persistent <span class="muted">— present in both runs</span></h2>
+  {% if persistent %}
+  <table>
+    <thead><tr><th scope="col">Risk</th><th scope="col">Severity</th><th scope="col">Title</th><th scope="col">Asset</th><th scope="col">Change</th></tr></thead>
+    <tbody>
+      {% for finding in persistent %}
+      <tr>
+        <td>{{ finding.risk }}</td>
+        <td><span class="severity severity-{{ finding.severity }}">{{ finding.severity_label }}</span></td>
+        <td><a href="/findings/{{ finding.finding_id }}">{{ finding.title }}</a></td>
+        <td class="target">{{ finding.asset }}</td>
+        <td>
+          {% if finding.severity_changed %}
+          <span class="{{ 'cap-flag-no' if finding.severity_worsened else 'cap-flag-yes' }}">{{ finding.baseline_severity }} → {{ finding.severity }}</span>
+          {% else %}—{% endif %}
+          <span class="muted">(risk {{ finding.risk_delta }})</span>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="muted">No findings persist across both runs.</p>{% endif %}
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,12 @@
+schema_name: olympus.apollo-rule
+schema_version: 1.0.0
+rule_id: APL-RT-ARCHIVE-CLOUD-UPLOAD
+title: Freshly archived data POSTed to an anonymous file-sharing host (exfiltration)
+event_type: network.http
+conditions:
+  method: POST
+  destination_reputation: anonymous-file-host
+  preceded_by_archive_creation: "true"
+severity: high
+mitre_attack:
+  - T1567.002

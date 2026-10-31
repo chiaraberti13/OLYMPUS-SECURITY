@@ -1,0 +1,28 @@
+{
+  "schema_name": "olympus.athena.plan",
+  "schema_version": "1.0.0",
+  "engagement_id": "ENG-DEMO-2026",
+  "name": "Demo perimeter assessment",
+  "targets": [
+    {"kind": "domain", "value": "olympusdemocorp.example"}
+  ],
+  "adapters": ["dns", "whois", "web-headers"],
+  "scope": {
+    "allowed_domains": ["olympusdemocorp.example"]
+  },
+  "authorization": {
+    "engagement_id": "ENG-DEMO-2026",
+    "approval_reference": "SOW-2026-014",
+    "confirmed": true
+  },
+  "limits": {
+    "concurrency": 2,
+    "per_job_timeout_seconds": 30,
+    "overall_deadline_seconds": 300,
+    "max_retries": 1
+  },
+  "output": {
+    "retention_days": 30,
+    "report_formats": ["json", "markdown"]
+  }
+}

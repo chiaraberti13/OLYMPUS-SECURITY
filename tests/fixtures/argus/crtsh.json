@@ -1,0 +1,8 @@
+[
+  {"name_value": "portal.olympusdemocorp.example\n*.api.olympusdemocorp.example"},
+  {"name_value": "PORTAL.OLYMPUSDEMOCORP.EXAMPLE"},
+  {"name_value": "olympusdemocorp.example"},
+  {"name_value": "not-olympusdemocorp.example"},
+  {"name_value": "bad_name.olympusdemocorp.example"},
+  {"irrelevant": "ignored"}
+]

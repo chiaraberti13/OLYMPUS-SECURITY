@@ -1,0 +1,54 @@
+{
+  "schema_name": "olympus.reference-implementations",
+  "schema_version": "1.0.0",
+  "policy": "independent-native-implementation",
+  "references": [
+    {
+      "repository": "0xSteph/pentest-ai-agents",
+      "revision": "e5d7aa02c4c0c29a90e4789034b45e0cb7488e89",
+      "license": "MIT",
+      "reviewed_concepts": ["capability-routing", "engagement-planning", "scope-gates"],
+      "native_mappings": ["src/olympus/metis/catalog.py", "src/olympus/metis/planner.py"]
+    },
+    {
+      "repository": "7onez/cti-expert",
+      "revision": "c8e051aeb5d68f3b66009b8cdc61bf1db4840710",
+      "license": "MIT",
+      "reviewed_concepts": ["case-workspaces", "indicator-intake", "confidence", "correlation"],
+      "native_mappings": ["src/olympus/metis/cases.py", "src/olympus/metis/models.py"]
+    },
+    {
+      "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+      "revision": "1b3f6b2286981381a5cc0566551ef3bb6bc38383",
+      "license": "Apache-2.0",
+      "reviewed_concepts": ["capability-taxonomy", "guided-workflows", "safety-metadata"],
+      "native_mappings": ["src/olympus/metis/catalog.py", "src/olympus/metis/labs.py"]
+    },
+    {
+      "repository": "CarterPerez-dev/Cybersecurity-Projects",
+      "revision": "614b4c7e9351c76f09a2496eccae29b798982a23",
+      "license": "AGPL-3.0-only",
+      "reviewed_concepts": ["guided-labs", "defensive-practice"],
+      "native_mappings": ["src/olympus/metis/labs.py"]
+    },
+    {
+      "repository": "blacklanternsecurity/bbot",
+      "revision": "a6fb827bb144cdb85b52e142a4d6e14ed5f94b69",
+      "license": "AGPL-3.0-only",
+      "reviewed_concepts": ["typed-events", "recursive-expansion", "presets", "deduplication"],
+      "native_mappings": ["src/olympus/argus/pipeline.py"]
+    },
+    {
+      "repository": "HunxByts/GhostTrack",
+      "revision": "a5cb8ad4c08acd803f166fb067b7dac724d6cb3d",
+      "license": "NOASSERTION",
+      "reviewed_concepts": ["ip-osint", "phone-osint", "username-osint", "public-ip"],
+      "native_mappings": [
+        "src/olympus/argus/ip_osint.py",
+        "src/olympus/argus/phone.py",
+        "src/olympus/argus/accounts.py",
+        "src/olympus/argus/myip.py"
+      ]
+    }
+  ]
+}

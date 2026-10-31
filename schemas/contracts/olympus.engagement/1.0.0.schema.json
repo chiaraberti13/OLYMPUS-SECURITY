@@ -1,0 +1,115 @@
+{
+  "$defs": {
+    "EngagementScope": {
+      "additionalProperties": false,
+      "description": "The authorized perimeter of an engagement: included minus excluded.\n\nEntries are hostnames or domains (matched like the rest of Olympus: an entry\ncovers itself and its subdomains). IP/CIDR matching is a planned extension\n(ROADMAP ``WEB-B``); until then IPs must be listed verbatim.",
+      "properties": {
+        "excluded": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Excluded",
+          "type": "array"
+        },
+        "included": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Included",
+          "type": "array"
+        }
+      },
+      "required": [
+        "included"
+      ],
+      "title": "EngagementScope",
+      "type": "object"
+    },
+    "EngagementStatus": {
+      "description": "Lifecycle state of an engagement (the top-level assessment container).",
+      "enum": [
+        "planned",
+        "active",
+        "closed"
+      ],
+      "title": "EngagementStatus",
+      "type": "string"
+    }
+  },
+  "$id": "urn:olympus:schema:olympus.engagement:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "The top-level container that groups an authorized assessment's work.\n\nAn engagement owns its scope and authorization reference; assets, scans,\njobs, findings, evidence, alerts, incidents and reports are associated with\nit by ``engagement_id``. CLI, TUI, API and Web all reference this one model\n(ROADMAP ``WEB-B``) rather than a private per-interface notion of scope.",
+  "properties": {
+    "authorization_reference": {
+      "default": "",
+      "title": "Authorization Reference",
+      "type": "string"
+    },
+    "client": {
+      "default": "",
+      "title": "Client",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "engagement_id": {
+      "title": "Engagement Id",
+      "type": "string"
+    },
+    "metadata": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Metadata",
+      "type": "object"
+    },
+    "name": {
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+    },
+    "schema_name": {
+      "const": "olympus.engagement",
+      "default": "olympus.engagement",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scope": {
+      "$ref": "#/$defs/EngagementScope"
+    },
+    "status": {
+      "$ref": "#/$defs/EngagementStatus",
+      "default": "active"
+    },
+    "tags": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Tags",
+      "type": "array"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "name",
+    "scope"
+  ],
+  "title": "Engagement",
+  "type": "object"
+}

@@ -1,0 +1,20 @@
+{
+  "schema_name": "olympus.incident",
+  "schema_version": "1.0.0",
+  "incident_id": "INC-2026-00004",
+  "title": "Olympus Demo Corp suspicious process",
+  "summary": "Triaged from 1 alert(s).",
+  "source": "minerva",
+  "severity": "high",
+  "status": "triaged",
+  "alert_ids": [
+    "ALT-2026-00001"
+  ],
+  "evidence_ids": [
+    "EVD-2026-00001"
+  ],
+  "owner": "demo-soc",
+  "opened_at": "2026-08-14T18:50:01.428860Z",
+  "updated_at": "2026-08-14T18:50:01.428922Z",
+  "closed_at": null
+}

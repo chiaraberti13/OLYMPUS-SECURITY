@@ -1,0 +1,2 @@
+# Synthetic Olympus Demo Corp training data; this is not a real credential.
+demo_access_key = AKIAOLYMPUSDEMO00000

@@ -1,0 +1,200 @@
+# Native THEMIS control plane. See docs/themis-runtime.md for mandatory setup.
+# TLS certificates, scoped identity register and registered scopes are mounted
+# read-only; live scanning is disabled by default. No vendor/ or broker.
+x-themis-build: &themis-build
+  context: .
+  dockerfile: docker/Dockerfile
+
+x-themis-env: &themis-env
+  THEMIS_ENABLE_LIVE_SCANS: "${THEMIS_ENABLE_LIVE_SCANS:-false}"
+
+x-themis-volumes: &themis-volumes
+  - themis-data:/data
+  - ./.olympus/scopes:/scopes:ro
+  - ./.olympus/config:/run/themis-config:ro
+  - ./.olympus/tls:/run/themis-tls:ro
+
+x-hardening: &hardening
+  user: "10001:10001"
+  read_only: true
+  security_opt:
+    - "no-new-privileges:true"
+  cap_drop:
+    - "ALL"
+  pids_limit: 512
+  mem_limit: 1g
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=128m,mode=1777
+
+services:
+  themis-migrate:
+    <<: *hardening
+    build: *themis-build
+    command: ["themis", "migrate", "--database", "/data/themis-jobs.sqlite3"]
+    volumes: *themis-volumes
+    network_mode: none
+    restart: "no"
+
+  themis-api:
+    <<: *hardening
+    networks:
+      - control
+    build: *themis-build
+    environment: *themis-env
+    command:
+      - themis
+      - api
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8443"
+      - --database
+      - /data/themis-jobs.sqlite3
+      - --scope-directory
+      - /scopes
+      - --identities
+      - /run/themis-config/themis-api-identities.json
+      - --audit
+      - /data/themis-audit.ndjson
+      - --ssl-certfile
+      - /run/themis-tls/cert.pem
+      - --ssl-keyfile
+      - /run/themis-tls/key.pem
+    ports:
+      - "127.0.0.1:${THEMIS_API_PORT:-8443}:8443"
+    depends_on:
+      themis-migrate:
+        condition: service_completed_successfully
+    volumes: *themis-volumes
+    restart: unless-stopped
+
+  themis-app:
+    <<: *hardening
+    networks:
+      - control
+    build: *themis-build
+    environment: *themis-env
+    command:
+      - themis
+      - serve
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8600"
+      - --database
+      - /data/themis-jobs.sqlite3
+      - --scope-directory
+      - /scopes
+      - --identities
+      - /run/themis-config/themis-api-identities.json
+      - --audit
+      - /data/themis-audit.ndjson
+      - --ssl-certfile
+      - /run/themis-tls/cert.pem
+      - --ssl-keyfile
+      - /run/themis-tls/key.pem
+    ports:
+      - "127.0.0.1:${THEMIS_WEB_PORT:-8600}:8600"
+    depends_on:
+      themis-migrate:
+        condition: service_completed_successfully
+    volumes: *themis-volumes
+    restart: unless-stopped
+
+  themis-worker:
+    <<: *hardening
+    security_opt:
+      - "no-new-privileges:true"
+      - "seccomp:./deploy/security/themis-scanner-seccomp.json"
+    networks:
+      - scan-egress
+    build: *themis-build
+    environment: *themis-env
+    command:
+      - themis
+      - workers
+      - --database
+      - /data/themis-jobs.sqlite3
+      - --audit
+      - /data/themis-audit.ndjson
+    depends_on:
+      themis-migrate:
+        condition: service_completed_successfully
+    volumes:
+      - themis-data:/data
+      - ./.olympus/scopes:/scopes:ro
+    stop_grace_period: 15s
+    restart: unless-stopped
+
+  # The optional engines below start ONLY under an explicit --profile, so their
+  # floating tags never affect the default stack; pin them in your own deployment
+  # if you need a reproducible engine version.
+  #
+  # --- OWASP ZAP (open source, Apache-2.0) — long-running daemon with an API.
+  #     Enable with:  docker compose --profile zap up
+  zap:
+    image: ghcr.io/zaproxy/zaproxy:stable
+    profiles: ["zap", "scanners-cli"]
+    # The API key is mandatory: THEMIS_ZAP_API_KEY must be set (no unauthenticated
+    # ZAP API). ZAP gets its own hardening but not the shared 1g memory cap — it
+    # needs more headroom than the Python services.
+    security_opt:
+      - "no-new-privileges:true"
+    cap_drop:
+      - "ALL"
+    networks:
+      - scan-egress
+    command:
+      - "zap.sh"
+      - "-daemon"
+      - "-host"
+      - "0.0.0.0"
+      - "-port"
+      - "8090"
+      - "-config"
+      - "api.key=${THEMIS_ZAP_API_KEY:?set THEMIS_ZAP_API_KEY to a strong secret}"
+    expose:
+      - "8090"
+    restart: unless-stopped
+
+  # --- OpenVAS / Greenbone GVM (open source, GPL-2.0). The full stack is several
+  #     services (gvmd, ospd-openvas, notus, feeds, gsa); this is the community
+  #     manager entrypoint. For the complete stack use Greenbone's official
+  #     greenbone-community-container compose. Enable with:  docker compose --profile gvm up
+  gvm:
+    image: greenbone/gvmd:stable
+    profiles: ["gvm"]
+    networks:
+      - scan-egress
+    restart: unless-stopped
+    volumes:
+      - gvm-data:/var/lib/gvm
+
+  # --- Commercial connectors (proprietary licences required; images are
+  #     operator-provided). Enable with:  docker compose --profile commercial-connectors up
+  nessus:
+    image: ${THEMIS_NESSUS_IMAGE:-tenableofficial/nessus:latest}
+    profiles: ["commercial-connectors"]
+    networks:
+      - scan-egress
+    environment:
+      # Provide your own licence/activation via env (never commit these).
+      ACTIVATION_CODE: "${NESSUS_ACTIVATION_CODE:-}"
+    expose:
+      - "8834"
+    restart: unless-stopped
+    # NOTE: Burp Suite Professional and Acunetix have no redistributable image;
+    # run them externally and point THEMIS at their APIs (see docs/scanner-matrix.md).
+
+networks:
+  # API and Web share only the internal control plane. The worker and optional
+  # engines share the distinct scan plane; no service is dual-homed.
+  control:
+    driver: bridge
+    internal: true
+  scan-egress:
+    driver: bridge
+
+volumes:
+  themis-data:
+  gvm-data:

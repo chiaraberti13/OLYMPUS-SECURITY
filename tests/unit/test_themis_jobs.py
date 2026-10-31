@@ -1,0 +1,1285 @@
+from __future__ import annotations
+
+import json
+import socket
+import sqlite3
+import stat
+import threading
+import time
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+
+import pytest
+from hypothesis import given
+from hypothesis import strategies as st
+from typer.testing import CliRunner
+
+from olympus.cli import app
+from olympus.core.execution import CancellationRequested
+from olympus.core.models import EngagementScope
+from olympus.core.signing import generate_keypair
+from olympus.engagements.manifest import EngagementManifest, SignedEngagementManifest
+from olympus.engagements.store import SqliteEngagementStore, StoredManifestAuthorizer
+from olympus.integrations.activity import RiskClass
+from olympus.themis.application import ThemisApplicationService
+from olympus.themis.base import ScannerAdapter
+from olympus.themis.jobs import (
+    ACTIVE_STATES,
+    SCHEMA_VERSION,
+    TERMINAL_STATES,
+    IdempotencyConflict,
+    JobState,
+    LeaseLostError,
+    SchemaVersionError,
+    ThemisJob,
+    ThemisJobStore,
+    ThemisWorker,
+    classify_result,
+    redact_error,
+)
+from olympus.themis.model import ScanRequest, ScanResult
+from olympus.themis.runner import CommandOutput, TerminationCause, TerminationReport
+from olympus.themis.states import ExecutionState
+
+runner = CliRunner()
+_TEST_MANIFEST_SHA256 = "a" * 64
+
+
+class _AcceptingManifestAuthorizer:
+    """Test port for cases that exercise worker behavior below authorization."""
+
+    def authorize(
+        self,
+        *,
+        manifest_sha256: str,
+        target: str,
+        technique: str,
+        now: datetime,
+        risk: RiskClass | None = None,
+    ) -> None:
+        assert manifest_sha256 == _TEST_MANIFEST_SHA256
+
+
+class _Adapter(ScannerAdapter):
+    name = "test-engine"
+    binary = "true"
+
+    def build_argv(self, host: str, request: ScanRequest) -> list[str]:
+        return ["true"]
+
+    def parse(self, output: CommandOutput, host: str, request: ScanRequest) -> list:
+        return []
+
+
+def _service(adapter: ScannerAdapter) -> ThemisApplicationService:
+    """Keep job tests focused; runtime-isolation checks have dedicated tests."""
+    return ThemisApplicationService(lambda name: adapter, isolation_verifier=lambda: None)
+
+
+def _scope(path: Path) -> Path:
+    path.write_text(
+        json.dumps(
+            {
+                "schema_name": "olympus.themis-scope",
+                "schema_version": "1.0.0",
+                "allowed_hosts": ["127.0.0.1"],
+                "allowed_cidrs": ["127.0.0.0/8"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def _worker_manifest() -> tuple[SignedEngagementManifest, str, datetime]:
+    private_key, public_key = generate_keypair()
+    now = datetime(2026, 10, 21, 20, 0, tzinfo=UTC)
+    manifest = EngagementManifest(
+        engagement_id="ENG-2026-00001",
+        client="Synthetic Client",
+        owner="Security Owner",
+        approver="Authorized Approver",
+        contract_id="CONTRACT-2026-01",
+        scope=EngagementScope(included=("127.0.0.1",)),
+        valid_from=now - timedelta(minutes=5),
+        expires_at=now + timedelta(hours=1),
+        allowed_techniques=("test-engine",),
+    )
+    return (
+        SignedEngagementManifest.sign_manifest(manifest, private_key_pem=private_key),
+        public_key,
+        now,
+    )
+
+
+@pytest.mark.posix_only
+def test_durable_job_lifecycle(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "state" / "jobs.sqlite3")
+    job = store.submit(
+        scanner="test-engine",
+        target="127.0.0.1",
+        target_kind="host",
+        scope_path=_scope(tmp_path / "scope.json"),
+        authorized=True,
+        manifest_sha256=_TEST_MANIFEST_SHA256,
+    )
+    assert job.state is JobState.QUEUED
+    worker = ThemisWorker(
+        store,
+        _service(_Adapter()),
+        live_scans=True,
+        manifest_authorizer=_AcceptingManifestAuthorizer(),
+    )
+    completed = worker.run_next(audit_path=tmp_path / "audit.ndjson")
+    assert completed is not None and completed.state is JobState.SUCCEEDED
+    assert completed.result is not None and completed.result["state"] == "live"
+    assert store.get(job.job_id) == completed
+    assert stat.S_IMODE(store.path.stat().st_mode) == 0o600
+
+
+@pytest.mark.posix_only
+def test_worker_reauthorizes_bound_manifest_immediately_before_execution(tmp_path: Path) -> None:
+    signed, public_key, now = _worker_manifest()
+    engagement_database = tmp_path / "engagements.db"
+    manifests = SqliteEngagementStore(engagement_database)
+    try:
+        manifests.authorize_and_save_manifest(
+            signed,
+            trusted_public_key_pem=public_key,
+            target="127.0.0.1",
+            technique="test-engine",
+            now=now,
+        )
+    finally:
+        manifests.close()
+
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    queued = store.submit(
+        scanner="test-engine",
+        target="127.0.0.1",
+        target_kind="host",
+        scope_path=_scope(tmp_path / "scope.json"),
+        authorized=True,
+        manifest_sha256=signed.manifest_sha256,
+    )
+    audit_path = tmp_path / "audit.ndjson"
+    completed = ThemisWorker(
+        store,
+        _service(_Adapter()),
+        live_scans=False,
+        manifest_authorizer=StoredManifestAuthorizer(
+            engagement_database, trusted_public_key_pem=public_key
+        ),
+        clock=lambda: now,
+    ).run_next(audit_path=audit_path)
+
+    assert completed is not None and completed.state is JobState.PARTIAL
+    assert completed.result is not None
+    assert completed.result["schema_version"] == "1.2.0"
+    assert completed.result["job_id"] == queued.job_id
+    assert completed.result["manifest_sha256"] == signed.manifest_sha256
+    audit = [json.loads(line) for line in audit_path.read_text(encoding="utf-8").splitlines()]
+    authorization = next(
+        record for record in audit if record["action"] == "themis.manifest-authorization"
+    )
+    assert authorization["outcome"] == "authorized"
+    assert authorization["execution_id"] == queued.job_id
+    assert authorization["metadata"] == {
+        "job_id": queued.job_id,
+        "manifest_sha256": signed.manifest_sha256,
+        "scanner": "test-engine",
+    }
+    scan = next(record for record in audit if record["action"] == "themis.native-scan")
+    assert scan["metadata"]["job_id"] == queued.job_id
+    assert scan["metadata"]["manifest_sha256"] == signed.manifest_sha256
+
+
+@pytest.mark.parametrize(
+    ("revoke_after_queueing", "expected_error"),
+    [(True, "revoked"), (False, "does not authorize")],
+)
+def test_worker_denies_manifest_revoked_or_expired_after_queueing(
+    tmp_path: Path, revoke_after_queueing: bool, expected_error: str
+) -> None:
+    signed, public_key, now = _worker_manifest()
+    engagement_database = tmp_path / "engagements.db"
+    manifests = SqliteEngagementStore(engagement_database)
+    try:
+        manifests.authorize_and_save_manifest(
+            signed,
+            trusted_public_key_pem=public_key,
+            target="127.0.0.1",
+            technique="test-engine",
+            now=now,
+        )
+        if revoke_after_queueing:
+            manifests.revoke_manifest(signed, trusted_public_key_pem=public_key)
+    finally:
+        manifests.close()
+
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    queued = store.submit(
+        scanner="test-engine",
+        target="127.0.0.1",
+        target_kind="host",
+        scope_path=_scope(tmp_path / "scope.json"),
+        authorized=True,
+        manifest_sha256=signed.manifest_sha256,
+    )
+    audit_path = tmp_path / "audit.ndjson"
+    denied = ThemisWorker(
+        store,
+        _service(_Adapter()),
+        live_scans=True,
+        manifest_authorizer=StoredManifestAuthorizer(
+            engagement_database, trusted_public_key_pem=public_key
+        ),
+        clock=lambda: now if revoke_after_queueing else signed.manifest.expires_at,
+    ).run_next(audit_path=audit_path)
+
+    assert denied is not None and denied.state is JobState.POLICY_DENIED
+    assert denied.error is not None and expected_error in denied.error
+    audit = [json.loads(line) for line in audit_path.read_text(encoding="utf-8").splitlines()]
+    assert audit == [
+        {
+            "action": "themis.manifest-authorization",
+            "execution_id": queued.job_id,
+            "metadata": {
+                "error_type": "ManifestRevocationError"
+                if revoke_after_queueing
+                else "ManifestAuthorizationError",
+                "job_id": queued.job_id,
+                "manifest_sha256": signed.manifest_sha256,
+                "scanner": "test-engine",
+            },
+            "outcome": "refused",
+            "target": "127.0.0.1",
+            "timestamp": audit[0]["timestamp"],
+        }
+    ]
+
+
+def test_worker_denies_bound_manifest_when_revalidation_is_not_configured(
+    tmp_path: Path,
+) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    queued = store.submit(
+        scanner="test-engine",
+        target="https://127.0.0.1/?api_key=must-not-leak",
+        target_kind="url",
+        scope_path=_scope(tmp_path / "scope.json"),
+        authorized=True,
+        manifest_sha256="a" * 64,
+    )
+
+    audit_path = tmp_path / "audit.ndjson"
+    denied = ThemisWorker(
+        store,
+        _service(_Adapter()),
+        live_scans=True,
+    ).run_next(audit_path=audit_path)
+
+    assert denied is not None and denied.state is JobState.POLICY_DENIED
+    assert denied.error is not None and "cannot be revalidated" in denied.error
+    audit = json.loads(audit_path.read_text(encoding="utf-8"))
+    assert audit["action"] == "themis.manifest-authorization"
+    assert audit["execution_id"] == queued.job_id
+    assert audit["outcome"] == "refused"
+    assert audit["metadata"]["manifest_sha256"] == "a" * 64
+    assert audit["metadata"]["error_type"] == "ManifestAuthorizationError"
+    assert audit["target"] == "https://127.0.0.1/?api_key=[REDACTED]"
+    assert "must-not-leak" not in audit_path.read_text(encoding="utf-8")
+
+
+def test_live_worker_denies_unbound_job_before_application_and_audits(
+    tmp_path: Path,
+) -> None:
+    class _MustNotRun(_Adapter):
+        def run(self, request: ScanRequest) -> ScanResult:
+            raise AssertionError("an unsigned live job reached the scanner application")
+
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    queued = store.submit(
+        scanner="test-engine",
+        target="https://127.0.0.1/?api_key=must-not-leak",
+        target_kind="url",
+        scope_path=_scope(tmp_path / "scope.json"),
+        authorized=True,
+    )
+    audit_path = tmp_path / "audit.ndjson"
+
+    denied = ThemisWorker(
+        store,
+        _service(_MustNotRun()),
+        live_scans=True,
+        manifest_authorizer=_AcceptingManifestAuthorizer(),
+    ).run_next(audit_path=audit_path)
+
+    assert denied is not None and denied.state is JobState.POLICY_DENIED
+    assert denied.error is not None and "requires a signed manifest" in denied.error
+    audit = json.loads(audit_path.read_text(encoding="utf-8"))
+    assert audit["action"] == "themis.manifest-authorization"
+    assert audit["execution_id"] == queued.job_id
+    assert audit["outcome"] == "refused"
+    assert audit["metadata"] == {
+        "error_type": "ManifestAuthorizationError",
+        "job_id": queued.job_id,
+        "scanner": "test-engine",
+    }
+    assert audit["target"] == "https://127.0.0.1/?api_key=[REDACTED]"
+    assert "must-not-leak" not in audit_path.read_text(encoding="utf-8")
+
+
+def test_atomic_claim_and_queue_order(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    scope = _scope(tmp_path / "scope.json")
+    first = store.submit(
+        scanner="test-engine",
+        target="127.0.0.1",
+        target_kind="host",
+        scope_path=scope,
+        authorized=True,
+    )
+    store.submit(
+        scanner="test-engine",
+        target="127.0.0.1",
+        target_kind="host",
+        scope_path=scope,
+        authorized=True,
+    )
+    claimed = store.claim_next()
+    assert claimed is not None and claimed.job_id == first.job_id
+    assert store.list(state=JobState.RUNNING) == [claimed]
+
+
+def test_queued_cancel_is_terminal_and_idempotent(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    job = store.submit(
+        scanner="test-engine",
+        target="127.0.0.1",
+        target_kind="host",
+        scope_path=_scope(tmp_path / "scope.json"),
+        authorized=True,
+    )
+    cancelled = store.cancel(job.job_id)
+    assert cancelled.state is JobState.CANCELLED
+    assert store.cancel(job.job_id) == cancelled
+    assert store.claim_next() is None
+
+
+def test_failure_is_persisted_without_secret_fields(tmp_path: Path) -> None:
+    class _Broken(_Adapter):
+        def run(self, request: ScanRequest):
+            raise RuntimeError("controlled failure")
+
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    job = store.submit(
+        scanner="test-engine",
+        target="127.0.0.1",
+        target_kind="host",
+        scope_path=_scope(tmp_path / "scope.json"),
+        authorized=True,
+        manifest_sha256=_TEST_MANIFEST_SHA256,
+    )
+    result = ThemisWorker(
+        store,
+        _service(_Broken()),
+        live_scans=True,
+        manifest_authorizer=_AcceptingManifestAuthorizer(),
+    ).run_next()
+    assert result is not None and result.state is JobState.FAILED
+    assert result.error == "RuntimeError: controlled failure"
+    assert job.job_id == result.job_id
+
+
+def test_store_rejects_symlink_database(tmp_path: Path) -> None:
+    target = tmp_path / "real.sqlite3"
+    target.touch()
+    link = tmp_path / "link.sqlite3"
+    link.symlink_to(target)
+    with pytest.raises(OSError, match="non-symlink"):
+        ThemisJobStore(link).initialize()
+
+
+def _cli_manifest_files(
+    tmp_path: Path,
+    *,
+    target: str = "127.0.0.1",
+    technique: str = "nmap",
+    expired: bool = False,
+) -> tuple[Path, Path, str]:
+    private_key, public_key = generate_keypair()
+    now = datetime.now(UTC)
+    valid_from = now - timedelta(hours=2 if expired else 1)
+    expires_at = now - timedelta(hours=1) if expired else now + timedelta(hours=1)
+    manifest = EngagementManifest(
+        engagement_id="ENG-2026-00001",
+        client="Synthetic Client",
+        owner="Security Owner",
+        approver="Authorized Approver",
+        contract_id="CONTRACT-2026-01",
+        scope=EngagementScope(included=(target,)),
+        valid_from=valid_from,
+        expires_at=expires_at,
+        allowed_techniques=(technique,),
+    )
+    signed = SignedEngagementManifest.sign_manifest(manifest, private_key_pem=private_key)
+    manifest_path = tmp_path / "signed-manifest.json"
+    manifest_path.write_text(signed.model_dump_json(), encoding="utf-8")
+    public_key_path = tmp_path / "approver-public.pem"
+    public_key_path.write_text(public_key, encoding="utf-8")
+    return manifest_path, public_key_path, signed.manifest_sha256
+
+
+def test_job_cli_submit_list_status_cancel(tmp_path: Path) -> None:
+    database = tmp_path / "jobs.sqlite3"
+    scope = _scope(tmp_path / "scope.json")
+    manifest, public_key, expected_digest = _cli_manifest_files(tmp_path)
+    submitted = runner.invoke(
+        app,
+        [
+            "themis",
+            "jobs",
+            "submit",
+            "nmap",
+            "--target",
+            "127.0.0.1",
+            "--scope",
+            str(scope),
+            "--database",
+            str(database),
+            "--signed-manifest",
+            str(manifest),
+            "--manifest-public-key",
+            str(public_key),
+            "--engagement-storage",
+            str(tmp_path / "engagements"),
+            "--i-am-authorized",
+        ],
+    )
+    assert submitted.exit_code == 0, submitted.output
+    created = json.loads(submitted.output)
+    job_id = created["job_id"]
+    assert created["manifest_sha256"] == expected_digest
+    listed = runner.invoke(app, ["themis", "jobs", "list", "-d", str(database)])
+    assert listed.exit_code == 0 and json.loads(listed.output)["count"] == 1
+    status = runner.invoke(app, ["themis", "jobs", "status", job_id, "-d", str(database)])
+    assert status.exit_code == 0 and json.loads(status.output)["state"] == "queued"
+    cancelled = runner.invoke(app, ["themis", "jobs", "cancel", job_id, "-d", str(database)])
+    assert cancelled.exit_code == 0 and json.loads(cancelled.output)["state"] == "cancelled"
+
+
+def test_job_cli_refuses_unconfirmed_authorization(tmp_path: Path) -> None:
+    result = runner.invoke(
+        app,
+        [
+            "themis",
+            "jobs",
+            "submit",
+            "nmap",
+            "--target",
+            "127.0.0.1",
+            "--scope",
+            str(_scope(tmp_path / "scope.json")),
+            "--database",
+            str(tmp_path / "jobs.sqlite3"),
+        ],
+    )
+    assert result.exit_code == 4
+    assert "requires --i-am-authorized" in result.output
+
+
+def test_job_cli_refuses_boolean_authorization_without_signed_manifest(tmp_path: Path) -> None:
+    result = runner.invoke(
+        app,
+        [
+            "themis",
+            "jobs",
+            "submit",
+            "nmap",
+            "--target",
+            "127.0.0.1",
+            "--scope",
+            str(_scope(tmp_path / "scope.json")),
+            "--database",
+            str(tmp_path / "jobs.sqlite3"),
+            "--i-am-authorized",
+        ],
+    )
+    assert result.exit_code == 4
+    assert "requires --signed-manifest" in result.output
+
+
+@pytest.mark.parametrize(
+    ("target", "technique", "expired"),
+    [
+        ("192.0.2.10", "nmap", False),
+        ("127.0.0.1", "nuclei", False),
+        ("127.0.0.1", "nmap", True),
+    ],
+)
+def test_job_cli_refuses_manifest_outside_operation_bounds(
+    tmp_path: Path, target: str, technique: str, expired: bool
+) -> None:
+    manifest, public_key, _digest = _cli_manifest_files(
+        tmp_path, target=target, technique=technique, expired=expired
+    )
+    database = tmp_path / "jobs.sqlite3"
+    result = runner.invoke(
+        app,
+        [
+            "themis",
+            "jobs",
+            "submit",
+            "nmap",
+            "--target",
+            "127.0.0.1",
+            "--scope",
+            str(_scope(tmp_path / "scope.json")),
+            "--database",
+            str(database),
+            "--signed-manifest",
+            str(manifest),
+            "--manifest-public-key",
+            str(public_key),
+            "--engagement-storage",
+            str(tmp_path / "engagements"),
+            "--i-am-authorized",
+        ],
+    )
+    assert result.exit_code == 4
+    assert "signed authorization refused" in result.output
+    assert ThemisJobStore(database).list() == []
+
+
+def test_job_cli_refuses_symlinked_manifest(tmp_path: Path) -> None:
+    manifest, public_key, _digest = _cli_manifest_files(tmp_path)
+    link = tmp_path / "manifest-link.json"
+    link.symlink_to(manifest)
+    result = runner.invoke(
+        app,
+        [
+            "themis",
+            "jobs",
+            "submit",
+            "nmap",
+            "--target",
+            "127.0.0.1",
+            "--scope",
+            str(_scope(tmp_path / "scope.json")),
+            "--signed-manifest",
+            str(link),
+            "--manifest-public-key",
+            str(public_key),
+            "--engagement-storage",
+            str(tmp_path / "engagements"),
+            "--i-am-authorized",
+        ],
+    )
+    assert result.exit_code == 4
+    assert "must not be a symlink" in result.output
+
+
+def test_job_cli_refuses_revoked_manifest(tmp_path: Path) -> None:
+    manifest, public_key, _digest = _cli_manifest_files(tmp_path)
+    engagement_storage = tmp_path / "engagements"
+    signed = SignedEngagementManifest.model_validate_json(manifest.read_text(encoding="utf-8"))
+    store = SqliteEngagementStore(engagement_storage / "engagements.db")
+    try:
+        store.revoke_manifest(
+            signed,
+            trusted_public_key_pem=public_key.read_text(encoding="utf-8"),
+        )
+    finally:
+        store.close()
+
+    result = runner.invoke(
+        app,
+        [
+            "themis",
+            "jobs",
+            "submit",
+            "nmap",
+            "--target",
+            "127.0.0.1",
+            "--scope",
+            str(_scope(tmp_path / "scope.json")),
+            "--signed-manifest",
+            str(manifest),
+            "--manifest-public-key",
+            str(public_key),
+            "--engagement-storage",
+            str(engagement_storage),
+            "--i-am-authorized",
+        ],
+    )
+    assert result.exit_code == 4
+    assert "has been revoked" in result.output
+
+
+# --------------------------------------------------------------------------- #
+# Leases, ownership and orphan recovery
+# --------------------------------------------------------------------------- #
+def _submit(store: ThemisJobStore, tmp_path: Path, **overrides: object) -> ThemisJob:
+    arguments: dict[str, object] = {
+        "scanner": "test-engine",
+        "target": "127.0.0.1",
+        "target_kind": "host",
+        "scope_path": _scope(tmp_path / "scope.json"),
+        "authorized": True,
+    }
+    arguments.update(overrides)
+    return store.submit(**arguments)  # type: ignore[arg-type]
+
+
+def _expire_lease(store: ThemisJobStore, job_id: str) -> None:
+    """Age a lease out, exactly as a worker that stopped reporting would."""
+    past = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
+    with sqlite3.connect(store.path) as db:
+        db.execute("UPDATE themis_jobs SET lease_expires_at = ? WHERE job_id = ?", (past, job_id))
+
+
+def test_claim_leases_the_job_to_exactly_one_worker(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    _submit(store, tmp_path)
+    claimed = store.claim_next("worker-a")
+    assert claimed is not None
+    assert claimed.worker_id == "worker-a"
+    assert claimed.attempts == 1
+    assert claimed.lease_expires_at is not None
+    assert store.claim_next("worker-b") is None
+
+
+def test_shared_worker_limit_is_atomic_across_store_instances(tmp_path: Path) -> None:
+    database = tmp_path / "jobs.sqlite3"
+    first_store = ThemisJobStore(database)
+    second_store = ThemisJobStore(database)
+    first_job = _submit(first_store, tmp_path)
+    second_job = _submit(first_store, tmp_path)
+
+    claimed = first_store.claim_next("worker-a", max_concurrent_jobs=1)
+    assert claimed is not None and claimed.job_id == first_job.job_id
+    assert second_store.claim_next("worker-b", max_concurrent_jobs=1) is None
+    assert second_store.get(second_job.job_id).state is JobState.QUEUED
+
+    first_store.complete(first_job.job_id, worker_id="worker-a", state=JobState.SUCCEEDED)
+    released = second_store.claim_next("worker-b", max_concurrent_jobs=1)
+    assert released is not None and released.job_id == second_job.job_id
+
+
+def test_shared_worker_limit_recovers_expired_capacity(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3", backoff_seconds=0.0)
+    _submit(store, tmp_path, max_attempts=2)
+    _submit(store, tmp_path)
+    first_claim = store.claim_next("worker-a", max_concurrent_jobs=1)
+    assert first_claim is not None
+    _expire_lease(store, first_claim.job_id)
+
+    reclaimed = store.claim_next("worker-b", max_concurrent_jobs=1)
+    assert reclaimed is not None and reclaimed.worker_id == "worker-b"
+
+
+@pytest.mark.parametrize("limit", [True, 0, 4_097])
+def test_worker_refuses_invalid_shared_concurrency_limit(tmp_path: Path, limit: int) -> None:
+    with pytest.raises(ValueError, match="max_concurrent_jobs"):
+        ThemisWorker(ThemisJobStore(tmp_path / "jobs.sqlite3"), max_concurrent_jobs=limit)
+
+
+@given(st.one_of(st.integers(max_value=0), st.integers(min_value=4_097)))
+def test_worker_concurrency_limit_is_property_bounded(limit: int) -> None:
+    with pytest.raises(ValueError, match="max_concurrent_jobs"):
+        ThemisWorker(ThemisJobStore(Path("unused.sqlite3")), max_concurrent_jobs=limit)
+
+
+def test_heartbeat_extends_a_lease_only_for_its_owner(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    _submit(store, tmp_path)
+    claimed = store.claim_next("worker-a")
+    assert claimed is not None and claimed.lease_expires_at is not None
+    renewed = store.heartbeat(claimed.job_id, "worker-a")
+    assert renewed.lease_expires_at is not None
+    assert renewed.lease_expires_at >= claimed.lease_expires_at
+    assert renewed.heartbeat_at is not None
+    with pytest.raises(LeaseLostError):
+        store.heartbeat(claimed.job_id, "worker-b")
+
+
+def test_a_terminal_transition_requires_the_current_lease(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    _submit(store, tmp_path)
+    claimed = store.claim_next("worker-a")
+    assert claimed is not None
+    with pytest.raises(LeaseLostError):
+        store.fail(claimed.job_id, worker_id="worker-b", error="not mine to fail")
+    assert store.get(claimed.job_id).state is JobState.RUNNING
+
+
+def test_worker_id_is_validated(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    with pytest.raises(ValueError, match="worker_id"):
+        store.claim_next("worker id with spaces")
+
+
+def test_an_abandoned_lease_is_requeued_while_attempts_remain(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3", backoff_seconds=0.0)
+    job = _submit(store, tmp_path, max_attempts=2)
+    claimed = store.claim_next("worker-a")
+    assert claimed is not None
+    _expire_lease(store, job.job_id)
+
+    recovered = store.recover_expired_leases()
+    assert [item.job_id for item in recovered] == [job.job_id]
+    requeued = store.get(job.job_id)
+    assert requeued.state is JobState.QUEUED
+    assert requeued.worker_id is None
+    assert requeued.error is not None and "lease expired" in requeued.error
+    # The recovered job is claimable again, and the attempt counter advances.
+    second = store.claim_next("worker-b")
+    assert second is not None and second.job_id == job.job_id and second.attempts == 2
+
+
+def test_an_abandoned_lease_fails_when_the_attempt_budget_is_spent(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    job = _submit(store, tmp_path)  # max_attempts defaults to 1
+    store.claim_next("worker-a")
+    _expire_lease(store, job.job_id)
+
+    recovered = store.recover_expired_leases()
+    assert recovered and recovered[0].state is JobState.FAILED
+    assert "lease expired" in (recovered[0].error or "")
+    assert store.get(job.job_id).finished_at is not None
+
+
+def test_claiming_recovers_abandoned_work_before_taking_new_work(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3", backoff_seconds=0.0)
+    job = _submit(store, tmp_path, max_attempts=2)
+    store.claim_next("worker-a")
+    _expire_lease(store, job.job_id)
+
+    reclaimed = store.claim_next("worker-b")
+    assert reclaimed is not None and reclaimed.job_id == job.job_id
+    assert reclaimed.worker_id == "worker-b"
+
+
+def test_worker_renews_its_lease_while_a_scan_runs(tmp_path: Path) -> None:
+    class _Slow(_Adapter):
+        def run(self, request: ScanRequest) -> ScanResult:
+            time.sleep(0.3)
+            return ScanResult(scanner=self.name, state=ExecutionState.LIVE, target=request.target)
+
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3", lease_seconds=1.0)
+    _submit(store, tmp_path, manifest_sha256=_TEST_MANIFEST_SHA256)
+    finished = ThemisWorker(
+        store,
+        _service(_Slow()),
+        live_scans=True,
+        manifest_authorizer=_AcceptingManifestAuthorizer(),
+        heartbeat_seconds=0.05,
+    ).run_next()
+    assert finished is not None and finished.state is JobState.SUCCEEDED
+    assert finished.started_at is not None and finished.heartbeat_at is not None
+    assert finished.heartbeat_at > finished.started_at, "the lease was never renewed"
+
+
+def test_a_worker_that_loses_its_lease_stops_and_reports_the_new_owner(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    started = threading.Event()
+    heartbeat_waiting = threading.Event()
+    release_heartbeat = threading.Event()
+
+    class _Blocking(_Adapter):
+        def run(self, request: ScanRequest) -> ScanResult:
+            started.set()
+            deadline = time.monotonic() + 10
+            while time.monotonic() < deadline:
+                if request.cancellation.is_cancelled():
+                    raise CancellationRequested("lease lost")
+                time.sleep(0.02)
+            raise AssertionError("the worker was never told to stop")
+
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3", backoff_seconds=0.0)
+    job = _submit(
+        store,
+        tmp_path,
+        max_attempts=2,
+        manifest_sha256=_TEST_MANIFEST_SHA256,
+    )
+    original_heartbeat = ThemisJobStore.heartbeat
+
+    def held_heartbeat(self: ThemisJobStore, job_id: str, worker_id: str) -> ThemisJob:
+        heartbeat_waiting.set()
+        assert release_heartbeat.wait(timeout=5), "the lease takeover never completed"
+        return original_heartbeat(self, job_id, worker_id)
+
+    monkeypatch.setattr(ThemisJobStore, "heartbeat", held_heartbeat)
+    worker = ThemisWorker(
+        store,
+        _service(_Blocking()),
+        live_scans=True,
+        manifest_authorizer=_AcceptingManifestAuthorizer(),
+        worker_id="worker-a",
+        heartbeat_seconds=0.05,
+    )
+    outcome: list[ThemisJob | None] = []
+    thread = threading.Thread(target=lambda: outcome.append(worker.run_next()))
+    thread.start()
+    assert started.wait(timeout=5)
+    assert heartbeat_waiting.wait(timeout=5)
+
+    # The job is taken over exactly as an orphan-recovery run would take it.
+    _expire_lease(store, job.job_id)
+    stolen = store.claim_next("worker-b")
+    release_heartbeat.set()
+    assert stolen is not None and stolen.worker_id == "worker-b"
+
+    thread.join(timeout=10)
+    assert not thread.is_alive(), "the worker kept scanning after losing its lease"
+    # The first worker must not overwrite the new owner's state.
+    assert store.get(job.job_id).worker_id == "worker-b"
+    assert store.get(job.job_id).state is JobState.RUNNING
+    assert outcome and outcome[0] is not None and outcome[0].worker_id == "worker-b"
+
+
+# --------------------------------------------------------------------------- #
+# Retry budget, backoff and idempotency
+# --------------------------------------------------------------------------- #
+def test_a_timed_out_job_is_retried_until_its_budget_is_spent(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3", backoff_seconds=0.0)
+    job = _submit(store, tmp_path, max_attempts=2)
+    first = store.claim_next("worker-a")
+    assert first is not None
+    retried = store.complete(
+        job.job_id, worker_id="worker-a", state=JobState.TIMED_OUT, error="deadline exceeded"
+    )
+    assert retried.state is JobState.QUEUED
+    assert retried.attempts == 1 and retried.error == "deadline exceeded"
+
+    store.claim_next("worker-a")
+    final = store.complete(
+        job.job_id, worker_id="worker-a", state=JobState.TIMED_OUT, error="deadline exceeded"
+    )
+    assert final.state is JobState.TIMED_OUT
+    assert final.attempts == 2 and final.finished_at is not None
+
+
+def test_outcomes_that_will_not_change_are_never_retried(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3", backoff_seconds=0.0)
+    for state in (JobState.FAILED, JobState.POLICY_DENIED, JobState.PARTIAL):
+        job = _submit(store, tmp_path, max_attempts=3, idempotency_key=f"key-{state.value}")
+        store.claim_next("worker-a")
+        settled = store.complete(job.job_id, worker_id="worker-a", state=state, error="no")
+        assert settled.state is state
+        assert settled.attempts == 1, f"{state} must not consume more than one attempt"
+
+
+def test_retry_backoff_grows_and_stays_capped() -> None:
+    store = ThemisJobStore(Path("unused.sqlite3"), backoff_seconds=1.0, max_backoff_seconds=10.0)
+    assert 1.0 <= store.backoff_for(1) < 1.3
+    assert store.backoff_for(1) < store.backoff_for(4)
+    assert store.backoff_for(9) <= 10.0 * 1.25
+
+
+def test_a_requeued_job_waits_for_its_backoff_before_being_claimed(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3", backoff_seconds=60.0)
+    job = _submit(store, tmp_path, max_attempts=2)
+    store.claim_next("worker-a")
+    requeued = store.complete(job.job_id, worker_id="worker-a", state=JobState.TIMED_OUT)
+    assert requeued.state is JobState.QUEUED
+    assert requeued.available_at > requeued.updated_at
+    assert store.claim_next("worker-b") is None, "backoff must be respected"
+
+
+def test_an_idempotency_key_makes_resubmission_safe(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    first = _submit(store, tmp_path, idempotency_key="ticket-4711")
+    second = _submit(store, tmp_path, idempotency_key="ticket-4711")
+    assert first.job_id == second.job_id
+    assert len(store.list()) == 1
+
+
+def test_signed_manifest_digest_is_persisted_and_part_of_idempotency(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    digest = "a" * 64
+    first = _submit(store, tmp_path, idempotency_key="ticket-signed", manifest_sha256=digest)
+    assert first.manifest_sha256 == digest
+    assert store.execution_record(first.job_id).manifest_sha256 == digest
+    with pytest.raises(IdempotencyConflict, match="ticket-signed"):
+        _submit(
+            store,
+            tmp_path,
+            idempotency_key="ticket-signed",
+            manifest_sha256="b" * 64,
+        )
+
+
+def test_malformed_manifest_digest_is_rejected(tmp_path: Path) -> None:
+    database = tmp_path / "jobs.sqlite3"
+    store = ThemisJobStore(database)
+    with pytest.raises(ValueError, match="manifest_sha256"):
+        _submit(store, tmp_path, manifest_sha256="A" * 64)
+    job = _submit(store, tmp_path, manifest_sha256="a" * 64)
+    with sqlite3.connect(database) as db, pytest.raises(sqlite3.IntegrityError):
+        db.execute(
+            "UPDATE themis_jobs SET manifest_sha256 = ? WHERE job_id = ?",
+            ("z" * 64, job.job_id),
+        )
+
+
+def test_reusing_a_key_for_a_different_request_is_refused(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    _submit(store, tmp_path, idempotency_key="ticket-4711")
+    with pytest.raises(IdempotencyConflict, match="ticket-4711"):
+        _submit(store, tmp_path, target="127.0.0.2", idempotency_key="ticket-4711")
+
+
+def test_malformed_idempotency_keys_and_budgets_are_rejected(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    with pytest.raises(ValueError, match="idempotency_key"):
+        _submit(store, tmp_path, idempotency_key="not a key")
+    with pytest.raises(ValueError, match="max_attempts"):
+        _submit(store, tmp_path, max_attempts=99)
+
+
+# --------------------------------------------------------------------------- #
+# Schema versioning and migration
+# --------------------------------------------------------------------------- #
+_LEGACY_SCHEMA = """
+CREATE TABLE themis_jobs (
+    job_id TEXT PRIMARY KEY,
+    scanner TEXT NOT NULL,
+    target TEXT NOT NULL,
+    target_kind TEXT NOT NULL,
+    scope_path TEXT NOT NULL,
+    authorized INTEGER NOT NULL CHECK (authorized IN (0, 1)),
+    state TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    started_at TEXT,
+    finished_at TEXT,
+    result_json TEXT,
+    error TEXT,
+    cancel_requested INTEGER NOT NULL DEFAULT 0
+);
+"""
+
+
+def test_a_pre_versioning_database_is_migrated_without_losing_jobs(tmp_path: Path) -> None:
+    database = tmp_path / "legacy.sqlite3"
+    stamp = datetime.now(UTC).isoformat()
+    with sqlite3.connect(database) as db:
+        db.executescript(_LEGACY_SCHEMA)
+        db.execute(
+            """INSERT INTO themis_jobs
+            (job_id, scanner, target, target_kind, scope_path, authorized, state,
+             created_at, updated_at)
+            VALUES (?, 'test-engine', '127.0.0.1', 'host', ?, 1, 'queued', ?, ?)""",
+            (f"THEMIS-{'A' * 32}", str(tmp_path / "scope.json"), stamp, stamp),
+        )
+
+    store = ThemisJobStore(database)
+    store.initialize()
+    with sqlite3.connect(database) as db:
+        assert int(db.execute("PRAGMA user_version").fetchone()[0]) == SCHEMA_VERSION
+
+    migrated = store.get(f"THEMIS-{'A' * 32}")
+    assert migrated.state is JobState.QUEUED
+    assert migrated.attempts == 0 and migrated.max_attempts == 1
+    assert migrated.available_at is not None
+    # A migrated job is immediately claimable: its backfilled availability is
+    # its creation time, not the epoch default used to satisfy NOT NULL.
+    claimed = store.claim_next("worker-a")
+    assert claimed is not None and claimed.job_id == migrated.job_id
+
+
+def test_a_database_from_a_newer_release_is_refused(tmp_path: Path) -> None:
+    database = tmp_path / "future.sqlite3"
+    store = ThemisJobStore(database)
+    store.initialize()
+    with sqlite3.connect(database) as db:
+        db.execute(f"PRAGMA user_version = {SCHEMA_VERSION + 1}")
+    with pytest.raises(SchemaVersionError, match="upgrade Olympus"):
+        store.get("THEMIS-" + "A" * 32)
+
+
+def test_a_v2_database_adds_manifest_binding_without_inventing_it(tmp_path: Path) -> None:
+    database = tmp_path / "v2.sqlite3"
+    store = ThemisJobStore(database)
+    existing = _submit(store, tmp_path)
+    with sqlite3.connect(database) as db:
+        db.execute("ALTER TABLE themis_jobs DROP COLUMN manifest_sha256")
+        db.execute("PRAGMA user_version = 2")
+    store.initialize()
+    with sqlite3.connect(database) as db:
+        columns = {row[1] for row in db.execute("PRAGMA table_info(themis_jobs)")}
+        assert "manifest_sha256" in columns
+        with pytest.raises(sqlite3.IntegrityError):
+            db.execute(
+                "UPDATE themis_jobs SET manifest_sha256 = ? WHERE job_id = ?",
+                ("z" * 64, existing.job_id),
+            )
+    assert store.get(existing.job_id).manifest_sha256 is None
+
+
+def test_the_store_uses_write_ahead_logging_and_a_busy_timeout(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    store.initialize()
+    with sqlite3.connect(store.path) as db:
+        assert db.execute("PRAGMA journal_mode").fetchone()[0].lower() == "wal"
+    # A reader must not be blocked out while a writer holds a transaction.
+    _submit(store, tmp_path)
+    with sqlite3.connect(store.path) as writer:
+        writer.execute("BEGIN IMMEDIATE")
+        writer.execute("UPDATE themis_jobs SET updated_at = updated_at")
+        assert len(store.list()) == 1
+        writer.rollback()
+
+
+# --------------------------------------------------------------------------- #
+# One state means one thing
+# --------------------------------------------------------------------------- #
+def test_scan_outcomes_map_onto_distinct_job_states() -> None:
+    def result(state: ExecutionState, **kw: object) -> ScanResult:
+        return ScanResult(scanner="test-engine", state=state, target="127.0.0.1", **kw)  # type: ignore[arg-type]
+
+    assert classify_result(result(ExecutionState.LIVE))[0] is JobState.SUCCEEDED
+    assert classify_result(result(ExecutionState.SIMULATION))[0] is JobState.SUCCEEDED
+    assert classify_result(result(ExecutionState.UNAVAILABLE))[0] is JobState.PARTIAL
+    assert classify_result(result(ExecutionState.DISABLED))[0] is JobState.PARTIAL
+    assert classify_result(result(ExecutionState.FAILED))[0] is JobState.FAILED
+    timed_out = result(
+        ExecutionState.FAILED,
+        termination=TerminationReport(cause=TerminationCause.TIMEOUT, detail="slow"),
+    )
+    assert classify_result(timed_out)[0] is JobState.TIMED_OUT
+
+
+def test_out_of_scope_work_is_denied_not_failed(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    _submit(
+        store,
+        tmp_path,
+        target="10.11.12.13",
+        manifest_sha256=_TEST_MANIFEST_SHA256,
+    )
+    outcome = ThemisWorker(
+        store,
+        _service(_Adapter()),
+        live_scans=True,
+        manifest_authorizer=_AcceptingManifestAuthorizer(),
+    ).run_next()
+    assert outcome is not None and outcome.state is JobState.POLICY_DENIED
+    assert outcome.result is None
+
+
+def test_a_missing_scanner_is_partial_not_failed(tmp_path: Path) -> None:
+    class _Missing(_Adapter):
+        binary = "definitely-not-a-real-binary-xyz"
+
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    _submit(store, tmp_path, manifest_sha256=_TEST_MANIFEST_SHA256)
+    outcome = ThemisWorker(
+        store,
+        _service(_Missing()),
+        live_scans=True,
+        manifest_authorizer=_AcceptingManifestAuthorizer(),
+    ).run_next()
+    assert outcome is not None and outcome.state is JobState.PARTIAL
+    assert outcome.error is not None and "not installed" in outcome.error
+
+
+def test_disabled_live_scanning_is_partial_not_success(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    _submit(store, tmp_path)
+    outcome = ThemisWorker(store, _service(_Adapter()), live_scans=False).run_next()
+    assert outcome is not None and outcome.state is JobState.PARTIAL
+
+
+def test_cancelled_running_work_is_cancelled_not_failed(tmp_path: Path) -> None:
+    class _Cancelling(_Adapter):
+        def run(self, request: ScanRequest) -> ScanResult:
+            raise CancellationRequested("operation cancelled")
+
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    _submit(store, tmp_path, manifest_sha256=_TEST_MANIFEST_SHA256)
+    outcome = ThemisWorker(
+        store,
+        _service(_Cancelling()),
+        live_scans=True,
+        manifest_authorizer=_AcceptingManifestAuthorizer(),
+    ).run_next()
+    assert outcome is not None and outcome.state is JobState.CANCELLED
+
+
+# --------------------------------------------------------------------------- #
+# What gets persisted and published
+# --------------------------------------------------------------------------- #
+def test_persisted_errors_drop_secrets_and_server_paths() -> None:
+    redacted = redact_error(
+        "could not read /srv/olympus/engagements/acme/scope.json while fetching "
+        "https://api.test/scan?api_key=super-secret"
+    )
+    assert "/srv/olympus/engagements/acme" not in redacted
+    assert "[path]/scope.json" in redacted
+    assert "super-secret" not in redacted
+    assert "[REDACTED]" in redacted
+
+
+def test_a_url_is_not_mistaken_for_a_filesystem_path() -> None:
+    assert "https://example.test/a/b" in redact_error("fetch failed: https://example.test/a/b")
+
+
+def test_the_job_document_never_publishes_the_scope_path(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    job = _submit(store, tmp_path)
+    document = job.model_dump(mode="json")
+    assert document["schema_version"] == "3.0.0"
+    assert "scope_path" not in document
+    assert document["scope_name"] == "scope.json"
+    assert str(tmp_path) not in json.dumps(document)
+    # The worker still gets the real path it needs to load the scope.
+    assert store.execution_record(job.job_id).scope_path == (tmp_path / "scope.json").resolve()
+
+
+def test_credentials_in_a_target_url_are_not_republished(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    job = _submit(
+        store,
+        tmp_path,
+        target="https://app.example.test/status?api_key=super-secret",
+        target_kind="url",
+    )
+    assert "super-secret" not in job.target
+    assert "[REDACTED]" in job.target
+    # The scanner is still run against the target exactly as submitted.
+    assert store.execution_record(job.job_id).target.endswith("api_key=super-secret")
+
+
+def test_worker_identity_does_not_leak_the_host(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    _submit(store, tmp_path)
+    claimed = store.claim_next()
+    assert claimed is not None and claimed.worker_id is not None
+    assert claimed.worker_id.startswith("themis-")
+    assert socket.gethostname().lower() not in claimed.worker_id.lower()
+
+
+def test_recover_cli_reports_what_it_requeued(tmp_path: Path) -> None:
+    database = tmp_path / "jobs.sqlite3"
+    store = ThemisJobStore(database)
+    job = _submit(store, tmp_path)
+    store.claim_next("worker-a")
+    _expire_lease(store, job.job_id)
+
+    recovered = runner.invoke(app, ["themis", "jobs", "recover", "-d", str(database)])
+    assert recovered.exit_code == 0, recovered.output
+    payload = json.loads(recovered.output)
+    assert payload["recovered"] == 1
+    assert payload["jobs"][0]["state"] == "failed"
+
+
+# --------------------------------------------------------------------------- #
+# Retention
+# --------------------------------------------------------------------------- #
+def test_every_job_state_is_either_active_or_terminal() -> None:
+    """A new state must be classified, or retention and recovery would skip it."""
+    assert set(JobState) == ACTIVE_STATES | TERMINAL_STATES
+    assert not ACTIVE_STATES & TERMINAL_STATES
+
+
+def _finish(store: ThemisJobStore, tmp_path: Path, *, key: str) -> ThemisJob:
+    job = _submit(store, tmp_path, idempotency_key=key)
+    store.claim_next("worker-a")
+    return store.complete(
+        job.job_id, worker_id="worker-a", state=JobState.SUCCEEDED, result={"state": "live"}
+    )
+
+
+def _age_job(store: ThemisJobStore, job_id: str, days: int) -> None:
+    stamp = (datetime.now(UTC) - timedelta(days=days)).isoformat()
+    with sqlite3.connect(store.path) as db:
+        db.execute(
+            "UPDATE themis_jobs SET finished_at = ?, updated_at = ? WHERE job_id = ?",
+            (stamp, stamp, job_id),
+        )
+
+
+def test_finished_jobs_are_pruned_past_the_retention_window(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    old = _finish(store, tmp_path, key="old")
+    recent = _finish(store, tmp_path, key="recent")
+    _age_job(store, old.job_id, 90)
+
+    count, pruned = store.prune(older_than_days=30)
+
+    assert count == 1 and pruned == (old.job_id,)
+    with pytest.raises(KeyError):
+        store.get(old.job_id)
+    assert store.get(recent.job_id).state is JobState.SUCCEEDED
+
+
+def test_pruning_never_removes_queued_or_running_work(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    queued = _submit(store, tmp_path, idempotency_key="queued")
+    running = _submit(store, tmp_path, idempotency_key="running")
+    store.claim_next("worker-a")
+    for job_id in (queued.job_id, running.job_id):
+        _age_job(store, job_id, 400)
+
+    count, _ = store.prune(older_than_days=1)
+
+    assert count == 0
+    assert {job.job_id for job in store.list()} == {queued.job_id, running.job_id}
+
+
+def test_a_pruning_dry_run_changes_nothing(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    old = _finish(store, tmp_path, key="old")
+    _age_job(store, old.job_id, 90)
+
+    count, pruned = store.prune(older_than_days=30, dry_run=True)
+
+    assert count == 1 and pruned == (old.job_id,)
+    assert store.get(old.job_id).job_id == old.job_id
+
+
+def test_pruned_content_does_not_linger_in_the_database_file(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    job = store.submit(
+        scanner="test-engine",
+        target="secret-host.internal.example",
+        target_kind="host",
+        scope_path=_scope(tmp_path / "scope.json"),
+        authorized=True,
+    )
+    store.claim_next("worker-a")
+    store.complete(job.job_id, worker_id="worker-a", state=JobState.SUCCEEDED, result={})
+    _age_job(store, job.job_id, 90)
+    assert b"secret-host.internal.example" in store.path.read_bytes()
+
+    store.prune(older_than_days=30)
+
+    assert b"secret-host.internal.example" not in store.path.read_bytes()
+
+
+def test_prune_validates_its_window(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    with pytest.raises(ValueError, match="older_than_days"):
+        store.prune(older_than_days=99_999)
+
+
+def test_prune_cli_reports_what_it_removed(tmp_path: Path) -> None:
+    database = tmp_path / "jobs.sqlite3"
+    store = ThemisJobStore(database)
+    old = _finish(store, tmp_path, key="old")
+    _age_job(store, old.job_id, 90)
+
+    result = runner.invoke(
+        app,
+        ["themis", "jobs", "prune", "-d", str(database), "--older-than-days", "30"],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["pruned"] == 1 and payload["job_ids"] == [old.job_id]

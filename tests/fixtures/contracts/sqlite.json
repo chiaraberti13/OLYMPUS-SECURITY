@@ -1,0 +1,350 @@
+{
+  "schema_name": "olympus.athena-sqlite",
+  "schema_version": "1.0.0",
+  "tables": {
+    "assessments": {
+      "columns": [
+        {
+          "cid": 0,
+          "dflt_value": null,
+          "name": "assessment_id",
+          "notnull": 0,
+          "pk": 1,
+          "type": "TEXT"
+        },
+        {
+          "cid": 1,
+          "dflt_value": null,
+          "name": "plan_id",
+          "notnull": 1,
+          "pk": 0,
+          "type": "TEXT"
+        },
+        {
+          "cid": 2,
+          "dflt_value": null,
+          "name": "state",
+          "notnull": 1,
+          "pk": 0,
+          "type": "TEXT"
+        }
+      ],
+      "create_sql": "CREATE TABLE assessments (\n    assessment_id TEXT PRIMARY KEY,\n    plan_id TEXT NOT NULL REFERENCES plans(plan_id),\n    state TEXT NOT NULL\n)",
+      "rows": [
+        {
+          "assessment_id": "ASM-GOLDEN-1",
+          "plan_id": "PLAN-504e285446ee2ccd",
+          "state": "planned"
+        }
+      ]
+    },
+    "audit": {
+      "columns": [
+        {
+          "cid": 0,
+          "dflt_value": null,
+          "name": "assessment_id",
+          "notnull": 1,
+          "pk": 1,
+          "type": "TEXT"
+        },
+        {
+          "cid": 1,
+          "dflt_value": null,
+          "name": "sequence",
+          "notnull": 1,
+          "pk": 2,
+          "type": "INTEGER"
+        },
+        {
+          "cid": 2,
+          "dflt_value": null,
+          "name": "timestamp",
+          "notnull": 1,
+          "pk": 0,
+          "type": "TEXT"
+        },
+        {
+          "cid": 3,
+          "dflt_value": null,
+          "name": "action",
+          "notnull": 1,
+          "pk": 0,
+          "type": "TEXT"
+        },
+        {
+          "cid": 4,
+          "dflt_value": null,
+          "name": "outcome",
+          "notnull": 1,
+          "pk": 0,
+          "type": "TEXT"
+        },
+        {
+          "cid": 5,
+          "dflt_value": null,
+          "name": "job_id",
+          "notnull": 0,
+          "pk": 0,
+          "type": "TEXT"
+        },
+        {
+          "cid": 6,
+          "dflt_value": null,
+          "name": "metadata",
+          "notnull": 1,
+          "pk": 0,
+          "type": "TEXT"
+        }
+      ],
+      "create_sql": "CREATE TABLE audit (\n    assessment_id TEXT NOT NULL,\n    sequence INTEGER NOT NULL,\n    timestamp TEXT NOT NULL,\n    action TEXT NOT NULL,\n    outcome TEXT NOT NULL,\n    job_id TEXT,\n    metadata TEXT NOT NULL,\n    PRIMARY KEY (assessment_id, sequence)\n)",
+      "rows": [
+        {
+          "action": "assessment.created",
+          "assessment_id": "ASM-GOLDEN-1",
+          "job_id": null,
+          "metadata": {
+            "actor": "golden-test"
+          },
+          "outcome": "planned",
+          "sequence": 0,
+          "timestamp": "2026-01-02T03:04:05+00:00"
+        }
+      ]
+    },
+    "jobs": {
+      "columns": [
+        {
+          "cid": 0,
+          "dflt_value": null,
+          "name": "job_id",
+          "notnull": 0,
+          "pk": 1,
+          "type": "TEXT"
+        },
+        {
+          "cid": 1,
+          "dflt_value": null,
+          "name": "assessment_id",
+          "notnull": 1,
+          "pk": 0,
+          "type": "TEXT"
+        },
+        {
+          "cid": 2,
+          "dflt_value": null,
+          "name": "ordinal",
+          "notnull": 1,
+          "pk": 0,
+          "type": "INTEGER"
+        },
+        {
+          "cid": 3,
+          "dflt_value": null,
+          "name": "adapter",
+          "notnull": 1,
+          "pk": 0,
+          "type": "TEXT"
+        },
+        {
+          "cid": 4,
+          "dflt_value": null,
+          "name": "target_kind",
+          "notnull": 1,
+          "pk": 0,
+          "type": "TEXT"
+        },
+        {
+          "cid": 5,
+          "dflt_value": null,
+          "name": "target_value",
+          "notnull": 1,
+          "pk": 0,
+          "type": "TEXT"
+        },
+        {
+          "cid": 6,
+          "dflt_value": null,
+          "name": "state",
+          "notnull": 1,
+          "pk": 0,
+          "type": "TEXT"
+        },
+        {
+          "cid": 7,
+          "dflt_value": null,
+          "name": "error_code",
+          "notnull": 0,
+          "pk": 0,
+          "type": "TEXT"
+        },
+        {
+          "cid": 8,
+          "dflt_value": null,
+          "name": "result_id",
+          "notnull": 0,
+          "pk": 0,
+          "type": "TEXT"
+        }
+      ],
+      "create_sql": "CREATE TABLE jobs (\n    job_id TEXT PRIMARY KEY,\n    assessment_id TEXT NOT NULL REFERENCES assessments(assessment_id),\n    ordinal INTEGER NOT NULL,\n    adapter TEXT NOT NULL,\n    target_kind TEXT NOT NULL,\n    target_value TEXT NOT NULL,\n    state TEXT NOT NULL,\n    error_code TEXT,\n    result_id TEXT\n)",
+      "rows": [
+        {
+          "adapter": "dns",
+          "assessment_id": "ASM-GOLDEN-1",
+          "error_code": null,
+          "job_id": "JOB-GOLDEN-1",
+          "ordinal": 0,
+          "result_id": null,
+          "state": "queued",
+          "target_kind": "domain",
+          "target_value": "example.test"
+        }
+      ]
+    },
+    "plans": {
+      "columns": [
+        {
+          "cid": 0,
+          "dflt_value": null,
+          "name": "plan_id",
+          "notnull": 0,
+          "pk": 1,
+          "type": "TEXT"
+        },
+        {
+          "cid": 1,
+          "dflt_value": null,
+          "name": "document",
+          "notnull": 1,
+          "pk": 0,
+          "type": "TEXT"
+        }
+      ],
+      "create_sql": "CREATE TABLE plans (\n    plan_id TEXT PRIMARY KEY,\n    document TEXT NOT NULL\n)",
+      "rows": [
+        {
+          "document": {
+            "adapters": [
+              "dns"
+            ],
+            "authorization": {
+              "approval_reference": "AUTH-GOLDEN",
+              "confirmed": true,
+              "engagement_id": "ENG-GOLDEN"
+            },
+            "engagement_id": "ENG-GOLDEN",
+            "limits": {
+              "concurrency": 2,
+              "max_retries": 1,
+              "overall_deadline_seconds": 600,
+              "per_job_timeout_seconds": 60
+            },
+            "name": "Golden assessment",
+            "output": {
+              "report_formats": [
+                "json"
+              ],
+              "retention_days": 30
+            },
+            "schema_name": "olympus.athena.plan",
+            "schema_version": "1.0.0",
+            "scope": {
+              "allowed_domains": [
+                "example.test"
+              ]
+            },
+            "targets": [
+              {
+                "kind": "domain",
+                "value": "example.test"
+              }
+            ]
+          },
+          "plan_id": "PLAN-504e285446ee2ccd"
+        }
+      ]
+    },
+    "results": {
+      "columns": [
+        {
+          "cid": 0,
+          "dflt_value": null,
+          "name": "result_id",
+          "notnull": 0,
+          "pk": 1,
+          "type": "TEXT"
+        },
+        {
+          "cid": 1,
+          "dflt_value": null,
+          "name": "assessment_id",
+          "notnull": 1,
+          "pk": 0,
+          "type": "TEXT"
+        },
+        {
+          "cid": 2,
+          "dflt_value": null,
+          "name": "job_id",
+          "notnull": 1,
+          "pk": 0,
+          "type": "TEXT"
+        },
+        {
+          "cid": 3,
+          "dflt_value": null,
+          "name": "document",
+          "notnull": 1,
+          "pk": 0,
+          "type": "TEXT"
+        },
+        {
+          "cid": 4,
+          "dflt_value": null,
+          "name": "sha256",
+          "notnull": 1,
+          "pk": 0,
+          "type": "TEXT"
+        },
+        {
+          "cid": 5,
+          "dflt_value": null,
+          "name": "length",
+          "notnull": 1,
+          "pk": 0,
+          "type": "INTEGER"
+        }
+      ],
+      "create_sql": "CREATE TABLE results (\n    result_id TEXT PRIMARY KEY,\n    assessment_id TEXT NOT NULL REFERENCES assessments(assessment_id),\n    job_id TEXT NOT NULL REFERENCES jobs(job_id),\n    document TEXT NOT NULL,\n    sha256 TEXT NOT NULL,\n    length INTEGER NOT NULL\n)",
+      "rows": [
+        {
+          "assessment_id": "ASM-GOLDEN-1",
+          "document": {
+            "assessment_id": "ASM-GOLDEN-1",
+            "assets": [],
+            "findings": [],
+            "job": {
+              "adapter": "dns",
+              "assessment_id": "ASM-GOLDEN-1",
+              "error_code": null,
+              "job_id": "JOB-GOLDEN-1",
+              "result_id": null,
+              "schema_name": "olympus.scan-job",
+              "schema_version": "1.0.0",
+              "state": "succeeded",
+              "target_kind": "domain",
+              "target_value": "example.test"
+            },
+            "schema_name": "olympus.athena.result",
+            "schema_version": "1.0.0"
+          },
+          "job_id": "JOB-GOLDEN-1",
+          "length": 366,
+          "result_id": "RES-e1e7edd75e40003b-JOB-GOLDEN-1",
+          "sha256": "e1e7edd75e40003b99cb3759561dbb96a800ed11c85e16bd65a65186b998f9e0"
+        }
+      ]
+    }
+  }
+}

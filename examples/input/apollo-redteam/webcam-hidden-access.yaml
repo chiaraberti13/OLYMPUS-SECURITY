@@ -1,0 +1,12 @@
+schema_name: olympus.apollo-rule
+schema_version: 1.0.0
+rule_id: APL-RT-WEBCAM-HIDDEN-ACCESS
+title: Camera device opened by a process with no visible window (covert video capture)
+event_type: edr.api
+conditions:
+  device_class: camera
+  process_window_visible: "false"
+  process_is_signed: "false"
+severity: high
+mitre_attack:
+  - T1125

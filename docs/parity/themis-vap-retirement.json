@@ -1,0 +1,131 @@
+{
+  "schema_version": 1,
+  "roadmap_id": "SEC-A",
+  "priority": "P0",
+  "reviewed_at": "2026-10-24",
+  "baseline": {
+    "legacy_repository_revision": "6c6b395d79f358372e028fe7094cc673374dd88f",
+    "legacy_app_sha256": "1df54b7b8f0656e470b31b8e6c47476c920428860642a245f9b32847c370d66a",
+    "parity_manifest": "docs/parity/themis-vap-runtime.json"
+  },
+  "decision_values": [
+    "native_replacement",
+    "intentional_exclusion",
+    "future_native_capability"
+  ],
+  "principles": [
+    "Remove the archived source only after every legacy route and data boundary has one explicit disposition.",
+    "Do not reproduce a legacy endpoint when a safer native workflow already answers the operator need.",
+    "Do not import legacy consent, learning telemetry or product analytics without a separate lawful purpose and privacy review.",
+    "Future native capabilities remain roadmap work but do not require retaining executable legacy source.",
+    "No disposition claims scanner production readiness or authorizes live traffic."
+  ],
+  "route_decisions": [
+    {
+      "decision": "native_replacement",
+      "source_removal_blocker": false,
+      "follow_up": null,
+      "routes": [
+        "GET /",
+        "POST /api/v1/feeds/refresh",
+        "GET /api/v1/feeds/status",
+        "GET /api/v1/scan-catalog",
+        "GET /api/v1/scans",
+        "POST /api/v1/scans",
+        "POST /api/v1/scans/{scan_id}/cancel",
+        "GET /api/v1/scans/{scan_id}/status",
+        "GET /health",
+        "GET /metrics",
+        "GET /ready",
+        "GET /scans",
+        "POST /scans",
+        "GET /scans/{scan_id}",
+        "WS /ws"
+      ],
+      "rationale": "A maintained native CLI, API, Web or SSE workflow covers the operator need without preserving VAP route or payload compatibility."
+    },
+    {
+      "decision": "intentional_exclusion",
+      "source_removal_blocker": false,
+      "follow_up": null,
+      "routes": [
+        "POST /api/v1/consents",
+        "POST /api/v1/learning-feedback",
+        "GET /api/v1/learning-kpis",
+        "GET /api/v1/learning-progress",
+        "POST /api/v1/learning-progress",
+        "POST /api/v1/learning-quiz-attempts",
+        "DELETE /api/v1/scans/{scan_id}",
+        "GET /api/v1/scans/{scan_id}/task",
+        "POST /api/v1/telemetry/scan-builder",
+        "POST /auth/token",
+        "GET /guida",
+        "GET /privacy-policy",
+        "GET /terms-of-service"
+      ],
+      "rationale": "The legacy surface is outside the offline-first assessment control plane, weakens the native security model, or is replaced by maintained documentation and lifecycle policy."
+    },
+    {
+      "decision": "future_native_capability",
+      "source_removal_blocker": false,
+      "follow_up": "SEC-E, UX-C, UX-D, WEB-I, WEB-J",
+      "routes": [
+        "GET /api/v1/audit/events",
+        "DELETE /api/v1/gdpr/delete",
+        "GET /api/v1/gdpr/export",
+        "GET /api/v1/scan-config/presets",
+        "POST /api/v1/scan-config/presets",
+        "DELETE /api/v1/scan-config/presets/{preset_id}",
+        "PATCH /api/v1/scan-config/presets/{preset_id}/lifecycle",
+        "GET /api/v1/scan-config/schema",
+        "GET /api/v1/scans/{scan_id}/configuration",
+        "GET /api/v1/scans/{scan_id}/report/download",
+        "GET /scans/{scan_id}/report/download"
+      ],
+      "rationale": "The user need is valid, but it belongs to an existing native roadmap capability and must not inherit the legacy route, identity or data contract."
+    }
+  ],
+  "data_decisions": [
+    {
+      "boundary": "job_states",
+      "decision": "native_replacement",
+      "source_removal_blocker": false,
+      "follow_up": null,
+      "rationale": "The native state machine preserves partial, timeout and policy-denied outcomes; historical completed records are conservatively imported as partial."
+    },
+    {
+      "boundary": "persistence",
+      "decision": "native_replacement",
+      "source_removal_blocker": false,
+      "follow_up": null,
+      "rationale": "The reviewed snapshot, verification, plan, approval and idempotent terminal import chain preserves historical provenance without creating executable work."
+    },
+    {
+      "boundary": "audit",
+      "decision": "future_native_capability",
+      "source_removal_blocker": false,
+      "follow_up": "SEC-E, UX-D",
+      "rationale": "Native audit is authoritative and redacted; searchable audit and stronger evidence integrity remain native roadmap work, while legacy personal-data-rich audit is not imported."
+    },
+    {
+      "boundary": "reports",
+      "decision": "future_native_capability",
+      "source_removal_blocker": false,
+      "follow_up": "WEB-I",
+      "rationale": "Vulcan owns native versioned reports; further browser delivery must reuse it rather than retain legacy report files or routes."
+    },
+    {
+      "boundary": "cancellation",
+      "decision": "native_replacement",
+      "source_removal_blocker": false,
+      "follow_up": null,
+      "rationale": "Native cancellation and recovery are verified; live Celery identifiers are deliberately never converted into native executable work."
+    }
+  ],
+  "review_outcome": {
+    "route_and_data_decisions_complete": true,
+    "source_removal_blockers": [],
+    "remaining_sec_a_work": [],
+    "physical_source_removed": true
+  }
+}

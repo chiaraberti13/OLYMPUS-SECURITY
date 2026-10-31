@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · Olympus Themis{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Dashboard</h1>
+  <p class="muted">
+    Signed in as <strong>{{ identity_id }}</strong> ·
+    scopes: {{ scopes | join(", ") }}
+  </p>
+  <div class="tiles">
+    <div class="tile"><span class="tile-value">{{ total }}</span><span class="tile-label">jobs total</span></div>
+    {% for state, count in histogram.items() %}
+    <div class="tile"><span class="tile-value">{{ count }}</span><span class="tile-label">{{ state }}</span></div>
+    {% endfor %}
+  </div>
+</section>
+{% if assessment_progress %}
+<section class="card">
+  <h2>Assessment progress</h2>
+  <div class="tiles">
+    <div class="tile"><span class="tile-value">{{ assessment_progress.percent }}%</span><span class="tile-label">complete</span></div>
+    <div class="tile"><span class="tile-value"><a class="button-link" href="/jobs">{{ assessment_progress.active }}</a></span><span class="tile-label">in flight</span></div>
+    <div class="tile"><span class="tile-value">{{ assessment_progress.done }}</span><span class="tile-label">finished</span></div>
+    <div class="tile"><span class="tile-value">{{ assessment_progress.clean }}</span><span class="tile-label">clean completions</span></div>
+  </div>
+</section>
+{% endif %}
+{% if findings_summary %}
+<section class="card">
+  <h2>Findings by severity</h2>
+  <div class="tiles">
+    <div class="tile"><span class="tile-value"><a class="button-link" href="/findings">{{ findings_summary.total }}</a></span><span class="tile-label">findings total</span></div>
+    {% for level in findings_summary.levels %}
+    <div class="tile">
+      <span class="tile-value"><a class="button-link" href="/findings?severity={{ level.severity }}">{{ level.count }}</a></span>
+      <span class="tile-label"><span class="severity severity-{{ level.severity }}">{{ level.severity }}</span></span>
+    </div>
+    {% endfor %}
+  </div>
+  {% if findings_summary.sources %}
+  <h3>By source</h3>
+  <div class="tiles">
+    {% for item in findings_summary.sources %}
+    <div class="tile">
+      <span class="tile-value"><a class="button-link" href="/findings?source={{ item.source }}">{{ item.count }}</a></span>
+      <span class="tile-label">{{ item.source }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if findings_summary.assets %}
+  <h3>Top assets by exposure</h3>
+  <div class="tiles">
+    {% for item in findings_summary.assets %}
+    <div class="tile">
+      <span class="tile-value"><a class="button-link" href="/findings?asset={{ item.asset_id | urlencode }}">{{ item.count }}</a></span>
+      <span class="tile-label">{{ item.asset_id }} · <span class="severity severity-{{ item.severity }}">{{ item.severity }}</span></span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+{% if scanner_readiness %}
+<section class="card">
+  <h2>Scanner readiness</h2>
+  <div class="tiles">
+    <div class="tile"><span class="tile-value"><a class="button-link" href="/tools">{{ scanner_readiness.ready }}</a></span><span class="tile-label">ready to run</span></div>
+    <div class="tile"><span class="tile-value"><a class="button-link" href="/tools">{{ scanner_readiness.available }}</a></span><span class="tile-label">installed</span></div>
+    <div class="tile"><span class="tile-value"><a class="button-link" href="/tools">{{ scanner_readiness.adapted }}</a></span><span class="tile-label">adapted</span></div>
+    <div class="tile"><span class="tile-value"><a class="button-link" href="/tools">{{ scanner_readiness.catalogued }}</a></span><span class="tile-label">catalogued</span></div>
+  </div>
+</section>
+{% endif %}
+{% if incident_summary %}
+<section class="card">
+  <h2>Incidents by status</h2>
+  <div class="tiles">
+    <div class="tile"><span class="tile-value">{{ incident_summary.total }}</span><span class="tile-label">incidents total</span></div>
+    {% for item in incident_summary.statuses %}
+    <div class="tile">
+      <span class="tile-value">{{ item.count }}</span>
+      <span class="tile-label"><span class="state state-{{ item.status }}">{{ item.status }}</span></span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+<section class="card">
+  <h2>Recent jobs</h2>
+  {% if recent %}
+  <table>
+    <thead><tr><th>Job</th><th>Scanner</th><th>Target</th><th>State</th><th>Updated</th></tr></thead>
+    <tbody>
+      {% for job in recent %}
+      <tr>
+        <td><a href="/jobs/{{ job.job_id }}">{{ job.job_id }}</a></td>
+        <td>{{ job.scanner }}</td>
+        <td class="target">{{ job.target }}</td>
+        <td><span class="state state-{{ job.state }}">{{ job.state_label }}</span></td>
+        <td>{{ job.updated_at }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No jobs yet. <a href="/assessments/new">Start an assessment</a>.</p>
+  {% endif %}
+</section>
+{% endblock %}

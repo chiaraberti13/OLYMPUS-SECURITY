@@ -1,0 +1,12 @@
+schema_name: olympus.apollo-rule
+schema_version: 1.0.0
+rule_id: APL-RT-PSEXEC-SVC
+title: Remote service creation over admin$ share (PsExec-style lateral movement)
+event_type: windows.security
+conditions:
+  event_id: "7045"
+  service_name: PSEXESVC
+  image_path_is_admin_share: "true"
+severity: high
+mitre_attack:
+  - T1021.002

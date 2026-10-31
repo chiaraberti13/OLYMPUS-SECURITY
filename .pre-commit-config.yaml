@@ -1,0 +1,23 @@
+# OPTIONAL developer convenience hooks. pre-commit is opt-in (you must run
+# `pre-commit install`) and is never a required gate: any commit can bypass it
+# with `git commit --no-verify`. Nothing here may block implementation.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+  # NOTE: strict mypy is intentionally NOT a pre-commit hook. Type checking is
+  # an optional tool (`make type`) and must never block a commit or a release.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+  - repo: local
+    hooks:
+      - id: hermes
+        name: Olympus Hermes secret scan
+        entry: olympus hermes scan --output .hermes-results.sarif
+        language: system
+        exclude: ^examples/input/hermes-demo\.txt$

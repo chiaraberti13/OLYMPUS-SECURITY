@@ -1,0 +1,21 @@
+# Hermes secret scan as a pre-commit hook (roadmap §2 Hermes).
+#
+# Add Olympus as a hook repo in another project's .pre-commit-config.yaml:
+#
+#   repos:
+#     - repo: https://github.com/chiaraberti13/Olympus-security
+#       rev: <tag-or-sha>
+#       hooks:
+#         - id: olympus-hermes
+#
+# `olympus hermes pre-commit` scans the staged files the framework passes it,
+# prints masked findings, and exits non-zero on any secret so the commit is
+# blocked. Requires Olympus to be installed on PATH (language: system).
+- id: olympus-hermes
+  name: Olympus Hermes secret scan
+  description: Block a commit that stages a high-entropy or known-pattern secret.
+  entry: olympus hermes pre-commit
+  language: system
+  types: [text]
+  pass_filenames: true
+  require_serial: true

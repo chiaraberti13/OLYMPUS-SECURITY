@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "Olympus Hermes",
+          "rules": [
+            {
+              "id": "aws-access-key"
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "aws-access-key",
+          "message": {
+            "text": "Potential secret detected: AKIA\u20260000"
+          },
+          "partialFingerprints": {
+            "primaryLocationLineHash": "7ad641a127b2be1d56a90d39bd062ff8844328e1dbe8b7a70314a0e0f862f182"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "examples/input/hermes-demo.txt"
+                },
+                "region": {
+                  "startLine": 2
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

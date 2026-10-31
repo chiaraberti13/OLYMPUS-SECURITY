@@ -1,0 +1,7 @@
+# Optional Linux LSM overlay. Load the versioned profile before using it:
+# sudo apparmor_parser -r -W deploy/security/olympus-themis-scanner.apparmor
+# docker compose -f docker-compose.yml -f docker-compose.apparmor.yml up --build
+services:
+  themis-worker:
+    security_opt:
+      - "apparmor=olympus-themis-scanner"

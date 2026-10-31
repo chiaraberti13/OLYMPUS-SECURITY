@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "tool": "ARGUS",
+  "source": {
+    "repository": "https://github.com/chiaraberti13/ARGUS",
+    "implementation_revision": "578e0d2fe7f443c57c9707e7f8b14d609ab59b83",
+    "implementation_tree": "dff551988142f96d44a71dfa6b2ca2e59fd80035",
+    "license": "MIT",
+    "license_file": "LICENSE",
+    "provenance_note": "The immutable revision is the last Olympus commit that changed the in-repository ARGUS implementation; the tree hash pins the complete src/olympus/argus snapshot. Olympus is the durable implementation and has no runtime dependency on the standalone repository."
+  },
+  "package": "olympus.argus",
+  "entrypoint": "olympus argus",
+  "runtime_external_cli_dependencies": [],
+  "commands": {
+    "correlate": {
+      "options": ["investigation", "--seed", "--hops", "--limit", "--max-bytes"],
+      "capabilities": ["graph-clusters", "pivot-ranking", "value-correlation", "neighbor-expansion"],
+      "mapping": ["correlation.py", "graph.py"]
+    },
+    "accounts": {
+      "options": ["--username", "--input", "--scope", "--log", "--sites", "--metadata", "--i-am-authorized", "--concurrency", "--rate", "--output"],
+      "capabilities": ["account-presence", "public-profile-metadata", "batch"],
+      "mapping": ["accounts.py", "accounts_scope.py", "application.py"]
+    },
+    "diff": {
+      "options": ["before", "after"],
+      "capabilities": ["versioned-contract-validation", "offline-snapshot-diff"],
+      "mapping": ["application.py", "diff.py"]
+    },
+    "dns": {
+      "options": ["--domain", "--types", "--scope", "--log", "--output"],
+      "capabilities": ["doh-record-enumeration", "scope-enforced"],
+      "mapping": ["dns_records.py", "scope.py"]
+    },
+    "doctor": {
+      "options": [],
+      "capabilities": ["dependency-diagnostics", "optional-api-key-presence"],
+      "mapping": ["application.py"]
+    },
+    "email": {
+      "options": ["--email", "--enrich", "--scope", "--log", "--i-am-authorized", "--output"],
+      "capabilities": ["offline-email-analysis", "optional-mx-check", "optional-gravatar-presence"],
+      "mapping": ["email_osint.py", "resolver.py", "scope.py"]
+    },
+    "mac": {
+      "options": ["--mac", "--vendor", "--scope", "--log", "--i-am-authorized", "--output"],
+      "capabilities": ["offline-mac-classification", "optional-oui-vendor"],
+      "mapping": ["mac.py", "mac_scope.py", "application.py"]
+    },
+    "myip": {
+      "options": ["--geo", "--output"],
+      "capabilities": ["public-ip-discovery", "optional-self-geo"],
+      "mapping": ["myip.py", "ip_osint.py", "application.py"]
+    },
+    "fronting": {
+      "options": ["--domain", "--scope", "--log", "--asset-id", "--output"],
+      "capabilities": ["cdn-waf-detection", "passive-origin-leak-candidates"],
+      "mapping": ["fronting.py", "ct.py", "resolver.py", "scope.py"]
+    },
+    "investigate": {
+      "options": ["--seed-type", "--seed-value", "--name", "--depth", "--sites", "--domain-scope", "--ip-scope", "--account-scope", "--geo", "--log", "--i-am-authorized", "--output", "--mermaid", "--dot", "--graphml"],
+      "capabilities": ["entity-pivots", "per-pivot-scope-enforcement", "bounded-graph-expansion", "graph-export"],
+      "mapping": ["application.py", "graph.py", "transforms.py", "scope.py", "ip_scope.py", "accounts_scope.py"]
+    },
+    "ip": {
+      "options": ["--ip", "--input", "--scope", "--log", "--geo", "--i-am-authorized", "--output"],
+      "capabilities": ["offline-ip-classification", "optional-geo-asn", "batch"],
+      "mapping": ["ip_osint.py", "ip_scope.py", "application.py"]
+    },
+    "phone": {
+      "options": ["--number", "--input", "--region", "--scope", "--log", "--enrich", "--breach", "--messaging", "--i-am-authorized", "--output"],
+      "capabilities": ["offline-phone-analysis", "optional-carrier", "optional-breach-intelligence", "optional-messaging-presence", "batch"],
+      "mapping": ["phone.py", "phone_scope.py", "enrichment.py", "application.py"]
+    },
+    "pipeline": {
+      "options": ["--preset", "--output", "--audit"],
+      "capabilities": ["offline-event-pipeline", "preset-validation", "recursive-deduplication", "blacklist-and-resource-bounds"],
+      "mapping": ["pipeline.py"]
+    },
+    "scan": {
+      "options": ["--domain", "--scope", "--log", "--output"],
+      "capabilities": ["dns", "mx", "spf", "dmarc", "certificate-transparency"],
+      "mapping": ["application.py", "recon.py", "resolver.py", "ct.py", "assets.py", "scope.py"]
+    },
+    "web": {
+      "options": ["--url", "--scope", "--log", "--output"],
+      "capabilities": ["passive-http-recon", "security-header-audit", "scope-enforced"],
+      "mapping": ["web.py", "scope.py"]
+    },
+    "whois": {
+      "options": ["--domain", "--scope", "--log", "--output"],
+      "capabilities": ["rdap-registration", "scope-enforced"],
+      "mapping": ["whois.py", "dns_records.py", "scope.py"]
+    }
+  },
+  "configuration": {
+    "files": ["scope JSON", "account scope JSON", "IP scope JSON", "phone scope JSON", "site registry JSON"],
+    "environment": ["OLYMPUS_NUMVERIFY_KEY", "OLYMPUS_RAPIDAPI_KEY"],
+    "secret_handling": "API keys are read from the environment and are neither exported nor logged."
+  },
+  "external_integrations": [
+    {"name": "DNS", "purpose": "passive records and resolution", "mandatory": true},
+    {"name": "crt.sh", "purpose": "Certificate Transparency", "mandatory": true},
+    {"name": "Numverify", "purpose": "optional phone carrier enrichment", "mandatory": false},
+    {"name": "Hudson Rock", "purpose": "optional breach exposure", "mandatory": false},
+    {"name": "RapidAPI", "purpose": "optional messaging presence", "mandatory": false},
+    {"name": "ipwho.is", "purpose": "optional HTTPS IP geolocation and ASN", "mandatory": false},
+    {"name": "curated public sites", "purpose": "account presence and optional metadata", "mandatory": false},
+    {"name": "Cloudflare/Google DoH", "purpose": "DNS record enumeration over HTTPS", "mandatory": false},
+    {"name": "rdap.org", "purpose": "domain registration data (WHOIS successor)", "mandatory": false},
+    {"name": "Gravatar", "purpose": "optional public avatar presence for an email", "mandatory": false},
+    {"name": "macvendors.com", "purpose": "optional OUI-to-vendor resolution", "mandatory": false},
+    {"name": "ipify/ifconfig.co", "purpose": "operator public IP discovery", "mandatory": false}
+  ],
+  "data_models": ["AccountIntel", "Asset", "DnsRecordReport", "EmailIntel", "Finding", "FrontingReport", "InvestigationGraph", "IpIntel", "MacIntel", "PhoneIntel", "ReconResult", "WebIntel", "WhoisReport"],
+  "outputs": ["core.Asset JSON", "core.Finding JSON", "snapshot diff JSON", "Argus bundle JSON", "email/mac/web intel JSON", "DNS/WHOIS report JSON", "Mermaid", "Graphviz DOT", "GraphML", "NDJSON audit logs"],
+  "security_contract": [
+    "scope is checked before target network activity",
+    "out-of-scope attempts are blocked and audited",
+    "privacy-sensitive enrichment requires --i-am-authorized",
+    "investigation depth is limited to three hops",
+    "account concurrency is limited to 64",
+    "HTTP uses shared bounded timeout, retry, size and rate controls",
+    "origin leak assessment never connects to a candidate origin",
+    "web, dns and whois lookups enforce engagement scope before connecting",
+    "email enrichment is gated behind explicit authorization and domain scope",
+    "email address hashes are recorded but never resolved back to plaintext secrets"
+  ]
+}

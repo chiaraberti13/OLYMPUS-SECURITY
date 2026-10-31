@@ -1,0 +1,382 @@
+"""Command-line presentation for bounded Minerva application workflows."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import typer
+
+from olympus.core.contracts import ContractCompatibilityError
+from olympus.core.evidence import DEFAULT_MAX_ARTIFACT_BYTES, capture_evidence
+from olympus.core.execution import CancellationRequested, ExecutionPolicyError, safe_terminal_text
+from olympus.core.exit_codes import ExitCode
+from olympus.core.fileio import atomic_write_text, ensure_write_target, read_regular_text
+from olympus.core.output import OutputFormat, render
+from olympus.core.paths import output_path
+from olympus.minerva.application import (
+    DEFAULT_MAX_EVIDENCE_BYTES,
+    DEFAULT_MAX_PROVENANCE_BYTES,
+    MinervaApplicationService,
+    MinervaLedgerRequest,
+    MinervaRecordRequest,
+    MinervaTriageRequest,
+)
+from olympus.minerva.custody import (
+    DEFAULT_MAX_ENTRIES,
+    DEFAULT_MAX_LEDGER_BYTES,
+    CustodyAction,
+    load_custody_ed25519_private_key,
+    load_custody_ed25519_public_key,
+    load_custody_key,
+)
+from olympus.minerva.triage import DEFAULT_MAX_ALERT_BYTES, DEFAULT_MAX_ALERTS, export_incident
+from olympus.minerva.vault import (
+    DEFAULT_MAX_PROTECTED_BYTES,
+    protect_evidence,
+    restore_evidence,
+)
+
+app = typer.Typer(help="Minerva — incident response and DFIR.", no_args_is_help=True)
+DEFAULT_LEDGER = output_path("minerva-custody.json")
+DEFAULT_INCIDENT = output_path("minerva-incident.json")
+_APPLICATION_ERRORS = (
+    CancellationRequested,
+    ContractCompatibilityError,
+    ExecutionPolicyError,
+    OSError,
+    TimeoutError,
+    ValueError,
+)
+
+
+@app.command()
+def triage(
+    alerts: Path,
+    output: Path = typer.Option(DEFAULT_INCIDENT, "--output"),
+    title: str = typer.Option(..., "--title"),
+    owner: str | None = typer.Option(None, "--owner"),
+    max_alert_bytes: int = typer.Option(DEFAULT_MAX_ALERT_BYTES, "--max-alert-bytes"),
+    max_alerts: int = typer.Option(DEFAULT_MAX_ALERTS, "--max-alerts"),
+    deadline: float = typer.Option(60.0, "--deadline"),
+) -> None:
+    """Create a stable Incident from one strict, bounded Apollo alert export."""
+    try:
+        incident = MinervaApplicationService().triage(
+            MinervaTriageRequest(
+                alerts_path=alerts,
+                title=title,
+                owner=owner,
+                excluded_paths=(output,),
+                max_alert_bytes=max_alert_bytes,
+                max_alerts=max_alerts,
+                deadline_seconds=deadline,
+            )
+        )
+        export_incident(incident, output)
+    except _APPLICATION_ERRORS as exc:
+        typer.echo(safe_terminal_text(f"minerva: triage error: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    typer.echo(safe_terminal_text(f"minerva: incident {incident.incident_id} written to {output}"))
+
+
+@app.command()
+def capture(
+    artifact: Path,
+    output: Path,
+    evidence_type: str = typer.Option(..., "--type", help="e.g. memory-image, pcap, disk-image."),
+    uri: str | None = typer.Option(
+        None, "--uri", help="Provenance URI; defaults to the artifact's file:// path."
+    ),
+    max_bytes: int = typer.Option(DEFAULT_MAX_ARTIFACT_BYTES, "--max-bytes"),
+    force: bool = typer.Option(
+        False, "--force", help="Overwrite an existing evidence file (default: refuse)."
+    ),
+) -> None:
+    """Hash a local artifact and write an evidence reference anchored to its bytes.
+
+    The sha256 is computed from the artifact as it is captured — not supplied by
+    hand — so the reference provably matches the material it points at. The
+    destination is validated before writing (no symlink, no silent overwrite
+    unless ``--force``).
+    """
+    try:
+        evidence = capture_evidence(
+            artifact, evidence_type=evidence_type, uri=uri, max_bytes=max_bytes
+        )
+        ensure_write_target(output, overwrite=force)
+        payload = json.loads(evidence.model_dump_json())
+        atomic_write_text(
+            output,
+            json.dumps(payload, indent=2, sort_keys=True) + "\n",
+            mode=0o600,
+            overwrite=force,
+        )
+    except (OSError, ValueError) as exc:
+        typer.echo(safe_terminal_text(f"minerva: capture error: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    typer.echo(
+        safe_terminal_text(
+            f"minerva: captured {evidence.evidence_id} sha256={evidence.sha256} -> {output}"
+        )
+    )
+
+
+@app.command()
+def protect(
+    artifact: Path,
+    output: Path,
+    evidence_type: str = typer.Option(..., "--type"),
+    uri: str | None = typer.Option(None, "--uri"),
+    max_bytes: int = typer.Option(DEFAULT_MAX_ARTIFACT_BYTES, "--max-bytes"),
+    delete_source: bool = typer.Option(False, "--delete-source"),
+    receipt: Path | None = typer.Option(None, "--receipt"),
+    force: bool = typer.Option(False, "--force"),
+) -> None:
+    """Encrypt a local evidence artifact with a runtime-provided secret."""
+    try:
+        evidence = protect_evidence(
+            artifact,
+            output,
+            evidence_type=evidence_type,
+            uri=uri,
+            max_bytes=max_bytes,
+            overwrite=force,
+            delete_source=delete_source,
+            receipt_path=receipt,
+        )
+    except (OSError, ValueError) as exc:
+        typer.echo(safe_terminal_text(f"minerva: protect error: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    typer.echo(safe_terminal_text(f"minerva: protected {evidence.evidence_id} -> {output}"))
+
+
+@app.command()
+def restore(
+    protected: Path,
+    output: Path,
+    max_bytes: int = typer.Option(DEFAULT_MAX_PROTECTED_BYTES, "--max-bytes"),
+    force: bool = typer.Option(False, "--force"),
+) -> None:
+    """Authenticate, decrypt and restore a protected evidence artifact."""
+    try:
+        evidence = restore_evidence(protected, output, max_bytes=max_bytes, overwrite=force)
+    except (OSError, ValueError) as exc:
+        typer.echo(safe_terminal_text(f"minerva: restore error: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    typer.echo(safe_terminal_text(f"minerva: restored {evidence.evidence_id} -> {output}"))
+
+
+@app.command()
+def record(
+    evidence: Path,
+    ledger: Path,
+    actor: str = typer.Option(..., "--actor"),
+    action: CustodyAction = typer.Option(..., "--action"),
+    max_evidence_bytes: int = typer.Option(DEFAULT_MAX_EVIDENCE_BYTES, "--max-evidence-bytes"),
+    max_ledger_bytes: int = typer.Option(DEFAULT_MAX_LEDGER_BYTES, "--max-ledger-bytes"),
+    max_entries: int = typer.Option(DEFAULT_MAX_ENTRIES, "--max-entries"),
+    provenance: Path | None = typer.Option(
+        None,
+        "--provenance",
+        help="Strict acquisition JSON; required for the first/collected custody event.",
+    ),
+    max_provenance_bytes: int = typer.Option(
+        DEFAULT_MAX_PROVENANCE_BYTES, "--max-provenance-bytes"
+    ),
+    deadline: float = typer.Option(60.0, "--deadline"),
+) -> None:
+    """Append an evidence-digest-anchored event after verifying the complete chain.
+
+    Signing key precedence: ``OLYMPUS_CUSTODY_ED25519_PRIVATE_KEY`` writes a
+    third-party-verifiable 2.2.0 ledger; otherwise ``OLYMPUS_CUSTODY_HMAC_KEY``
+    writes a signed 2.1.0 ledger; otherwise an unsigned 2.0.0 ledger. An
+    already-signed ledger requires the matching key to append.
+    """
+    try:
+        entry = MinervaApplicationService().record(
+            MinervaRecordRequest(
+                evidence_path=evidence,
+                ledger_path=ledger,
+                actor=actor,
+                action=action,
+                max_evidence_bytes=max_evidence_bytes,
+                max_ledger_bytes=max_ledger_bytes,
+                max_entries=max_entries,
+                deadline_seconds=deadline,
+                key=load_custody_key(),
+                ed25519_private_key=load_custody_ed25519_private_key(),
+                provenance_path=provenance,
+                max_provenance_bytes=max_provenance_bytes,
+            )
+        )
+    except _APPLICATION_ERRORS as exc:
+        typer.echo(safe_terminal_text(f"minerva: custody error: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    typer.echo(
+        f"minerva: recorded custody sequence {entry.sequence} "
+        f"for {entry.evidence_id} sha256={entry.evidence_sha256}"
+    )
+
+
+@app.command()
+def verify(
+    ledger: Path,
+    max_ledger_bytes: int = typer.Option(DEFAULT_MAX_LEDGER_BYTES, "--max-ledger-bytes"),
+    max_entries: int = typer.Option(DEFAULT_MAX_ENTRIES, "--max-entries"),
+    deadline: float = typer.Option(60.0, "--deadline"),
+) -> None:
+    """Verify every hash, digest, state, timestamp and (if signed) the signature.
+
+    A signed ledger is fully verified only when the matching key is set: the
+    Ed25519 public key ``OLYMPUS_CUSTODY_ED25519_PUBLIC_KEY`` for a 2.2.0 ledger
+    (third-party verification), or ``OLYMPUS_CUSTODY_HMAC_KEY`` for a 2.1.0 one.
+    Without it the chain is checked but the signature is not, which exits non-zero.
+    """
+    key = load_custody_key()
+    try:
+        outcome = MinervaApplicationService().inspect(
+            MinervaLedgerRequest(
+                ledger,
+                max_ledger_bytes,
+                max_entries,
+                deadline,
+                key=key,
+                ed25519_public_key=load_custody_ed25519_public_key(),
+            )
+        )
+    except _APPLICATION_ERRORS as exc:
+        typer.echo(safe_terminal_text(f"minerva: custody integrity failure: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    if not outcome.evidence_anchored:
+        qualifier = "legacy, not digest-anchored"
+    elif outcome.signed and outcome.signature_verified:
+        qualifier = f"evidence-anchored; {outcome.signature_algorithm} signature verified"
+    elif outcome.signed:
+        qualifier = (
+            f"evidence-anchored; SIGNED ({outcome.signature_algorithm}) "
+            "but no key to verify the signature"
+        )
+    else:
+        qualifier = "evidence-anchored; unsigned"
+    typer.echo(
+        f"minerva: custody {outcome.schema_version} verified "
+        f"({len(outcome.entries)} entries; {qualifier})"
+    )
+    if not outcome.evidence_anchored or (outcome.signed and not outcome.signature_verified):
+        raise typer.Exit(code=ExitCode.FINDINGS)
+
+
+@app.command()
+def timeline(
+    ledger: Path,
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.TABLE, "--format", help="Render as table (human) or json (machine)."
+    ),
+    export: Path | None = typer.Option(
+        None, "--export", help="Write the verified timeline as a canonical JSON artifact."
+    ),
+    sign_key: Path | None = typer.Option(
+        None,
+        "--sign-key",
+        help="Ed25519 private key PEM: also write a detached signature of the export "
+        "(requires --export), verifiable with `olympus core verify`.",
+    ),
+    max_ledger_bytes: int = typer.Option(DEFAULT_MAX_LEDGER_BYTES, "--max-ledger-bytes"),
+    max_entries: int = typer.Option(DEFAULT_MAX_ENTRIES, "--max-entries"),
+    deadline: float = typer.Option(60.0, "--deadline"),
+) -> None:
+    """Print a verified custody timeline, including evidence digest provenance.
+
+    With ``--export`` the verified timeline is written as a deterministic JSON
+    artifact; add ``--sign-key`` to also emit an Ed25519 signature envelope over
+    the exact exported bytes, so a third party can confirm its provenance with
+    ``olympus core verify <export> <export>.sig --pubkey <trusted key>``.
+    """
+    try:
+        outcome = MinervaApplicationService().inspect(
+            MinervaLedgerRequest(
+                ledger, max_ledger_bytes, max_entries, deadline, key=load_custody_key()
+            )
+        )
+    except _APPLICATION_ERRORS as exc:
+        typer.echo(safe_terminal_text(f"minerva: custody integrity failure: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    records: list[dict[str, object]] = [
+        {
+            "seq": entry.sequence,
+            "occurred_at": entry.occurred_at.isoformat(),
+            "action": entry.action.value,
+            "actor": entry.actor,
+            "evidence_id": entry.evidence_id,
+            "evidence_sha256": getattr(entry, "evidence_sha256", None),
+            "acquisition": (
+                entry.acquisition.model_dump(mode="json")
+                if hasattr(entry, "acquisition") and entry.acquisition is not None
+                else None
+            ),
+        }
+        for entry in outcome.entries
+    ]
+    columns = [
+        "seq",
+        "occurred_at",
+        "action",
+        "actor",
+        "evidence_id",
+        "evidence_sha256",
+        "acquisition",
+    ]
+    typer.echo(render(records, columns, output_format, title=f"Custody timeline ({len(records)})"))
+
+    if sign_key is not None and export is None:
+        typer.echo("minerva: --sign-key requires --export", err=True)
+        raise typer.Exit(code=ExitCode.USAGE)
+    if export is not None:
+        _export_timeline(export, records, outcome.evidence_anchored, sign_key)
+
+    if not outcome.evidence_anchored:
+        typer.echo("minerva: legacy ledger has no evidence digest anchors", err=True)
+        raise typer.Exit(code=ExitCode.FINDINGS)
+
+
+def _export_timeline(
+    export: Path,
+    records: list[dict[str, object]],
+    evidence_anchored: bool,
+    sign_key: Path | None,
+) -> None:
+    """Write the verified timeline as canonical JSON and, if asked, sign it.
+
+    The signature is an Ed25519 envelope over the exact exported bytes, reusing
+    ``core.signing``; verify it with ``olympus core verify``.
+    """
+    payload = (
+        json.dumps(
+            {
+                "schema_name": "olympus.minerva-timeline",
+                "schema_version": "1.0.0",
+                "evidence_anchored": evidence_anchored,
+                "count": len(records),
+                "timeline": records,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    atomic_write_text(export, payload, mode=0o600)
+    typer.echo(safe_terminal_text(f"minerva: wrote timeline to {export}"), err=True)
+    if sign_key is None:
+        return
+    from olympus.core.signing import SigningError, sign
+
+    try:
+        private_pem = read_regular_text(sign_key, max_bytes=1_000_000, label="private key")
+        envelope = sign(payload.encode("utf-8"), private_pem)
+    except (SigningError, OSError, ValueError) as exc:
+        typer.echo(safe_terminal_text(f"minerva: sign error: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    signature_path = export.with_name(export.name + ".sig")
+    atomic_write_text(signature_path, envelope, mode=0o600)
+    typer.echo(safe_terminal_text(f"minerva: signed timeline -> {signature_path}"), err=True)

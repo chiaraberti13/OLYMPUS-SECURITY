@@ -1,0 +1,8 @@
+# Native worker image with best-effort scanner binaries. The API/Web image
+# remains minimal and never receives scanner executables or legacy code.
+# docker compose -f docker-compose.yml -f docker-compose.scanners.yml up --build
+services:
+  themis-worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.scanners

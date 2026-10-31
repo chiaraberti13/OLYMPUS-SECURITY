@@ -1,0 +1,12 @@
+schema_name: olympus.apollo-rule
+schema_version: 1.0.0
+rule_id: APL-RT-MASS-FILE-RENAME
+title: Bulk file-extension rename with shadow copies deleted (ransomware impact)
+event_type: windows.sysmon
+conditions:
+  event_id: "11"
+  file_extension_changed_bulk: "true"
+  shadow_copies_deleted: "true"
+severity: critical
+mitre_attack:
+  - T1486

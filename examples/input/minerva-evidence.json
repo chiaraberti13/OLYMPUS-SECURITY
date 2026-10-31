@@ -1,0 +1,9 @@
+{
+  "schema_name": "olympus.evidence",
+  "schema_version": "1.0.0",
+  "evidence_id": "EVD-2026-00001",
+  "evidence_type": "memory-image",
+  "uri": "file://olympus-demo/memory.raw",
+  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "collected_at": "2026-08-14T09:00:00Z"
+}

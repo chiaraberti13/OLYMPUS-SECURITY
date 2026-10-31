@@ -1,0 +1,41 @@
+{
+  "assets": [
+    {
+      "asset_id": "AST-2026-00009",
+      "asset_type": "domain",
+      "criticality": "medium",
+      "first_seen": "2026-08-14T06:32:46.681124Z",
+      "hostname": "olympusdemocorp.example",
+      "ip_addresses": [
+        "203.0.113.10"
+      ],
+      "last_seen": "2026-08-14T06:32:46.681224Z",
+      "metadata": {
+        "dmarc": "v=DMARC1; p=reject",
+        "spf": "v=spf1 -all"
+      },
+      "owner": null,
+      "schema_name": "olympus.asset",
+      "schema_version": "1.0.0",
+      "source": "argus",
+      "tags": []
+    },
+    {
+      "asset_id": "AST-2026-00010",
+      "asset_type": "host",
+      "criticality": "medium",
+      "first_seen": "2026-08-14T06:32:46.684089Z",
+      "hostname": "portal.olympusdemocorp.example",
+      "ip_addresses": [],
+      "last_seen": "2026-08-14T06:32:46.684248Z",
+      "metadata": {},
+      "owner": null,
+      "schema_name": "olympus.asset",
+      "schema_version": "1.0.0",
+      "source": "argus",
+      "tags": []
+    }
+  ],
+  "schema_name": "olympus.argus-assets",
+  "schema_version": "1.0.0"
+}

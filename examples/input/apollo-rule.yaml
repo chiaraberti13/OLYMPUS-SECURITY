@@ -1,0 +1,11 @@
+schema_name: olympus.apollo-rule
+schema_version: 1.0.0
+rule_id: APL-DEMO-PWSH
+title: Olympus Demo encoded PowerShell
+event_type: process.start
+conditions:
+  image: powershell.exe
+  encoded: true
+severity: high
+mitre_attack:
+  - T1059.001

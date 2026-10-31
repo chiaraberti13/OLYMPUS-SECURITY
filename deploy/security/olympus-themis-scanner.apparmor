@@ -1,0 +1,38 @@
+# Olympus THEMIS scanner container profile
+# Policy version: 1.0.0
+# Load with: sudo apparmor_parser -r -W deploy/security/olympus-themis-scanner.apparmor
+
+#include <tunables/global>
+
+profile olympus-themis-scanner flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+
+  # Scanner runtimes need ordinary file execution and TCP/UDP/Unix sockets.
+  # Network destinations are intentionally not decided by AppArmor; SEC-B's
+  # scope-derived egress policy remains a separate network-namespace control.
+  file,
+  network,
+
+  # Docker must be able to stop the container and scanner children must be
+  # able to signal/reap peers confined by the same profile.
+  signal (receive) peer=unconfined,
+  signal (send,receive) peer=olympus-themis-scanner,
+
+  # Container escape primitives remain denied even if another layer is relaxed.
+  deny mount,
+  deny umount,
+  deny pivot_root,
+  deny ptrace,
+
+  # Synthetic and operator-designated host material must never be readable by
+  # a scanner, even when it is accidentally bind-mounted into the container.
+  deny /run/host-sensitive/** rwklx,
+
+  # Protect kernel memory, global kernel controls and firmware/securityfs.
+  deny @{PROC}/sysrq-trigger rwklx,
+  deny @{PROC}/mem rwklx,
+  deny @{PROC}/kmem rwklx,
+  deny @{PROC}/kcore rwklx,
+  deny /sys/firmware/** rwklx,
+  deny /sys/kernel/security/** rwklx,
+}

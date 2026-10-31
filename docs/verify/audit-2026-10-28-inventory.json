@@ -1,0 +1,3797 @@
+{
+  "baseline": "b5cc491ac466fc5875a40266151e3aa55730c82e",
+  "files": [
+    {
+      "path": ".dockerignore",
+      "bytes": 117,
+      "sha256": "897a29d2c4172c62609a6c95ce876b8c4c8e6389bb6b448f35cb3c9a9087222e",
+      "review_class": "first-party"
+    },
+    {
+      "path": ".env.docker.example",
+      "bytes": 393,
+      "sha256": "3325b101354ffceb1e94deb687609462596df243a6dcbb7ab8001fa4e9113265",
+      "review_class": "first-party"
+    },
+    {
+      "path": ".env.example",
+      "bytes": 844,
+      "sha256": "fd0a38eea5728436e2ceba9538335fbff673de3784db4018ebddd2349222111b",
+      "review_class": "first-party"
+    },
+    {
+      "path": ".github/CODEOWNERS",
+      "bytes": 2010,
+      "sha256": "96ca718d9b4c30f95e0a69482b33a91ba681c853a86dfbec217f752b3907abf5",
+      "review_class": "first-party"
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/bug-report.yml",
+      "bytes": 1704,
+      "sha256": "2f8a1cef1e6bd21641664ae0513468fe795a155ba282a551dfd74d219bf3761b",
+      "review_class": "first-party"
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/config.yml",
+      "bytes": 576,
+      "sha256": "68199ab196b42f778caf02864c5c591d2f5e32f94504b45ecc669d0add4be0ce",
+      "review_class": "first-party"
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/roadmap-item.yml",
+      "bytes": 2004,
+      "sha256": "2e191852745c1d067a4c67b7fc14bc015311a58b9141c2080f3d914edbe56579",
+      "review_class": "first-party"
+    },
+    {
+      "path": ".github/audit-exceptions.toml",
+      "bytes": 1082,
+      "sha256": "bdc360b3c866f8a74df1ac28d8b4544b7122b2211a80d06bcb1c3a273964baf4",
+      "review_class": "first-party"
+    },
+    {
+      "path": ".github/labels.json",
+      "bytes": 1134,
+      "sha256": "5cb8793f71d19e39c1c5e9184dc220c29cb69ab68b4362141e2529e4970b2c17",
+      "review_class": "first-party"
+    },
+    {
+      "path": ".github/pull_request_template.md",
+      "bytes": 1167,
+      "sha256": "0374e5678ca24ece3e0fadd46aee97fec9c165ae7d46aa6702fdba2323c92ac0",
+      "review_class": "first-party"
+    },
+    {
+      "path": ".github/workflows/labels.yml",
+      "bytes": 710,
+      "sha256": "3c0aecbbe660207ff83967799d21bcef0e085aa6724b446c2a189a9f2baffe59",
+      "review_class": "first-party"
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 1118,
+      "sha256": "d846f0210bb0d2bd0fa82929a477018dce5a391f98e1a419c7221b2a2d8f347d",
+      "review_class": "first-party"
+    },
+    {
+      "path": ".gitleaks.toml",
+      "bytes": 1463,
+      "sha256": "5e4ceead939837e9e93ea8116b03091e5d04dfec4114688474a60b83cdbe39d8",
+      "review_class": "first-party"
+    },
+    {
+      "path": ".gitleaksignore",
+      "bytes": 304,
+      "sha256": "fbeba3b5532a7b11e4f0bceea8c104f5c9d88483616de666ad1a7c93ccb7d5f0",
+      "review_class": "first-party"
+    },
+    {
+      "path": ".pre-commit-config.yaml",
+      "bytes": 861,
+      "sha256": "e8b964dbeb8a132f0b393b601af5099bdb53d48fb382adb3e4851dc801b5bd53",
+      "review_class": "first-party"
+    },
+    {
+      "path": ".pre-commit-hooks.yaml",
+      "bytes": 772,
+      "sha256": "58532a5c83ef92dd768cd495ec9176fdb01702cc7100ba850e20df30e120468c",
+      "review_class": "first-party"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "bytes": 27591,
+      "sha256": "270b0ef7682a73bb3b116641dbaa636598857bcfb4068132c3f7fc362a1eddd6",
+      "review_class": "first-party"
+    },
+    {
+      "path": "CODE_OF_CONDUCT.md",
+      "bytes": 1336,
+      "sha256": "cb48bfded6bc04f35a6927bc9200aac135e2c41babae2573f5d1e5f06635a72e",
+      "review_class": "first-party"
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "bytes": 3050,
+      "sha256": "c3f50ce3ff28018231c47e494df1f139dffbcd8febb95f3b322dc69fcf0c8af5",
+      "review_class": "first-party"
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 35148,
+      "sha256": "8b1ba204bb69a0ade2bfcf65ef294a920f6bb361b317dba43c7ef29d96332b9b",
+      "review_class": "first-party"
+    },
+    {
+      "path": "Makefile",
+      "bytes": 5854,
+      "sha256": "57044a305ccb84bda27cff78c5b28c9d97e27e6ebdaa6da875dc88425077d7dc",
+      "review_class": "first-party"
+    },
+    {
+      "path": "README.it.md",
+      "bytes": 20471,
+      "sha256": "ef82c9da214243a46ec75ee71827477d86782a021b0035e8ca36bfa7fb30f8ae",
+      "review_class": "first-party"
+    },
+    {
+      "path": "README.md",
+      "bytes": 24425,
+      "sha256": "3a8aed5430742e45a939c5226533aa405c6b49a0444689512351bc3ca61a0019",
+      "review_class": "first-party"
+    },
+    {
+      "path": "ROADMAP.md",
+      "bytes": 174281,
+      "sha256": "f6f74e9eca5a9f007162d3e0a5cf7e606384039ae75695d03f498523b45e7043",
+      "review_class": "first-party"
+    },
+    {
+      "path": "SECURITY.md",
+      "bytes": 7243,
+      "sha256": "902021f1e9d655b2437db1f9b88b29e5bc8d371703ddb85207690f7a29ad3106",
+      "review_class": "first-party"
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md",
+      "bytes": 787,
+      "sha256": "69700ea78f5ecd1d072fcec483a0ec31cfb9807bf52f94606fda127231ffa0ef",
+      "review_class": "first-party"
+    },
+    {
+      "path": "assets/banner.svg",
+      "bytes": 2657,
+      "sha256": "f737db20ad1bfda1c5a6b1f06e4ab667e604d511f24bc4708a6cfa5e3c16a950",
+      "review_class": "first-party"
+    },
+    {
+      "path": "deploy/security/olympus-themis-scanner.apparmor",
+      "bytes": 1368,
+      "sha256": "8263574dc0b9db00fb808f7c885163289777ab58f1136f369a13592f7195851b",
+      "review_class": "first-party"
+    },
+    {
+      "path": "deploy/security/scanner-runtime-attestation.json",
+      "bytes": 71,
+      "sha256": "79242404f2f10aedf7b61e9fb2d7f1846d2e039d3a5739ddebba2fb11786b205",
+      "review_class": "first-party"
+    },
+    {
+      "path": "deploy/security/themis-scanner-seccomp.json",
+      "bytes": 5496,
+      "sha256": "8d985f8676acf75fb02fa370dc6e3a747dcd618f96c27f2e37cbf499a5c6395f",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docker-compose.apparmor.yml",
+      "bytes": 319,
+      "sha256": "0ea99532aad5eee6e4fdbb4711f441ed85987978990a28ae64fba7dad694c12d",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docker-compose.scanners.yml",
+      "bytes": 329,
+      "sha256": "d72b9eb55aa29825bca878e97798e689d985b0b019d15256132fa832b34a270c",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docker-compose.yml",
+      "bytes": 5631,
+      "sha256": "b2ca427f1d82e049d48589b5ecc4b8560a8c18d6d17f7592615dee63e8f49c33",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docker/Dockerfile",
+      "bytes": 1000,
+      "sha256": "1d8bef33ea481cddbf40276564e721e28996ec6fd95747e896e768d98315566a",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docker/Dockerfile.scanners",
+      "bytes": 4445,
+      "sha256": "1fbae1cae832598731f1805cb721b4da3521926baa8a4752c3fd5429a4bc51e4",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/apollo.md",
+      "bytes": 5878,
+      "sha256": "191963873ca6f94c13f4240a28995ff434f4399d4db90e44034292ee71534986",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/architecture/README.md",
+      "bytes": 1671,
+      "sha256": "227d5bab3d8e00a8a0518eeb822b705afa3721663fe5e4243bb2e9d7485e3a7d",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/architecture/adr-001-module-taxonomy.md",
+      "bytes": 7020,
+      "sha256": "03639f0bb83ed9ca55c66b79062495b6d7c5bc70ffb53989dc1b519b452831df",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/architecture/adr-002-athena-target-architecture.md",
+      "bytes": 13167,
+      "sha256": "0ac7a68fa7ba0b950a99f81b61645b7bb81d9b31a7f39325fda99b605bb5ab20",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/architecture/adr-006-aegis-to-themis-rename.md",
+      "bytes": 4543,
+      "sha256": "c2996f9097331a8c04efc716f9225db1849f43db362a94d185cf8dcc6ba59587",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/architecture/adr-007-web-control-plane.md",
+      "bytes": 4333,
+      "sha256": "9e751b5104c7091918b22ae5a8f171ac9ae08482be57b06ea462eb47da954521",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/architecture/adr-template.md",
+      "bytes": 863,
+      "sha256": "d990dbf13d79c1154223e749438270190d932a7966e97636d13f18a4e524f7ee",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/cli-reference.md",
+      "bytes": 79775,
+      "sha256": "b5d67b49e89794b472ede3aaefc5a04fefe1935e7c006660338544a331b8dcd0",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/configuration.md",
+      "bytes": 5055,
+      "sha256": "39f51edd05396116e827e74172cf771e7e892bd0c597bcfb4a729c53bf9de6cc",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/contracts.md",
+      "bytes": 8860,
+      "sha256": "4bc6bec1d6fe72c80d101801b518ce1dfd362070dd8941a4ea0b9b788ca3fdfc",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/ecosystem-audit.md",
+      "bytes": 12260,
+      "sha256": "ac6da60b61a3678439c61ba46dac851ee731c8da640a832297d1e42f05d0219a",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/engagements.md",
+      "bytes": 9531,
+      "sha256": "7ced599c5ced120ce831ed32a9b72431ccb53a47cd6a50c45b3cb35ffadfb5d5",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/execution-policy.md",
+      "bytes": 7332,
+      "sha256": "b785ffd8d1e1a1eff8cc3f58ec7107cc1f9ee172acbc4a1d0e46861cc3834ae6",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/findings.md",
+      "bytes": 25222,
+      "sha256": "eb6afbbbe4273ac24196b85d68052f4e6371a93ddcabb693f57816e4dabc32af",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/hermes.md",
+      "bytes": 3084,
+      "sha256": "027fc54dd9a01b69f0a35bb214a4c20a93b19f94c42c86bbe026dd1a1d1d2205",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/images/olympus-tui.png",
+      "bytes": 103037,
+      "sha256": "6e7f7cd4cac9cb4b91be6fa2717a4a0ea86ff3b0faf9f4a553c63a57e2e40ce7",
+      "review_class": "binary-visual"
+    },
+    {
+      "path": "docs/incident-response.md",
+      "bytes": 9881,
+      "sha256": "e13b8223ca66ca2c28e0debac15a72792b1f7c8e030de14b7572c91e3368584c",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/install.md",
+      "bytes": 6169,
+      "sha256": "e5146f4c21e46c3723f2e475163aae477afad85f0ea522472fa7ddd8e3787f6e",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/metis.md",
+      "bytes": 3451,
+      "sha256": "a37872dc61439d39a3ec90df644890d296d00ccf435beee9f77564cd90cbaaa9",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/minerva.md",
+      "bytes": 8202,
+      "sha256": "02a3f3b019cb7d06ec5666c965f663b2841e9d95b58cb778bd5ca75588e538c9",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/observability.md",
+      "bytes": 4731,
+      "sha256": "89052054fe1c5943ed7095e3906d8480df796346441a89bbcbe1dedce6d5e7ba",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/parity/argus.json",
+      "bytes": 7501,
+      "sha256": "61a1394274d9ebf91b70ed38ffbc61b90e4d56fb176574076ef966b631739e8f",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/parity/reference-implementations.json",
+      "bytes": 2187,
+      "sha256": "04e954b52c51512623750abd8935bcbe8110df366675e3bab86c82495c54b645",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/parity/themis-vap-retirement.json",
+      "bytes": 5305,
+      "sha256": "f38917f1fee35013d71300c200cc3b446989d94fd95446789595172889556e77",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/parity/themis-vap-runtime.json",
+      "bytes": 20710,
+      "sha256": "b55cba5ad75952c6d0b6249b59465432709c030714e6504adb55c3eb5e686caa",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/parity/vulnerability-assessment-platform.json",
+      "bytes": 5398,
+      "sha256": "f602150538c2f15c39b7f6b854cce639420a4d08f28c8c109f91eb4864c77201",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/performance.md",
+      "bytes": 3602,
+      "sha256": "c3b4bfdce0b796b735b6ee0f4b77c38e9475054152203213d68fa95a594ff5f3",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/policy.md",
+      "bytes": 9847,
+      "sha256": "abf5b42ff583e36c57acca855d2ff591cc3792907aff435f9389ff3f64385042",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/professional-platform.md",
+      "bytes": 4122,
+      "sha256": "8d26a333e233ee1830b41324f65890d8dc2f34a59bac2da72872459639e18136",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/proteus.md",
+      "bytes": 2406,
+      "sha256": "adb77cfb46ed6a0772c642918c48ee076238c6d38f6f8861f7ec1bc613fca71e",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/provenance.md",
+      "bytes": 1957,
+      "sha256": "94f07ba71f569596c246a5786fdcb80ae15c0c4aa2daf8c2c91d4e2230c76e92",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/reference-implementations.md",
+      "bytes": 3605,
+      "sha256": "3dd8726b3c220d47eb791fd1fb8d57d36e72fec1053847472ab619aca7234136",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/reference.md",
+      "bytes": 45276,
+      "sha256": "1ab1ed1f6aea00fccdc0f1a7d0e040fe9cd8ad2dc831cdff0763dd89c0ac6a67",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/retention.md",
+      "bytes": 4335,
+      "sha256": "cf64dd1390a3fbeebe25de064dbc7a8cdd0b498b97de9a363dcd9927ee2682c9",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/run-status.md",
+      "bytes": 6706,
+      "sha256": "c492c078269e4bcbaea4446238fd464bc9aaf7e3ce53d0ad55b504a0dda3aa6b",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/safety-preview.md",
+      "bytes": 6303,
+      "sha256": "dbb7b9e98a525129c53495e9438bd69d0e1ba8da1c768eeae8248daf1c7ff2a3",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/sbom.md",
+      "bytes": 4210,
+      "sha256": "9c8435f3893b6478324dad8a35e1bcff87a4ed21719908b18817642374da546f",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/scanner-matrix.md",
+      "bytes": 6788,
+      "sha256": "e888b49cf58bb554802d5ef8a85e9b18efe4d4c1093a2cdc818e9fb0aafd8db4",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/scanner-maturity.md",
+      "bytes": 9275,
+      "sha256": "d7c1fbd43391b83fd61f0a1d45b900d545eb99743549d85e68e08eed9d519393",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/testing.md",
+      "bytes": 2126,
+      "sha256": "013b1814a7fe24e0e00f03cdc6d64bed5e51e2d0c736b28a709f5775a259cfb6",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/themis-api-identities.md",
+      "bytes": 5804,
+      "sha256": "2d891b86a2d9890fa28291b27943fa366a4d8aeee3d7c0267121d49c3a38d59a",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/themis-config.md",
+      "bytes": 2703,
+      "sha256": "828eb41d7eb0244e52da01ced672cad64fbc19aed21705dc30c8d050de783991",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/themis-execution-evidence.md",
+      "bytes": 10725,
+      "sha256": "be104b98f2567e9ea77f16ded6aa5789108223ff93553cb41c3197e004b2f99e",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/themis-jobs.md",
+      "bytes": 8001,
+      "sha256": "b4a3122d4f61ec9bcd7e1edb3e4e50c719c52c8117264a2247294af29262a225",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/themis-runtime.md",
+      "bytes": 24342,
+      "sha256": "8d17e63d83766a0c43bcefe7d9d0ab8f47cd881e2a14c8e6892d1bd8b39a7fd4",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/themis-sandbox.md",
+      "bytes": 9169,
+      "sha256": "43a7edac45bdc6374a277baf0aab5fcefb5d4dc81d9e66b5683fc855266b90be",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/threat-model.md",
+      "bytes": 17370,
+      "sha256": "df1b1ded9b7930039255266e9abf659d680d93047ef1cab4444e866176b8d752",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/tooling-analysis.md",
+      "bytes": 4095,
+      "sha256": "23aeb81e92237e14afc206c7574de34888d0df1052d8d4ad89188d0ad1c5133f",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/tui.md",
+      "bytes": 3117,
+      "sha256": "f938a95f3ad82aba6f491201c5a2ce82ac707cf19081b5af33dcaaa7c9a8e7be",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/verification-status.md",
+      "bytes": 5698,
+      "sha256": "6bd7e3d78afd50b9429a93ede09ececf5c9e7b3ea0a591f8b4e85f625652571b",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/verify/2026-10-05.md",
+      "bytes": 5746,
+      "sha256": "d0443388bd97f9827ce952c6460d2f439d2253afa5d854ba2e9b38b8c46833a4",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/verify/2026-10-06.md",
+      "bytes": 6666,
+      "sha256": "a4ac91dc1fb6422cac3af9a73ae36b9cb89d5d2a65b47fdf142a751451186e40",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/verify/2026-10-16.md",
+      "bytes": 7196,
+      "sha256": "5693f92b5b783a11ea3096e66332828a7112e99530f11b01cf95b5abb3073251",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/vulcan.md",
+      "bytes": 6324,
+      "sha256": "aa89e660cfadb1505ddcb6d670ed0533aeb770961e548c5d2e0ef9794ec16c33",
+      "review_class": "first-party"
+    },
+    {
+      "path": "docs/web.md",
+      "bytes": 22438,
+      "sha256": "78ca0af3fb4cdbdab6233386ff3c39cdc9dbddc9816faf4147185fe17a8175e4",
+      "review_class": "first-party"
+    },
+    {
+      "path": "examples/README.md",
+      "bytes": 2975,
+      "sha256": "35a2891b8230cfdd143734eef6005b0b91c91a8c57db7b0157d1c80aad68bc74",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/apollo-ad/dcsync.yaml",
+      "bytes": 334,
+      "sha256": "4dc1c0ac21c78a886efa8c51fe7a6ca557e262513fab036317c6fce31003ac29",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/apollo-ad/golden-ticket.yaml",
+      "bytes": 304,
+      "sha256": "90783b04eb85b1d70673b285f2bf96a97897be3e57c0ed202dcba41236432e7e",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/apollo-ad/kerberoasting.yaml",
+      "bytes": 302,
+      "sha256": "3a8203ac23dbd6d3ab6c620f5101fb14cea52f3217a24a8cb2e7fc4d63ba6bb3",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/apollo-ad/llmnr-poisoning.yaml",
+      "bytes": 288,
+      "sha256": "c7c854b561f8f55c44623250ecfeac70faf331ccc4f929731e264f8443618787",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/apollo-ad/pass-the-hash.yaml",
+      "bytes": 289,
+      "sha256": "0679aa675dd6a1a569d7d897db44af5c192b228306bb92b8b42ebf217a46dbe2",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/apollo-blueteam/encoded-powershell.yaml",
+      "bytes": 299,
+      "sha256": "8b865c003b90f50ed051db7f2785c81162f30dc2e19d9dde197b45d2e6ad9cd2",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/apollo-blueteam/event-log-cleared.yaml",
+      "bytes": 266,
+      "sha256": "42dfe2f6e2d3c090a73a3756bd8081df2d4c9e5d5b0878fa22183071fd4af301",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/apollo-blueteam/lsass-credential-dump.yaml",
+      "bytes": 356,
+      "sha256": "fcb9e74f3dc99154f86478719b962dcd740352336d12f452243451f30e7a764b",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/apollo-blueteam/office-spawns-shell.yaml",
+      "bytes": 311,
+      "sha256": "e17e8d573746616522a7387452fc47df94ad7c6e8b9f6dc52dc1effe953e56fb",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/apollo-blueteam/scheduled-task-persistence.yaml",
+      "bytes": 318,
+      "sha256": "57b2a7265d0fc0639a1fd4b83609cb52b10af51f0b2a934e0b4184272e8616ca",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/apollo-blueteam/service-installation-persistence.yaml",
+      "bytes": 318,
+      "sha256": "d29f3d48bc86eef9ee9e87e510601f65f2b7f167a9ebef2351b5cbe5e1c51e8e",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/apollo-event.json",
+      "bytes": 290,
+      "sha256": "afc98f7c6f865f7bd9ba0ef10a7cef15a7d28c47f5f87891fedf6bee7e009387",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/apollo-metabase-event.json",
+      "bytes": 354,
+      "sha256": "07838a692e9c78efe6d7ac2349b8ef9a25df3556f7cb7c9f193e7ced95390874",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/apollo-metabase-rule.yaml",
+      "bytes": 289,
+      "sha256": "621d130d4b11191fea3881408a261408b9ec366c5398837241539c1a72c4e8ca",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/apollo-redteam/archive-then-cloud-upload.yaml",
+      "bytes": 357,
+      "sha256": "bd21b875a15187354cd3164f912e8a563d7e6e4ab2625e6b49325552acc7d3c6",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/apollo-redteam/dns-c2-beacon.yaml",
+      "bytes": 316,
+      "sha256": "79c3b023753635a7eab7bc33525dc2cda952f1585bb9b459d0148026b04689d5",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/apollo-redteam/domain-trust-enumeration.yaml",
+      "bytes": 303,
+      "sha256": "44e171448e138e88374bbd6dfa96100b8401a20c453bb4829318cdce58737544",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/apollo-redteam/keylogger-hook-install.yaml",
+      "bytes": 331,
+      "sha256": "9efcbad4c8d8ad55db0e864eeb40de1b43034fa67f535777eb77fa255c058435",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/apollo-redteam/mass-file-rename-impact.yaml",
+      "bytes": 338,
+      "sha256": "d58018bd12a491b231d49083892dddee4fd8b81b6f5210c27bab1838312d86c1",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/apollo-redteam/psexec-lateral-movement.yaml",
+      "bytes": 327,
+      "sha256": "c9857cdef7abe1ec2ed8462511f546d041a28cfc921b6d6120096b1dad6feadf",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/apollo-redteam/webcam-hidden-access.yaml",
+      "bytes": 336,
+      "sha256": "ecac37f9ecd4492c8b0d442576ed07900afb15e035b9230b5652895a774986b4",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/apollo-rule.yaml",
+      "bytes": 238,
+      "sha256": "90f0669be51381406b8dc5f371a22cabeacbd3cf020cf8bd9c6ebcbcc567a8f3",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/argus-accounts-scope.json",
+      "bytes": 116,
+      "sha256": "b54a9651746d0231f5c29c572c47bc3e000a637d33dc7a9397f3f9da0292d104",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/argus-ip-scope.json",
+      "bytes": 150,
+      "sha256": "c3c795f989c895816887c2cc91cd91602827f477507a3327d2ca60e68361c86e",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/argus-mac-scope.json",
+      "bytes": 100,
+      "sha256": "6e957cf57424a7414b3a98e6fe14095a15285a9bdaeb19e10cf2c7ef22980aea",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/argus-phone-scope.json",
+      "bytes": 115,
+      "sha256": "63399b190c94193907e7a51203a3f195072edac406b044a153dd87f2c1a1e8b6",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/argus-pipeline.json",
+      "bytes": 621,
+      "sha256": "c4a10e967c5324d8628fb1071867e8c08274b615716b9c4bca3f7a72dc93f64a",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/argus-scope.json",
+      "bytes": 121,
+      "sha256": "00ab3996f8f7c882ef8dea6014ad67e2ce72797445409bea35b342ae9590d972",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/argus-sites.json",
+      "bytes": 3075,
+      "sha256": "7bdf7b9eefb9b58a79bd8241577f663aaeec297d3715ba635515478f296e42de",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/artemis-content-wordlist.txt",
+      "bytes": 323,
+      "sha256": "5c7d2761996fe45c1d0e14e9380b33a6e7302d5bf5a0c54959513eef35082fca",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/artemis-metabase-scope.json",
+      "bytes": 209,
+      "sha256": "b44b76ddf548ebcacdece4595d99c632336986c63bd14336a4c21342db235c95",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/artemis-scope.json",
+      "bytes": 207,
+      "sha256": "b34354fe0add90ef855f7022b98ab98a3f751e514d7510cd0b3c6b071c8f4393",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/athena-plan.json",
+      "bytes": 692,
+      "sha256": "ed2b1d114c5689a49fec9ef6ef3b7d90fa74c0e56fb5a2e3498fdd2fd5c75e6f",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/helios-scope.json",
+      "bytes": 102,
+      "sha256": "0212e7013fb30fbff7003728a10fd5c33f8dd8cb977520f7f65fbe5fb2669c5d",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/hermes-demo.txt",
+      "bytes": 115,
+      "sha256": "d3d7f304294f5b700867fb8ddec3cf6c09df9ebb6fdf61c7c3ac81dd119e610a",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/minerva-evidence.json",
+      "bytes": 304,
+      "sha256": "892de56710e6f6b1cab4ff2fc9c552e98d95d762ce8fbab1a9f7eccb79add2bd",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/input/proteus-scope.json",
+      "bytes": 185,
+      "sha256": "9ae5b657cce9021843021dd368aa69eb0ee48884b783e9888e245996c7692246",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/output/apollo-alerts.json",
+      "bytes": 450,
+      "sha256": "0c401759e2423a8c0f5edeb6192e577b72b672dc51d3695bde6c614a61cb9f40",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/output/argus-accounts-blocked.log",
+      "bytes": 4725,
+      "sha256": "01674303bf49be80ac7cad80caa37720bd4ea6ee260bbcc5572ec2b41b72f30b",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/output/argus-assets.json",
+      "bytes": 1077,
+      "sha256": "a8fb853979a3a2bfeb51f11a2e58a7248cca7758aabbfa8d350872b26c7c5819",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/output/argus-investigate.log",
+      "bytes": 169,
+      "sha256": "3bdbf24d82a8c66b4ca19d9738ad3be7c66d7f11471bdd1653d9c2ed57f4ab8e",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/output/helios-findings.json",
+      "bytes": 676,
+      "sha256": "f9b61809c747e3a2647f34ef5f2f789d3de7bb2fe64c423a8480d5b7ca478bd9",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/output/hermes-results.sarif",
+      "bytes": 955,
+      "sha256": "d468443d782dc65ce41eb5dc167b4534ad85a0a88b00c530b4fa5ff1c58d0a6d",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/output/minerva-custody.json",
+      "bytes": 991,
+      "sha256": "603bdf6898b58f847935d92c3fda9e98a297a43b8deb13c77325152edcab03a5",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "examples/output/minerva-incident.json",
+      "bytes": 490,
+      "sha256": "b24fdda87bb21a674a3d01237a76c48fd1b8e118a51671a239aa2ce36101d485",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "labs/mars/README.md",
+      "bytes": 3877,
+      "sha256": "f855422f85d8c08cb0f7ac4cca2f09f8b74dd923e52808ec58a91a61beab626e",
+      "review_class": "first-party"
+    },
+    {
+      "path": "labs/mars/docker-compose.yml",
+      "bytes": 745,
+      "sha256": "5f46f3ab6f96d4c96aab2af0054228f4990a6fbbfc4b6cd031382cb62790b8ff",
+      "review_class": "first-party"
+    },
+    {
+      "path": "labs/mars/target/app.py",
+      "bytes": 4709,
+      "sha256": "3f6053d4d594ba18e4c3c5a06e12017b3feff4ed7cd8b120b61765f11465e3d5",
+      "review_class": "first-party"
+    },
+    {
+      "path": "labs/mars/target/mars-post-exploitation.ndjson",
+      "bytes": 1532,
+      "sha256": "d1ea047c96bcfaa0ca2b1e924718f4346408131a7ca94049a9468cd3a4d42c7f",
+      "review_class": "first-party"
+    },
+    {
+      "path": "labs/mars/target/practice-scope.json",
+      "bytes": 166,
+      "sha256": "ef70fca98f2dbc22966c26efe050c90713d3e548e45a5547dbb1e32c4258397b",
+      "review_class": "first-party"
+    },
+    {
+      "path": "pyproject.toml",
+      "bytes": 5937,
+      "sha256": "1d03f27bbbec3ebe8ea95725768ac114a2959989c1469d8d75143a9124c6c893",
+      "review_class": "first-party"
+    },
+    {
+      "path": "schemas/catalog.json",
+      "bytes": 6468,
+      "sha256": "9421b64ca73ff5e0ccaebff172b85b04447a74629d19e02ee1e194c29c417539",
+      "review_class": "generated-schema"
+    },
+    {
+      "path": "schemas/contracts/olympus.alert/1.0.0.schema.json",
+      "bytes": 2823,
+      "sha256": "46c028e0abd0567252db2ac54692b3558a08a7b9ada797cf865946e242745817",
+      "review_class": "generated-schema"
+    },
+    {
+      "path": "schemas/contracts/olympus.argus-pipeline-preset/1.0.0.schema.json",
+      "bytes": 2510,
+      "sha256": "cba1a64167f7b1782d410fe4696c9179bae05a3b6d47e57367021dd81acee5bd",
+      "review_class": "generated-schema"
+    },
+    {
+      "path": "schemas/contracts/olympus.argus-pipeline/1.0.0.schema.json",
+      "bytes": 3521,
+      "sha256": "49ed7446997e3d1ea77f8e18cda7b1de9b6a6958dca8df788e345d8e6cfc2a77",
+      "review_class": "generated-schema"
+    },
+    {
+      "path": "schemas/contracts/olympus.asset/1.0.0.schema.json",
+      "bytes": 3103,
+      "sha256": "6f5393cffd30154a4976f6b620bc36b5b1f52656ab27479b8239dbbdd05870cd",
+      "review_class": "generated-schema"
+    },
+    {
+      "path": "schemas/contracts/olympus.athena.plan/1.0.0.schema.json",
+      "bytes": 5253,
+      "sha256": "7c054ec93129cc73d960f7b0603873384c17096b417800200ecdaf5c15fcdcdb",
+      "review_class": "generated-schema"
+    },
+    {
+      "path": "schemas/contracts/olympus.athena.result/1.0.0.schema.json",
+      "bytes": 11230,
+      "sha256": "15a6e8dc45b98fce5e00a776c93ba9478cdd44c3e9a17eb4270a800a2d164345",
+      "review_class": "generated-schema"
+    },
+    {
+      "path": "schemas/contracts/olympus.engagement-manifest/1.0.0.schema.json",
+      "bytes": 3274,
+      "sha256": "da2c321ef16381f77455b5573c68e5f460678ef02f15e3172e38485024692fc7",
+      "review_class": "generated-schema"
+    },
+    {
+      "path": "schemas/contracts/olympus.engagement/1.0.0.schema.json",
+      "bytes": 3123,
+      "sha256": "dc33512c942fbbc1a13e2ac68f70ca61f9911680bea35d4e21f7e4e1f31ade02",
+      "review_class": "generated-schema"
+    },
+    {
+      "path": "schemas/contracts/olympus.event/1.0.0.schema.json",
+      "bytes": 1919,
+      "sha256": "6cdd4e2cd970ad60e0846fe70c44494d7433c114d15eb824d0ccf93afaa8b3a1",
+      "review_class": "generated-schema"
+    },
+    {
+      "path": "schemas/contracts/olympus.evidence/1.0.0.schema.json",
+      "bytes": 1357,
+      "sha256": "60a486341663b846262310b181bada8c748460119d28cec02cdd80a80ee06857",
+      "review_class": "generated-schema"
+    },
+    {
+      "path": "schemas/contracts/olympus.finding-transition/1.0.0.schema.json",
+      "bytes": 2325,
+      "sha256": "37ebc5d2762401509b9318622b3ae4e2626c61cfde2e5cf0082d055979fb4071",
+      "review_class": "generated-schema"
+    },
+    {
+      "path": "schemas/contracts/olympus.finding/1.0.0.schema.json",
+      "bytes": 4460,
+      "sha256": "f2bb7ceac01764c5cf4e51ee56408f66634f82fe91b703dd52b5e2f6cf4d9f23",
+      "review_class": "generated-schema"
+    },
+    {
+      "path": "schemas/contracts/olympus.incident/1.0.0.schema.json",
+      "bytes": 3220,
+      "sha256": "4134d58557048e70a2de4c62095dcfcb536953328ad05bb2ccb67b00115c6018",
+      "review_class": "generated-schema"
+    },
+    {
+      "path": "schemas/contracts/olympus.legacy-vap-conversion-plan/1.0.0.schema.json",
+      "bytes": 3789,
+      "sha256": "9e006463d63161a54060d3da0b1318dbfe376ecbe9eb72cf09c0d2ef16814eab",
+      "review_class": "generated-schema"
+    },
+    {
+      "path": "schemas/contracts/olympus.legacy-vap-import-approval/1.0.0.schema.json",
+      "bytes": 3590,
+      "sha256": "31910d0c0c22fb1d944c3049a3d2f943eb8c1da8e99ab202a424d4f815d66a88",
+      "review_class": "generated-schema"
+    },
+    {
+      "path": "schemas/contracts/olympus.legacy-vap-import-receipt/1.0.0.schema.json",
+      "bytes": 3779,
+      "sha256": "8eb96389eca503bfe11579824025084873cbccc2e09f6b045a2e0d43e44e9d72",
+      "review_class": "generated-schema"
+    },
+    {
+      "path": "schemas/contracts/olympus.legacy-vap-snapshot/1.0.0.schema.json",
+      "bytes": 5728,
+      "sha256": "bbf75da6303af2aae6189b78717ffc3edc85d4e88e36a82711d9a48d7a538975",
+      "review_class": "generated-schema"
+    },
+    {
+      "path": "schemas/contracts/olympus.metis-case/1.0.0.schema.json",
+      "bytes": 5010,
+      "sha256": "13a85e310fe6c00e751b2215e279fcf5a0cfc11b484286b21cff1c19236617aa",
+      "review_class": "generated-schema"
+    },
+    {
+      "path": "schemas/contracts/olympus.metis-plan/1.0.0.schema.json",
+      "bytes": 3155,
+      "sha256": "876fc509197b70fac11e5f9c37145e5d02710fbed855089843f907b23fda2d49",
+      "review_class": "generated-schema"
+    },
+    {
+      "path": "schemas/contracts/olympus.notification/1.0.0.schema.json",
+      "bytes": 2301,
+      "sha256": "d7e1389b0c7c104558fbd1eb032c470209f75404ed938a63467496f4061bc570",
+      "review_class": "generated-schema"
+    },
+    {
+      "path": "schemas/contracts/olympus.observation/1.0.0.schema.json",
+      "bytes": 1991,
+      "sha256": "eda499c5a19e69edd810a52a64a2952afdd10877f183440a8638626f65f9386d",
+      "review_class": "generated-schema"
+    },
+    {
+      "path": "schemas/contracts/olympus.scan-job/1.0.0.schema.json",
+      "bytes": 1826,
+      "sha256": "0134ac2715c110faf22816f4d87345a211f10ba9e0b38c1c19dc58114454d9bd",
+      "review_class": "generated-schema"
+    },
+    {
+      "path": "schemas/contracts/olympus.security-report/1.0.0.schema.json",
+      "bytes": 12649,
+      "sha256": "56e7dd645a9070347bfcb1e97d1ba96617621c11a78d75cc2e523229d6f606bf",
+      "review_class": "generated-schema"
+    },
+    {
+      "path": "schemas/contracts/olympus.security-report/1.1.0.schema.json",
+      "bytes": 16879,
+      "sha256": "4cefb122d111292231c117a80319c2d30c0025a0d72bfa4d17b0ead9cc7058fc",
+      "review_class": "generated-schema"
+    },
+    {
+      "path": "schemas/contracts/olympus.signed-engagement-manifest/1.0.0.schema.json",
+      "bytes": 4677,
+      "sha256": "4bda7ef18a3abc0e9f3b8375d61b4ba10f40cc36ccb3527c6e6fcfad6312c649",
+      "review_class": "generated-schema"
+    },
+    {
+      "path": "schemas/schemas.json",
+      "bytes": 107248,
+      "sha256": "5532610b3be5c1a49dc20908cee1ee31f19b514622336f32be6c919bf9e62fbb",
+      "review_class": "generated-schema"
+    },
+    {
+      "path": "scripts/benchmark_hot_paths.py",
+      "bytes": 9506,
+      "sha256": "e861510d78e41acce3cb326cf1dc42887017f0a082cbe4147a47093dca5ebf39",
+      "review_class": "first-party"
+    },
+    {
+      "path": "scripts/check_audit_exceptions.py",
+      "bytes": 5172,
+      "sha256": "dc3c6821bc405693b838d14b3300ddbdf2953f289e1e02cf94300d695408b493",
+      "review_class": "first-party"
+    },
+    {
+      "path": "scripts/check_branch_coverage.py",
+      "bytes": 1411,
+      "sha256": "ab0235b7c6a3428dc901ba41309786df236a37d0fbb5e12f33e14e06c9ea8ecf",
+      "review_class": "first-party"
+    },
+    {
+      "path": "scripts/check_doc_links.py",
+      "bytes": 4261,
+      "sha256": "5ea841a0b5a68fc67f9a66e4ff07c7f63c866a7d505bb9b2248bc8ad69712334",
+      "review_class": "first-party"
+    },
+    {
+      "path": "scripts/check_mutation_gate.py",
+      "bytes": 4677,
+      "sha256": "84af9fbc7943e8e4ef3ed8cc06a8ce662c24cf49c07032f5c41c9ef08b975a1d",
+      "review_class": "first-party"
+    },
+    {
+      "path": "scripts/export_schema_catalog.py",
+      "bytes": 1340,
+      "sha256": "69af2a476ce970014ba9f8abeba067ac1c64e4335430a8d6cb1ea9282404cf11",
+      "review_class": "first-party"
+    },
+    {
+      "path": "scripts/generate_cli_reference.py",
+      "bytes": 1539,
+      "sha256": "f68d9573619dadb6fe983f5b54bcc33074dec1944bbd4cde28eff64a94ce7776",
+      "review_class": "first-party"
+    },
+    {
+      "path": "scripts/manage_scanner_apparmor.py",
+      "bytes": 6276,
+      "sha256": "7b92ee763f6358d14d88069ce8558160d183a5d9f12f88dcd666a76641ad4ee0",
+      "review_class": "first-party"
+    },
+    {
+      "path": "scripts/probe_scanner_container.py",
+      "bytes": 5202,
+      "sha256": "794aa5ec56ff945f2281ae9387461efa6687f72d13f836cd0cbd32a0018320c5",
+      "review_class": "first-party"
+    },
+    {
+      "path": "scripts/smoke_native_runtime.py",
+      "bytes": 8467,
+      "sha256": "d5d931b8309f4ede03e81302f164f46105ad93363c2aebf02d2695eb658f2322",
+      "review_class": "first-party"
+    },
+    {
+      "path": "scripts/update_contract_goldens.py",
+      "bytes": 8470,
+      "sha256": "14b7d397540707cde2ff4a9be34eca56ce7e93f4f38aacb2f4f3a468b95cb9e7",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/__init__.py",
+      "bytes": 174,
+      "sha256": "1425ca0aaa67f92f5986fcf0fe912e278e90dfcffe8688cb4f4bc744187d0577",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/apollo/__init__.py",
+      "bytes": 88,
+      "sha256": "2987c962c8f273e475082fd56facc3f9a0b9c3a03c8c840754e99fdb1d81cc67",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/apollo/application.py",
+      "bytes": 11752,
+      "sha256": "8994b54017ea80052ad9128c5a4134be129e699bfba559d2fcb522f734f45977",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/apollo/attack.py",
+      "bytes": 3042,
+      "sha256": "2ff528cbc11340170954c73badb6c730ab4b101b9c3dd573fc97d0767efc157f",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/apollo/cli.py",
+      "bytes": 17684,
+      "sha256": "f684e3a023400fe16702c086d36d34a4b862a6bda0b0632474ff4feb0904922e",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/apollo/coverage.py",
+      "bytes": 6626,
+      "sha256": "eec48ea34ae1d1f22681460c6fe1003c2f682de2aeccbe2396dc5e4aba361d3a",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/apollo/ecs.py",
+      "bytes": 2572,
+      "sha256": "ef5e04ec7151ab0b4476183e204b55627f0bea0d8d50047890021939a614e9c9",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/apollo/engine.py",
+      "bytes": 2500,
+      "sha256": "acbeb387604bbe6f8064c4a70db0943559b45353dcf6d3cccb3c22fbff8b2ebb",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/apollo/export.py",
+      "bytes": 1741,
+      "sha256": "88f0ce96f4b3b014f9af25cdc4bdba9a5ab80bfcb1bf3af464a7518cca8e84b6",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/apollo/ingest.py",
+      "bytes": 12383,
+      "sha256": "c5d72e0f4dddc2e13e8a876b07e98806dc50af55a44acfb854729c636aa06e94",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/apollo/ocsf.py",
+      "bytes": 3408,
+      "sha256": "a097b2e7f2b356c5bc3e931fdfc0ed00cd3224682fc52dbd9c4272ef11c71583",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/apollo/rules.py",
+      "bytes": 8739,
+      "sha256": "b0eecca46d61786aecbb54645487f6e1e1eda7aa7dbafd9d5ed86e416b0f111a",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/apollo/sigma.py",
+      "bytes": 10307,
+      "sha256": "63f4734d79c55d75f109608e41ebf67a78cf8efd31df754cf1fa773faee47a0e",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/argus/__init__.py",
+      "bytes": 75,
+      "sha256": "ee3e55adc1f5f3f934568a2b3d31ca544e01f221ed3f0c7a3580a257dffbbfe8",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/argus/accounts.py",
+      "bytes": 10414,
+      "sha256": "4b09b36a2c92c55013ac7730895b60a8da0afee79e21269ce686e5fe1c1092ac",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/argus/accounts_scope.py",
+      "bytes": 3833,
+      "sha256": "a043a6b78a569e1189b34296d4094e49602e68668bbc7098ea2a8a010af522e7",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/argus/application.py",
+      "bytes": 27985,
+      "sha256": "e6542c3906bf5e56df2528a62d1412d97397623a16b51a10580386cbfeda29b0",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/argus/assets.py",
+      "bytes": 1319,
+      "sha256": "9cce97742f2f7f9eff74f0a790e46e08e44ac322b155487aff5ccada7d3350c7",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/argus/cli.py",
+      "bytes": 40015,
+      "sha256": "1b828ab87ed7280386134e081eb292bfc14b9b42e4262fe793e1aab8a26cc9dd",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/argus/correlation.py",
+      "bytes": 5968,
+      "sha256": "260cbfce888451ae13a0e0177e0cee6b7c8ddb0897d5b0c796a6f6cc15dd891e",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/argus/ct.py",
+      "bytes": 3070,
+      "sha256": "0310abb68439e19d0004570c1c1c55c41810db6156f75997719f644a9a014b3a",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/argus/diff.py",
+      "bytes": 4929,
+      "sha256": "5a5834a14ad08dfb0dcec069a36c6844107669a30557e07adc9bbbc82bdd7943",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/argus/dns_records.py",
+      "bytes": 4585,
+      "sha256": "c07fb605a9f26ff6dafee923f1009fa56d027d6679c7f391d404fd3b8230f6b8",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/argus/email_osint.py",
+      "bytes": 7449,
+      "sha256": "3d30c0aded82f537d67d3d19bb1a1dd70b3db9c741b0775f12cf2716f30150e5",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/argus/enrichment.py",
+      "bytes": 8416,
+      "sha256": "8d2b4e44f95a4c2027d2ce6dab3a51d8f5f8f91884e3d18556d372b9884a61a2",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/argus/fronting.py",
+      "bytes": 8992,
+      "sha256": "80c029471fca81065e12969a434cd01a749ae48dc4c5f8c56331109c3d35b271",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/argus/graph.py",
+      "bytes": 9368,
+      "sha256": "839970431404704fb833780518ed536905ccbf1ab81d7745df2a1b8159bdc424",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/argus/ip_osint.py",
+      "bytes": 8753,
+      "sha256": "928297635d3d97cfe4fd95d51babec7b0b71b7d8fcb9c8104e652bc3677a9259",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/argus/ip_scope.py",
+      "bytes": 4081,
+      "sha256": "d25bcbd8250217741889dd7bc836d733845fd24c162483a09c956cba6b120002",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/argus/mac.py",
+      "bytes": 5346,
+      "sha256": "7b74939fb773b42dfb55ada9c3a4a27b00f70a17f32056163514561b97927931",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/argus/mac_scope.py",
+      "bytes": 4082,
+      "sha256": "bac7880b69118ddfc8cffcb6bdd28e9fed771a16cb442ef84bcb91c6afb9f10e",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/argus/myip.py",
+      "bytes": 3356,
+      "sha256": "64315b636368eb318b159b76d584cbbba4a9542f00d33a5d819bc9fce95cb268",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/argus/phone.py",
+      "bytes": 9826,
+      "sha256": "573fb8873e2d048f75de88e78c07e6a2fcd23cbe1f39e47f038b16c3f415803e",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/argus/phone_scope.py",
+      "bytes": 4051,
+      "sha256": "0b8e3e47fd1dab5129f521b9dfcd3024f2b0995ca3069ddcaf0da80e62d499b2",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/argus/pipeline.py",
+      "bytes": 14801,
+      "sha256": "dba16463ad52f34387e2ec8e37f303931105ac20cd6491a60a6d0254557eff5b",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/argus/recon.py",
+      "bytes": 2862,
+      "sha256": "d25491807e939e611af3658f06db6b1ca192309649065b0b1a1e0cbdb4bb1a75",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/argus/resolver.py",
+      "bytes": 2241,
+      "sha256": "c2561af3a7c94adad60ccfd32dce2782d8ea293185922721a0af5acf2ccff99b",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/argus/scope.py",
+      "bytes": 3992,
+      "sha256": "52a8860bf04683082ecad3e63d417c64f099f91f9e7d657532c880c18283eb22",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/argus/transforms.py",
+      "bytes": 7767,
+      "sha256": "877445125c7fd26d2d7d6421be40504a9cced49fc7759adcb4cb30ac5a505339",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/argus/web.py",
+      "bytes": 7400,
+      "sha256": "725070c061f153a58d30e142a93dcf0b4bc127ddc4085fd96c2b98a7f05bb656",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/argus/whois.py",
+      "bytes": 5755,
+      "sha256": "41b457a685450e17e36b309afdab44a636a8bf89e8aa3c16fad8c7dca834cd38",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/artemis/__init__.py",
+      "bytes": 75,
+      "sha256": "a3548080de699619f092aa75ea97cd4717dea841dce33d3bfdaeedfda9b2e8e5",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/artemis/application.py",
+      "bytes": 1584,
+      "sha256": "ac8bd1ad17ca3e373ba40c2fe9555eb75a63f0c11d55820fd2b973c1fa4ae916",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/artemis/cli.py",
+      "bytes": 16983,
+      "sha256": "6b4662f59ce28110177ccd2e3b9edf7a799d86ae2ca9caf48917333c5b58e336",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/artemis/content.py",
+      "bytes": 9825,
+      "sha256": "cad20f0946fa474edda0cbe043b2f819adc27dbf10e7fb04a7cde567adb5989c",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/artemis/fingerprint.py",
+      "bytes": 7262,
+      "sha256": "e3c85a1f9a3b6a05c9af85ca517b1150616d90ed53bbc0656178423ada5f9909",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/artemis/http.py",
+      "bytes": 8571,
+      "sha256": "ec4a8c61ff58bfe1f207523c29f5d4fd368570e515e2b1a185de9d99a6752946",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/artemis/metabase.py",
+      "bytes": 7861,
+      "sha256": "f81a0d437d442e2851ef23c058aaced59f7c0a83e4a605e1c158900964085eec",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/artemis/scope.py",
+      "bytes": 5458,
+      "sha256": "cb149017ead191fd4d9877a284bc0bbacc71d61835aed8692edae223a175135a",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/artemis/xss.py",
+      "bytes": 4545,
+      "sha256": "49edacad8000dba8ff36d9217193be59ea46cbc6749f4ac07870d1351253c7e4",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/athena/__init__.py",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/athena/adapters/__init__.py",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/athena/adapters/audit.py",
+      "bytes": 1263,
+      "sha256": "f248aa49bd095d07d3512274b3968a542f0b4fd435cb967a37713c351dfa3735",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/athena/adapters/report.py",
+      "bytes": 1634,
+      "sha256": "ce547f7fe5a9a5306c95841e8eed0e569daeb048fd5e81948a0aa3f39f707d4c",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/athena/adapters/sqlite.py",
+      "bytes": 11061,
+      "sha256": "ceaa939e42a0620f29711d7c1eaf6bfad0455c98e22d8e4dc3b5b0ef93bc0a64",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/athena/adapters/system.py",
+      "bytes": 577,
+      "sha256": "8b8cfc112346cd3975b48289a10216fc79e9e426f4a3c126b5a5c928818cc285",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/athena/adapters/themis_scan.py",
+      "bytes": 3812,
+      "sha256": "ae12f8db17dce9a22fb40a8dfe2fc1ea17e940396e37472c2bba3cfd0b45ec8b",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/athena/adapters/tools/__init__.py",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/athena/adapters/tools/base.py",
+      "bytes": 1272,
+      "sha256": "2f02a7e96f703789865bee4755b8ed58a045e20bee82fd68e3743035d4022ad3",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/athena/adapters/tools/dns_records.py",
+      "bytes": 1179,
+      "sha256": "37e142b200ccf52a7e75c9543c8a0890dfad6d78734e541593ff6a0c0fcd82df",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/athena/adapters/tools/web_headers.py",
+      "bytes": 2345,
+      "sha256": "0bbd3fdc72e2b4ce93e52566bcff52fb84b4ac4020377a85e417d72ba444dfd8",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/athena/adapters/tools/whois.py",
+      "bytes": 1149,
+      "sha256": "44ca24b15f09549d1d6f829d0548bcb2d81e9213a352b3284d138c36d5eb38e5",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/athena/application/__init__.py",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/athena/application/coordinator.py",
+      "bytes": 16812,
+      "sha256": "06a376288c7d4f47391f6c1e0a971f19db795e2168dac289af89a884909f15af",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/athena/application/planning.py",
+      "bytes": 1465,
+      "sha256": "92e5163723f492af172f98453a34fe8c6f847c1bdf5ce06fcdcce8f65d3aa677",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/athena/application/registry.py",
+      "bytes": 3240,
+      "sha256": "b6954516f41d54238e50ad2003b36ab73ea2d2742e0e7f59ad0cbdbbea38bfbb",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/athena/cli.py",
+      "bytes": 14707,
+      "sha256": "7ad6d9f8f319bf1e253cf122af96972660bbaa7984fcf7ee362a2e48b717edfd",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/athena/domain/__init__.py",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/athena/domain/assessment.py",
+      "bytes": 5411,
+      "sha256": "e9dea07fc22a1c646853b8b962a7473786fa5f0859c07cfb891e072098c5b0e8",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/athena/domain/audit.py",
+      "bytes": 1869,
+      "sha256": "8a664419e816ece154ec52f1ccd20c328c793d212064f0451b6bddc96c082b47",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/athena/domain/contracts.py",
+      "bytes": 7748,
+      "sha256": "71f1d4fba696191ff3dd3df1d28e832559e938785e82448c0f338ecff3b08481",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/athena/ports.py",
+      "bytes": 4854,
+      "sha256": "5cbe5819f491d8955496bf93a8934fdadcabbf091cee0fb7803fb73535236797",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/athena/scope.py",
+      "bytes": 5239,
+      "sha256": "1e63665f539c8bb19e10d92359f5b7f38ead6cab73355015230547490cacda39",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/cli.py",
+      "bytes": 17411,
+      "sha256": "0b23cab8fc16c9aec69f2bf417d058a5c741aef264f2a178e4964c2a6ee1737f",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/cli_forms.py",
+      "bytes": 8449,
+      "sha256": "56e08902ac80b334372ee393a4e81a8769eaa4f21826a55aac5aaaac4e440686",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/cli_reference.py",
+      "bytes": 5147,
+      "sha256": "e1f107b52982ad7335d91212b407d720880449ba0bf00f74f5199d3d5b4b43be",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/core/__init__.py",
+      "bytes": 2042,
+      "sha256": "dcd43d3e59f3fb830c3c3e616b75efa7aa2a96ea3cf69dde85c9314e3e3a242a",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/core/addresses.py",
+      "bytes": 8127,
+      "sha256": "807d7b1528a22b2c0ef0cc95fc6c4fa5bf83fdee189d956a51561af1a5c26621",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/core/config.py",
+      "bytes": 9979,
+      "sha256": "1d04da9c233eb28f39acac8984c354c1e3a918bbb986e24175e72931485a9f55",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/core/contracts.py",
+      "bytes": 3897,
+      "sha256": "7dc5381d2b1a1a1ab020e315e6ae622a5f4782ab7283923b95cd30ac396ced22",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/core/coverage.py",
+      "bytes": 10130,
+      "sha256": "e63bb97eaea6c2fd59b17386d6f0a0dafb549cdfc1e98d36b79a20b24fbea822",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/core/crypto.py",
+      "bytes": 5677,
+      "sha256": "53c1270f9b18d05bc4438016c79d530489c641ebb861cb9caee58752c4e81709",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/core/decompression.py",
+      "bytes": 6378,
+      "sha256": "6a8b890be6f04f23452ee184bcbad33d055cf0e37ea44db03f3aceafb300d6dd",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/core/enums.py",
+      "bytes": 2442,
+      "sha256": "e370d99a38bc1a0f072f90c435bdf0295fae08bd832d9c977c2c64b915498570",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/core/errors.py",
+      "bytes": 1975,
+      "sha256": "82eb1a30a450fed9e6d58f6aed2b349c29241dc7788c8ef9b46d807e7a78ffa8",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/core/evidence.py",
+      "bytes": 4228,
+      "sha256": "e61fd4becb15b48bf661e746c0e0b2b02783898ab904c3d26138e5ee9dc4702c",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/core/execution.py",
+      "bytes": 14443,
+      "sha256": "1b59cb16555fd14326cf39f9eb4ba928b16a3d1bad641d71eccfe8f6092793af",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/core/exit_codes.py",
+      "bytes": 2016,
+      "sha256": "c2abaa18a349ec72c769ce158282da2255cab1d29e5d392e24f524cc1569fc61",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/core/fileio.py",
+      "bytes": 9784,
+      "sha256": "db43ae35e862aa15b94e83d138a9a4a8865c835dcc0b9fc3a8d8d54985ed1048",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/core/finding_lifecycle.py",
+      "bytes": 8175,
+      "sha256": "e570a55cd5b5ab6c1c23853ba686f24be9b339c46569a9dcdecf1d1d1073189a",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/core/http.py",
+      "bytes": 23131,
+      "sha256": "7780ba1e47ed0fec95c1dda6d302dfe97d1576c39af2066501277af0cc245771",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/core/ids.py",
+      "bytes": 2145,
+      "sha256": "6f20e0d814a4cf6b02d791ef06eac33eeaf60ff33851d75caf919e5b6fd966d2",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/core/lockfile.py",
+      "bytes": 5760,
+      "sha256": "e3eef969204da3c4d9f198d90ab3b67e23de3797787a60e1a7ce64603cf74e07",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/core/migrations.py",
+      "bytes": 6641,
+      "sha256": "022297fc914317169bad7fc77a9292be1add70db6c1c3f39f3e0a6167742d398",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/core/models.py",
+      "bytes": 21861,
+      "sha256": "88d9b302a3c4f13e89406ceb1f4833cf16e56ec412d37d8073e0de6ce612288f",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/core/notifications.py",
+      "bytes": 12360,
+      "sha256": "ce9b6d0d343ae1c4fc6b1607691da5d02f0c0d6b0d71800329360ec356b34061",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/core/observability.py",
+      "bytes": 16263,
+      "sha256": "b9d9e5534dc73c2f9197d73399169974fd591310503b2f48a1d8d27492f7f2cc",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/core/output.py",
+      "bytes": 1901,
+      "sha256": "25ebad9e4f3ebd42a28fc7d569495de512bede51783de0bb88527c651951ca7b",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/core/paths.py",
+      "bytes": 3261,
+      "sha256": "f33cae6f42f6b384db383977893c36d012a3ea871eab446c1766fe273a96f205",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/core/pinning.py",
+      "bytes": 6792,
+      "sha256": "9f7a625e3e13cffa3124297f0a1723efa9be212059593c539e2aad56e922af33",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/core/policy.py",
+      "bytes": 25212,
+      "sha256": "7ea07a23c4d92a3cb2cdf2551062939662e2abe0fa8f26cadb35a1de1f5a1a58",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/core/retention.py",
+      "bytes": 9853,
+      "sha256": "b5a30e5710855912d75679cf11af672f1dc3524afe3fff49285cbc351a65fd0a",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/core/sbom.py",
+      "bytes": 8399,
+      "sha256": "5e05ec952fde05640eff6d8e35e14f9225432a2ba028b44b61a192dc30be1f0c",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/core/secrets.py",
+      "bytes": 4648,
+      "sha256": "afdf25d49f04fd76f53491b7baa28627ec56d71ff1c7137bd635e12c09de6244",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/core/signing.py",
+      "bytes": 5851,
+      "sha256": "7818c9b8fc05cf5d783f8daa57f32d846b4a6372c84e1d5f71d61419fab003b6",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/engagements/__init__.py",
+      "bytes": 280,
+      "sha256": "523fe9ec27fdec009feefc679cf2e4628e30869cd9adf6ee57375f598d8b9090",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/engagements/cli.py",
+      "bytes": 7247,
+      "sha256": "c0ae5ea76dd933f222c4beda9a66a4111e8b7da48e48fbc96a22345c52ab8712",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/engagements/manifest.py",
+      "bytes": 7756,
+      "sha256": "e1860428db449a8a7fcadc10215e4aed9bfa10dc48a97906f12df93466e78a29",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/engagements/portable.py",
+      "bytes": 3906,
+      "sha256": "433937768049fd057674c33fdb371fae05fd3de5ab9d52558ae8e3863ca8ccbf",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/engagements/resolve.py",
+      "bytes": 3242,
+      "sha256": "9aad72585505059e0464a9e15ec106bbbc999f8b5903ae8ad2337897ed8585a7",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/engagements/store.py",
+      "bytes": 10376,
+      "sha256": "52b7da60280d46d0b26b473314ca17b4097eecd73294f9542112c871727fd9d1",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/findings/__init__.py",
+      "bytes": 382,
+      "sha256": "48fb335e240de9338fc1f3f4256477c588c7aeb4b17a3d7c44f22e8066bfc683",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/findings/store.py",
+      "bytes": 6331,
+      "sha256": "af61eb1c6b8694b862ce5550dfce9388ef8f89f9609645d093a3ac30c2785801",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/helios/__init__.py",
+      "bytes": 95,
+      "sha256": "8cfe34a503fe5fc26eed741925a5cfa62c7df85d012dde8dd5d60c00ab507664",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/helios/application.py",
+      "bytes": 4197,
+      "sha256": "579647c34b30e33bd17a2974fb1cd133ada67b5d805079a70f61d7fc761eba3f",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/helios/cli.py",
+      "bytes": 4223,
+      "sha256": "fc600468ad88cb236cd29d6e66a7a85ed5250bb93a62b850912b6147b97cfd5d",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/helios/export.py",
+      "bytes": 4794,
+      "sha256": "ae507c28a5f2d6126942fe495d60f00e972dc121fefa788478e06943a483592d",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/helios/scanner.py",
+      "bytes": 13859,
+      "sha256": "f9cce17b42362827c8ac5fde38ff5e3bce73daed06ca24b2b475787ef58d87e4",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/helios/scope.py",
+      "bytes": 3749,
+      "sha256": "132c8702c246e5eca6ec66544da9d8577b4036fc38d55c1eee8bccf88f7c2867",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/hermes/__init__.py",
+      "bytes": 90,
+      "sha256": "b5ddae7a188e928d0046cd83753170c641f8d2c313780e2ec5d45d8d4243cfe0",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/hermes/application.py",
+      "bytes": 4526,
+      "sha256": "2d13df5a0c9ee5152fb5c703b7137541cda6954a3141a2db8a5a06a39e659fef",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/hermes/cli.py",
+      "bytes": 7945,
+      "sha256": "e67d5d3a8107ad78ccc9f31ad01243260f6ae46aae599e53e93bfd0621885d03",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/hermes/sarif.py",
+      "bytes": 3753,
+      "sha256": "d852a2f19b1c1e1c88339f95f12ef6303be43c7b31d0579f40e763aff513bacf",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/hermes/scanner.py",
+      "bytes": 22728,
+      "sha256": "c8a3d3a9b77d27251c6f274a2e02334d48d6c0723fbe0d26491c170a55707eb6",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/integrations/__init__.py",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/integrations/activity.py",
+      "bytes": 12574,
+      "sha256": "0aad1e12bd8e518f8204a6571deaf8fd5f0e2460ee2ded02926f58b7737b2b0f",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/integrations/capabilities.py",
+      "bytes": 6860,
+      "sha256": "c07ff9c16365e804e38819ecb5eeb72f4ed1184408ceb5ba373aeb2f76438e12",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/integrations/cli.py",
+      "bytes": 98830,
+      "sha256": "786b1d4997edd7d48c9ea309723ee1406a1588bea75353be0cedb9540c8f56b3",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/integrations/diagnostics.py",
+      "bytes": 5283,
+      "sha256": "f49ef7c198aef869c3ceffde88892aff42f3afd60d004fc2ebde934db202df77",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/integrations/matrix.py",
+      "bytes": 8820,
+      "sha256": "dc346fbd88122d5223354631c0444b75acc1160d7399f1ff6703f71130153ed5",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/integrations/maturity.py",
+      "bytes": 14284,
+      "sha256": "eb5fefa9b49650ed486f0f990b56a8871a33be091b5fadd94581f087e600d014",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/integrations/scanner_doctor.py",
+      "bytes": 5849,
+      "sha256": "2b6a193e652e61c6e16ca7db75275ce66b48c7d9b1e5946ef9f102c715e6eef5",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/integrations/scanners.py",
+      "bytes": 8800,
+      "sha256": "863a3dd75c9ee67dfc990463a5799d330f958945b12eea6f6006c490fd5a5d35",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/integrations/smartscan.py",
+      "bytes": 11865,
+      "sha256": "b7b844e346a2bd1b986ed65411a3115fa5d0aa3d00e8b9565989751782bd875f",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/metis/__init__.py",
+      "bytes": 349,
+      "sha256": "7861174ccea54d13d9f48e66fe4151555dbdf4b336313e5a911655d7dc6d4b82",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/metis/cases.py",
+      "bytes": 23487,
+      "sha256": "841601fa2428fedfdf8fad46550357d7afd53a0e50e78be4c7257c9609f2ae4a",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/metis/catalog.py",
+      "bytes": 9908,
+      "sha256": "a88d6ee93b69856f00f1031fce6d72cf7e5c3b95ca9376141643ffd327e137a0",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/metis/cli.py",
+      "bytes": 21454,
+      "sha256": "e124cb040f853c650068fc405e1b4d07c6d3efede11f86c0a0adb1bedcaa86aa",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/metis/labs.py",
+      "bytes": 2201,
+      "sha256": "ccbb0fdf3394fb547e23e5edeeac4c987aaa09c53ac2914334080145586bcf8b",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/metis/misp.py",
+      "bytes": 7658,
+      "sha256": "62e1b16985f99a536f68e18dd73b22da72e356dab02699ca9a9c27a5615ff42e",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/metis/models.py",
+      "bytes": 6002,
+      "sha256": "a60f4e6940a06b02130c807d673c9d9dab6d580acebaa31b7b4f32bfc8bf5e5f",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/metis/planner.py",
+      "bytes": 1641,
+      "sha256": "dee570edcb29a33084558229cbe4af20e9e17108aed753aaa94e09ae5656e326",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/metis/stix.py",
+      "bytes": 9745,
+      "sha256": "f485a15c433bd0a05ffa6d5b87b9a03eda0b7eec22a7741819f96f915c5a7e78",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/minerva/__init__.py",
+      "bytes": 89,
+      "sha256": "12cbe57db903e85bc191fd0583619cbb8be290891095041039a93f93039193a1",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/minerva/application.py",
+      "bytes": 7667,
+      "sha256": "c8ed2f217e51a3d62edc95b2f813f3290b08b43f47cbdd595fb228a6e2f8239e",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/minerva/cli.py",
+      "bytes": 14869,
+      "sha256": "6f9fba9c59c5279a45dd09aa4e0bff1880a0ac1cd3240a188b902467543ed031",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/minerva/custody.py",
+      "bytes": 33921,
+      "sha256": "c70476117269c40f90f725d8bbfd44d17eee45b77eaf06279351b6bf009bfa35",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/minerva/provenance.py",
+      "bytes": 3652,
+      "sha256": "a679de10c80062452297dd57988395f23e44bea8ac99e700df0ab4aebf47e147",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/minerva/triage.py",
+      "bytes": 7459,
+      "sha256": "2e121ab5ec5eb91850ca11457ba744eee8ee52c98f7ce841b16d31ba2ebd5052",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/minerva/vault.py",
+      "bytes": 8505,
+      "sha256": "7dbe1e87676e06515cebb88a76b7a42f78be9a17dac3ae69743090dd2c8176cb",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/proteus/__init__.py",
+      "bytes": 86,
+      "sha256": "a4780b25778d2dcf7baeae56999e8c24b7db983935a1321966d80188ffc4adb7",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/proteus/application.py",
+      "bytes": 5516,
+      "sha256": "2dbd30ca74581aa527731c5225a51540ee02db832c1fc399326578276dd8ffc8",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/proteus/campaign.py",
+      "bytes": 11515,
+      "sha256": "6ec476e3e7d0d98ef97187c6f1042ad5ea5271806c5034cb872140e5fc17b591",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/proteus/cli.py",
+      "bytes": 6374,
+      "sha256": "4f6a43d1af0e1a09ada78c17473a9cc69065ba7878dfc2ca07b76d0df63d0b65",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/proteus/scope.py",
+      "bytes": 7865,
+      "sha256": "7de42cc646cd72d4263d7937d0de4caaac3e2e50edee6ca29bf0c0f548ebc1d2",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/py.typed",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/schema_catalog.py",
+      "bytes": 7432,
+      "sha256": "bd874e7fcb279c57e3c813ce6b5fa0fda87f6a7b72c3d181e80973023a5230e8",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/__init__.py",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/adapters/__init__.py",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/adapters/arjun.py",
+      "bytes": 3936,
+      "sha256": "7de488510ffeab602a0cbb68625c4d8fefc791ad034ac09245867eb7e2a518c9",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/adapters/commix.py",
+      "bytes": 4359,
+      "sha256": "9153b1e122939320e0a6a6b239c81072b118ca7cef41d78c77944c4b86bba5f5",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/adapters/dalfox.py",
+      "bytes": 5070,
+      "sha256": "ce6977c85e3f19076089c946cee9ccff803ae98f1e3f191cec66f7262f5d2864",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/adapters/dirsearch.py",
+      "bytes": 5663,
+      "sha256": "8ae6aaf891e2d9b5ed867d568ae8ceb76bfcd54b6c1cb60cd399888373320acc",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/adapters/httpx.py",
+      "bytes": 5373,
+      "sha256": "48fbe5921697951c4dfbce743c4d9680455a419153ba1156e8841e8d805197b1",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/adapters/katana.py",
+      "bytes": 5679,
+      "sha256": "c281aed35aaa888da7564e56abdbc23a3bb484e53a644c9f0678133aa04d03a6",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/adapters/nikto.py",
+      "bytes": 2339,
+      "sha256": "221e1d2f1cef29ea5774cc5f27dda5c31a1874867bc5b7b096600b37e13a092a",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/adapters/nmap.py",
+      "bytes": 5075,
+      "sha256": "c69f7f7559a66552421b4ca1db443d21050b69aefe7ef80457272ff2b721e64c",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/adapters/nuclei.py",
+      "bytes": 7949,
+      "sha256": "f29fbbb0c91475ba6fa12bee4081ea9c3a8c62bc549d841f9cf2ddb936b800dd",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/adapters/sqlmap.py",
+      "bytes": 2370,
+      "sha256": "5d5713b7643b6772a3ef72b5b18f006a311fce55994357430a87c73704958888",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/adapters/testssl.py",
+      "bytes": 2536,
+      "sha256": "79ced2279ed79b0a508a265a4595bedbffe7d2a43a74eca6e7c94da430777fe2",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/adapters/wafw00f.py",
+      "bytes": 2359,
+      "sha256": "ff7df7264bafb03fd4b4d0d08e044909156db4c6df661d6fcb61fbf80ffcd166",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/adapters/wapiti.py",
+      "bytes": 4380,
+      "sha256": "001c8eb202b43d9b32c72816faeb6c3cf69c0ca73c08a937c421956663e041a8",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/adapters/whatweb.py",
+      "bytes": 2332,
+      "sha256": "4a4d713afa6688bdd01228a4a323eca7e94deb71cc6343c00b14361dbd0e9f6b",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/adapters/xsstrike.py",
+      "bytes": 5362,
+      "sha256": "3ca12c81f107dc9ff6d4edd87d5ef6d1a4ca7ee417a261ce63c824903047c64e",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/api.py",
+      "bytes": 32038,
+      "sha256": "3692962680cabef6384d5f6106b9683d13de2d8f64d661c236c750520e68d079",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/application.py",
+      "bytes": 10967,
+      "sha256": "62c62c21b435162a43dc26b377fb9e8c302ab303f430633c2be84134cd5d8ca2",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/base.py",
+      "bytes": 14728,
+      "sha256": "dbd45646cdeea61f34f10ff24c01398ceb37937bf2bc62ad256032c551f44b54",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/concurrency.py",
+      "bytes": 7669,
+      "sha256": "e88a77fecfc97fbf22654dde4f751fff896b395dcb1a90650a000f46ba873da9",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/config.py",
+      "bytes": 3558,
+      "sha256": "f25af83f3888725adb681b6a53b9cf841932bf1c8252a7ebad9d551ad3fe4fdf",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/identity.py",
+      "bytes": 14415,
+      "sha256": "4cf9de49dcc2a75c9f9b78e8528eb6fb2a67a1a68c1960912bd909e91f23d8d3",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/jobs.py",
+      "bytes": 52809,
+      "sha256": "fe330dad7a6de1b927dbc07632412485c5a272a5415806e6a46f5429288c518b",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/lab.py",
+      "bytes": 2513,
+      "sha256": "3288003bcf9a850fc0f9ace91bbc00452998002d5dbe0056731609db9909f973",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/legacy_vap.py",
+      "bytes": 39981,
+      "sha256": "265259778fe1145cb0d104b040f1c214f95ae83608adafd83d1cb1050c94c097",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/model.py",
+      "bytes": 8367,
+      "sha256": "25cb3bb19fa610c6387b8ecd38c1a148c6f38ff5b389764c3a198e37bf0038ee",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/oidc.py",
+      "bytes": 5524,
+      "sha256": "d6489abaded6ef90dd3150c13ff2d03deeedc6e2cec1edebeaa166cd01d91778",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/outcome.py",
+      "bytes": 9575,
+      "sha256": "2a3379e999f413c115d37b3f09a44ff3450927ab86b61880733e32212032843f",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/plugins.py",
+      "bytes": 5268,
+      "sha256": "6ed4aa83f75ce298fb2e208f34bddd2031cba8ffcc2dd393b384db048cf935ab",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/preview.py",
+      "bytes": 15816,
+      "sha256": "cd129c674a88ec1f69a169af558de130fedb77a3008e8c5cafb71405770fa1ac",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/registry.py",
+      "bytes": 2874,
+      "sha256": "1b17d868c31ee954bbaf8b1a024576efd997a7dae2ebf2a76234a428a69cdfbb",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/runner.py",
+      "bytes": 16843,
+      "sha256": "eb4873cba509a53dbb9fcfde3925e4736106efdee5dd8c2bf1d4603b692820a3",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/runtime.py",
+      "bytes": 4222,
+      "sha256": "65b39b053dde6ee8db269b1f484ebc3f3c2e5d75b880834c49ffb8045b2e52cf",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/sandbox.py",
+      "bytes": 14844,
+      "sha256": "3c1d542ace103b2b12d78b4f12e272524fcca5b1a2909b9fafa54d78f31acb75",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/scope.py",
+      "bytes": 7491,
+      "sha256": "b5c4eb248a011fcd1d8422f00fe347c0f6f75932496ee46d1bbe64c2370dc1c2",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/states.py",
+      "bytes": 1063,
+      "sha256": "36f113207a36d535046d6d2e6178e5bb4811c0954faa9f4d100ab1355bc8a889",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/web.py",
+      "bytes": 82195,
+      "sha256": "64b3ef8d375e8d6d0be56b8bb24d056451bc25129fc383094b9cd2896cf39c2f",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/web_static/app.css",
+      "bytes": 7183,
+      "sha256": "18d8e2922dd50187a60827af4a592738c07f89de7b3ab2ced892dd85cc761cdc",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/web_static/app.js",
+      "bytes": 1303,
+      "sha256": "682760ca50057d04d7386c78fc3f49a2f2dea620b8354f3efdcf11e5575a6c44",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/web_static/assessment.js",
+      "bytes": 2511,
+      "sha256": "1907376b873cbf9642c0a2df6a1157bf4b5aff8d3c7205637793479550eb08c2",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/web_static/smart_scan.js",
+      "bytes": 845,
+      "sha256": "9bf384efe4a1e8e774008741f2e90dda6dd1ca0ae2f8ab24b5504691996b2ad3",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/web_templates/assessment_preview.html",
+      "bytes": 3376,
+      "sha256": "99d2f56111e39803e3173424652c001cf75d39cde61bc8d444a7801fb3d0cb3e",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/web_templates/base.html",
+      "bytes": 1268,
+      "sha256": "7e45a972d5974a276a75cafd365883d977726447fa654e8489eb3bcd2fb3a831",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/web_templates/dashboard.html",
+      "bytes": 4923,
+      "sha256": "d494105f40f9d5de4b7089601a2aa348bb8ac755351c259827980944f3f3c050",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/web_templates/engagement_detail.html",
+      "bytes": 1455,
+      "sha256": "050e6f80cb34579695418a924b902c8bf5876c68b66453d529c7c3b35f3914bd",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/web_templates/engagements.html",
+      "bytes": 1385,
+      "sha256": "e954f5e3988c5128277f91b3d94018c29ce43ee6bef3e7f943467f2548ce4841",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/web_templates/finding_detail.html",
+      "bytes": 3456,
+      "sha256": "941e35c6074403d3838893e3a862fea8cbd5fb7c0042f767d1c00c53485eea4c",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/web_templates/findings.html",
+      "bytes": 5544,
+      "sha256": "46380a50290d423832d1807f2602fdfc0cbd99895b9c298932a409faabfdc05f",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/web_templates/findings_diff.html",
+      "bytes": 4192,
+      "sha256": "8955475f793374071bd301cda38befd58c9f2a6ce9f20a2f27199eb698abbb3a",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/web_templates/job_detail.html",
+      "bytes": 1436,
+      "sha256": "e16ee518ed694877d769766d58b6f26368d649035ca7e9cd8dd0cc023151b298",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/web_templates/jobs.html",
+      "bytes": 869,
+      "sha256": "e4d1efd7f3d400a39d07003e036dbfb793240f104a7e66fd92215bd379eb277d",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/web_templates/login.html",
+      "bytes": 700,
+      "sha256": "189f6ce9c1686d1968eb9ebc945cee4a77f2eee99bd5fe850a094025cd18e03a",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/web_templates/new_assessment.html",
+      "bytes": 5359,
+      "sha256": "5d73f03c5672a72d22095dbccb2a5ba4218c166e757d09242682dbfa7e9798be",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/web_templates/not_found.html",
+      "bytes": 293,
+      "sha256": "29c05281f1ccbe1a352f31bca8da518c45ac3983802fc1a90bcb61bbd28ffc74",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/web_templates/smart_scan.html",
+      "bytes": 6088,
+      "sha256": "93180eb85a4424f52c1c4bdb2fb26805dfabe2f0bcb77a909ae8fc923f32b542",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/themis/web_templates/tools.html",
+      "bytes": 2614,
+      "sha256": "b821ce6573db172897f1cbd419978831617c4ebfed910930bcbe107db1849ac3",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/tui/__init__.py",
+      "bytes": 122,
+      "sha256": "d6e8715ef25b3aa0363b7e2d1b37ed881439b8564c22c489ff155d2aad997d55",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/tui/app.py",
+      "bytes": 11805,
+      "sha256": "de13d96793d705eb6909d777e1eb71c2ad41b983e563066fee2402c90f560fb2",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/tui/catalog.py",
+      "bytes": 2601,
+      "sha256": "780876d07d8f9e7d507fcb2228bb8085d9ae95d9d72f9c3a3972756728fca620",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/tui/olympus.tcss",
+      "bytes": 3327,
+      "sha256": "031d149f8aafec2b2a4faa6fa4164b1897a040be7b98d6ac305c06dc7bc334c3",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/vulcan/__init__.py",
+      "bytes": 91,
+      "sha256": "989f259905bf348bf1c9baf056bd3906efccf7d1faa4113c937fc86b7408ea0d",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/vulcan/aggregate.py",
+      "bytes": 19805,
+      "sha256": "85c2ab83f7a5166cde9e4df2decc4ff4a9b659dde1a0584081c7c1608c86ff8b",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/vulcan/application.py",
+      "bytes": 12417,
+      "sha256": "f0f54fc861159fcb78f10f5403aedf2bb60a94053407b6ef3b1dc4a6f18539a8",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/vulcan/attack.py",
+      "bytes": 10642,
+      "sha256": "a9eac08ffcf9004887eb2d56d44947fe2b9d0bb69c993a67d4d268d7def8689a",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/vulcan/cli.py",
+      "bytes": 52102,
+      "sha256": "984779e833d7ab823f0218eb8289776db1ddfabcd9bf8f46f36a9ab96a7d026c",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/vulcan/compare.py",
+      "bytes": 5803,
+      "sha256": "2e512bf6a2757d6ce90ef274f64207eba949d807f05d119ffcc2571e4d8463dd",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/vulcan/enrichment.py",
+      "bytes": 11294,
+      "sha256": "abfdddbcd72c1270c385850286d7896a3bc508238749ba96156abfc4e4fbac5a",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/vulcan/evidence_view.py",
+      "bytes": 10834,
+      "sha256": "f3de97eef956b4e2a1ca8855b5c7406c96bc027842411319d430a5f1d17ae638",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/vulcan/pdf.py",
+      "bytes": 26231,
+      "sha256": "4848d796deb80bb2b240c2577a31b482f59932b81ec7f46d16d53852edf982d6",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/vulcan/portable.py",
+      "bytes": 4325,
+      "sha256": "278b15d877bacc20f8b2810028bfba8a1a69f121d6243276847de6bae7de0da7",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/vulcan/provenance.py",
+      "bytes": 4931,
+      "sha256": "75f8ed05d54c1e9d5d7781adda4592b70710788f648fc1a697ef5379e23757e9",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/vulcan/report.py",
+      "bytes": 17921,
+      "sha256": "f9be22cb4dad993d2e6ffd66a7aeaa2d7e476af04836e9daae80ba6014829d36",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/vulcan/sarif.py",
+      "bytes": 11180,
+      "sha256": "4e3caab6874da2b1a2dcf045601c6eb6a80c3c8f2192b7ed5f4a6a98fc6de146",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/vulcan/search.py",
+      "bytes": 4343,
+      "sha256": "03af4af4cb3520f18f484f76787d7a1f9b415a290e78f0758ad963470eb487fc",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/vulcan/trend.py",
+      "bytes": 4117,
+      "sha256": "923a5da07da357a482a867be9c841a5eb1a755e60299095c33f6b8c1d09f0bd6",
+      "review_class": "first-party"
+    },
+    {
+      "path": "src/olympus/vulcan/view.py",
+      "bytes": 7306,
+      "sha256": "9c78a9436b359b49d4b4bbada8059d073057940b6d4c6dae6d61e17d1ea7735e",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/__init__.py",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/conftest.py",
+      "bytes": 3281,
+      "sha256": "a5c77033fa50356553e3776ca1c16186a487c46af1d896ab010dfe005538e48c",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/container/README.md",
+      "bytes": 1165,
+      "sha256": "dacd447cdb774e3be10e63c5d8b9390f5073abd66cc8dd54b121a97832a23e96",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/container/test_themis_native_image.py",
+      "bytes": 4867,
+      "sha256": "eaade9655d10dd5f9dbd016e4f7d182bb3ed7444c53ee340b89bb573ce071753",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/contract/test_adapter_contract.py",
+      "bytes": 6115,
+      "sha256": "d5801783a3d2c5b1ecae792b17cfbe57b3b51606b6dfc63282e730527cdc8035",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/contract/test_argus_parity_manifest.py",
+      "bytes": 2387,
+      "sha256": "7fb2890f02e5159db244a8c8697f0f6ceb46fa10403ccc1c4b7bea73b58ee257",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/contract/test_athena_contracts.py",
+      "bytes": 8774,
+      "sha256": "3ed25666a71e6eb983ea203dae0cce2a433f17d295b27c36c60d1e417a0a58bf",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/contract/test_core_contracts.py",
+      "bytes": 2840,
+      "sha256": "9dc28a51cafe507a296a3eecf2141273629a9aa8bd339d5ce149a53e12793f92",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/contract/test_exit_status_contract.py",
+      "bytes": 3533,
+      "sha256": "3d42f7e29f5b5598ee05ce20e026dca5c773a6d73003469795e299016afc6b5f",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/contract/test_explicit_migrations.py",
+      "bytes": 5937,
+      "sha256": "188da89149941a5262c79a999f6998583c18cd2eade6ab871cc6f103af465553",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/contract/test_golden_interfaces.py",
+      "bytes": 857,
+      "sha256": "f799c0e587261dbae1548ecd591ff170f2ac10e1f86a477b94ff4ca382cd6ccb",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/contract/test_schema_catalog.py",
+      "bytes": 1304,
+      "sha256": "b4f308a4b4cefd0e478075fc6087322721845374ed85d212e3721c2e2d19c4af",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/contract/test_themis_native_deployment.py",
+      "bytes": 8764,
+      "sha256": "eae8c85827e4c6e6036cdeb46a2df014b8f7ed702732abf9dd92d816e4a50ba9",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/contract/test_themis_sandbox_policy.py",
+      "bytes": 6697,
+      "sha256": "784c43e7a710cdf0acc688499563c92045bed83260371024a1a2f069eafabd38",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/contract/test_themis_vap_parity.py",
+      "bytes": 8319,
+      "sha256": "e4b5337d1765a7b9d5ae8f10b6402c77a927d9e440fc4929c00b84b6ff1facb3",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/contract/test_vulnerability_assessment_platform_manifest.py",
+      "bytes": 3030,
+      "sha256": "f249ca350c8eafbc1ca518030cf47d7c10f5f3e6e011292a9fe888b1a0a07701",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/fixtures/apollo/ingest/access.log",
+      "bytes": 901,
+      "sha256": "bf3ceda37623a6d3759c5cd3edd0d5c303de7efceb7b981faca51f867c9987ce",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "tests/fixtures/apollo/ingest/zeek.jsonl",
+      "bytes": 907,
+      "sha256": "9d3a204642940d69227092bacf07a8d0bfaeaa20477b43b76cbc0501aff5f511",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "tests/fixtures/argus/crtsh.json",
+      "bytes": 315,
+      "sha256": "1dff1c55fe7e62838adeeb65ae2c9717f18c54bafa8baac06bda678c0edba297",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "tests/fixtures/contracts/cli-json.json",
+      "bytes": 169,
+      "sha256": "6afb319ecf961678b3be2107d9cb524399cb4b2e37ce090d3aee1ec8a7bdead6",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "tests/fixtures/contracts/cli-ndjson.ndjson",
+      "bytes": 390,
+      "sha256": "7c90f5d02060986ee1c82af908d69321532f1e2cb9125061cc81b8d6ae785b62",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "tests/fixtures/contracts/openapi.json",
+      "bytes": 28531,
+      "sha256": "5537ae4cc9439da7ff4e0c31eb15b55faf2570491e410757a1b65257820a4911",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "tests/fixtures/contracts/report.json",
+      "bytes": 2160,
+      "sha256": "6a10cdb395725e355411537c157c8227eee0495f2f3927795054180e6dec5922",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "tests/fixtures/contracts/report.md",
+      "bytes": 710,
+      "sha256": "c7ec350e40baa713093b504575d8ace5aa631c535b4d21f1fa0ecc2df8e34355",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "tests/fixtures/contracts/sqlite.json",
+      "bytes": 9048,
+      "sha256": "a15f2ced95477d9f77d08195ed18e20120f36ecf58af38c639b0cb2218aa22eb",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "tests/fixtures/malicious/README.md",
+      "bytes": 1326,
+      "sha256": "743c6f7a9a7ce1197f82f4cf062e8420e0a28900c058040148001fe69fc46443",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "tests/fixtures/malicious/ansi_osc_banner.txt",
+      "bytes": 34,
+      "sha256": "f6509e02d228987a590f669e42a3a3402498a1ef9826d195d3d1e313b50dc45b",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "tests/fixtures/malicious/nmap_deep_nesting.xml",
+      "bytes": 532,
+      "sha256": "a19a9ef83056d518ebc05404062781f7501311c5d4372a17e886e6cc6dd04e70",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "tests/fixtures/malicious/nmap_entity_bomb.xml",
+      "bytes": 243,
+      "sha256": "5d0baf427b4bf47631ed90b43ba7f64ceb92c29c97a14242172ae590d23d72a2",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "tests/fixtures/malicious/nuclei_deep_nesting.jsonl",
+      "bytes": 186,
+      "sha256": "f63f351e6c6d85efe05f317a9af2bb3c35dc32f7af15b4085a4265568d0323d6",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "tests/fixtures/malicious/path_traversal_filenames.txt",
+      "bytes": 77,
+      "sha256": "21080abf1f73fc18cb350c6e41a7d3de1d9cfaf0314b124d231e92d4bb111933",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "tests/fixtures/malicious/xss_title.txt",
+      "bytes": 68,
+      "sha256": "b25334e7625ac5517da28387998fc882205d779441926f6aeb9a283444178f2f",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "tests/fixtures/migrations/legacy-documents.json",
+      "bytes": 1682,
+      "sha256": "344b00369245db54a5d4f49773598ba235b9c4b3431bef352856aa39ab6035bd",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "tests/fixtures/themis/live/nmap_open.xml",
+      "bytes": 1372,
+      "sha256": "05cb562c6cd892f75a64f2372b0a53c8971872e8bd25572a7b76e68c1f666942",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "tests/fixtures/themis/live/testssl.json",
+      "bytes": 4251,
+      "sha256": "f03d926da873724efaba3a3278db2522bae48dba7c95b201611a4f053bbdb308",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "tests/fixtures/themis/live/wafw00f.json",
+      "bytes": 121,
+      "sha256": "a0faa61d1a186c9ac7436ad2333a7703c4d27cdaa54f3a8ab68d84acaef9df2a",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "tests/fixtures/themis/live/wapiti.json",
+      "bytes": 18446,
+      "sha256": "4dbc834ea305c8dfb778475eb292ea6af16b4d29a034ae4b14bbf326f82c9843",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "tests/fixtures/themis/live/whatweb.txt",
+      "bytes": 167,
+      "sha256": "70255a249b598b4410603d38e9a7da3de54d95bd6447be0138a766887c9f2b65",
+      "review_class": "fixture-or-example"
+    },
+    {
+      "path": "tests/integration/test_apollo_ingest.py",
+      "bytes": 5177,
+      "sha256": "cdc57cffeee2610b73737a2d15889bfd7121dbcf489016d1fb8a44853fcb0e6e",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/integration/test_apollo_ingest_zeek.py",
+      "bytes": 4417,
+      "sha256": "5a438de09b1cd4c6a36ca573964b0f7de5ee83e1e830b00f70858828faeb18b3",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/integration/test_athena_cli.py",
+      "bytes": 9522,
+      "sha256": "22457b7345e07651d11ef93b16af542460c082fb2cd01d95cadd7323fc58e783",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/integration/test_athena_themis_scan.py",
+      "bytes": 4972,
+      "sha256": "66bccc215586ef9bb2e88ce040f276f1230796830722c25d57f2466135306847",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/integration/test_engagement_cli.py",
+      "bytes": 1861,
+      "sha256": "5cc5b207e6029e248044b58a022ca450451536a4607616c812475a3521b7c1c2",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/integration/test_examples_offline.py",
+      "bytes": 5293,
+      "sha256": "e335ad063c4c58fef810ab1030688f63fc45d86ec853493a917a4c6a0a201af7",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/integration/test_mars_purple_scenario.py",
+      "bytes": 1526,
+      "sha256": "7334ab17c3b20915bb725ad1783d22f6a25f2b0fb87bb0a2cb251893bbf4d668",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/integration/test_themis_native_runtime.py",
+      "bytes": 9347,
+      "sha256": "72f898a35e272b4cf0735735128404c4af830d1b10e1ad7a610a3c4fe716f70c",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/integration/test_themis_resilience.py",
+      "bytes": 6739,
+      "sha256": "2f18e7b9a67b20b389d3f00161a1c9176b2f70d22413cd662aa6ce433013ceed",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/integration/test_vendored_integration.py",
+      "bytes": 3981,
+      "sha256": "0ccd83df476ddd45aa4926095ee42847180ea8ebdafb12d940f05d34d751c938",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/live_lab/README.md",
+      "bytes": 416,
+      "sha256": "dca67c26772d726120afc560f1358c7b5f0971e0c535e0ae98aaf9a54a3a70c3",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/mutation/test_guardrails.py",
+      "bytes": 34003,
+      "sha256": "dad13eede1e1ed0c13cc358246e3fc0e5dc19f8f8d02d5ecdd12745b4ba92953",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/platform/posix/test_themis_sandbox_posix.py",
+      "bytes": 13170,
+      "sha256": "67e0f280ba87bbdc8b49bc3798a0889d0c2eba9a53de4af05d618adf4d312594",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/__init__.py",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_apollo.py",
+      "bytes": 14550,
+      "sha256": "cc0e13ed82f01d5d36094e15941a43378462b3b39fade756ca6c824a5c319978",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_apollo_ad_rules.py",
+      "bytes": 3077,
+      "sha256": "32d9650bd8aa20977ff7cc1902e79b6220bc0c5f2bc577d165d705eef876b178",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_apollo_attack.py",
+      "bytes": 3338,
+      "sha256": "0a40586c43a17886e2a1a52cb71f15c78d328538afd34abcc56eeecbdcf822f6",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_apollo_blueteam_rules.py",
+      "bytes": 3548,
+      "sha256": "666dff6bc55ffcf0f82d91de5dba8fe7a2b273ee850ba54cc73b795cdd223517",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_apollo_coverage.py",
+      "bytes": 4641,
+      "sha256": "1ebc4d4b3f01ddb8e2ab7ac5379671011e714298fde8f1f15f1f57444d86c783",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_apollo_ecs.py",
+      "bytes": 3826,
+      "sha256": "a73fb249780590a3afa739d03bf133b6b40d210b55a88e455141fdc715b8bc3d",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_apollo_ingest_zeek_edges.py",
+      "bytes": 2638,
+      "sha256": "3f42e78418fc385297ccbd61dc220ce58c07a5c3a1d48c9ee1660f51d451b994",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_apollo_metabase_rule.py",
+      "bytes": 1954,
+      "sha256": "603b90925eefc1610d64598d8419d8e5ec82cf2378a43d4d81763b521d0bad58",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_apollo_normalizer_fuzz.py",
+      "bytes": 2811,
+      "sha256": "7d4ab2531168daa8b47e3e661bb61e55c2bb4ff2d2d568602f1d409ab22ee9ea",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_apollo_ocsf.py",
+      "bytes": 4381,
+      "sha256": "a5dcc8ff53867cf65bfa6bed83bbc73d08ce93b6d041940f36b14a7b3a90e41b",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_apollo_redteam_rules.py",
+      "bytes": 4264,
+      "sha256": "71d801fc8bc1d92320dfef2e23e12bb25a97a06ddc79aa9db805501655a31189",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_apollo_sigma.py",
+      "bytes": 4514,
+      "sha256": "471470dd3a2b2a5066f8cfd9af4526b7aa53fd72b1bf53ed2512078e2b31d639",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_architecture_boundaries.py",
+      "bytes": 7447,
+      "sha256": "f6f3ddd1d0ae0a76522f10beecc6eb7d0b6475c67c34d9afb1312096bcb75d9b",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argument_injection_guards.py",
+      "bytes": 3482,
+      "sha256": "2736cea21e486756a9afaa48796eb704cbb0dd939d2f64f5916babb3b44a3818",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_accounts.py",
+      "bytes": 10121,
+      "sha256": "fb1a07b8a88628aef9c92a185f0574e8b5d24942ee8789fef3751463e9cf26b3",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_accounts_scope.py",
+      "bytes": 2673,
+      "sha256": "e8ddf3fec8c5b7eda10353595479185ba770762ae7c349e4e501eb52a47bda35",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_application.py",
+      "bytes": 33413,
+      "sha256": "a6899e9c7371ecc91b810c7762423df02d9ea95974765b30d2afe101152c6518",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_assets_diff.py",
+      "bytes": 4791,
+      "sha256": "d943dc4bdfef7f6e2cb5af46b1e9f99d7d51fc2f2960e12e3eae4c7b10d1c0e0",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_atomic_writes.py",
+      "bytes": 4468,
+      "sha256": "82cf838fd9922a94c5eb153b6dd9f1d820ffaa0e2bf91e441e7339ff37c9558c",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_cli_accounts.py",
+      "bytes": 6237,
+      "sha256": "a3584dd08de616cab1bfcc36301b0a832cddff4f34f33f0b9fd44a4eb5537b9f",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_cli_diff_doctor.py",
+      "bytes": 1845,
+      "sha256": "2fc3c8460df66eca3d7c8141065638a0617a7c6d0a1cd1c6b37c7825c96eb146",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_cli_investigate.py",
+      "bytes": 4205,
+      "sha256": "fbd127f46baadb44ad29401468b117c7925a0cf4f5996def402bde41d907aa11",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_cli_ip.py",
+      "bytes": 3771,
+      "sha256": "be82fd46d5792a57406a3c0744f26f1c2e3c55814b785d42cd72ee0b471df5b7",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_cli_phone.py",
+      "bytes": 5686,
+      "sha256": "b25cd29977a267fe57504612657032ebcca6fad864b3dec84650717dfad217fa",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_cli_scan.py",
+      "bytes": 3074,
+      "sha256": "bf53124db596c2df0fa1d44eeea44410b4e2cdb145d61cbecb262083c65ac4d5",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_correlation.py",
+      "bytes": 4683,
+      "sha256": "572ba7ea2ce350099ea79ab2d78f496a9e7910861fedfe47a0bcb6af864ace2d",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_ct.py",
+      "bytes": 787,
+      "sha256": "dfcc0795f899a5382ae472bfc26c5eadd1986ea86bdf3a847127ef3b00d2254c",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_dns.py",
+      "bytes": 4975,
+      "sha256": "806f3d72a0a0c82f8c7550025e46e1a91316bddedc375db5079c5b435754cf71",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_email.py",
+      "bytes": 6395,
+      "sha256": "3041674dff2fdf34db528c5fb3fc20173f3d0fbf9946682c02c22cd6990fa383",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_enrichment.py",
+      "bytes": 5628,
+      "sha256": "651d92b5857358dae138b7c71ee35617c6dbaccd92627f0e8473c7ff42a63e38",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_fronting.py",
+      "bytes": 5388,
+      "sha256": "ee7394fe93e6784c3f14958366512612e79e22e6617791298335083a37c6c663",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_graph.py",
+      "bytes": 2485,
+      "sha256": "5e266a33dc1db3261b8d188b83833cd10d876673a58ed9b8707701c8647a5a29",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_ip.py",
+      "bytes": 3648,
+      "sha256": "7e5bb4e9fb9313aa224b2e4aa15e8f85cf33e68ad71421571f05a84b557d6234",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_ip_scope.py",
+      "bytes": 2252,
+      "sha256": "a25e85775bd5d37e95c01c079f1106a30e1d3208fe7b46ed6a5173806006c89d",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_mac.py",
+      "bytes": 5274,
+      "sha256": "808863375b62b27198d7654f281c0dd57258c69c03df03e61ebf1eb65af6d6bf",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_mac_scope.py",
+      "bytes": 1792,
+      "sha256": "9d133d7bd009019a3d11f7e573394657a7d2f6840ea3c53ea6cb9d766d9471f4",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_myip.py",
+      "bytes": 3874,
+      "sha256": "2e9ef5e7e8a603302dc9e687447b66521db38552221c80f880a0de68144238aa",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_native_replacement.py",
+      "bytes": 1118,
+      "sha256": "e44c08df229044e4cb38479a2db0097141c95387d5a85e8bc63ffdb982eb16ea",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_phone.py",
+      "bytes": 4308,
+      "sha256": "8fb4447f8df1c5e55133f2f5f4936fd030e12c0ec1b152a5be4321acaef39aeb",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_phone_scope.py",
+      "bytes": 2632,
+      "sha256": "36b644e9dc07b6b8a543bb6e250c1843d39c45ac566d1c97f3f4d7c994ae7571",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_pipeline.py",
+      "bytes": 3818,
+      "sha256": "8f37ef5189febaa0339bf8939c0f281762abbeb87e55e53ef5cb353137989884",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_recon.py",
+      "bytes": 2890,
+      "sha256": "0e16b8fe3e873336f91c1de1ce541e0d9f11f2969c03d6c2c55bfc6e6cf15b9f",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_resolver.py",
+      "bytes": 2890,
+      "sha256": "7fa5e594b01e8734a19715abca1da7f51137b77343b2787ecca24d4499c3b1b9",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_scope.py",
+      "bytes": 3586,
+      "sha256": "a02db21e3f3af8deecfdb86d72d341b489326faad6c59f886d1c2b4c24f0e6bb",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_sites_registry.py",
+      "bytes": 1268,
+      "sha256": "f4b29f20dc64190eb4a0862e1f1a11a971a20b398e9c0436fca8995d6889f41c",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_transforms.py",
+      "bytes": 5028,
+      "sha256": "2526e2a5ae361d106285dde58c4742b6d34a6c52078e63cdc5a6e5167e906d54",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_web.py",
+      "bytes": 7069,
+      "sha256": "df9efe621bd02be0d3311375c1a03fed3b5bdc57c3db916533ed8141bdef2402",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_argus_whois.py",
+      "bytes": 5447,
+      "sha256": "792d0041d390985b028e516cd3e6c1b73723aae5a73acbb7989fd1e28322397b",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_artemis_cli_metabase.py",
+      "bytes": 3504,
+      "sha256": "5e325ad2d9e68f87cdf0b8cdacc821547dd4c0df2335c3fc5d1268eacb712b24",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_artemis_cli_xss.py",
+      "bytes": 3166,
+      "sha256": "ec63f3f1185bad402f210533c1b36e879f036d1a3bc5d31790eec77c130d521a",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_artemis_content.py",
+      "bytes": 10246,
+      "sha256": "9a2aee4b02041f7f0efed7e74d507433daefd54552b6814c38434357ed9576f1",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_artemis_fingerprint.py",
+      "bytes": 5182,
+      "sha256": "f914f0c7eefcf5a6aff71a3e89a676b1dc3f334c52587947b92e3d2e12a52b3e",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_artemis_http.py",
+      "bytes": 16457,
+      "sha256": "27dbae3cbef880dc50d841f118cea0a2ce14a3c7de775ac3eed62e836204d8fe",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_artemis_metabase.py",
+      "bytes": 5441,
+      "sha256": "42ec9aa917e2d97ab8da50885ff836a6327f4849f44e3ee782707e14b97a2250",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_artemis_scope.py",
+      "bytes": 3734,
+      "sha256": "8d11c2c0dc3c8daafcf33fe5ec86d910d0fef39dc3dc9f6c291ab1f9cf850921",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_artemis_xss.py",
+      "bytes": 3324,
+      "sha256": "e61166e366e3e22279ea6e2fb10ff8650dcdd6941b68919bc43f8afb590558b4",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_athena_adapters.py",
+      "bytes": 10997,
+      "sha256": "5c31defacb2746afa6b52831ea54c9a9c8a3f93bdbfd1067acadbae6a935a97a",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_athena_architecture.py",
+      "bytes": 1580,
+      "sha256": "242aee536b277a737d0702bcf00b17cd4517e22600195ed3000844e2c8d60806",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_athena_engine.py",
+      "bytes": 12957,
+      "sha256": "35355e1fc6c9dbb924fa3a48e37d832c4ef7935c164a357100b0970c9c711001",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_athena_ssrf.py",
+      "bytes": 7273,
+      "sha256": "7c8e0a5e01705afe30bdca61858be6d7067b4d2d4c66e7e0ae7ca7d33cdea331",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_audit_exceptions.py",
+      "bytes": 3549,
+      "sha256": "3c0aa3f4aea295869fea49a195c40fe0908f67a1a9d7d1b95379b0623f53ea19",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_branch_coverage_gate.py",
+      "bytes": 1528,
+      "sha256": "1d18497b66dce62eeb8d8e5ac98692e47fbd4044148f0b8c1cbf384c55641d24",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_capability_inventory.py",
+      "bytes": 1795,
+      "sha256": "b6485b2f45219298c317ee1cef289d3934eb3da7ea295afbda497f275f8a4240",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_cli.py",
+      "bytes": 5704,
+      "sha256": "9165bdf6ba0f8e7902611c7c21cca0f5e3c6de33fc3765aa5cb89868c2598bd8",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_cli_default_paths.py",
+      "bytes": 7366,
+      "sha256": "f02ac9d403a5ea26c3dc2e587a241c7826ab206038a58efc233c47df6eb17651",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_cli_forms.py",
+      "bytes": 3997,
+      "sha256": "f1f68e4f3617aa83321c3b374d4a1e08e9fa925ad1f1c9ac2588a8c7062b5828",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_cli_reference.py",
+      "bytes": 1771,
+      "sha256": "8cc8acf73b96267b02fddd47d39542fc4d41e09d0eed712fcb2b9b7b23b27d53",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_core_addresses.py",
+      "bytes": 4526,
+      "sha256": "ceef8cca3a1964624248741c7079d88bbcd5e5bfd2de898366ea75cba012ef13",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_core_config.py",
+      "bytes": 6374,
+      "sha256": "3b102b829b2ab0db2857481f9c06cc261d5a309fd3e8bc2e549d8ff553a4e5ad",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_core_coverage.py",
+      "bytes": 5365,
+      "sha256": "5db76275633c0f9fbb527c1ebd59514ba941bb9846af77a3c6e6187cda1bd529",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_core_crypto.py",
+      "bytes": 3191,
+      "sha256": "82d937d4b5e54f1a42fb8e493c26c6dacf72045e0970f2b43f9b0868d7efae44",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_core_decompression.py",
+      "bytes": 4394,
+      "sha256": "c215ed93b3ad81ba1544dbe91debb40138284b665a159640b6bc001104d09078",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_core_detection_models.py",
+      "bytes": 1115,
+      "sha256": "b99bb51a5644ea740ba44105fdc74f1bcc69712a9ccb1937626e7e9b05a3c170",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_core_errors.py",
+      "bytes": 1135,
+      "sha256": "b994e6001e8d9dd9e39f97558d62379ffe365aa89a112ba3a9caaa71e8bfb702",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_core_evidence.py",
+      "bytes": 6508,
+      "sha256": "7c03a1a2ff0a93ed92223432ca101382b10e1f846aa991382f7daf9f2ce336c6",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_core_execution.py",
+      "bytes": 7415,
+      "sha256": "5fc9d18d6ab58af1b72ebf19ba6b7eaf23341247bf5f5569aa99ed7dfae95a93",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_core_http.py",
+      "bytes": 19984,
+      "sha256": "41b681a5738b701eb3b76eaf864ca9adce8d91b9bff2bd616a4978170316b14a",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_core_ids.py",
+      "bytes": 932,
+      "sha256": "6db79159922794bdeb7dc38cd9d434132737f303df65aedf08d5d113892c946f",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_core_incident.py",
+      "bytes": 1565,
+      "sha256": "e31c0b7759007d069dd4cc9fc957ad8e9cafac12f7483f7e988fe87339e341c6",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_core_lockfile.py",
+      "bytes": 5205,
+      "sha256": "5bbd1aae22fc75a0fdb8749a71e6bc9332782515c57f6ecfa54e00c89ec146ab",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_core_models.py",
+      "bytes": 9284,
+      "sha256": "344c8beb91eaefbdfc8125a708109814b22bf8e3463288c8501deecb774b8c77",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_core_notifications.py",
+      "bytes": 10638,
+      "sha256": "7841d535af84fb56fcfa996efc592decc230a0c5c121bee6ad76d3d1e25c43e8",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_core_output.py",
+      "bytes": 1309,
+      "sha256": "329cc0238057e4e778f85222771fc6c3c1e46ce47c0141b5e7122377cfa47039",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_core_pinning.py",
+      "bytes": 5717,
+      "sha256": "fb9c3ef8fcff2d54a1f4335c21d79250bcd5d8cd0539da6369729e00e17bc030",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_core_policy.py",
+      "bytes": 23073,
+      "sha256": "826523f7eaf771dd756554435d940288aaf79289d487d98dde658b47e8ae2b8e",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_core_retention.py",
+      "bytes": 9370,
+      "sha256": "45efe05d090e2acd36f1b93d544bd2fcdde7a1a85ac9f45cb9639945ff605860",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_core_sbom.py",
+      "bytes": 5874,
+      "sha256": "6c389bb4a1e96e2df36c9f0ae6b268a4eea449755239be70032053b5e2b0ebdb",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_core_secrets.py",
+      "bytes": 3579,
+      "sha256": "e882bc21fad52a07e304fe55b6b2f364c0a7ac0a23cf32a7029e54d75b6dc2b1",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_core_signing.py",
+      "bytes": 4953,
+      "sha256": "08ba3a9f2b384b1286042724081b1febb662cee9db8461cdf824c76c5f88ca87",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_cti_parser_fuzz.py",
+      "bytes": 3618,
+      "sha256": "51b10c8b1d539507baa9f8a4a231e1872c8d38670098d51722cf8abaeb3ae9b8",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_doc_links.py",
+      "bytes": 2208,
+      "sha256": "42f7a788211073505031f5bf5072bcc0acebeb6438acdc40bce97acca79b101a",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_docker_pinning.py",
+      "bytes": 3945,
+      "sha256": "3b41225baeb3971710c3a488f2e0097ad79df8cc5c4f25e5ecadd3760495be09",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_engagements.py",
+      "bytes": 15548,
+      "sha256": "2ba666a142dc25f7b73e82c9769aae51e3ebdb7e256a82c0c2f0fcb2fdc52429",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_engagements_portable.py",
+      "bytes": 5202,
+      "sha256": "b4c803001ef19094808ef8cac9f2eda92030fa5fbed7fd4db7aa8d770d0d24e5",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_fileio_write_guards.py",
+      "bytes": 4544,
+      "sha256": "d559756703558af80f9a9bc302f6e8488a4c514bec288ceaf5f9c05d6a65f9eb",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_finding_lifecycle.py",
+      "bytes": 4954,
+      "sha256": "bc4e5c09fb1892a364eae4c183a45c6c6b060d1dff3f15d1985b9d57ff51e4b4",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_finding_transitions.py",
+      "bytes": 7320,
+      "sha256": "160fa5eef8c0b27585a02027de3ece921a63f17f6e4cc49f61d41d07bed1c99f",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_helios.py",
+      "bytes": 18705,
+      "sha256": "99ae101c5dfcb8c4dfb45f2df759efdd16812ea33b45a3c4a12428b499642913",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_hermes.py",
+      "bytes": 18429,
+      "sha256": "b55f7773b65249c4a11d3d52b2496f3cbec6868ca181f9d4871ff3ebfd06d07e",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_integrations_maturity.py",
+      "bytes": 10523,
+      "sha256": "899bbe2b2386f880702254353b8d82c46cb4e7382ab7c273ca2f383af255a301",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_label_sync.py",
+      "bytes": 2084,
+      "sha256": "11bf330e65131cb0a5661b64a1ef26e4075529d823fc590a3bbd58bb06bc1840",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_malicious_fixtures.py",
+      "bytes": 4347,
+      "sha256": "041e08c2d7d535d7fbd57e918f9414605396741405b7f83ca9fe461c60e16198",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_manage_scanner_apparmor.py",
+      "bytes": 3976,
+      "sha256": "69de14e747d52c0693c740628e2779b794f09c13a307238ab08ee53d6d5eda92",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_maturity_docs.py",
+      "bytes": 2233,
+      "sha256": "fb1f4bf58412a2ef41b8393c925cef8874235e4f28f8d3444133458af690468b",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_metis.py",
+      "bytes": 9313,
+      "sha256": "ab028d7a0789b49e5fdcd26512a0151d8d48dd24ff18b2ab22c138b17558b346",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_metis_encryption.py",
+      "bytes": 5693,
+      "sha256": "6c1edabc70934726c25ea0983cd244a2def7e659385596d5277de2d3a4a6b3a7",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_metis_misp.py",
+      "bytes": 7448,
+      "sha256": "2cdba92bb9f8184458362af5e14acdecf21dac377ec1505ec6dc151f27aaf607",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_metis_stix.py",
+      "bytes": 6269,
+      "sha256": "470d741168b1f8b9443fc28b3df25e3c8b6f6de0800c5d5c84f9b1a587a27276",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_metis_sweep.py",
+      "bytes": 3021,
+      "sha256": "ce0b5ef26349fae9b73bb742b00571ca4dd86d13657d717527b8253317563984",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_minerva_custody.py",
+      "bytes": 28874,
+      "sha256": "88ff79535de224bec14e28472b6074f82fa5ca41b1632d9db97ff8119e41f87a",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_minerva_timeline_export.py",
+      "bytes": 3462,
+      "sha256": "c9b5d801a67d31b0bff0d60a4ec3f8d88d85dcd30507878cbd6a7da6dd2aea3b",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_minerva_triage.py",
+      "bytes": 8395,
+      "sha256": "9019fcb5c3511eb2a930a03b9df91fd0d6153d87ca3912264cde6eea203af765",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_minerva_vault.py",
+      "bytes": 6351,
+      "sha256": "15f6879d01ff87b7086331a7624c82bfcafd657821bff43ebff1859e91d21e33",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_observability.py",
+      "bytes": 3684,
+      "sha256": "ac5d93c19b0546aaad7a4c4b1b4f5163f22ab3560b3254ae7cb4eed61f92af62",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_property_security.py",
+      "bytes": 9612,
+      "sha256": "3a2152a722e052349b9423de121cfd2505b08735cf912937bf28b2eb001292ee",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_proteus.py",
+      "bytes": 10752,
+      "sha256": "e24b3c39f7797ebfa3fb6b2b606f7a8e59f4b25ed1143846013aa406853da842",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_reference_implementations.py",
+      "bytes": 2018,
+      "sha256": "843a6a73fc5dc2d660f8f5d21a6b7d55d8412f741926face8e5c66762f974eb3",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_scanner_activity.py",
+      "bytes": 4641,
+      "sha256": "e46d39f3d4386e0b5d40587165f521f91eea3e32c0a7006916feeba737050b9c",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_scanner_doctor.py",
+      "bytes": 5085,
+      "sha256": "fda4dd7252f1cf7cfbbec529232197c938e1d0a368dc62b67b8dad82d043f349",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_scanner_matrix.py",
+      "bytes": 3612,
+      "sha256": "effba08b467d6aa922cd88a1c4b915b1a2f54dd95d4c176cf2725ff73d74fde8",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_scanner_maturity.py",
+      "bytes": 4118,
+      "sha256": "7c68d7226f2230ef75f24866061a4dedbe79b161db420bb0bbba3fe354f13f7e",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_secondary_parser_fuzz.py",
+      "bytes": 2527,
+      "sha256": "e2648d9bc16dd9f6030bf49998e505f1f7e4fbcc6e6124321d6f21dcd2e7e532",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_smartscan.py",
+      "bytes": 7751,
+      "sha256": "8be6b2d83795fb1e192edb7ec2b1ed056a8e0759b6dcb80c094b938923429150",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_smartscan_cli.py",
+      "bytes": 5418,
+      "sha256": "fc66006c48d93c797c495d89d0192ccb240119495b0806ffadab8d5931448611",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_themis_adapters_arjun.py",
+      "bytes": 3335,
+      "sha256": "fd08d091a8442516255dc9da95869524f247a3d225a4799924ebcaaabbf96ef6",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_themis_adapters_dirsearch_commix.py",
+      "bytes": 6349,
+      "sha256": "ff6e836f6e247a9e5f8c5f6ac9d04691f72c46a9623258161fe1894633c2990a",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_themis_adapters_live_capture.py",
+      "bytes": 6167,
+      "sha256": "61515dc90e923603d8f23c48a6f4d90bbd09ff1c4b79545f2b433b9399b52b11",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_themis_adapters_projectdiscovery.py",
+      "bytes": 14385,
+      "sha256": "2f863d35bbdbae972b3593e4e6bf35f384f040e55ad6e9f814dc9cdf75e8d338",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_themis_adapters_xsstrike.py",
+      "bytes": 4486,
+      "sha256": "f4f3635a17603bb6e9f383182fa75ab49c2593a600ef06e11116f2ac49f03eb6",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_themis_api.py",
+      "bytes": 19511,
+      "sha256": "a58cb765b7e0036760ab2458adfe867e6e671947c5fc5fb3e86928a6958e68c7",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_themis_api_client.py",
+      "bytes": 3389,
+      "sha256": "9cd138f9cadf8cfc9c9be32bbb66b2f42feb3759249c98ceb60903d9ffb558a0",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_themis_concurrency.py",
+      "bytes": 4839,
+      "sha256": "0bd025f4cca140db2aca7c84ae19f725bde545ee8f9d3c8e79927f72d0708b53",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_themis_config.py",
+      "bytes": 1648,
+      "sha256": "77e0fe01712733208f05f09e722b6cce600d646cfa8289b98325ed1d94fabeeb",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_themis_execution.py",
+      "bytes": 39319,
+      "sha256": "dfadd34d587afc221f8cb248a2acec70dbf65ab45ae33b0b753cb8bd528bf1b1",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_themis_identity.py",
+      "bytes": 20494,
+      "sha256": "cd0ef72668ce4cb05cd755435ded594bae600d6e6787541603e30942cf8f1921",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_themis_jobs.py",
+      "bytes": 48434,
+      "sha256": "c1b9d006927b2cb733d04ded234f56e2fb69c5c0cb4ff02843e21a0f2c4960ec",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_themis_jobs_status_cli.py",
+      "bytes": 3266,
+      "sha256": "76d9a7be1d75cb1f035838675b4d9518d020f92c0f7fbfc7bcb3e4710bfa98a5",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_themis_json_depth.py",
+      "bytes": 3933,
+      "sha256": "cade662f5d7a9f4a677e6241bc68b0b86bbc2cedd449f54be09f058c9aaff939",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_themis_lab.py",
+      "bytes": 2454,
+      "sha256": "56c43b849aaea8faca7a3f7fd92e7d04f179aa84a3138a1f8be1f716eda90ff0",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_themis_legacy_vap.py",
+      "bytes": 29421,
+      "sha256": "84ff0d7df110555d194fd3f51c30005a2ab148490aa63880168f5ba354ae83a3",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_themis_oidc.py",
+      "bytes": 5813,
+      "sha256": "d91bedc828cfbd0175a0d8bb464413fcf044b41c7760ab12b908ac036dc64f5d",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_themis_outcome.py",
+      "bytes": 6114,
+      "sha256": "41730cdbc7108ec769f71e1bd4301203d57e2da2e7568fb3dc50e1a639c8088c",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_themis_parser_corpus_fuzz.py",
+      "bytes": 4048,
+      "sha256": "7868ee22c402e11fb52f504e40358aba413ae07fc6050dc43d54e06e6cb98a8c",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_themis_parser_fuzz.py",
+      "bytes": 3365,
+      "sha256": "36831539d3a6c50d48896a2ab17069ec5b5aab588173ec78eaa69125974c0edb",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_themis_plugins.py",
+      "bytes": 4571,
+      "sha256": "d4f0279b68c26a6010e5b6d2fedd86aa1950c6904e188a8aa5161137b9299803",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_themis_preview.py",
+      "bytes": 9200,
+      "sha256": "f1abc3ef1201b7e5acb72e7f906cbde201b6e3baccdcc083009399672a708a84",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_themis_preview_cli.py",
+      "bytes": 3574,
+      "sha256": "b305babdde0784a7fb7b8888c8dfa7ed7432a0be326db2a3207e58e49c07c110",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_themis_runtime.py",
+      "bytes": 7600,
+      "sha256": "4dbf667d0a1b67cc8a042d1a729791f6aa4f63c4136643ce4d5cbd7fa525508e",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_themis_scanners.py",
+      "bytes": 3581,
+      "sha256": "3a4239bd9836e0c055265b7246fbcd4bf79e5cab428f4f9bf23e2ff06779ca80",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_themis_web.py",
+      "bytes": 59558,
+      "sha256": "b5dcac401028ef3e30912a725089f925760643b0f056940a559f7f22137d5d2a",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_threat_model.py",
+      "bytes": 4654,
+      "sha256": "75c0f9b64d1dd01c7702ab4e1aa7acbbf9cf160bff929946a7ad32b193d53f24",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_tui.py",
+      "bytes": 3127,
+      "sha256": "60daadeecb3e5bca3dd71abcb7737f4f42db89d1eed050c611d7e33d5c30e1d3",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_vulcan.py",
+      "bytes": 25024,
+      "sha256": "7ac5ace72bac101a097e059daf11d05d3adb7d791bfb5158f439c23bac8fe755",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_vulcan_attack.py",
+      "bytes": 7079,
+      "sha256": "73aa961bc6fea68184a2453b1c169dd0b1b3a15280e710a25e9a1614d8104cce",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_vulcan_compare.py",
+      "bytes": 8490,
+      "sha256": "720a8138de4a977b28a76f39fc8b8cb08784eefab2916618c86c90f7f2b052a4",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_vulcan_enrichment.py",
+      "bytes": 9384,
+      "sha256": "e07ca5cedb688101364cdd7069b3209ea65400fbe98a557ed3cee8c0b152b27c",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_vulcan_evidence_view.py",
+      "bytes": 9104,
+      "sha256": "bf64e7b246e0edc60835b9f819e5e0d8d153828ff373786587c0cbeb3d90d4f1",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_vulcan_pdf.py",
+      "bytes": 7278,
+      "sha256": "88dc51da9664f3c0f664af356a04d1ae61dbe8dd383e9e779a44d102ff830809",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_vulcan_portable.py",
+      "bytes": 5249,
+      "sha256": "0b3eed28b1ff0ec800d68ece4cccefeeb670ead87f70ee5e71628ae631e427b3",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_vulcan_provenance.py",
+      "bytes": 8365,
+      "sha256": "28ab02308ab81ad03f8b558657d43613b3fe837c6763e7b0309afe6aa3bcb4d2",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_vulcan_sarif.py",
+      "bytes": 10493,
+      "sha256": "6565badf5e1b65333ebf19403e7678206919e70ae8d660d5ec07114db565ec1d",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_vulcan_search.py",
+      "bytes": 4462,
+      "sha256": "eb3637617a7968c6495af6331fce4e7426cd9c44c4df01c3bb387bf23c6c50bb",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tests/unit/test_vulcan_view.py",
+      "bytes": 6508,
+      "sha256": "22185006da38e5e7225b16ac98e81124da8f861b101fb95d252dd2ca8bcc6d7d",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tools/coverage_gate.py",
+      "bytes": 2313,
+      "sha256": "035a411c983b9c1d030f94339a68a02b788533c210980b0cad0b5c16bf8ddd0d",
+      "review_class": "first-party"
+    },
+    {
+      "path": "tools/sync_labels.py",
+      "bytes": 8081,
+      "sha256": "695078aad9b11f51376be3a759f260447d9f5d8ee915610cf70f9935da5fab1f",
+      "review_class": "first-party"
+    },
+    {
+      "path": "upgrade.md",
+      "bytes": 94015,
+      "sha256": "e131489d9da4f00ceaabad16c977bacf2602952adb3a2f06736e62577a670129",
+      "review_class": "first-party"
+    }
+  ]
+}

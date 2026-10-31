@@ -1,0 +1,12 @@
+schema_name: olympus.apollo-rule
+schema_version: 1.0.0
+rule_id: APL-RT-KEYBOARD-HOOK
+title: Low-level global keyboard hook installed by an unsigned process (keylogging)
+event_type: edr.api
+conditions:
+  api_name: SetWindowsHookExW
+  hook_type: WH_KEYBOARD_LL
+  process_is_signed: "false"
+severity: high
+mitre_attack:
+  - T1056.001

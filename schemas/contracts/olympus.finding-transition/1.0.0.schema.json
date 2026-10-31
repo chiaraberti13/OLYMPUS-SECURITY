@@ -1,0 +1,88 @@
+{
+  "$defs": {
+    "FindingStatus": {
+      "description": "Lifecycle state of a finding inside the remediation workflow.",
+      "enum": [
+        "new",
+        "triaged",
+        "confirmed",
+        "false_positive",
+        "accepted",
+        "in_remediation",
+        "closed"
+      ],
+      "title": "FindingStatus",
+      "type": "string"
+    }
+  },
+  "$id": "urn:olympus:schema:olympus.finding-transition:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One immutable audit record of a finding's lifecycle status change (``WEB-C``).\n\nThe finding itself only carries its *current* status; this record is the\ndurable trail of *how it got there* \u2014 who moved it, when, from what to what,\nand why (the rationale for a suppression or accepted-risk decision). Appended\nto an append-only ledger, these records let a report answer \"who accepted this\nrisk, and when?\" without trusting the mutable finding.",
+  "properties": {
+    "actor": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Actor",
+      "type": "string"
+    },
+    "engagement_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Engagement Id"
+    },
+    "finding_id": {
+      "minLength": 1,
+      "title": "Finding Id",
+      "type": "string"
+    },
+    "from_status": {
+      "$ref": "#/$defs/FindingStatus"
+    },
+    "occurred_at": {
+      "format": "date-time",
+      "title": "Occurred At",
+      "type": "string"
+    },
+    "reason": {
+      "default": "",
+      "maxLength": 2000,
+      "title": "Reason",
+      "type": "string"
+    },
+    "schema_name": {
+      "const": "olympus.finding-transition",
+      "default": "olympus.finding-transition",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "to_status": {
+      "$ref": "#/$defs/FindingStatus"
+    },
+    "transition_id": {
+      "title": "Transition Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "finding_id",
+    "from_status",
+    "to_status",
+    "actor"
+  ],
+  "title": "FindingTransition",
+  "type": "object"
+}

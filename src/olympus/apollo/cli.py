@@ -1,0 +1,414 @@
+"""Command-line presentation for bounded Apollo application use cases."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import typer
+
+from olympus.apollo.application import (
+    DEFAULT_MAX_ALERTS,
+    DEFAULT_MAX_EVALUATIONS,
+    DEFAULT_MAX_EVENT_BYTES,
+    DEFAULT_MAX_EVENTS,
+    DEFAULT_MAX_INPUT_ERROR_DETAILS,
+    DEFAULT_MAX_STREAM_BYTES,
+    ApolloApplicationService,
+    ApolloRunRequest,
+    ApolloTestRequest,
+)
+from olympus.apollo.attack import build_navigator_layer, techniques_from_rules
+from olympus.apollo.export import export_alerts, export_alerts_ecs, export_alerts_ocsf
+from olympus.apollo.ingest import IngestError, iter_access_log, iter_zeek_json
+from olympus.apollo.rules import DEFAULT_MAX_RULE_BYTES, DEFAULT_MAX_RULES
+from olympus.apollo.sigma import SigmaImportError, sigma_to_rule
+from olympus.core.contracts import ContractCompatibilityError
+from olympus.core.coverage import RunStatus, classify_run_status, exit_code_for
+from olympus.core.enums import Source
+from olympus.core.execution import CancellationRequested, ExecutionPolicyError, safe_terminal_text
+from olympus.core.exit_codes import ExitCode
+from olympus.core.fileio import (
+    atomic_text_writer,
+    atomic_write_text,
+    iter_regular_utf8_lines,
+    read_regular_text,
+)
+from olympus.core.models import Event
+from olympus.core.output import OutputFormat, render
+from olympus.core.paths import output_path
+
+app = typer.Typer(help="Apollo — detection engineering and testing.", no_args_is_help=True)
+DEFAULT_OUTPUT = output_path("apollo-alerts.json")
+DEFAULT_RULES_DIR = Path("examples/input/apollo-ad")
+
+
+def _echo_terminal(message: str, *, err: bool = False) -> None:
+    """Print one-line-safe text; inputs, paths and diagnostics may be hostile."""
+    typer.echo(safe_terminal_text(message), err=err)
+
+
+@app.command()
+def test(
+    rule: Path,
+    event: Path,
+    output: Path = typer.Option(DEFAULT_OUTPUT, "--output"),
+    ecs: Path | None = typer.Option(
+        None, "--ecs", help="Also write alerts as newline-delimited ECS JSON for a SIEM."
+    ),
+    ocsf: Path | None = typer.Option(
+        None, "--ocsf", help="Also write alerts as newline-delimited OCSF Detection Findings."
+    ),
+    max_rule_bytes: int = typer.Option(DEFAULT_MAX_RULE_BYTES, "--max-rule-bytes"),
+    max_event_bytes: int = typer.Option(DEFAULT_MAX_EVENT_BYTES, "--max-event-bytes"),
+    deadline: float = typer.Option(60.0, "--deadline"),
+) -> None:
+    """Evaluate one rule against one strict, normalized Event fixture."""
+    try:
+        outcome = ApolloApplicationService().test(
+            ApolloTestRequest(
+                rule_path=rule,
+                event_path=event,
+                max_rule_bytes=max_rule_bytes,
+                max_event_bytes=max_event_bytes,
+                deadline_seconds=deadline,
+                excluded_paths=tuple(p for p in (output, ecs, ocsf) if p is not None),
+            )
+        )
+        export_alerts(outcome.alerts, output)
+        if ecs is not None:
+            export_alerts_ecs(outcome.alerts, ecs)
+        if ocsf is not None:
+            export_alerts_ocsf(outcome.alerts, ocsf)
+    except CancellationRequested as exc:
+        _echo_terminal(f"apollo: evaluation cancelled: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.CANCELLED) from exc
+    except (
+        ContractCompatibilityError,
+        ExecutionPolicyError,
+        OSError,
+        TimeoutError,
+        ValueError,
+    ) as exc:
+        _echo_terminal(f"apollo: invalid input or execution limit: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    _echo_terminal(f"apollo: {len(outcome.alerts)} alert(s); output: {output}")
+
+
+@app.command()
+def run(
+    rules: Path = typer.Option(DEFAULT_RULES_DIR, "--rules", help="Directory of YAML rules."),
+    events: Path = typer.Option(..., "--events", help="NDJSON file: one core.Event per line."),
+    output: Path = typer.Option(DEFAULT_OUTPUT, "--output", help="Alerts JSON output."),
+    ecs: Path | None = typer.Option(
+        None, "--ecs", help="Also write alerts as newline-delimited ECS JSON for a SIEM."
+    ),
+    ocsf: Path | None = typer.Option(
+        None, "--ocsf", help="Also write alerts as newline-delimited OCSF Detection Findings."
+    ),
+    max_rules: int = typer.Option(DEFAULT_MAX_RULES, "--max-rules"),
+    max_rule_bytes: int = typer.Option(DEFAULT_MAX_RULE_BYTES, "--max-rule-bytes"),
+    max_event_bytes: int = typer.Option(DEFAULT_MAX_EVENT_BYTES, "--max-event-bytes"),
+    max_events: int = typer.Option(DEFAULT_MAX_EVENTS, "--max-events"),
+    max_stream_bytes: int = typer.Option(DEFAULT_MAX_STREAM_BYTES, "--max-stream-bytes"),
+    max_evaluations: int = typer.Option(DEFAULT_MAX_EVALUATIONS, "--max-evaluations"),
+    max_alerts: int = typer.Option(DEFAULT_MAX_ALERTS, "--max-alerts"),
+    max_input_error_details: int = typer.Option(
+        DEFAULT_MAX_INPUT_ERROR_DETAILS, "--max-input-error-details", min=0, max=10_000
+    ),
+    deadline: float = typer.Option(600.0, "--deadline"),
+) -> None:
+    """Evaluate a bounded rule set against a strict streaming NDJSON event source."""
+    try:
+        outcome = ApolloApplicationService().run(
+            ApolloRunRequest(
+                rules_path=rules,
+                events_path=events,
+                excluded_paths=tuple(p for p in (output, ecs, ocsf) if p is not None),
+                max_rules=max_rules,
+                max_rule_bytes=max_rule_bytes,
+                max_event_bytes=max_event_bytes,
+                max_events=max_events,
+                max_stream_bytes=max_stream_bytes,
+                max_evaluations=max_evaluations,
+                max_alerts=max_alerts,
+                max_input_error_details=max_input_error_details,
+                deadline_seconds=deadline,
+            )
+        )
+        export_alerts(outcome.alerts, output)
+        if ecs is not None:
+            export_alerts_ecs(outcome.alerts, ecs)
+        if ocsf is not None:
+            export_alerts_ocsf(outcome.alerts, ocsf)
+    except CancellationRequested as exc:
+        _echo_terminal(f"apollo: run cancelled: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.CANCELLED) from exc
+    except (
+        ContractCompatibilityError,
+        ExecutionPolicyError,
+        OSError,
+        TimeoutError,
+        ValueError,
+    ) as exc:
+        _echo_terminal(f"apollo: input or execution error: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+
+    for error in outcome.input_errors:
+        _echo_terminal(f"apollo: malformed event on line {error.line}: {error.message}", err=True)
+    if outcome.input_error_count > len(outcome.input_errors):
+        _echo_terminal(
+            "apollo: suppressed "
+            f"{outcome.input_error_count - len(outcome.input_errors)} additional input error(s)",
+            err=True,
+        )
+    _echo_terminal(
+        f"apollo: {len(outcome.rules)} rule(s) x {outcome.events} event(s) -> "
+        f"{len(outcome.alerts)} alert(s); duplicates={outcome.duplicates}; {output}"
+    )
+    if outcome.input_error_count:
+        raise typer.Exit(code=exit_code_for(RunStatus.PARTIAL))
+    if outcome.alerts:
+        raise typer.Exit(code=exit_code_for(classify_run_status(len(outcome.alerts))))
+
+
+@app.command()
+def rules(
+    directory: Path = typer.Option(DEFAULT_RULES_DIR, "--rules", help="Directory of YAML rules."),
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.TABLE, "--format", help="Render as table (human) or json (machine)."
+    ),
+    max_rules: int = typer.Option(DEFAULT_MAX_RULES, "--max-rules"),
+    max_rule_bytes: int = typer.Option(DEFAULT_MAX_RULE_BYTES, "--max-rule-bytes"),
+    deadline: float = typer.Option(60.0, "--deadline"),
+) -> None:
+    """Load, bound and validate a non-empty rule directory."""
+    try:
+        rule_set = ApolloApplicationService().list_rules(
+            directory,
+            max_rules=max_rules,
+            max_rule_bytes=max_rule_bytes,
+            deadline_seconds=deadline,
+        )
+    except (ContractCompatibilityError, OSError, TimeoutError, ValueError) as exc:
+        _echo_terminal(f"apollo: rule error: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    records: list[dict[str, object]] = [
+        {
+            "rule_id": rule.rule_id,
+            "event_type": rule.event_type,
+            "severity": rule.severity.value,
+            "mitre": ",".join(rule.mitre_attack),
+            "title": rule.title,
+        }
+        for rule in rule_set
+    ]
+    columns = ["rule_id", "event_type", "severity", "mitre", "title"]
+    typer.echo(render(records, columns, output_format, title=f"Apollo rules ({len(rule_set)})"))
+
+
+@app.command()
+def ingest(
+    src_path: Path = typer.Option(
+        ..., "--input", help="Telemetry source file (e.g. an HTTP access log)."
+    ),
+    dst: Path = typer.Option(
+        ..., "--output", help="NDJSON of core.Event, ready for `apollo run --events`."
+    ),
+    telemetry_format: str = typer.Option(
+        "access-log", "--format", help="Telemetry format. Supported: access-log, zeek-json."
+    ),
+    source: str = typer.Option(
+        "manual", "--source", help="Source tag for the emitted events (an olympus source)."
+    ),
+    max_bytes: int = typer.Option(DEFAULT_MAX_STREAM_BYTES, "--max-bytes"),
+    max_line_bytes: int = typer.Option(DEFAULT_MAX_EVENT_BYTES, "--max-line-bytes"),
+    max_lines: int = typer.Option(1_000_000, "--max-lines"),
+    max_skip_details: int = typer.Option(20, "--max-skip-details", min=0, max=10_000),
+) -> None:
+    """Normalize real telemetry into ``core.Event`` NDJSON for the detection engine.
+
+    A line that is not a valid record for the chosen format is skipped with a
+    reason (reported on stderr), never coerced into a bogus event. The output is
+    consumed directly by ``apollo run --events``.
+    """
+    parsers = {"access-log": iter_access_log, "zeek-json": iter_zeek_json}
+    parser = parsers.get(telemetry_format)
+    if parser is None:
+        _echo_terminal(
+            f"apollo: unsupported ingest format: {telemetry_format} "
+            f"(supported: {', '.join(sorted(parsers))})",
+            err=True,
+        )
+        raise typer.Exit(code=ExitCode.USAGE)
+    try:
+        source_tag = Source(source)
+    except ValueError:
+        _echo_terminal(f"apollo: unknown source '{source}'", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from None
+    try:
+        records = iter_regular_utf8_lines(
+            src_path,
+            max_bytes=max_bytes,
+            max_line_bytes=max_line_bytes,
+            label="telemetry source",
+        )
+        ingested = 0
+        skipped = 0
+        with atomic_text_writer(dst, mode=0o600) as output:
+            for item in parser(records, source=source_tag, max_lines=max_lines):
+                if isinstance(item, Event):
+                    output.write(item.model_dump_json() + "\n")
+                    ingested += 1
+                    continue
+                skipped += 1
+                if skipped <= max_skip_details:
+                    _echo_terminal(f"apollo: skipped line {item.line}: {item.reason}", err=True)
+    except (IngestError, OSError, ValueError) as exc:
+        _echo_terminal(f"apollo: ingest error: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    if skipped > max_skip_details:
+        _echo_terminal(
+            f"apollo: suppressed {skipped - max_skip_details} additional skipped-line detail(s)",
+            err=True,
+        )
+    _echo_terminal(f"apollo: ingested {ingested} event(s), skipped {skipped} -> {dst}")
+
+
+@app.command("sigma-import")
+def sigma_import(
+    sigma: Path = typer.Argument(..., help="Sigma rule YAML file to convert."),
+    output: Path = typer.Option(..., "--output", help="Apollo rule JSON output path."),
+    max_bytes: int = typer.Option(DEFAULT_MAX_RULE_BYTES, "--max-bytes"),
+) -> None:
+    """Convert a Sigma rule (faithful exact-match subset) into an Apollo rule.
+
+    Field modifiers, value lists, wildcards, multiple selections and compound
+    conditions cannot be represented as exact matches and are refused with a
+    specific reason rather than silently mistranslated.
+    """
+    try:
+        rule = sigma_to_rule(read_regular_text(sigma, max_bytes=max_bytes, label="Sigma rule"))
+        atomic_write_text(output, rule.model_dump_json(indent=2) + "\n", mode=0o600)
+    except (SigmaImportError, OSError, ValueError) as exc:
+        _echo_terminal(f"apollo: sigma-import error: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    _echo_terminal(
+        f"apollo: imported {rule.rule_id} ({len(rule.conditions)} condition(s)) -> {output}"
+    )
+
+
+@app.command("attack-layer")
+def attack_layer(
+    directory: Path = typer.Option(DEFAULT_RULES_DIR, "--rules", help="Directory of YAML rules."),
+    output: Path = typer.Option(..., "--output", help="ATT&CK Navigator layer JSON output."),
+    name: str = typer.Option("Olympus Apollo coverage", "--name"),
+    max_rules: int = typer.Option(DEFAULT_MAX_RULES, "--max-rules"),
+    max_rule_bytes: int = typer.Option(DEFAULT_MAX_RULE_BYTES, "--max-rule-bytes"),
+    deadline: float = typer.Option(60.0, "--deadline"),
+) -> None:
+    """Emit a MITRE ATT&CK Navigator layer of the techniques the rules cover.
+
+    The layer is plain JSON renderable in the freely available ATT&CK Navigator;
+    each technique's score is how many rules reference it.
+    """
+    try:
+        rule_set = ApolloApplicationService().list_rules(
+            directory,
+            max_rules=max_rules,
+            max_rule_bytes=max_rule_bytes,
+            deadline_seconds=deadline,
+        )
+        counts = techniques_from_rules(rule_set)
+        layer = build_navigator_layer(counts, name=name)
+        atomic_write_text(output, json.dumps(layer, indent=2, sort_keys=True) + "\n", mode=0o600)
+    except (ContractCompatibilityError, OSError, TimeoutError, ValueError) as exc:
+        _echo_terminal(f"apollo: attack-layer error: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    _echo_terminal(
+        f"apollo: {len(layer['techniques'])} technique(s) from {len(rule_set)} rule(s) -> {output}"
+    )
+
+
+@app.command()
+def coverage(
+    directory: Path = typer.Option(DEFAULT_RULES_DIR, "--rules", help="Directory of YAML rules."),
+    events: Path | None = typer.Option(
+        None,
+        "--events",
+        help="NDJSON telemetry whose event types are taken as the data actually ingested.",
+    ),
+    telemetry: list[str] = typer.Option(
+        [],
+        "--telemetry",
+        help="Event type available as telemetry (repeatable); union-ed with --events.",
+    ),
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.TABLE, "--format", help="Render as table (human) or json (machine)."
+    ),
+    strict: bool = typer.Option(
+        False,
+        "--strict",
+        help="Exit non-zero when a technique has a rule but no telemetry (a hard blind spot).",
+    ),
+    max_rules: int = typer.Option(DEFAULT_MAX_RULES, "--max-rules"),
+    max_rule_bytes: int = typer.Option(DEFAULT_MAX_RULE_BYTES, "--max-rule-bytes"),
+    max_stream_bytes: int = typer.Option(DEFAULT_MAX_STREAM_BYTES, "--max-stream-bytes"),
+    deadline: float = typer.Option(60.0, "--deadline"),
+) -> None:
+    """Report ATT&CK detection coverage against the telemetry actually available.
+
+    Correlates each rule's technique with the event type it needs and whether that
+    telemetry is present (from ``--events`` and/or ``--telemetry``), classifying
+    every technique as covered, partial or no-telemetry. A rule that targets a
+    technique whose telemetry is never ingested is a blind spot, not coverage.
+    Pure and offline; nothing is executed against a target.
+    """
+    from olympus.apollo.coverage import assess_coverage, event_types_from_ndjson
+
+    try:
+        rule_set = ApolloApplicationService().list_rules(
+            directory,
+            max_rules=max_rules,
+            max_rule_bytes=max_rule_bytes,
+            deadline_seconds=deadline,
+        )
+        available = set(telemetry)
+        if events is not None:
+            available |= event_types_from_ndjson(
+                read_regular_text(events, max_bytes=max_stream_bytes, label="telemetry events")
+            )
+        report = assess_coverage(rule_set, available)
+    except (ContractCompatibilityError, OSError, TimeoutError, ValueError) as exc:
+        _echo_terminal(f"apollo: coverage error: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+
+    if output_format is OutputFormat.JSON:
+        typer.echo(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+    else:
+        records: list[dict[str, object]] = [
+            {
+                "technique": technique.technique,
+                "status": technique.status.value,
+                "rules": ", ".join(
+                    f"{rule.rule_id}({rule.event_type}{'' if rule.telemetry_present else ' ✗'})"
+                    for rule in technique.rules
+                ),
+            }
+            for technique in report.techniques
+        ]
+        typer.echo(
+            render(
+                records,
+                ["technique", "status", "rules"],
+                output_format,
+                title="ATT&CK detection coverage",
+            )
+        )
+    counts = report.counts
+    _echo_terminal(
+        f"apollo: {len(report.techniques)} technique(s): {counts['covered']} covered, "
+        f"{counts['partial']} partial, {counts['no-telemetry']} without telemetry"
+    )
+    if strict and report.blind_spots:
+        raise typer.Exit(code=int(ExitCode.FINDINGS))

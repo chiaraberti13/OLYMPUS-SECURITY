@@ -1,0 +1,161 @@
+"""Legacy artifacts migrate explicitly, deterministically, and fail closed."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+from typer.testing import CliRunner
+
+from olympus.athena.domain.contracts import load_plan
+from olympus.cli import app
+from olympus.core.migrations import (
+    ContractMigrationError,
+    migrate_document,
+    migration_manifest,
+)
+from olympus.metis.models import load_case_document
+from olympus.minerva.application import load_evidence
+from olympus.themis.application import load_scope
+from olympus.themis.jobs import load_job_document
+
+FIXTURE = Path("tests/fixtures/migrations/legacy-documents.json")
+runner = CliRunner()
+
+
+@pytest.fixture(scope="module")
+def legacy_documents() -> dict[str, dict[str, object]]:
+    document = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    assert isinstance(document, dict)
+    return document
+
+
+def test_migration_manifest_covers_every_required_family() -> None:
+    names = {entry["schema_name"] for entry in migration_manifest()}
+    assert names == {
+        "olympus.themis-job",
+        "olympus.themis-scope",
+        "olympus.athena.plan",
+        "olympus.evidence",
+        "olympus.metis-case",
+    }
+
+
+def test_cli_exposes_the_versioned_migration_manifest() -> None:
+    result = runner.invoke(app, ["core", "migrations"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["schema_name"] == "olympus.migration-manifest"
+    assert payload["schema_version"] == "1.0.0"
+    assert payload["migrations"] == list(migration_manifest())
+
+
+def test_scope_plan_job_evidence_and_case_migrate_through_real_loaders(
+    tmp_path: Path, legacy_documents: dict[str, dict[str, object]]
+) -> None:
+    scope_path = tmp_path / "scope.json"
+    scope_path.write_text(json.dumps(legacy_documents["themis_scope"]), encoding="utf-8")
+    scope = load_scope(scope_path)
+    assert scope.schema_version == "1.0.0"
+    assert scope.allowed_domains == ("example.test",)
+
+    plan = load_plan(legacy_documents["athena_plan"])
+    assert plan.schema_version == "1.0.0"
+
+    job = load_job_document(legacy_documents["themis_job"])
+    assert job.schema_version == "3.0.0"
+    assert job.manifest_sha256 is None
+    assert job.scope_name == "lab.json"
+    assert "scope_path" not in job.model_dump()
+
+    evidence_path = tmp_path / "evidence.json"
+    evidence_path.write_text(json.dumps(legacy_documents["evidence"]), encoding="utf-8")
+    evidence = load_evidence(evidence_path)
+    assert evidence.schema_version == "1.0.0"
+
+    case = load_case_document(legacy_documents["metis_case"])
+    assert case.schema_version == "1.0.0"
+
+
+def test_current_documents_are_idempotent(legacy_documents: dict[str, dict[str, object]]) -> None:
+    migrated = migrate_document(
+        legacy_documents["themis_job"],
+        schema_name="olympus.themis-job",
+        current_version="3.0.0",
+    )
+    assert (
+        migrate_document(
+            migrated,
+            schema_name="olympus.themis-job",
+            current_version="3.0.0",
+        )
+        == migrated
+    )
+
+
+def test_migrations_refuse_ambiguous_future_and_incomplete_evidence(
+    tmp_path: Path, legacy_documents: dict[str, dict[str, object]]
+) -> None:
+    ambiguous = dict(legacy_documents["themis_scope"])
+    ambiguous["allowed_domains"] = ["other.test"]
+    with pytest.raises(ContractMigrationError, match="both allowed"):
+        migrate_document(
+            ambiguous,
+            schema_name="olympus.themis-scope",
+            current_version="1.0.0",
+        )
+
+    with pytest.raises(ContractMigrationError, match="no unambiguous migration"):
+        migrate_document(
+            {"schema_name": "olympus.evidence", "schema_version": "2.0.0"},
+            schema_name="olympus.evidence",
+            current_version="1.0.0",
+        )
+
+    incomplete = dict(legacy_documents["evidence"])
+    incomplete.pop("sha256")
+    evidence_path = tmp_path / "incomplete-evidence.json"
+    evidence_path.write_text(json.dumps(incomplete), encoding="utf-8")
+    with pytest.raises(ValueError, match="sha256"):
+        load_evidence(evidence_path)
+
+
+def test_partial_contract_header_is_never_guessed() -> None:
+    with pytest.raises(ContractMigrationError, match="partial header"):
+        migrate_document(
+            {"schema_name": "olympus.metis-case"},
+            schema_name="olympus.metis-case",
+            current_version="1.0.0",
+        )
+
+
+def test_legacy_aegis_schema_names_are_canonicalized_to_themis() -> None:
+    # The AEGIS subsystem was renamed to Themis (ROADMAP DEV-I). Documents
+    # persisted under the old schema names must still load, rewritten to the
+    # current name, so no stored contract becomes unreadable.
+    from olympus.core.contracts import canonicalize_schema_name
+    from olympus.core.migrations import migrate_document
+
+    legacy_job = {"schema_name": "olympus.aegis-job", "schema_version": "2.0.0", "job_id": "j1"}
+    migrated = migrate_document(
+        legacy_job, schema_name="olympus.themis-job", current_version="3.0.0"
+    )
+    assert migrated["schema_name"] == "olympus.themis-job"
+
+    # A legacy scope at 1.0.0 is accepted and renamed, keeping its version.
+    legacy_scope = {"schema_name": "olympus.aegis-scope", "schema_version": "1.0.0"}
+    assert canonicalize_schema_name(legacy_scope)["schema_name"] == "olympus.themis-scope"
+
+    # A document already on the current name is returned unchanged.
+    current = {"schema_name": "olympus.themis-job", "schema_version": "3.0.0"}
+    assert canonicalize_schema_name(current) is current
+
+
+def test_provenance_value_aegis_still_validates_and_themis_is_canonical() -> None:
+    from olympus.core.enums import Source
+
+    assert Source.THEMIS.value == "themis"
+    # Old records stored with provenance "aegis" still parse (deprecated member).
+    assert Source("aegis") is Source.AEGIS
+    assert Source("themis") is Source.THEMIS
