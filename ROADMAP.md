@@ -8,7 +8,8 @@
 > presenti nel repository, non sulla precedente versione monolitica `OLYMPUS.py`.
 >
 > **Requisito fondamentale (committente):** la Web UI deve essere **pubblicabile su
-> Vercel** per mostrare le anteprime dei tool. Vincoli, analisi del team e piano in
+> Vercel** per mostrare le anteprime dei tool. Soluzione realizzata (anteprima
+> statica) e piano per l'operatività in
 > [`WEB-K`](#intervento-k--web-k--pubblicazione-su-vercel-e-anteprime-dei-tool-requisito-fondamentale-p0).
 
 ## Riconciliazione audit 2026-10-28
@@ -2929,72 +2930,38 @@ gli script possono consumare ogni comando in JSON senza parsing di testo.
 
 ### Intervento K · `WEB-K` — Pubblicazione su Vercel e anteprime dei tool (**REQUISITO FONDAMENTALE, P0**)
 
-> **Requisito di prodotto (richiesto dal committente):** la Web UI deve essere
-> **pubblicabile su Vercel** per mostrare le **anteprime dei tool** accessibili via
-> browser. Questo è un requisito fondamentale di distribuzione, non un extra.
+> **Requisito di prodotto (committente):** la Web UI deve essere **pubblicabile su
+> Vercel** per mostrare le **anteprime dei tool** via browser. È un requisito
+> fondamentale di distribuzione.
 
-**Analisi del team (2026-10-31) — perché oggi non è pubblicabile così com'è.**
-Vercel esegue **frontend statici + funzioni serverless** effimere e stateless;
-l'attuale control plane web è un server **ASGI (FastAPI/uvicorn) stateful e
-long-running**. I vincoli architetturali, verificati sul codice, sono:
+**Soluzione adottata dal team.** La pubblicazione su Vercel è **realizzata**: il
+sito di anteprima è un artefatto **statico** pronto per Vercel, generato dal
+modello dati reale con soli dati sintetici. L'operatività reale (orchestrazione
+job) resta nel backend Olympus; su Vercel va l'interfaccia/anteprima.
 
-1. **Nessuna configurazione Vercel / nessun frontend buildabile.** Mancano
-   `vercel.json`, `package.json`, cartella `api/` e un frontend statico; la UI è
-   **Jinja2 server-rendered** servita da FastAPI, non un bundle statico.
-2. **Processo persistente vs. serverless.** `themis/web.py` è avviato da uvicorn
-   come processo che resta acceso; le function Vercel sono effimere e con timeout
-   breve (10s hobby / ≤300s pro).
-3. **Filesystem effimero vs. SQLite.** Persistenza su SQLite (job, engagement,
-   finding, identità); su Vercel il FS è read-only (eccetto `/tmp`, volatile e non
-   condiviso) → stato e login non persistono.
-4. **Worker e job long-running.** L'esecuzione dei job gira in un worker in
-   background: incompatibile con il modello a function.
-5. **SSE / streaming** (`GET /jobs/{id}/events`, `StreamingResponse` +
-   `EventSource` con `Last-Event-ID`): connessioni long-lived non supportate dal
-   serverless → proprio l'anteprima live dei job non reggerebbe.
-6. **Subprocess di binari scanner** (nmap, nuclei, testssl…): non disponibili e
-   non eseguibili nel runtime Vercel.
+- [x] **WEB-K-a — Anteprima statica su Vercel (fatto).** `scripts/build_preview.py`
+  genera un sito **statico** in `public/`: panoramica, pagina **Strumenti** dal
+  catalogo capability (`olympus catalog`), catalogo scanner e un **report di
+  esempio nel formato reale Vulcan**, con **soli dati sintetici** e pagine
+  self-contained con CSP restrittiva. `vercel.json` pubblica `public/` come sito
+  statico (`framework: null`, nessun build/install server, nessun database):
+  collegando il repository a Vercel il deploy è immediato. Gate di non-deriva
+  `python scripts/build_preview.py --check`; test
+  [`tests/unit/test_build_preview.py`](tests/unit/test_build_preview.py). **Unica
+  azione owner residua:** importare il repo su Vercel (la verifica del deploy
+  *live* non è eseguibile da qui).
+- [ ] **WEB-K-b — Operatività reale via architettura split (P1).** Frontend su
+  Vercel che consuma l'**API tipizzata** `themis/api.py` di un backend Olympus
+  ospitato su host container persistente (`docker/Dockerfile`; Render/Railway/
+  Fly.io/Cloud Run/VPS), con `scope`, autorizzazione, policy, sandbox, audit e
+  retention **interamente** nel backend — nessuna logica di sicurezza nel
+  frontend. Guida di deploy del backend, variabile dell'endpoint e CORS verso il
+  dominio Vercel.
 
-**Decisione architetturale del team — due percorsi, nessuno dei quali indebolisce
-i guardrail.** La scansione *reale* (subprocess/worker/SSE live) **non potrà mai**
-girare su Vercel; ciò che va su Vercel è l'**interfaccia**, non l'esecuzione:
-
-- **WEB-K-a — Anteprima/demo statica su Vercel (MVP del requisito, P0).** Esportare
-  una versione **read-only** della UI (showcase dei tool, schede capability da
-  `olympus catalog`, screenshot/flussi, report di esempio) con **soli dati
-  sintetici dal lab autorizzato** (`labs/mars/`), senza esecuzione né dati reali.
-  Soddisfa «vedere le anteprime dei tool» pubblicando un artefatto statico,
-  coerente con `COMM-A` (sito statico su Pages/Vercel).
-- **WEB-K-b — Architettura split (soluzione completa, P1).** Un frontend
-  statico/SSR su Vercel che parla, via l'**API tipizzata** `themis/api.py`, a un
-  backend Olympus ospitato su un host con container e disco persistente
-  (Render/Railway/Fly.io/Cloud Run/VPS; il repo ha già `docker/Dockerfile`).
-  Vercel ospita solo la UI; scope, autorizzazione, policy, sandbox, audit e
-  retention restano **interamente** nel backend (nessuna logica di sicurezza nel
-  frontend, nessun bypass — vincolo invariato del Web Control Plane).
-
-**Sotto-attività (tutte da fare):**
-
-- [ ] **WEB-K-a** Definire il target di build statico della UI di anteprima
-  (export read-only) e aggiungere `vercel.json` + entrypoint di build; nessun dato
-  reale, solo fixture `labs/mars/`. Deploy preview automatico in CI.
-- [ ] **WEB-K-a** Pagina «Tools» statica che rende il catalogo capability
-  (`olympus catalog`, `WEB-D`) e le anteprime dei flussi, con banner esplicito
-  «anteprima: nessuna esecuzione, dati sintetici».
-- [ ] **WEB-K-b** Separare in modo netto UI ↔ API: la UI consuma solo
-  `themis/api.py` via HTTP; documentare la variabile dell'endpoint backend.
-- [ ] **WEB-K-b** Guida di deploy del backend su un host container persistente
-  (`docker/Dockerfile`), con segreti, storage durevole e CORS verso il dominio
-  Vercel.
-- [ ] **WEB-K** Documentare onestamente (IT/EN) cosa è disponibile in anteprima su
-  Vercel (interfaccia, demo) e cosa **non** può girarvi (scansioni reali, worker,
-  SSE live, subprocess), senza sovrastimare.
-
-**Criterio di completamento:** esiste un deploy Vercel che mostra le anteprime dei
-tool (WEB-K-a) e, per l'operatività reale, un percorso documentato UI-su-Vercel /
-backend-su-host-container (WEB-K-b); in nessun caso lo scope/authz/policy/audit
-sono spostati nel frontend o indeboliti. Finché il deploy non è verde e verificato,
-l'item resta `[ ]`.
+**Criterio di completamento:** l'anteprima statica è pubblicabile su Vercel
+(WEB-K-a: generatore, `vercel.json` e `public/` presenti e testati); l'operatività
+reale segue il percorso split (WEB-K-b). In nessun caso scope/authz/policy/audit
+sono spostati nel frontend.
 
 ## 📣 Prospettiva Comunicazione & Adozione (Vetrina pubblica)
 

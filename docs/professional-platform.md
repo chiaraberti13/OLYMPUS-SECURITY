@@ -147,3 +147,25 @@ hand-asserted; `olympus.integrations.suite_catalog.verify_catalog` re-derives
 what the repository can back and a unit test asserts it is empty, so the
 alignment cannot drift into marketing. The table above is illustrative; the live
 answer is always `olympus catalog`.
+
+## Static preview on Vercel (WEB-K-a)
+
+The live control plane is a stateful backend and is not what gets published to
+Vercel. For **tool previews in the browser**, `scripts/build_preview.py` renders
+a self-contained **static** site into `public/` from the real data model, using
+only synthetic data and performing no execution:
+
+- an overview page with the honest capability-coverage summary;
+- a **Tools** page built from `olympus catalog` and the scanner catalogue;
+- a **sample report** in the real Vulcan HTML format, on fictitious findings.
+
+`vercel.json` publishes `public/` as a static site (`framework: null`, no build
+or install step, no database), so importing the repository into Vercel deploys it
+as-is. Regenerate with `python scripts/build_preview.py`; a drift gate
+(`python scripts/build_preview.py --check`) and `tests/unit/test_build_preview.py`
+keep the committed output current. Every page carries a restrictive CSP and an
+explicit "preview, no execution, synthetic data" banner.
+
+Real scanning (job orchestration, live SSE, scanner subprocesses) runs in the
+Olympus backend on a persistent container host, reached from a Vercel-hosted
+frontend through the typed API — the split described in `WEB-K-b`.
