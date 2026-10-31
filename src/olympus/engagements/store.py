@@ -8,8 +8,12 @@ the versioned ``olympus.engagement`` contract. The database file is owner-only
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import json
+import os
 import sqlite3
+import tempfile
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -50,6 +54,18 @@ class EngagementStoreError(ValueError):
     """Raised when a stored engagement document is invalid or oversized."""
 
 
+@dataclass(frozen=True)
+class EngagementBackupInfo:
+    """Verification facts for one engagements SQLite snapshot."""
+
+    schema_version: int
+    engagement_count: int
+    manifest_revocation_count: int
+    signed_manifest_count: int
+    size_bytes: int
+    sha256: str
+
+
 class SqliteEngagementStore:
     """A small, durable engagement repository shared by every interface."""
 
@@ -73,6 +89,96 @@ class SqliteEngagementStore:
     def close(self) -> None:
         """Close the underlying connection."""
         self._conn.close()
+
+    def backup(self, destination: Path) -> EngagementBackupInfo:
+        """Atomically publish a verified snapshot of this database only.
+
+        The online backup API includes committed WAL state. This is a
+        per-store artifact; it does not coordinate with jobs, findings, audit,
+        identity files, evidence or other Olympus stores.
+        """
+        source_path = self._path
+        if source_path.is_symlink() or not source_path.is_file():
+            raise OSError("engagement database must be an existing regular file")
+        if destination.is_symlink():
+            raise OSError("backup destination must not be a symlink")
+        resolved_source = source_path.resolve()
+        resolved_destination = destination.resolve()
+        if resolved_destination == resolved_source or _same_file(
+            resolved_source, resolved_destination
+        ):
+            raise ValueError("backup destination must differ from the live database")
+
+        temporary: Path | None = None
+        try:
+            destination.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            descriptor, name = tempfile.mkstemp(
+                prefix=f".{destination.name}.", suffix=".tmp", dir=destination.parent
+            )
+            os.close(descriptor)
+            temporary = Path(name)
+            target = sqlite3.connect(temporary)
+            try:
+                self._conn.backup(target)
+                target.execute("PRAGMA journal_mode = DELETE")
+            finally:
+                target.close()
+            temporary.chmod(0o600)
+            info = self.verify_backup(temporary)
+            temporary.replace(destination)
+            destination.chmod(0o600)
+            return info
+        except BaseException:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+            raise
+
+    @staticmethod
+    def verify_backup(backup: Path) -> EngagementBackupInfo:
+        """Verify schema, SQLite integrity and fingerprint for one snapshot."""
+        connection, info = _open_verified_engagement_database(backup)
+        connection.close()
+        return info
+
+    @staticmethod
+    def restore_backup(backup: Path, destination: Path) -> EngagementBackupInfo:
+        """Restore a verified snapshot to an absent path without overwriting."""
+        source, info = _open_verified_engagement_database(backup)
+        temporary: Path | None = None
+        try:
+            if destination.is_symlink():
+                raise OSError("restore destination must not be a symlink")
+            resolved_destination = destination.resolve()
+            if resolved_destination == backup.resolve() or _same_file(backup, destination):
+                raise ValueError("restore destination must differ from the backup")
+            sidecars = tuple(
+                Path(f"{destination}{suffix}") for suffix in ("-wal", "-shm", "-journal")
+            )
+            if destination.exists() or any(path.exists() or path.is_symlink() for path in sidecars):
+                raise FileExistsError("restore destination and SQLite sidecars must be absent")
+            destination.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            descriptor, name = tempfile.mkstemp(
+                prefix=f".{destination.name}.", suffix=".restore", dir=destination.parent
+            )
+            os.close(descriptor)
+            temporary = Path(name)
+            target = sqlite3.connect(temporary)
+            try:
+                source.backup(target)
+                target.execute("PRAGMA journal_mode = DELETE")
+            finally:
+                target.close()
+            temporary.chmod(0o600)
+            info = SqliteEngagementStore.verify_backup(temporary)
+            os.link(temporary, destination)
+            temporary.unlink()
+            return info
+        except BaseException:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+            raise
+        finally:
+            source.close()
 
     def save(self, engagement: Engagement) -> str:
         """Insert or replace ``engagement`` and return its id."""
@@ -365,3 +471,72 @@ class StoredManifestAuthorizer:
             )
         finally:
             store.close()
+
+
+def _same_file(source: Path, destination: Path) -> bool:
+    try:
+        return source.samefile(destination)
+    except FileNotFoundError:
+        return False
+
+
+def _open_verified_engagement_database(
+    path: Path,
+) -> tuple[sqlite3.Connection, EngagementBackupInfo]:
+    if path.is_symlink() or not path.is_file():
+        raise OSError("engagement backup must be a regular non-symlink file")
+    sidecars = tuple(Path(f"{path}{suffix}") for suffix in ("-wal", "-shm", "-journal"))
+    if any(sidecar.exists() or sidecar.is_symlink() for sidecar in sidecars):
+        raise EngagementStoreError("engagement backup must be a self-contained SQLite file")
+    connection = sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True)
+    try:
+        version = int(connection.execute("PRAGMA user_version").fetchone()[0])
+        if version != SCHEMA_VERSION:
+            raise EngagementStoreError(f"unsupported engagement backup schema version: {version}")
+        expected = {
+            "engagements": ("engagement_id", "document", "created_at", "updated_at"),
+            "manifest_revocations": ("identifier", "revoked_at"),
+            "signed_manifests": ("manifest_sha256", "document", "stored_at"),
+        }
+        table_names = {
+            str(row[0])
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+            )
+        }
+        if table_names != set(expected):
+            raise EngagementStoreError("engagement backup schema does not match this release")
+        actual = {
+            table: tuple(
+                str(column[1]) for column in connection.execute(f'PRAGMA table_info("{table}")')
+            )
+            for table in expected
+        }
+        if actual != expected:
+            raise EngagementStoreError("engagement backup schema does not match this release")
+        integrity = connection.execute("PRAGMA integrity_check").fetchone()
+        if integrity is None or integrity[0] != "ok":
+            raise EngagementStoreError("engagement backup failed SQLite integrity_check")
+        if connection.execute("PRAGMA foreign_key_check").fetchone() is not None:
+            raise EngagementStoreError("engagement backup contains foreign-key violations")
+        counts = (
+            int(connection.execute("SELECT count(*) FROM engagements").fetchone()[0]),
+            int(connection.execute("SELECT count(*) FROM manifest_revocations").fetchone()[0]),
+            int(connection.execute("SELECT count(*) FROM signed_manifests").fetchone()[0]),
+        )
+        digest = hashlib.sha256()
+        with path.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(chunk)
+        info = EngagementBackupInfo(
+            schema_version=version,
+            engagement_count=counts[0],
+            manifest_revocation_count=counts[1],
+            signed_manifest_count=counts[2],
+            size_bytes=path.stat().st_size,
+            sha256=digest.hexdigest(),
+        )
+        return connection, info
+    except BaseException:
+        connection.close()
+        raise

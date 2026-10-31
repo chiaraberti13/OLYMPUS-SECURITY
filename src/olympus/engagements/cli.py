@@ -9,6 +9,7 @@ directory given by ``--storage``.
 from __future__ import annotations
 
 import json
+import sqlite3
 from pathlib import Path
 
 import typer
@@ -26,6 +27,7 @@ from olympus.engagements.portable import (
 )
 from olympus.engagements.store import (
     ENGAGEMENTS_DB_NAME,
+    EngagementBackupInfo,
     EngagementStoreError,
     SqliteEngagementStore,
 )
@@ -50,6 +52,62 @@ def _summary(engagement: Engagement) -> dict[str, object]:
         "excluded": list(engagement.scope.excluded),
         "digest": engagement.digest(),
     }
+
+
+def _backup_payload(info: EngagementBackupInfo) -> dict[str, object]:
+    return {
+        "schema_version": info.schema_version,
+        "engagement_count": info.engagement_count,
+        "manifest_revocation_count": info.manifest_revocation_count,
+        "signed_manifest_count": info.signed_manifest_count,
+        "size_bytes": info.size_bytes,
+        "sha256": info.sha256,
+    }
+
+
+@app.command("backup")
+def backup_command(
+    storage: Path = typer.Option(..., "--storage", help="Directory holding engagements.db."),
+    output: Path = typer.Option(..., "--output", help="Snapshot destination."),
+) -> None:
+    """Create an atomic, verified snapshot of engagements.db only."""
+    store = _open_store(storage)
+    try:
+        info = store.backup(output)
+    except (OSError, ValueError, sqlite3.Error) as exc:
+        typer.echo(f"engagement: backup failed: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.FAILED) from exc
+    finally:
+        store.close()
+    typer.echo(json.dumps(_backup_payload(info), indent=2, sort_keys=True))
+
+
+@app.command("verify-backup")
+def verify_backup_command(
+    backup: Path = typer.Option(..., "--backup", help="Snapshot file to verify."),
+) -> None:
+    """Verify one engagements database snapshot."""
+    try:
+        info = SqliteEngagementStore.verify_backup(backup)
+    except (OSError, ValueError, sqlite3.Error) as exc:
+        typer.echo(f"engagement: backup verification failed: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.FAILED) from exc
+    typer.echo(json.dumps(_backup_payload(info), indent=2, sort_keys=True))
+
+
+@app.command("restore-backup")
+def restore_backup_command(
+    backup: Path = typer.Option(..., "--backup", help="Verified engagements snapshot."),
+    storage: Path = typer.Option(..., "--storage", help="New empty storage directory."),
+) -> None:
+    """Restore to an absent engagements.db; stop services before switching config."""
+    destination = storage / ENGAGEMENTS_DB_NAME
+    try:
+        info = SqliteEngagementStore.restore_backup(backup, destination)
+    except (OSError, ValueError, sqlite3.Error) as exc:
+        typer.echo(f"engagement: restore failed: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.FAILED) from exc
+    typer.echo(json.dumps(_backup_payload(info), indent=2, sort_keys=True))
 
 
 @app.command()

@@ -539,6 +539,15 @@ Verify a detached Ed25519 signature against a trusted public key.
 
 Diagnose the Olympus environment (binaries, services, deps).
 
+### `olympus engagement backup`
+
+Create an atomic, verified snapshot of engagements.db only.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--storage` | option | yes | — | Directory holding engagements.db. |
+| `--output` | option | yes | — | Snapshot destination. |
+
 ### `olympus engagement create`
 
 Create and persist a new engagement; print its id, scope and digest.
@@ -580,6 +589,15 @@ List every stored engagement (most recent first).
 | --- | --- | --- | --- | --- |
 | `--storage` | option | yes | — | Directory for the engagements database. |
 
+### `olympus engagement restore-backup`
+
+Restore to an absent engagements.db; stop services before switching config.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--backup` | option | yes | — | Verified engagements snapshot. |
+| `--storage` | option | yes | — | New empty storage directory. |
+
 ### `olympus engagement show`
 
 Print the full stored engagement document, or fail if it does not exist.
@@ -588,6 +606,14 @@ Print the full stored engagement document, or fail if it does not exist.
 | --- | --- | --- | --- | --- |
 | `engagement_id` | argument | yes | — | Engagement id to display. |
 | `--storage` | option | yes | — | Directory for the engagements database. |
+
+### `olympus engagement verify-backup`
+
+Verify one engagements database snapshot.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--backup` | option | yes | — | Snapshot file to verify. |
 
 ### `olympus helios scan`
 

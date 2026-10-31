@@ -39,6 +39,23 @@ directory (`EINVAL`) before its subprocess assertion. The request-lease
 `.requests` sidecar and other platform stores remain excluded; the returned
 SHA-256 is informational unless an operator records a trusted reference.
 
+The next WEB-J-01 slice adds independent `engagements.db` backup, verification
+and create-only restore, exposed as `olympus engagement backup`,
+`verify-backup` and `restore-backup`. The SQLite online snapshot includes the
+engagement, signed-manifest and revocation tables; verification checks the exact
+schema/version, integrity, foreign keys, standalone-file requirement and
+fingerprint. Synthetic tests cover committed WAL data, round-trip through the
+CLI, future-schema refusal, existing-destination preservation and sidecars.
+This does not coordinate with Themis jobs, Metis, findings, audit, identity,
+scope or evidence stores, and the hash is not an authenticated manifest.
+On this checkout the focused engagement + Themis backup suites passed **49**
+tests. Repository-wide `make lint`, `make format-check` and `make type` passed
+(217 first-party files). `make test` completed with **2,670 passed, 17 failed,
+2 skipped, 1 deselected**; all 17 failures are existing Themis sandbox/process
+tests that cannot `chown` their temporary directory to `nobody` in this host
+(`EINVAL`). No test or sandbox gate was disabled. Container, live-lab, coverage
+and mutation gates were not run for this slice.
+
 For commit `50361cbfa7470a13c3d075932c48bf9da7f1118f`, local TestClient and
 quality checks passed as above. The GitHub connector returned no Actions runs
 for that commit (its workflow-run wrapper is PR-only) and did not expose CodeQL;

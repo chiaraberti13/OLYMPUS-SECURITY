@@ -292,11 +292,17 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
   database job, anche tramite `olympus themis jobs backup`, `verify-backup` e
   `restore`: SQLite online backup, schema v3, integrity/FK, file owner-only e
   destinazione restore nuova e assente. La SHA-256 restituita è un fingerprint
-  da registrare separatamente, non un manifest autenticato. Il sidecar lease
-  `.requests` e gli store engagements, findings, identity, audit, scope,
-  custody/vault restano fuori; il coordinamento globale, manifest versionato e
-  restore drill con RPO/RTO restano da realizzare. Nessun backup di piattaforma
-  è dichiarato verificato.
+  da registrare separatamente, non un manifest autenticato. Ulteriore slice
+  verificata: `SqliteEngagementStore` espone backup, verify e restore CLI per
+  `engagements.db`, comprendendo engagement, manifest firmati e revoche; la
+  verifica controlla schema esatto, versione, integrity/FK, assenza sidecar e
+  fingerprint. Snapshot SQLite online, temporaneo owner-only, pubblicazione
+  atomica; restore create-only in directory esplicitamente nuova. I test usano
+  solo dati sintetici, includono lo stato WAL, rigetto schema futuro/sidecar e
+  round-trip CLI. `.requests`, findings, identity, audit, scope, custody/vault
+  restano esclusi; Metis mantiene il proprio backup indipendente. Non esiste
+  coordinamento tra questi store: i fingerprint restano non autenticati e
+  nessun backup di piattaforma o RPO/RTO è dichiarato verificato.
 
 ### WEB-J-02 — Retention e privacy di sistema
 
