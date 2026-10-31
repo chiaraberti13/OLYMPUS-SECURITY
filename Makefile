@@ -6,11 +6,9 @@ install:
 	$(PYTHON) -m pip install -e ".[dev]"
 
 # --------------------------------------------------------------------------- #
-# First-party quality gates. These run locally and are the authoritative gate:
-# `make check` chains them. A GitHub Actions workflow that mirrored them was
-# removed from the repository (commit 58ba209), so there is currently no
-# automatic enforcement on push/PR — run `make check` (and the supply-chain
-# targets below) before publishing until a CI workflow is restored.
+# First-party quality gates. `make check` chains the local gates. The GitHub
+# Actions mirror is in .github/workflows/ci.yml; verify its run for the exact
+# commit and repository branch-protection rules before treating it as enforced.
 # --------------------------------------------------------------------------- #
 lint:
 	$(PYTHON) -m ruff check .

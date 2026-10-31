@@ -301,7 +301,7 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
 ### DEV-C-01 — Ripristino enforcement qualità e release
 
 - Componente/superfici: CI/packaging/Python/OS.
-- Problema/evidenza: Statica: solo labels.yml; make check locale, nessun lock runtime committato.
+- Problema/evidenza (baseline 28 ottobre): solo labels.yml; make check locale, nessun lock runtime committato.
 - Gravità/probabilità/impatto e motivo P1: Release non automaticamente verificata; impatto alto.
 - Soluzione: Workflow least privilege con pin SHA, matrice 3.11–3.14/OS, wheel, test, coverage/mutation, schema/link/security; branch policy verificata.
 - Dipendenze/blocchi: runner/repository policy per enforcement remoto.
@@ -683,7 +683,7 @@ di sicurezza forti, release riproducibili e flussi operativi comprensibili.
 | Credenziali | i segreti first-party sono letti dall'ambiente e redatti | manca un backend opzionale per secret manager e una policy uniforme di rotazione |
 | Autorizzazione | scope file + conferma esplicita prima dell'esecuzione | manifest firmato/scadenza/revoca implementati; resta validazione live completa |
 | Supply chain | SBOM, hash lock, audit dipendenze, secret scan e workflow SAST CodeQL | mancano attestazioni di build e firma immagini/release; CodeQL va reso check *required* via branch protection per essere bloccante |
-| Qualità | Ruff/Mypy/test/schema/coverage/mutation sono comandi locali; matrice dichiarata 3.11–3.14 non rieseguita qui | CI qualità assente; container/live lab opt-in presenti ma non eseguiti nell'audit |
+| Qualità (baseline audit 28 ottobre) | Ruff/Mypy/test/schema/coverage/mutation sono comandi locali; matrice dichiarata 3.11–3.14 non rieseguita nell'audit | CI qualità assente alla baseline; workflow ripristinato il 30 ottobre. Container/live lab opt-in presenti ma non eseguiti |
 | Input ostili | report HTML Vulcan con `html.escape`; RichLog TUI con `markup=False` | Nmap usa defusedxml e test fuzz/corpus; resta revisione completa dei consumer e SEC-H-01/02 |
 | Scanner | ledger in `integrations/maturity.py` con prove verificabili | 12 `live-tested`, 3 `offline-tested`, 0 `production-ready` |
 | TUI | esecuzione senza shell e streaming dell'output | un solo campo libero per gli argomenti, UI solo inglese, poco supporto decisionale |
@@ -778,9 +778,9 @@ coerente con la Fase 7 del cruscotto.
 ## 🛡️ Prospettiva Cybersecurity (Analisi e Rinforzo)
 
 Le note datate delle implementazioni sotto conservano la storia del progetto.
-Le menzioni di job CI nelle note precedenti alla rimozione workflow non sono
-stato corrente: vedere DEV-C-01 e verification-status. I criteri di accettazione
-restano requisiti, non prove di esecuzione.
+Le menzioni di job CI precedenti alla rimozione e al ripristino del workflow non
+sono stato corrente: vedere DEV-C-01 e verification-status. I criteri di
+accettazione restano requisiti, non prove di esecuzione.
 
 
 ### Stato di sicurezza attuale
@@ -788,8 +788,9 @@ restano requisiti, non prove di esecuzione.
 Non è stato rilevato hardcoding di API key o password nel codice first-party
 analizzato. `src/olympus/core/config.py` carica impostazioni da TOML e variabili
 d'ambiente; i moduli che richiedono token usano variabili dedicate. Il comando locale Gitleaks è disponibile quando il binario è installato.
-Il workflow qualità è assente: scansione working tree/history e canary non sono
-attualmente imposti in CI (`DEV-C-01`).
+Il workflow qualità è presente dal 30 ottobre; green run e enforcement tramite
+branch protection non sono verificati (`DEV-C-01`). Scansione working
+tree/history e canary non sono gate CI configurati.
 
 La parità VAP è stata classificata, lo storico terminale dispone di una migrazione
 fail-closed e il sorgente vendorizzato è stato rimosso. Restano l'isolamento di

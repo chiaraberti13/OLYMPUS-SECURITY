@@ -44,8 +44,11 @@ completo richiedono le attività canoniche indicate sotto.
 
 Presenti: src/olympus, tests, pyproject, Makefile, README IT/EN, ROADMAP,
 SECURITY, threat model, ADR, schemas, examples, Docker/Compose/deploy/labs.
-Assenti: AGENTS.md, vendor runtime, lock/constraints runtime con hash committato,
-workflow qualità/release (esiste solo labels.yml), suite browser Playwright/axe.
+Assenti alla baseline di audit del 28 ottobre: AGENTS.md, vendor runtime,
+lock/constraints runtime con hash committato, workflow qualità/release (allora
+esisteva solo labels.yml), suite browser Playwright/axe. Il workflow qualità è
+stato ripristinato il 30 ottobre; l'esito remoto e la branch protection non sono
+dimostrati da questa baseline.
 Schemi generati esaminati tramite catalogo/check; fixture/esempi tramite contratti
 ed esecuzioni test; immagini binarie non sottoposte ad analisi semantica; Git
 object/cache/build esclusi. Nessuna attività network-active verso target.
@@ -74,7 +77,7 @@ fixture e import/export locali; lookup/feed/scanner richiedono rete e autorizzaz
 | Vulcan | dedup/rank, CVE/EPSS/KEV, finding diff/trend, JSON/MD/HTML/CSV/PDF/SARIF | CLI/TUI e Web; punto unico per remediation/retest/report |
 | Proteus | modello campagne e training sintetico | CLI/TUI; nessun servizio reale invio/harvesting dimostrato |
 | integrations / tui | catalogo readiness/maturity e navigazione Click | discovery plugin separata da runtime; TUI esclude config/engagement/policy |
-| tests/scripts/tools | unit/contract/integration/property/mutation, schema/link, benchmark, labels | gate locali; browser e enforcement remoto mancanti |
+| tests/scripts/tools | unit/contract/integration/property/mutation, schema/link, benchmark, labels | workflow presente dal 30 ottobre; browser e enforcement remoto da verificare |
 | docker/deploy/labs | wheel native, split control/scan, attestation/AppArmor, lab Mars | configurazioni presenti, esecuzione non verificata qui |
 
 ## Flussi, utenti e risultati
@@ -124,7 +127,7 @@ P0 egress da controllo di confinamento assente, senza exploit live eseguito.
 | `OPS-PURPLE-01` | Parser telemetria accettava dict con `event_type` senza validare Event e nascondeva scarti/troncamento | Input incompleto poteva apparire come coverage completa | P1: completato 2026-10-31 per coverage offline; validazione Event, diagnostica conteggiata, strict fail-closed e regressioni Red/Blue; Purple live D8 resta separato; [roadmap](../ROADMAP.md#ops-purple-01--coverage-telemetria-distinta-da-detection) |
 | `WEB-J-01` | Statica: backup Metis parziale; verify_backup non esegue integrity_check/FK | Recovery piattaforma non dimostrato; impatto alto | P1: Snapshot coerente con digest/versioni, chiavi separate, integrity/FK e restore drill; [roadmap](../ROADMAP.md#riconciliazione-audit-2026-10-28) |
 | `WEB-J-02` | Statica: primitive retention presenti, applicazione globale non dimostrata | Policy diverse possono cancellare prove o lasciare copie; rischio dedotto | P2: Policy per engagement, legal hold, minimizzazione, chiavi e backup; documentare accessi e finalità; [roadmap](../ROADMAP.md#riconciliazione-audit-2026-10-28) |
-| `DEV-C-01` | Statica: solo labels.yml; make check locale, nessun lock runtime committato | Release non automaticamente verificata; impatto alto | P1: Workflow least privilege con pin SHA, matrice 3.11–3.14/OS, wheel, test, coverage/mutation, schema/link/security; branch policy verificata; [roadmap](../ROADMAP.md#riconciliazione-audit-2026-10-28) |
+| `DEV-C-01` | Baseline 28 ottobre: solo labels.yml; make check locale, nessun lock runtime committato | Release non automaticamente verificata; impatto alto | P1: workflow ripristinato 30 ottobre; run remoto e branch protection non verificati. Matrice, wheel, test, coverage/mutation, schema/link/security configurati; [roadmap](../ROADMAP.md#dev-c-01--ripristino-enforcement-qualit%C3%A0-e-release) |
 | `SEC-F-01` | Statica: pip/git/gem mobili e || true; WPScan non-OSI classificato OSS | Composizione immagine e diritto distribuzione non dimostrati; impatto alto | P1: Pin/hash/versioni, manifest installato, mandatory vs optional, revisione licenze per versione; SBOM/advisory/signing; [roadmap](../ROADMAP.md#riconciliazione-audit-2026-10-28) |
 | `SEC-F-02` | Statica: _direct_dependencies interpreta extra con regex, non marker PEP 508 completi | SBOM/lock possono includere/escludere dipendenze errate; rischio dedotto | P1: Parser standard requisiti e propagazione extra transitivi; schema CycloneDX validato; [roadmap](../ROADMAP.md#riconciliazione-audit-2026-10-28) |
 | `DEV-G-01` | Statica: audit storico, testing, verification-status e roadmap contengono claim CI obsoleti | Operatori possono confondere codice/test storico con readiness | P1: Snapshot attuale distinto; inventario generato, link gate, completare ADR 003–005 e policy mypy coerente; [roadmap](../ROADMAP.md#riconciliazione-audit-2026-10-28) |

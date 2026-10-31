@@ -192,12 +192,12 @@ floor di branch coverage first-party sono i gate di qualità bloccanti, concaten
 da `make check`. La prontezza funzionale richiede inoltre prove di esecuzione
 reali: gate verdi, da soli, non vengono definiti parità.
 
-> **Stato della continuous integration.** Il workflow GitHub Actions che eseguiva
-> questi gate su ogni push/PR è stato rimosso dal repository (commit `58ba209`),
-> quindi **oggi non c'è enforcement automatico** — sotto `.github/workflows/` resta
-> solo `labels.yml`. Finché un workflow CI non viene ripristinato, esegui
-> `make check` in locale prima di pubblicare (e `make audit` / `make secrets-scan`
-> per i gate di supply chain).
+> **Stato della continuous integration (31 ottobre 2026).** `.github/workflows/ci.yml`
+> e `codeql.yml` sono presenti e configurati per push/PR. La presenza dei file
+> non dimostra un run verde né branch protection con check obbligatori: verifica
+> il run dello SHA esatto e le regole del repository prima di considerarli
+> enforcement attivo. Esegui anche `make check` in locale; `make audit` e
+> `make secrets-scan` sono gate supply-chain separati.
 
 ```bash
 make lint      # Ruff

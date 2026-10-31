@@ -47,9 +47,10 @@ and the new regression cases explain the changed final passing count.
 
 - Container/kernel egress, scanner lab/version compatibility: SEC-B-01, D1/D2/D11.
 - Hash-locked rebuild and release signing/attestations: SEC-F-01/02. The CI
-  workflow (ci.yml: gate, tests, coverage, mutation, gitleaks, pip-audit, SBOM)
-  and a CodeQL SAST workflow (codeql.yml) are restored/added and run on GitHub;
-  making their checks *required* via branch protection is an owner action.
+  workflow (`ci.yml`: quality, tests, coverage, mutation, gitleaks, pip-audit,
+  SBOM) and CodeQL workflow (`codeql.yml`) are present and configured. A green
+  run for the current commit and required branch-protection checks are not
+  verified here; do not infer them from workflow-file presence.
 - Real-browser SSE and accessibility, keyboard/screen-reader and IT/EN parity:
   WEB-A-01, UX-E-01. TestClient/Textual pilot tests are not a manual accessibility review.
 - Supported Python/OS matrix: only Linux 3.12 was executed here; D12 remains open.
@@ -64,7 +65,8 @@ adapter to lab-verified or release-ready. No adapter was promoted in this audit.
 ## CI and publication
 
 The GitHub branch response read on 29 October reported `protected=false`, with
-no required status checks. No repository policy was changed. Quality workflows
-are absent, so local success must not be described as a green remote CI run.
-Final push/ref and workflow status are verified separately in the delivery
-message; an empty run list is not a passed pipeline.
+no required status checks at that time. No repository policy was changed. The
+quality workflow was restored on 30 October; current branch protection and
+workflow run outcomes remain unverified. Final push/ref and workflow status are
+verified separately in the delivery message; an empty run list is not a passed
+pipeline.

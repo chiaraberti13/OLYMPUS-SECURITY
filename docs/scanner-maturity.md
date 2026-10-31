@@ -5,8 +5,9 @@ documento descrive la scala con cui Olympus dichiara *quanto* ogni integrazione 
 stata davvero validata, e il meccanismo che impedisce a quella dichiarazione di
 mentire.
 
-> Stato enforcement al 29 ottobre 2026: i test descritti sotto sono gate locali.
-> Il workflow qualità CI è assente (`DEV-C-01`); i riferimenti storici alla CI
+> Stato enforcement al 31 ottobre 2026: i gate CI sono definiti in
+> `.github/workflows/ci.yml`; il run verde sul commit corrente e la branch
+> protection non sono verificati (`DEV-C-01`). I riferimenti storici alla CI
 > non attestano esecuzioni automatiche correnti.
 
 Modulo di riferimento: `olympus.integrations.maturity`.

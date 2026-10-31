@@ -230,11 +230,12 @@ branch-coverage floor are the blocking quality gates, chained by `make check`.
 Functional readiness additionally requires real execution evidence; green gates
 alone are not called parity.
 
-> **Continuous integration status.** The GitHub Actions workflow that ran these
-> gates on every push/PR was removed from the repository (commit `58ba209`), so
-> there is currently **no automatic enforcement** — only `.github/workflows/labels.yml`
-> remains. Until a CI workflow is restored, run `make check` locally before
-> publishing (and `make audit` / `make secrets-scan` for the supply-chain gates).
+> **Continuous integration status (31 October 2026).** `.github/workflows/ci.yml`
+> and `codeql.yml` are present and configured for pushes/PRs. A workflow file
+> does not prove a green run or required branch protection: check the run for
+> the exact commit and repository rules before treating the gates as enforced.
+> Run `make check` locally as well; `make audit` and `make secrets-scan` are
+> separate supply-chain gates.
 
 ```bash
 make lint      # Ruff
