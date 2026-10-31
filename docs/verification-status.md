@@ -33,8 +33,16 @@ passed: pytest Python 3.11–3.14, branch coverage, mutation, POSIX sandbox,
 Windows/macOS smoke, Ruff/format/Mypy, wheel, container, Gitleaks, pip-audit and
 CodeQL. The fix awaits process-tree cleanup in Textual's actual
 `CommandScreen.on_unmount` hook. The `/incidents` parity inventory mismatch from
-the earlier run is corrected. CI and CodeQL for current commit `17ec9f9` were
-queued at this snapshot. Branch-protection inspection was denied by GitHub
+the earlier run is corrected. On commit `5dae81a1829d4ed0893c6730b3b713308ec5f0c3`, GitHub Actions CI run
+[41227141336](https://github.com/chiaraberti13/OLYMPUS-SECURITY/actions/runs/41227141336)
+completed with all 14 jobs successful: pytest Python 3.11–3.14, branch coverage,
+mutation, POSIX sandbox, Windows/macOS smoke (including Windows process-tree
+cancellation), native container, wheel/clean install/API/Web/worker smoke,
+SBOM, Ruff/format/Mypy, pip-audit and Gitleaks. The run follows the generated
+Metis CLI reference refresh that corrected the earlier stale-reference failure.
+The connector did not expose a CodeQL run result for this commit. The combined
+commit status reports a Vercel deployment failure, separate from the successful
+GitHub Actions CI run. Branch-protection inspection was denied by GitHub
 integration (403), so required-check enforcement remains unverified. See the
 current [ecosystem audit](ecosystem-audit.md) and
 [roadmap](../ROADMAP.md) for scope-specific status.
