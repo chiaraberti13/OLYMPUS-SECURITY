@@ -19,6 +19,7 @@ from olympus.core.execution import (
     StructuredAuditRecord,
     append_structured_audit,
     interruptible_sleep,
+    redact_arguments,
     redact_mapping,
     safe_terminal_text,
 )
@@ -38,6 +39,26 @@ def test_safe_terminal_text_removes_inserted_controls_before_secret_redaction() 
 
     assert "secret123" not in safe
     assert "[REDACTED]" in safe
+
+
+def test_redact_arguments_hides_option_values_and_url_credentials_without_mutation() -> None:
+    arguments = [
+        "--api-token",
+        "synthetic-token-123",
+        "--password=synthetic-password",
+        "--url=https://user:synthetic-pass@example.test/run?access_token=synthetic-query",
+        "--target",
+        "example.test",
+    ]
+
+    displayed = redact_arguments(arguments)
+
+    assert "synthetic-token-123" not in " ".join(displayed)
+    assert "synthetic-password" not in " ".join(displayed)
+    assert "synthetic-pass" not in " ".join(displayed)
+    assert "synthetic-query" not in " ".join(displayed)
+    assert "example.test" in displayed
+    assert arguments[1] == "synthetic-token-123"  # the execution argv stays intact
 
 
 @pytest.mark.parametrize(

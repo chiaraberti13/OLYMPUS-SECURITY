@@ -22,6 +22,7 @@ from textual.widgets.option_list import Option
 
 from olympus import __version__
 from olympus.cli_forms import CommandForm, FieldKind, FormField, form_for, validate_values
+from olympus.core.execution import redact_arguments, safe_terminal_text
 from olympus.core.exit_codes import ExitCode, normalize_exit_code
 from olympus.tui.catalog import TOOLS, CommandSpec, ToolSpec, commands_for
 
@@ -320,7 +321,7 @@ class CommandScreen(Screen[None]):
         self._cancelled = False
         output = self.query_one("#output", RichLog)
         output.clear()
-        invoked = " ".join((*self.command.path, *arguments))
+        invoked = " ".join(redact_arguments((*self.command.path, *arguments)))
         output.write(Text(f"$ olympus {invoked}", style="bold yellow"))
         self._execute(arguments)
 
@@ -410,13 +411,15 @@ class CommandScreen(Screen[None]):
             if stream is None:
                 raise RuntimeError("subprocess output stream is unavailable")
             while line := await stream.readline():
-                output.write(line.decode("utf-8", "replace").rstrip("\n"))
+                output.write(safe_terminal_text(line.decode("utf-8", "replace").rstrip("\n")))
             return_code = await self.process.wait()
             status_text, log_text, style = describe_completion(self._cancelled, return_code)
             output.write(Text(log_text, style=f"bold {style}"))
             status_bar.update(f" {status_text} ")
         except (OSError, subprocess.SubprocessError) as exc:
-            output.write(Text(f"Unable to start command: {exc}", style="bold red"))
+            output.write(
+                Text(f"Unable to start command: {safe_terminal_text(str(exc))}", style="bold red")
+            )
             status_bar.update(" Execution failed to start. ")
         finally:
             self.process = None

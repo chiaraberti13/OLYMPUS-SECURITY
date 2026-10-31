@@ -50,7 +50,7 @@ I dettagli sotto sono normativi per ciascuna riga, non task generici senza owner
 | `SEC-B-01` | Egress scanner e DNS vincolati allo scope | P0 | Security/Scanner/SRE | XL | M2 | [⏸] |
 | `SEC-H-01` | Rifiuto directory symlink API | P1 | AppSec/Backend | S | M1 | [x] |
 | `SEC-H-02` | Letture FIFO non bloccanti | P1 | AppSec/Backend | S | M1 | [x] |
-| `SEC-D-01` | Redazione argomenti nel log TUI | P1 | AppSec/UX | S | M1 | [ ] |
+| `SEC-D-01` | Redazione argomenti nel log TUI | P1 | AppSec/UX | S | M1 | [x] |
 | `SEC-G-01` | Cancellazione TUI completa | P1 | Backend/QA | M | M2 | [ ] |
 | `DEV-E-01` | Transizioni Athena concorrenti e audit atomico | P1 | Data/Architect | L | M2 | [ ] |
 | `SEC-E-02` | Verifica digest risultati in lettura | P1 | Data/AppSec | S | M1 | [ ] |
@@ -162,6 +162,12 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
 - Accettazione misurabile: Token sintetici assenti da log e errori; comando riceve argomenti originali.
 - Test: pilot TUI e URL/userinfo/query fixtures.
 - DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+- Stato (verifica locale 2026-10-31, `[x]`): aggiunto il formatter condiviso
+  `redact_arguments` in `core.execution`; maschera valori di opzioni secret,
+  credenziali URL e query sensibili senza mutare l'argv passato al processo.
+  Il TUI applica anche la sanitizzazione terminale/redazione URL alle righe
+  mostrate e agli errori di avvio. Test core e pilot TUI usano token sintetici
+  e verificano sia l'assenza nei log sia l'argv originale al subprocess.
 
 ### SEC-G-01 — Cancellazione TUI completa
 

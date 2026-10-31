@@ -297,3 +297,28 @@ def test_raw_mode_falls_back_to_shlex_arguments() -> None:
             assert any("export-schemas --help" in str(line) for line in log.lines)
 
     asyncio.run(scenario())
+
+
+def test_invocation_log_redacts_credentials_but_keeps_execution_arguments() -> None:
+    async def scenario() -> None:
+        screen = _screen_for(("core", "export-schemas"))
+        interface = OlympusTui(get_command(app))
+        arguments = [
+            "--token",
+            "synthetic-token-456",
+            "--url=https://example.test/?token=query-secret",
+        ]
+        executed: list[list[str]] = []
+        async with interface.run_test(size=(140, 42)) as pilot:
+            interface.push_screen(screen)
+            await pilot.pause()
+            screen._execute = executed.append  # type: ignore[method-assign]
+            screen._start(arguments)
+            log = screen.query_one("#output", RichLog)
+            rendered = " ".join(str(line) for line in log.lines)
+            assert "synthetic-token-456" not in rendered
+            assert "query-secret" not in rendered
+            assert "[REDACTED]" in rendered
+            assert executed == [arguments]
+
+    asyncio.run(scenario())

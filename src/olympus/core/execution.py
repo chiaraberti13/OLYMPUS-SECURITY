@@ -14,7 +14,7 @@ import secrets
 import stat
 import threading
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
@@ -307,6 +307,31 @@ def safe_terminal_text(value: str) -> str:
     line_safe = value.replace("\r", " ").replace("\n", " ").replace("\t", " ")
     without_controls = line_safe.translate(_TERMINAL_CONTROLS)
     return " ".join(redact_text(without_controls).split())
+
+
+def redact_arguments(arguments: Sequence[str]) -> list[str]:
+    """Return display-safe argv without changing the vector used for execution.
+
+    Secret-bearing option names redact either their following value or an
+    inline ``--option=value`` value. Other arguments still pass through the
+    terminal and URL sanitizer so credentials in URL userinfo/query are hidden.
+    """
+    redacted: list[str] = []
+    redact_next = False
+    for argument in arguments:
+        if redact_next:
+            redacted.append("[REDACTED]")
+            redact_next = False
+            continue
+        option, separator, _value = argument.partition("=")
+        normalized_option = option.lstrip("-")
+        if argument.startswith("-") and separator and _sensitive_key(normalized_option):
+            redacted.append(f"{safe_terminal_text(option)}=[REDACTED]")
+        else:
+            redacted.append(safe_terminal_text(argument))
+            if argument.startswith("-") and not separator and _sensitive_key(normalized_option):
+                redact_next = True
+    return redacted
 
 
 def _redact_value(item: Any) -> Any:
