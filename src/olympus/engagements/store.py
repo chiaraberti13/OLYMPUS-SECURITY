@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from olympus.core.contracts import validate_contract_header
+from olympus.core.migrations import initialize_sqlite_schema
 from olympus.core.models import Engagement
 from olympus.engagements.manifest import EngagementManifest, SignedEngagementManifest
 from olympus.integrations.activity import RiskClass
@@ -24,6 +25,7 @@ MAX_DOCUMENT_BYTES = 1_000_000
 #: The canonical engagement database filename inside a storage directory, shared
 #: by every interface (CLI, API, Web) so they all read the same engagements.
 ENGAGEMENTS_DB_NAME = "engagements.db"
+SCHEMA_VERSION = 1
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS engagements (
@@ -66,8 +68,7 @@ class SqliteEngagementStore:
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode = WAL")
         self._conn.execute("PRAGMA busy_timeout = 5000")
-        self._conn.executescript(_SCHEMA)
-        self._conn.commit()
+        initialize_sqlite_schema(self._conn, _SCHEMA, current_version=SCHEMA_VERSION)
 
     def close(self) -> None:
         """Close the underlying connection."""

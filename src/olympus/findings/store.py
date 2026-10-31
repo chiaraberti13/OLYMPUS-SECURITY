@@ -18,6 +18,7 @@ from pydantic import SecretStr
 
 from olympus.core.contracts import validate_contract_header
 from olympus.core.crypto import ENCRYPTION_SCHEME, CryptoError, decrypt_to_text, encrypt_text
+from olympus.core.migrations import initialize_sqlite_schema
 from olympus.core.models import FindingTransition
 from olympus.core.secrets import SecretProvider, resolve_secret
 
@@ -34,6 +35,7 @@ from olympus.findings.encryption import (
 #: Guard against an oversized stored document exhausting memory on load.
 MAX_DOCUMENT_BYTES = 1_000_000
 MAX_STORED_DOCUMENT_BYTES = 2_000_000
+SCHEMA_VERSION = 1
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS finding_transitions (
@@ -68,8 +70,7 @@ class SqliteFindingTransitionStore:
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode = WAL")
         self._conn.execute("PRAGMA busy_timeout = 5000")
-        self._conn.executescript(_SCHEMA)
-        self._conn.commit()
+        initialize_sqlite_schema(self._conn, _SCHEMA, current_version=SCHEMA_VERSION)
 
     def close(self) -> None:
         """Close the underlying connection."""

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sqlite3
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, cast
@@ -14,6 +15,44 @@ MigrationFunction = Callable[[dict[str, Any]], dict[str, Any]]
 
 class ContractMigrationError(ValueError):
     """Raised when no safe, declared path reaches the current contract."""
+
+
+class SqliteSchemaVersionError(RuntimeError):
+    """Raised when a SQLite store is newer than this application supports."""
+
+
+def initialize_sqlite_schema(
+    connection: sqlite3.Connection, schema_sql: str, *, current_version: int
+) -> int:
+    """Apply an unversioned legacy schema atomically and reject future versions.
+
+    Existing version-zero databases are the legacy format. SQLite DDL and the
+    ``user_version`` marker commit together, so an interrupted migration can be
+    retried without claiming a partial schema is current.
+    """
+    if current_version < 1:
+        raise ValueError("SQLite schema version must be positive")
+    connection.execute("BEGIN IMMEDIATE")
+    try:
+        version = int(connection.execute("PRAGMA user_version").fetchone()[0])
+        if version > current_version:
+            raise SqliteSchemaVersionError(
+                f"database schema {version} is newer than supported {current_version}"
+            )
+        if version == current_version:
+            connection.commit()
+            return version
+        if version != 0:
+            raise SqliteSchemaVersionError(f"unsupported database schema {version}")
+        for statement in schema_sql.split(";"):
+            if statement.strip():
+                connection.execute(statement)
+        connection.execute(f"PRAGMA user_version = {current_version}")
+        connection.commit()
+        return current_version
+    except Exception:
+        connection.rollback()
+        raise
 
 
 @dataclass(frozen=True)

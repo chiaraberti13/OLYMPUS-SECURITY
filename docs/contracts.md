@@ -3,6 +3,11 @@
 This document is the wire/storage compatibility policy for every Olympus
 producer, CLI, worker, database adapter, API, and report consumer.
 
+The physical SQLite schema version (`PRAGMA user_version`) is separate from
+document contract versions. Athena, engagements and finding-transition stores
+upgrade unversioned legacy databases transactionally to physical schema 1 and
+reject newer versions. Themis job storage maintains its own physical version.
+
 ## Canonical contracts
 
 | Contract | Schema name | Version | Primary producers / consumers |

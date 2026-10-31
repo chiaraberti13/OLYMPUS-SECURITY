@@ -55,7 +55,7 @@ I dettagli sotto sono normativi per ciascuna riga, non task generici senza owner
 | `DEV-E-01` | Transizioni Athena concorrenti e audit atomico | P1 | Data/Architect | L | M2 | [x] |
 | `SEC-E-02` | Verifica digest risultati in lettura | P1 | Data/AppSec | S | M1 | [x] |
 | `DEV-B-01` | Plugin concreti e realmente integrati | P1 | Scanner/Architect | L | M3 | [x] |
-| `DEV-D-01` | Versionamento fisico degli store | P1 | Data | L | M3 | [ ] |
+| `DEV-D-01` | Versionamento fisico degli store | P1 | Data | L | M3 | [x] |
 | `WEB-J-01` | Backup e restore coordinato | P1 | Data/SRE/Privacy | L | M3 | [ ] |
 | `WEB-J-02` | Retention e privacy di sistema | P2 | Privacy/Data | L | M3 | [ ] |
 | `DEV-C-01` | Ripristino enforcement qualità e release | P1 | QA/SRE | L | M1 | [~] |
@@ -254,6 +254,13 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
 - Accettazione misurabile: Fixture vecchie migrate senza perdita; future rifiutate; rollback documentato.
 - Test: upgrade/interruption/restore.
 - DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+- Stato (verifica locale 2026-10-31, `[x]`): Athena, engagements e findings
+  migrano gli store legacy `user_version=0` allo schema 1 tramite DDL e marker
+  nella stessa transazione `BEGIN IMMEDIATE`. Versioni future sono rifiutate;
+  failure injection conferma rollback di schema e marker. Fixture legacy con
+  righe sintetiche conserva i dati. `ThemisJobStore` aveva già un proprio
+  versionamento e non è stato modificato. Il backup/restore coordinato resta
+  separato in `WEB-J-01`.
 
 ### WEB-J-01 — Backup e restore coordinato
 

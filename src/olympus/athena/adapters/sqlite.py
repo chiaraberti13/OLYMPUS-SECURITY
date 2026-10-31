@@ -29,9 +29,11 @@ from olympus.athena.domain.assessment import (
 )
 from olympus.athena.domain.audit import AuditEvent
 from olympus.athena.domain.contracts import AssessmentPlan, load_plan, load_result
+from olympus.core.migrations import initialize_sqlite_schema
 
 #: Maximum bytes accepted for a single stored result document.
 MAX_RESULT_BYTES = 1_000_000
+SCHEMA_VERSION = 1
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS plans (
@@ -100,8 +102,7 @@ class SqliteAssessmentRepository:
         self._conn.execute("PRAGMA foreign_keys = ON")
         self._conn.execute("PRAGMA journal_mode = WAL")
         self._conn.execute("PRAGMA busy_timeout = 5000")
-        self._conn.executescript(_SCHEMA)
-        self._conn.commit()
+        initialize_sqlite_schema(self._conn, _SCHEMA, current_version=SCHEMA_VERSION)
 
     def close(self) -> None:
         """Close the underlying connection."""
