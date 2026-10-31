@@ -499,6 +499,16 @@ Validate configuration and print only redacted effective values.
 | --- | --- | --- | --- | --- |
 | `--file` | option | no | — | Validate this TOML file instead of automatic discovery. |
 
+### `olympus core backup-manifest`
+
+Create or verify a manifest binding per-store snapshots (WEB-J-01).
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--directory` | option | yes | — | Directory with store snapshots. |
+| `--component` | option | no | — | NAME=FILE snapshot to bind (repeatable); omit with --verify. |
+| `--verify` | option | no | `False` | Verify an existing manifest instead. |
+
 ### `olympus core export-schemas`
 
 Print the legacy bundle, or publish the versioned JSON Schema catalog.

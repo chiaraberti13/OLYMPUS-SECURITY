@@ -252,6 +252,40 @@ def export_schemas(
     )
 
 
+@core_app.command("backup-manifest")
+def backup_manifest(
+    directory: Path = typer.Option(..., "--directory", help="Directory with store snapshots."),
+    component: list[str] = typer.Option(
+        [], "--component", help="NAME=FILE snapshot to bind (repeatable); omit with --verify."
+    ),
+    verify: bool = typer.Option(False, "--verify", help="Verify an existing manifest instead."),
+) -> None:
+    """Create or verify a manifest binding per-store snapshots (WEB-J-01)."""
+    from olympus.core import backup_manifest as bm
+
+    try:
+        if verify:
+            entries = bm.verify_manifest(directory)
+            payload: dict[str, object] = {
+                "status": "verified",
+                "components": [c.name for c in entries],
+            }
+        else:
+            mapping: dict[str, str] = {}
+            for item in component:
+                name, sep, file = item.partition("=")
+                if not sep or name in mapping:
+                    raise bm.BackupManifestError(f"invalid or repeated --component: {item!r}")
+                mapping[name] = file
+            manifest = bm.build_manifest(directory, mapping)
+            bm.write_manifest(directory, manifest)
+            payload = {"status": "created", "manifest": manifest}
+    except (bm.BackupManifestError, OSError) as exc:
+        typer.echo(f"backup-manifest: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.FAILED) from exc
+    typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+
+
 @core_app.command("migrations")
 def list_migrations() -> None:
     """Print every explicit persisted-contract migration edge."""

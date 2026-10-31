@@ -319,8 +319,16 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
   identità plan e integrità/digest/contratto dei risultati. Test sintetici coprono
   WAL, round-trip CLI e store, schema futuro e destinazione esistente. Il digest
   del backup e quello del DB ricreato possono differire a parità di dati.
-  Non esiste coordinamento tra questi store: i fingerprint restano non autenticati
-  e nessun backup di piattaforma o RPO/RTO è dichiarato verificato.
+  Ulteriore slice: `olympus core backup-manifest` (`core/backup_manifest.py`)
+  lega gli snapshot già prodotti dai singoli store in un `backup-manifest.json`
+  deterministico (nome logico, file, dimensione, SHA-256), create-only; `--verify`
+  rigetta file modificati, mancanti, symlink, percorsi non semplici e file non
+  elencati. Il manifest è un insieme di fingerprint, non autenticato: per la
+  provenienza va firmato con `olympus core sign`. Non fornisce consistenza
+  point-in-time tra store né sostituisce i verificatori dei singoli store.
+  Restano aperti: identity, audit, scope, custody/vault ed evidenze, backup delle
+  chiavi, snapshot coordinato e RPO/RTO misurati; la voce resta `[~]`.
+  Nessun backup di piattaforma o RPO/RTO è dichiarato verificato.
 
 ### WEB-J-02 — Retention e privacy di sistema
 

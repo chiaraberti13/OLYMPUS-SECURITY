@@ -78,7 +78,7 @@ def test_command_screen_executes_real_cli_without_shell() -> None:
     async def scenario() -> None:
         root = get_command(app)
         core = next(tool for tool in TOOLS if tool.command == "core")
-        command = commands_for(root, core)[0]
+        command = next(c for c in commands_for(root, core) if c.path == ("core", "export-schemas"))
         interface = OlympusTui(root)
         async with interface.run_test(size=(140, 42)) as pilot:
             interface.push_screen(CommandScreen(command))

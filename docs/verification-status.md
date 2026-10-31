@@ -192,3 +192,12 @@ quality workflow was restored on 30 October; current branch protection and
 workflow run outcomes remain unverified. Final push/ref and workflow status are
 verified separately in the delivery message; an empty run list is not a passed
 pipeline.
+
+## WEB-J-01 — manifest di backup coordinato (2026-10-31)
+
+`olympus core backup-manifest` (create/`--verify`) vincola gli snapshot per-store in
+un manifest SHA-256 deterministico e create-only; cinque test sintetici in
+`tests/unit/test_backup_manifest.py` coprono round-trip, determinismo, file
+modificato/mancante/extra, percorsi e symlink non sicuri, manifest malformato e CLI.
+Non è autenticato (usare `core sign`), non garantisce consistenza point-in-time e non
+copre identity, audit, custody o evidenze; nessun RPO/RTO è dichiarato.
