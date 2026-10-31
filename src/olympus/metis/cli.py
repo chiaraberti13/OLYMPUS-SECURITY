@@ -531,11 +531,12 @@ def case_restore(
     database: Path = typer.Argument(..., help="Destination database (contents replaced)."),
     max_bytes: int = typer.Option(DEFAULT_MAX_ENCRYPTED_BACKUP_BYTES, "--max-bytes"),
 ) -> None:
-    """Restore a verified snapshot into a database, replacing its contents.
+    """Restore a verified snapshot into an offline destination database.
 
     An encrypted backup (an ``export``/``backup --encrypt`` envelope) is detected
     automatically and decrypted with ``OLYMPUS_METIS_KEY`` before verification; a
-    wrong key or any tampering fails loudly.
+    wrong key or any tampering fails loudly. The verified snapshot is written and
+    checked in the destination directory before atomic replacement.
     """
     try:
         if _is_encryption_envelope(backup):

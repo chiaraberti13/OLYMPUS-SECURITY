@@ -9,7 +9,8 @@ counts, source digests and limitations. [Ecosystem audit](ecosystem-audit.md) an
 ## Follow-up snapshot — 2026-10-31
 
 Since the baseline below, commits on `main` added and verified the following
-offline changes: Metis backup integrity/foreign-key checks (`WEB-J-01`, partial),
+offline changes: Metis backup integrity/foreign-key checks and atomic snapshot/
+restore publication (`WEB-J-01`, partial),
 purple telemetry schema/rejection accounting (`OPS-PURPLE-01`), corrected CI
 claims (`DEV-G-01`, partial), exact dashboard aggregates for 205 jobs
 (`WEB-G-01`), and explicit unavailable-state warnings for findings/incident

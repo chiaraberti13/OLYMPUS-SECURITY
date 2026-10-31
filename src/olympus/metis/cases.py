@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import ipaddress
+import os
 import re
 import sqlite3
 import stat
+import tempfile
 from collections.abc import Iterable
 from contextlib import suppress
 from datetime import UTC, datetime
@@ -288,12 +290,25 @@ class CaseStore:
         destination.parent.mkdir(parents=True, exist_ok=True)
         with suppress(OSError):
             destination.parent.chmod(0o700)
-        target = sqlite3.connect(destination)
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix=f".{destination.name}.", suffix=".tmp", dir=destination.parent
+        )
+        os.close(descriptor)
+        temporary = Path(temporary_name)
         try:
-            with target:
-                self._conn.backup(target)
-        finally:
-            target.close()
+            target = sqlite3.connect(temporary)
+            try:
+                with target:
+                    self._conn.backup(target)
+            finally:
+                target.close()
+            with suppress(OSError):
+                temporary.chmod(0o600)
+            verify_backup(temporary)
+            temporary.replace(destination)
+        except BaseException:
+            temporary.unlink(missing_ok=True)
+            raise
         with suppress(OSError):
             destination.chmod(0o600)
         return destination
@@ -482,18 +497,13 @@ class BackupError(ValueError):
     """Raised when a backup is not a usable Metis case database."""
 
 
-def verify_backup(path: Path) -> dict[str, int]:
-    """Open a backup read-only and confirm it is a real Metis store.
-
-    Returns row counts for the core tables. Raises :class:`BackupError` if the
-    file is not a regular file, is not SQLite, or lacks the Metis schema — so a
-    restore never overwrites a live database from a bogus source.
-    """
+def _open_verified_backup(path: Path) -> tuple[sqlite3.Connection, dict[str, int]]:
+    """Open and validate one backup connection for verify or restore."""
     if path.is_symlink() or not path.is_file():
         raise BackupError(f"backup must be a regular non-symlink file: {path}")
     if not stat.S_ISREG(path.stat().st_mode):
         raise BackupError(f"backup must be a regular file: {path}")
-    uri = f"file:{path}?mode=ro"
+    uri = path.resolve().as_uri() + "?mode=ro"
     try:
         connection = sqlite3.connect(uri, uri=True)
     except sqlite3.Error as exc:
@@ -517,34 +527,60 @@ def verify_backup(path: Path) -> dict[str, int]:
             for table in ("cases", "indicators", "findings")
         }
     except sqlite3.Error as exc:
-        raise BackupError(f"backup is missing the Metis schema: {exc}") from exc
-    finally:
         connection.close()
+        raise BackupError(f"backup is missing the Metis schema: {exc}") from exc
+    except BaseException:
+        connection.close()
+        raise
+    return connection, counts
+
+
+def verify_backup(path: Path) -> dict[str, int]:
+    """Open a backup read-only and confirm schema, integrity and foreign keys."""
+    connection, counts = _open_verified_backup(path)
+    connection.close()
     return counts
 
 
 def restore_backup(backup: Path, destination: Path) -> dict[str, int]:
     """Restore a verified backup into ``destination``, replacing its contents.
 
-    The backup is validated with :func:`verify_backup` first, then copied in
-    through the SQLite backup API (a clean, consistent write) rather than a raw
-    file move, so a half-written destination can never result. Refuses to write
-    through a symlink. Returns the restored row counts.
+    The validated read-only source connection is copied through SQLite's backup
+    API into a private same-directory temporary database. The temporary database
+    is verified before an atomic replace, so an interrupted restore cannot leave
+    a partial destination. Refuses to write through a symlink. Returns row counts.
     """
-    counts = verify_backup(backup)
-    if destination.is_symlink():
-        raise OSError(f"restore destination must not be a symlink: {destination}")
-    destination = destination.resolve()
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    with suppress(OSError):
-        destination.parent.chmod(0o700)
-    source = sqlite3.connect(f"file:{backup.resolve()}?mode=ro", uri=True)
-    target = sqlite3.connect(destination)
+    source, counts = _open_verified_backup(backup)
+    temporary: Path | None = None
     try:
-        with target:
-            source.backup(target)
+        if destination.is_symlink():
+            raise OSError(f"restore destination must not be a symlink: {destination}")
+        destination = destination.resolve()
+        if destination == backup.resolve():
+            raise ValueError("restore destination must differ from the backup")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        with suppress(OSError):
+            destination.parent.chmod(0o700)
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix=f".{destination.name}.", suffix=".restore", dir=destination.parent
+        )
+        os.close(descriptor)
+        temporary = Path(temporary_name)
+        target = sqlite3.connect(temporary)
+        try:
+            with target:
+                source.backup(target)
+        finally:
+            target.close()
+        with suppress(OSError):
+            temporary.chmod(0o600)
+        verify_backup(temporary)
+        temporary.replace(destination)
+    except BaseException:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+        raise
     finally:
-        target.close()
         source.close()
     with suppress(OSError):
         destination.chmod(0o600)

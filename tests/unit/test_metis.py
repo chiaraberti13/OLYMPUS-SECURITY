@@ -191,6 +191,67 @@ def test_backup_and_restore_round_trips_a_case(tmp_path: Path) -> None:
     assert len(document.indicators) == 1
 
 
+def test_restore_atomically_replaces_an_existing_database(tmp_path: Path) -> None:
+    from olympus.metis.cases import restore_backup
+
+    source = tmp_path / "source.db"
+    with CaseStore(source) as store:
+        case_id = store.create_case("Restored case")
+        snapshot = store.backup(tmp_path / "snapshot.db")
+    destination = tmp_path / "destination.db"
+    with CaseStore(destination) as store:
+        old_id = store.create_case("Old destination")
+
+    restore_backup(snapshot, destination)
+    with CaseStore(destination) as store:
+        assert store.load_case(case_id).title == "Restored case"
+        with pytest.raises(LookupError):
+            store.load_case(old_id)
+
+
+def test_backup_keeps_previous_destination_when_validation_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from olympus.metis.cases import BackupError
+
+    database = tmp_path / "cases.db"
+    with CaseStore(database):
+        pass
+    destination = tmp_path / "snapshot.db"
+    destination.write_text("previous snapshot", encoding="utf-8")
+
+    def reject_backup(_: Path) -> dict[str, int]:
+        raise BackupError("synthetic verification failure")
+
+    monkeypatch.setattr("olympus.metis.cases.verify_backup", reject_backup)
+    with CaseStore(database) as store, pytest.raises(BackupError, match="synthetic"):
+        store.backup(destination)
+    assert destination.read_text(encoding="utf-8") == "previous snapshot"
+    assert list(tmp_path.glob(".snapshot.db.*.tmp")) == []
+
+
+def test_restore_keeps_previous_destination_when_verification_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from olympus.metis.cases import BackupError, restore_backup
+
+    database = tmp_path / "cases.db"
+    with CaseStore(database) as store:
+        store.create_case("Synthetic restore case")
+        snapshot = store.backup(tmp_path / "snapshot.db")
+    destination = tmp_path / "destination.db"
+    destination.write_text("previous destination", encoding="utf-8")
+
+    def reject_restore(_: Path) -> dict[str, int]:
+        raise BackupError("synthetic verification failure")
+
+    monkeypatch.setattr("olympus.metis.cases.verify_backup", reject_restore)
+    with pytest.raises(BackupError, match="synthetic"):
+        restore_backup(snapshot, destination)
+    assert destination.read_text(encoding="utf-8") == "previous destination"
+    assert list(tmp_path.glob(".destination.db.*.restore")) == []
+
+
 def test_backup_refuses_to_overwrite_the_live_database(tmp_path: Path) -> None:
     database = tmp_path / "cases.db"
     with CaseStore(database) as store, pytest.raises(ValueError, match="must differ"):

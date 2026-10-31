@@ -279,18 +279,15 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
 - Accettazione misurabile: Ripristino engagement/job/finding/custody coerente; RPO/RTO misurati su dataset dichiarato.
 - Test: backup concorrente, corruzione, restore in directory pulita.
 - DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
-- Stato (2026-10-31, resta `[ ]`): **non** affrontato come "verifica rapida" — è un
-  feature build XL e dipende da `DEV-D-01` (versionamento fisico degli store).
-  Oggi esiste solo un backup parziale (Metis) e un `verify_backup` senza
-  integrity_check/FK. Il DoD richiede uno snapshot coerente su **tutti** gli store
-  (engagements, job Themis, findings, custody/vault, audit) con digest/versioni,
-  chiavi separate, controlli integrity/FK e un restore drill con RPO/RTO misurati:
-  va progettato e testato, non improvvisato (un disaster-recovery fittizio darebbe
-  falsa sicurezza). Prerequisito: completare `DEV-D-01`.
 - Stato (31 ottobre 2026, resta `[~]`): `verify_backup` di Metis ora esegue anche
   `PRAGMA integrity_check` e `foreign_key_check` prima di restituire i conteggi;
   una fixture crea una riga orfana sintetica e verifica il rifiuto. Questo chiude
-  solo il controllo del backup Metis. Snapshot coordinato di engagements, Themis,
+  solo il controllo del backup Metis. Il backup ora viene costruito in un file
+  temporaneo privato, verificato e pubblicato con replace atomico; il restore usa
+  una connessione sorgente verificata, verifica anche il database temporaneo e lo
+  sostituisce atomicamente solo a fine operazione. Test offline verificano
+  round-trip, sostituzione e conservazione della destinazione quando la verifica
+  fallisce. Snapshot coordinato di engagements, Themis,
   findings, custody/vault/audit, manifest versionato e restore drill con RPO/RTO
   restano da realizzare; nessun backup di piattaforma è dichiarato verificato.
 
