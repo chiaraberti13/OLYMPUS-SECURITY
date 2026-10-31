@@ -176,8 +176,10 @@ class ApiSettings:
                 raise ValueError("Themis trusted manifest public key must not be empty")
             if self.engagements_database is None:
                 raise ValueError("Themis signed manifests require an engagement database")
+        if self.scope_directory.is_symlink():
+            raise ValueError("Themis scope directory must be an existing non-symlink directory")
         root = self.scope_directory.resolve()
-        if not root.exists() or not root.is_dir() or root.is_symlink():
+        if not root.exists() or not root.is_dir():
             raise ValueError("Themis scope directory must be an existing non-symlink directory")
         for label, directory in (
             ("findings", self.findings_directory),
@@ -186,9 +188,13 @@ class ApiSettings:
         ):
             if directory is None:
                 continue
+            if directory.is_symlink():
+                raise ValueError(
+                    f"Themis {label} directory must be an existing non-symlink directory"
+                )
             resolved = directory.resolve()
             missing = not resolved.exists() or not resolved.is_dir()
-            if missing or resolved.is_symlink():
+            if missing:
                 raise ValueError(
                     f"Themis {label} directory must be an existing non-symlink directory"
                 )

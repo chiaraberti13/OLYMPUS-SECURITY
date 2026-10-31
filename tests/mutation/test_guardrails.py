@@ -457,6 +457,28 @@ def test_api_settings_default_shared_key_scope_is_minimum_and_validated(tmp_path
         ).validate()
 
 
+def test_api_settings_accepts_minimum_concurrency_and_rejects_scope_symlinks(
+    tmp_path: Path,
+) -> None:
+    scope_directory = tmp_path / "scope"
+    scope_directory.mkdir()
+    ApiSettings(
+        database=tmp_path / "jobs.sqlite3",
+        scope_directory=scope_directory,
+        api_key="a" * 32,
+        max_concurrent_requests=1,
+    ).validate()
+
+    link = tmp_path / "scope-link"
+    link.symlink_to(scope_directory, target_is_directory=True)
+    with pytest.raises(ValueError, match="non-symlink directory"):
+        ApiSettings(
+            database=tmp_path / "jobs.sqlite3",
+            scope_directory=link,
+            api_key="a" * 32,
+        ).validate()
+
+
 def test_api_settings_manifest_trust_anchor_is_nonempty_and_has_revocation_store(
     tmp_path: Path,
 ) -> None:

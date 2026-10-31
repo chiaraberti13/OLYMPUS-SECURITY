@@ -48,7 +48,7 @@ I dettagli sotto sono normativi per ciascuna riga, non task generici senza owner
 |---|---|---|---|---|---|---|
 | `SEC-E-01` | Audit Athena durevole dopo restart | P0 | Data/Backend/AppSec | M | M1 | [x] |
 | `SEC-B-01` | Egress scanner e DNS vincolati allo scope | P0 | Security/Scanner/SRE | XL | M2 | [⏸] |
-| `SEC-H-01` | Rifiuto directory symlink API | P1 | AppSec/Backend | S | M1 | [ ] |
+| `SEC-H-01` | Rifiuto directory symlink API | P1 | AppSec/Backend | S | M1 | [x] |
 | `SEC-H-02` | Letture FIFO non bloccanti | P1 | AppSec/Backend | S | M1 | [ ] |
 | `SEC-D-01` | Redazione argomenti nel log TUI | P1 | AppSec/UX | S | M1 | [ ] |
 | `SEC-G-01` | Cancellazione TUI completa | P1 | Backend/QA | M | M2 | [ ] |
@@ -124,6 +124,15 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
 - Accettazione misurabile: Quattro directory rifiutano link validi/rotti; directory normali accettate.
 - Test: test startup API parametrizzati.
 - DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+- Stato (verifica locale 2026-10-31, `[x]`): il controllo esamina il percorso
+  originale prima di `resolve()` per la directory scope e per le directory
+  finding, baseline e incidenti. Otto casi parametrizzati provano il rifiuto
+  di link validi e dangling; directory normali restano accettate
+  dalla suite API. Link in componenti parent e sostituzioni concorrenti del
+  filesystem restano fuori dal controllo e richiedono directory configurate
+  fidate e non modificabili da utenti non attendibili. Il mutation gate
+  configurato passa (1.237/2.009 mutanti selezionati uccisi, soglia per funzione
+  rispettata).
 
 ### SEC-H-02 — Letture FIFO non bloccanti
 

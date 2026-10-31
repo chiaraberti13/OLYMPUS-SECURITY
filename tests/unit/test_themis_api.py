@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 from typer.testing import CliRunner
 
@@ -190,6 +191,56 @@ def test_api_concurrency_limit_is_bounded_and_rejects_booleans(tmp_path: Path) -
             assert "max_concurrent_requests" in str(exc)
         else:
             raise AssertionError(f"accepted invalid concurrency limit {invalid!r}")
+
+
+def test_api_accepts_minimum_concurrency_limit(tmp_path: Path) -> None:
+    scope_directory = tmp_path / "scopes"
+    scope_directory.mkdir()
+    settings = ApiSettings(
+        database=tmp_path / "jobs.sqlite3",
+        scope_directory=scope_directory,
+        api_key=API_KEY,
+        max_concurrent_requests=1,
+    )
+    settings.validate()
+
+
+@pytest.mark.parametrize(
+    "setting_name",
+    (
+        "scope_directory",
+        "findings_directory",
+        "baseline_findings_directory",
+        "incidents_directory",
+    ),
+)
+@pytest.mark.parametrize("broken", (False, True))
+def test_api_rejects_symlinked_directories(tmp_path: Path, setting_name: str, broken: bool) -> None:
+    scope_directory = tmp_path / "scopes"
+    scope_directory.mkdir()
+    target_directory = tmp_path / "target"
+    target_directory.mkdir()
+    linked_directory = tmp_path / "linked"
+    try:
+        linked_directory.symlink_to(
+            tmp_path / "missing" if broken else target_directory,
+            target_is_directory=True,
+        )
+    except (NotImplementedError, OSError) as exc:
+        pytest.skip(f"directory symlinks are unavailable: {exc}")
+
+    directory_settings = {setting_name: linked_directory}
+    if setting_name == "scope_directory":
+        scope_directory = linked_directory
+        directory_settings = {}
+    settings = ApiSettings(
+        database=tmp_path / "jobs.sqlite3",
+        scope_directory=scope_directory,
+        api_key=API_KEY,
+        **directory_settings,
+    )
+    with pytest.raises(ValueError, match="non-symlink directory"):
+        settings.validate()
 
 
 def test_shared_key_scopes_reject_empty_or_unknown_grants(tmp_path: Path) -> None:

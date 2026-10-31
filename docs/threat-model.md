@@ -121,6 +121,18 @@ source retirement is addressed. For non-loopback access,
 require TLS and prefer the named identity register. Repeat this review whenever
 the trust boundary or deployment model changes.
 
+## Configured API directories (SEC-H-01, 2026-10-31)
+
+At startup, Themis rejects a configured scope, findings, baseline-findings or
+incidents directory when the configured final path component is a symbolic
+link. The check runs on the original path before resolution; checking the
+resolved path would hide that the final component was a link. Regression tests
+cover both live and dangling links for all four settings.
+
+This is not a defense against a symbolic link in an ancestor component or a
+filesystem change between validation and later use. Keep API directory paths
+and their parents operator-controlled and unavailable for untrusted writes.
+
 ## What is NOT yet covered
 
 Honesty is a control here too. These are open, and tracked in
