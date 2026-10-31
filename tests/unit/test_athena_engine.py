@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from olympus.athena.adapters.audit import InMemoryAuditSink
+from olympus.athena.adapters.audit import InMemoryAuditSink, SqliteAuditSink
 from olympus.athena.adapters.sqlite import SqliteAssessmentRepository
 from olympus.athena.application.coordinator import Coordinator
 from olympus.athena.application.registry import UnknownAdapterError
@@ -134,6 +134,27 @@ def test_run_success(tmp_path: Path) -> None:
     stored = repo.load_assessment(outcome.assessment_id)
     assert stored is not None and stored.jobs[0].state is JobState.SUCCEEDED
     assert any(e.action == "assessment_finished" for e in audit.events)
+    repo.close()
+
+
+def test_sqlite_sink_commits_each_job_transition_with_its_audit_event(tmp_path: Path) -> None:
+    runner = _Runner("a", ToolResult(ok=True, findings=[_finding()]))
+    repo = SqliteAssessmentRepository(tmp_path / "athena-atomic.db")
+    coordinator = Coordinator(
+        repository=repo,
+        audit=SqliteAuditSink(repo),
+        clock=_Clock(),
+        ids=_Ids(),
+        resolver=lambda names: dict.fromkeys(names, runner),
+    )
+
+    outcome = coordinator.run(_plan())
+
+    events = repo.audit_events(outcome.assessment_id)
+    actions = [str(event["action"]) for event in events]
+    assert actions.index("job_started") < actions.index("job_succeeded")
+    assert actions[-1] == "assessment_finished"
+    assert [event["sequence"] for event in events] == list(range(len(events)))
     repo.close()
 
 

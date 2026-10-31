@@ -17,6 +17,8 @@ from olympus.athena.domain.audit import AuditEvent
 class InMemoryAuditSink:
     """Collect audit events in order, for tests and dry runs."""
 
+    atomic_with_repository = False
+
     def __init__(self) -> None:
         self.events: list[AuditEvent] = []
 
@@ -26,6 +28,8 @@ class InMemoryAuditSink:
 
 class SqliteAuditSink:
     """Persist events with store-assigned sequences, independent of producer restarts."""
+
+    atomic_with_repository = True
 
     def __init__(self, repository: SqliteAssessmentRepository) -> None:
         self._repo = repository

@@ -14,6 +14,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, wait
 from dataclasses import dataclass
+from typing import cast
 
 from olympus.athena.domain.assessment import (
     Assessment,
@@ -86,19 +87,84 @@ class Coordinator:
         job_id: str | None = None,
         metadata: dict[str, str] | None = None,
     ) -> None:
-        sequence = self._sequence.get(assessment_id, 0)
-        self._sequence[assessment_id] = sequence + 1
-        self._audit.append(
-            AuditEvent(
-                assessment_id=assessment_id,
-                sequence=sequence,
-                timestamp=self._clock.now_iso(),
-                action=action,
-                outcome=outcome,
-                job_id=job_id,
-                metadata=metadata or {},
-            )
+        event = self._new_event(assessment_id, action, outcome, job_id=job_id, metadata=metadata)
+        self._audit.append(event)
+        self._remember_event(event)
+
+    def _new_event(
+        self,
+        assessment_id: str,
+        action: str,
+        outcome: str,
+        *,
+        job_id: str | None = None,
+        metadata: dict[str, str] | None = None,
+    ) -> AuditEvent:
+        return AuditEvent(
+            assessment_id=assessment_id,
+            sequence=self._sequence.get(assessment_id, 0),
+            timestamp=self._clock.now_iso(),
+            action=action,
+            outcome=outcome,
+            job_id=job_id,
+            metadata=metadata or {},
         )
+
+    def _remember_event(self, event: AuditEvent) -> None:
+        self._sequence[event.assessment_id] = event.sequence + 1
+
+    def _transition_job(
+        self,
+        assessment_id: str,
+        job: Job,
+        target: JobState,
+        *,
+        action: str,
+        outcome: str,
+        error_code: str | None = None,
+        result_id: str | None = None,
+        metadata: dict[str, str] | None = None,
+    ) -> Job:
+        event = self._new_event(
+            assessment_id, action, outcome, job_id=job.job_id, metadata=metadata
+        )
+        atomic_transition = getattr(self._repo, "transition_job_with_audit", None)
+        if getattr(self._audit, "atomic_with_repository", False) and callable(atomic_transition):
+            updated = cast(
+                Job,
+                atomic_transition(
+                    assessment_id,
+                    job,
+                    target,
+                    event,
+                    error_code=error_code,
+                    result_id=result_id,
+                ),
+            )
+        else:
+            updated = self._repo.transition_job(
+                job, target, error_code=error_code, result_id=result_id
+            )
+            self._audit.append(event)
+        self._remember_event(event)
+        return updated
+
+    def _transition_assessment(
+        self,
+        assessment_id: str,
+        target: AssessmentState,
+        *,
+        action: str,
+        outcome: str,
+    ) -> None:
+        event = self._new_event(assessment_id, action, outcome)
+        atomic_transition = getattr(self._repo, "transition_assessment_with_audit", None)
+        if getattr(self._audit, "atomic_with_repository", False) and callable(atomic_transition):
+            atomic_transition(assessment_id, target, event)
+        else:
+            self._repo.transition_assessment(assessment_id, target)
+            self._audit.append(event)
+        self._remember_event(event)
 
     # -- planning ---------------------------------------------------------- #
     def _build_jobs(self, plan: AssessmentPlan) -> tuple[Job, ...]:
@@ -140,8 +206,12 @@ class Coordinator:
         started_at = self._clock.monotonic()
         correlation = Correlation(assessment_id=assessment_id)
         with self._observability.span("athena.assessment", correlation):
-            self._repo.transition_assessment(assessment_id, AssessmentState.RUNNING)
-            self._emit(assessment_id, "assessment_started", "running")
+            self._transition_assessment(
+                assessment_id,
+                AssessmentState.RUNNING,
+                action="assessment_started",
+                outcome="running",
+            )
 
             findings: list[Finding] = []
             terminal_jobs: list[Job] = []
@@ -182,8 +252,9 @@ class Coordinator:
                 pool.shutdown(wait=False, cancel_futures=True)
 
             state = derive_terminal_state(tuple(terminal_jobs))
-            self._repo.transition_assessment(assessment_id, state)
-            self._emit(assessment_id, "assessment_finished", state.value)
+            self._transition_assessment(
+                assessment_id, state, action="assessment_finished", outcome=state.value
+            )
             self._observability.assessment_finished(
                 "athena", state.value, self._clock.monotonic() - started_at
             )
@@ -192,12 +263,13 @@ class Coordinator:
     def _cancel_batch(self, assessment_id: str, batch: tuple[Job, ...], reason: str) -> list[Job]:
         cancelled: list[Job] = []
         for job in batch:
-            updated = self._repo.transition_job(job, JobState.CANCELLED, error_code=reason)
-            self._emit(
+            updated = self._transition_job(
                 assessment_id,
-                "job_cancelled",
-                reason,
-                job_id=job.job_id,
+                job,
+                JobState.CANCELLED,
+                action="job_cancelled",
+                outcome=reason,
+                error_code=reason,
                 metadata={"adapter": job.adapter, "reason": reason},
             )
             self._observability.job_finished("athena", job.adapter, "cancelled", 0.0)
@@ -216,7 +288,17 @@ class Coordinator:
         deadline: float,
         engagement_id: str | None,
     ) -> list[Job]:
-        running: list[Job] = [self._repo.transition_job(job, JobState.RUNNING) for job in batch]
+        running: list[Job] = [
+            self._transition_job(
+                assessment_id,
+                job,
+                JobState.RUNNING,
+                action="job_started",
+                outcome="running",
+                metadata={"adapter": job.adapter},
+            )
+            for job in batch
+        ]
         started_at = {job.job_id: self._clock.monotonic() for job in running}
         tokens = {job.job_id: CancellationToken() for job in running}
         futures = {
@@ -296,14 +378,13 @@ class Coordinator:
         engagement_id: str | None,
     ) -> Job:
         if not result.ok:
-            updated = self._repo.transition_job(
-                job, JobState.FAILED, error_code=result.error_code or "failed"
-            )
-            self._emit(
+            updated = self._transition_job(
                 assessment_id,
-                "job_failed",
-                result.error_code or "failed",
-                job_id=job.job_id,
+                job,
+                JobState.FAILED,
+                action="job_failed",
+                outcome=result.error_code or "failed",
+                error_code=result.error_code or "failed",
                 metadata={"adapter": job.adapter},
             )
             outcome = "cancelled" if result.error_code == "cancelled" else "failed"
@@ -337,36 +418,39 @@ class Coordinator:
         ):
             self._observability.artifact_created("athena", "evidence", "json")
         findings.extend(produced_findings)
-        updated = self._repo.transition_job(job, JobState.SUCCEEDED, result_id=result_id)
-        self._emit(
+        updated = self._transition_job(
             assessment_id,
-            "job_succeeded",
-            "succeeded",
-            job_id=job.job_id,
+            job,
+            JobState.SUCCEEDED,
+            action="job_succeeded",
+            outcome="succeeded",
+            result_id=result_id,
             metadata={"adapter": job.adapter, "count": str(len(produced_findings))},
         )
         self._observability.job_finished("athena", job.adapter, "succeeded", duration_seconds)
         return updated
 
     def _finish_timed_out(self, assessment_id: str, job: Job, duration_seconds: float) -> Job:
-        updated = self._repo.transition_job(job, JobState.TIMED_OUT, error_code="timeout")
-        self._emit(
+        updated = self._transition_job(
             assessment_id,
-            "job_timed_out",
-            "timeout",
-            job_id=job.job_id,
+            job,
+            JobState.TIMED_OUT,
+            action="job_timed_out",
+            outcome="timeout",
+            error_code="timeout",
             metadata={"adapter": job.adapter},
         )
         self._observability.job_finished("athena", job.adapter, "timed_out", duration_seconds)
         return updated
 
     def _finish_deadline(self, assessment_id: str, job: Job, duration_seconds: float) -> Job:
-        updated = self._repo.transition_job(job, JobState.CANCELLED, error_code="deadline")
-        self._emit(
+        updated = self._transition_job(
             assessment_id,
-            "job_cancelled",
-            "deadline",
-            job_id=job.job_id,
+            job,
+            JobState.CANCELLED,
+            action="job_cancelled",
+            outcome="deadline",
+            error_code="deadline",
             metadata={"adapter": job.adapter, "reason": "deadline"},
         )
         self._observability.job_finished("athena", job.adapter, "cancelled", duration_seconds)
@@ -387,17 +471,36 @@ class Coordinator:
             return assessment.state
         for job in assessment.jobs:
             if not job.is_terminal():
-                self._repo.transition_job(job, JobState.CANCELLED, error_code="operator_cancel")
-        self._repo.transition_assessment(assessment_id, AssessmentState.CANCELLED)
-        self._emit(assessment_id, "assessment_cancelled", "cancelled")
+                self._transition_job(
+                    assessment_id,
+                    job,
+                    JobState.CANCELLED,
+                    action="job_cancelled",
+                    outcome="operator_cancel",
+                    error_code="operator_cancel",
+                    metadata={"adapter": job.adapter, "reason": "operator_cancel"},
+                )
+        self._transition_assessment(
+            assessment_id,
+            AssessmentState.CANCELLED,
+            action="assessment_cancelled",
+            outcome="cancelled",
+        )
         return AssessmentState.CANCELLED
 
     def recover(self) -> list[str]:
         """Fail interrupted running jobs and settle their assessments after a crash."""
         affected: dict[str, Assessment] = {}
         for assessment_id, job in self._repo.running_jobs():
-            self._repo.transition_job(job, JobState.FAILED, error_code="interrupted")
-            self._emit(assessment_id, "job_recovered", "interrupted", job_id=job.job_id)
+            self._transition_job(
+                assessment_id,
+                job,
+                JobState.FAILED,
+                action="job_recovered",
+                outcome="interrupted",
+                error_code="interrupted",
+                metadata={"adapter": job.adapter},
+            )
             loaded = self._repo.load_assessment(assessment_id)
             if loaded is not None:
                 affected[assessment_id] = loaded
@@ -407,7 +510,8 @@ class Coordinator:
             if reloaded is None or reloaded.state is not AssessmentState.RUNNING:
                 continue
             state = derive_terminal_state(reloaded.jobs)
-            self._repo.transition_assessment(assessment_id, state)
-            self._emit(assessment_id, "assessment_recovered", state.value)
+            self._transition_assessment(
+                assessment_id, state, action="assessment_recovered", outcome=state.value
+            )
             settled.append(assessment_id)
         return settled

@@ -52,7 +52,7 @@ I dettagli sotto sono normativi per ciascuna riga, non task generici senza owner
 | `SEC-H-02` | Letture FIFO non bloccanti | P1 | AppSec/Backend | S | M1 | [x] |
 | `SEC-D-01` | Redazione argomenti nel log TUI | P1 | AppSec/UX | S | M1 | [x] |
 | `SEC-G-01` | Cancellazione TUI completa | P1 | Backend/QA | M | M2 | [~] |
-| `DEV-E-01` | Transizioni Athena concorrenti e audit atomico | P1 | Data/Architect | L | M2 | [~] |
+| `DEV-E-01` | Transizioni Athena concorrenti e audit atomico | P1 | Data/Architect | L | M2 | [x] |
 | `SEC-E-02` | Verifica digest risultati in lettura | P1 | Data/AppSec | S | M1 | [x] |
 | `DEV-B-01` | Plugin concreti e realmente integrati | P1 | Scanner/Architect | L | M3 | [ ] |
 | `DEV-D-01` | Versionamento fisico degli store | P1 | Data | L | M3 | [ ] |
@@ -197,12 +197,14 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
 - Accettazione misurabile: Due writer non applicano transizioni incompatibili; fault injection non perde audit di stato.
 - Test: concorrenza e crash injection.
 - DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
-- Stato (2026-10-31, resta `[~]`): `transition_job` e
-  `transition_assessment` aggiornano lo stato con confronto sullo stato letto e
-  rifiutano `rowcount != 1`; due connessioni concorrenti sulla stessa job
-  producono un solo commit e un conflitto esplicito, testato offline. La coppia
-  stato+evento audit nella stessa transazione e la fault injection di crash non
-  sono ancora implementate: la DoD resta aperta.
+- Stato (verifica locale 2026-10-31, `[x]`): transizioni job/assessment
+  confrontano lo stato persistito (CAS) e rifiutano writer stantii; il sink
+  SQLite scrive stato ed evento audit nella stessa transazione `BEGIN IMMEDIATE`.
+  Il coordinator usa questo percorso per start, terminalità, cancel e recovery;
+  sink non durevoli mantengono il fallback port-based. Test offline provano due
+  writer sulla stessa job, rollback dello stato quando un trigger rifiuta l'audit
+  e il flusso coordinator→store con sequenze persistenti. Nessuna race live o
+  perdita pregressa viene inferita.
 
 ### SEC-E-02 — Verifica digest risultati in lettura
 

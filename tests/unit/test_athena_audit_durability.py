@@ -11,6 +11,7 @@ import pytest
 
 from olympus.athena.adapters.audit import SqliteAuditSink
 from olympus.athena.adapters.sqlite import SqliteAssessmentRepository
+from olympus.athena.domain.assessment import Job, JobState
 from olympus.athena.domain.audit import AuditEvent
 
 
@@ -59,5 +60,33 @@ def test_independent_writers_allocate_durable_sequences(tmp_path: Path) -> None:
         assert sum(e["action"] == "two" for e in events) == 20
         SqliteAuditSink(repo).append(AuditEvent("B", 99, "t", "new", "ok"))
         assert repo.audit_events("B")[0]["sequence"] == 0
+    finally:
+        repo.close()
+
+
+def test_job_transition_and_audit_rollback_together_on_audit_failure(tmp_path: Path) -> None:
+    repo = SqliteAssessmentRepository(tmp_path / "atomic.db")
+    repo._conn.executescript(
+        "INSERT INTO plans VALUES ('P', '{}');"
+        "INSERT INTO assessments VALUES ('A', 'P', 'running');"
+        "INSERT INTO jobs VALUES ('J', 'A', 0, 'dns', 'domain', 'example.test', "
+        "'queued', NULL, NULL);"
+        "CREATE TRIGGER reject_audit BEFORE INSERT ON audit "
+        "BEGIN SELECT RAISE(ABORT, 'injected audit failure'); END;"
+    )
+    job = Job(job_id="J", adapter="dns", target_kind="domain", target_value="example.test")
+    event = AuditEvent("A", 0, "t", "job_started", "running", "J", {"adapter": "dns"})
+    try:
+        with pytest.raises(sqlite3.IntegrityError, match="injected audit failure"):
+            repo.transition_job_with_audit("A", job, JobState.RUNNING, event)
+        row = repo._conn.execute("SELECT state FROM jobs WHERE job_id = 'J'").fetchone()
+        assert row["state"] == "queued"
+        assert repo.audit_events("A") == []
+
+        repo._conn.execute("DROP TRIGGER reject_audit")
+        repo.transition_job_with_audit("A", job, JobState.RUNNING, event)
+        row = repo._conn.execute("SELECT state FROM jobs WHERE job_id = 'J'").fetchone()
+        assert row["state"] == "running"
+        assert repo.audit_events("A")[0]["action"] == "job_started"
     finally:
         repo.close()

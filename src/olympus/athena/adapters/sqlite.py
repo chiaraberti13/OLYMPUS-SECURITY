@@ -27,6 +27,7 @@ from olympus.athena.domain.assessment import (
     advance_assessment,
     advance_job,
 )
+from olympus.athena.domain.audit import AuditEvent
 from olympus.athena.domain.contracts import AssessmentPlan, load_plan, load_result
 
 #: Maximum bytes accepted for a single stored result document.
@@ -198,6 +199,32 @@ class SqliteAssessmentRepository:
                     f"assessment {assessment_id} state changed during transition"
                 )
 
+    def transition_assessment_with_audit(
+        self, assessment_id: str, target: AssessmentState, event: AuditEvent
+    ) -> None:
+        """Persist an assessment state change and its audit event atomically."""
+        if event.assessment_id != assessment_id or event.job_id is not None:
+            raise ValueError("assessment audit event identity does not match transition")
+        with self._conn:
+            self._conn.execute("BEGIN IMMEDIATE")
+            row = self._conn.execute(
+                "SELECT state FROM assessments WHERE assessment_id = ?", (assessment_id,)
+            ).fetchone()
+            if row is None:
+                raise LookupError(f"assessment not found: {assessment_id}")
+            current_state = AssessmentState(row["state"])
+            current = Assessment(assessment_id=assessment_id, plan_id="", state=current_state)
+            advance_assessment(current, target)
+            cursor = self._conn.execute(
+                "UPDATE assessments SET state = ? WHERE assessment_id = ? AND state = ?",
+                (target.value, assessment_id, current_state.value),
+            )
+            if cursor.rowcount != 1:
+                raise TransitionConflictError(
+                    f"assessment {assessment_id} state changed during transition"
+                )
+            self._append_audit_event(event)
+
     def transition_job(
         self,
         job: Job,
@@ -221,6 +248,45 @@ class SqliteAssessmentRepository:
             )
             if cursor.rowcount != 1:
                 raise TransitionConflictError(f"job {job.job_id} state changed during transition")
+        return updated
+
+    def transition_job_with_audit(
+        self,
+        assessment_id: str,
+        job: Job,
+        target: JobState,
+        event: AuditEvent,
+        *,
+        error_code: str | None = None,
+        result_id: str | None = None,
+    ) -> Job:
+        """Persist a job state change and its audit event atomically."""
+        if event.assessment_id != assessment_id or event.job_id != job.job_id:
+            raise ValueError("job audit event identity does not match transition")
+        updated = advance_job(job, target, error_code=error_code, result_id=result_id)
+        with self._conn:
+            self._conn.execute("BEGIN IMMEDIATE")
+            row = self._conn.execute(
+                "SELECT assessment_id, state FROM jobs WHERE job_id = ?", (job.job_id,)
+            ).fetchone()
+            if row is None:
+                raise LookupError(f"job not found: {job.job_id}")
+            if row["assessment_id"] != assessment_id:
+                raise ValueError("job assessment identity does not match transition")
+            cursor = self._conn.execute(
+                "UPDATE jobs SET state = ?, error_code = ?, result_id = ? "
+                "WHERE job_id = ? AND state = ?",
+                (
+                    updated.state.value,
+                    updated.error_code,
+                    updated.result_id,
+                    updated.job_id,
+                    job.state.value,
+                ),
+            )
+            if cursor.rowcount != 1:
+                raise TransitionConflictError(f"job {job.job_id} state changed during transition")
+            self._append_audit_event(event)
         return updated
 
     # -- results ----------------------------------------------------------- #
@@ -333,6 +399,27 @@ class SqliteAssessmentRepository:
                 "outcome, job_id, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (assessment_id, sequence, timestamp, action, outcome, job_id, metadata),
             )
+
+    def _append_audit_event(self, event: AuditEvent) -> None:
+        """Append one event inside the caller's transaction with a durable sequence."""
+        row = self._conn.execute(
+            "SELECT COALESCE(MAX(sequence), -1) + 1 FROM audit WHERE assessment_id = ?",
+            (event.assessment_id,),
+        ).fetchone()
+        sequence = int(row[0])
+        self._conn.execute(
+            "INSERT INTO audit(assessment_id, sequence, timestamp, action, outcome, job_id, "
+            "metadata) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                event.assessment_id,
+                sequence,
+                event.timestamp,
+                event.action,
+                event.outcome,
+                event.job_id,
+                json.dumps(event.metadata, sort_keys=True),
+            ),
+        )
 
     def audit_events(self, assessment_id: str) -> list[dict[str, object]]:
         """Return the ordered audit rows for an assessment."""
