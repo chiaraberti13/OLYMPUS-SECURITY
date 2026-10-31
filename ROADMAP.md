@@ -51,7 +51,7 @@ I dettagli sotto sono normativi per ciascuna riga, non task generici senza owner
 | `SEC-H-01` | Rifiuto directory symlink API | P1 | AppSec/Backend | S | M1 | [x] |
 | `SEC-H-02` | Letture FIFO non bloccanti | P1 | AppSec/Backend | S | M1 | [x] |
 | `SEC-D-01` | Redazione argomenti nel log TUI | P1 | AppSec/UX | S | M1 | [x] |
-| `SEC-G-01` | Cancellazione TUI completa | P1 | Backend/QA | M | M2 | [~] |
+| `SEC-G-01` | Cancellazione TUI completa | P1 | Backend/QA | M | M2 | [x] |
 | `DEV-E-01` | Transizioni Athena concorrenti e audit atomico | P1 | Data/Architect | L | M2 | [x] |
 | `SEC-E-02` | Verifica digest risultati in lettura | P1 | Data/AppSec | S | M1 | [x] |
 | `DEV-B-01` | Plugin concreti e realmente integrati | P1 | Scanner/Architect | L | M3 | [x] |
