@@ -1810,3 +1810,60 @@ def test_dashboard_keeps_configured_empty_findings_and_incidents_visible(
     assert "Incidents by status" in page.text
     assert "Findings unavailable" not in page.text
     assert "Incidents unavailable" not in page.text
+
+
+def test_incidents_catalog_requires_read_scope(tmp_path: Path) -> None:
+    client = _client(
+        tmp_path,
+        api_key_scopes=("jobs:read",),
+        incidents_directory=_incidents_dir(tmp_path),
+    )
+    _login(client)
+
+    assert client.get("/incidents").status_code == 403
+
+
+def test_incidents_catalog_distinguishes_not_configured_and_empty(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    not_configured = client.get("/incidents")
+    assert not_configured.status_code == 200
+    assert "No incident store is configured" in not_configured.text
+
+    directory = tmp_path / "empty-incidents"
+    directory.mkdir()
+    configured = _client(tmp_path / "configured", incidents_directory=directory)
+    _login(configured)
+    empty = configured.get("/incidents")
+    assert empty.status_code == 200
+    assert "No incidents are present" in empty.text
+    assert "store is unavailable" not in empty.text
+
+
+def test_incidents_catalog_distinguishes_unreadable_store(tmp_path: Path) -> None:
+    directory = tmp_path / "incidents"
+    directory.mkdir()
+    (directory / "broken.json").write_text("{", encoding="utf-8")
+    client = _client(tmp_path, incidents_directory=directory)
+    _login(client)
+
+    page = client.get("/incidents")
+
+    assert page.status_code == 200
+    assert "store is unavailable or unreadable" in page.text
+    assert "No incidents are present" not in page.text
+
+
+def test_incidents_catalog_renders_valid_minerva_documents(tmp_path: Path) -> None:
+    directory = _incidents_dir(tmp_path, ("open", "triaged"))
+    client = _client(tmp_path, incidents_directory=directory)
+    _login(client)
+
+    page = client.get("/incidents")
+
+    assert page.status_code == 200
+    assert "Incidents" in page.text
+    assert "INC-2026-00001" in page.text
+    assert "Synthetic incident 1" in page.text
+    assert ">open<" in page.text
+    assert ">triaged<" in page.text

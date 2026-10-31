@@ -428,8 +428,10 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
   mostrano un avviso quando non possono verificare gli engagement. TestClient
   copre store configurato vuoto e DB SQLite corrotto. Dashboard, al 31 ottobre,
   segnala findings e incident store illeggibili senza mostrare conteggi falsi;
-  fixture corrotta per entrambi. Restano catalogo incident e revisione browser
-  dei widget non disponibili prima di completare la voce.
+  fixture corrotta per entrambi. Il catalogo read-only `/incidents`, gated da
+  `incidents:read`, ora distingue non configurato/vuoto/illeggibile e usa i
+  documenti Minerva canonici. Resta la revisione browser dei widget non
+  disponibili prima di completare la voce.
 
 ### WEB-G-01 — Conteggi dashboard corretti
 

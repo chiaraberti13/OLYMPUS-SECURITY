@@ -593,6 +593,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
     reads_engagements = requires("engagements:read")
     reads_capabilities = requires("capabilities:read")
     reads_findings = requires("findings:read")
+    reads_incidents = requires("incidents:read")
     writes_findings = requires("findings:write")
     engagements_database = settings.engagements_database
     findings_directory = settings.findings_directory
@@ -635,8 +636,8 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
 
         Each file is a read-only ``olympus.incident`` document produced by
         ``olympus minerva triage`` (:func:`load_incidents`). A missing, broken or
-        malformed directory returns ``None`` so the dashboard honestly omits the
-        incident widget rather than inventing a count.
+        malformed directory returns ``None`` so the dashboard and catalogue can
+        display an explicit unavailable state rather than inventing a count.
         """
         assert incidents_directory is not None  # noqa: S101 - callers guard on configuration
         root = incidents_directory.resolve()
@@ -966,6 +967,27 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 "incidents_unavailable": incidents_unavailable,
                 "csrf_token": _csrf_token(session.nonce),
             },
+        )
+
+    @app.get("/incidents", response_class=HTMLResponse, include_in_schema=False)
+    def incidents_page(request: Request, session: WebSession = reads_incidents) -> Response:
+        """Render read-only Minerva incident artifacts with explicit store state."""
+        if incidents_directory is None:
+            return _page(request, "incidents.html", {"configured": False})
+        incidents = _load_incidents_catalogue()
+        if incidents is None:
+            return _page(
+                request,
+                "incidents.html",
+                {"configured": True, "unavailable": True, "incidents": []},
+            )
+        ordered = sorted(
+            incidents, key=lambda item: (item.updated_at, item.incident_id), reverse=True
+        )
+        return _page(
+            request,
+            "incidents.html",
+            {"configured": True, "unavailable": False, "incidents": ordered},
         )
 
     @app.get("/jobs", response_class=HTMLResponse, include_in_schema=False)

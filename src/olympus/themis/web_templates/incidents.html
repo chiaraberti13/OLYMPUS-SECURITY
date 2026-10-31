@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Incidents · Olympus Themis{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Incidents</h1>
+  <p class="muted">Read-only incident records produced by Minerva. Status and evidence remain in the canonical incident documents.</p>
+  {% if not configured %}
+  <p class="alert" role="alert">No incident store is configured on this server. Configure <code>--incidents-directory</code> to read Minerva incident records.</p>
+  {% elif unavailable %}
+  <p class="alert" role="alert">The configured incident store is unavailable or unreadable. No incident data is shown; check the directory and its backup.</p>
+  {% elif incidents %}
+  <table>
+    <thead><tr><th>Incident</th><th>Title</th><th>Severity</th><th>Status</th><th>Source</th><th>Updated</th></tr></thead>
+    <tbody>
+      {% for incident in incidents %}
+      <tr>
+        <td><code>{{ incident.incident_id }}</code></td>
+        <td>{{ incident.title }}</td>
+        <td><span class="severity severity-{{ incident.severity.value }}">{{ incident.severity.value }}</span></td>
+        <td><span class="state state-{{ incident.status.value }}">{{ incident.status.value }}</span></td>
+        <td>{{ incident.source.value }}</td>
+        <td>{{ incident.updated_at }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No incidents are present in the configured directory.</p>
+  {% endif %}
+</section>
+{% endblock %}

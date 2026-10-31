@@ -82,7 +82,7 @@
 <section class="card">
   <h2>Incidents by status</h2>
   <div class="tiles">
-    <div class="tile"><span class="tile-value">{{ incident_summary.total }}</span><span class="tile-label">incidents total</span></div>
+    <div class="tile"><span class="tile-value"><a class="button-link" href="/incidents">{{ incident_summary.total }}</a></span><span class="tile-label">incidents total</span></div>
     {% for item in incident_summary.statuses %}
     <div class="tile">
       <span class="tile-value">{{ item.count }}</span>
@@ -95,7 +95,7 @@
 {% if incidents_unavailable %}
 <section class="card" role="alert">
   <h2>Incidents unavailable</h2>
-  <p>The configured incident store could not be read. Dashboard totals are not available.</p>
+  <p>The configured incident store could not be read. Dashboard totals are not available. <a href="/incidents">Review incident store status</a>.</p>
 </section>
 {% endif %}
 <section class="card">

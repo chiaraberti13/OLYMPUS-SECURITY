@@ -103,6 +103,7 @@ as on the API.
 | --- | --- |
 | `GET /login`, `POST /login`, `POST /logout` | Session lifecycle. |
 | `GET /` | Dashboard: job totals, a state histogram, the ten most recent jobs, an assessment-progress widget (percent complete, in-flight / finished / clean-completion counts, from the authoritative terminal-state partition) shown whenever there are jobs, and — for a `findings:read` identity with `--findings-directory` — a findings-by-severity widget (with a by-source/scanner breakdown and a top-assets-by-exposure list, worst severity first) linking into the filtered findings view; a `capabilities:read` identity also sees a scanner-readiness widget (ready / installed / adapted / catalogued) drawn from the capability inventory, linking to the tools page; and — for an `incidents:read` identity with `--incidents-directory` — an incidents-by-status widget summarising the `core.Incident` documents produced by `olympus minerva triage`. |
+| `GET /incidents` | Read-only Minerva incident catalogue, gated by `incidents:read`; explicitly distinguishes an unconfigured directory, an empty directory and an unreadable/invalid store. |
 | `GET /jobs` | Every job, newest first. |
 | `GET /findings` | Findings, filtered and ranked by risk exactly as the CLI does (requires `findings:read`); available only with `--findings-directory`. |
 | `GET /findings/report` | Download a Vulcan report of the currently filtered findings as Markdown, HTML, JSON, CSV, SARIF or PDF (requires `findings:read`); the CSV is spreadsheet-safe (cells neutralised against formula injection); PDF needs the `report` extra and returns `503` when it is not installed. |
@@ -334,8 +335,9 @@ command line.
 The engagement page distinguishes an unconfigured store, a configured empty
 store and an unreadable store. The assessment and Smart Scan forms also warn
 when the configured engagement store cannot be read, because scope choices
-cannot then be verified. Other dashboard and incident-store error states remain
-tracked in `WEB-B-01`.
+cannot then be verified. The dashboard and incident catalogue now distinguish
+unavailable from configured-empty state; `WEB-B-01` remains open for manual
+browser review and any additional unavailable states found there.
 
 ## Live job state (server-sent events)
 
