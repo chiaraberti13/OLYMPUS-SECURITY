@@ -335,7 +335,17 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
   snapshot va trattato come sensibile. Test sintetici in
   `tests/unit/test_themis_identity.py` (round-trip, overwrite, symlink, corruzione,
   manomissione via CLI).
-  Restano aperti: audit, scope, custody/vault ed evidenze, backup delle
+  Ulteriore slice: il ledger di custodia Minerva ha `olympus minerva
+  ledger-backup|ledger-verify-backup|ledger-restore` (`minerva/custody.py`): copia
+  byte-esatta create-only `0600` sotto il lock di append del ledger (nessuna copia
+  parziale con `record` concorrente), con verifica dell'intera catena di hash
+  prima e dopo; la firma HMAC/Ed25519 risulta verificata solo se la chiave è
+  fornita (altrimenti exit non-zero in verify). Rifiuta destinazione esistente o
+  symlink, sorgente manomessa, snapshot troncato o assente. Test sintetici in
+  `tests/unit/test_minerva_ledger_backup.py` (round-trip e prosecuzione della
+  catena, overwrite/symlink, manomissione, firma con/senza chiave, append
+  concorrenti, CLI). Il SHA-256 è un fingerprint non autenticato.
+  Restano aperti: audit, scope, vault ed evidenze, backup delle
   chiavi, snapshot coordinato e RPO/RTO misurati; la voce resta `[~]`.
   Nessun backup di piattaforma o RPO/RTO è dichiarato verificato.
 

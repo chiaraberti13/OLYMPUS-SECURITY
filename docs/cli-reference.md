@@ -922,6 +922,35 @@ Hash a local artifact and write an evidence reference anchored to its bytes.
 | `--max-bytes` | option | no | `268435456` | — |
 | `--force` | option | no | `False` | Overwrite an existing evidence file (default: refuse). |
 
+### `olympus minerva ledger-backup`
+
+Snapshot a verified custody ledger byte-for-byte (create-only, owner-only).
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--ledger` | option | no | — | — |
+| `--destination` | option | yes | — | New snapshot path. |
+| `--max-ledger-bytes` | option | no | `50000000` | — |
+
+### `olympus minerva ledger-restore`
+
+Restore a snapshot to a new path; never overwrites an existing ledger.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--backup` | option | yes | — | Verified ledger snapshot. |
+| `--destination` | option | yes | — | New, absent ledger path. |
+| `--max-ledger-bytes` | option | no | `50000000` | — |
+
+### `olympus minerva ledger-verify-backup`
+
+Verify a snapshot's hash chain; exit non-zero if a signature is unverified.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--backup` | option | yes | — | Ledger snapshot to verify. |
+| `--max-ledger-bytes` | option | no | `50000000` | — |
+
 ### `olympus minerva protect`
 
 Encrypt a local evidence artifact with a runtime-provided secret.

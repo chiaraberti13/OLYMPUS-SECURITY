@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import asdict
 from pathlib import Path
 
 import typer
@@ -26,9 +27,12 @@ from olympus.minerva.custody import (
     DEFAULT_MAX_ENTRIES,
     DEFAULT_MAX_LEDGER_BYTES,
     CustodyAction,
+    backup_ledger,
     load_custody_ed25519_private_key,
     load_custody_ed25519_public_key,
     load_custody_key,
+    restore_ledger_backup,
+    verify_ledger_backup,
 )
 from olympus.minerva.triage import DEFAULT_MAX_ALERT_BYTES, DEFAULT_MAX_ALERTS, export_incident
 from olympus.minerva.vault import (
@@ -380,3 +384,66 @@ def _export_timeline(
     signature_path = export.with_name(export.name + ".sig")
     atomic_write_text(signature_path, envelope, mode=0o600)
     typer.echo(safe_terminal_text(f"minerva: signed timeline -> {signature_path}"), err=True)
+
+
+@app.command("ledger-backup")
+def backup_ledger_command(
+    ledger: Path = typer.Option(DEFAULT_LEDGER, "--ledger"),
+    destination: Path = typer.Option(..., "--destination", help="New snapshot path."),
+    max_ledger_bytes: int = typer.Option(DEFAULT_MAX_LEDGER_BYTES, "--max-ledger-bytes"),
+) -> None:
+    """Snapshot a verified custody ledger byte-for-byte (create-only, owner-only)."""
+    try:
+        info = backup_ledger(
+            ledger,
+            destination,
+            max_bytes=max_ledger_bytes,
+            key=load_custody_key(),
+            ed25519_public_key=load_custody_ed25519_public_key(),
+        )
+    except _APPLICATION_ERRORS as exc:
+        typer.echo(safe_terminal_text(f"minerva: ledger backup refused: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    typer.echo(json.dumps({"snapshot": str(destination), **asdict(info)}, indent=2))
+
+
+@app.command("ledger-verify-backup")
+def verify_ledger_backup_command(
+    backup: Path = typer.Option(..., "--backup", help="Ledger snapshot to verify."),
+    max_ledger_bytes: int = typer.Option(DEFAULT_MAX_LEDGER_BYTES, "--max-ledger-bytes"),
+) -> None:
+    """Verify a snapshot's hash chain; exit non-zero if a signature is unverified."""
+    try:
+        info = verify_ledger_backup(
+            backup,
+            max_bytes=max_ledger_bytes,
+            key=load_custody_key(),
+            ed25519_public_key=load_custody_ed25519_public_key(),
+        )
+    except _APPLICATION_ERRORS as exc:
+        typer.echo(safe_terminal_text(f"minerva: ledger backup invalid: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    typer.echo(json.dumps({"verified": True, **asdict(info)}, indent=2))
+    if info.signed and not info.signature_verified:
+        raise typer.Exit(code=ExitCode.FINDINGS)
+
+
+@app.command("ledger-restore")
+def restore_ledger_command(
+    backup: Path = typer.Option(..., "--backup", help="Verified ledger snapshot."),
+    destination: Path = typer.Option(..., "--destination", help="New, absent ledger path."),
+    max_ledger_bytes: int = typer.Option(DEFAULT_MAX_LEDGER_BYTES, "--max-ledger-bytes"),
+) -> None:
+    """Restore a snapshot to a new path; never overwrites an existing ledger."""
+    try:
+        info = restore_ledger_backup(
+            backup,
+            destination,
+            max_bytes=max_ledger_bytes,
+            key=load_custody_key(),
+            ed25519_public_key=load_custody_ed25519_public_key(),
+        )
+    except _APPLICATION_ERRORS as exc:
+        typer.echo(safe_terminal_text(f"minerva: ledger restore refused: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    typer.echo(json.dumps({"restored_to": str(destination), **asdict(info)}, indent=2))

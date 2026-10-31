@@ -24,7 +24,13 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
 )
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
-from olympus.core.fileio import atomic_write_text, read_regular_text
+from olympus.core.fileio import (
+    UnsafeWriteTarget,
+    atomic_write_bytes,
+    atomic_write_text,
+    read_regular_bytes,
+    read_regular_text,
+)
 from olympus.core.models import Evidence
 from olympus.core.secrets import SecretProvider, resolve_secret
 from olympus.minerva.provenance import AcquisitionProvenance as AcquisitionProvenance
@@ -802,6 +808,135 @@ def append_entry(
             )
         atomic_write_text(ledger, content, mode=0o600)
         return entry
+
+
+@dataclass(frozen=True)
+class LedgerBackupInfo:
+    """Outcome of a custody ledger snapshot: chain facts and a non-authenticated digest."""
+
+    entries: int
+    schema_version: str
+    evidence_anchored: bool
+    signed: bool
+    signature_verified: bool
+    sha256: str
+    size_bytes: int
+
+
+def verify_ledger_backup(
+    backup: Path,
+    *,
+    max_bytes: int = DEFAULT_MAX_LEDGER_BYTES,
+    max_entries: int = DEFAULT_MAX_ENTRIES,
+    key: bytes | None = None,
+    ed25519_public_key: Ed25519PublicKey | None = None,
+) -> LedgerBackupInfo:
+    """Verify the full hash chain of a ledger snapshot and fingerprint its bytes.
+
+    A signed ledger is reported ``signature_verified=False`` unless the matching
+    key is supplied; callers must not treat that as authenticated. The SHA-256
+    is a fingerprint to record separately, not a signature.
+    """
+    if not backup.exists() and not backup.is_symlink():
+        raise CustodyIntegrityError(f"custody ledger does not exist: {backup}")
+    data = read_regular_bytes(backup, max_bytes=max_bytes, label="custody ledger backup")
+    inspection = inspect_ledger(
+        backup,
+        max_bytes=max_bytes,
+        max_entries=max_entries,
+        key=key,
+        ed25519_public_key=ed25519_public_key,
+    )
+    return LedgerBackupInfo(
+        entries=len(inspection.entries),
+        schema_version=inspection.schema_version,
+        evidence_anchored=inspection.evidence_anchored,
+        signed=inspection.signed,
+        signature_verified=inspection.signature_verified,
+        sha256=hashlib.sha256(data).hexdigest(),
+        size_bytes=len(data),
+    )
+
+
+def _publish_ledger_copy(
+    source: Path,
+    destination: Path,
+    *,
+    lock: bool,
+    max_bytes: int,
+    key: bytes | None,
+    ed25519_public_key: Ed25519PublicKey | None,
+) -> LedgerBackupInfo:
+    if destination.is_symlink():
+        raise CustodyIntegrityError("destination must not be a symlink")
+    if destination.exists():
+        raise CustodyIntegrityError("destination already exists; refusing to overwrite")
+
+    def _copy() -> None:
+        info = verify_ledger_backup(
+            source, max_bytes=max_bytes, key=key, ed25519_public_key=ed25519_public_key
+        )
+        data = read_regular_bytes(source, max_bytes=max_bytes, label="custody ledger")
+        if hashlib.sha256(data).hexdigest() != info.sha256:
+            raise CustodyIntegrityError("ledger changed while it was being copied; retry")
+        try:
+            atomic_write_bytes(destination, data, mode=0o600, overwrite=False)
+        except UnsafeWriteTarget as exc:
+            raise CustodyIntegrityError(
+                "destination already exists; refusing to overwrite"
+            ) from exc
+
+    if lock:
+        with _ledger_lock(source, None):
+            _copy()
+    else:
+        _copy()
+    return verify_ledger_backup(
+        destination, max_bytes=max_bytes, key=key, ed25519_public_key=ed25519_public_key
+    )
+
+
+def backup_ledger(
+    ledger: Path,
+    destination: Path,
+    *,
+    max_bytes: int = DEFAULT_MAX_LEDGER_BYTES,
+    key: bytes | None = None,
+    ed25519_public_key: Ed25519PublicKey | None = None,
+) -> LedgerBackupInfo:
+    """Snapshot a verified ledger byte-for-byte to a new path (create-only, ``0600``).
+
+    Holds the ledger append lock so a concurrent ``record`` cannot yield a torn
+    copy. The chain is verified before and after; nothing is rewritten, so the
+    original signature stays valid.
+    """
+    return _publish_ledger_copy(
+        ledger,
+        destination,
+        lock=True,
+        max_bytes=max_bytes,
+        key=key,
+        ed25519_public_key=ed25519_public_key,
+    )
+
+
+def restore_ledger_backup(
+    backup: Path,
+    destination: Path,
+    *,
+    max_bytes: int = DEFAULT_MAX_LEDGER_BYTES,
+    key: bytes | None = None,
+    ed25519_public_key: Ed25519PublicKey | None = None,
+) -> LedgerBackupInfo:
+    """Restore a verified snapshot to an absent path; never overwrites a live ledger."""
+    return _publish_ledger_copy(
+        backup,
+        destination,
+        lock=False,
+        max_bytes=max_bytes,
+        key=key,
+        ed25519_public_key=ed25519_public_key,
+    )
 
 
 def _validate_entry_limit(max_entries: int) -> None:

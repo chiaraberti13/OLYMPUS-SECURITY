@@ -212,3 +212,13 @@ corruzione e manomissione via CLI. Ruff, format e Mypy strict verdi; la suite
 runner, PDF, TUI, provenance) riprodotti anche senza questa modifica. Fingerprint non
 autenticato; nessun RPO/RTO dichiarato. pip-audit, Gitleaks, CodeQL, build wheel e
 container non eseguiti in questa sessione.
+
+## WEB-J-01 — backup del ledger di custodia Minerva (2026-10-31)
+
+`olympus minerva ledger-backup|ledger-verify-backup|ledger-restore` copia il ledger
+byte per byte, create-only e `0600`, sotto il lock di append, verificando la catena di
+hash prima e dopo. La firma risulta verificata solo con la chiave corrispondente. Sette
+test sintetici in `tests/unit/test_minerva_ledger_backup.py` (compreso un backup con
+append concorrenti) e la suite custody esistente passano; Ruff, format e Mypy strict
+verdi. Fingerprint non autenticato; evidenze/vault, audit, scope e chiavi restano fuori;
+nessun RPO/RTO dichiarato.
