@@ -28,6 +28,12 @@ The local browser review was attempted, but the connected browser could not reac
 the workspace's loopback-only test server (`ERR_CONNECTION_REFUSED`); no public
 listener was opened and browser review remains incomplete.
 
+For commit `50361cbfa7470a13c3d075932c48bf9da7f1118f`, local TestClient and
+quality checks passed as above. The GitHub connector returned no Actions runs
+for that commit (its workflow-run wrapper is PR-only) and did not expose CodeQL;
+the combined status only reported the Vercel deployment check as failed. Do not
+infer CI or CodeQL status for `50361cb` from the preceding green run.
+
 On commit `bf3e22d`, GitHub Actions `ci` run
 [41225520765](https://github.com/chiaraberti13/OLYMPUS-SECURITY/actions/runs/41225520765)
 and CodeQL run

@@ -442,9 +442,9 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
   segnala findings e incident store illeggibili senza mostrare conteggi falsi;
   fixture corrotta per entrambi. Il catalogo read-only `/incidents`, gated da
   `incidents:read`, ora distingue non configurato/vuoto/illeggibile e usa i
-  documenti Minerva canonici. Nuovi test TestClient iniettano `PermissionError` e `RuntimeError` durante
-  `Path.resolve()` di entrambi gli store: dashboard espone lo stato unavailable
-  e non rivela il dettaglio del percorso. La
+  documenti Minerva canonici. Nuovi test TestClient iniettano `PermissionError` e `RuntimeError`
+  durante `Path.resolve()` di entrambi gli store: dashboard espone lo stato
+  unavailable e non rivela il dettaglio del percorso. La
   revisione browser è stata tentata il 31 ottobre 2026, ma il browser collegato
   non raggiunge il server loopback del workspace (`ERR_CONNECTION_REFUSED`);
   il server non è stato esposto in rete e il DoD browser resta aperto.
