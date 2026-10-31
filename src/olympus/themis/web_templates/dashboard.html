@@ -61,6 +61,12 @@
   {% endif %}
 </section>
 {% endif %}
+{% if findings_unavailable %}
+<section class="card" role="alert">
+  <h2>Findings unavailable</h2>
+  <p>The configured findings store could not be read. Dashboard totals are not available.</p>
+</section>
+{% endif %}
 {% if scanner_readiness %}
 <section class="card">
   <h2>Scanner readiness</h2>
@@ -84,6 +90,12 @@
     </div>
     {% endfor %}
   </div>
+</section>
+{% endif %}
+{% if incidents_unavailable %}
+<section class="card" role="alert">
+  <h2>Incidents unavailable</h2>
+  <p>The configured incident store could not be read. Dashboard totals are not available.</p>
 </section>
 {% endif %}
 <section class="card">

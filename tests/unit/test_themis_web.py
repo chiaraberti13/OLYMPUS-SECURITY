@@ -1759,3 +1759,54 @@ def test_dashboard_incident_widget_absent_without_incidents_directory(tmp_path: 
     client = _client(tmp_path)  # no incidents_directory
     _login(client)
     assert "Incidents by status" not in client.get("/").text
+
+
+def test_dashboard_reports_unreadable_findings_store(tmp_path: Path) -> None:
+    directory = tmp_path / "findings"
+    directory.mkdir()
+    (directory / "broken.json").write_text("{", encoding="utf-8")
+    client = _client(tmp_path, findings_directory=directory)
+    _login(client)
+
+    page = client.get("/")
+
+    assert page.status_code == 200
+    assert "Findings unavailable" in page.text
+    assert "Findings by severity" not in page.text
+
+
+def test_dashboard_reports_unreadable_incident_store(tmp_path: Path) -> None:
+    directory = tmp_path / "incidents"
+    directory.mkdir()
+    (directory / "broken.json").write_text("{", encoding="utf-8")
+    client = _client(tmp_path, incidents_directory=directory)
+    _login(client)
+
+    page = client.get("/")
+
+    assert page.status_code == 200
+    assert "Incidents unavailable" in page.text
+    assert "Incidents by status" not in page.text
+
+
+def test_dashboard_keeps_configured_empty_findings_and_incidents_visible(
+    tmp_path: Path,
+) -> None:
+    findings = tmp_path / "findings"
+    findings.mkdir()
+    incidents = tmp_path / "incidents"
+    incidents.mkdir()
+    client = _client(
+        tmp_path,
+        findings_directory=findings,
+        incidents_directory=incidents,
+    )
+    _login(client)
+
+    page = client.get("/")
+
+    assert page.status_code == 200
+    assert "Findings by severity" in page.text
+    assert "Incidents by status" in page.text
+    assert "Findings unavailable" not in page.text
+    assert "Incidents unavailable" not in page.text

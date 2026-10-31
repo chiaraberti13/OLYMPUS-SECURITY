@@ -610,6 +610,8 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         input rather than silently showing fewer findings than exist.
         """
         root = directory.resolve()
+        if not root.is_dir():
+            raise _FindingsUnavailable("the findings directory is unavailable")
         try:
             paths = sorted(path for path in root.glob("*.json") if path.is_file())
         except OSError as exc:
@@ -638,6 +640,8 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         """
         assert incidents_directory is not None  # noqa: S101 - callers guard on configuration
         root = incidents_directory.resolve()
+        if not root.is_dir():
+            return None
         try:
             paths = sorted(path for path in root.glob("*.json") if path.is_file())
             return load_incidents(paths)
@@ -873,11 +877,12 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         # findings, and only when a findings directory is configured and readable —
         # otherwise the card is simply absent (the Findings page surfaces errors).
         findings_summary: dict[str, object] | None = None
+        findings_unavailable = False
         if findings_directory is not None and "findings:read" in session.scopes:
             try:
                 catalogue = _load_findings_catalogue()
             except _FindingsUnavailable:
-                findings_summary = None
+                findings_unavailable = True
             else:
                 breakdown = severity_breakdown(catalogue)
                 sources = source_breakdown(catalogue)
@@ -922,9 +927,12 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         # readable — otherwise the card is simply absent. "open" is the one
         # not-yet-worked status; the rest of the lifecycle is shown for context.
         incident_summary: dict[str, object] | None = None
+        incidents_unavailable = False
         if incidents_directory is not None and "incidents:read" in session.scopes:
             incidents = _load_incidents_catalogue()
-            if incidents is not None:
+            if incidents is None:
+                incidents_unavailable = True
+            else:
                 status_counts = incident_status_breakdown(incidents)
                 incident_summary = {
                     "total": len(incidents),
@@ -952,8 +960,10 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 "recent": recent,
                 "assessment_progress": assessment_progress,
                 "findings_summary": findings_summary,
+                "findings_unavailable": findings_unavailable,
                 "scanner_readiness": scanner_readiness,
                 "incident_summary": incident_summary,
+                "incidents_unavailable": incidents_unavailable,
                 "csrf_token": _csrf_token(session.nonce),
             },
         )
