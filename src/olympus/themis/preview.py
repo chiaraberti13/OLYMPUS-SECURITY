@@ -26,6 +26,7 @@ target; it only describes the planned run.
 from __future__ import annotations
 
 import ipaddress
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -37,6 +38,7 @@ from olympus.integrations.activity import (
 )
 from olympus.integrations.scanners import by_name
 from olympus.themis.application import ThemisRunRequest, ThemisScope
+from olympus.themis.base import ScannerAdapter
 from olympus.themis.scope import (
     OutOfScopeError,
     SsrfBlockedError,
@@ -237,7 +239,12 @@ def _authorization_detail(request: ThemisRunRequest) -> str:
 
 
 def _build_planned_command(
-    scanner: str, target: str, target_kind: str, host: str
+    scanner: str,
+    target: str,
+    target_kind: str,
+    host: str,
+    *,
+    adapter_factory: Callable[[str], ScannerAdapter] | None = None,
 ) -> tuple[str, ...] | None:
     """Return the redacted argv a native adapter would run for ``host``, or ``None``.
 
@@ -252,10 +259,11 @@ def _build_planned_command(
     # we must not import at module load (and only need on this offline path).
     from olympus.core.execution import redact_url, safe_terminal_text
     from olympus.themis.model import ScanRequest
-    from olympus.themis.registry import UnknownScannerError, get_adapter
+    from olympus.themis.plugins import resolve_adapter
+    from olympus.themis.registry import UnknownScannerError
 
     try:
-        adapter = get_adapter(scanner)
+        adapter = (adapter_factory or resolve_adapter)(scanner)
     except UnknownScannerError:
         return None
     try:
@@ -267,7 +275,11 @@ def _build_planned_command(
 
 
 def _planned_command(
-    request: ThemisRunRequest, host: str | None, blocks_launch: bool
+    request: ThemisRunRequest,
+    host: str | None,
+    blocks_launch: bool,
+    *,
+    adapter_factory: Callable[[str], ScannerAdapter] | None = None,
 ) -> tuple[str, ...] | None:
     """Redacted planned argv for a ``preview_run`` request, or ``None``.
 
@@ -276,11 +288,22 @@ def _planned_command(
     """
     if blocks_launch or host is None:
         return None
-    return _build_planned_command(request.scanner, request.target, request.target_kind, host)
+    return _build_planned_command(
+        request.scanner,
+        request.target,
+        request.target_kind,
+        host,
+        adapter_factory=adapter_factory,
+    )
 
 
 def planned_command(
-    scanner: str, target: str, target_kind: str, scope: ThemisScope
+    scanner: str,
+    target: str,
+    target_kind: str,
+    scope: ThemisScope,
+    *,
+    adapter_factory: Callable[[str], ScannerAdapter] | None = None,
 ) -> tuple[str, ...] | None:
     """Public offline dry-run: the redacted argv a scan would run, or ``None``.
 
@@ -299,10 +322,17 @@ def planned_command(
         )
     except (SsrfBlockedError, OutOfScopeError, TargetValidationError):
         return None
-    return _build_planned_command(scanner, target, target_kind, host)
+    return _build_planned_command(
+        scanner, target, target_kind, host, adapter_factory=adapter_factory
+    )
 
 
-def preview_run(request: ThemisRunRequest, scope: ThemisScope) -> SafetyPreview:
+def preview_run(
+    request: ThemisRunRequest,
+    scope: ThemisScope,
+    *,
+    adapter_factory: Callable[[str], ScannerAdapter] | None = None,
+) -> SafetyPreview:
     """Compose the offline safety preview for a planned Themis run.
 
     ``scope`` is the already-loaded engagement scope (loaded offline by the
@@ -360,7 +390,12 @@ def preview_run(request: ThemisRunRequest, scope: ThemisScope) -> SafetyPreview:
         output_path=str(request.output_path) if request.output_path is not None else None,
         audit_path=str(request.audit_path) if request.audit_path is not None else None,
         external_tool=external_tool,
-        planned_command=_planned_command(request, normalized, decision in _BLOCKING_DECISIONS),
+        planned_command=_planned_command(
+            request,
+            normalized,
+            decision in _BLOCKING_DECISIONS,
+            adapter_factory=adapter_factory,
+        ),
     )
 
 

@@ -256,6 +256,8 @@ def _present_capability(capability: Capability) -> dict[str, object]:
         "maturity": capability.maturity.value,
         "evidence": capability.evidence,
         "blocker": capability.blocker,
+        "distribution": capability.distribution,
+        "version": capability.version,
     }
 
 

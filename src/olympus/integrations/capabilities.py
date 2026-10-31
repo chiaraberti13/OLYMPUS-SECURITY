@@ -28,7 +28,9 @@ from enum import StrEnum
 
 from olympus.integrations.maturity import LADDER, Maturity, at_least, record_for
 from olympus.integrations.scanners import REGISTRY, ScannerSpec
+from olympus.themis.plugins import EntryPointLoader, discover_adapters, load_plugin_allowlist
 from olympus.themis.registry import implemented
+from olympus.themis.runner import which
 
 
 class CapabilityState(StrEnum):
@@ -77,6 +79,9 @@ class Capability:
     evidence: str | None = None
     #: What stands between this integration and the next rung of the ladder.
     blocker: str | None = None
+    #: Installed distribution provenance for optional plugins.
+    distribution: str | None = None
+    version: str | None = None
 
     @property
     def ready(self) -> bool:
@@ -97,6 +102,8 @@ class Capability:
             "maturity": self.maturity.value,
             "evidence": self.evidence,
             "blocker": self.blocker,
+            "distribution": self.distribution,
+            "version": self.version,
         }
 
 
@@ -147,9 +154,44 @@ def inspect(spec: ScannerSpec, environment: dict[str, str] | None = None) -> Cap
     )
 
 
-def inventory(environment: dict[str, str] | None = None) -> list[Capability]:
-    """Return the complete deterministic capability inventory."""
-    return [inspect(spec, environment) for spec in sorted(REGISTRY, key=lambda item: item.name)]
+def inventory(
+    environment: dict[str, str] | None = None,
+    *,
+    plugin_loader: EntryPointLoader | None = None,
+) -> list[Capability]:
+    """Return catalogued capabilities and explicitly allowlisted local plugins."""
+    env = environment if environment is not None else dict(os.environ)
+    capabilities = [inspect(spec, env) for spec in sorted(REGISTRY, key=lambda item: item.name)]
+    discovery = discover_adapters(
+        load_plugin_allowlist(env),
+        loader=plugin_loader,
+        reserved_names=frozenset(implemented()),
+    )
+    for name, adapter in discovery.adapters.items():
+        available = which(adapter.binary) is not None
+        metadata = discovery.metadata[name]
+        capabilities.append(
+            Capability(
+                name=name,
+                category="third-party plugin",
+                purpose="Allowlisted third-party scanner adapter.",
+                kind="external-plugin",
+                licence="unspecified",
+                adapted=True,
+                available=available,
+                state=CapabilityState.READY if available else CapabilityState.DEPENDENCY_MISSING,
+                missing=() if available else (adapter.binary,),
+                maturity=Maturity.CATALOG_ONLY,
+                evidence=None,
+                blocker=(
+                    "Allowlisted plugin has no Olympus validation evidence; host readiness "
+                    "does not imply production readiness."
+                ),
+                distribution=metadata.distribution,
+                version=metadata.version,
+            )
+        )
+    return sorted(capabilities, key=lambda item: item.name)
 
 
 def count_at_least(minimum: Maturity, environment: dict[str, str] | None = None) -> int:
@@ -157,20 +199,23 @@ def count_at_least(minimum: Maturity, environment: dict[str, str] | None = None)
     return sum(at_least(item.maturity, minimum) for item in inventory(environment))
 
 
-def inventory_document(environment: dict[str, str] | None = None) -> dict[str, object]:
+def inventory_document(
+    environment: dict[str, str] | None = None,
+    *,
+    plugin_loader: EntryPointLoader | None = None,
+) -> dict[str, object]:
     """Return a versioned document suitable for CLI, API and CI readiness gates.
 
-    Schema ``1.1.0`` adds the maturity axis: per-engine ``maturity``/``evidence``/
-    ``blocker`` plus a ``maturity`` histogram, so a reader can tell "runnable on
-    this host" from "validated by the project" without cross-referencing docs.
+    Schema ``1.2.0`` includes distribution/version provenance for allowlisted
+    plugins. Those plugins remain catalog-only until separately validated.
     """
-    capabilities = inventory(environment)
+    capabilities = inventory(environment, plugin_loader=plugin_loader)
     histogram = dict.fromkeys((stage.value for stage in LADDER), 0)
     for item in capabilities:
         histogram[item.maturity.value] += 1
     return {
         "schema_name": "olympus.themis-capability-inventory",
-        "schema_version": "1.1.0",
+        "schema_version": "1.2.0",
         "catalogued": len(capabilities),
         "adapted": sum(item.adapted for item in capabilities),
         "available": sum(item.available for item in capabilities),

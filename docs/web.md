@@ -306,13 +306,16 @@ never hardcodes a tool list, so the page shows exactly what this host knows:
   `installed/configured` and `runnable here` facts;
 - the **Olympus maturity** stage (how far the project has validated the
   integration) and the next step that would advance it;
-- the **requirements** still missing before the engine can run.
+- the **requirements** still missing before the engine can run; allowlisted
+  plugins also show their package distribution and version as provenance.
 
 Because readiness is computed by the capability system and only an *adapted* and
 *available* engine is `Ready`, a catalogued-but-unadapted scanner (for example an
 API engine without an Olympus adapter) can never appear runnable. The page makes
 no network request and executes no engine, so an engine's installed version is
-detected at run time, not catalogued, and is deliberately not shown.
+detected at run time, not catalogued, and is deliberately not shown. Plugin
+distribution metadata is informational and does not establish package signing
+or production readiness.
 
 ## Engagements (`WEB-B`)
 

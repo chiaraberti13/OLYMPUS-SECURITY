@@ -31,7 +31,7 @@ from olympus.themis.model import (
     ScanRequest,
     ScanResult,
 )
-from olympus.themis.registry import get_adapter
+from olympus.themis.plugins import resolve_adapter
 from olympus.themis.sandbox import require_scanner_isolation
 from olympus.themis.scope import OutOfScopeError, SsrfBlockedError
 
@@ -130,7 +130,7 @@ class ThemisRunRequest:
 class ThemisApplicationService:
     """Apply authorization before scope and dispatch through a real adapter port."""
 
-    adapter_factory: Callable[[str], ScannerAdapter] = field(default=get_adapter, repr=False)
+    adapter_factory: Callable[[str], ScannerAdapter] = field(default=resolve_adapter, repr=False)
     isolation_verifier: Callable[[], None] = field(
         default=require_scanner_isolation, repr=False, compare=False
     )

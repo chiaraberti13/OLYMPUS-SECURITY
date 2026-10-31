@@ -9,7 +9,10 @@ entry points or packages are involved — fakes stand in for them.
 
 from __future__ import annotations
 
+import abc
 from collections.abc import Iterable
+from pathlib import Path
+from types import SimpleNamespace
 
 from olympus.themis.base import ScannerAdapter
 from olympus.themis.plugins import (
@@ -17,6 +20,7 @@ from olympus.themis.plugins import (
     available_adapters,
     discover_adapters,
     load_plugin_allowlist,
+    resolve_adapter,
 )
 from olympus.themis.registry import adapter_classes
 
@@ -37,10 +41,19 @@ class _NotAnAdapter:
 
 
 class _FakeEntryPoint:
-    def __init__(self, name: str, target: object, *, error: Exception | None = None) -> None:
+    def __init__(
+        self,
+        name: str,
+        target: object,
+        *,
+        error: Exception | None = None,
+        distribution: str = "olympus-demo-plugin",
+        version: str = "1.2.3",
+    ) -> None:
         self.name = name
         self._target = target
         self._error = error
+        self.dist = SimpleNamespace(name=distribution, version=version)
 
     def load(self) -> object:
         if self._error is not None:
@@ -94,13 +107,72 @@ def test_approved_abstract_base_is_rejected() -> None:
     assert result.rejected == (("base", "abstract base, not a concrete adapter"),)
 
 
+def test_approved_abstract_subclass_is_rejected() -> None:
+    class _AbstractAdapter(_GoodAdapter):
+        @abc.abstractmethod
+        def additional_contract(self) -> None: ...
+
+    result = discover_adapters(
+        frozenset({"demo-plugin"}),
+        loader=_loader(_FakeEntryPoint("demo-plugin", _AbstractAdapter)),
+    )
+    assert result.adapters == {}
+    assert result.rejected == (("demo-plugin", "abstract base, not a concrete adapter"),)
+
+
+def test_plugin_with_path_like_binary_is_rejected() -> None:
+    class _PathAdapter(_GoodAdapter):
+        binary = "../demo"
+
+    result = discover_adapters(
+        frozenset({"demo-plugin"}),
+        loader=_loader(_FakeEntryPoint("demo-plugin", _PathAdapter)),
+    )
+    assert result.adapters == {}
+    assert result.rejected == (("demo-plugin", "adapter binary must be a simple executable name"),)
+
+
+def test_duplicate_approved_names_are_rejected_before_import() -> None:
+    loaded: list[str] = []
+
+    class _Tripwire(_FakeEntryPoint):
+        def load(self) -> object:
+            loaded.append(self.name)
+            return super().load()
+
+    result = discover_adapters(
+        frozenset({"demo-plugin"}),
+        loader=_loader(
+            _Tripwire("demo-plugin", _GoodAdapter),
+            _Tripwire("demo-plugin", _GoodAdapter),
+        ),
+    )
+    assert result.adapters == {}
+    assert result.rejected == (("demo-plugin", "duplicate entry-point name"),)
+    assert loaded == []
+
+
+def test_native_name_collision_is_rejected_before_import() -> None:
+    loaded: list[str] = []
+
+    class _Tripwire(_FakeEntryPoint):
+        def load(self) -> object:
+            loaded.append(self.name)
+            return super().load()
+
+    result = discover_adapters(frozenset({"nmap"}), loader=_loader(_Tripwire("nmap", _GoodAdapter)))
+    assert result.adapters == {}
+    assert result.rejected == (("nmap", "reserved first-party adapter name"),)
+    assert loaded == []
+
+
 def test_approved_plugin_that_fails_to_load_is_rejected_not_fatal() -> None:
     boom = _FakeEntryPoint("boom", None, error=ImportError("missing dep"))
     good = _FakeEntryPoint("demo-plugin", _GoodAdapter)
     result = discover_adapters(frozenset({"boom", "demo-plugin"}), loader=_loader(boom, good))
     # One bad plugin never aborts discovery of the rest.
     assert result.adapters == {"demo-plugin": _GoodAdapter}
-    assert result.rejected[0][0] == "boom" and "failed to load" in result.rejected[0][1]
+    assert result.rejected[0] == ("boom", "failed to load (ImportError)")
 
 
 def test_allowlist_parsing_ignores_blanks() -> None:
@@ -124,6 +196,63 @@ def test_available_adapters_includes_first_party_and_cannot_be_shadowed() -> Non
     )
     assert merged["nmap"] is first_party["nmap"]  # first-party wins
     assert merged["demo-plugin"] is _GoodAdapter  # new capability added
+
+
+def test_discovery_reports_distribution_provenance() -> None:
+    result = discover_adapters(
+        frozenset({"demo-plugin"}),
+        loader=_loader(
+            _FakeEntryPoint("demo-plugin", _GoodAdapter, distribution="demo_dist", version="2.1.0")
+        ),
+    )
+    assert result.metadata["demo-plugin"].distribution == "demo_dist"
+    assert result.metadata["demo-plugin"].version == "2.1.0"
+
+
+def test_approved_plugin_runs_through_preview_runtime_and_capabilities(tmp_path: Path) -> None:
+    from olympus.integrations.capabilities import inventory
+    from olympus.themis.application import ThemisApplicationService, ThemisRunRequest, ThemisScope
+    from olympus.themis.preview import planned_command, preview_run
+
+    allowlist = frozenset({"demo-plugin"})
+    loader = _loader(_FakeEntryPoint("demo-plugin", _GoodAdapter))
+
+    def factory(name: str) -> ScannerAdapter:
+        return resolve_adapter(name, allowlist=allowlist, loader=loader)
+
+    scope = ThemisScope(allowed_domains=("example.test",))
+    scope_path = tmp_path / "scope.json"
+    scope_path.write_text(scope.model_dump_json(), encoding="utf-8")
+    request = ThemisRunRequest(
+        scanner="demo-plugin",
+        target="example.test",
+        target_kind="domain",
+        scope_path=scope_path,
+        authorized=False,
+        live_enabled=False,
+        simulate=True,
+    )
+
+    command = planned_command(
+        "demo-plugin", "example.test", "domain", scope, adapter_factory=factory
+    )
+    preview = preview_run(request, scope, adapter_factory=factory)
+    result = ThemisApplicationService(adapter_factory=factory).run(request)
+    caps = inventory(
+        {PLUGIN_ALLOWLIST_ENV: "demo-plugin"},
+        plugin_loader=loader,
+    )
+    plugin_cap = next(item for item in caps if item.name == "demo-plugin")
+
+    assert command == ("demo", "example.test")
+    assert preview.planned_command == command
+    assert result.state.value == "simulation"
+    assert result.findings[0].title.startswith("[SIMULATION]")
+    assert plugin_cap.kind == "external-plugin"
+    assert plugin_cap.distribution == "olympus-demo-plugin"
+    assert plugin_cap.version == "1.2.3"
+    assert plugin_cap.maturity.value == "catalog-only"
+    assert "validation evidence" in (plugin_cap.blocker or "")
 
 
 def test_available_adapters_defaults_to_no_plugins() -> None:

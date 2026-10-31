@@ -177,6 +177,11 @@ scoperta è **default-deny** e verificata (`olympus/themis/plugins.py`):
 - un plugin **non può mai oscurare** un adapter nativo: `available_adapters()`
   dà sempre precedenza al registry di prima parte, quindi un plugin approvato col
   nome `nmap` non sostituisce l'adapter integrato.
+- nomi duplicati, nomi riservati o malformati, classi astratte, nomi di adapter
+  discordanti e override del confine `run`/`resolve` sono rifiutati. Il runtime
+  Themis e la preview usano lo stesso resolver; il report capability include
+  provenienza e versione della distribuzione. Questi metadati non attestano la
+  firma o la sicurezza del pacchetto, e la maturità resta `catalog-only`.
 
 In questo modo la superficie di supply-chain resta esplicita: un entry point
 malevolo sul sistema non viene eseguito finché l'operatore non ne approva il nome.

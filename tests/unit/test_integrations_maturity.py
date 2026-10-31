@@ -244,7 +244,7 @@ def test_capability_dict_exposes_the_maturity_axis() -> None:
 
 def test_inventory_document_carries_the_histogram() -> None:
     document = inventory_document({})
-    assert document["schema_version"] == "1.1.0"
+    assert document["schema_version"] == "1.2.0"
     assert document["maturity"] == summary()
     assert document["catalogued"] == len(REGISTRY)
 

@@ -439,7 +439,7 @@ def test_restart_lifecycle_preserves_audit_prefix(tmp_path: Path, operation: str
         expected = (
             ["job_recovered", "assessment_recovered"]
             if operation == "recover"
-            else ["assessment_cancelled"]
+            else ["job_cancelled", "assessment_cancelled"]
         )
         assert [e["action"] for e in events[2:]] == expected
         assert [e["sequence"] for e in events] == list(range(len(events)))

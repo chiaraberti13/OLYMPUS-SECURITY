@@ -8,8 +8,9 @@
     the CLI (<code>olympus themis capabilities</code>) and the API
     (<code>/api/v1/capabilities</code>) use. Nothing here is a hardcoded list, so
     a tool appears <em>Ready</em> only when Olympus has adapted it <strong>and</strong>
-    the engine is installed or configured on this host. Engine versions are
-    detected at run time, not catalogued, so they are not shown here.
+    the engine is installed or configured on this host. Allowlisted plugins
+    include package provenance; native engine versions are detected at run time
+    and are not shown here.
   </p>
   <div class="tiles">
     <div class="tile"><span class="tile-value">{{ summary.catalogued }}</span><span class="tile-label">catalogued</span></div>
@@ -32,6 +33,10 @@
     <dl class="detail tool-detail">
       <dt>Deployment</dt><dd>{{ tool.kind }}</dd>
       <dt>Licence</dt><dd>{{ tool.licence }}</dd>
+      {% if tool.distribution %}
+      <dt>Plugin distribution</dt><dd>{{ tool.distribution }}</dd>
+      <dt>Plugin version</dt><dd>{{ tool.version }}</dd>
+      {% endif %}
       <dt>Olympus maturity</dt><dd>{{ tool.maturity }}</dd>
       <dt>Adapter</dt><dd>{{ 'yes' if tool.adapted else 'no' }}</dd>
       <dt>Installed / configured</dt><dd>{{ 'yes' if tool.available else 'no' }}</dd>

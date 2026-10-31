@@ -54,7 +54,7 @@ I dettagli sotto sono normativi per ciascuna riga, non task generici senza owner
 | `SEC-G-01` | Cancellazione TUI completa | P1 | Backend/QA | M | M2 | [~] |
 | `DEV-E-01` | Transizioni Athena concorrenti e audit atomico | P1 | Data/Architect | L | M2 | [x] |
 | `SEC-E-02` | Verifica digest risultati in lettura | P1 | Data/AppSec | S | M1 | [x] |
-| `DEV-B-01` | Plugin concreti e realmente integrati | P1 | Scanner/Architect | L | M3 | [ ] |
+| `DEV-B-01` | Plugin concreti e realmente integrati | P1 | Scanner/Architect | L | M3 | [x] |
 | `DEV-D-01` | Versionamento fisico degli store | P1 | Data | L | M3 | [ ] |
 | `WEB-J-01` | Backup e restore coordinato | P1 | Data/SRE/Privacy | L | M3 | [ ] |
 | `WEB-J-02` | Retention e privacy di sistema | P2 | Privacy/Data | L | M3 | [ ] |
@@ -234,6 +234,15 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
 - Accettazione misurabile: Plugin fixture percorre preview/run/capabilities; duplicati/abstract rifiutati prima import quando possibile.
 - Test: contract plugin, fake offline; provenienza firmata resta SEC-F.
 - DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+- Stato (verifica locale 2026-10-31, `[x]`): resolver condiviso collega adapter
+  approvati a preview e runtime; allowlist vuota/non approvata non importa il
+  plugin. Duplicati, nomi nativi, classi astratte, identità incoerente, binary
+  non semplice e override di `run`/`resolve` sono rifiutati. Fixture offline
+  copre `preview_run`, `ThemisApplicationService.run` in simulazione e inventario
+  capability. Il report versionato `1.2.0` espone distribuzione/versione e la
+  UI Web le rende visibili senza promuovere maturità oltre `catalog-only`.
+  Non dimostra firma, sicurezza del pacchetto o readiness production; la firma
+  resta in `SEC-F`.
 
 ### DEV-D-01 — Versionamento fisico degli store
 
