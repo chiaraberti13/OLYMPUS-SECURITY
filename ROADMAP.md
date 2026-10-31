@@ -372,6 +372,14 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
 - Accettazione misurabile: Nessun claim CI corrente senza run; stati aggiornati e ID tracciabili.
 - Test: doc links, confronto registry/documenti e revisione bilingue.
 - DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+- Stato (31 ottobre 2026, resta `[~]`): aggiornati i claim CI in `docs/testing.md`
+  e `docs/threat-model.md`; lo stato storico in `docs/verification-status.md`
+  distingue baseline e verifiche successive. ADR-003/004/005 sono ora documenti
+  decisionali collegati nell'indice. Il gate link Markdown è stato aggiunto al
+  job `quality`. Verifiche locali: 70 Markdown senza link interni rotti,
+  `olympus themis matrix --check` senza drift e Mypy strict su 217 file. Esito
+  remoto CI e branch protection restano da verificare; il confronto bilingue
+  end-to-end è ancora aperto.
 
 ### UX-A-01 — Parità TUI e consumer form
 

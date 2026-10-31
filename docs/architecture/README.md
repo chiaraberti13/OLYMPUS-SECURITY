@@ -10,9 +10,9 @@ design survives after the people and the pull request that made it
 | --- | --- | --- | --- |
 | [ADR-001](adr-001-module-taxonomy.md) | Athena owns vulnerability-assessment orchestration | Accepted — non-binding | — |
 | [ADR-002](adr-002-athena-target-architecture.md) | Athena target architecture | Accepted — non-binding | `DEV-A` |
-| ADR-003 | Retire the vendored VAP surface | Planned | `SEC-A`, `DEV-A` |
-| ADR-004 | Adapter SDK and plugin registry | Planned | `DEV-B` |
-| ADR-005 | Signed engagement manifest | Planned | `SEC-C` |
+| [ADR-003](adr-003-retire-vendored-vap.md) | Retire the vendored VAP surface | Accepted — implementation has documented residual parity boundaries | `SEC-A`, `DEV-A` |
+| [ADR-004](adr-004-adapter-sdk-plugin-registry.md) | Adapter SDK and plugin registry | Accepted — unsigned third-party package trust remains out of scope | `DEV-B` |
+| [ADR-005](adr-005-signed-engagement-manifest.md) | Signed engagement manifest | Accepted — live traffic requires pinned-key authorization | `SEC-C` |
 | [ADR-006](adr-006-aegis-to-themis-rename.md) | Rename the AEGIS subsystem to Themis | Accepted | `DEV-I` |
 | [ADR-007](adr-007-web-control-plane.md) | Native web control plane (FastAPI + HTMX + SSE) | Accepted | `WEB-A`…`WEB-H` |
 | [ADR-008](adr-008-durable-athena-audit.md) | Durable Athena audit sequencing across restart and concurrent writers | Accepted | `SEC-E-01` |

@@ -1,10 +1,28 @@
-# Verification status — 2026-10-29
+# Verification status — baseline 2026-10-29; follow-up 2026-10-31
 
 Baseline audit: `b5cc491ac466fc5875a40266151e3aa55730c82e`. The tested merge
 `bca1daa` includes remote `e177498` and the SEC-E-01 audit fix `e8dea67`.
 [Machine-readable checks](verify/audit-2026-10-29-checks.json) record commands,
 counts, source digests and limitations. [Ecosystem audit](ecosystem-audit.md) and
 [ROADMAP](../ROADMAP.md) define coverage and follow-up work.
+
+## Follow-up snapshot — 2026-10-31
+
+Since the baseline below, commits on `main` added and verified the following
+offline changes: Metis backup integrity/foreign-key checks (`WEB-J-01`, partial),
+purple telemetry schema/rejection accounting (`OPS-PURPLE-01`), corrected CI
+claims (`DEV-G-01`, partial), exact dashboard aggregates for 205 jobs
+(`WEB-G-01`), and explicit unavailable-state warnings for findings/incident
+dashboard stores (`WEB-B-01`, partial). The focused Themis Web test module passed
+after the last change; Ruff and strict Mypy passed for the edited source. A
+broader focused jobs+Web run had one unrelated environment failure while
+creating the sandbox scratch directory (`EINVAL`); the remaining tests passed.
+
+The workflow files and push/PR triggers are present. GitHub reports a failing
+Vercel status for the referenced latest commits and the available workflow-run
+query returned no runs; do not treat that as a green CI result. Branch protection
+is not verified. See the current [ecosystem audit](ecosystem-audit.md) and
+[roadmap](../ROADMAP.md) for scope-specific status.
 
 ## What actually ran
 

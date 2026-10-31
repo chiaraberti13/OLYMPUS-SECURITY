@@ -24,6 +24,8 @@ jobs:
         run: ruff check .
       - name: Ruff format
         run: ruff format --check .
+      - name: Internal documentation links
+        run: python scripts/check_doc_links.py
       - name: Mypy
         run: mypy --strict src/olympus
 
