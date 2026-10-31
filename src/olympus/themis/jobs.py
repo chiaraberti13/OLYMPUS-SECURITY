@@ -619,6 +619,18 @@ class ThemisJobStore:
         with self._reading() as db:
             return [_job(row) for row in db.execute(query, params).fetchall()]
 
+    def counts_by_state(self) -> dict[str, int]:
+        """Return exact all-row job totals by state using a database aggregate."""
+        self.initialize()
+        counts = {state.value: 0 for state in JobState}
+        with self._reading() as db:
+            rows = db.execute(
+                "SELECT state, COUNT(*) AS total FROM themis_jobs GROUP BY state"
+            ).fetchall()
+        for row in rows:
+            counts[str(row["state"])] = int(row["total"])
+        return counts
+
     # -- leases ------------------------------------------------------------- #
     def claim_next(
         self, worker_id: str | None = None, *, max_concurrent_jobs: int | None = None

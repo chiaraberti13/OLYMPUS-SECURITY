@@ -852,24 +852,22 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
     @app.get("/", response_class=HTMLResponse, include_in_schema=False)
     def dashboard(request: Request, session: WebSession = reads_jobs) -> Response:
         jobs = store.list(limit=200)
-        histogram: dict[str, int] = {}
-        for job in jobs:
-            histogram[job.state.value] = histogram.get(job.state.value, 0) + 1
+        histogram = store.counts_by_state()
+        total_jobs = sum(histogram.values())
         recent = [_present_job(job) for job in jobs[:10]]
-        # Assessment-progress widget (WEB-G): how far the scheduled scan work has
-        # progressed, computed from the jobs already loaded (no extra query) using
-        # the authoritative TERMINAL_STATES partition. It answers "how much is still
-        # in flight, and how much completed cleanly?"; absent when there are no jobs.
+        # Assessment progress uses database aggregates so older jobs beyond the
+        # recent-jobs page are included. TERMINAL_STATES remains the authoritative
+        # partition for completed jobs; the widget is absent when there are no jobs.
         assessment_progress: dict[str, object] | None = None
-        if jobs:
-            done = sum(1 for job in jobs if job.state in TERMINAL_STATES)
-            clean = sum(1 for job in jobs if job.state is JobState.SUCCEEDED)
+        if total_jobs:
+            done = sum(histogram[state.value] for state in TERMINAL_STATES)
+            clean = histogram[JobState.SUCCEEDED.value]
             assessment_progress = {
-                "total": len(jobs),
+                "total": total_jobs,
                 "done": done,
-                "active": len(jobs) - done,
+                "active": total_jobs - done,
                 "clean": clean,
-                "percent": round(done * 100 / len(jobs)),
+                "percent": round(done * 100 / total_jobs),
             }
         # Findings-by-severity widget (WEB-G): only for an identity that may read
         # findings, and only when a findings directory is configured and readable —
@@ -949,7 +947,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             {
                 "identity_id": session.identity_id,
                 "scopes": session.scopes,
-                "total": len(jobs),
+                "total": total_jobs,
                 "histogram": histogram,
                 "recent": recent,
                 "assessment_progress": assessment_progress,

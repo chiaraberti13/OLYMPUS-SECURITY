@@ -65,7 +65,7 @@ I dettagli sotto sono normativi per ciascuna riga, non task generici senza owner
 | `UX-A-01` | Parità TUI e consumer form | P1 | UX/Frontend/Product | L | M3 | [ ] |
 | `WEB-A-01` | Ripresa SSE visibile | P1 | Frontend/Backend | M | M3 | [x] |
 | `WEB-B-01` | Store guasto distinto da vuoto | P1 | Frontend/UX | M | M3 | [~] |
-| `WEB-G-01` | Conteggi dashboard corretti | P2 | Data/Frontend | S | M3 | [ ] |
+| `WEB-G-01` | Conteggi dashboard corretti | P2 | Data/Frontend | S | M3 | [x] |
 | `OPS-PURPLE-01` | Coverage telemetria distinta da detection | P1 | Detection/QA | M | M2 | [x] |
 | `UX-E-01` | Accessibilità e parità IT/EN dimostrate | P1 | Accessibility/I18n/QA | L | M3 | [~] |
 | `DEV-E-02` | Modello single-node e soglie scalabilità | P2 | Architect/SRE | L | M4 | [ ] |
@@ -431,6 +431,10 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
 - Accettazione misurabile: Fixture >200 job produce totali veri o finestra chiaramente dichiarata.
 - Test: integrazione dashboard.
 - DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+- Stato (31 ottobre 2026, `[x]`): la dashboard usa un aggregato SQLite per
+  stato sull'intera tabella; totale, istogramma e progresso non dipendono dalla
+  finestra di 200 job recenti. Fixture con 205 job verifica il totale e la
+  coda esatti, mentre gli ultimi job mostrati restano limitati per la UI.
 
 ### OPS-PURPLE-01 — Coverage telemetria distinta da detection
 

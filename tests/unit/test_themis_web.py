@@ -1707,6 +1707,30 @@ def test_dashboard_assessment_progress_tracks_terminal_jobs(tmp_path: Path) -> N
     assert "in flight" in page.text
 
 
+def test_dashboard_totals_include_jobs_beyond_recent_page(tmp_path: Path) -> None:
+    database = tmp_path / "jobs.sqlite3"
+    scope_directory = tmp_path / "scopes"
+    _scope(scope_directory)
+    store = ThemisJobStore(database)
+    for _ in range(205):
+        store.submit(
+            scanner="nmap",
+            target="127.0.0.1",
+            target_kind="host",
+            scope_path=scope_directory / "engagement.json",
+            authorized=True,
+        )
+    assert sum(store.counts_by_state().values()) == 205
+
+    client = _client(tmp_path)
+    _login(client)
+    page = client.get("/")
+    assert page.status_code == 200
+    assert ">205<" in page.text
+    # Total, queued-state and in-flight tiles include rows beyond list(limit=200).
+    assert page.text.count(">205<") == 3
+
+
 def test_dashboard_shows_incidents_by_status_for_an_incidents_reader(tmp_path: Path) -> None:
     client = _client(
         tmp_path,
