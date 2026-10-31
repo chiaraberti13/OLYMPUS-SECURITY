@@ -610,13 +610,15 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         raises :class:`_FindingsUnavailable` so the page is honest about a broken
         input rather than silently showing fewer findings than exist.
         """
-        root = directory.resolve()
-        if not root.is_dir():
-            raise _FindingsUnavailable("the findings directory is unavailable")
         try:
+            root = directory.resolve()
+            if not root.is_dir():
+                raise _FindingsUnavailable("the findings directory is unavailable")
             paths = sorted(path for path in root.glob("*.json") if path.is_file())
+        except _FindingsUnavailable:
+            raise
         except OSError as exc:
-            raise _FindingsUnavailable("the findings directory could not be read") from exc
+            raise _FindingsUnavailable("the findings directory is unavailable") from exc
         if not paths:
             return []
         try:
@@ -640,10 +642,10 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         display an explicit unavailable state rather than inventing a count.
         """
         assert incidents_directory is not None  # noqa: S101 - callers guard on configuration
-        root = incidents_directory.resolve()
-        if not root.is_dir():
-            return None
         try:
+            root = incidents_directory.resolve()
+            if not root.is_dir():
+                return None
             paths = sorted(path for path in root.glob("*.json") if path.is_file())
             return load_incidents(paths)
         except (OSError, ValueError):

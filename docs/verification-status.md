@@ -14,10 +14,21 @@ restore publication (`WEB-J-01`, partial),
 purple telemetry schema/rejection accounting (`OPS-PURPLE-01`), corrected CI
 claims (`DEV-G-01`, partial), exact dashboard aggregates for 205 jobs
 (`WEB-G-01`), and explicit unavailable-state warnings for findings/incident
-dashboard stores (`WEB-B-01`, partial). The focused Themis Web test module passed
-after the last change; Ruff and strict Mypy passed for the edited source. A
-broader focused jobs+Web run had one unrelated environment failure while
-creating the sandbox scratch directory (`EINVAL`); the remaining tests passed.
+dashboard stores (`WEB-B-01`, partial). A focused WEB-B set (five tests)
+passed; Ruff, format, and strict Mypy passed for the edited files. The full
+Themis Web module had 97 passed and one failure because the temporary venv lacked
+the optional `report` extra required by the PDF export test; the executor
+disconnected before retrying with that extra. GitHub Actions CI separately passed
+all 14 jobs on `5dae81a`, including the Web and wheel smoke coverage. A broader
+focused jobs+Web run had one unrelated environment failure while creating the
+sandbox scratch directory (`EINVAL`); the remaining tests passed.
+
+The 2026-10-31 WEB-B follow-up injects synthetic `PermissionError` failures
+during findings and incident directory resolution; TestClient assertions verify
+an unavailable state without disclosing the configured path. A local browser
+review was attempted, but the connected browser could not reach the
+workspace's loopback-only test server (`ERR_CONNECTION_REFUSED`); no public
+listener was opened and browser review remains incomplete.
 
 On commit `bf3e22d`, GitHub Actions `ci` run
 [41225520765](https://github.com/chiaraberti13/OLYMPUS-SECURITY/actions/runs/41225520765)

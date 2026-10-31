@@ -1775,6 +1775,29 @@ def test_dashboard_reports_unreadable_findings_store(tmp_path: Path) -> None:
     assert "Findings by severity" not in page.text
 
 
+def test_dashboard_reports_unavailable_findings_directory_stat_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    directory = tmp_path / "findings"
+    directory.mkdir()
+    client = _client(tmp_path, findings_directory=directory)
+    _login(client)
+    resolve = Path.resolve
+
+    def fail_resolve(path: Path, *args: object, **kwargs: object) -> Path:
+        if path == directory:
+            raise PermissionError("synthetic-private-findings-path")
+        return resolve(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "resolve", fail_resolve)
+    page = client.get("/")
+
+    assert page.status_code == 200
+    assert "Findings unavailable" in page.text
+    assert "Findings by severity" not in page.text
+    assert "synthetic-private-findings-path" not in page.text
+
+
 def test_dashboard_reports_unreadable_incident_store(tmp_path: Path) -> None:
     directory = tmp_path / "incidents"
     directory.mkdir()
@@ -1787,6 +1810,29 @@ def test_dashboard_reports_unreadable_incident_store(tmp_path: Path) -> None:
     assert page.status_code == 200
     assert "Incidents unavailable" in page.text
     assert "Incidents by status" not in page.text
+
+
+def test_dashboard_reports_unavailable_incident_directory_stat_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    directory = tmp_path / "incidents"
+    directory.mkdir()
+    client = _client(tmp_path, incidents_directory=directory)
+    _login(client)
+    resolve = Path.resolve
+
+    def fail_resolve(path: Path, *args: object, **kwargs: object) -> Path:
+        if path == directory:
+            raise PermissionError("synthetic-private-incidents-path")
+        return resolve(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "resolve", fail_resolve)
+    page = client.get("/")
+
+    assert page.status_code == 200
+    assert "Incidents unavailable" in page.text
+    assert "Incidents by status" not in page.text
+    assert "synthetic-private-incidents-path" not in page.text
 
 
 def test_dashboard_keeps_configured_empty_findings_and_incidents_visible(
