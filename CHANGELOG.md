@@ -13,6 +13,10 @@ everything below lives under **Unreleased**.
 ## [Unreleased]
 
 ### Added
+- **Demo interattiva a fixture su Vercel (`WEB-K-c`).** `public/demo.html` e
+  `demo-report.html` generati da `scripts/build_preview.py`: job simulato
+  recon → scan → enrich → report con output registrati, parser e renderer reali,
+  nessuna esecuzione; CSP `script-src 'self'` solo sulla route `/demo`.
 - **Wizard New Assessment guidato (`WEB-E`).** La Web UI Themis espone un flusso
   activity-first (`GET /assessments/new`): engagement → target → scope → tipo di
   attività (recon/network/web/vulnerability) → tool o **Automatic** → anteprima

@@ -2987,7 +2987,7 @@ job) resta nel backend Olympus; su Vercel va l'interfaccia/anteprima.
   retention **interamente** nel backend — nessuna logica di sicurezza nel
   frontend. Guida di deploy del backend, variabile dell'endpoint e CORS verso il
   dominio Vercel.
-- [ ] **WEB-K-c — Demo interattiva guidata da fixture (P1, 100% su Vercel).**
+- [x] **WEB-K-c — Demo interattiva guidata da fixture (P1, 100% su Vercel).**
   Oltre all'anteprima statica, una UI che *dimostra l'uso* senza eseguire nulla:
   l'utente sceglie uno strumento e un **target d'esempio**, avvia uno «scan» e
   vede un **job simulato** avanzare (`queued → running → succeeded`) con output e
@@ -2998,6 +2998,17 @@ job) resta nel backend Olympus; su Vercel va l'interfaccia/anteprima.
   nessuna esecuzione, dati sintetici» sempre visibile; girabile interamente su
   Vercel (statico + eventuali function che restituiscono solo fixture). Non
   promuove alcuna capability oltre la sua maturità reale (`olympus catalog`).
+  *Realizzato:* `scripts/build_preview.py` genera `public/demo.html` (+ `demo.js`
+  same-origin, senza rete/`eval`/`innerHTML`) e `public/demo-report.html`: job
+  simulato `queued → running → succeeded` sulle fasi recon → scan → enrich → report,
+  con output delle fixture `tests/fixtures/argus/crtsh.json` e
+  `tests/fixtures/themis/live/nmap_open.xml` analizzate dai **parser reali**
+  (`parse_crtsh_response`, `NmapAdapter.parse`) e report dal renderer Vulcan reale;
+  banner «DEMO — nessuna esecuzione, dati sintetici», degrado senza JavaScript
+  (tutti gli esiti visibili). `vercel.json` concede `script-src 'self'` solo alla
+  route `/demo`. Test in `tests/unit/test_build_preview.py`; verificato in browser
+  (Chromium/Playwright, server locale). Il deploy *live* su Vercel resta azione
+  owner non verificabile da qui.
 
 **Criterio di completamento:** l'anteprima statica è pubblicabile su Vercel
 (WEB-K-a: generatore, `vercel.json` e `public/` presenti e testati); esiste una

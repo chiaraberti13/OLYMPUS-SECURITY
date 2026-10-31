@@ -166,6 +166,18 @@ as-is. Regenerate with `python scripts/build_preview.py`; a drift gate
 keep the committed output current. Every page carries a restrictive CSP and an
 explicit "preview, no execution, synthetic data" banner.
 
+### Fixture-driven interactive demo (WEB-K-c)
+
+`public/demo.html` shows how the tools are used without running anything: a
+simulated job advances `queued → running → succeeded` through
+recon → scan → enrich → report. Outputs are **recorded fixtures**
+(`tests/fixtures/argus/crtsh.json`, `tests/fixtures/themis/live/nmap_open.xml`)
+parsed by the real parsers, and the report (`demo-report.html`) comes from the real
+Vulcan renderer. A "DEMO — no execution, synthetic data" banner is always visible,
+the page degrades to showing every outcome without JavaScript, and `vercel.json`
+allows `script-src 'self'` on the `/demo` route only (the script makes no network
+calls).
+
 Real scanning (job orchestration, live SSE, scanner subprocesses) runs in the
 Olympus backend on a persistent container host, reached from a Vercel-hosted
 frontend through the typed API — the split described in `WEB-K-b`.

@@ -27,14 +27,19 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
+from olympus.argus.ct import parse_crtsh_response
 from olympus.core.enums import AssetType, FindingStatus, Severity, Source
 from olympus.core.models import Asset, Finding
 from olympus.integrations.scanners import REGISTRY
 from olympus.integrations.suite_catalog import catalog_document
+from olympus.themis.adapters.nmap import NmapAdapter
+from olympus.themis.model import ScanRequest
+from olympus.themis.runner import CommandOutput
 from olympus.vulcan.report import build_report_model, render_report_html
 
 _ROOT = Path(__file__).resolve().parents[1]
 _PUBLIC = _ROOT / "public"
+_FIXTURES = _ROOT / "tests" / "fixtures"
 
 #: One deterministic timestamp so regenerating without changes is a no-op (the
 #: drift gate would otherwise fail on the clock alone).
@@ -81,7 +86,7 @@ def _page(title: str, body: str) -> str:
         f"<title>{html.escape(title)}</title><style>{_STYLE}</style></head><body>"
         "<header><h1>🏛️ OLYMPUS-SECURITY</h1>"
         "<nav><a href='index.html'>Panoramica</a><a href='tools.html'>Strumenti</a>"
-        "<a href='report.html'>Report di esempio</a>"
+        "<a href='demo.html'>Demo guidata</a><a href='report.html'>Report di esempio</a>"
         "<a href='https://github.com/chiaraberti13/OLYMPUS-SECURITY'>Codice</a></nav>"
         f"<div class='banner'>{html.escape(_BANNER)}</div></header>"
         f"{body}"
@@ -198,10 +203,176 @@ def _report_html() -> str:
     return render_report_html(report)
 
 
+# --------------------------------------------------------------------------- #
+# WEB-K-c: fixture-driven interactive demo. Nothing is executed: every stage shows
+# output recorded in repository fixtures, parsed by the *real* parsers/renderer.
+# --------------------------------------------------------------------------- #
+
+_DEMO_DOMAIN = "olympusdemocorp.example"
+_DEMO_HOST = "127.0.0.1"
+_DEMO_BANNER = "DEMO — nessuna esecuzione, dati sintetici"
+
+# Same-origin script only on the demo page; the data is inline JSON (never executed).
+_DEMO_CSP = (
+    "default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; img-src data:; "
+    "base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+)
+
+_DEMO_JS = """\
+"use strict";
+(function () {
+  var root = document.getElementById("demo");
+  if (!root) { return; }
+  var start = document.getElementById("demo-start");
+  var stages = Array.prototype.slice.call(root.querySelectorAll(".stage"));
+  var STEP_MS = 700;
+  root.classList.add("js");
+  function setState(stage, state) {
+    stage.setAttribute("data-state", state);
+    stage.querySelector(".state").textContent = state;
+  }
+  function reset() {
+    stages.forEach(function (s) { setState(s, "queued"); });
+  }
+  reset();
+  var running = false;
+  start.addEventListener("click", function () {
+    if (running) { return; }
+    running = true;
+    start.disabled = true;
+    reset();
+    var i = 0;
+    function next() {
+      if (i > 0) { setState(stages[i - 1], "succeeded"); }
+      if (i >= stages.length) {
+        running = false; start.disabled = false;
+        document.getElementById("demo-done").hidden = false;
+        return;
+      }
+      setState(stages[i], "running");
+      i += 1;
+      window.setTimeout(next, STEP_MS);
+    }
+    document.getElementById("demo-done").hidden = true;
+    next();
+  });
+})();
+"""
+
+_DEMO_STYLE = (
+    ".stage{border:1px solid #ddd;border-radius:.5rem;padding:.6rem .9rem;margin:.8rem 0}"
+    ".stage h3{margin:.1rem 0}pre{overflow:auto;background:#f3f4f6;padding:.6rem;"
+    "border-radius:.4rem;font-size:.8rem}"
+    ".state{font-weight:600}"
+    "#demo.js .stage[data-state=queued] .out,#demo.js .stage[data-state=running] .out{display:none}"
+    "#demo.js .stage[data-state=running]{border-color:#f59e0b}"
+    "#demo.js .stage[data-state=succeeded]{border-color:#3f6212}"
+    "button{font:inherit;padding:.4rem .9rem}"
+    "@media (prefers-color-scheme:dark){pre{background:#1f2937}.stage{border-color:#374151}}"
+)
+
+
+def _demo_stages() -> tuple[list[tuple[str, str, str, str]], list[Finding], list[Asset]]:
+    """Run the real parsers over recorded fixtures; return stage rows + findings."""
+    crt = (_FIXTURES / "argus" / "crtsh.json").read_text(encoding="utf-8")
+    names = parse_crtsh_response(_DEMO_DOMAIN, crt)
+    nmap_xml = (_FIXTURES / "themis" / "live" / "nmap_open.xml").read_text(encoding="utf-8")
+    request = ScanRequest(scanner="nmap", target=_DEMO_HOST)
+    parsed = NmapAdapter().parse(CommandOutput(0, nmap_xml, ""), _DEMO_HOST, request)
+    asset = Asset(
+        asset_id="AST-DEMO-LAB",
+        asset_type=AssetType.HOST,
+        hostname="mars.lab.invalid",
+        source=Source.THEMIS,
+    )
+    findings = [f.model_copy(update={"asset_id": asset.asset_id}) for f in parsed]
+    by_severity: dict[str, int] = {}
+    for finding in findings:
+        by_severity[finding.severity.value] = by_severity.get(finding.severity.value, 0) + 1
+    enrich = "\\n".join(f"{k}: {v}" for k, v in sorted(by_severity.items())) or "nessun finding"
+    nmap_spec = next(spec for spec in REGISTRY if spec.name == "nmap")
+    rows = [
+        (
+            "recon",
+            f"Argus · CT passiva · {_DEMO_DOMAIN}",
+            f"fixture tests/fixtures/argus/crtsh.json → {len(names)} nomi in scope\\n"
+            + "\\n".join(names),
+            "Fixture registrata; nessuna query a crt.sh.",
+        ),
+        (
+            "scan",
+            f"Themis · nmap · lab Mars locale ({_DEMO_HOST}:9090)",
+            "fixture tests/fixtures/themis/live/nmap_open.xml → "
+            + "\\n".join(f"[{f.severity.value}] {f.title}" for f in findings),
+            "Output registrato da un lab autorizzato; nessun processo avviato.",
+        ),
+        (
+            "enrich",
+            f"Core · classificazione ({nmap_spec.name}: {nmap_spec.purpose})",
+            "Finding per severità:\\n" + enrich,
+            "Maturità reale delle capability: vedi pagina Strumenti.",
+        ),
+        (
+            "report",
+            "Vulcan · report HTML reale",
+            f"{len(findings)} finding renderizzati dal renderer reale.",
+            "Apri il report generato: demo-report.html",
+        ),
+    ]
+    return rows, findings, [asset]
+
+
+def _demo_html() -> str:
+    rows, _, _ = _demo_stages()
+    stages = "".join(
+        f"<section class='stage' data-state='succeeded'><h3>{i}. {html.escape(name)} — "
+        f"<span class='state'>succeeded</span></h3><p>{html.escape(label)}</p>"
+        f"<div class='out'><pre>{html.escape(out)}</pre><small>{html.escape(note)}</small>"
+        + ("<p><a href='demo-report.html'>Apri il report →</a></p>" if name == "report" else "")
+        + "</div></section>"
+        for i, (name, label, out, note) in enumerate(rows, 1)
+    )
+    body = (
+        f"<style>{_DEMO_STYLE}</style>"
+        f"<div class='banner' role='status'><strong>{html.escape(_DEMO_BANNER)}</strong></div>"
+        "<h2>Demo guidata: recon → scan → enrich → report</h2>"
+        "<p>Premi il pulsante per vedere un job <em>simulato</em> avanzare "
+        "(<code>queued → running → succeeded</code>). Gli output sono "
+        "<strong>pre-registrati</strong> dalle fixture del repository e analizzati dai "
+        "parser reali; non viene eseguito nulla e non esistono target reali. Senza "
+        "JavaScript la pagina mostra direttamente tutti gli esiti.</p>"
+        f"<p>Target d'esempio: <code>{_DEMO_DOMAIN}</code> (dominio riservato) e il lab "
+        "locale Mars (<code>labs/mars/</code>).</p>"
+        "<button id='demo-start' type='button'>Avvia scan demo</button>"
+        "<p id='demo-done' hidden role='status'>Job demo completato (simulato).</p>"
+        f"<div id='demo'>{stages}</div>"
+    )
+    return (
+        _page("OLYMPUS-SECURITY — Demo guidata", body)
+        .replace(f'content="{_CSP}"', f'content="{_DEMO_CSP}"')
+        .replace("</body>", "<script src='demo.js'></script></body>")
+    )
+
+
+def _demo_report_html() -> str:
+    _, findings, assets = _demo_stages()
+    report = build_report_model(
+        "Demo engagement (fixture)", assets, findings, [], generated_at=_GENERATED
+    )
+    return render_report_html(report)
+
+
+def _demo_js() -> str:
+    return _DEMO_JS
+
+
 _PAGES = {
     "index.html": _index_html,
     "tools.html": _tools_html,
     "report.html": _report_html,
+    "demo.html": _demo_html,
+    "demo-report.html": _demo_report_html,
+    "demo.js": _demo_js,
 }
 
 

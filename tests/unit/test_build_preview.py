@@ -69,6 +69,56 @@ def test_generator_writes_all_pages(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     # A plain run (no --check) regenerates the pages in place and reports success.
     result = _run()
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "Wrote 3 page(s)" in result.stdout
+    assert "Wrote 6 page(s)" in result.stdout
     for name in PAGES:
         assert (PUBLIC / name).exists()
+
+
+# --- WEB-K-c: fixture-driven interactive demo -------------------------------
+
+
+def test_demo_page_is_fixture_driven_and_labelled_as_demo() -> None:
+    text = (PUBLIC / "demo.html").read_text(encoding="utf-8")
+    assert "DEMO — nessuna esecuzione, dati sintetici" in text
+    # Real parsers over recorded fixtures: CT names and nmap finding appear.
+    assert "portal.olympusdemocorp.example" in text
+    assert "SimpleHTTPServer" in text or "9090" in text
+    for stage in ("recon", "scan", "enrich", "report"):
+        assert f"<h3>{['recon', 'scan', 'enrich', 'report'].index(stage) + 1}. {stage} " in text
+    # Without JavaScript every outcome is shown (progressive enhancement).
+    assert "queued" in (PUBLIC / "demo.js").read_text(encoding="utf-8")
+
+
+def test_demo_script_is_same_origin_only_and_makes_no_network_calls() -> None:
+    page = (PUBLIC / "demo.html").read_text(encoding="utf-8")
+    assert "<script src='demo.js'></script>" in page
+    assert "script-src 'self'" in page
+    script = (PUBLIC / "demo.js").read_text(encoding="utf-8")
+    for forbidden in ("fetch(", "XMLHttpRequest", "WebSocket", "eval(", "innerHTML", "http"):
+        assert forbidden not in script
+
+
+def test_demo_report_uses_the_real_renderer() -> None:
+    text = (PUBLIC / "demo-report.html").read_text(encoding="utf-8")
+    assert "Security report" in text
+    assert "mars.lab.invalid" in text
+
+
+def test_vercel_headers_allow_script_only_on_the_demo_route() -> None:
+    import json
+    import re
+
+    config = json.loads((ROOT / "vercel.json").read_text(encoding="utf-8"))
+    rules = {rule["source"]: rule["headers"] for rule in config["headers"]}
+
+    def csp(source: str) -> str:
+        return next(h["value"] for h in rules[source] if h["key"] == "Content-Security-Policy")
+
+    demo = next(src for src in rules if "demo" in src and src.startswith("/demo"))
+    default = next(src for src in rules if src != demo)
+    assert "script-src 'self'" in csp(demo)
+    assert "script-src" not in csp(default)
+    # The catch-all rule must not also match the demo route (headers would merge).
+    assert re.fullmatch(default, "/demo") is None
+    assert re.fullmatch(default, "/demo.html") is None
+    assert re.fullmatch(default, "/tools") is not None
