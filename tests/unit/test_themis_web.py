@@ -580,6 +580,32 @@ def test_engagements_page_states_when_not_configured(tmp_path: Path) -> None:
     assert "No engagement store is configured" in page.text
 
 
+def test_empty_configured_engagement_store_is_distinct_from_unavailable(tmp_path: Path) -> None:
+    from olympus.engagements.store import SqliteEngagementStore
+
+    database = tmp_path / "engagements.db"
+    SqliteEngagementStore(database).close()
+    client = _client(tmp_path, engagements_database=database)
+    _login(client)
+    page = client.get("/engagements")
+    assert page.status_code == 200
+    assert "No engagements yet" in page.text
+    assert "store is unavailable" not in page.text
+
+
+def test_corrupt_engagement_store_is_reported_unavailable_not_empty(tmp_path: Path) -> None:
+    database = tmp_path / "engagements.db"
+    database.write_bytes(b"not a SQLite database")
+    client = _client(tmp_path, engagements_database=database)
+    _login(client)
+    page = client.get("/engagements")
+    assert page.status_code == 200
+    assert "configured engagement store is unavailable" in page.text
+    assert "No engagements yet" not in page.text
+    form = client.get("/assessments/new")
+    assert "engagement scope choices cannot be verified" in form.text
+
+
 def test_new_assessment_offers_engagements_and_enforces_their_scope(tmp_path: Path) -> None:
     client, engagement_id = _engagements_client(tmp_path)
     _login(client)

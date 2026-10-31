@@ -34,6 +34,7 @@ import hmac
 import json
 import re
 import secrets
+import sqlite3
 import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
@@ -968,36 +969,48 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             {"jobs": jobs, "csrf_token": _csrf_token(session.nonce)},
         )
 
-    def _engagement_options() -> list[dict[str, str]]:
+    def _engagement_options() -> tuple[list[dict[str, str]], bool]:
         """Offer the operator the engagements they can scope a scan to.
 
         Best-effort: a missing or unreadable store simply offers no engagements
         (the engagement field stays optional) rather than failing the form.
         """
         if engagements_database is None:
-            return []
+            return [], False
         try:
             engagements = load_engagements(engagements_database)
-        except (EngagementStoreError, OSError):
-            return []
-        return [
-            {"engagement_id": item.engagement_id, "name": _safe(item.name)} for item in engagements
-        ]
+        except (EngagementStoreError, OSError, sqlite3.Error):
+            return [], True
+        return (
+            [
+                {"engagement_id": item.engagement_id, "name": _safe(item.name)}
+                for item in engagements
+            ],
+            False,
+        )
 
     @app.get("/engagements", response_class=HTMLResponse, include_in_schema=False)
     def engagements_page(request: Request, session: WebSession = reads_engagements) -> Response:
         if engagements_database is None:
-            return _page(request, "engagements.html", {"configured": False, "engagements": []})
+            return _page(
+                request,
+                "engagements.html",
+                {"configured": False, "unavailable": False, "engagements": []},
+            )
         try:
             engagements = [
                 _present_engagement(item) for item in load_engagements(engagements_database)
             ]
-        except (EngagementStoreError, OSError):
-            engagements = []
+        except (EngagementStoreError, OSError, sqlite3.Error):
+            return _page(
+                request,
+                "engagements.html",
+                {"configured": True, "unavailable": True, "engagements": []},
+            )
         return _page(
             request,
             "engagements.html",
-            {"configured": True, "engagements": engagements},
+            {"configured": True, "unavailable": False, "engagements": engagements},
         )
 
     @app.get("/engagements/{engagement_id}", response_class=HTMLResponse, include_in_schema=False)
@@ -1044,10 +1057,12 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
     ) -> dict[str, object]:
         """Shared context for the guided New Assessment form (step 1)."""
         ready = _ready_scanner_names()
+        engagements, engagements_unavailable = _engagement_options()
         return {
             "error": error,
             "form": form or {},
-            "engagements": _engagement_options(),
+            "engagements": engagements,
+            "engagement_store_unavailable": engagements_unavailable,
             "activities": _native_activities(),
             "other_activities": _other_activities(),
             "scanners": _scanner_choices(ready),
@@ -1217,10 +1232,12 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         session: WebSession, form: dict[str, str] | None = None, error: str | None = None
     ) -> dict[str, object]:
         """Shared context for the Smart Scan form (step 1, before any plan)."""
+        engagements, engagements_unavailable = _engagement_options()
         return {
             "error": error,
             "form": form or {},
-            "engagements": _engagement_options(),
+            "engagements": engagements,
+            "engagement_store_unavailable": engagements_unavailable,
             "objectives": [
                 {"value": item.value, "summary": OBJECTIVE_SUMMARY[item]} for item in objectives()
             ],

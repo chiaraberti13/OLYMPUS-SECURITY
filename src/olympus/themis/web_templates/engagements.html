@@ -13,6 +13,11 @@
     No engagement store is configured on this server. Start it with
     <code>--engagement-storage</code> to read and scope-check engagements here.
   </p>
+  {% elif unavailable %}
+  <p class="alert" role="alert">
+    The configured engagement store is unavailable or unreadable. No data is
+    shown; ask the operator to check the configured database and its backup.
+  </p>
   {% elif engagements %}
   <table>
     <thead><tr><th>Engagement</th><th>Name</th><th>Client</th><th>Status</th><th>In scope</th></tr></thead>

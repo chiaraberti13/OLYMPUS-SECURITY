@@ -331,6 +331,12 @@ authorized perimeter **before** the job is queued. The identical check runs on
 engagement's scope is enforced the same way from the browser, the API and the
 command line.
 
+The engagement page distinguishes an unconfigured store, a configured empty
+store and an unreadable store. The assessment and Smart Scan forms also warn
+when the configured engagement store cannot be read, because scope choices
+cannot then be verified. Other dashboard and incident-store error states remain
+tracked in `WEB-B-01`.
+
 ## Live job state (server-sent events)
 
 The job detail page works without JavaScript — it renders the authoritative

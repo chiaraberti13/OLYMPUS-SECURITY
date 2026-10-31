@@ -64,7 +64,7 @@ I dettagli sotto sono normativi per ciascuna riga, non task generici senza owner
 | `DEV-G-01` | Riconciliazione dichiarazioni e inventario | P1 | Writer/QA/Product | M | M1 | [~] |
 | `UX-A-01` | Parità TUI e consumer form | P1 | UX/Frontend/Product | L | M3 | [ ] |
 | `WEB-A-01` | Ripresa SSE visibile | P1 | Frontend/Backend | M | M3 | [x] |
-| `WEB-B-01` | Store guasto distinto da vuoto | P1 | Frontend/UX | M | M3 | [ ] |
+| `WEB-B-01` | Store guasto distinto da vuoto | P1 | Frontend/UX | M | M3 | [~] |
 | `WEB-G-01` | Conteggi dashboard corretti | P2 | Data/Frontend | S | M3 | [ ] |
 | `OPS-PURPLE-01` | Coverage telemetria distinta da detection | P1 | Detection/QA | M | M2 | [x] |
 | `UX-E-01` | Accessibilità e parità IT/EN dimostrate | P1 | Accessibility/I18n/QA | L | M3 | [~] |
@@ -415,6 +415,11 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
 - Accettazione misurabile: Store corrotto non mostra onboarding vuoto; widget non disponibili espliciti.
 - Test: TestClient negativo e browser.
 - DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+- Stato (31 ottobre 2026, resta `[~]`): elenco engagements distingue store non
+  configurato, vuoto e illeggibile/corrotto; le form Assessment e Smart Scan
+  mostrano un avviso quando non possono verificare gli engagement. TestClient
+  copre store configurato vuoto e DB SQLite corrotto. Restano dashboard, catalogo
+  incident e revisione browser dei widget non disponibili.
 
 ### WEB-G-01 — Conteggi dashboard corretti
 
