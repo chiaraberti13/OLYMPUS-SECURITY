@@ -68,6 +68,32 @@ if the source store did not have encryption configured, its records are plaintex
 Focused transition-store and backup CLI tests passed **19 tests**. The cross-store
 manifest, audit/identity/scope/evidence stores and recovery drill remain open.
 
+The next WEB-J-01 slice adds offline per-store snapshot, verification and
+create-only restore for Athena's `athena.db` through `olympus athena store`.
+SQLite online backup captures committed WAL state and includes plans,
+assessments, jobs, inline results and audit rows. Verification checks schema
+version/columns, SQLite integrity and foreign keys, absence of sidecars, plan
+identity, and bounded result length/digest/identity/contracts. The CLI refuses
+to create an empty store as a backup source. Four new synthetic tests cover
+store and CLI round trips, WAL persistence, future schema refusal and preserving
+an existing restore destination; the focused backup plus existing adapter
+modules passed **26 tests**. The restore artifact's binary fingerprint may
+differ while data/counts remain equal. This remains an independent store
+snapshot: no cross-store point-in-time consistency, authenticated manifest, key
+backup or RPO/RTO drill is established. On this checkout, full pytest reports
+**2,686 passed, 17 failed, 2 skipped, 1 deselected**; all failures reproduce
+the known host limitation where Themis sandbox tests cannot `chown` a scratch
+directory to `nobody` (`EINVAL`). `make test-coverage` reports 89% line coverage
+but stops on the same failures; its separate branch gate passes at **80.43%**
+(75% minimum). Ruff, format, strict Mypy (217 source files), schema catalog
+(24 contracts), generated CLI reference, changed-doc links and audit-exception
+registry pass. A Python 3.12 wheel builds and installs in a clean environment;
+`uv pip check` passes. `pip-audit` reports no known vulnerabilities for the
+development environment. Gitleaks and Docker are unavailable locally. The
+configured mutation gate passes: **1,237/2,009 targeted mutants killed
+(61.6%)**. Its selectors target existing security boundaries and do not measure
+the new backup methods directly.
+
 For commit `50361cbfa7470a13c3d075932c48bf9da7f1118f`, local TestClient and
 quality checks passed as above. The GitHub connector returned no Actions runs
 for that commit (its workflow-run wrapper is PR-only) and did not expose CodeQL;

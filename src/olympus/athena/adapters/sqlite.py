@@ -16,7 +16,10 @@ import contextlib
 import hashlib
 import hmac
 import json
+import os
 import sqlite3
+import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 
 from olympus.athena.domain.assessment import (
@@ -34,6 +37,21 @@ from olympus.core.migrations import initialize_sqlite_schema
 #: Maximum bytes accepted for a single stored result document.
 MAX_RESULT_BYTES = 1_000_000
 SCHEMA_VERSION = 1
+
+
+@dataclass(frozen=True)
+class AthenaBackupInfo:
+    """Verification facts for one Athena SQLite snapshot."""
+
+    schema_version: int
+    plan_count: int
+    assessment_count: int
+    job_count: int
+    result_count: int
+    audit_event_count: int
+    size_bytes: int
+    sha256: str
+
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS plans (
@@ -107,6 +125,85 @@ class SqliteAssessmentRepository:
     def close(self) -> None:
         """Close the underlying connection."""
         self._conn.close()
+
+    def backup(self, destination: Path) -> AthenaBackupInfo:
+        """Atomically publish a verified, standalone snapshot of this store only."""
+        source = self._path
+        if source.is_symlink() or not source.is_file():
+            raise OSError("Athena database must be an existing regular file")
+        if destination.is_symlink():
+            raise OSError("backup destination must not be a symlink")
+        if _same_file(source, destination):
+            raise ValueError("backup destination must differ from the live database")
+        temporary: Path | None = None
+        try:
+            destination.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            descriptor, name = tempfile.mkstemp(
+                prefix=f".{destination.name}.", suffix=".tmp", dir=destination.parent
+            )
+            os.close(descriptor)
+            temporary = Path(name)
+            target = sqlite3.connect(temporary)
+            try:
+                self._conn.backup(target)
+                target.execute("PRAGMA journal_mode = DELETE")
+            finally:
+                target.close()
+            temporary.chmod(0o600)
+            info = self.verify_backup(temporary)
+            temporary.replace(destination)
+            destination.chmod(0o600)
+            return info
+        except BaseException:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+            raise
+
+    @staticmethod
+    def verify_backup(backup: Path) -> AthenaBackupInfo:
+        """Verify one standalone snapshot's schema, data contracts and SQLite state."""
+        connection, info = _open_verified_athena_database(backup)
+        connection.close()
+        return info
+
+    @staticmethod
+    def restore_backup(backup: Path, destination: Path) -> AthenaBackupInfo:
+        """Restore a verified snapshot to a new path without overwriting data."""
+        source, _ = _open_verified_athena_database(backup)
+        temporary: Path | None = None
+        try:
+            if destination.is_symlink():
+                raise OSError("restore destination must not be a symlink")
+            if _same_file(backup, destination):
+                raise ValueError("restore destination must differ from the backup")
+            sidecars = tuple(
+                Path(f"{destination}{suffix}") for suffix in ("-wal", "-shm", "-journal")
+            )
+            if destination.exists() or any(p.exists() or p.is_symlink() for p in sidecars):
+                raise FileExistsError("restore destination and SQLite sidecars must be absent")
+            destination.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            descriptor, name = tempfile.mkstemp(
+                prefix=f".{destination.name}.", suffix=".restore", dir=destination.parent
+            )
+            os.close(descriptor)
+            temporary = Path(name)
+            target = sqlite3.connect(temporary)
+            try:
+                source.backup(target)
+                target.execute("PRAGMA journal_mode = DELETE")
+            finally:
+                target.close()
+            temporary.chmod(0o600)
+            info = SqliteAssessmentRepository.verify_backup(temporary)
+            os.link(temporary, destination)
+            temporary.unlink()
+            return info
+        except BaseException:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+            raise
+        finally:
+            source.close()
 
     # -- plans ------------------------------------------------------------- #
     def save_plan(self, plan: AssessmentPlan) -> str:
@@ -428,3 +525,139 @@ class SqliteAssessmentRepository:
             "SELECT * FROM audit WHERE assessment_id = ? ORDER BY sequence", (assessment_id,)
         ).fetchall()
         return [dict(row) for row in rows]
+
+
+def _same_file(source: Path, destination: Path) -> bool:
+    try:
+        return source.samefile(destination)
+    except FileNotFoundError:
+        return False
+
+
+def _open_verified_athena_database(path: Path) -> tuple[sqlite3.Connection, AthenaBackupInfo]:
+    if path.is_symlink() or not path.is_file():
+        raise OSError("Athena backup must be a regular non-symlink file")
+    sidecars = tuple(Path(f"{path}{suffix}") for suffix in ("-wal", "-shm", "-journal"))
+    if any(sidecar.exists() or sidecar.is_symlink() for sidecar in sidecars):
+        raise ValueError("Athena backup must be a self-contained SQLite file")
+    connection = sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True)
+    connection.row_factory = sqlite3.Row
+    try:
+        version = int(connection.execute("PRAGMA user_version").fetchone()[0])
+        if version != SCHEMA_VERSION:
+            raise ValueError(f"unsupported Athena backup schema version: {version}")
+        expected = {
+            "plans": ("plan_id", "document"),
+            "assessments": ("assessment_id", "plan_id", "state"),
+            "jobs": (
+                "job_id",
+                "assessment_id",
+                "ordinal",
+                "adapter",
+                "target_kind",
+                "target_value",
+                "state",
+                "error_code",
+                "result_id",
+            ),
+            "results": ("result_id", "assessment_id", "job_id", "document", "sha256", "length"),
+            "audit": (
+                "assessment_id",
+                "sequence",
+                "timestamp",
+                "action",
+                "outcome",
+                "job_id",
+                "metadata",
+            ),
+        }
+        tables = {
+            str(row[0])
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+            )
+        }
+        objects = {
+            str(row[0])
+            for row in connection.execute(
+                "SELECT type FROM sqlite_master WHERE type IN ('view', 'trigger')"
+            )
+        }
+        actual = {
+            table: tuple(str(col[1]) for col in connection.execute(f'PRAGMA table_info("{table}")'))
+            for table in expected
+            if table in tables
+        }
+        if tables != set(expected) or actual != expected or objects:
+            raise ValueError("Athena backup schema does not match this release")
+        integrity = connection.execute("PRAGMA integrity_check").fetchone()
+        if integrity is None or integrity[0] != "ok":
+            raise ValueError("Athena backup failed SQLite integrity_check")
+        if connection.execute("PRAGMA foreign_key_check").fetchone() is not None:
+            raise ValueError("Athena backup contains foreign-key violations")
+
+        for row in connection.execute("SELECT plan_id, document FROM plans"):
+            plan = load_plan(json.loads(str(row["document"])))
+            if str(row["plan_id"]) != f"PLAN-{plan.digest()[:16]}":
+                raise ValueError("Athena backup contains a plan with an invalid identity")
+        for row in connection.execute("SELECT assessment_id, state FROM assessments"):
+            if not str(row["assessment_id"]) or str(row["state"]) not in {
+                state.value for state in AssessmentState
+            }:
+                raise ValueError("Athena backup contains an invalid assessment")
+        for row in connection.execute("SELECT state FROM jobs"):
+            if str(row["state"]) not in {state.value for state in JobState}:
+                raise ValueError("Athena backup contains an invalid job state")
+
+        # Reuse the repository's bounded parser, digest, length and identity checks.
+        for row in connection.execute("SELECT result_id FROM results"):
+            result_id = str(row["result_id"])
+            result_row = connection.execute(
+                "SELECT assessment_id, job_id, document, sha256, length FROM results "
+                "WHERE result_id = ?",
+                (result_id,),
+            ).fetchone()
+            if result_row is None:
+                raise ValueError("Athena backup result disappeared during verification")
+            document = str(result_row["document"])
+            encoded = document.encode("utf-8")
+            digest = hashlib.sha256(encoded).hexdigest()
+            if (
+                len(encoded) > MAX_RESULT_BYTES
+                or len(encoded) != int(result_row["length"])
+                or not hmac.compare_digest(digest, str(result_row["sha256"]))
+                or result_id != f"RES-{digest[:16]}-{result_row['job_id']}"
+            ):
+                raise ValueError(f"Athena backup result {result_id} failed integrity validation")
+            result = load_result(json.loads(document))
+            if (
+                result.assessment_id != result_row["assessment_id"]
+                or result.job.job_id != result_row["job_id"]
+            ):
+                raise ValueError(f"Athena backup result {result_id} has invalid identity")
+
+        counts = [
+            int(connection.execute("SELECT count(*) FROM plans").fetchone()[0]),
+            int(connection.execute("SELECT count(*) FROM assessments").fetchone()[0]),
+            int(connection.execute("SELECT count(*) FROM jobs").fetchone()[0]),
+            int(connection.execute("SELECT count(*) FROM results").fetchone()[0]),
+            int(connection.execute("SELECT count(*) FROM audit").fetchone()[0]),
+        ]
+        file_digest = hashlib.sha256()
+        with path.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                file_digest.update(chunk)
+        info = AthenaBackupInfo(
+            schema_version=version,
+            plan_count=counts[0],
+            assessment_count=counts[1],
+            job_count=counts[2],
+            result_count=counts[3],
+            audit_event_count=counts[4],
+            size_bytes=path.stat().st_size,
+            sha256=file_digest.hexdigest(),
+        )
+        return connection, info
+    except BaseException:
+        connection.close()
+        raise

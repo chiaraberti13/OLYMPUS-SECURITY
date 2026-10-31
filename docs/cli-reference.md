@@ -461,6 +461,32 @@ Print the persisted state of an assessment and its jobs.
 | `assessment_id` | argument | yes | — | Assessment ID to inspect. |
 | `--storage` | option | yes | — | Directory for the Athena database. |
 
+### `olympus athena store backup`
+
+Create an atomic, verified snapshot of athena.db only.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--storage` | option | yes | — | Directory holding athena.db. |
+| `--output` | option | yes | — | Snapshot destination. |
+
+### `olympus athena store restore-backup`
+
+Restore athena.db to an absent destination; stop writers before cutover.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--backup` | option | yes | — | Verified Athena snapshot. |
+| `--storage` | option | yes | — | New empty storage directory. |
+
+### `olympus athena store verify-backup`
+
+Verify one Athena snapshot, including stored plan/result contracts.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--backup` | option | yes | — | Snapshot file to verify. |
+
 ### `olympus catalog`
 
 Show which integrated-toolkit capabilities Olympus delivers.

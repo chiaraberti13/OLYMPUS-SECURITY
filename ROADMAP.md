@@ -312,8 +312,15 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
   la chiave di cifratura deve essere salvata separatamente; senza chiave
   configurata i record di origine possono essere in chiaro. `.requests`, identity,
   audit, scope, custody/vault restano esclusi; Metis conserva il proprio backup
-  indipendente. Non esiste coordinamento tra questi store: i fingerprint restano
-  non autenticati e nessun backup di piattaforma o RPO/RTO è dichiarato verificato.
+  indipendente. Ulteriore slice: `SqliteAssessmentRepository` fornisce backup,
+  verifica e restore create-only per `athena.db` con `olympus athena store`.
+  Lo snapshot online comprende piani, assessment, job, risultati inline e audit;
+  la verifica richiede schema/versione correnti, integrity/FK, file autonomo,
+  identità plan e integrità/digest/contratto dei risultati. Test sintetici coprono
+  WAL, round-trip CLI e store, schema futuro e destinazione esistente. Il digest
+  del backup e quello del DB ricreato possono differire a parità di dati.
+  Non esiste coordinamento tra questi store: i fingerprint restano non autenticati
+  e nessun backup di piattaforma o RPO/RTO è dichiarato verificato.
 
 ### WEB-J-02 — Retention e privacy di sistema
 

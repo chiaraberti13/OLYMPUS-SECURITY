@@ -16,6 +16,7 @@ Olympus exit codes (:mod:`olympus.core.exit_codes`):
 from __future__ import annotations
 
 import json
+import sqlite3
 from collections.abc import Callable
 from pathlib import Path
 
@@ -23,7 +24,7 @@ import typer
 
 from olympus.athena.adapters.audit import SqliteAuditSink
 from olympus.athena.adapters.report import VulcanReportRenderer
-from olympus.athena.adapters.sqlite import SqliteAssessmentRepository
+from olympus.athena.adapters.sqlite import AthenaBackupInfo, SqliteAssessmentRepository
 from olympus.athena.adapters.system import CoreIdProvider, SystemClock
 from olympus.athena.application.coordinator import Coordinator, RunOutcome
 from olympus.athena.application.planning import load_plan_file
@@ -62,7 +63,9 @@ from olympus.vulcan.pdf import PdfUnavailableError
 
 app = typer.Typer(help="Athena — assessment orchestration.", no_args_is_help=True)
 plan_app = typer.Typer(help="Plan validation utilities.", no_args_is_help=True)
+store_app = typer.Typer(help="Back up and restore the Athena SQLite store.", no_args_is_help=True)
 app.add_typer(plan_app, name="plan")
+app.add_typer(store_app, name="store")
 
 _DB_NAME = "athena.db"
 
@@ -72,6 +75,69 @@ _MAX_FEED_BYTES = 25_000_000
 
 def _open_repository(storage: Path) -> SqliteAssessmentRepository:
     return SqliteAssessmentRepository(storage / _DB_NAME)
+
+
+def _backup_payload(info: AthenaBackupInfo) -> dict[str, object]:
+    return {
+        "schema_version": info.schema_version,
+        "plan_count": info.plan_count,
+        "assessment_count": info.assessment_count,
+        "job_count": info.job_count,
+        "result_count": info.result_count,
+        "audit_event_count": info.audit_event_count,
+        "size_bytes": info.size_bytes,
+        "sha256": info.sha256,
+    }
+
+
+@store_app.command("backup")
+def store_backup(
+    storage: Path = typer.Option(..., "--storage", help="Directory holding athena.db."),
+    output: Path = typer.Option(..., "--output", help="Snapshot destination."),
+) -> None:
+    """Create an atomic, verified snapshot of athena.db only."""
+    database = storage / _DB_NAME
+    if database.is_symlink() or not database.is_file():
+        typer.echo(
+            "athena: backup failed: Athena database does not exist as a regular file", err=True
+        )
+        raise typer.Exit(code=ExitCode.FAILED)
+    repository = _open_repository(storage)
+    try:
+        info = repository.backup(output)
+    except (OSError, ValueError, sqlite3.Error) as exc:
+        typer.echo(f"athena: backup failed: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.FAILED) from exc
+    finally:
+        repository.close()
+    typer.echo(json.dumps(_backup_payload(info), indent=2, sort_keys=True))
+
+
+@store_app.command("verify-backup")
+def store_verify_backup(
+    backup: Path = typer.Option(..., "--backup", help="Snapshot file to verify."),
+) -> None:
+    """Verify one Athena snapshot, including stored plan/result contracts."""
+    try:
+        info = SqliteAssessmentRepository.verify_backup(backup)
+    except (OSError, ValueError, sqlite3.Error) as exc:
+        typer.echo(f"athena: backup verification failed: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.FAILED) from exc
+    typer.echo(json.dumps(_backup_payload(info), indent=2, sort_keys=True))
+
+
+@store_app.command("restore-backup")
+def store_restore_backup(
+    backup: Path = typer.Option(..., "--backup", help="Verified Athena snapshot."),
+    storage: Path = typer.Option(..., "--storage", help="New empty storage directory."),
+) -> None:
+    """Restore athena.db to an absent destination; stop writers before cutover."""
+    try:
+        info = SqliteAssessmentRepository.restore_backup(backup, storage / _DB_NAME)
+    except (OSError, ValueError, sqlite3.Error) as exc:
+        typer.echo(f"athena: restore failed: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.FAILED) from exc
+    typer.echo(json.dumps(_backup_payload(info), indent=2, sort_keys=True))
 
 
 @plan_app.command("validate")
