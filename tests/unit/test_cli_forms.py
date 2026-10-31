@@ -4,7 +4,8 @@ Pin that each command parameter becomes a typed field (text/integer/number/
 checkbox/select/path, with required, choices, range and repeatable), that the
 same schema is produced for every runnable command (one source for TUI and web),
 and that local validation catches missing required fields, bad choices and
-out-of-range numbers before anything runs.
+out-of-range numbers before anything runs. The TUI consumes these schemas now;
+the interface-agnostic shape is also suitable for a future web consumer.
 """
 
 from __future__ import annotations

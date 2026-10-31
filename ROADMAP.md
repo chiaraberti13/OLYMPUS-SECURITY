@@ -18,7 +18,7 @@ Nessun conteggio storico di test, adapter o claim CI costituisce prova attuale.
 
 Correzioni di stato: `SEC-D` riaperto `[~]` per log TUI; `DEV-B` `[~]` per wiring
 runtime/abstract/duplicati oltre alla firma; `DEV-G`/`DEV-H` `[~]` per deriva e ADR;
-`UX-A` schema implementato ma consumer TUI/Web mancanti; `OPS-PURPLE` matrice
+`UX-A` form CLI derivati e consumati dalla TUI, criteri completati nella sezione dedicata; `OPS-PURPLE` matrice
 presenza telemetria implementata, catena tecnica→regola→test non completata.
 `UX-G` doctor globale già implementato; resta onboarding. `UX-F` report multilivello
 presente in Vulcan/Web, resta validazione utenti. `SEC-A`/`DEV-A` runtime nativo
@@ -62,7 +62,7 @@ I dettagli sotto sono normativi per ciascuna riga, non task generici senza owner
 | `SEC-F-01` | Build scanner riproducibile e licenze | P1 | SRE/Governance | L | M2 | [⏸] |
 | `SEC-F-02` | Chiusura dipendenze SBOM conforme ai marker | P1 | Supply-chain/Backend | M | M1 | [x] |
 | `DEV-G-01` | Riconciliazione dichiarazioni e inventario | P1 | Writer/QA/Product | M | M1 | [~] |
-| `UX-A-01` | Parità TUI e consumer form | P1 | UX/Frontend/Product | L | M3 | [ ] |
+| `UX-A-01` | Parità TUI e consumer form | P1 | UX/Frontend/Product | L | M3 | [x] |
 | `WEB-A-01` | Ripresa SSE visibile | P1 | Frontend/Backend | M | M3 | [x] |
 | `WEB-B-01` | Store guasto distinto da vuoto | P1 | Frontend/UX | M | M3 | [~] |
 | `WEB-G-01` | Conteggi dashboard corretti | P2 | Data/Frontend | S | M3 | [x] |
