@@ -77,6 +77,10 @@ class ResultTooLargeError(ValueError):
     """Raised when a result document exceeds the configured storage cap."""
 
 
+class TransitionConflictError(RuntimeError):
+    """Raised when another writer changed the persisted state first."""
+
+
 class SqliteAssessmentRepository:
     """SQLite-backed :class:`~olympus.athena.ports.AssessmentRepository`."""
 
@@ -184,10 +188,14 @@ class SqliteAssessmentRepository:
         )
         advance_assessment(current, target)  # validates or raises TransitionError
         with self._conn:
-            self._conn.execute(
-                "UPDATE assessments SET state = ? WHERE assessment_id = ?",
-                (target.value, assessment_id),
+            cursor = self._conn.execute(
+                "UPDATE assessments SET state = ? WHERE assessment_id = ? AND state = ?",
+                (target.value, assessment_id, current.state.value),
             )
+            if cursor.rowcount != 1:
+                raise TransitionConflictError(
+                    f"assessment {assessment_id} state changed during transition"
+                )
 
     def transition_job(
         self,
@@ -199,10 +207,19 @@ class SqliteAssessmentRepository:
     ) -> Job:
         updated = advance_job(job, target, error_code=error_code, result_id=result_id)
         with self._conn:
-            self._conn.execute(
-                "UPDATE jobs SET state = ?, error_code = ?, result_id = ? WHERE job_id = ?",
-                (updated.state.value, updated.error_code, updated.result_id, updated.job_id),
+            cursor = self._conn.execute(
+                "UPDATE jobs SET state = ?, error_code = ?, result_id = ? "
+                "WHERE job_id = ? AND state = ?",
+                (
+                    updated.state.value,
+                    updated.error_code,
+                    updated.result_id,
+                    updated.job_id,
+                    job.state.value,
+                ),
             )
+            if cursor.rowcount != 1:
+                raise TransitionConflictError(f"job {job.job_id} state changed during transition")
         return updated
 
     # -- results ----------------------------------------------------------- #

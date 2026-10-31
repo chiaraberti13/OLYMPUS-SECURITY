@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Barrier
 
 import pytest
 
@@ -11,6 +13,7 @@ from olympus.athena.adapters.report import VulcanReportRenderer
 from olympus.athena.adapters.sqlite import (
     ResultTooLargeError,
     SqliteAssessmentRepository,
+    TransitionConflictError,
 )
 from olympus.athena.adapters.tools.dns_records import DnsRecordsAdapter
 from olympus.athena.adapters.tools.web_headers import WebHeadersAdapter
@@ -20,7 +23,7 @@ from olympus.athena.application.registry import (
     available_adapters,
     resolve_adapters,
 )
-from olympus.athena.domain.assessment import Assessment, Job
+from olympus.athena.domain.assessment import Assessment, Job, JobState
 from olympus.athena.domain.contracts import AssessmentResult, load_plan
 from olympus.athena.ports import ToolRequest
 from olympus.core.enums import Severity, Source
@@ -211,6 +214,43 @@ def test_sqlite_transition_missing_assessment(tmp_path: Path) -> None:
     with pytest.raises(LookupError):
         repo.transition_assessment("ghost", AssessmentState.RUNNING)
     repo.close()
+
+
+def test_concurrent_job_transitions_use_a_compare_and_swap(tmp_path: Path) -> None:
+    path = tmp_path / "athena.db"
+    seed = SqliteAssessmentRepository(path)
+    plan_id = seed.save_plan(load_plan(_plan_dict()))
+    job = Job(job_id="J-CAS", adapter="dns", target_kind="domain", target_value="example.com")
+    seed.save_assessment(Assessment(assessment_id="A-CAS", plan_id=plan_id, jobs=(job,)))
+    seed.close()
+    barrier = Barrier(2)
+
+    def transition() -> str:
+        repo = SqliteAssessmentRepository(path)
+        try:
+            barrier.wait(timeout=5)
+            try:
+                repo.transition_job(job, JobState.RUNNING)
+                return "committed"
+            except TransitionConflictError:
+                return "conflict"
+        finally:
+            repo.close()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = [
+            future.result(timeout=10)
+            for future in (pool.submit(transition), pool.submit(transition))
+        ]
+
+    assert sorted(results) == ["committed", "conflict"]
+    verify = SqliteAssessmentRepository(path)
+    try:
+        loaded = verify.load_assessment("A-CAS")
+        assert loaded is not None
+        assert loaded.jobs[0].state is JobState.RUNNING
+    finally:
+        verify.close()
 
 
 def test_sqlite_audit_rows(tmp_path: Path) -> None:
