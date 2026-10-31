@@ -650,9 +650,7 @@ List the independently implemented Olympus capability catalog.
 
 ### `olympus metis case backup`
 
-Write a consistent owner-only snapshot of the whole case store. The snapshot is
-written to a private temporary file, verified for schema/integrity/foreign keys,
-then atomically published so a failed backup does not replace an earlier one.
+Write a verified, atomically published owner-only snapshot of the case store.
 
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
@@ -759,8 +757,7 @@ Export an owner-only CTI case report.
 
 ### `olympus metis case restore`
 
-Restore a verified snapshot into an offline destination database, replacing its
-contents atomically after schema, integrity and foreign-key verification.
+Restore a verified snapshot into an offline destination database.
 
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |

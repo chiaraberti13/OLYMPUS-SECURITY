@@ -489,7 +489,7 @@ def case_backup(
         False, "--encrypt", help="Encrypt the snapshot under OLYMPUS_METIS_KEY (authenticated)."
     ),
 ) -> None:
-    """Write a consistent owner-only snapshot of the whole case store.
+    """Write a verified, atomically published owner-only snapshot of the case store.
 
     With ``--encrypt`` the consistent snapshot is taken to a private temp file and
     then written out encrypted (Fernet + scrypt) under ``OLYMPUS_METIS_KEY`` — a
