@@ -49,7 +49,7 @@ I dettagli sotto sono normativi per ciascuna riga, non task generici senza owner
 | `SEC-E-01` | Audit Athena durevole dopo restart | P0 | Data/Backend/AppSec | M | M1 | [x] |
 | `SEC-B-01` | Egress scanner e DNS vincolati allo scope | P0 | Security/Scanner/SRE | XL | M2 | [⏸] |
 | `SEC-H-01` | Rifiuto directory symlink API | P1 | AppSec/Backend | S | M1 | [x] |
-| `SEC-H-02` | Letture FIFO non bloccanti | P1 | AppSec/Backend | S | M1 | [ ] |
+| `SEC-H-02` | Letture FIFO non bloccanti | P1 | AppSec/Backend | S | M1 | [x] |
 | `SEC-D-01` | Redazione argomenti nel log TUI | P1 | AppSec/UX | S | M1 | [ ] |
 | `SEC-G-01` | Cancellazione TUI completa | P1 | Backend/QA | M | M2 | [ ] |
 | `DEV-E-01` | Transizioni Athena concorrenti e audit atomico | P1 | Data/Architect | L | M2 | [ ] |
@@ -144,6 +144,13 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
 - Accettazione misurabile: Entrambe le API rifiutano FIFO entro deadline; file normali e link testati.
 - Test: subprocess locale con timeout e cleanup.
 - DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+- Stato (verifica locale 2026-10-31, `[x]`): `read_regular_bytes` e
+  `iter_regular_utf8_lines` aprono con `O_NONBLOCK` dove disponibile, quindi
+  `fstat` può rifiutare FIFO senza attendere un writer. Il flag non cambia il
+  comportamento delle normali letture di file regolari; `O_NOFOLLOW`, i limiti
+  di byte e la validazione del descriptor restano attivi. Due prove in subprocess
+  con timeout verificano entrambi i reader; saltate solo sui sistemi senza
+  `mkfifo`.
 
 ### SEC-D-01 — Redazione argomenti nel log TUI
 

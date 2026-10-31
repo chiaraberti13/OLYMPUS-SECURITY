@@ -7,6 +7,9 @@ existing file. The atomic writers gain a race-free exclusive-create mode.
 
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -102,6 +105,29 @@ def test_streaming_reader_enforces_total_and_line_budgets(tmp_path: Path) -> Non
         list(iter_regular_utf8_lines(source, max_bytes=8, max_line_bytes=3, label="events"))
     with pytest.raises(ValueError, match="exceeds the 7 byte limit"):
         list(iter_regular_utf8_lines(source, max_bytes=7, max_line_bytes=4, label="events"))
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="FIFO fixtures require POSIX")
+@pytest.mark.parametrize("reader", ["bytes", "lines"])
+def test_regular_readers_reject_fifo_without_blocking(tmp_path: Path, reader: str) -> None:
+    fifo = tmp_path / "events.fifo"
+    os.mkfifo(fifo)
+    command = (
+        "from pathlib import Path; import sys; "
+        "from olympus.core.fileio import iter_regular_utf8_lines, read_regular_bytes; "
+        "path = Path(sys.argv[1]); reader = sys.argv[2]; "
+        "read_regular_bytes(path, max_bytes=32) if reader == 'bytes' else "
+        "list(iter_regular_utf8_lines(path, max_bytes=32, max_line_bytes=16))"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", command, str(fifo), reader],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=2,
+    )
+    assert result.returncode != 0
+    assert "regular file" in result.stderr
 
 
 def test_atomic_stream_writer_rolls_back_a_partial_output(tmp_path: Path) -> None:

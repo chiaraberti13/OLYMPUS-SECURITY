@@ -15,6 +15,8 @@ try:
 except AttributeError:  # pragma: no cover - Windows lacks this flag
     _NOFOLLOW = 0
 
+_NONBLOCK = getattr(os, "O_NONBLOCK", 0)
+
 
 class UnsafeWriteTarget(ValueError):
     """Raised when a write destination fails a pre-write safety check."""
@@ -62,7 +64,7 @@ def read_regular_bytes(path: Path, *, max_bytes: int, label: str = "input") -> b
         raise ValueError("max_bytes must be between 1 and 1000000000")
     if path.is_symlink():
         raise OSError(f"{label} must not be a symlink: {path}")
-    descriptor = os.open(path, os.O_RDONLY | _NOFOLLOW)
+    descriptor = os.open(path, os.O_RDONLY | _NOFOLLOW | _NONBLOCK)
     try:
         metadata = os.fstat(descriptor)
         if not stat.S_ISREG(metadata.st_mode):
@@ -107,7 +109,7 @@ def iter_regular_utf8_lines(
         raise ValueError("max_line_bytes must be between 1 and 1000000000")
     if path.is_symlink():
         raise OSError(f"{label} must not be a symlink: {path}")
-    descriptor = os.open(path, os.O_RDONLY | _NOFOLLOW)
+    descriptor = os.open(path, os.O_RDONLY | _NOFOLLOW | _NONBLOCK)
     try:
         metadata = os.fstat(descriptor)
         if not stat.S_ISREG(metadata.st_mode):
