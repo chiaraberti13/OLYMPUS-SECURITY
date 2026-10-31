@@ -68,7 +68,7 @@ I dettagli sotto sono normativi per ciascuna riga, non task generici senza owner
 | `WEB-G-01` | Conteggi dashboard corretti | P2 | Data/Frontend | S | M3 | [x] |
 | `OPS-PURPLE-01` | Coverage telemetria distinta da detection | P1 | Detection/QA | M | M2 | [x] |
 | `UX-E-01` | Accessibilità e parità IT/EN dimostrate | P1 | Accessibility/I18n/QA | L | M3 | [~] |
-| `DEV-E-02` | Modello single-node e soglie scalabilità | P2 | Architect/SRE | L | M4 | [ ] |
+| `DEV-E-02` | Modello single-node e soglie scalabilità | P2 | Architect/SRE | L | M4 | [~] |
 | `DEV-E-03` | Allocazione ID atomica engagement/finding | P2 | Data/Backend | M | M3 | [x] |
 | `OPS-SCAN-01` | Integrazioni motivate e promozione maturità | P2 | Product/Scanner/Blue | XL | M4 | [⏸] |
 
@@ -495,6 +495,14 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
 - Accettazione misurabile: Carico dichiarato e SLO misurati; migrare solo se SQLite viola budget riproducibile.
 - Test: load/recovery/multiworker.
 - DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+- Stato (31 ottobre 2026, resta `[~]`): documentato il limite one-process per
+  API/Web (`RateLimiter` in-process e secret sessione generato all'avvio); i job
+  SQLite restano coordinati fra worker e soggetti al cap persistente. Benchmark
+  sintetico standard, singolo processo, 250 job e cinque campioni: mediana
+  1,684 s, worst 1,779 s, CPU mediana 1,010 s, allocazione tracciata 0,019 MiB.
+  Questo non è p95 Web né SLO. Mancano workload HTTP dichiarato, p95, misure
+  multi-processo di lock/errori e recovery; nessuna decisione di migrazione è
+  supportata da questi soli numeri.
 
 ### OPS-SCAN-01 — Integrazioni motivate e promozione maturità
 

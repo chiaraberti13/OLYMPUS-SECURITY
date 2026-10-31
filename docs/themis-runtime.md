@@ -7,6 +7,22 @@ control plane nativo dalla wheel installata. API e Web riusano autenticazione,
 scope registrati, audit redatto e lo stesso archivio job; i worker eseguono
 soltanto la richiesta tipizzata attraverso il servizio applicativo Themis.
 
+### Limite di deployment
+
+Eseguire una sola istanza e un solo processo per ciascun servizio API/Web.
+Il rate limit API/Web usa un `RateLimiter` in-process; i cookie Web sono firmati con un
+segreto casuale del processo, quindi un riavvio invalida le sessioni esistenti
+e più worker Web non condividono la verifica delle sessioni. Lo store SQLite
+coordina le claim dei job tra processi, ma ciò non rende distribuiti identità,
+rate limit o sessioni browser. Non dichiariamo affidabile il deployment Web
+orizzontale/multiworker finché questi stati non hanno backend condivisi e test di
+carico. Worker scanner separati possono condividere lo stesso database job
+entro il limite di concorrenza configurato.
+
+Il benchmark sintetico locale della coda è solo diagnostico: non stabilisce SLO
+API/Web, p95 multiprocesso o capacità production. Vedi
+[`performance.md`](performance.md) e `DEV-E-02` nella roadmap.
+
 ```bash
 pip install "olympus-security[themis]"
 olympus themis migrate --database .olympus/themis-jobs.sqlite3
@@ -268,6 +284,22 @@ inventari. Lo storico terminale mantiene il percorso di import revisionato,
 senza conservare o rendere eseguibile il runtime legacy.
 
 ## English
+
+### Deployment boundary
+
+Run one instance and one process for each API/Web service. API and Web rate
+limits use an in-process `RateLimiter`; Web session cookies are signed with a random
+process-local secret, so a restart invalidates existing sessions and multiple
+Web workers do not share session verification state. The SQLite job store does
+coordinate job claims across processes, but that does not make the identity,
+rate-limit or browser-session state distributed. Horizontal/multiworker Web
+deployment is not a supported reliability claim until those states have shared
+backends and are load-tested. Separate scanner workers may share the same job
+database under its configured concurrency cap.
+
+The local synthetic queue benchmark is diagnostic only; it does not establish
+an API/Web SLO, multi-process p95, or production capacity. See
+[`performance.md`](performance.md) and `DEV-E-02` in the roadmap.
 
 The installed wheel owns `themis api`, `serve`/`web`, `migrate` and `workers`.
 API and Web share the native authenticated, scoped and audited job store.

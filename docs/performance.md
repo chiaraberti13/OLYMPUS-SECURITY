@@ -55,6 +55,19 @@ Run the same host at least three times before changing a budget; revise a limit
 only with an explained workload and measurements, not to hide a regression.
 Budgets are not yet CI blockers because shared runners have variable performance.
 
+## Single-process queue sample (2026-10-31)
+
+`--profile standard --enforce` ran on Linux/Python 3.12.14 against synthetic,
+loopback-only fixtures at commit `1db4ac1`. The Themis scenario submitted and
+claimed 250 jobs in five measured samples: median wall time **1.684 s**, worst
+sample **1.779 s**, median CPU **1.010 s**, and peak traced Python allocation
+**0.019 MiB**. All four benchmark scenarios remained within their configured
+diagnostic budgets. The queue figure is an aggregate lifecycle measurement in
+one process; it is not request latency, a p95, a lock-contention test or a
+capacity/SLO promise. `DEV-E-02` remains open pending a declared Web workload,
+concurrent-process lock/error measurements, recovery results and repeat runs on
+an identified host.
+
 ## Run
 
 ```bash
