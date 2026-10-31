@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -16,6 +17,7 @@ from olympus.tui.app import (
     ConfirmRunScreen,
     HelpScreen,
     OlympusTui,
+    _force_kill_process_tree,
     _signal_process_tree,
     describe_completion,
 )
@@ -214,6 +216,91 @@ time.sleep(30)
         await asyncio.wait_for(parent.wait(), timeout=2)
         with pytest.raises(ProcessLookupError):
             os.kill(child_pid, 0)
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.skipif(os.name != "posix", reason="process-group probe requires POSIX")
+def test_closing_tui_stops_running_command_process_tree(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        child_pid_file = tmp_path / "closing-child.pid"
+        parent_code = (
+            "import pathlib,subprocess,sys,time; "
+            "child=subprocess.Popen([sys.executable,'-c','import time; time.sleep(30)']); "
+            "pathlib.Path(sys.argv[1]).write_text(str(child.pid)); time.sleep(30)"
+        )
+        interface = OlympusTui(get_command(app))
+        screen = _screen_for(("core", "export-schemas"))
+        process: asyncio.subprocess.Process | None = None
+        child_pid: int | None = None
+        async with interface.run_test(size=(140, 42)) as pilot:
+            interface.push_screen(screen)
+            await pilot.pause()
+            process = await asyncio.create_subprocess_exec(
+                sys.executable,
+                "-c",
+                parent_code,
+                str(child_pid_file),
+                start_new_session=True,
+            )
+            screen.process = process
+            for _ in range(100):
+                if child_pid_file.exists():
+                    break
+                await asyncio.sleep(0.01)
+            assert child_pid_file.exists()
+            child_pid = int(child_pid_file.read_text(encoding="utf-8"))
+
+            await pilot.exit(None)
+        assert process is not None and process.returncode is not None and process.returncode < 0
+        assert child_pid is not None
+        child_stopped = False
+        for _ in range(100):
+            try:
+                os.kill(child_pid, 0)
+            except ProcessLookupError:
+                child_stopped = True
+                break
+            await asyncio.sleep(0.01)
+        assert child_stopped
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows process-tree probe")
+def test_windows_force_kill_stops_parent_and_child(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        child_pid_file = tmp_path / "windows-child.pid"
+        parent_code = (
+            "import pathlib,subprocess,sys,time; "
+            "child=subprocess.Popen([sys.executable,'-c','import time; time.sleep(30)']); "
+            "pathlib.Path(sys.argv[1]).write_text(str(child.pid)); time.sleep(30)"
+        )
+        process = await asyncio.create_subprocess_exec(
+            sys.executable,
+            "-c",
+            parent_code,
+            str(child_pid_file),
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+        )
+        for _ in range(100):
+            if child_pid_file.exists():
+                break
+            await asyncio.sleep(0.01)
+        assert child_pid_file.exists()
+        child_pid = int(child_pid_file.read_text(encoding="utf-8"))
+
+        await _force_kill_process_tree(process)
+        await asyncio.wait_for(process.wait(), timeout=3)
+        child_stopped = False
+        for _ in range(100):
+            try:
+                os.kill(child_pid, 0)
+            except OSError:
+                child_stopped = True
+                break
+            await asyncio.sleep(0.01)
+        assert child_stopped
 
     asyncio.run(scenario())
 

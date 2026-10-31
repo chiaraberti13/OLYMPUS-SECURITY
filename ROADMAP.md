@@ -183,9 +183,11 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
   comando in una nuova sessione e invia SIGTERM/SIGKILL all'intero process group;
   annullamento, chiusura schermata ed errore avviano cleanup bounded. Su Windows
   usa un nuovo process group, CTRL_BREAK e `taskkill /T /F` con timeout. Il test
-  POSIX locale dimostra la terminazione di un processo e del suo figlio. Rimane
-  da eseguire il test process-tree su Windows e provare la chiusura reale della
-  TUI durante un comando; la voce non è dichiarata completata.
+  POSIX locale dimostra la terminazione di un processo e del suo figlio; un
+  Testual Pilot chiude l'app durante un comando e verifica la terminazione di
+  parent e child. Aggiunto al job Windows portable-smoke un test dedicato che
+  usa taskkill `/T /F` e verifica il child. Il test Windows e il relativo run CI
+  non sono eseguibili/verificabili da questo host, quindi la voce resta aperta.
 
 ### DEV-E-01 — Transizioni Athena concorrenti e audit atomico
 
