@@ -115,3 +115,35 @@ digested like any hand-written plan. The `light` profile is guaranteed to
 contain no active adapters, so it is always safe to run first; `deep` is a
 strict superset that adds the active AEGIS step for engagements where active
 scanning is authorized.
+
+## Capability alignment
+
+An integrated toolkit advertises product *capabilities* — a Website Scanner, a
+Port Scanner, a Subdomain Finder — not individual engines. `olympus catalog`
+maps each of those capabilities onto the Olympus modules and engines that back
+it and reports an honest, **code-derived** coverage state, so the project never
+claims more than it delivers:
+
+- `present` — a backing engine whose parser is proven against real output
+  (maturity `offline-tested` or above) or a tested first-party module;
+- `simulated` — a registered adapter (`adapter-ready`) whose parser is not yet
+  proven, so it is honest only in simulation, never as a verified result;
+- `missing` — no coverage beyond, at most, a catalogue entry.
+
+| Capability | Coverage | Backed by |
+| --- | --- | --- |
+| Website Vulnerability Scanner | present | Themis (nuclei, nikto, wapiti, sqlmap, …), Artemis |
+| SSL/TLS Scanner | present | Themis (testssl, offline-tested) |
+| Port Scanner | present | Themis (nmap, live-tested) |
+| Subdomain Finder | present | Argus (Certificate Transparency, native) |
+| Domain / DNS Finder | present | Argus (DNS/WHOIS, native) |
+| Network Vulnerability Scanner | missing | nessus / openvas catalogued, not adapted |
+| CMS Scanner | missing | wpscan catalogued; whatweb gives detection only |
+| Password Auditor | missing | no Olympus module |
+
+The state is derived from the maturity ledger
+([`scanner-maturity.md`](scanner-maturity.md)) and committed native tests, never
+hand-asserted; `olympus.integrations.suite_catalog.verify_catalog` re-derives
+what the repository can back and a unit test asserts it is empty, so the
+alignment cannot drift into marketing. The table above is illustrative; the live
+answer is always `olympus catalog`.

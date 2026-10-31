@@ -3030,10 +3030,32 @@ cui questo intervento *potenzia* quei due moduli, non ne crea di paralleli.
   genera→valida, rifiuto senza `--confirm`, profilo ignoto, target malformato).
   Doc [`docs/professional-platform.md`](docs/professional-platform.md) (sezione
   «Scan profiles») e quickstart README IT/EN; `docs/cli-reference.md` rigenerato.
-- [ ] **Catalogo capability allineato.** Mappare esplicitamente ogni capacità
+- [x] **Catalogo capability allineato.** Mappare esplicitamente ogni capacità
   della suite (Website/Network/SSL/CMS scanner, Port Scanner, Subdomain/Domain
   Finder, Password Auditor) sui moduli Olympus esistenti o mancanti, così il
   `catalog` dichiara cosa c'è, cosa è simulato e cosa manca, senza sovrastimare.
+  **Fatto:** `integrations/suite_catalog.py` dichiara le 8 capacità della suite
+  mappandole su moduli/engine Olympus, con stato di copertura in tre valori
+  **derivati, mai asseriti**: `present` (engine con parser provato su output
+  reale, maturity ≥ `offline-tested`, oppure modulo first-party con test
+  committati), `simulated` (adapter registrato `adapter-ready` ma parser non
+  ancora provato → onesto solo in simulazione) e `missing` (nessuna copertura
+  oltre, al più, una voce di catalogo). La derivazione poggia sul maturity ledger
+  (`integrations/maturity.record_for`) per gli engine e sull'esistenza di test
+  committati per le capacità native, così non può gonfiarsi in marketing. Esito
+  onesto attuale: **present** website (nuclei/sqlmap/… live-tested) + Artemis,
+  ssl (testssl offline-tested), port (nmap live-tested), subdomain (Argus CT
+  nativo), domain (Argus DNS/WHOIS nativo); **missing** network-vuln
+  (nessus/openvas solo catalogati), cms (wpscan solo catalogato; whatweb copre la
+  sola *detection*), password-auditor (nessun modulo). `verify_catalog()`
+  ri-deriva ciò che il repo può dimostrare (ogni engine esiste nel registry; ogni
+  evidenza nativa esiste) e un test asserisce lista vuota, come il ledger di
+  maturity. CLI `olympus catalog` (documento versionato
+  `olympus.suite-capability-catalog` 1.0.0 con istogramma di copertura). Test
+  `tests/unit/test_suite_catalog.py` (gate di onestà, stati noti, ramo
+  `simulated`, evidenza nativa mancante, CLI). Doc
+  [`docs/professional-platform.md`](docs/professional-platform.md) («Capability
+  alignment»); `docs/cli-reference.md` rigenerato.
 - [x] **Report template e sommario esecutivo riusabile.** Sezioni riusabili
   (scope, metodologia, disclaimer, executive summary) parametrizzate
   dall'engagement manifest (`SEC-C`), per report ripetibili tra ingaggi.

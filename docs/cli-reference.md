@@ -461,6 +461,10 @@ Print the persisted state of an assessment and its jobs.
 | `assessment_id` | argument | yes | — | Assessment ID to inspect. |
 | `--storage` | option | yes | — | Directory for the Athena database. |
 
+### `olympus catalog`
+
+Show which integrated-toolkit capabilities Olympus delivers.
+
 ### `olympus config validate`
 
 Validate configuration and print only redacted effective values.

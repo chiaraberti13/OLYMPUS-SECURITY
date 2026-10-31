@@ -456,6 +456,23 @@ def version() -> None:
     typer.echo(__version__)
 
 
+@app.command("catalog")
+def capability_catalog() -> None:
+    """Show which integrated-toolkit capabilities Olympus delivers.
+
+    For each product capability (website/network/SSL/CMS scanner, port scanner,
+    subdomain/domain finder, password auditor) the catalogue reports an honest,
+    code-derived coverage state — ``present``, ``simulated`` or ``missing`` — plus
+    the backing Olympus modules and engines, so it never overstates what the
+    suite can do.
+    """
+    import json
+
+    from olympus.integrations.suite_catalog import catalog_document
+
+    typer.echo(json.dumps(catalog_document(), indent=2, sort_keys=True))
+
+
 @app.command("ui")
 def terminal_ui() -> None:
     """Open the keyboard-first interface for every Olympus tool."""
