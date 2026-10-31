@@ -31,6 +31,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
 
+from pydantic import ValidationError
+
 from olympus.apollo.rules import DetectionRule
 from olympus.core.models import Event
 
@@ -79,11 +81,33 @@ class TechniqueCoverage:
 
 
 @dataclass(frozen=True)
+class TelemetryIngestSummary:
+    """Validity and completeness of the bounded telemetry input."""
+
+    accepted: int = 0
+    rejected: int = 0
+    truncated: bool = False
+
+    @property
+    def complete(self) -> bool:
+        return self.rejected == 0 and not self.truncated
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "status": "complete" if self.complete else "partial",
+            "accepted": self.accepted,
+            "rejected": self.rejected,
+            "truncated": self.truncated,
+        }
+
+
+@dataclass(frozen=True)
 class CoverageReport:
     """The full technique coverage matrix plus the telemetry it was measured against."""
 
     techniques: tuple[TechniqueCoverage, ...]
     available_event_types: tuple[str, ...]
+    telemetry_input: TelemetryIngestSummary = TelemetryIngestSummary()
 
     @property
     def counts(self) -> dict[str, int]:
@@ -100,13 +124,17 @@ class CoverageReport:
     def to_dict(self) -> dict[str, object]:
         return {
             "available_event_types": list(self.available_event_types),
+            "telemetry_input": self.telemetry_input.to_dict(),
             "summary": {"techniques": len(self.techniques), **self.counts},
             "techniques": [technique.to_dict() for technique in self.techniques],
         }
 
 
 def assess_coverage(
-    rules: Iterable[DetectionRule], available_event_types: Iterable[str]
+    rules: Iterable[DetectionRule],
+    available_event_types: Iterable[str],
+    *,
+    telemetry_input: TelemetryIngestSummary | None = None,
 ) -> CoverageReport:
     """Correlate detection rules with available telemetry into a coverage matrix.
 
@@ -135,7 +163,9 @@ def assess_coverage(
             status = CoverageStatus.PARTIAL
         techniques.append(TechniqueCoverage(technique, status, rule_cov))
 
-    return CoverageReport(tuple(techniques), tuple(sorted(present)))
+    return CoverageReport(
+        tuple(techniques), tuple(sorted(present)), telemetry_input or TelemetryIngestSummary()
+    )
 
 
 def event_types_from_events(events: Iterable[Event]) -> set[str]:
@@ -143,30 +173,36 @@ def event_types_from_events(events: Iterable[Event]) -> set[str]:
     return {event.event_type for event in events}
 
 
-def event_types_from_ndjson(text: str, *, max_lines: int = 1_000_000) -> set[str]:
-    """Collect event types from NDJSON telemetry, skipping lines that are not events.
-
-    Tolerant on purpose (the same *skip, never guess* discipline as ingest): a
-    malformed or non-event line is ignored rather than aborting the measurement,
-    so coverage can be taken against a real, messy capture.
-    """
+def parse_telemetry_ndjson(
+    text: str, *, max_lines: int = 1_000_000
+) -> tuple[set[str], TelemetryIngestSummary]:
+    """Validate a bounded NDJSON stream and report rejects/truncation explicitly."""
     if not 1 <= max_lines <= 10_000_000:
         raise ValueError("max_lines must be between 1 and 10000000")
     found: set[str] = set()
+    accepted = rejected = 0
+    truncated = False
     for number, line in enumerate(text.splitlines(), start=1):
         if number > max_lines:
+            truncated = True
             break
         stripped = line.strip()
         if not stripped:
             continue
         try:
             record = json.loads(stripped)
-        except (json.JSONDecodeError, RecursionError):
+            event = Event.model_validate(record)
+        except (json.JSONDecodeError, RecursionError, ValidationError, TypeError, ValueError):
+            rejected += 1
             continue
-        if isinstance(record, dict):
-            event_type = record.get("event_type")
-            if isinstance(event_type, str) and event_type:
-                found.add(event_type)
+        found.add(event.event_type)
+        accepted += 1
+    return found, TelemetryIngestSummary(accepted, rejected, truncated)
+
+
+def event_types_from_ndjson(text: str, *, max_lines: int = 1_000_000) -> set[str]:
+    """Return only contract-valid event types from bounded NDJSON input."""
+    found, _summary = parse_telemetry_ndjson(text, max_lines=max_lines)
     return found
 
 
@@ -175,7 +211,9 @@ __all__ = [
     "CoverageStatus",
     "RuleCoverage",
     "TechniqueCoverage",
+    "TelemetryIngestSummary",
     "assess_coverage",
     "event_types_from_events",
     "event_types_from_ndjson",
+    "parse_telemetry_ndjson",
 ]

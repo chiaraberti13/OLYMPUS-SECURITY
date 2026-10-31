@@ -66,7 +66,7 @@ I dettagli sotto sono normativi per ciascuna riga, non task generici senza owner
 | `WEB-A-01` | Ripresa SSE visibile | P1 | Frontend/Backend | M | M3 | [x] |
 | `WEB-B-01` | Store guasto distinto da vuoto | P1 | Frontend/UX | M | M3 | [ ] |
 | `WEB-G-01` | Conteggi dashboard corretti | P2 | Data/Frontend | S | M3 | [ ] |
-| `OPS-PURPLE-01` | Coverage telemetria distinta da detection | P1 | Detection/QA | M | M2 | [ ] |
+| `OPS-PURPLE-01` | Coverage telemetria distinta da detection | P1 | Detection/QA | M | M2 | [x] |
 | `UX-E-01` | Accessibilità e parità IT/EN dimostrate | P1 | Accessibility/I18n/QA | L | M3 | [~] |
 | `DEV-E-02` | Modello single-node e soglie scalabilità | P2 | Architect/SRE | L | M4 | [ ] |
 | `DEV-E-03` | Allocazione ID atomica engagement/finding | P2 | Data/Backend | M | M3 | [x] |
@@ -437,6 +437,14 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
 - Accettazione misurabile: Input invalidi non covered; test detection lega atteso/osservato e FP.
 - Test: contratti negativi e regressione regole; lab D8 separato.
 - DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+- Stato (31 ottobre 2026, `[x]`): NDJSON di telemetria viene validato con il
+  modello `Event`; input non valido viene contato come rejected, il limite righe
+  espone `truncated`, e il report dichiara `telemetry_input.status=partial`.
+  `--strict` restituisce un exit code non-zero se l'input è parziale, anche se
+  i tipi validi rendono alcune tecniche covered. Fixture sintetiche coprono
+  evento valido, record incompleto, JSON malformato e troncamento; test regole
+  Red/Blue coprono evento atteso e variante benigna. Il test Purple live D8 resta
+  separato e non è stato eseguito.
 
 ### UX-E-01 — Accessibilità e parità IT/EN dimostrate
 

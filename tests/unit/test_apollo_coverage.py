@@ -19,6 +19,7 @@ from olympus.apollo.coverage import (
 from olympus.apollo.rules import DetectionRule
 from olympus.cli import app
 from olympus.core.exit_codes import ExitCode
+from olympus.core.models import Event
 
 runner = CliRunner()
 
@@ -72,16 +73,34 @@ def test_report_is_deterministic_and_sorted() -> None:
 
 
 def test_event_types_from_ndjson_collects_and_skips_noise() -> None:
+    def event(event_type: str) -> str:
+        return Event(event_type=event_type, source="manual").model_dump_json()
+
     text = "\n".join(
         [
-            '{"schema_name":"olympus.event","event_type":"network.dns"}',
+            event("network.dns"),
             "not json",
             "[1,2,3]",
             '{"no_event_type":true}',
-            '{"event_type":"windows.sysmon"}',
+            event("windows.sysmon"),
         ]
     )
     assert event_types_from_ndjson(text) == {"network.dns", "windows.sysmon"}
+
+
+def test_telemetry_parser_rejects_invalid_contract_and_reports_truncation() -> None:
+    from olympus.apollo.coverage import parse_telemetry_ndjson
+
+    valid = Event(event_type="network.dns", source="manual").model_dump_json()
+    types, summary = parse_telemetry_ndjson(
+        "\n".join([valid, '{"event_type":"network.dns"}', "not json", valid]),
+        max_lines=3,
+    )
+    assert types == {"network.dns"}
+    assert summary.accepted == 1
+    assert summary.rejected == 2
+    assert summary.truncated is True
+    assert summary.complete is False
 
 
 # --- CLI -------------------------------------------------------------------- #
@@ -134,3 +153,25 @@ def test_coverage_cli_all_telemetry_is_fully_covered_and_exits_zero() -> None:
     )
     assert result.exit_code == int(ExitCode.OK), result.output
     assert "0 without telemetry" in result.output
+
+
+def test_coverage_cli_strict_rejects_malformed_telemetry(tmp_path) -> None:
+    telemetry = tmp_path / "events.ndjson"
+    telemetry.write_text('{"event_type":"network.dns"}\n', encoding="utf-8")
+    result = runner.invoke(
+        app,
+        [
+            "apollo",
+            "coverage",
+            "--rules",
+            "examples/input/apollo-redteam",
+            "--events",
+            str(telemetry),
+            "--strict",
+            "--format",
+            "json",
+        ],
+    )
+    assert result.exit_code == int(ExitCode.FINDINGS)
+    assert '"status": "partial"' in result.output
+    assert '"rejected": 1' in result.output

@@ -364,7 +364,7 @@ def coverage(
     technique whose telemetry is never ingested is a blind spot, not coverage.
     Pure and offline; nothing is executed against a target.
     """
-    from olympus.apollo.coverage import assess_coverage, event_types_from_ndjson
+    from olympus.apollo.coverage import assess_coverage, parse_telemetry_ndjson
 
     try:
         rule_set = ApolloApplicationService().list_rules(
@@ -374,11 +374,13 @@ def coverage(
             deadline_seconds=deadline,
         )
         available = set(telemetry)
+        telemetry_summary = None
         if events is not None:
-            available |= event_types_from_ndjson(
+            event_types, telemetry_summary = parse_telemetry_ndjson(
                 read_regular_text(events, max_bytes=max_stream_bytes, label="telemetry events")
             )
-        report = assess_coverage(rule_set, available)
+            available |= event_types
+        report = assess_coverage(rule_set, available, telemetry_input=telemetry_summary)
     except (ContractCompatibilityError, OSError, TimeoutError, ValueError) as exc:
         _echo_terminal(f"apollo: coverage error: {exc}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
@@ -410,5 +412,15 @@ def coverage(
         f"apollo: {len(report.techniques)} technique(s): {counts['covered']} covered, "
         f"{counts['partial']} partial, {counts['no-telemetry']} without telemetry"
     )
+    if not report.telemetry_input.complete:
+        _echo_terminal(
+            "apollo: telemetry input is partial "
+            f"(accepted={report.telemetry_input.accepted}, "
+            f"rejected={report.telemetry_input.rejected}, "
+            f"truncated={report.telemetry_input.truncated})",
+            err=True,
+        )
     if strict and report.blind_spots:
+        raise typer.Exit(code=int(ExitCode.FINDINGS))
+    if strict and not report.telemetry_input.complete:
         raise typer.Exit(code=int(ExitCode.FINDINGS))
