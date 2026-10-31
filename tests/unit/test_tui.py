@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import sys
+from pathlib import Path
 
+import pytest
 from textual.widgets import Checkbox, Input, RichLog
 from typer.main import get_command
 
@@ -12,6 +16,7 @@ from olympus.tui.app import (
     ConfirmRunScreen,
     HelpScreen,
     OlympusTui,
+    _signal_process_tree,
     describe_completion,
 )
 from olympus.tui.catalog import TOOLS, commands_for
@@ -127,13 +132,16 @@ def test_describe_completion_reports_cancellation() -> None:
     assert "Cancelled" in status
 
 
-def test_kill_switch_marks_cancelled_and_terminates_process() -> None:
+def test_kill_switch_marks_cancelled_and_terminates_process(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """The always-available cancel sets the cancelled state and terminates the process."""
 
     class _FakeProcess:
         def __init__(self) -> None:
             self.terminated = False
             self.killed = False
+            self.returncode = None
 
         def terminate(self) -> None:
             self.terminated = True
@@ -149,11 +157,63 @@ def test_kill_switch_marks_cancelled_and_terminates_process() -> None:
             await pilot.pause()
             fake = _FakeProcess()
             screen.process = fake  # type: ignore[assignment]
+            monkeypatch.setattr(
+                "olympus.tui.app._signal_process_tree",
+                lambda process, *, force: setattr(
+                    process, "killed" if force else "terminated", True
+                ),
+            )
             screen.action_cancel_command()
             await pilot.pause()
             assert fake.terminated
             assert screen._cancelled
             assert "Cancelling" in str(screen.query_one("#status-bar").render())
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.skipif(os.name != "posix", reason="process-group probe requires POSIX")
+def test_process_group_cancel_stops_parent_and_child(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        child_pid_file = tmp_path / "child.pid"
+        child_code = "import time; time.sleep(30)"
+        parent_code = """
+import pathlib
+import signal
+import subprocess
+import sys
+import time
+
+child = subprocess.Popen([sys.executable, "-c", sys.argv[2]])
+pathlib.Path(sys.argv[1]).write_text(str(child.pid))
+
+def stop(*args):
+    child.terminate()
+    child.wait()
+    raise SystemExit(0)
+
+signal.signal(signal.SIGTERM, stop)
+time.sleep(30)
+"""
+        parent = await asyncio.create_subprocess_exec(
+            sys.executable,
+            "-c",
+            parent_code,
+            str(child_pid_file),
+            child_code,
+            start_new_session=True,
+        )
+        for _ in range(100):
+            if child_pid_file.exists():
+                break
+            await asyncio.sleep(0.01)
+        assert child_pid_file.exists()
+        child_pid = int(child_pid_file.read_text(encoding="utf-8"))
+
+        _signal_process_tree(parent, force=False)
+        await asyncio.wait_for(parent.wait(), timeout=2)
+        with pytest.raises(ProcessLookupError):
+            os.kill(child_pid, 0)
 
     asyncio.run(scenario())
 

@@ -6,6 +6,7 @@ import asyncio
 import contextlib
 import os
 import shlex
+import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -35,6 +36,50 @@ AUTHORIZATION_FLAG = "--i-am-authorized"
 
 #: Grace period before the kill switch escalates SIGTERM to SIGKILL.
 KILL_GRACE_SECONDS = 3.0
+
+
+def _signal_process_tree(process: asyncio.subprocess.Process, *, force: bool) -> None:
+    """Signal the isolated command group, with a bounded Windows tree fallback."""
+    if os.name == "posix":
+        signum = signal.SIGKILL if force else signal.SIGTERM
+        with contextlib.suppress(ProcessLookupError, PermissionError):
+            os.killpg(process.pid, signum)
+        return
+    if os.name == "nt":
+        if force:
+            with contextlib.suppress(ProcessLookupError):
+                process.kill()
+        else:
+            with contextlib.suppress(OSError, ProcessLookupError):
+                process.send_signal(getattr(signal, "CTRL_BREAK_EVENT", signal.SIGTERM))
+        return
+    with contextlib.suppress(ProcessLookupError):
+        process.kill() if force else process.terminate()
+
+
+async def _force_kill_process_tree(process: asyncio.subprocess.Process) -> None:
+    """Force-stop a process group, using Windows taskkill for its descendants."""
+    if os.name == "nt":
+        system_root = Path(os.environ.get("SYSTEMROOT", r"C:\\Windows"))
+        taskkill = system_root / "System32" / "taskkill.exe"
+        try:
+            killer = await asyncio.create_subprocess_exec(
+                str(taskkill),
+                "/PID",
+                str(process.pid),
+                "/T",
+                "/F",
+                stdin=asyncio.subprocess.DEVNULL,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            await asyncio.wait_for(killer.wait(), timeout=2)
+            return
+        except (OSError, subprocess.SubprocessError, TimeoutError):
+            _signal_process_tree(process, force=True)
+            return
+    _signal_process_tree(process, force=True)
+
 
 #: Distinct label and colour per canonical CLI exit code (``core.exit_codes``), so
 #: the TUI never shows a partial, failed or cancelled run as a plain success —
@@ -264,6 +309,14 @@ class CommandScreen(Screen[None]):
         else:
             self.notify("Cancel the running command before leaving.", severity="warning")
 
+    def on_unmount(self) -> None:
+        """Stop a running process tree when the operator closes the TUI."""
+        process = self.process
+        if process is not None and process.returncode is None:
+            self._cancelled = True
+            _signal_process_tree(process, force=False)
+            self._escalate_kill()
+
     def action_run_command(self) -> None:
         if self.process is not None:
             self.notify("A command is already running.", severity="warning")
@@ -376,8 +429,7 @@ class CommandScreen(Screen[None]):
             self.notify("No command is running.")
             return
         self._cancelled = True
-        with contextlib.suppress(ProcessLookupError):
-            self.process.terminate()
+        _signal_process_tree(self.process, force=False)
         self.query_one("#status-bar", Static).update(
             " Cancelling… terminating the process (will force-kill if it ignores). "
         )
@@ -389,8 +441,7 @@ class CommandScreen(Screen[None]):
         await asyncio.sleep(KILL_GRACE_SECONDS)
         process = self.process
         if process is not None:
-            with contextlib.suppress(ProcessLookupError):
-                process.kill()
+            await _force_kill_process_tree(process)
 
     @work(exclusive=True, group="olympus-command")
     async def _execute(self, arguments: list[str]) -> None:
@@ -399,6 +450,13 @@ class CommandScreen(Screen[None]):
         status_bar.update(" Running… Ctrl+C cancels the process. ")
         argv = [sys.executable, "-m", "olympus.cli", *self.command.path, *arguments]
         try:
+            process_options: dict[str, Any] = {}
+            if os.name == "posix":
+                process_options["start_new_session"] = True
+            elif os.name == "nt":
+                process_options["creationflags"] = getattr(
+                    subprocess, "CREATE_NEW_PROCESS_GROUP", 0
+                )
             self.process = await asyncio.create_subprocess_exec(
                 *argv,
                 cwd=Path.cwd(),
@@ -406,6 +464,7 @@ class CommandScreen(Screen[None]):
                 stdin=asyncio.subprocess.DEVNULL,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
+                **process_options,
             )
             stream = self.process.stdout
             if stream is None:
@@ -422,6 +481,15 @@ class CommandScreen(Screen[None]):
             )
             status_bar.update(" Execution failed to start. ")
         finally:
+            process = self.process
+            if process is not None and process.returncode is None:
+                _signal_process_tree(process, force=False)
+                try:
+                    await asyncio.wait_for(process.wait(), timeout=KILL_GRACE_SECONDS)
+                except TimeoutError:
+                    await _force_kill_process_tree(process)
+                    with contextlib.suppress(TimeoutError):
+                        await asyncio.wait_for(process.wait(), timeout=1.0)
             self.process = None
 
 

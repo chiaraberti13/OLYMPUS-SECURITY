@@ -51,7 +51,7 @@ I dettagli sotto sono normativi per ciascuna riga, non task generici senza owner
 | `SEC-H-01` | Rifiuto directory symlink API | P1 | AppSec/Backend | S | M1 | [x] |
 | `SEC-H-02` | Letture FIFO non bloccanti | P1 | AppSec/Backend | S | M1 | [x] |
 | `SEC-D-01` | Redazione argomenti nel log TUI | P1 | AppSec/UX | S | M1 | [x] |
-| `SEC-G-01` | Cancellazione TUI completa | P1 | Backend/QA | M | M2 | [ ] |
+| `SEC-G-01` | Cancellazione TUI completa | P1 | Backend/QA | M | M2 | [~] |
 | `DEV-E-01` | Transizioni Athena concorrenti e audit atomico | P1 | Data/Architect | L | M2 | [ ] |
 | `SEC-E-02` | Verifica digest risultati in lettura | P1 | Data/AppSec | S | M1 | [ ] |
 | `DEV-B-01` | Plugin concreti e realmente integrati | P1 | Scanner/Architect | L | M3 | [ ] |
@@ -179,6 +179,13 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
 - Accettazione misurabile: Nessun figlio sintetico resta dopo cancel/errore/chiusura.
 - Test: processi locali e test Windows/POSIX.
 - DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
+- Stato (verifica locale 2026-10-31, resta `[~]`): su POSIX il TUI avvia ogni
+  comando in una nuova sessione e invia SIGTERM/SIGKILL all'intero process group;
+  annullamento, chiusura schermata ed errore avviano cleanup bounded. Su Windows
+  usa un nuovo process group, CTRL_BREAK e `taskkill /T /F` con timeout. Il test
+  POSIX locale dimostra la terminazione di un processo e del suo figlio. Rimane
+  da eseguire il test process-tree su Windows e provare la chiusura reale della
+  TUI durante un comando; la voce non è dichiarata completata.
 
 ### DEV-E-01 — Transizioni Athena concorrenti e audit atomico
 
