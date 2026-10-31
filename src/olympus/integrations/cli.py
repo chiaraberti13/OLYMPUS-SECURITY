@@ -1855,6 +1855,68 @@ def themis_identities_init(
     typer.echo(json.dumps({"register": str(location), "identities": 0}, indent=2))
 
 
+@identities_app.command("backup")
+def themis_identities_backup(
+    destination: str = typer.Option(..., "--destination", help="New snapshot path."),
+    register_path: str = typer.Option(DEFAULT_IDENTITY_REGISTER, "--file", "-f"),
+) -> None:
+    """Snapshot the identity register (credential hashes) create-only, owner-only."""
+    from dataclasses import asdict
+
+    from olympus.themis.identity import IdentityError, backup_register
+
+    try:
+        info = backup_register(Path(register_path), Path(destination))
+    except (IdentityError, OSError) as exc:
+        typer.echo(f"olympus: identity backup refused: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    typer.echo(json.dumps({"snapshot": destination, **asdict(info)}, indent=2))
+
+
+@identities_app.command("verify-backup")
+def themis_identities_verify_backup(
+    backup: str = typer.Option(..., "--backup", help="Identity snapshot to validate."),
+) -> None:
+    """Verify an identity snapshot's contract, scopes and fingerprint."""
+    from dataclasses import asdict
+
+    from olympus.themis.identity import IdentityError, verify_register_backup
+
+    try:
+        info = verify_register_backup(Path(backup))
+    except (IdentityError, OSError, ValueError) as exc:
+        typer.echo(f"olympus: identity backup invalid: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    typer.echo(json.dumps({"verified": True, **asdict(info)}, indent=2))
+
+
+@identities_app.command("restore")
+def themis_identities_restore(
+    backup: str = typer.Option(..., "--backup", help="Verified identity snapshot."),
+    destination: str = typer.Option(..., "--destination", help="New, absent register path."),
+) -> None:
+    """Restore a snapshot to a new path; stop services before switching config."""
+    from dataclasses import asdict
+
+    from olympus.themis.identity import IdentityError, restore_register_backup
+
+    try:
+        info = restore_register_backup(Path(backup), Path(destination))
+    except (IdentityError, OSError, ValueError) as exc:
+        typer.echo(f"olympus: identity restore refused: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    typer.echo(
+        json.dumps(
+            {
+                "restored_to": destination,
+                "services_must_be_stopped_before_switching_config": True,
+                **asdict(info),
+            },
+            indent=2,
+        )
+    )
+
+
 @identities_app.command("add")
 def themis_identities_add(
     identity_id: str = typer.Argument(..., help="Identity name, e.g. 'ops-console'."),

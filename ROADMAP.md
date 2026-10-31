@@ -326,7 +326,16 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
   elencati. Il manifest è un insieme di fingerprint, non autenticato: per la
   provenienza va firmato con `olympus core sign`. Non fornisce consistenza
   point-in-time tra store né sostituisce i verificatori dei singoli store.
-  Restano aperti: identity, audit, scope, custody/vault ed evidenze, backup delle
+  Ulteriore slice: il registro identità API Themis ha `olympus themis identities
+  backup|verify-backup|restore` (`themis/identity.py`): copia byte-esatta
+  create-only, owner-only `0600`, validata sul contratto
+  `olympus.themis-api-identities` (duplicati, scope sconosciuti, limiti di
+  dimensione), con rifiuto di destinazione esistente o symlink e fingerprint
+  SHA-256 non autenticato. Il registro contiene hash delle credenziali, quindi lo
+  snapshot va trattato come sensibile. Test sintetici in
+  `tests/unit/test_themis_identity.py` (round-trip, overwrite, symlink, corruzione,
+  manomissione via CLI).
+  Restano aperti: audit, scope, custody/vault ed evidenze, backup delle
   chiavi, snapshot coordinato e RPO/RTO misurati; la voce resta `[~]`.
   Nessun backup di piattaforma o RPO/RTO è dichiarato verificato.
 

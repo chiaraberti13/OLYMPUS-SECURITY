@@ -31,6 +31,7 @@ import threading
 import time
 from collections import deque
 from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Literal
@@ -38,7 +39,13 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from olympus.core.contracts import validate_contract_header
-from olympus.core.fileio import atomic_write_text, read_regular_text
+from olympus.core.fileio import (
+    UnsafeWriteTarget,
+    atomic_write_bytes,
+    atomic_write_text,
+    read_regular_bytes,
+    read_regular_text,
+)
 
 MAX_REGISTER_BYTES = 1_000_000
 MIN_SECRET_CHARACTERS = 32
@@ -215,6 +222,58 @@ def save_register(path: Path, register: IdentityRegister) -> None:
     """Write the register atomically, owner-only: it holds credential hashes."""
     register.validate_entries()
     atomic_write_text(path, register.model_dump_json(indent=2) + "\n", mode=0o600)
+
+
+@dataclass(frozen=True)
+class IdentityBackupInfo:
+    """Result of a register snapshot: counts and a non-authenticated fingerprint."""
+
+    identities: int
+    sha256: str
+    size_bytes: int
+
+
+def verify_register_backup(backup: Path) -> IdentityBackupInfo:
+    """Validate a register snapshot (contract, duplicates, scopes) and fingerprint it.
+
+    The SHA-256 is an integrity fingerprint to record separately, not an
+    authenticated signature. Secrets are never stored in the register, only
+    their hashes; the snapshot is still credential-equivalent and stays 0600.
+    """
+    data = read_regular_bytes(backup, max_bytes=MAX_REGISTER_BYTES, label="identity backup")
+    register = load_register(backup)
+    return IdentityBackupInfo(
+        identities=len(register.identities),
+        sha256=hashlib.sha256(data).hexdigest(),
+        size_bytes=len(data),
+    )
+
+
+def _publish_register_copy(source: Path, destination: Path) -> IdentityBackupInfo:
+    """Verify ``source`` then publish an exact byte copy create-only, owner-only."""
+    if destination.is_symlink():
+        raise IdentityError("destination must not be a symlink")
+    if destination.exists():
+        raise IdentityError("destination already exists; refusing to overwrite")
+    info = verify_register_backup(source)
+    data = read_regular_bytes(source, max_bytes=MAX_REGISTER_BYTES, label="identity register")
+    if hashlib.sha256(data).hexdigest() != info.sha256:
+        raise IdentityError("register changed while it was being copied; retry")
+    try:
+        atomic_write_bytes(destination, data, mode=0o600, overwrite=False)
+    except UnsafeWriteTarget as exc:
+        raise IdentityError("destination already exists; refusing to overwrite") from exc
+    return verify_register_backup(destination)
+
+
+def backup_register(register: Path, destination: Path) -> IdentityBackupInfo:
+    """Snapshot a valid identity register to a new path (create-only)."""
+    return _publish_register_copy(register, destination)
+
+
+def restore_register_backup(backup: Path, destination: Path) -> IdentityBackupInfo:
+    """Restore a verified snapshot to an absent path; never overwrites a live register."""
+    return _publish_register_copy(backup, destination)
 
 
 def add_identity(

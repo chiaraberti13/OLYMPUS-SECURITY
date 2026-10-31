@@ -201,3 +201,14 @@ un manifest SHA-256 deterministico e create-only; cinque test sintetici in
 modificato/mancante/extra, percorsi e symlink non sicuri, manifest malformato e CLI.
 Non è autenticato (usare `core sign`), non garantisce consistenza point-in-time e non
 copre identity, audit, custody o evidenze; nessun RPO/RTO è dichiarato.
+
+## WEB-J-01 — backup del registro identità Themis (2026-10-31)
+
+`olympus themis identities backup|verify-backup|restore` copia il registro in modo
+create-only e `0600`, validandone contratto, duplicati e scope; tre test sintetici in
+`tests/unit/test_themis_identity.py` coprono round-trip, rifiuto di overwrite/symlink/
+corruzione e manomissione via CLI. Ruff, format e Mypy strict verdi; la suite
+`not container and not live_lab` mostra 7 fallimenti preesistenti (sandbox POSIX,
+runner, PDF, TUI, provenance) riprodotti anche senza questa modifica. Fingerprint non
+autenticato; nessun RPO/RTO dichiarato. pip-audit, Gitleaks, CodeQL, build wheel e
+container non eseguiti in questa sessione.

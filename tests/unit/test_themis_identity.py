@@ -538,3 +538,78 @@ def test_identity_cli_does_not_issue_a_credential_when_audit_is_unavailable(
     assert result.exit_code != 0
     assert not register_path.exists()
     assert "secret" not in result.output
+
+
+def test_identity_register_backup_verify_restore_round_trip(tmp_path: Path) -> None:
+    from olympus.themis.identity import (
+        backup_register,
+        restore_register_backup,
+        verify_register_backup,
+    )
+
+    live, _ = _register_with(tmp_path, ops=["jobs:read"])
+    snapshot = tmp_path / "snap" / "identities.json"
+    info = backup_register(live, snapshot)
+    assert info.identities == 1
+    assert snapshot.read_bytes() == live.read_bytes()
+    assert snapshot.stat().st_mode & 0o777 == 0o600
+    assert verify_register_backup(snapshot) == info
+    restored = tmp_path / "restored.json"
+    assert restore_register_backup(snapshot, restored) == info
+    assert load_register(restored) == load_register(live)
+
+
+def test_identity_backup_refuses_overwrite_symlink_and_corruption(tmp_path: Path) -> None:
+    from olympus.themis.identity import backup_register, verify_register_backup
+
+    live, _ = _register_with(tmp_path, ops=["jobs:read"])
+    existing = tmp_path / "exists.json"
+    existing.write_text("keep", encoding="utf-8")
+    with pytest.raises(IdentityError):
+        backup_register(live, existing)
+    assert existing.read_text(encoding="utf-8") == "keep"
+    link = tmp_path / "link.json"
+    link.symlink_to(existing)
+    with pytest.raises(IdentityError):
+        backup_register(live, link)
+    bad = tmp_path / "bad.json"
+    bad.write_text('{"schema_name": "olympus.themis-api-identities"', encoding="utf-8")
+    with pytest.raises(IdentityError):
+        verify_register_backup(bad)
+    with pytest.raises(IdentityError):
+        backup_register(bad, tmp_path / "out.json")
+    assert not (tmp_path / "out.json").exists()
+
+
+def test_identity_backup_cli_round_trip_and_rejects_tamper(tmp_path: Path) -> None:
+    live, _ = _register_with(tmp_path, ops=["jobs:read"])
+    snap = tmp_path / "s.json"
+    result = runner.invoke(
+        app, ["themis", "identities", "backup", "--file", str(live), "--destination", str(snap)]
+    )
+    assert result.exit_code == 0, result.output
+    assert (
+        runner.invoke(
+            app, ["themis", "identities", "verify-backup", "--backup", str(snap)]
+        ).exit_code
+        == 0
+    )
+    restored = tmp_path / "r.json"
+    result = runner.invoke(
+        app,
+        ["themis", "identities", "restore", "--backup", str(snap), "--destination", str(restored)],
+    )
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)["identities"] == 1
+    snap.write_text(snap.read_text(encoding="utf-8").replace("jobs:read", "root:all"))
+    assert (
+        runner.invoke(
+            app, ["themis", "identities", "verify-backup", "--backup", str(snap)]
+        ).exit_code
+        != 0
+    )
+    again = runner.invoke(
+        app,
+        ["themis", "identities", "restore", "--backup", str(snap), "--destination", str(restored)],
+    )
+    assert again.exit_code != 0

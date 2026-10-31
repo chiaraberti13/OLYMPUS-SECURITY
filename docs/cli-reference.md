@@ -1141,6 +1141,15 @@ Add one scoped identity and print its secret exactly once.
 | `--file`, `-f` | option | no | — | — |
 | `--audit` | option | no | — | — |
 
+### `olympus themis identities backup`
+
+Snapshot the identity register (credential hashes) create-only, owner-only.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--destination` | option | yes | — | New snapshot path. |
+| `--file`, `-f` | option | no | — | — |
+
 ### `olympus themis identities init`
 
 Create an empty identity register (owner-only).
@@ -1156,6 +1165,15 @@ List identities, their scopes and status.
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `--file`, `-f` | option | no | — | — |
+
+### `olympus themis identities restore`
+
+Restore a snapshot to a new path; stop services before switching config.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--backup` | option | yes | — | Verified identity snapshot. |
+| `--destination` | option | yes | — | New, absent register path. |
 
 ### `olympus themis identities revoke`
 
@@ -1178,6 +1196,14 @@ Issue a new secret, keeping the old one valid for a bounded overlap.
 | `--expires-in-days` | option | no | `90` | Mandatory lifetime of the replacement credential. |
 | `--file`, `-f` | option | no | — | — |
 | `--audit` | option | no | — | — |
+
+### `olympus themis identities verify-backup`
+
+Verify an identity snapshot's contract, scopes and fingerprint.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--backup` | option | yes | — | Identity snapshot to validate. |
 
 ### `olympus themis info`
 
