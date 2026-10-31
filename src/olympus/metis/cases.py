@@ -502,6 +502,12 @@ def verify_backup(path: Path) -> dict[str, int]:
         version_row = connection.execute("SELECT MAX(version) FROM metis_schema").fetchone()
         if version_row is None or version_row[0] != 1:
             raise BackupError("backup is not a Metis schema version 1 database")
+        integrity = connection.execute("PRAGMA integrity_check").fetchone()
+        if integrity is None or integrity[0] != "ok":
+            raise BackupError("backup failed SQLite integrity_check")
+        foreign_key_errors = connection.execute("PRAGMA foreign_key_check").fetchone()
+        if foreign_key_errors is not None:
+            raise BackupError("backup failed SQLite foreign_key_check")
         # Table names are a fixed literal allowlist, never user input, so the
         # f-string cannot be an injection vector.
         counts = {

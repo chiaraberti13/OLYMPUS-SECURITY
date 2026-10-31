@@ -56,7 +56,7 @@ I dettagli sotto sono normativi per ciascuna riga, non task generici senza owner
 | `SEC-E-02` | Verifica digest risultati in lettura | P1 | Data/AppSec | S | M1 | [x] |
 | `DEV-B-01` | Plugin concreti e realmente integrati | P1 | Scanner/Architect | L | M3 | [x] |
 | `DEV-D-01` | Versionamento fisico degli store | P1 | Data | L | M3 | [x] |
-| `WEB-J-01` | Backup e restore coordinato | P1 | Data/SRE/Privacy | L | M3 | [ ] |
+| `WEB-J-01` | Backup e restore coordinato | P1 | Data/SRE/Privacy | L | M3 | [~] |
 | `WEB-J-02` | Retention e privacy di sistema | P2 | Privacy/Data | L | M3 | [ ] |
 | `DEV-C-01` | Ripristino enforcement qualità e release | P1 | QA/SRE | L | M1 | [~] |
 | `SEC-F-01` | Build scanner riproducibile e licenze | P1 | SRE/Governance | L | M2 | [⏸] |
@@ -280,6 +280,12 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
   chiavi separate, controlli integrity/FK e un restore drill con RPO/RTO misurati:
   va progettato e testato, non improvvisato (un disaster-recovery fittizio darebbe
   falsa sicurezza). Prerequisito: completare `DEV-D-01`.
+- Stato (31 ottobre 2026, resta `[~]`): `verify_backup` di Metis ora esegue anche
+  `PRAGMA integrity_check` e `foreign_key_check` prima di restituire i conteggi;
+  una fixture crea una riga orfana sintetica e verifica il rifiuto. Questo chiude
+  solo il controllo del backup Metis. Snapshot coordinato di engagements, Themis,
+  findings, custody/vault/audit, manifest versionato e restore drill con RPO/RTO
+  restano da realizzare; nessun backup di piattaforma è dichiarato verificato.
 
 ### WEB-J-02 — Retention e privacy di sistema
 

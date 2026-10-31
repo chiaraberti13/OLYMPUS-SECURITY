@@ -206,6 +206,26 @@ def test_verify_backup_rejects_a_non_metis_file(tmp_path: Path) -> None:
         verify_backup(bogus)
 
 
+def test_verify_backup_rejects_foreign_key_corruption(tmp_path: Path) -> None:
+    import sqlite3
+
+    from olympus.metis.cases import BackupError, verify_backup
+
+    database = tmp_path / "cases.db"
+    with CaseStore(database) as store:
+        store.create_case("Synthetic backup case")
+        backup = store.backup(tmp_path / "snapshot.db")
+    with sqlite3.connect(backup) as connection:
+        connection.execute("PRAGMA foreign_keys = OFF")
+        connection.execute(
+            "INSERT INTO indicators(indicator_id, case_id, indicator_type, value, source, "
+            "confidence, first_seen) VALUES ('synthetic-id', 'missing-case', 'domain', "
+            "'x.example', 'fixture', 50, '2026-10-31T00:00:00+00:00')"
+        )
+    with pytest.raises(BackupError, match="foreign_key_check"):
+        verify_backup(backup)
+
+
 def test_cli_backup_verify_restore(tmp_path: Path) -> None:
     database = tmp_path / "cases.db"
     created = runner.invoke(app, ["metis", "case", "create", str(database), "CLI backup case"])
