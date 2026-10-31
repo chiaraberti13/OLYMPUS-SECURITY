@@ -25,15 +25,18 @@ and CodeQL run
 [41225520745](https://github.com/chiaraberti13/OLYMPUS-SECURITY/actions/runs/41225520745)
 were observed. On commit `50d7496`, CI run
 [41226041648](https://github.com/chiaraberti13/OLYMPUS-SECURITY/actions/runs/41226041648)
-passed quality, Gitleaks, pip-audit, wheel, container, POSIX, Windows, macOS,
-and pytest on Python 3.12–3.14. Python 3.11 still failed the TUI shutdown test:
-Textual does not call the initial `on_shutdown` method. The pending local fix
-moves awaited process cleanup to `CommandScreen.on_unmount`; its TUI suite passes
-locally, but the corrected workflow has not run yet. The `/incidents` parity
-inventory mismatch from the first run is corrected in the later published
-commit. The separate Vercel status was failure. Branch-protection inspection was
-denied by GitHub integration (403), so required-check enforcement remains
-unverified. See the current [ecosystem audit](ecosystem-audit.md) and
+exposed a Python 3.11 TUI shutdown regression. On commit `0911d0b`, CI run
+[41226565373](https://github.com/chiaraberti13/OLYMPUS-SECURITY/actions/runs/41226565373)
+and CodeQL run
+[41226565375](https://github.com/chiaraberti13/OLYMPUS-SECURITY/actions/runs/41226565375)
+passed: pytest Python 3.11–3.14, branch coverage, mutation, POSIX sandbox,
+Windows/macOS smoke, Ruff/format/Mypy, wheel, container, Gitleaks, pip-audit and
+CodeQL. The fix awaits process-tree cleanup in Textual's actual
+`CommandScreen.on_unmount` hook. The `/incidents` parity inventory mismatch from
+the earlier run is corrected. CI and CodeQL for current commit `17ec9f9` were
+queued at this snapshot. Branch-protection inspection was denied by GitHub
+integration (403), so required-check enforcement remains unverified. See the
+current [ecosystem audit](ecosystem-audit.md) and
 [roadmap](../ROADMAP.md) for scope-specific status.
 
 ## What actually ran

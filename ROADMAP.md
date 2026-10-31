@@ -179,7 +179,7 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
 - Accettazione misurabile: Nessun figlio sintetico resta dopo cancel/errore/chiusura.
 - Test: processi locali e test Windows/POSIX.
 - DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
-- Stato (verifica locale 2026-10-31, resta `[~]`): su POSIX il TUI avvia ogni
+- Stato (31 ottobre 2026, `[x]` nel perimetro verificato): su POSIX il TUI avvia ogni
   comando in una nuova sessione e invia SIGTERM/SIGKILL all'intero process group;
   annullamento, chiusura schermata ed errore avviano cleanup bounded. Su Windows
   usa un nuovo process group, CTRL_BREAK e `taskkill /T /F` con timeout. Il test
@@ -187,12 +187,13 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
   Testual Pilot chiude l'app durante un comando e verifica la terminazione di
   parent e child. Aggiunto al job Windows portable-smoke un test dedicato che
   usa taskkill `/T /F` e verifica il child; il run Windows portable-smoke
-  `41225520765` è passato. Lo stesso run ha rivelato che l'uscita dell'App non
-  sempre attendeva l'unmount della schermata su POSIX: il cleanup aggiunto in
-  `on_shutdown` non era un hook Textual. Nel run `41226041648`, Python 3.12–3.14
-  passano ma Python 3.11 fallisce sullo shutdown; il fix locale sposta il reap
-  async in `CommandScreen.on_unmount`, verificato col Pilot su Python 3.12. Il
-  rerun CI resta pendente e la voce aperta.
+  `41225520765` è passato. Il run successivo ha rivelato che l'uscita dell'App
+  non sempre attendeva l'unmount su POSIX: il primo cleanup `on_shutdown` non
+  era un hook Textual. Il reap è stato spostato nell'`async on_unmount` di
+  `CommandScreen`; CI `41226565373` passa unit e coverage Python 3.11, matrix
+  pytest 3.11–3.14, mutation, POSIX e smoke Windows/macOS; il test Windows
+  process-tree passa. La DoD SEC-G-01 è soddisfatta per il perimetro testato;
+  non si inferisce prova su ogni shell o processo scanner esterno.
 
 ### DEV-E-01 — Transizioni Athena concorrenti e audit atomico
 
@@ -320,8 +321,11 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
   sull'intero repo; ogni script/target referenziato (`check_branch_coverage`,
   `check_audit_exceptions`, `smoke_native_runtime`, `manage_scanner_apparmor`,
   `make test-mutation`/`test-container`) esiste. **Resta da confermare su
-  GitHub:** l'esito verde dei run remoti (non osservabile da qui) e le branch
-  protection rule che rendono i check *required*.
+  GitHub:** i run `41226565373` del commit `0911d0b` e CodeQL `41226565375`
+  sono verdi: qualità, matrix, coverage, mutation, POSIX, Windows/macOS, wheel,
+  container, Gitleaks e pip-audit passano. I workflow sul commit successivo
+  `17ec9f9` sono in coda. La branch protection che rende `quality` required non
+  è verificabile via integrazione GitHub (403).
 - Test: CI reale, wheel clean install, container separato. Il 29 ottobre la suite locale manteneva 17 fallimenti sandbox EINVAL/chown. **Aggiornamento 2026-10-31:** rieseguita su host POSIX idoneo (VM Ubuntu 25.10, kernel 6.17, parent privilegiato) → `test-coverage` 3 fallimenti residui (tutti ambiente/privilegi/toolchain, non bug: isolamento container senza runtime marker, `dd` di uutils Rust che va in SIGABRT sul limite, interprete non eseguibile dal `nobody` sotto `/home` 0750), `root_only` 1 passato, suite container 1 passata; Gitleaks (8.30.1) eseguito → 0 leak; hash lock generato e install `--require-hashes` verificato. Firma/attestazioni e matrice CI completa restano aperte.
 - DoD/owner/taglia/milestone: tabella e campi comuni sopra; evidenza in [audit](docs/ecosystem-audit.md).
 
@@ -382,13 +386,12 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
   decisionali collegati nell'indice. Il gate link Markdown è stato aggiunto al
   job `quality`. Verifiche locali: 70 Markdown senza link interni rotti,
   `olympus themis matrix --check` senza drift e Mypy strict su 217 file. Run
-  GitHub `41226041648` osservato: quality, wheel, container, Gitleaks, pip-audit,
-  POSIX, Windows/macOS e pytest Python 3.12–3.14 verdi; Python 3.11 ha trovato
-  che il primo hook di shutdown non veniva chiamato da Textual. Corretto
-  localmente con `CommandScreen.on_unmount` async; rerun CI pendente. Il run
-  precedente `41225520765` aveva inoltre trovato `/incidents` assente dal
-  manifest parità, ora aggiornato. CodeQL `41225520745` verde. Branch protection
-  non accessibile (API 403); confronto bilingue end-to-end ancora aperto.
+  GitHub `41226565373` e CodeQL `41226565375` sul commit `0911d0b` sono verdi;
+  la CI ha convalidato il fix del lifecycle TUI su Python 3.11 e tutte le suite
+  pytest 3.11–3.14, coverage e mutation. La CI sul successivo commit `17ec9f9`
+  è in coda. Il mismatch `/incidents` del run `41225520765` è corretto nel
+  manifest di parità. Branch protection non accessibile (API 403); confronto
+  bilingue end-to-end ancora aperto.
 
 ### UX-A-01 — Parità TUI e consumer form
 
