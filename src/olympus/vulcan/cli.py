@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from pathlib import Path
 
 import typer
@@ -32,7 +33,7 @@ from olympus.findings.encryption import (
     encrypt_findings_document,
     looks_encrypted,
 )
-from olympus.findings.store import SqliteFindingTransitionStore
+from olympus.findings.store import FindingTransitionBackupInfo, SqliteFindingTransitionStore
 from olympus.minerva.application import (
     MinervaApplicationService,
     MinervaLedgerRequest,
@@ -1066,6 +1067,63 @@ findings_app = typer.Typer(
     no_args_is_help=True,
 )
 app.add_typer(findings_app, name="findings")
+transitions_app = typer.Typer(
+    help="Back up and restore the append-only finding-lifecycle database.",
+    no_args_is_help=True,
+)
+findings_app.add_typer(transitions_app, name="transitions")
+
+
+def _transition_backup_payload(info: FindingTransitionBackupInfo) -> dict[str, object]:
+    return {
+        "schema_version": info.schema_version,
+        "transition_count": info.transition_count,
+        "size_bytes": info.size_bytes,
+        "sha256": info.sha256,
+    }
+
+
+@transitions_app.command("backup")
+def transitions_backup(
+    database: Path = typer.Option(..., "--database", help="Finding-lifecycle SQLite database."),
+    output: Path = typer.Option(..., "--output", help="Snapshot destination."),
+) -> None:
+    """Create an atomic snapshot of the lifecycle database only."""
+    try:
+        info = SqliteFindingTransitionStore.backup_database(database, output)
+    except (OSError, ValueError, sqlite3.Error) as exc:
+        typer.echo(safe_terminal_text(f"vulcan: transition backup failed: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.FAILED) from exc
+    typer.echo(json.dumps(_transition_backup_payload(info), indent=2, sort_keys=True))
+
+
+@transitions_app.command("verify-backup")
+def transitions_verify_backup(
+    backup: Path = typer.Option(..., "--backup", help="Snapshot file to verify."),
+) -> None:
+    """Verify schema and SQLite integrity without decrypting transition rows."""
+    try:
+        info = SqliteFindingTransitionStore.verify_backup(backup)
+    except (OSError, ValueError, sqlite3.Error) as exc:
+        typer.echo(
+            safe_terminal_text(f"vulcan: transition backup verification failed: {exc}"), err=True
+        )
+        raise typer.Exit(code=ExitCode.FAILED) from exc
+    typer.echo(json.dumps(_transition_backup_payload(info), indent=2, sort_keys=True))
+
+
+@transitions_app.command("restore-backup")
+def transitions_restore_backup(
+    backup: Path = typer.Option(..., "--backup", help="Verified lifecycle snapshot."),
+    database: Path = typer.Option(..., "--database", help="New empty database path."),
+) -> None:
+    """Restore to a new path; restore the encryption key separately if used."""
+    try:
+        info = SqliteFindingTransitionStore.restore_backup(backup, database)
+    except (OSError, ValueError, sqlite3.Error) as exc:
+        typer.echo(safe_terminal_text(f"vulcan: transition restore failed: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.FAILED) from exc
+    typer.echo(json.dumps(_transition_backup_payload(info), indent=2, sort_keys=True))
 
 
 def _load_for_view(

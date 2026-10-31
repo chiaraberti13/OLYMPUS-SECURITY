@@ -304,10 +304,16 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
   fingerprint. Snapshot SQLite online, temporaneo owner-only, pubblicazione
   atomica; restore create-only in directory esplicitamente nuova. I test usano
   solo dati sintetici, includono lo stato WAL, rigetto schema futuro/sidecar e
-  round-trip CLI. `.requests`, findings, identity, audit, scope, custody/vault
-  restano esclusi; Metis mantiene il proprio backup indipendente. Non esiste
-  coordinamento tra questi store: i fingerprint restano non autenticati e
-  nessun backup di piattaforma o RPO/RTO è dichiarato verificato.
+  round-trip CLI. Ulteriore slice verificata: `SqliteFindingTransitionStore`
+  offre backup/verify/restore del DB append-only attraverso
+  `olympus vulcan findings transitions`; il verifier controlla schema/versione,
+  integrity/FK, file autonomo e fingerprint, senza decifrare o validare i singoli
+  documenti. Il restore è create-only. I record già cifrati restano cifrati, ma
+  la chiave di cifratura deve essere salvata separatamente; senza chiave
+  configurata i record di origine possono essere in chiaro. `.requests`, identity,
+  audit, scope, custody/vault restano esclusi; Metis conserva il proprio backup
+  indipendente. Non esiste coordinamento tra questi store: i fingerprint restano
+  non autenticati e nessun backup di piattaforma o RPO/RTO è dichiarato verificato.
 
 ### WEB-J-02 — Retention e privacy di sistema
 

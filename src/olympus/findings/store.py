@@ -10,8 +10,12 @@ records who accepted or dismissed a real risk.
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import json
+import os
 import sqlite3
+import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 
 from pydantic import SecretStr
@@ -53,6 +57,16 @@ class FindingTransitionStoreError(ValueError):
     """Raised when a stored transition document is invalid, oversized or duplicated."""
 
 
+@dataclass(frozen=True)
+class FindingTransitionBackupInfo:
+    """Verification facts for one findings-lifecycle SQLite snapshot."""
+
+    schema_version: int
+    transition_count: int
+    size_bytes: int
+    sha256: str
+
+
 class SqliteFindingTransitionStore:
     """An append-only, durable audit log of finding status changes."""
 
@@ -75,6 +89,92 @@ class SqliteFindingTransitionStore:
     def close(self) -> None:
         """Close the underlying connection."""
         self._conn.close()
+
+    @staticmethod
+    def backup_database(database: Path, destination: Path) -> FindingTransitionBackupInfo:
+        """Atomically publish a verified, self-contained snapshot of this store.
+
+        The snapshot preserves transition documents byte-for-byte, including
+        encrypted documents. It does not contain or validate the encryption key.
+        """
+        source_path = _validated_database_file(database)
+        if destination.is_symlink():
+            raise OSError("finding-transition backup destination must not be a symlink")
+        if destination.resolve() == source_path or _same_file(source_path, destination):
+            raise ValueError("backup destination must differ from the live database")
+
+        source, _ = _open_verified_transition_database(source_path, allow_sidecars=True)
+        temporary: Path | None = None
+        try:
+            destination.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            descriptor, name = tempfile.mkstemp(
+                prefix=f".{destination.name}.", suffix=".tmp", dir=destination.parent
+            )
+            os.close(descriptor)
+            temporary = Path(name)
+            target = sqlite3.connect(temporary)
+            try:
+                source.backup(target)
+                target.execute("PRAGMA journal_mode = DELETE")
+            finally:
+                target.close()
+            temporary.chmod(0o600)
+            info = SqliteFindingTransitionStore.verify_backup(temporary)
+            temporary.replace(destination)
+            destination.chmod(0o600)
+            return info
+        except BaseException:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+            raise
+        finally:
+            source.close()
+
+    @staticmethod
+    def verify_backup(backup: Path) -> FindingTransitionBackupInfo:
+        """Check store schema, integrity and fingerprint without decrypting rows."""
+        connection, info = _open_verified_transition_database(backup)
+        connection.close()
+        return info
+
+    @staticmethod
+    def restore_backup(backup: Path, destination: Path) -> FindingTransitionBackupInfo:
+        """Restore a verified snapshot to an absent path without overwriting."""
+        source, info = _open_verified_transition_database(backup)
+        temporary: Path | None = None
+        try:
+            if destination.is_symlink():
+                raise OSError("restore destination must not be a symlink")
+            if destination.resolve() == backup.resolve() or _same_file(backup, destination):
+                raise ValueError("restore destination must differ from the backup")
+            sidecars = tuple(
+                Path(f"{destination}{suffix}") for suffix in ("-wal", "-shm", "-journal")
+            )
+            if destination.exists() or any(path.exists() or path.is_symlink() for path in sidecars):
+                raise FileExistsError("restore destination and SQLite sidecars must be absent")
+            destination.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            descriptor, name = tempfile.mkstemp(
+                prefix=f".{destination.name}.", suffix=".restore", dir=destination.parent
+            )
+            os.close(descriptor)
+            temporary = Path(name)
+            target = sqlite3.connect(temporary)
+            try:
+                source.backup(target)
+                target.execute("PRAGMA journal_mode = DELETE")
+            finally:
+                target.close()
+            temporary.chmod(0o600)
+            info = SqliteFindingTransitionStore.verify_backup(temporary)
+            os.link(temporary, destination)
+            temporary.unlink()
+            return info
+        except BaseException:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+            raise
+        finally:
+            source.close()
 
     def append(self, transition: FindingTransition) -> str:
         """Append one transition record and return its id.
@@ -219,3 +319,87 @@ def _load_encryption_key(provider: SecretProvider | None) -> SecretStr | None:
             f"{_MIN_ENCRYPTION_KEY_LENGTH} characters"
         )
     return key
+
+
+def _validated_database_file(path: Path) -> Path:
+    if path.is_symlink() or not path.is_file():
+        raise OSError("finding-transition database must be a regular non-symlink file")
+    return path.resolve()
+
+
+def _same_file(source: Path, destination: Path) -> bool:
+    try:
+        return source.samefile(destination)
+    except FileNotFoundError:
+        return False
+
+
+def _open_verified_transition_database(
+    path: Path, *, allow_sidecars: bool = False
+) -> tuple[sqlite3.Connection, FindingTransitionBackupInfo]:
+    _validated_database_file(path)
+    sidecars = tuple(Path(f"{path}{suffix}") for suffix in ("-wal", "-shm", "-journal"))
+    if not allow_sidecars and any(sidecar.exists() or sidecar.is_symlink() for sidecar in sidecars):
+        raise FindingTransitionStoreError(
+            "finding-transition backup must be a self-contained SQLite file"
+        )
+    connection = sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True)
+    try:
+        version = int(connection.execute("PRAGMA user_version").fetchone()[0])
+        if version != SCHEMA_VERSION:
+            raise FindingTransitionStoreError(
+                f"unsupported finding-transition backup schema version: {version}"
+            )
+        expected_columns = (
+            "transition_id",
+            "finding_id",
+            "document",
+            "occurred_at",
+        )
+        table_names = {
+            str(row[0])
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+            )
+        }
+        columns = tuple(
+            str(row[1]) for row in connection.execute('PRAGMA table_info("finding_transitions")')
+        )
+        indexes = {
+            str(row[0])
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='index' AND name NOT LIKE 'sqlite_%'"
+            )
+        }
+        if (
+            table_names != {"finding_transitions"}
+            or columns != expected_columns
+            or indexes != {"idx_finding_transitions_finding"}
+        ):
+            raise FindingTransitionStoreError(
+                "finding-transition backup schema does not match this release"
+            )
+        integrity = connection.execute("PRAGMA integrity_check").fetchone()
+        if integrity is None or integrity[0] != "ok":
+            raise FindingTransitionStoreError(
+                "finding-transition backup failed SQLite integrity_check"
+            )
+        if connection.execute("PRAGMA foreign_key_check").fetchone() is not None:
+            raise FindingTransitionStoreError(
+                "finding-transition backup contains foreign-key violations"
+            )
+        count = int(connection.execute("SELECT count(*) FROM finding_transitions").fetchone()[0])
+        digest = hashlib.sha256()
+        with path.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(chunk)
+        info = FindingTransitionBackupInfo(
+            schema_version=version,
+            transition_count=count,
+            size_bytes=path.stat().st_size,
+            sha256=digest.hexdigest(),
+        )
+        return connection, info
+    except BaseException:
+        connection.close()
+        raise

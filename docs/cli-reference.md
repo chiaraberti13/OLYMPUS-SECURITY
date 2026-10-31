@@ -1672,6 +1672,32 @@ Show one finding's full view, with every column and absent data as ``—``.
 | `--max-items-per-file` | option | no | `100000` | — |
 | `--max-total-items` | option | no | `200000` | — |
 
+### `olympus vulcan findings transitions backup`
+
+Create an atomic snapshot of the lifecycle database only.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--database` | option | yes | — | Finding-lifecycle SQLite database. |
+| `--output` | option | yes | — | Snapshot destination. |
+
+### `olympus vulcan findings transitions restore-backup`
+
+Restore to a new path; restore the encryption key separately if used.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--backup` | option | yes | — | Verified lifecycle snapshot. |
+| `--database` | option | yes | — | New empty database path. |
+
+### `olympus vulcan findings transitions verify-backup`
+
+Verify schema and SQLite integrity without decrypting transition rows.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--backup` | option | yes | — | Snapshot file to verify. |
+
 ### `olympus vulcan import`
 
 Import findings or assets from portable NDJSON into a JSON bundle.

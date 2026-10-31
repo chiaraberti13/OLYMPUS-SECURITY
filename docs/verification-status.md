@@ -48,13 +48,25 @@ fingerprint. Synthetic tests cover committed WAL data, round-trip through the
 CLI, future-schema refusal, existing-destination preservation and sidecars.
 This does not coordinate with Themis jobs, Metis, findings, audit, identity,
 scope or evidence stores, and the hash is not an authenticated manifest.
-On this checkout the focused engagement + Themis backup suites passed **49**
-tests. Repository-wide `make lint`, `make format-check` and `make type` passed
-(217 first-party files). `make test` completed with **2,670 passed, 17 failed,
+On the preceding checkout, the focused engagement + Themis backup suites passed
+**49** tests. Repository-wide `make lint`, `make format-check` and `make type`
+passed (217 first-party files). On the current checkout, `make test` completed
+with **2,682 passed, 17 failed,
 2 skipped, 1 deselected**; all 17 failures are existing Themis sandbox/process
 tests that cannot `chown` their temporary directory to `nobody` in this host
 (`EINVAL`). No test or sandbox gate was disabled. Container, live-lab, coverage
-and mutation gates were not run for this slice.
+and mutation gates were not run for that slice.
+
+The following WEB-J-01 increment adds per-store recovery for the append-only
+finding-lifecycle SQLite database. `olympus vulcan findings transitions backup`,
+`verify-backup` and `restore-backup` are available. The snapshot preserves
+encrypted row bytes and committed WAL state; verification checks schema,
+version, SQLite integrity/foreign keys, absence of sidecars and a SHA-256
+fingerprint, but does not decrypt or validate each transition document. Restore
+is create-only. The encryption key is external and must be preserved separately;
+if the source store did not have encryption configured, its records are plaintext.
+Focused transition-store and backup CLI tests passed **19 tests**. The cross-store
+manifest, audit/identity/scope/evidence stores and recovery drill remain open.
 
 For commit `50361cbfa7470a13c3d075932c48bf9da7f1118f`, local TestClient and
 quality checks passed as above. The GitHub connector returned no Actions runs
