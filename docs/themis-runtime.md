@@ -19,8 +19,8 @@ orizzontale/multiworker finché questi stati non hanno backend condivisi e test 
 carico. Worker scanner separati possono condividere lo stesso database job
 entro il limite di concorrenza configurato.
 
-Il benchmark sintetico locale della coda è solo diagnostico: non stabilisce SLO
-API/Web, p95 multiprocesso o capacità production. Vedi
+I benchmark sintetici locali della coda sono solo diagnostici: non stabiliscono
+SLO API/Web o capacità production. Vedi
 [`performance.md`](performance.md) e `DEV-E-02` nella roadmap.
 
 ```bash
@@ -297,8 +297,8 @@ deployment is not a supported reliability claim until those states have shared
 backends and are load-tested. Separate scanner workers may share the same job
 database under its configured concurrency cap.
 
-The local synthetic queue benchmark is diagnostic only; it does not establish
-an API/Web SLO, multi-process p95, or production capacity. See
+The local synthetic queue benchmarks are diagnostic only; they do not establish
+an API/Web SLO or production capacity. See
 [`performance.md`](performance.md) and `DEV-E-02` in the roadmap.
 
 The installed wheel owns `themis api`, `serve`/`web`, `migrate` and `workers`.

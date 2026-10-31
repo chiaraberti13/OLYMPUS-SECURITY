@@ -338,6 +338,12 @@
   ],
   "native_routes": [
     {
+      "surface": "web",
+      "method": "GET",
+      "path": "/",
+      "handler": "dashboard"
+    },
+    {
       "surface": "api",
       "method": "GET",
       "path": "/api/v1/capabilities",
@@ -378,30 +384,6 @@
       "method": "POST",
       "path": "/api/v1/jobs/{job_id}/cancel",
       "handler": "cancel_job"
-    },
-    {
-      "surface": "api",
-      "method": "GET",
-      "path": "/health",
-      "handler": "health"
-    },
-    {
-      "surface": "api",
-      "method": "GET",
-      "path": "/metrics",
-      "handler": "metrics"
-    },
-    {
-      "surface": "api",
-      "method": "GET",
-      "path": "/ready",
-      "handler": "ready"
-    },
-    {
-      "surface": "web",
-      "method": "GET",
-      "path": "/",
-      "handler": "dashboard"
     },
     {
       "surface": "web",
@@ -470,10 +452,22 @@
       "handler": "transition_finding"
     },
     {
+      "surface": "api",
+      "method": "GET",
+      "path": "/health",
+      "handler": "health"
+    },
+    {
       "surface": "web",
       "method": "GET",
       "path": "/health",
       "handler": "health"
+    },
+    {
+      "surface": "web",
+      "method": "GET",
+      "path": "/incidents",
+      "handler": "incidents_page"
     },
     {
       "surface": "web",
@@ -522,6 +516,18 @@
       "method": "POST",
       "path": "/logout",
       "handler": "logout"
+    },
+    {
+      "surface": "api",
+      "method": "GET",
+      "path": "/metrics",
+      "handler": "metrics"
+    },
+    {
+      "surface": "api",
+      "method": "GET",
+      "path": "/ready",
+      "handler": "ready"
     },
     {
       "surface": "web",

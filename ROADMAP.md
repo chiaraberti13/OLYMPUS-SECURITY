@@ -186,8 +186,11 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
   POSIX locale dimostra la terminazione di un processo e del suo figlio; un
   Testual Pilot chiude l'app durante un comando e verifica la terminazione di
   parent e child. Aggiunto al job Windows portable-smoke un test dedicato che
-  usa taskkill `/T /F` e verifica il child. Il test Windows e il relativo run CI
-  non sono eseguibili/verificabili da questo host, quindi la voce resta aperta.
+  usa taskkill `/T /F` e verifica il child; il run Windows portable-smoke
+  `41225520765` è passato. Lo stesso run ha rivelato che l'uscita dell'App non
+  sempre attendeva l'unmount della schermata su POSIX: aggiunto cleanup sincrono
+  nel lifecycle `on_shutdown`, verificato localmente. In attesa del rerun CI del
+  nuovo commit; la voce resta aperta.
 
 ### DEV-E-01 — Transizioni Athena concorrenti e audit atomico
 
@@ -379,9 +382,13 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
   distingue baseline e verifiche successive. ADR-003/004/005 sono ora documenti
   decisionali collegati nell'indice. Il gate link Markdown è stato aggiunto al
   job `quality`. Verifiche locali: 70 Markdown senza link interni rotti,
-  `olympus themis matrix --check` senza drift e Mypy strict su 217 file. Esito
-  remoto CI e branch protection restano da verificare; il confronto bilingue
-  end-to-end è ancora aperto.
+  `olympus themis matrix --check` senza drift e Mypy strict su 217 file. Run
+  GitHub `41225520765` osservato: quality, wheel, container, Gitleaks,
+  pip-audit, POSIX e smoke Windows/macOS verdi; le suite fallivano per il nuovo
+  route `/incidents` non ancora riflesso nel manifest parità e per il test TUI
+  shutdown; corretti localmente, rerun non ancora osservato. CodeQL
+  `41225520745` verde. Branch protection non accessibile (API 403); confronto
+  bilingue end-to-end ancora aperto.
 
 ### UX-A-01 — Parità TUI e consumer form
 
@@ -504,9 +511,12 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
   SQLite restano coordinati fra worker e soggetti al cap persistente. Benchmark
   sintetico standard, singolo processo, 250 job e cinque campioni: mediana
   1,684 s, worst 1,779 s, CPU mediana 1,010 s, allocazione tracciata 0,019 MiB.
-  Questo non è p95 Web né SLO. Mancano workload HTTP dichiarato, p95, misure
-  multi-processo di lock/errori e recovery; nessuna decisione di migrazione è
-  supportata da questi soli numeri.
+  Harness multiprocesso aggiunto: tre run offline, 4 writer × 50 job per run,
+  200/200 job persistiti e zero errori SQLite; p95 per submit 11,328/10,674/
+  17,992 ms sullo stesso host (Linux 6.18.57, Python 3.12.14). È diagnostico
+  del solo store SQLite, non p95 Web né SLO. Mancano workload HTTP dichiarato,
+  p95 delle richieste Web, recovery e prove su host/volume rappresentativi; nessuna
+  decisione di migrazione è supportata dai soli numeri locali.
 
 ### OPS-SCAN-01 — Integrazioni motivate e promozione maturità
 

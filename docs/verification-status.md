@@ -18,10 +18,18 @@ after the last change; Ruff and strict Mypy passed for the edited source. A
 broader focused jobs+Web run had one unrelated environment failure while
 creating the sandbox scratch directory (`EINVAL`); the remaining tests passed.
 
-The workflow files and push/PR triggers are present. GitHub reports a failing
-Vercel status for the referenced latest commits and the available workflow-run
-query returned no runs; do not treat that as a green CI result. Branch protection
-is not verified. See the current [ecosystem audit](ecosystem-audit.md) and
+On commit `bf3e22d`, GitHub Actions `ci` run
+[41225520765](https://github.com/chiaraberti13/OLYMPUS-SECURITY/actions/runs/41225520765)
+and CodeQL run
+[41225520745](https://github.com/chiaraberti13/OLYMPUS-SECURITY/actions/runs/41225520745)
+were observed. CodeQL and the `quality`, Gitleaks, pip-audit, package, container,
+POSIX, Windows and macOS jobs passed. Pytest/coverage failed: the newly added
+`/incidents` route was missing from the parity inventory, and the POSIX UI
+shutdown test exposed that app shutdown did not always await screen unmount.
+Both issues are corrected in the pending local change; no rerun is yet available.
+The separate Vercel status was also failure. Branch-protection inspection was
+denied by GitHub integration (403), so required-check enforcement remains
+unverified. See the current [ecosystem audit](ecosystem-audit.md) and
 [roadmap](../ROADMAP.md) for scope-specific status.
 
 ## What actually ran

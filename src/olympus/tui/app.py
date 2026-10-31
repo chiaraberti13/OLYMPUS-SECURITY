@@ -317,6 +317,21 @@ class CommandScreen(Screen[None]):
             _signal_process_tree(process, force=False)
             self._escalate_kill()
 
+    async def stop_for_shutdown(self) -> None:
+        """Boundedly reap the command tree when the owning app is exiting."""
+        process = self.process
+        if process is None or process.returncode is not None:
+            return
+        self._cancelled = True
+        _signal_process_tree(process, force=False)
+        # App shutdown cannot leave a background escalation worker alive. Force
+        # the owned process group/tree before returning so descendants cannot
+        # outlive a closed interface on either supported process model.
+        await _force_kill_process_tree(process)
+        with contextlib.suppress(TimeoutError):
+            await asyncio.wait_for(process.wait(), timeout=1.0)
+        self.process = None
+
     def action_run_command(self) -> None:
         if self.process is not None:
             self.notify("A command is already running.", severity="warning")
@@ -514,6 +529,12 @@ class OlympusTui(App[None]):
         self.root_command = root
         self.current_tool = TOOLS[0]
         self.current_commands: tuple[CommandSpec, ...] = ()
+
+    async def on_shutdown(self) -> None:
+        """Stop and reap active command trees before the app event loop closes."""
+        for screen in self.screen_stack:
+            if isinstance(screen, CommandScreen):
+                await screen.stop_for_shutdown()
 
     def compose(self) -> ComposeResult:
         yield Static(TOP_BAR, id="menu-bar")

@@ -65,8 +65,21 @@ sample **1.779 s**, median CPU **1.010 s**, and peak traced Python allocation
 diagnostic budgets. The queue figure is an aggregate lifecycle measurement in
 one process; it is not request latency, a p95, a lock-contention test or a
 capacity/SLO promise. `DEV-E-02` remains open pending a declared Web workload,
-concurrent-process lock/error measurements, recovery results and repeat runs on
-an identified host.
+Web request latency measurements and recovery results. A separate process
+contention harness is available as `scripts/benchmark_themis_concurrency.py`;
+run it three times on the same host before comparing results:
+
+```bash
+python scripts/benchmark_themis_concurrency.py --processes 4 --jobs-per-process 50
+```
+
+On the same Linux 6.18.57 / Python 3.12.14 host at commit `bf3e22d`, three
+offline runs each submitted 200 synthetic jobs from four independent writer
+processes. Every run persisted all 200 rows with zero submit/SQLite errors.
+Elapsed times were **0.312 / 0.285 / 0.311 s**; throughput **641 / 703 / 644
+jobs/s**; median per-submit latency **2.574 / 2.787 / 2.660 ms**; nearest-rank
+p95 **11.328 / 10.674 / 17.992 ms**. These are SQLite job-store measurements,
+not API/Web latency, workload capacity guarantees or recovery results.
 
 ## Run
 
