@@ -617,7 +617,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             paths = sorted(path for path in root.glob("*.json") if path.is_file())
         except _FindingsUnavailable:
             raise
-        except OSError as exc:
+        except (OSError, RuntimeError) as exc:
             raise _FindingsUnavailable("the findings directory is unavailable") from exc
         if not paths:
             return []
@@ -648,7 +648,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 return None
             paths = sorted(path for path in root.glob("*.json") if path.is_file())
             return load_incidents(paths)
-        except (OSError, ValueError):
+        except (OSError, RuntimeError, ValueError):
             return None
 
     def _open_transition_store() -> SqliteFindingTransitionStore | None:
