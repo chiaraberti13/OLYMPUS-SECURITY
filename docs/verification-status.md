@@ -28,6 +28,17 @@ The local browser review was attempted, but the connected browser could not reac
 the workspace's loopback-only test server (`ERR_CONNECTION_REFUSED`); no public
 listener was opened and browser review remains incomplete.
 
+WEB-J-01 now also exposes offline `ThemisJobStore` backup/verify/restore for
+the single jobs SQLite database. Seven focused tests pass for WAL snapshot and
+CLI round-trip, corruption/future-schema rejection, create-only restore,
+sidecar refusal, preservation of an existing snapshot on failure, and dangling
+symlink rejection. Ruff, format, strict Mypy and doc-link checks pass. The
+combined job/backup unit run reports 70 passed and one pre-existing sandbox
+failure: `test_durable_job_lifecycle` cannot create the isolated scratch
+directory (`EINVAL`) before its subprocess assertion. The request-lease
+`.requests` sidecar and other platform stores remain excluded; the returned
+SHA-256 is informational unless an operator records a trusted reference.
+
 For commit `50361cbfa7470a13c3d075932c48bf9da7f1118f`, local TestClient and
 quality checks passed as above. The GitHub connector returned no Actions runs
 for that commit (its workflow-run wrapper is PR-only) and did not expose CodeQL;

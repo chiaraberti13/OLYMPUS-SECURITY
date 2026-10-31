@@ -1121,6 +1121,15 @@ Issue a new secret, keeping the old one valid for a bounded overlap.
 
 Show where Themis lives and whether its stack is importable.
 
+### `olympus themis jobs backup`
+
+Create a verified snapshot of the Themis jobs database only.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--destination` | option | yes | — | Snapshot output path. |
+| `--database`, `-d` | option | no | — | — |
+
 ### `olympus themis jobs cancel`
 
 Cancel queued work or request cooperative cancellation of running work.
@@ -1166,6 +1175,15 @@ Requeue (or fail) jobs whose worker stopped renewing its lease.
 | --- | --- | --- | --- | --- |
 | `--database`, `-d` | option | no | — | — |
 
+### `olympus themis jobs restore`
+
+Restore a jobs snapshot to a new path; stop services before switching config.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--backup` | option | yes | — | Verified jobs snapshot to restore. |
+| `--destination` | option | yes | — | New, absent SQLite path. |
+
 ### `olympus themis jobs status`
 
 Return one durable job and its normalized result when complete.
@@ -1193,6 +1211,14 @@ Persist one manifest-authorized scan job without executing it.
 | `--manifest-public-key` | option | no | — | Pinned Ed25519 approver public key used to verify the manifest. |
 | `--engagement-storage` | option | no | — | Directory holding the durable signed-manifest and revocation store. |
 | `--i-am-authorized` | option | no | `False` | — |
+
+### `olympus themis jobs verify-backup`
+
+Verify a Themis jobs snapshot's schema, SQLite integrity, and fingerprint.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--backup` | option | yes | — | Themis jobs snapshot to validate. |
 
 ### `olympus themis jobs work`
 

@@ -1437,6 +1437,57 @@ def themis_jobs_init(
     typer.echo(json.dumps({"database": str(store.path), "initialized": True}, indent=2))
 
 
+@jobs_app.command("backup")
+def themis_jobs_backup(
+    destination: str = typer.Option(..., "--destination", help="Snapshot output path."),
+    database: str = typer.Option(".olympus/themis-jobs.sqlite3", "--database", "-d"),
+) -> None:
+    """Create a verified snapshot of the Themis jobs database only."""
+    from dataclasses import asdict
+
+    from olympus.themis.jobs import ThemisJobStore
+
+    info = ThemisJobStore(Path(database)).backup(Path(destination))
+    typer.echo(json.dumps({"snapshot": str(Path(destination)), **asdict(info)}, indent=2))
+
+
+@jobs_app.command("verify-backup")
+def themis_jobs_verify_backup(
+    backup: str = typer.Option(..., "--backup", help="Themis jobs snapshot to validate."),
+) -> None:
+    """Verify a Themis jobs snapshot's schema, SQLite integrity, and fingerprint."""
+    from dataclasses import asdict
+
+    from olympus.themis.jobs import ThemisJobStore
+
+    info = ThemisJobStore.verify_backup(Path(backup))
+    typer.echo(json.dumps({"verified": True, **asdict(info)}, indent=2))
+
+
+@jobs_app.command("restore")
+def themis_jobs_restore(
+    backup: str = typer.Option(..., "--backup", help="Verified jobs snapshot to restore."),
+    destination: str = typer.Option(..., "--destination", help="New, absent SQLite path."),
+) -> None:
+    """Restore a jobs snapshot to a new path; stop services before switching config."""
+    from dataclasses import asdict
+
+    from olympus.themis.jobs import ThemisJobStore
+
+    destination_path = Path(destination)
+    info = ThemisJobStore.restore_backup(Path(backup), destination_path)
+    typer.echo(
+        json.dumps(
+            {
+                "restored_to": str(destination_path),
+                "services_must_be_stopped_before_switching_config": True,
+                **asdict(info),
+            },
+            indent=2,
+        )
+    )
+
+
 @jobs_app.command("submit")
 def themis_jobs_submit(
     scanner: str = typer.Argument(...),

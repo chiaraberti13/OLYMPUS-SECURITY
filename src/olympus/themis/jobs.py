@@ -22,10 +22,13 @@ Three properties matter beyond "it stores rows":
 
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 import re
 import secrets
 import sqlite3
+import tempfile
 import threading
 import time
 from collections.abc import Callable, Collection, Iterator
@@ -205,6 +208,16 @@ class HistoricalJobImport:
     result: dict[str, object]
 
 
+@dataclass(frozen=True)
+class ThemisBackupInfo:
+    """Verification facts for one Themis jobs SQLite snapshot."""
+
+    schema_version: int
+    job_count: int
+    size_bytes: int
+    sha256: str
+
+
 class ManifestAuthorizer(Protocol):
     """Port used to revalidate a queued signed manifest immediately before execution."""
 
@@ -319,6 +332,107 @@ class ThemisJobStore:
                     self._migrate(db, locked_version)
                     db.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
         self.path.chmod(0o600)
+
+    def backup(self, destination: Path) -> ThemisBackupInfo:
+        """Atomically publish a verified snapshot of this jobs database only.
+
+        SQLite's online backup API captures committed WAL state. The artifact
+        does not include the separate request-concurrency sidecar or any other
+        Olympus store; operators must stop writers before restoration.
+        """
+        self._validate_path()
+        if self.path.is_symlink() or not self.path.is_file():
+            raise JobStoreError("Themis jobs database must be an existing regular file")
+        if destination.is_symlink():
+            raise OSError("backup destination must not be a symlink")
+        source_path = self.path.resolve()
+        destination = destination.resolve()
+        if destination == source_path or _same_file(source_path, destination):
+            raise ValueError("backup destination must differ from the live database")
+        source, _ = _open_verified_job_database(source_path)
+        temporary: Path | None = None
+        try:
+            destination.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            descriptor, temporary_name = tempfile.mkstemp(
+                prefix=f".{destination.name}.", suffix=".tmp", dir=destination.parent
+            )
+            os.close(descriptor)
+            temporary = Path(temporary_name)
+            target = sqlite3.connect(temporary)
+            try:
+                source.backup(target)
+            finally:
+                target.close()
+            temporary.chmod(0o600)
+            info = self.verify_backup(temporary)
+            temporary.replace(destination)
+            destination.chmod(0o600)
+            return info
+        except BaseException:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+            raise
+        finally:
+            source.close()
+
+    @staticmethod
+    def verify_backup(backup: Path) -> ThemisBackupInfo:
+        """Verify a single-store snapshot's schema, SQLite integrity and digest."""
+        connection, info = _open_verified_job_database(backup)
+        connection.close()
+        return info
+
+    @staticmethod
+    def restore_backup(backup: Path, destination: Path) -> ThemisBackupInfo:
+        """Restore a verified snapshot to a new, absent database path.
+
+        The destination cannot replace an existing database: stop API and worker
+        processes, then restore to a new path before changing service config.
+        """
+        source, info = _open_verified_job_database(backup)
+        temporary: Path | None = None
+        try:
+            if destination.is_symlink():
+                raise OSError("restore destination must not be a symlink")
+            destination = destination.resolve()
+            if destination == backup.resolve() or _same_file(backup, destination):
+                raise ValueError("restore destination must differ from the backup")
+            sidecars = (
+                Path(f"{destination}-wal"),
+                Path(f"{destination}-shm"),
+                Path(f"{destination}-journal"),
+                destination.with_name(f"{destination.name}.requests"),
+            )
+            if (
+                destination.exists()
+                or destination.is_symlink()
+                or any(sidecar.exists() or sidecar.is_symlink() for sidecar in sidecars)
+            ):
+                raise FileExistsError("restore destination and SQLite sidecars must be absent")
+            destination.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            descriptor, temporary_name = tempfile.mkstemp(
+                prefix=f".{destination.name}.", suffix=".restore", dir=destination.parent
+            )
+            os.close(descriptor)
+            temporary = Path(temporary_name)
+            target = sqlite3.connect(temporary)
+            try:
+                source.backup(target)
+            finally:
+                target.close()
+            temporary.chmod(0o600)
+            info = ThemisJobStore.verify_backup(temporary)
+            # Hard-link publication is an atomic create-only operation: if a
+            # path appeared since the absence check, never replace it.
+            os.link(temporary, destination)
+            temporary.unlink()
+            return info
+        except BaseException:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+            raise
+        finally:
+            source.close()
 
     def _migrate(self, db: sqlite3.Connection, version: int) -> None:
         if version not in {0, 2, SCHEMA_VERSION}:
@@ -930,7 +1044,7 @@ class ThemisJobStore:
             db.close()
 
     def _validate_path(self) -> None:
-        if self.path.exists() and (self.path.is_symlink() or not self.path.is_file()):
+        if self.path.is_symlink() or (self.path.exists() and not self.path.is_file()):
             raise OSError("Themis job database must be a regular non-symlink file")
 
 
@@ -975,6 +1089,93 @@ _INDEXES_V2_STATEMENTS = (
 )
 
 _SCHEMA_V3_STATEMENTS = (_CREATE_JOBS_V3, *_INDEXES_V2_STATEMENTS)
+
+_JOB_COLUMNS = frozenset(
+    {
+        "job_id",
+        "idempotency_key",
+        "manifest_sha256",
+        "scanner",
+        "target",
+        "target_kind",
+        "scope_path",
+        "authorized",
+        "state",
+        "attempts",
+        "max_attempts",
+        "available_at",
+        "worker_id",
+        "lease_expires_at",
+        "heartbeat_at",
+        "created_at",
+        "updated_at",
+        "started_at",
+        "finished_at",
+        "result_json",
+        "error",
+        "cancel_requested",
+    }
+)
+
+
+def _same_file(first: Path, second: Path) -> bool:
+    """Return whether two existing paths identify the same file."""
+    if not first.exists() or not second.exists():
+        return False
+    return first.samefile(second)
+
+
+def _open_verified_job_database(
+    path: Path,
+) -> tuple[sqlite3.Connection, ThemisBackupInfo]:
+    """Open one schema-v3 jobs database read-only and verify its physical file."""
+    if path.is_symlink() or not path.is_file():
+        raise JobStoreError("Themis backup must be an existing regular non-symlink file")
+    resolved = path.resolve()
+    try:
+        connection = sqlite3.connect(resolved.as_uri() + "?mode=ro", uri=True)
+    except sqlite3.Error as exc:
+        raise JobStoreError("Themis backup is not a readable SQLite database") from exc
+    try:
+        version = int(connection.execute("PRAGMA user_version").fetchone()[0])
+        if version != SCHEMA_VERSION:
+            raise SchemaVersionError(
+                f"Themis backup schema must be {SCHEMA_VERSION}, found {version}"
+            )
+        tables = {
+            str(row[0])
+            for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            if not str(row[0]).startswith("sqlite_")
+        }
+        if tables != {"themis_jobs"}:
+            raise JobStoreError("Themis backup has an unexpected table layout")
+        columns = {str(row[1]) for row in connection.execute("PRAGMA table_info(themis_jobs)")}
+        if columns != _JOB_COLUMNS:
+            raise JobStoreError("Themis backup has an unexpected job schema")
+        integrity = connection.execute("PRAGMA integrity_check").fetchall()
+        if integrity != [("ok",)]:
+            raise JobStoreError("Themis backup failed SQLite integrity_check")
+        if connection.execute("PRAGMA foreign_key_check").fetchone() is not None:
+            raise JobStoreError("Themis backup failed SQLite foreign_key_check")
+        job_count = int(connection.execute("SELECT COUNT(*) FROM themis_jobs").fetchone()[0])
+        size_bytes = resolved.stat().st_size
+        with resolved.open("rb") as stream:
+            digest = hashlib.file_digest(stream, "sha256").hexdigest()
+        return (
+            connection,
+            ThemisBackupInfo(
+                schema_version=version,
+                job_count=job_count,
+                size_bytes=size_bytes,
+                sha256=digest,
+            ),
+        )
+    except sqlite3.Error as exc:
+        connection.close()
+        raise JobStoreError("Themis backup is corrupt or has an invalid schema") from exc
+    except BaseException:
+        connection.close()
+        raise
 
 
 def _execute_schema_statements(db: sqlite3.Connection, statements: tuple[str, ...]) -> None:
