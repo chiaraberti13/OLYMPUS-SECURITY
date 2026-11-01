@@ -1,0 +1,11 @@
+schema_name: olympus.apollo-rule
+schema_version: 1.0.0
+rule_id: APL-SYSMON-C2-DNS
+title: Sysmon DNS query to a known C2 domain
+event_type: windows.sysmon
+conditions:
+  event_id: "22"
+  query: c2.evil.example
+severity: high
+mitre_attack:
+  - T1071.004

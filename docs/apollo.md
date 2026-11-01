@@ -56,25 +56,31 @@ olympus apollo run --rules ./rules --events events.ndjson --output alerts.json
 
 The third format is `windows-json` — Windows Event / Sysmon records (one JSON
 object per line), as produced by `Get-WinEvent | ConvertTo-Json` or an
-EVTX-to-JSON exporter. The `EventID` selects the kind and the provider/channel
-must match the expected family, so a different provider that reuses a low id is
-skipped rather than guessed. Documented Sysmon ids map as `1 → process.create`,
-`3 → network.connection`, `11 → file.create`, `13 → registry.set`,
-`22 → dns.query`, and Security ids as `4624 → auth.logon`,
-`4625 → auth.logon_failed`; fields are read from the `EventData` object first,
-then the flat record. A line that is not a JSON object, has an unknown or
+EVTX-to-JSON exporter. Records use the established rule taxonomy: Sysmon records
+become `windows.sysmon` events and Security-auditing records become
+`windows.security` events, with the `EventID` preserved as an `event_id`
+attribute (so a rule matches `event_type: windows.sysmon` + `event_id: "1"`,
+exactly like the shipped rules). The provider/channel must match the expected
+family, so a different provider that reuses a low id is skipped, not guessed.
+Documented ids are Sysmon `1` (process create), `3` (network connection), `11`
+(file create), `13` (registry set), `22` (DNS query) and Security `4624`/`4625`
+(logon / failed logon); fields are read from the `EventData` object first, then
+the flat record, and the executable basename is exposed as `process_name`
+alongside the full `image`. A line that is not a JSON object, has an unknown or
 provider-mismatched id, or carries no mappable field is skipped, never guessed;
 the ISO-8601 `TimeCreated` is anchored to UTC.
 
 ```bash
 olympus apollo ingest --format windows-json --input sysmon.jsonl --output events.ndjson
-olympus apollo run --rules ./rules --events events.ndjson --output alerts.json
+olympus apollo run --rules examples/input/apollo-sysmon --events events.ndjson --output alerts.json
 ```
 
-The parser is proven offline against a format-faithful synthetic fixture
-(`tests/fixtures/apollo/ingest/windows.jsonl`); validation against **real**
-Windows telemetry in an authorized lab stays tracked in
-[`ROADMAP.md`](../ROADMAP.md) as `BLUE-1`.
+Ingested Windows telemetry drives the shipped Sysmon/Security detection rules in
+`examples/input/apollo-sysmon` (C2 DNS query, Run-key persistence, failed
+privileged logon) end to end. The parser is proven offline against a
+format-faithful synthetic fixture (`tests/fixtures/apollo/ingest/windows.jsonl`);
+validation against **real** Windows telemetry in an authorized lab stays tracked
+in [`ROADMAP.md`](../ROADMAP.md) as `BLUE-1`.
 
 ## ATT&CK detection coverage (`OPS-PURPLE`)
 

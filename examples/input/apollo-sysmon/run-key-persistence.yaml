@@ -1,0 +1,11 @@
+schema_name: olympus.apollo-rule
+schema_version: 1.0.0
+rule_id: APL-SYSMON-RUNKEY-PERSISTENCE
+title: Registry Run-key modification via reg.exe (persistence)
+event_type: windows.sysmon
+conditions:
+  event_id: "13"
+  process_name: reg.exe
+severity: medium
+mitre_attack:
+  - T1547.001

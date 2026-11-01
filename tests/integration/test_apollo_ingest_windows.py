@@ -7,10 +7,15 @@ create, registry set) and Security logon records (4624/4625), plus a
 provider-mismatched id, an unmapped id, a non-JSON line, a non-object line and a
 record with an invalid timestamp — so it also proves the parser skips what it
 cannot faithfully normalize instead of guessing.
+
+Events use the established rule taxonomy (``windows.sysmon`` / ``windows.security``
+with an ``event_id`` attribute), so ingested telemetry feeds the shipped Sysmon
+detection rules in ``examples/input/apollo-sysmon`` end to end.
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -22,47 +27,33 @@ from olympus.core.enums import Source
 
 runner = CliRunner()
 
-_FIXTURE = (
-    Path(__file__).resolve().parent.parent / "fixtures" / "apollo" / "ingest" / "windows.jsonl"
-)
-
-_RULE = """\
-schema_name: olympus.apollo-rule
-schema_version: 1.0.0
-rule_id: APL-TEST-SYSMON-C2-DNS
-title: Sysmon DNS query to a known C2 domain
-event_type: dns.query
-conditions:
-  query: c2.evil.example
-severity: high
-mitre_attack:
-  - T1071.004
-"""
+_ROOT = Path(__file__).resolve().parents[2]
+_FIXTURE = _ROOT / "tests" / "fixtures" / "apollo" / "ingest" / "windows.jsonl"
+_RULES = _ROOT / "examples" / "input" / "apollo-sysmon"
 
 
-def test_parse_maps_sysmon_and_security_event_kinds() -> None:
+def test_parse_maps_to_the_sysmon_and_security_taxonomy() -> None:
     result = parse_windows_json(_FIXTURE.read_text(encoding="utf-8"), source=Source.MARS)
-    by_type = {event.event_type for event in result.events}
-    assert by_type == {
-        "process.create",
-        "network.connection",
-        "dns.query",
-        "file.create",
-        "registry.set",
-        "auth.logon",
-        "auth.logon_failed",
-    }
+    assert {event.event_type for event in result.events} == {"windows.sysmon", "windows.security"}
     assert all(event.source is Source.MARS for event in result.events)
 
-    proc = next(e for e in result.events if e.event_type == "process.create")
+    proc = next(
+        e
+        for e in result.events
+        if e.event_type == "windows.sysmon" and e.attributes["event_id"] == "1"
+    )
     assert proc.attributes["command_line"] == "cmd.exe /c whoami"
     assert proc.attributes["user"] == "LAB\\analyst"
-    assert proc.attributes["event_id"] == "1"
+    assert proc.attributes["process_name"] == "cmd.exe"  # basename derived from Image
     assert proc.observed_at is not None and proc.observed_at.tzinfo is not None
 
-    logon_failed = next(e for e in result.events if e.event_type == "auth.logon_failed")
+    logon_failed = next(
+        e
+        for e in result.events
+        if e.event_type == "windows.security" and e.attributes["event_id"] == "4625"
+    )
     assert logon_failed.attributes["user"] == "administrator"
-    assert logon_failed.attributes["client_ip"] == "10.20.0.9"
+    assert logon_failed.attributes["ip_address"] == "10.20.0.9"
 
 
 def test_parse_skips_provider_mismatch_unknown_and_malformed() -> None:
@@ -77,7 +68,7 @@ def test_parse_skips_provider_mismatch_unknown_and_malformed() -> None:
     bad_ts = [
         e
         for e in result.events
-        if e.event_type == "network.connection" and e.attributes.get("dest_port") == "8080"
+        if e.attributes.get("event_id") == "3" and e.attributes.get("dest_port") == "8080"
     ]
     assert bad_ts, "a record with a bad timestamp but valid fields must still be ingested"
     assert bad_ts[0].attributes["dest_ip"] == "203.0.113.7"
@@ -118,7 +109,7 @@ def test_hostile_lines_never_crash_and_are_skipped(hostile: str) -> None:
     assert hostile.strip() == "" or len(result.skipped) == 1
 
 
-def test_ingest_cli_windows_then_run_detects_c2_dns(tmp_path: Path) -> None:
+def test_ingest_cli_then_shipped_rules_detect_sysmon_and_security(tmp_path: Path) -> None:
     events = tmp_path / "events.ndjson"
     ingest = runner.invoke(
         app,
@@ -136,21 +127,25 @@ def test_ingest_cli_windows_then_run_detects_c2_dns(tmp_path: Path) -> None:
     assert ingest.exit_code == 0, ingest.output
     assert "ingested 8 event(s)" in ingest.output
 
-    rules_dir = tmp_path / "rules"
-    rules_dir.mkdir()
-    (rules_dir / "c2.yaml").write_text(_RULE, encoding="utf-8")
+    alerts_path = tmp_path / "alerts.json"
     run = runner.invoke(
         app,
         [
             "apollo",
             "run",
             "--rules",
-            str(rules_dir),
+            str(_RULES),
             "--events",
             str(events),
             "--output",
-            str(tmp_path / "alerts.json"),
+            str(alerts_path),
         ],
     )
     assert run.exit_code == 1, run.output  # alerts present
-    assert "APL-TEST-SYSMON-C2-DNS" in (tmp_path / "alerts.json").read_text(encoding="utf-8")
+    fired = {a["rule_id"] for a in json.loads(alerts_path.read_text(encoding="utf-8"))["alerts"]}
+    # The ingested Windows telemetry drives all three shipped detection rules.
+    assert fired == {
+        "APL-SYSMON-C2-DNS",
+        "APL-SYSMON-RUNKEY-PERSISTENCE",
+        "APL-SECURITY-FAILED-ADMIN-LOGON",
+    }

@@ -47,7 +47,7 @@ Normalize real telemetry into ``core.Event`` NDJSON for the detection engine.
 | --- | --- | --- | --- | --- |
 | `--input` | option | yes | — | Telemetry source file (e.g. an HTTP access log). |
 | `--output` | option | yes | — | NDJSON of core.Event, ready for `apollo run --events`. |
-| `--format` | option | no | `access-log` | Telemetry format. Supported: access-log, zeek-json. |
+| `--format` | option | no | `access-log` | Telemetry format. Supported: access-log, zeek-json, windows-json. |
 | `--source` | option | no | `manual` | Source tag for the emitted events (an olympus source). |
 | `--max-bytes` | option | no | `100000000` | — |
 | `--max-line-bytes` | option | no | `1000000` | — |

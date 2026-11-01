@@ -1,0 +1,12 @@
+schema_name: olympus.apollo-rule
+schema_version: 1.0.0
+rule_id: APL-SECURITY-FAILED-ADMIN-LOGON
+title: Failed network logon for a privileged account
+event_type: windows.security
+conditions:
+  event_id: "4625"
+  user: administrator
+  logon_type: "3"
+severity: medium
+mitre_attack:
+  - T1110

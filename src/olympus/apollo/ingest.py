@@ -332,15 +332,18 @@ def parse_zeek_json(
 
 
 #: Windows Event / Sysmon ``EventID`` -> (provider-family substring, event_type,
-#: {Windows field: event attribute}). Only documented Sysmon/Security IDs with
-#: stable fields are mapped, and only when the record's provider/channel matches
-#: the expected family, so a different provider that reuses a low EventID is
-#: skipped rather than guessed. Fields are read from the ``EventData`` object
-#: first (Sysmon layout), then from the flat record as a fallback.
+#: {Windows field: event attribute}). The event_type matches the established
+#: detection-rule taxonomy — ``windows.sysmon`` for Sysmon ids and
+#: ``windows.security`` for Security-auditing ids — and the ``event_id`` attribute
+#: (set below) distinguishes the kind, exactly as the rule corpus expects. Only
+#: documented ids with stable fields are mapped, and only when the record's
+#: provider/channel matches the expected family, so a different provider that
+#: reuses a low EventID is skipped rather than guessed. Fields are read from the
+#: ``EventData`` object first (Sysmon layout), then from the flat record.
 _WINDOWS_MAP: dict[int, tuple[str, str, dict[str, str]]] = {
     1: (
         "sysmon",
-        "process.create",
+        "windows.sysmon",
         {
             "Image": "image",
             "CommandLine": "command_line",
@@ -352,48 +355,53 @@ _WINDOWS_MAP: dict[int, tuple[str, str, dict[str, str]]] = {
     ),
     3: (
         "sysmon",
-        "network.connection",
+        "windows.sysmon",
         {
             "Image": "image",
-            "SourceIp": "client_ip",
+            "SourceIp": "src_ip",
             "SourcePort": "src_port",
             "DestinationIp": "dest_ip",
             "DestinationPort": "dest_port",
-            "Protocol": "transport",
+            "Protocol": "protocol",
         },
     ),
-    11: ("sysmon", "file.create", {"Image": "image", "TargetFilename": "target_filename"}),
+    11: ("sysmon", "windows.sysmon", {"Image": "image", "TargetFilename": "target_filename"}),
     13: (
         "sysmon",
-        "registry.set",
+        "windows.sysmon",
         {"Image": "image", "TargetObject": "target_object", "Details": "details"},
     ),
     22: (
         "sysmon",
-        "dns.query",
+        "windows.sysmon",
         {"Image": "image", "QueryName": "query", "QueryResults": "query_results"},
     ),
     4624: (
         "security",
-        "auth.logon",
+        "windows.security",
         {
             "TargetUserName": "user",
             "LogonType": "logon_type",
-            "IpAddress": "client_ip",
+            "IpAddress": "ip_address",
             "WorkstationName": "workstation",
         },
     ),
     4625: (
         "security",
-        "auth.logon_failed",
+        "windows.security",
         {
             "TargetUserName": "user",
             "LogonType": "logon_type",
-            "IpAddress": "client_ip",
+            "IpAddress": "ip_address",
             "WorkstationName": "workstation",
         },
     ),
 }
+
+
+def _process_name(image: str) -> str:
+    """Return the executable basename of a Windows ``Image`` path (``\\`` or ``/``)."""
+    return image.replace("\\", "/").rsplit("/", 1)[-1]
 
 
 def _windows_event_id(record: dict[str, object]) -> int | None:
@@ -494,6 +502,10 @@ def iter_windows_json(
             yield SkippedLine(number, stripped[:80], f"no mappable fields for EventID {event_id}")
             continue
         attributes["event_id"] = str(event_id)
+        # Detection rules commonly match the executable basename, so expose it
+        # alongside the full image path rather than forcing every rule to parse it.
+        if "image" in attributes:
+            attributes["process_name"] = _process_name(attributes["image"])
         fields: dict[str, object] = {
             "event_type": event_type,
             "source": source,
