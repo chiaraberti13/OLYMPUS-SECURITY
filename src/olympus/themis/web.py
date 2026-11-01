@@ -56,6 +56,7 @@ from olympus import __version__
 from olympus.apollo.application import ApolloApplicationService
 from olympus.apollo.attack import build_navigator_layer
 from olympus.apollo.engine import evaluate_stream
+from olympus.apollo.ingest import SkippedLine, parse_access_log, parse_windows_json, parse_zeek_json
 from olympus.apollo.rules import DetectionRule
 from olympus.core.enums import FindingStatus, Severity, Source
 from olympus.core.execution import (
@@ -621,6 +622,8 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         session: WebSession,
         *,
         events_text: str = "",
+        telemetry_format: str = "normalized",
+        skipped: tuple[SkippedLine, ...] = (),
         alerts: list[Alert] | None = None,
         event_count: int = 0,
         error: str | None = None,
@@ -631,6 +634,8 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             "unavailable": rules == (),
             "rules": list(rules or ()),
             "events_text": events_text,
+            "telemetry_format": telemetry_format,
+            "skipped": skipped,
             "alerts": alerts,
             "event_count": event_count,
             "error": error,
@@ -1133,6 +1138,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         request: Request,
         events: Annotated[str, Form()],
         csrf_token: Annotated[str, Form()],
+        telemetry_format: Annotated[str, Form()] = "normalized",
         session: WebSession = runs_apollo,
     ) -> Response:
         _check_csrf(session, csrf_token)
@@ -1156,7 +1162,14 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 ),
                 code=503,
             )
-        lines = [line for line in events.splitlines() if line.strip()]
+        parsers = {
+            "access-log": parse_access_log,
+            "zeek-json": parse_zeek_json,
+            "windows-json": parse_windows_json,
+        }
+        if telemetry_format not in {"normalized", *parsers}:
+            raise HTTPException(status_code=422, detail="Unsupported telemetry format")
+        lines = events.splitlines()
         if not 1 <= len(lines) <= 500:
             return _page(
                 request,
@@ -1164,12 +1177,21 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 _apollo_context(
                     session,
                     events_text=events,
-                    error="Provide between 1 and 500 normalized Event JSON lines.",
+                    telemetry_format=telemetry_format,
+                    error="Provide between 1 and 500 telemetry lines.",
                 ),
                 code=422,
             )
         try:
-            parsed = [Event.model_validate_json(line) for line in lines]
+            skipped: tuple[SkippedLine, ...] = ()
+            if telemetry_format == "normalized":
+                parsed = [Event.model_validate_json(line) for line in lines if line.strip()]
+            else:
+                ingested = parsers[telemetry_format](events, max_lines=500)
+                parsed = list(ingested.events)
+                skipped = ingested.skipped
+            if not parsed and not skipped:
+                raise ValueError("No telemetry records")
             alerts = evaluate_stream(list(rules), parsed, max_evaluations=500_000)
         except (ValidationError, TimeoutError, ValueError):
             return _page(
@@ -1178,7 +1200,8 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 _apollo_context(
                     session,
                     events_text=events,
-                    error="Telemetry must be valid normalized olympus.event NDJSON.",
+                    telemetry_format=telemetry_format,
+                    error="Telemetry is invalid for the selected format or evaluation failed.",
                 ),
                 code=422,
             )
@@ -1188,6 +1211,8 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             _apollo_context(
                 session,
                 events_text=events,
+                telemetry_format=telemetry_format,
+                skipped=skipped,
                 alerts=alerts,
                 event_count=len(parsed),
             ),

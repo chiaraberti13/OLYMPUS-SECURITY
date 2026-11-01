@@ -413,3 +413,19 @@ Web UI as `olympus themis web`. The legacy source remains an archive for the
 pending full SEC-A parity review; Olympus does not launch it or import it.
 See [`themis-runtime.md`](themis-runtime.md) for native migration, workers,
 Docker deployment and rollback.
+
+### Apollo telemetry formats / Formati telemetria
+
+The operational `/apollo` form accepts normalized Event NDJSON (default),
+HTTP access logs, Zeek JSON and Windows/Sysmon JSON. Select the format before
+submitting up to 500 physical lines. Existing offline parsers feed the same
+detection engine. Skipped records are listed by line number and reason, without
+echoing raw log snippets. Any skips mean incomplete input, even with no alerts.
+The typed evaluation API still accepts normalized events only.
+
+Il modulo operativo `/apollo` accetta Event NDJSON normalizzato (predefinito),
+access log HTTP, Zeek JSON e Windows/Sysmon JSON. Selezionare il formato e inviare
+al massimo 500 righe fisiche. I parser offline esistenti alimentano lo stesso
+motore di detection. Gli scarti sono visibili con numero di riga e motivo, senza
+riportare estratti grezzi dei log. Uno scarto indica input incompleto anche in
+assenza di alert. L’API di valutazione continua ad accettare solo eventi normalizzati.

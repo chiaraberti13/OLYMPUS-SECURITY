@@ -4,7 +4,8 @@
 <section class="card">
   <h1>Apollo detection workbench</h1>
   <p class="muted">
-    Evaluate normalized <code>olympus.event</code> NDJSON against the server-owned,
+    Normalize access logs, Zeek JSON or Windows/Sysmon JSON, or evaluate
+    <code>olympus.event</code> NDJSON against the server-owned,
     validated Apollo rule pack. Evaluation is local and offline: this page performs
     no collection, scanning or network access.
   </p>
@@ -32,12 +33,18 @@
 </section>
 
 <section class="card">
-  <h2>Evaluate normalized telemetry</h2>
+  <h2>Evaluate telemetry</h2>
   {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
   {% if can_run %}
   <form method="post" action="/apollo/evaluate">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <label for="events">Event NDJSON (1–500 lines)</label>
+    <label for="telemetry_format">Telemetry format</label>
+    <select id="telemetry_format" name="telemetry_format">
+      {% for value, label in [('normalized', 'Normalized olympus.event NDJSON'), ('access-log', 'HTTP access log'), ('zeek-json', 'Zeek JSON NDJSON'), ('windows-json', 'Windows / Sysmon JSON NDJSON')] %}
+      <option value="{{ value }}" {% if telemetry_format == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <label for="events">Telemetry (1–500 lines)</label>
     <textarea id="events" name="events" rows="12" required>{{ events_text }}</textarea>
     <button type="submit">Evaluate</button>
   </form>
@@ -50,6 +57,12 @@
 <section class="card">
   <h2>Result</h2>
   <p>{{ event_count }} event(s) evaluated · {{ alerts | length }} alert(s)</p>
+  {% if skipped %}
+  <p role="status">Incomplete input: {{ skipped | length }} line(s) skipped. Unparsed telemetry has not been evaluated; no-match does not imply clean.</p>
+  <table><thead><tr><th>Line</th><th>Reason</th></tr></thead><tbody>
+  {% for item in skipped %}<tr><td>{{ item.line }}</td><td>{{ item.reason }}</td></tr>{% endfor %}
+  </tbody></table>
+  {% endif %}
   {% if alerts %}<div class="table-wrap"><table>
     <thead><tr><th>Alert ID</th><th>Rule</th><th>Event ID</th><th>Severity</th><th>ATT&amp;CK</th></tr></thead>
     <tbody>{% for alert in alerts %}<tr>

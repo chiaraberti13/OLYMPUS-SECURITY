@@ -140,7 +140,7 @@ export, storico, documentazione. La CLI resta alternativa, non unico accesso.
 
 - **WEB-1** [x] Web control plane nativo sopra l'API tipizzata (submit job, SSE, cancel), con security headers/CSP/CSRF/sessioni.
 - **WEB-2** [~] Pagine operative dei tool esistenti (Themis scan, findings, diff, trend, report, engagement).
-- **WEB-3** [~] Copertura Web di **tutti** i tool dell'ecosistema (Argus, Apollo, Metis, Minerva, Athena, Artemis…) con pagine dedicate operative. Vulcan: associazioni CWE→ATT&CK consultabili in `/findings/attack`, con provenienza, finding non mappati ed export Navigator; riuso del motore offline, accesso `findings:read`. Apollo: workbench operativo `/apollo` sul rule pack configurato dal server, input `olympus.event` NDJSON limitato, valutazione offline reale, scope `apollo:read`/`apollo:run`, CSRF e audit. Restano gli altri flussi/moduli.
+- **WEB-3** [~] Copertura Web di **tutti** i tool dell'ecosistema (Argus, Apollo, Metis, Minerva, Athena, Artemis…) con pagine dedicate operative. Vulcan: associazioni CWE→ATT&CK consultabili in `/findings/attack`, con provenienza, finding non mappati ed export Navigator; riuso del motore offline, accesso `findings:read`. Apollo: workbench operativo `/apollo` sul rule pack configurato dal server, input `olympus.event` NDJSON limitato, valutazione offline reale, scope `apollo:read`/`apollo:run`, CSRF e audit. Ingest Web di access log HTTP, Zeek JSON e Windows/Sysmon JSON tramite parser esistenti, limite di 500 righe fisiche e scarti visibili; verifica offline con fixture e regole Sysmon incluse. Restano gli altri flussi/moduli.
 - **WEB-4** [ ] Dashboard principale con stato sistema, job attivi, findings per severità, coverage ATT&CK.
 - **WEB-5** [ ] Wizard "New Assessment" end-to-end (engagement → scope → profilo → esecuzione → report).
 - **WEB-6** [ ] Configurazione guidata, feedback operazioni, gestione errori/eccezioni uniforme.
@@ -244,6 +244,19 @@ per esecuzioni e promozioni senza evidenza.
 - Persistenza SQLite single-writer → limite multiutente finché manca `DATA-2`.
 - Dipendenza da azioni owner per release-signing, branch protection, import Vercel e lab autorizzato.
 - Sviluppo concorrente sul repo → necessario riallineo Git frequente.
+
+### Incremento ingest Web Apollo — 2026-11-01
+
+- `WEB-3`: selezione formato, normalizzazione offline ed evaluation nel browser;
+  righe scartate elencate senza estratti grezzi, input incompleto segnalato.
+- Contratto API invariato (eventi normalizzati); CSRF, scope, rate limit, audit
+  e limite body esistenti mantenuti. Nessuna raccolta di rete o claim live-tested.
+- QA: 135 test Web/ingest verdi, 32 test mirati Apollo/preview verdi, Ruff
+  lint/format, mypy Web e drift gate preview superati. Verifiche offline con
+  TestClient, nessun claim di test browser reale o suite completa.
+- Demo statica Apollo aggiornata e rigenerata, senza simulare invio/esecuzione.
+- Verifica deployment Vercel impedita da HTTP 403 sui deployment del progetto;
+  pubblicazione live non attestata.
 
 ## 20. Evoluzioni future
 

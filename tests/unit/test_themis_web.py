@@ -2090,3 +2090,76 @@ def test_incidents_catalog_renders_valid_minerva_documents(tmp_path: Path) -> No
     assert "Synthetic incident 1" in page.text
     assert ">open<" in page.text
     assert ">triaged<" in page.text
+
+
+@pytest.mark.parametrize(
+    ("telemetry_format", "record"),
+    [
+        ("access-log", '127.0.0.1 - - [10/Oct/2000:13:55:36 -0700] "GET / HTTP/1.1" 200 10'),
+        ("zeek-json", '{"_path":"dns","query":"example.org"}'),
+        (
+            "windows-json",
+            '{"EventID":1,"Provider":"Microsoft-Windows-Sysmon","EventData":{"Image":"cmd.exe"}}',
+        ),
+    ],
+)
+def test_apollo_web_ingests_raw_telemetry_with_visible_skips(
+    tmp_path: Path, telemetry_format: str, record: str
+) -> None:
+    client = _client(tmp_path, apollo_rules_directory=_apollo_rules(tmp_path))
+    _login(client)
+    page = client.get("/apollo")
+    token = re.search(r'name="csrf_token" value="([0-9a-f]+)"', page.text)
+    assert token is not None
+    result = client.post(
+        "/apollo/evaluate",
+        data={
+            "csrf_token": token.group(1),
+            "events": record + "\ninvalid",
+            "telemetry_format": telemetry_format,
+        },
+    )
+    assert result.status_code == 200, result.text
+    assert "1 event(s) evaluated · 0 alert(s)" in result.text
+    assert "1 line(s) skipped" in result.text
+    assert "no-match does not imply clean" in result.text
+    assert f'value="{telemetry_format}" selected' in result.text
+
+
+def test_apollo_web_rejects_unknown_format_and_line_overflow(tmp_path: Path) -> None:
+    client = _client(tmp_path, apollo_rules_directory=_apollo_rules(tmp_path))
+    _login(client)
+    page = client.get("/apollo")
+    token = re.search(r'name="csrf_token" value="([0-9a-f]+)"', page.text)
+    assert token is not None
+    for telemetry_format, events in [("unknown", "{}"), ("zeek-json", "{}\n" * 501)]:
+        result = client.post(
+            "/apollo/evaluate",
+            data={
+                "csrf_token": token.group(1),
+                "events": events,
+                "telemetry_format": telemetry_format,
+            },
+        )
+        assert result.status_code == 422
+
+
+def test_apollo_web_sysmon_ingest_drives_real_detection(tmp_path: Path) -> None:
+    rules = Path(__file__).resolve().parents[2] / "examples/input/apollo-sysmon"
+    client = _client(tmp_path, apollo_rules_directory=rules)
+    _login(client)
+    page = client.get("/apollo")
+    token = re.search(r'name="csrf_token" value="([0-9a-f]+)"', page.text)
+    assert token is not None
+    fixture = Path(__file__).resolve().parents[1] / "fixtures/apollo/ingest/windows.jsonl"
+    result = client.post(
+        "/apollo/evaluate",
+        data={
+            "csrf_token": token.group(1),
+            "events": fixture.read_text(),
+            "telemetry_format": "windows-json",
+        },
+    )
+    assert result.status_code == 200, result.text
+    assert "T1071.004" in result.text
+    assert "0 alert(s)" not in result.text
