@@ -246,3 +246,16 @@ store engagement corrotto e directory findings con JSON invalido mostrano
 Due test passati con Chromium 1243 preinstallato (`OLYMPUS_CHROMIUM`,
 `OLYMPUS_CHROMIUM_NO_SANDBOX=1`); senza Playwright/Chromium il test viene saltato.
 Solo Chromium, nessun audit di accessibilità.
+
+## WEB-J-01 — backup del log di audit strutturato (2026-11-01)
+
+`olympus core audit-backup backup|verify|restore` (`core/audit_backup.py`) copia
+byte-esatta il log JSON-Lines scritto da `append_structured_audit` (Themis API/Web/job)
+in un percorso nuovo `0600`, create-only. Prima di copiare e dopo la copia ogni riga è
+validata: JSON valido, forma del record, `metadata` già redatta (una chiave sensibile
+in chiaro fa rifiutare lo snapshot), coda troncata (scrittura interrotta) e limiti di
+dimensione. Rifiuta destinazione esistente e symlink. Lo SHA-256 è un fingerprint non
+autenticato; il log non ha catena di hash, quindi la verifica non prova autore né
+completezza storica. Nessun lock cooperativo con gli scrittori: una copia con coda
+parziale viene rifiutata e va ripetuta. Test sintetici: `tests/unit/test_audit_backup.py`.
+Restano fuori scope, vault, evidenze, chiavi e snapshot point-in-time coordinato.

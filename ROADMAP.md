@@ -345,7 +345,12 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
   `tests/unit/test_minerva_ledger_backup.py` (round-trip e prosecuzione della
   catena, overwrite/symlink, manomissione, firma con/senza chiave, append
   concorrenti, CLI). Il SHA-256 è un fingerprint non autenticato.
-  Restano aperti: audit, scope, vault ed evidenze, backup delle
+  Ulteriore slice (2026-11-01): `olympus core audit-backup backup|verify|restore`
+  (`core/audit_backup.py`) per il log di audit JSONL strutturato: copia create-only
+  `0600`, validazione per riga (forma, metadata redatta, coda non troncata, limiti),
+  rifiuto di overwrite/symlink; SHA-256 non autenticato, nessuna catena di hash.
+  Test `tests/unit/test_audit_backup.py`.
+  Restano aperti: scope, vault ed evidenze, backup delle
   chiavi e snapshot coordinato point-in-time; la voce resta `[~]`.
   Ulteriore slice (2026-11-01): `olympus core restore-drill` (`core/restore_drill.py`)
   esegue offline backup → manifest → restore pulito su engagement store e ledger

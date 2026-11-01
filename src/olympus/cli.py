@@ -286,6 +286,33 @@ def backup_manifest(
     typer.echo(json.dumps(payload, indent=2, sort_keys=True))
 
 
+@core_app.command("audit-backup")
+def audit_backup_cmd(
+    action: str = typer.Argument(..., help="backup | verify | restore"),
+    source: Path = typer.Option(..., "--source", help="Audit log (backup) or snapshot."),
+    destination: Path | None = typer.Option(
+        None, "--destination", help="New path for backup/restore (must not exist)."
+    ),
+) -> None:
+    """Back up, verify or restore the structured audit log (WEB-J-01)."""
+    from olympus.core import audit_backup as ab
+
+    try:
+        if action == "verify":
+            info = ab.verify_audit_backup(source)
+        elif action in {"backup", "restore"}:
+            if destination is None:
+                raise ab.AuditBackupError("--destination is required")
+            fn = ab.backup_audit_log if action == "backup" else ab.restore_audit_backup
+            info = fn(source, destination)
+        else:
+            raise ab.AuditBackupError("action must be backup, verify or restore")
+    except (ab.AuditBackupError, OSError) as exc:
+        typer.echo(f"audit-backup: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.FAILED) from exc
+    typer.echo(json.dumps({"status": "ok", **info.__dict__}, indent=2, sort_keys=True))
+
+
 @core_app.command("restore-drill")
 def restore_drill(
     workdir: Path = typer.Option(..., "--workdir", help="New directory for the drill."),

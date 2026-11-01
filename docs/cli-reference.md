@@ -499,6 +499,16 @@ Validate configuration and print only redacted effective values.
 | --- | --- | --- | --- | --- |
 | `--file` | option | no | — | Validate this TOML file instead of automatic discovery. |
 
+### `olympus core audit-backup`
+
+Back up, verify or restore the structured audit log (WEB-J-01).
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `action` | argument | yes | — | backup \| verify \| restore |
+| `--source` | option | yes | — | Audit log (backup) or snapshot. |
+| `--destination` | option | no | — | New path for backup/restore (must not exist). |
+
 ### `olympus core backup-manifest`
 
 Create or verify a manifest binding per-store snapshots (WEB-J-01).
