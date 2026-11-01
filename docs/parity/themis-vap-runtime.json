@@ -369,6 +369,12 @@
     },
     {
       "surface": "api",
+      "method": "POST",
+      "path": "/api/v1/minerva/verify-ledger",
+      "handler": "minerva_verify_ledger"
+    },
+    {
+      "surface": "api",
       "method": "GET",
       "path": "/api/v1/engagements",
       "handler": "list_engagements"
@@ -414,6 +420,18 @@
       "method": "POST",
       "path": "/apollo/evaluate",
       "handler": "apollo_evaluate"
+    },
+    {
+      "surface": "web",
+      "method": "GET",
+      "path": "/minerva",
+      "handler": "minerva_page"
+    },
+    {
+      "surface": "web",
+      "method": "POST",
+      "path": "/minerva/verify",
+      "handler": "minerva_verify"
     },
     {
       "surface": "web",

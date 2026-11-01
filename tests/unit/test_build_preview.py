@@ -11,7 +11,14 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts" / "build_preview.py"
 PUBLIC = ROOT / "public"
-PAGES = ("index.html", "tools.html", "report.html", "attack.html", "apollo.html")
+PAGES = (
+    "index.html",
+    "tools.html",
+    "report.html",
+    "attack.html",
+    "apollo.html",
+    "minerva.html",
+)
 
 
 def _run(*args: str) -> subprocess.CompletedProcess[str]:
@@ -69,7 +76,7 @@ def test_generator_writes_all_pages(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     # A plain run (no --check) regenerates the pages in place and reports success.
     result = _run()
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "Wrote 8 page(s)" in result.stdout
+    assert "Wrote 9 page(s)" in result.stdout
     for name in PAGES:
         assert (PUBLIC / name).exists()
 
@@ -117,6 +124,15 @@ def test_apollo_preview_uses_the_real_bundled_rule_pack() -> None:
     assert "APL-SYSMON-C2-DNS" in text
     assert "loader Apollo reale" in text
     assert "non è possibile inviare dati" in text
+
+
+def test_minerva_preview_verifies_the_real_bundled_ledger() -> None:
+    text = (PUBLIC / "minerva.html").read_text(encoding="utf-8")
+    assert "Verifica catena di custodia Minerva" in text
+    # Derived from the real engine over the bundled example ledger.
+    assert "EVD-2026-00001" in text
+    assert "catena verificata dal motore Minerva" in text
+    assert "non viene eseguita alcuna chiamata di rete" in text
 
 
 def test_vercel_headers_allow_script_only_on_the_demo_route() -> None:

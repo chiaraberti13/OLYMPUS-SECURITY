@@ -135,7 +135,7 @@ password auditor. La maturità per-engine è in
 
 - **INT-1** [x] Contract test per ogni adapter registrato; fuzzing dei parser; esito fail-closed.
 - **INT-2** [ ] Template SDK plugin stabile e documentato per adapter esterni (entry-point discovery).
-- **INT-3** [ ] Ogni tool espone un contratto input/output tipizzato riusabile da CLI, API e Web.
+- **INT-3** [~] Ogni tool espone un contratto input/output tipizzato riusabile da CLI, API e Web. Precedente concreto: la verifica custody Minerva usa un unico core I/O-free (`inspect_ledger_text`) condiviso da CLI (`minerva verify`), API (`/api/v1/minerva/verify-ledger`) e Web (`/minerva`); restano gli altri moduli.
 
 ## 8. Web UI completa (obiettivo portante)
 
@@ -145,7 +145,7 @@ export, storico, documentazione. La CLI resta alternativa, non unico accesso.
 
 - **WEB-1** [x] Web control plane nativo sopra l'API tipizzata (submit job, SSE, cancel), con security headers/CSP/CSRF/sessioni.
 - **WEB-2** [~] Pagine operative dei tool esistenti (Themis scan, findings, diff, trend, report, engagement).
-- **WEB-3** [~] Copertura Web di **tutti** i tool dell'ecosistema (Argus, Apollo, Metis, Minerva, Athena, Artemis…) con pagine dedicate operative. Vulcan: associazioni CWE→ATT&CK consultabili in `/findings/attack`, con provenienza, finding non mappati ed export Navigator; riuso del motore offline, accesso `findings:read`. Apollo: workbench operativo `/apollo` sul rule pack configurato dal server, input `olympus.event` NDJSON limitato, valutazione offline reale, scope `apollo:read`/`apollo:run`, CSRF e audit. Ingest Web di access log HTTP, Zeek JSON e Windows/Sysmon JSON tramite parser esistenti, limite di 500 righe fisiche e scarti visibili; verifica offline con fixture e regole Sysmon incluse. Restano gli altri flussi/moduli.
+- **WEB-3** [~] Copertura Web di **tutti** i tool dell'ecosistema (Argus, Apollo, Metis, Minerva, Athena, Artemis…) con pagine dedicate operative. Vulcan: associazioni CWE→ATT&CK consultabili in `/findings/attack`, con provenienza, finding non mappati ed export Navigator; riuso del motore offline, accesso `findings:read`. Apollo: workbench operativo `/apollo` sul rule pack configurato dal server, input `olympus.event` NDJSON limitato, valutazione offline reale, scope `apollo:read`/`apollo:run`, CSRF e audit. Ingest Web di access log HTTP, Zeek JSON e Windows/Sysmon JSON tramite parser esistenti, limite di 500 righe fisiche e scarti visibili; verifica offline con fixture e regole Sysmon incluse. Minerva: workbench `/minerva` di verifica della catena di custodia — si incolla un ledger `olympus.custody` e la catena di hash è verificata offline dallo stesso motore della CLI (`inspect_ledger_text`), firma Ed25519 verificata quando il server è configurato con la chiave pubblica; scope `minerva:read`, CSRF, nessun input di chiavi/evidenze dal browser. Restano gli altri flussi/moduli.
 - **WEB-4** [ ] Dashboard principale con stato sistema, job attivi, findings per severità, coverage ATT&CK.
 - **WEB-5** [ ] Wizard "New Assessment" end-to-end (engagement → scope → profilo → esecuzione → report).
 - **WEB-6** [ ] Configurazione guidata, feedback operazioni, gestione errori/eccezioni uniforme.
@@ -153,7 +153,7 @@ export, storico, documentazione. La CLI resta alternativa, non unico accesso.
 ## 9. Backend, API e orchestrazione
 
 - **API-1** [x] API FastAPI tipizzata (auth per-scope, accountability, `/jobs`, `/capabilities`, health/ready/metrics).
-- **API-2** [~] Estendere l'API a **tutti** i tool con contratti versionati (non solo Themis). Slice Apollo implementata: `GET /api/v1/apollo/rules` (`olympus.apollo-rule-list` 1.0.0) e `POST /api/v1/apollo/evaluate` (`olympus.apollo-evaluation` 1.0.0), rule pack server-owned e valutazione tipizzata/bounded; restano gli altri moduli.
+- **API-2** [~] Estendere l'API a **tutti** i tool con contratti versionati (non solo Themis). Slice Apollo implementata: `GET /api/v1/apollo/rules` (`olympus.apollo-rule-list` 1.0.0) e `POST /api/v1/apollo/evaluate` (`olympus.apollo-evaluation` 1.0.0), rule pack server-owned e valutazione tipizzata/bounded. Slice Minerva implementata: `POST /api/v1/minerva/verify-ledger` (`olympus.minerva-ledger-verification` 1.0.0), verifica della catena di custodia in memoria, firma Ed25519 opzionale (chiave pubblica server-owned), scope `minerva:read`; restano gli altri moduli.
 - **API-3** [ ] Execution Engine: worker persistente, coda, retry idempotenti, backpressure, checkpoint, cancellazione coerente CLI/TUI/API/Web.
 - **API-4** [ ] CORS/origin policy verso il dominio Web di deploy; autenticazione multiutente.
 
@@ -226,6 +226,26 @@ pertinenti, documentazione IT/EN aggiornata, nessun segreto nel diff, commit su
 per esecuzioni e promozioni senza evidenza.
 
 ## 19. Debito tecnico e rischi residui
+
+### Incremento verifica custody Minerva (Web + API) — 2026-11-01
+
+- `WEB-3`/`API-2`/`INT-3`: workbench `/minerva` e `POST /api/v1/minerva/verify-ledger`
+  per la verifica della catena di custodia `olympus.custody`. Il motore è stato
+  rifattorizzato estraendo un core I/O-free `inspect_ledger_text(text, …)` che
+  `inspect_ledger` (file) e le superfici API/Web condividono: la verifica dal
+  browser è byte-per-byte quella della CLI. Nuovo scope `minerva:read`; firma
+  Ed25519 verificata solo con chiave pubblica server-owned
+  (`--minerva-custody-public-key`), altrimenti un ledger firmato è riportato come
+  non verificato. Nessun input di chiavi, path o payload di evidenze dal client;
+  body limitato a 64 KiB; CSRF e audit esistenti mantenuti.
+- Demo statica ampliata con `public/minerva.html`, che verifica il ledger
+  d'esempio incluso (`examples/output/minerva-custody.json`) con il motore reale;
+  rigenerabile e coperta dal drift gate preview.
+- Contratto golden OpenAPI, inventario route native e riferimento CLI rigenerati.
+- QA: 11 nuovi test mirati (core/API/Web) verdi; suite Themis web/api/identity,
+  custody, contract e preview verdi; Ruff lint/format e mypy sui moduli toccati.
+  Verifiche offline con TestClient; nessun claim di test browser reale o di
+  pubblicazione live su Vercel. Nessun controllo o quality gate disabilitato.
 
 ### Incremento Web Vulcan — 2026-11-01
 

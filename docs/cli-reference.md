@@ -1163,6 +1163,7 @@ Serve the authenticated native Themis API.
 | `--engagement-storage` | option | no | — | Directory holding the shared engagements database; enables the engagement read endpoints and engagement-derived scope enforcement. |
 | `--apollo-rules` | option | no | — | Server-owned Apollo rule directory; enables versioned rule-list and offline evaluation API endpoints. |
 | `--manifest-public-key` | option | no | — | Pinned Ed25519 approver public key; requires --engagement-storage and signed manifests on API job submissions. |
+| `--minerva-custody-public-key` | option | no | — | File holding a hex-encoded Ed25519 custody verification public key (not a secret); enables Minerva ledger signature verification over the API. |
 | `--ssl-certfile` | option | no | — | — |
 | `--ssl-keyfile` | option | no | — | — |
 
@@ -1609,6 +1610,7 @@ Serve the native Themis web control plane (browser UI over the same core).
 | `--baseline-directory` | option | no | — | Directory of core.Finding JSON bundles from an earlier run; enables the Scan diff page (new/resolved/persistent vs the current findings). |
 | `--incidents-directory` | option | no | — | Directory of core.Incident JSON documents (olympus minerva triage output); enables the dashboard incidents-by-status widget for an incidents:read identity (read-only producer artifacts). |
 | `--apollo-rules` | option | no | — | Server-owned Apollo rule directory; enables the authenticated detection workbench. |
+| `--minerva-custody-public-key` | option | no | — | File holding a hex-encoded Ed25519 custody verification public key (not a secret); enables Minerva ledger signature verification in the Web UI. |
 | `--ssl-certfile` | option | no | — | — |
 | `--ssl-keyfile` | option | no | — | — |
 
@@ -1651,6 +1653,7 @@ Serve the native Themis web control plane (browser UI over the same core).
 | `--baseline-directory` | option | no | — | Directory of core.Finding JSON bundles from an earlier run; enables the Scan diff page (new/resolved/persistent vs the current findings). |
 | `--incidents-directory` | option | no | — | Directory of core.Incident JSON documents (olympus minerva triage output); enables the dashboard incidents-by-status widget for an incidents:read identity (read-only producer artifacts). |
 | `--apollo-rules` | option | no | — | Server-owned Apollo rule directory; enables the authenticated detection workbench. |
+| `--minerva-custody-public-key` | option | no | — | File holding a hex-encoded Ed25519 custody verification public key (not a secret); enables Minerva ledger signature verification in the Web UI. |
 | `--ssl-certfile` | option | no | — | — |
 | `--ssl-keyfile` | option | no | — | — |
 

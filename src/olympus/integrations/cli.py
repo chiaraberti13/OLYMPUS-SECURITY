@@ -255,6 +255,12 @@ def themis_api(
         help="Pinned Ed25519 approver public key; requires --engagement-storage and "
         "signed manifests on API job submissions.",
     ),
+    minerva_custody_public_key: str = typer.Option(
+        "",
+        "--minerva-custody-public-key",
+        help="File holding a hex-encoded Ed25519 custody verification public key "
+        "(not a secret); enables Minerva ledger signature verification over the API.",
+    ),
     ssl_certfile: str = typer.Option("", "--ssl-certfile"),
     ssl_keyfile: str = typer.Option("", "--ssl-keyfile"),
 ) -> None:
@@ -317,6 +323,15 @@ def themis_api(
                         label="manifest public key",
                     )
                     if manifest_public_key
+                    else None
+                ),
+                minerva_custody_public_key_hex=(
+                    read_regular_text(
+                        Path(minerva_custody_public_key),
+                        max_bytes=1024,
+                        label="custody verification public key",
+                    ).strip()
+                    if minerva_custody_public_key
                     else None
                 ),
                 max_concurrent_requests=max_concurrent_requests,
@@ -407,6 +422,12 @@ def themis_web(
         "--apollo-rules",
         help="Server-owned Apollo rule directory; enables the authenticated detection workbench.",
     ),
+    minerva_custody_public_key: str = typer.Option(
+        "",
+        "--minerva-custody-public-key",
+        help="File holding a hex-encoded Ed25519 custody verification public key "
+        "(not a secret); enables Minerva ledger signature verification in the Web UI.",
+    ),
     ssl_certfile: str = typer.Option("", "--ssl-certfile"),
     ssl_keyfile: str = typer.Option("", "--ssl-keyfile"),
 ) -> None:
@@ -479,6 +500,15 @@ def themis_web(
                 ),
                 incidents_directory=(Path(incidents_directory) if incidents_directory else None),
                 apollo_rules_directory=Path(apollo_rules) if apollo_rules else None,
+                minerva_custody_public_key_hex=(
+                    read_regular_text(
+                        Path(minerva_custody_public_key),
+                        max_bytes=1024,
+                        label="custody verification public key",
+                    ).strip()
+                    if minerva_custody_public_key
+                    else None
+                ),
                 max_concurrent_requests=max_concurrent_requests,
             )
         )

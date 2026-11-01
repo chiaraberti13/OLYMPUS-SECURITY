@@ -151,6 +151,21 @@ Appending to a signed ledger requires the matching key: without it `verify`
 exits non-zero (chain checked, signature unconfirmed) and `record` refuses rather
 than silently stripping the signature.
 
+### Verification from the API and Web UI (`WEB-3` / `API-2` / `INT-3`)
+
+The same chain verification is reachable without the terminal. The CLI
+`verify`, the typed API endpoint `POST /api/v1/minerva/verify-ledger` and the
+Web workbench `GET /minerva` all call one I/O-free core,
+`inspect_ledger_text(text, ...)`, so a ledger verified in the browser is verified
+by byte-for-byte the same engine as on the command line. The API returns the
+versioned `olympus.minerva-ledger-verification` `1.0.0` contract; a broken chain,
+a bad schema or a signature mismatch is rejected with HTTP 422. Signature
+verification is enabled by starting the server with
+`--minerva-custody-public-key <file>` (the hex Ed25519 public key); otherwise a
+signed ledger is reported `signature_verified: false`. The surfaces accept only a
+ledger document — never a key, a filesystem path or an evidence payload — require
+the `minerva:read` scope, and verify offline. See [`web.md`](web.md).
+
 ### Nota operativa italiana
 
 Per una nuova acquisizione, `--provenance` è obbligatorio. Il JSON deve contenere

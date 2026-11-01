@@ -548,10 +548,39 @@ def inspect_ledger(
         if missing_ok:
             return LedgerInspection((), CUSTODY_SCHEMA_VERSION, True)
         raise CustodyIntegrityError(f"custody ledger does not exist: {path}")
+    text = read_regular_text(path, max_bytes=max_bytes, label="custody ledger")
+    return inspect_ledger_text(
+        text,
+        max_bytes=max_bytes,
+        max_entries=max_entries,
+        progress_check=progress_check,
+        key=key,
+        ed25519_public_key=ed25519_public_key,
+    )
+
+
+def inspect_ledger_text(
+    text: str,
+    *,
+    max_bytes: int = DEFAULT_MAX_LEDGER_BYTES,
+    max_entries: int = DEFAULT_MAX_ENTRIES,
+    progress_check: Callable[[], None] | None = None,
+    key: bytes | None = None,
+    ed25519_public_key: Ed25519PublicKey | None = None,
+) -> LedgerInspection:
+    """Verify an in-memory custody ledger document, mirroring :func:`inspect_ledger`.
+
+    This is the I/O-free core shared by :func:`inspect_ledger` (which reads a file
+    first) and the typed API/Web surfaces, which receive the ledger as submitted
+    text rather than a filesystem path. The hash chain is always verified; the
+    signature is verified only when the matching key is supplied, exactly as the
+    path variant documents. ``max_bytes`` bounds the decoded text so an oversized
+    document is rejected before parsing.
+    """
+    if len(text.encode("utf-8")) > max_bytes:
+        raise CustodyIntegrityError(f"custody ledger exceeds the {max_bytes}-byte limit")
     try:
-        payload: Any = json.loads(
-            read_regular_text(path, max_bytes=max_bytes, label="custody ledger")
-        )
+        payload: Any = json.loads(text)
         if not isinstance(payload, dict) or payload.get("schema_name") != CUSTODY_SCHEMA_NAME:
             raise CustodyIntegrityError("invalid custody schema_name")
         version = payload.get("schema_version")
