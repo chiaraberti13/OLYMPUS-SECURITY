@@ -388,8 +388,12 @@ report (Markdown/HTML/JSON) with one click, reusing the same renderer as the CLI
 (`WEB-I` slice 1), and a **Scan diff** page (and `olympus vulcan diff`) compares a
 baseline run against the current findings — new / resolved / persistent — to
 evidence remediation (`WEB-I` slice 2), and `olympus vulcan trend` plots the
-finding-severity trajectory across a series of runs (`WEB-I` slice 3a). See
-[`docs/web.md`](docs/web.md).
+finding-severity trajectory across a series of runs (`WEB-I` slice 3a). The
+browser also exposes the **Apollo** detection workbench (`--apollo-rules`) and a
+**Minerva** custody-ledger verification workbench (`/minerva`): paste an
+`olympus.custody` ledger and its hash chain is verified offline by the same
+engine as `olympus minerva verify`, with the typed API at
+`POST /api/v1/minerva/verify-ledger`. See [`docs/web.md`](docs/web.md).
 
 For multi-user deployments the API also accepts offline-verified OIDC bearer
 tokens with a pinned issuer, audience and local JWKS (`--oidc-issuer`,

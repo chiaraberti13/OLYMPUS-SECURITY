@@ -146,6 +146,7 @@ as on the API.
 | `GET /engagements`, `GET /engagements/{id}` | The shared engagements and their scope (requires `engagements:read`); available only when the server is started with `--engagement-storage`. |
 | `GET /tools` | The tool catalogue, read straight from the real capability inventory (requires `capabilities:read`). |
 | `GET /apollo` | Apollo detection workbench: inspect the configured validated rule pack and evaluate normalized `olympus.event` NDJSON locally (requires `apollo:read`; evaluation requires `apollo:run` and `--apollo-rules`). |
+| `GET /minerva`, `POST /minerva/verify` | Minerva custody-ledger verification workbench: paste an `olympus.custody` ledger and verify its hash chain offline (a truncation, inserted/reordered entry or any edit to a sealed record is caught); requires `minerva:read`, CSRF-protected. When the server is started with `--minerva-custody-public-key`, an Ed25519-signed ledger also has its signature verified against that published key; otherwise a signed ledger is reported as *not signature-verified*. No key or evidence payload is ever accepted from the browser. |
 | `GET /metis` | Metis CTI extraction workbench: extract and normalize IOCs from free text, a STIX 2.1 bundle or a MISP event, offline (requires `metis:read`). |
 | `POST /metis/extract` | Extract indicators from the submitted input and list any skipped elements with a reason (requires `metis:read`, CSRF-protected). Parsing is local; no collection or network access. |
 | `GET /assessments/new` | Guided New Assessment wizard (requires `jobs:write`): engagement → target → scope → activity → tool or automatic. |
@@ -211,6 +212,27 @@ normalized `olympus.event` documents and returns `olympus.apollo-evaluation`
 is offline and bounded, performs no collection or network access, and remains
 attributed by the existing request audit trail.
 
+## Minerva custody-ledger verification (`WEB-3` / `API-2` / `INT-3`)
+
+Both surfaces expose Minerva's chain-of-custody integrity check over the same
+I/O-free engine (`olympus.minerva.custody.inspect_ledger_text`, shared with the
+file-based CLI `olympus minerva verify`). `POST /api/v1/minerva/verify-ledger`
+takes an `olympus.custody` ledger as a JSON object and returns the versioned
+`olympus.minerva-ledger-verification` `1.0.0` contract: the ledger schema
+version, entry count, whether evidence is anchored, whether the ledger is signed,
+whether the signature was verified, the algorithm, and a normalized projection of
+the verified entries. The Web page `GET /minerva` accepts the same ledger pasted
+into a form and `POST /minerva/verify` renders the result. Both require
+`minerva:read`.
+
+The hash chain is always verified: a successful response means it held, and a
+truncation, an inserted or reordered entry, or any edit to a sealed record is
+rejected with HTTP 422. The signature is verified only when the server is started
+with `--minerva-custody-public-key <file>` (a hex-encoded Ed25519 **public** key,
+not a secret) and the ledger is Ed25519-signed; without the key a signed ledger
+is reported `signature_verified: false` so a caller refuses to trust it. No key,
+filesystem path or evidence payload is ever accepted from the caller; the body is
+bounded by the existing 64 KiB request limit and verification is offline.
 ## Metis CTI extraction workbench (`WEB-3` / `API-2`)
 
 `POST /api/v1/metis/extract` accepts a bounded raw body and a `source_format`

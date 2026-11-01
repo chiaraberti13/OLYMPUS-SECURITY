@@ -370,6 +370,12 @@
     {
       "surface": "api",
       "method": "POST",
+      "path": "/api/v1/minerva/verify-ledger",
+      "handler": "minerva_verify_ledger"
+    },
+    {
+      "surface": "api",
+      "method": "POST",
       "path": "/api/v1/metis/extract",
       "handler": "metis_extract"
     },
@@ -424,8 +430,20 @@
     {
       "surface": "web",
       "method": "GET",
+      "path": "/minerva",
+      "handler": "minerva_page"
+    },
+    {
+      "surface": "web",
+      "method": "GET",
       "path": "/metis",
       "handler": "metis_page"
+    },
+    {
+      "surface": "web",
+      "method": "POST",
+      "path": "/minerva/verify",
+      "handler": "minerva_verify"
     },
     {
       "surface": "web",

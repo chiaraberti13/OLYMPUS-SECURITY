@@ -314,7 +314,12 @@ append-only — lo stesso workflow, vista ed evidence browser della CLI
 confronta un run di baseline con i finding correnti — nuovi / risolti /
 persistenti — per dar prova delle remediation (`WEB-I` slice 2), e
 `olympus vulcan trend` traccia l'andamento della severità dei finding su una
-serie di run (`WEB-I` slice 3a). Vedi [`docs/web.md`](docs/web.md).
+serie di run (`WEB-I` slice 3a). Il browser espone anche il workbench di
+detection **Apollo** (`--apollo-rules`) e un workbench di verifica della catena
+di custodia **Minerva** (`/minerva`): si incolla un ledger `olympus.custody` e la
+sua catena di hash viene verificata offline dallo stesso motore di
+`olympus minerva verify`, con l'API tipizzata su
+`POST /api/v1/minerva/verify-ledger`. Vedi [`docs/web.md`](docs/web.md).
 
 Per i deployment multiutente l'API accetta anche bearer OIDC verificati offline
 con issuer, audience e JWKS locale fissati (`--oidc-issuer`,

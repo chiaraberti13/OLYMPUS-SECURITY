@@ -34,6 +34,7 @@ from olympus.core.models import Asset, Finding
 from olympus.integrations.scanners import REGISTRY
 from olympus.integrations.suite_catalog import catalog_document
 from olympus.metis.extraction import extract_from_source
+from olympus.minerva.custody import inspect_ledger
 from olympus.themis.adapters.nmap import NmapAdapter
 from olympus.themis.model import ScanRequest
 from olympus.themis.runner import CommandOutput
@@ -93,6 +94,7 @@ def _page(title: str, body: str) -> str:
         "<a href='demo.html'>Demo guidata</a><a href='report.html'>Report di esempio</a>"
         "<a href='apollo.html'>Apollo</a>"
         "<a href='metis.html'>Metis</a>"
+        "<a href='minerva.html'>Minerva</a>"
         "<a href='attack.html'>Associazioni ATT&amp;CK</a>"
         "<a href='https://github.com/chiaraberti13/OLYMPUS-SECURITY'>Codice</a></nav>"
         f"<div class='banner'>{html.escape(_BANNER)}</div></header>"
@@ -431,6 +433,39 @@ def _apollo_html() -> str:
     )
 
 
+def _minerva_html() -> str:
+    """Verify the bundled example custody ledger with the real engine and show it."""
+    ledger = _ROOT / "examples" / "output" / "minerva-custody.json"
+    inspection = inspect_ledger(ledger)
+    rows = "".join(
+        "<tr>"
+        f"<td>{item.sequence}</td>"
+        f"<td><code>{html.escape(item.evidence_id)}</code></td>"
+        f"<td>{html.escape(item.action.value)}</td>"
+        f"<td>{html.escape(item.actor)}</td>"
+        f"<td>{html.escape(item.occurred_at.isoformat())}</td>"
+        f"<td><code>{html.escape(item.entry_hash[:16])}…</code></td></tr>"
+        for item in inspection.entries
+    )
+    signed = "sì" if inspection.signed else "no"
+    return _page(
+        "OLYMPUS-SECURITY — Minerva",
+        "<h2>Verifica catena di custodia Minerva</h2>"
+        "<p>Questa pagina statica verifica il ledger di custodia d'esempio incluso nel "
+        "repository con il motore reale <code>inspect_ledger</code>: la catena di hash "
+        "è stata validata offline. La Web UI operativa espone <code>/minerva</code>, dove "
+        "si incolla un documento <code>olympus.custody</code> e se ne verifica l'integrità "
+        "(e la firma Ed25519, quando il server è configurato con la chiave pubblica). "
+        "Qui non è possibile inviare dati e non viene eseguita alcuna chiamata di rete.</p>"
+        f"<p>Schema <code>olympus.custody {html.escape(inspection.schema_version)}</code> · "
+        f"{len(inspection.entries)} voci · firmato: {signed} · "
+        "catena verificata dal motore Minerva.</p>"
+        "<table><caption>Catena di custodia d'esempio, verificata offline</caption>"
+        "<tr><th>#</th><th>Reperto</th><th>Azione</th><th>Attore</th><th>Quando (UTC)</th>"
+        f"<th>Hash voce</th></tr>{rows}</table>",
+    )
+
+
 _METIS_SAMPLE = (
     "Phishing kit staged at hxxp://login-update[.]example/office and "
     "contact drop evil@mailbox.example. Seen beaconing to 203.0.113.42 "
@@ -479,6 +514,7 @@ _PAGES = {
     "attack.html": _attack_html,
     "apollo.html": _apollo_html,
     "metis.html": _metis_html,
+    "minerva.html": _minerva_html,
 }
 
 

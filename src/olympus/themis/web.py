@@ -102,6 +102,14 @@ from olympus.integrations.smartscan import (
     propose_pipeline,
 )
 from olympus.metis.extraction import EXTRACTION_FORMATS, extract_from_source
+from olympus.minerva.custody import (
+    CUSTODY_ED25519_PUBLIC_KEY_ENV,
+    DEFAULT_MAX_ENTRIES,
+    CustodyIntegrityError,
+    LedgerInspection,
+    inspect_ledger_text,
+    load_custody_ed25519_public_key,
+)
 from olympus.minerva.triage import incident_status_breakdown, load_incidents
 from olympus.themis.api import (
     MAX_REQUEST_BYTES,
@@ -605,6 +613,14 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
     reads_apollo = requires("apollo:read")
     runs_apollo = requires("apollo:run")
     reads_metis = requires("metis:read")
+    reads_minerva = requires("minerva:read")
+    minerva_public_key = (
+        load_custody_ed25519_public_key(
+            env={CUSTODY_ED25519_PUBLIC_KEY_ENV: settings.minerva_custody_public_key_hex}
+        )
+        if settings.minerva_custody_public_key_hex is not None
+        else None
+    )
     engagements_database = settings.engagements_database
     findings_directory = settings.findings_directory
     findings_database = settings.findings_database
@@ -642,6 +658,21 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             "event_count": event_count,
             "error": error,
             "can_run": "apollo:run" in session.scopes,
+            "csrf_token": _csrf_token(session.nonce),
+        }
+
+    def _minerva_context(
+        session: WebSession,
+        *,
+        ledger_text: str = "",
+        inspection: LedgerInspection | None = None,
+        error: str | None = None,
+    ) -> dict[str, object]:
+        return {
+            "ledger_text": ledger_text,
+            "inspection": inspection,
+            "key_configured": minerva_public_key is not None,
+            "error": error,
             "csrf_token": _csrf_token(session.nonce),
         }
 
@@ -1241,6 +1272,56 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 alerts=alerts,
                 event_count=len(parsed),
             ),
+        )
+
+    @app.get("/minerva", response_class=HTMLResponse, include_in_schema=False)
+    def minerva_page(request: Request, session: WebSession = reads_minerva) -> Response:
+        return _page(request, "minerva.html", _minerva_context(session))
+
+    @app.post("/minerva/verify", response_class=HTMLResponse, include_in_schema=False)
+    def minerva_verify(
+        request: Request,
+        ledger: Annotated[str, Form()],
+        csrf_token: Annotated[str, Form()],
+        session: WebSession = reads_minerva,
+    ) -> Response:
+        _check_csrf(session, csrf_token)
+        _rate_limit(session)
+        stripped = ledger.strip()
+        if not stripped:
+            return _page(
+                request,
+                "minerva.html",
+                _minerva_context(
+                    session,
+                    ledger_text=ledger,
+                    error="Paste an olympus.custody ledger JSON document to verify.",
+                ),
+                code=422,
+            )
+        try:
+            inspection = inspect_ledger_text(
+                stripped,
+                max_entries=DEFAULT_MAX_ENTRIES,
+                ed25519_public_key=minerva_public_key,
+            )
+        except CustodyIntegrityError as exc:
+            # The messages are static structural/signature statements; they never
+            # echo the submitted content, so surfacing them is safe and useful.
+            return _page(
+                request,
+                "minerva.html",
+                _minerva_context(
+                    session,
+                    ledger_text=ledger,
+                    error=f"Verification failed: {exc}",
+                ),
+                code=422,
+            )
+        return _page(
+            request,
+            "minerva.html",
+            _minerva_context(session, ledger_text=ledger, inspection=inspection),
         )
 
     @app.get("/metis", response_class=HTMLResponse, include_in_schema=False)

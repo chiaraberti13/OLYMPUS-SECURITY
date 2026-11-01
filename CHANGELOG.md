@@ -14,6 +14,17 @@ everything below lives under **Unreleased**.
 
 ### Added
 
+- **Verifica della catena di custodia Minerva da Web e API (`WEB-3`/`API-2`/`INT-3`).**
+  Nuovo workbench `GET /minerva` + `POST /minerva/verify` e endpoint tipizzato
+  `POST /api/v1/minerva/verify-ledger` (contratto `olympus.minerva-ledger-verification`
+  `1.0.0`): si incolla un ledger `olympus.custody` e la catena di hash è verificata
+  offline dallo stesso motore della CLI. Il core è stato rifattorizzato estraendo
+  `inspect_ledger_text(text, …)`, condiviso da CLI/API/Web. Nuovo scope
+  `minerva:read`; firma Ed25519 verificata quando il server è avviato con
+  `--minerva-custody-public-key <file>` (chiave pubblica, non segreto), altrimenti
+  un ledger firmato è riportato come non verificato. Nessun input di chiavi, path o
+  evidenze dal client; CSRF, rate limit e audit esistenti mantenuti. Demo statica
+  `public/minerva.html` che verifica il ledger d'esempio con il motore reale.
 - **Workbench Metis di estrazione CTI su API e Web (`WEB-3` / `API-2`).** Nuovo
   motore condiviso offline `olympus.metis.extraction.extract_from_source` che
   unifica testo libero, bundle STIX 2.1 e eventi MISP in un'unica forma onesta

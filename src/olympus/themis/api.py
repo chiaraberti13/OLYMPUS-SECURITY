@@ -8,6 +8,7 @@ echoed back to the caller, and is recorded in the redacted audit log.
 from __future__ import annotations
 
 import asyncio
+import json
 import math
 import re
 import time
@@ -52,6 +53,15 @@ from olympus.metis.extraction import (
     extract_from_source,
 )
 from olympus.metis.models import IndicatorType
+from olympus.minerva.custody import (
+    CUSTODY_ED25519_PUBLIC_KEY_ENV,
+    DEFAULT_MAX_ENTRIES,
+    CustodyIntegrityError,
+    CustodyRecord,
+    LedgerInspection,
+    inspect_ledger_text,
+    load_custody_ed25519_public_key,
+)
 from olympus.themis.concurrency import RequestConcurrencyGate, RequestLease
 from olympus.themis.identity import (
     SCOPES,
@@ -135,6 +145,12 @@ class ApiSettings:
     #: Server-owned Apollo rule pack exposed through the typed API and Web UI.
     #: Requests may supply normalized events, never filesystem paths or rules.
     apollo_rules_directory: Path | None = None
+    #: Optional hex-encoded raw 32-byte Ed25519 *public* key (not a secret) used
+    #: to verify the signature of an Ed25519-signed custody ledger submitted to
+    #: the Minerva verification API/Web. When ``None`` the hash chain is still
+    #: verified and a signed ledger is reported ``signature_verified=False`` so a
+    #: caller refuses to trust it; the key never signs, only verifies.
+    minerva_custody_public_key_hex: str | None = None
     #: Pinned Ed25519 approver key. When configured, every API/Web job submission
     #: must carry a signed manifest and is rejected unless it authorizes the
     #: exact engagement, scanner, target and current time.
@@ -188,6 +204,12 @@ class ApiSettings:
                 raise ValueError("Themis trusted manifest public key must not be empty")
             if self.engagements_database is None:
                 raise ValueError("Themis signed manifests require an engagement database")
+        if self.minerva_custody_public_key_hex is not None:
+            # Fail at startup on a malformed verification key rather than on the
+            # first ledger submission; reuses the canonical hex loader.
+            load_custody_ed25519_public_key(
+                env={CUSTODY_ED25519_PUBLIC_KEY_ENV: self.minerva_custody_public_key_hex}
+            )
         if self.scope_directory.is_symlink():
             raise ValueError("Themis scope directory must be an existing non-symlink directory")
         root = self.scope_directory.resolve()
@@ -339,6 +361,92 @@ class ApolloEvaluationResult(BaseModel):
     event_count: int
     alert_count: int
     alerts: list[Alert]
+
+
+class MinervaLedgerVerificationRequest(BaseModel):
+    """A custody ledger document submitted for offline integrity verification.
+
+    The ledger is the exact JSON object produced by Minerva custody
+    (``olympus.custody``). It is verified in memory: no filesystem path, no key
+    and no evidence payload is ever accepted from the caller.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    ledger: dict[str, object] = Field(
+        description="The olympus.custody ledger document to verify, as a JSON object.",
+    )
+
+
+class MinervaLedgerEntryView(BaseModel):
+    """Normalized, bounded projection of one verified custody entry."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    sequence: int
+    evidence_id: str
+    evidence_sha256: str | None = None
+    action: str
+    actor: str
+    occurred_at: datetime
+    previous_hash: str
+    entry_hash: str
+
+
+class MinervaLedgerVerification(BaseModel):
+    """Versioned Minerva custody verification result for API and Web clients.
+
+    The hash chain is always verified (a non-error result means it held). The
+    signature is verified only when the server is configured with the matching
+    Ed25519 verification key and the ledger is signed; otherwise a signed ledger
+    reports ``signature_verified=false`` so the caller refuses to trust it.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_name: Literal["olympus.minerva-ledger-verification"] = (
+        "olympus.minerva-ledger-verification"
+    )
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    #: Always ``true`` on a success response (the chain verification raised
+    #: otherwise); present so clients can assert on it explicitly.
+    chain_verified: bool = True
+    #: Schema version of the verified ledger document (e.g. ``"3.2.0"``).
+    ledger_schema_version: str
+    entry_count: int
+    #: ``true`` when every entry anchors an evidence SHA-256 (3.x ledgers); a
+    #: read-only legacy 1.x ledger reports ``false``.
+    evidence_anchored: bool
+    signed: bool
+    signature_verified: bool
+    #: ``"HMAC-SHA256"``, ``"Ed25519"`` or ``null`` for an unsigned ledger.
+    signature_algorithm: str | None = None
+    entries: list[MinervaLedgerEntryView]
+
+
+def _entry_view(record: CustodyRecord) -> MinervaLedgerEntryView:
+    return MinervaLedgerEntryView(
+        sequence=record.sequence,
+        evidence_id=record.evidence_id,
+        evidence_sha256=getattr(record, "evidence_sha256", None),
+        action=record.action.value,
+        actor=record.actor,
+        occurred_at=record.occurred_at,
+        previous_hash=record.previous_hash,
+        entry_hash=record.entry_hash,
+    )
+
+
+def _ledger_verification(inspection: LedgerInspection) -> MinervaLedgerVerification:
+    return MinervaLedgerVerification(
+        ledger_schema_version=inspection.schema_version,
+        entry_count=len(inspection.entries),
+        evidence_anchored=inspection.evidence_anchored,
+        signed=inspection.signed,
+        signature_verified=inspection.signature_verified,
+        signature_algorithm=inspection.signature_algorithm,
+        entries=[_entry_view(record) for record in inspection.entries],
+    )
 
 
 class MetisExtractionRequest(BaseModel):
@@ -494,6 +602,14 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
     reads_apollo = authenticated("apollo:read")
     runs_apollo = authenticated("apollo:run")
     reads_metis = authenticated("metis:read")
+    reads_minerva = authenticated("minerva:read")
+    minerva_public_key = (
+        load_custody_ed25519_public_key(
+            env={CUSTODY_ED25519_PUBLIC_KEY_ENV: settings.minerva_custody_public_key_hex}
+        )
+        if settings.minerva_custody_public_key_hex is not None
+        else None
+    )
 
     def _apollo_rules() -> tuple[DetectionRule, ...]:
         directory = settings.apollo_rules_directory
@@ -690,6 +806,31 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
             alert_count=len(alerts),
             alerts=alerts,
         )
+
+    @app.post(
+        "/api/v1/minerva/verify-ledger",
+        response_model=MinervaLedgerVerification,
+        tags=["minerva"],
+    )
+    def minerva_verify_ledger(
+        body: MinervaLedgerVerificationRequest, caller: Caller = reads_minerva
+    ) -> MinervaLedgerVerification:
+        try:
+            text = json.dumps(body.ledger, separators=(",", ":"))
+        except (TypeError, ValueError) as exc:  # pragma: no cover - JSON came from JSON
+            raise HTTPException(status_code=422, detail="ledger is not serializable") from exc
+        try:
+            inspection = inspect_ledger_text(
+                text,
+                max_entries=DEFAULT_MAX_ENTRIES,
+                ed25519_public_key=minerva_public_key,
+            )
+        except CustodyIntegrityError as exc:
+            # A broken chain, a bad schema, or a signature mismatch on a signed
+            # ledger all surface here: the document is present and parseable but
+            # fails to verify, so the caller must not trust it.
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return _ledger_verification(inspection)
 
     @app.post(
         "/api/v1/metis/extract",
