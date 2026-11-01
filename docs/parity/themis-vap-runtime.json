@@ -369,6 +369,12 @@
     },
     {
       "surface": "api",
+      "method": "POST",
+      "path": "/api/v1/metis/extract",
+      "handler": "metis_extract"
+    },
+    {
+      "surface": "api",
       "method": "GET",
       "path": "/api/v1/engagements",
       "handler": "list_engagements"
@@ -414,6 +420,18 @@
       "method": "POST",
       "path": "/apollo/evaluate",
       "handler": "apollo_evaluate"
+    },
+    {
+      "surface": "web",
+      "method": "GET",
+      "path": "/metis",
+      "handler": "metis_page"
+    },
+    {
+      "surface": "web",
+      "method": "POST",
+      "path": "/metis/extract",
+      "handler": "metis_extract"
     },
     {
       "surface": "web",

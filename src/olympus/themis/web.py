@@ -101,6 +101,7 @@ from olympus.integrations.smartscan import (
     objectives,
     propose_pipeline,
 )
+from olympus.metis.extraction import EXTRACTION_FORMATS, extract_from_source
 from olympus.minerva.triage import incident_status_breakdown, load_incidents
 from olympus.themis.api import (
     MAX_REQUEST_BYTES,
@@ -603,6 +604,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
     writes_findings = requires("findings:write")
     reads_apollo = requires("apollo:read")
     runs_apollo = requires("apollo:run")
+    reads_metis = requires("metis:read")
     engagements_database = settings.engagements_database
     findings_directory = settings.findings_directory
     findings_database = settings.findings_database
@@ -640,6 +642,29 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             "event_count": event_count,
             "error": error,
             "can_run": "apollo:run" in session.scopes,
+            "csrf_token": _csrf_token(session.nonce),
+        }
+
+    _METIS_FORMAT_LABELS = (
+        ("text", "Free text / report"),
+        ("stix", "STIX 2.1 bundle (JSON)"),
+        ("misp", "MISP event (JSON)"),
+    )
+
+    def _metis_context(
+        session: WebSession,
+        *,
+        source_text: str = "",
+        source_format: str = "text",
+        result: object | None = None,
+        error: str | None = None,
+    ) -> dict[str, object]:
+        return {
+            "formats": _METIS_FORMAT_LABELS,
+            "source_text": source_text,
+            "source_format": source_format,
+            "result": result,
+            "error": error,
             "csrf_token": _csrf_token(session.nonce),
         }
 
@@ -1215,6 +1240,50 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 skipped=skipped,
                 alerts=alerts,
                 event_count=len(parsed),
+            ),
+        )
+
+    @app.get("/metis", response_class=HTMLResponse, include_in_schema=False)
+    def metis_page(request: Request, session: WebSession = reads_metis) -> Response:
+        return _page(request, "metis.html", _metis_context(session))
+
+    @app.post("/metis/extract", response_class=HTMLResponse, include_in_schema=False)
+    def metis_extract(
+        request: Request,
+        text: Annotated[str, Form()],
+        csrf_token: Annotated[str, Form()],
+        source_format: Annotated[str, Form()] = "text",
+        session: WebSession = reads_metis,
+    ) -> Response:
+        _check_csrf(session, csrf_token)
+        _rate_limit(session)
+        if source_format not in EXTRACTION_FORMATS:
+            raise HTTPException(status_code=422, detail="Unsupported extraction format")
+        try:
+            result = extract_from_source(source_format, text)
+        except ValueError:
+            return _page(
+                request,
+                "metis.html",
+                _metis_context(
+                    session,
+                    source_text=text,
+                    source_format=source_format,
+                    error=(
+                        "Input is invalid for the selected format, malformed, or exceeds "
+                        "the accepted bounds."
+                    ),
+                ),
+                code=422,
+            )
+        return _page(
+            request,
+            "metis.html",
+            _metis_context(
+                session,
+                source_text=text,
+                source_format=source_format,
+                result=result,
             ),
         )
 
