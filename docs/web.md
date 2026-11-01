@@ -147,6 +147,8 @@ as on the API.
 | `GET /tools` | The tool catalogue, read straight from the real capability inventory (requires `capabilities:read`). |
 | `GET /apollo` | Apollo detection workbench: inspect the configured validated rule pack and evaluate normalized `olympus.event` NDJSON locally (requires `apollo:read`; evaluation requires `apollo:run` and `--apollo-rules`). |
 | `GET /minerva`, `POST /minerva/verify` | Minerva custody-ledger verification workbench: paste an `olympus.custody` ledger and verify its hash chain offline (a truncation, inserted/reordered entry or any edit to a sealed record is caught); requires `minerva:read`, CSRF-protected. When the server is started with `--minerva-custody-public-key`, an Ed25519-signed ledger also has its signature verified against that published key; otherwise a signed ledger is reported as *not signature-verified*. No key or evidence payload is ever accepted from the browser. |
+| `GET /metis` | Metis CTI extraction workbench: extract and normalize IOCs from free text, a STIX 2.1 bundle or a MISP event, offline (requires `metis:read`). |
+| `POST /metis/extract` | Extract indicators from the submitted input and list any skipped elements with a reason (requires `metis:read`, CSRF-protected). Parsing is local; no collection or network access. |
 | `GET /assessments/new` | Guided New Assessment wizard (requires `jobs:write`): engagement → target → scope → activity → tool or automatic. |
 | `GET /assessments/smart` | Smart Scan form (requires `jobs:write`): objective → target → scope → engagement → risk ceiling. |
 | `POST /assessments/smart/plan` | Proposes a deterministic, scope- and policy-aware pipeline; queues nothing (requires `jobs:write`, CSRF-protected). |
@@ -231,6 +233,20 @@ not a secret) and the ledger is Ed25519-signed; without the key a signed ledger
 is reported `signature_verified: false` so a caller refuses to trust it. No key,
 filesystem path or evidence payload is ever accepted from the caller; the body is
 bounded by the existing 64 KiB request limit and verification is offline.
+## Metis CTI extraction workbench (`WEB-3` / `API-2`)
+
+`POST /api/v1/metis/extract` accepts a bounded raw body and a `source_format`
+(`text`, `stix` or `misp`) and returns the versioned `olympus.metis-extraction`
+`1.0.0` contract: the normalized indicators plus every element deliberately not
+imported, each with a reason. The Web page `/metis` uses the identical
+`olympus.metis.extraction.extract_from_source` core, so the browser, the API and
+the CLI case ingest agree on what each input yields. Free text runs the refanging,
+deduplicating IOC extractor; `stix` parses a STIX 2.1 bundle; `misp` parses a MISP
+event. Both surfaces require the `metis:read` scope, are CSRF- and rate-limited on
+the Web, and are bounded in input size and parsed-item count. Extraction is local
+and deterministic: no collection, enrichment or network access is performed, and
+an empty indicator set never implies the input was clean when elements were
+skipped.
 
 ### Report export (`WEB-I`)
 

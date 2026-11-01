@@ -71,6 +71,7 @@ SCOPES: tuple[str, ...] = (
     "apollo:read",
     "apollo:run",
     "minerva:read",
+    "metis:read",
 )
 
 

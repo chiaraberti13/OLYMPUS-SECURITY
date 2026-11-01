@@ -33,6 +33,7 @@ from olympus.core.enums import AssetType, FindingStatus, Severity, Source
 from olympus.core.models import Asset, Finding
 from olympus.integrations.scanners import REGISTRY
 from olympus.integrations.suite_catalog import catalog_document
+from olympus.metis.extraction import extract_from_source
 from olympus.minerva.custody import inspect_ledger
 from olympus.themis.adapters.nmap import NmapAdapter
 from olympus.themis.model import ScanRequest
@@ -92,6 +93,7 @@ def _page(title: str, body: str) -> str:
         "<nav><a href='index.html'>Panoramica</a><a href='tools.html'>Strumenti</a>"
         "<a href='demo.html'>Demo guidata</a><a href='report.html'>Report di esempio</a>"
         "<a href='apollo.html'>Apollo</a>"
+        "<a href='metis.html'>Metis</a>"
         "<a href='minerva.html'>Minerva</a>"
         "<a href='attack.html'>Associazioni ATT&amp;CK</a>"
         "<a href='https://github.com/chiaraberti13/OLYMPUS-SECURITY'>Codice</a></nav>"
@@ -464,6 +466,40 @@ def _minerva_html() -> str:
     )
 
 
+_METIS_SAMPLE = (
+    "Phishing kit staged at hxxp://login-update[.]example/office and "
+    "contact drop evil@mailbox.example. Seen beaconing to 203.0.113.42 "
+    "(hash 44d88612fea8a8f36de82e1278abb02f). Tracked under CVE-2021-44228."
+)
+
+
+def _metis_html() -> str:
+    """Render a real offline IOC extraction over a synthetic report sample."""
+    result = extract_from_source("text", _METIS_SAMPLE)
+    rows = "".join(
+        "<tr>"
+        f"<td><code>{html.escape(item.indicator_type.value)}</code></td>"
+        f"<td>{html.escape(item.value)}</td></tr>"
+        for item in result.indicators
+    )
+    return _page(
+        "OLYMPUS-SECURITY — Metis",
+        "<h2>Metis CTI extraction workbench</h2>"
+        "<p>Questa pagina statica mostra l'estrazione reale e offline di "
+        "indicatori di compromissione dal testo di esempio qui sotto, prodotta dallo "
+        "stesso motore <code>olympus.metis.extraction</code>. La Web UI operativa espone "
+        "<code>/metis</code>: accetta testo libero, bundle <code>STIX 2.1</code> o eventi "
+        "<code>MISP</code>, normalizza gli IOC ed elenca gli elementi scartati con la "
+        "motivazione. Qui non è possibile inviare dati e non viene eseguita alcuna "
+        "raccolta o chiamata di rete.</p>"
+        f"<pre>{html.escape(_METIS_SAMPLE)}</pre>"
+        "<table><caption>"
+        f"{len(result.indicators)} indicatori estratti dal motore Metis reale</caption>"
+        "<tr><th>Tipo</th><th>Valore</th></tr>"
+        f"{rows}</table>",
+    )
+
+
 def _demo_js() -> str:
     return _DEMO_JS
 
@@ -477,6 +513,7 @@ _PAGES = {
     "demo.js": _demo_js,
     "attack.html": _attack_html,
     "apollo.html": _apollo_html,
+    "metis.html": _metis_html,
     "minerva.html": _minerva_html,
 }
 

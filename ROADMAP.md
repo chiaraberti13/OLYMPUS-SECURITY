@@ -64,7 +64,7 @@ non necessariamente provato in lab live.
 | Scanner plane | **Themis** (registry 24 engine, maturity ladder, sandbox, job SQLite, API, Web) | [~] | adapter a maturità diversa; pochi live-tested |
 | Web attiva | **Artemis** (fingerprint/header/XSS checks) | [x] | offline-tested |
 | Blue Team | **Apollo** (ingest access-log/Zeek, detection, ATT&CK, coverage) | [~] | manca ingest Windows/Sysmon |
-| CTI | **Metis** (IOC, STIX/MISP import, case) | [~] | manca CTI live (TAXII/MISP/OpenCTI) |
+| CTI | **Metis** (IOC, STIX/MISP import, case) | [~] | estrazione IOC su API+Web (`/metis`, `/api/v1/metis/extract`); manca CTI live (TAXII/MISP/OpenCTI) |
 | Evidenze | **Minerva** (timeline firmata Ed25519) | [x] | verify offline |
 | Reporting | **Vulcan** (aggregazione, JSON/MD/HTML/PDF, SARIF, enrichment KEV/EPSS, sezioni da manifest) | [x] | test completi |
 | Altri | Helios, Hermes, Proteus | [~] | superfici parziali |
@@ -146,6 +146,7 @@ export, storico, documentazione. La CLI resta alternativa, non unico accesso.
 - **WEB-1** [x] Web control plane nativo sopra l'API tipizzata (submit job, SSE, cancel), con security headers/CSP/CSRF/sessioni.
 - **WEB-2** [~] Pagine operative dei tool esistenti (Themis scan, findings, diff, trend, report, engagement).
 - **WEB-3** [~] Copertura Web di **tutti** i tool dell'ecosistema (Argus, Apollo, Metis, Minerva, Athena, Artemis…) con pagine dedicate operative. Vulcan: associazioni CWE→ATT&CK consultabili in `/findings/attack`, con provenienza, finding non mappati ed export Navigator; riuso del motore offline, accesso `findings:read`. Apollo: workbench operativo `/apollo` sul rule pack configurato dal server, input `olympus.event` NDJSON limitato, valutazione offline reale, scope `apollo:read`/`apollo:run`, CSRF e audit. Ingest Web di access log HTTP, Zeek JSON e Windows/Sysmon JSON tramite parser esistenti, limite di 500 righe fisiche e scarti visibili; verifica offline con fixture e regole Sysmon incluse. Minerva: workbench `/minerva` di verifica della catena di custodia — si incolla un ledger `olympus.custody` e la catena di hash è verificata offline dallo stesso motore della CLI (`inspect_ledger_text`), firma Ed25519 verificata quando il server è configurato con la chiave pubblica; scope `minerva:read`, CSRF, nessun input di chiavi/evidenze dal browser. Restano gli altri flussi/moduli.
+- **WEB-3** [~] Copertura Web di **tutti** i tool dell'ecosistema (Argus, Apollo, Metis, Minerva, Athena, Artemis…) con pagine dedicate operative. Vulcan: associazioni CWE→ATT&CK consultabili in `/findings/attack`, con provenienza, finding non mappati ed export Navigator; riuso del motore offline, accesso `findings:read`. Apollo: workbench operativo `/apollo` sul rule pack configurato dal server, input `olympus.event` NDJSON limitato, valutazione offline reale, scope `apollo:read`/`apollo:run`, CSRF e audit. Ingest Web di access log HTTP, Zeek JSON e Windows/Sysmon JSON tramite parser esistenti, limite di 500 righe fisiche e scarti visibili; verifica offline con fixture e regole Sysmon incluse. Metis: workbench CTI `/metis` che estrae e normalizza IOC da testo libero, bundle STIX 2.1 ed eventi MISP tramite il motore condiviso offline, con elenco degli elementi scartati e relativa motivazione, scope `metis:read`, CSRF, rate limit e bound su input e item. Restano gli altri flussi/moduli (Argus, Minerva, Athena, Artemis…).
 - **WEB-4** [ ] Dashboard principale con stato sistema, job attivi, findings per severità, coverage ATT&CK.
 - **WEB-5** [ ] Wizard "New Assessment" end-to-end (engagement → scope → profilo → esecuzione → report).
 - **WEB-6** [ ] Configurazione guidata, feedback operazioni, gestione errori/eccezioni uniforme.
@@ -154,6 +155,7 @@ export, storico, documentazione. La CLI resta alternativa, non unico accesso.
 
 - **API-1** [x] API FastAPI tipizzata (auth per-scope, accountability, `/jobs`, `/capabilities`, health/ready/metrics).
 - **API-2** [~] Estendere l'API a **tutti** i tool con contratti versionati (non solo Themis). Slice Apollo implementata: `GET /api/v1/apollo/rules` (`olympus.apollo-rule-list` 1.0.0) e `POST /api/v1/apollo/evaluate` (`olympus.apollo-evaluation` 1.0.0), rule pack server-owned e valutazione tipizzata/bounded. Slice Minerva implementata: `POST /api/v1/minerva/verify-ledger` (`olympus.minerva-ledger-verification` 1.0.0), verifica della catena di custodia in memoria, firma Ed25519 opzionale (chiave pubblica server-owned), scope `minerva:read`; restano gli altri moduli.
+- **API-2** [~] Estendere l'API a **tutti** i tool con contratti versionati (non solo Themis). Slice Apollo implementata: `GET /api/v1/apollo/rules` (`olympus.apollo-rule-list` 1.0.0) e `POST /api/v1/apollo/evaluate` (`olympus.apollo-evaluation` 1.0.0), rule pack server-owned e valutazione tipizzata/bounded. Slice Metis implementata: `POST /api/v1/metis/extract` (`olympus.metis-extraction` 1.0.0), estrazione IOC offline tipizzata/bounded da testo/STIX/MISP condivisa con la Web UI, scope `metis:read`. Restano gli altri moduli.
 - **API-3** [ ] Execution Engine: worker persistente, coda, retry idempotenti, backpressure, checkpoint, cancellazione coerente CLI/TUI/API/Web.
 - **API-4** [ ] CORS/origin policy verso il dominio Web di deploy; autenticazione multiutente.
 
@@ -246,6 +248,27 @@ per esecuzioni e promozioni senza evidenza.
   custody, contract e preview verdi; Ruff lint/format e mypy sui moduli toccati.
   Verifiche offline con TestClient; nessun claim di test browser reale o di
   pubblicazione live su Vercel. Nessun controllo o quality gate disabilitato.
+### Incremento estrazione CTI Metis (API + Web) — 2026-11-01
+
+- `WEB-3`/`API-2`: nuovo motore condiviso offline
+  `olympus.metis.extraction.extract_from_source` che unifica testo libero, STIX 2.1
+  e MISP in un'unica forma onesta (indicatori normalizzati + scartati con
+  motivazione). `POST /api/v1/metis/extract` espone `olympus.metis-extraction`
+  1.0.0; la pagina Web `/metis` riusa lo stesso motore. Nuovo scope `metis:read`;
+  CSRF, rate limit e bound su input (1 MB) e numero di item mantenuti.
+- Parsing locale e deterministico: nessuna raccolta o chiamata di rete; set vuoto
+  di indicatori ≠ input pulito quando ci sono elementi scartati. Demo statica
+  `public/metis.html` generata dal motore reale su un campione sintetico.
+- QA: `tests/unit/test_metis_extraction.py` (core: ordinamento/dedupe/bound/errori),
+  test API e Web mirati, `tests/unit/test_build_preview.py` e drift gate preview,
+  golden OpenAPI e manifest route parity rigenerati. Ruff lint/format e mypy verdi
+  sui file toccati. Verifiche offline con TestClient; nessun claim di test browser
+  reale o di promozione live-tested. Il test TUI
+  `test_closing_tui_stops_running_command_process_tree` fallisce anche sulla
+  baseline in questo ambiente (kill del process-tree), non correlato a questo
+  intervento; nessun controllo di sicurezza o quality gate disabilitato.
+- Resta parziale `WEB-3`: Argus, Minerva, Athena e Artemis non hanno ancora pagine
+  Web dedicate; nessuna CTI live (TAXII/MISP/OpenCTI).
 
 ### Incremento Web Vulcan — 2026-11-01
 

@@ -17,6 +17,7 @@ PAGES = (
     "report.html",
     "attack.html",
     "apollo.html",
+    "metis.html",
     "minerva.html",
 )
 
@@ -76,7 +77,7 @@ def test_generator_writes_all_pages(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     # A plain run (no --check) regenerates the pages in place and reports success.
     result = _run()
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "Wrote 9 page(s)" in result.stdout
+    assert "Wrote 10 page(s)" in result.stdout
     for name in PAGES:
         assert (PUBLIC / name).exists()
 
@@ -133,6 +134,15 @@ def test_minerva_preview_verifies_the_real_bundled_ledger() -> None:
     assert "EVD-2026-00001" in text
     assert "catena verificata dal motore Minerva" in text
     assert "non viene eseguita alcuna chiamata di rete" in text
+
+
+def test_metis_preview_uses_the_real_extraction_engine() -> None:
+    text = (PUBLIC / "metis.html").read_text(encoding="utf-8")
+    assert "Metis CTI extraction workbench" in text
+    assert "motore Metis reale" in text
+    assert "203.0.113.42" in text
+    assert "CVE-2021-44228" in text
+    assert "non è possibile inviare dati" in text
 
 
 def test_vercel_headers_allow_script_only_on_the_demo_route() -> None:

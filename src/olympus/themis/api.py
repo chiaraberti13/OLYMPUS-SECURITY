@@ -47,6 +47,12 @@ from olympus.engagements.resolve import (
 )
 from olympus.engagements.store import SqliteEngagementStore
 from olympus.integrations.capabilities import inventory_document
+from olympus.metis.extraction import (
+    MAX_EXTRACTION_BYTES,
+    ExtractionResult,
+    extract_from_source,
+)
+from olympus.metis.models import IndicatorType
 from olympus.minerva.custody import (
     CUSTODY_ED25519_PUBLIC_KEY_ENV,
     DEFAULT_MAX_ENTRIES,
@@ -443,6 +449,61 @@ def _ledger_verification(inspection: LedgerInspection) -> MinervaLedgerVerificat
     )
 
 
+class MetisExtractionRequest(BaseModel):
+    """Bounded raw threat-intel submitted for offline, network-free IOC extraction."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source_format: Literal["text", "stix", "misp"] = "text"
+    text: str = Field(min_length=1, max_length=MAX_EXTRACTION_BYTES)
+
+
+class MetisIndicator(BaseModel):
+    """A normalized IOC projected for API clients and the Web UI (type + value)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    indicator_type: IndicatorType
+    value: str
+
+
+class MetisSkippedItem(BaseModel):
+    """An input element deliberately not imported, with the honest reason."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    value: str
+    reason: str
+
+
+class MetisExtractionResult(BaseModel):
+    """Versioned Metis extraction result shared by API clients and the Web UI."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_name: Literal["olympus.metis-extraction"] = "olympus.metis-extraction"
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    source_format: str
+    indicator_count: int
+    skipped_count: int
+    indicators: list[MetisIndicator]
+    skipped: list[MetisSkippedItem]
+
+
+def _metis_result_model(result: ExtractionResult) -> MetisExtractionResult:
+    """Project the offline extraction core onto the versioned API/Web contract."""
+    return MetisExtractionResult(
+        source_format=result.source_format,
+        indicator_count=len(result.indicators),
+        skipped_count=len(result.skipped),
+        indicators=[
+            MetisIndicator(indicator_type=item.indicator_type, value=item.value)
+            for item in result.indicators
+        ],
+        skipped=[MetisSkippedItem(value=item.value, reason=item.reason) for item in result.skipped],
+    )
+
+
 async def _renew_request_lease(gate: RequestConcurrencyGate, lease: RequestLease) -> None:
     """Keep a request lease alive until its middleware cancels this task."""
     while True:
@@ -540,6 +601,7 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
     reads_engagements = authenticated("engagements:read")
     reads_apollo = authenticated("apollo:read")
     runs_apollo = authenticated("apollo:run")
+    reads_metis = authenticated("metis:read")
     reads_minerva = authenticated("minerva:read")
     minerva_public_key = (
         load_custody_ed25519_public_key(
@@ -769,6 +831,26 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
             # fails to verify, so the caller must not trust it.
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         return _ledger_verification(inspection)
+
+    @app.post(
+        "/api/v1/metis/extract",
+        response_model=MetisExtractionResult,
+        tags=["metis"],
+    )
+    def metis_extract(
+        body: MetisExtractionRequest, caller: Caller = reads_metis
+    ) -> MetisExtractionResult:
+        """Extract IOCs from free text, a STIX bundle or a MISP event, offline.
+
+        Parsing and normalization are local and deterministic; no network access,
+        collection or enrichment is performed. Unparsed or unmapped input is
+        returned in ``skipped`` with a reason, never silently dropped.
+        """
+        try:
+            result = extract_from_source(body.source_format, body.text)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return _metis_result_model(result)
 
     @app.get(
         "/api/v1/engagements",

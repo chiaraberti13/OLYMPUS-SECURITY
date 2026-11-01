@@ -173,6 +173,60 @@ def test_apollo_web_requires_run_scope_for_evaluation(tmp_path: Path) -> None:
     assert client.post("/apollo/evaluate", data={"events": _apollo_event_json()}).status_code == 403
 
 
+def test_metis_web_extracts_indicators_and_reports_skipped_elements(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    page = client.get("/metis")
+    assert page.status_code == 200
+    assert "Metis CTI extraction workbench" in page.text
+    match = re.search(r'name="csrf_token" value="([0-9a-f]+)"', page.text)
+    assert match is not None
+
+    misp_event = json.dumps(
+        {
+            "Event": {
+                "Attribute": [
+                    {"type": "domain", "value": "bad.example"},
+                    {"type": "comment", "value": "analyst note"},
+                ]
+            }
+        }
+    )
+    result = client.post(
+        "/metis/extract",
+        data={"csrf_token": match.group(1), "source_format": "misp", "text": misp_event},
+    )
+    assert result.status_code == 200, result.text
+    assert "1 indicator(s)" in result.text
+    assert "bad.example" in result.text
+    assert "1 skipped" in result.text
+    assert "analyst note" in result.text
+
+
+def test_metis_web_reports_malformed_input_without_crashing(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    page = client.get("/metis")
+    match = re.search(r'name="csrf_token" value="([0-9a-f]+)"', page.text)
+    assert match is not None
+    result = client.post(
+        "/metis/extract",
+        data={"csrf_token": match.group(1), "source_format": "stix", "text": "not a bundle"},
+    )
+    assert result.status_code == 422
+    assert "invalid for the selected format" in result.text
+
+
+def test_metis_web_rejects_a_forged_csrf_token(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    result = client.post(
+        "/metis/extract",
+        data={"csrf_token": "forged", "source_format": "text", "text": "203.0.113.9"},
+    )
+    assert result.status_code == 403
+
+
 def test_security_headers_and_csp_are_restrictive(tmp_path: Path) -> None:
     response = _client(tmp_path).get("/login")
     csp = response.headers["content-security-policy"]
