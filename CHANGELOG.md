@@ -13,6 +13,9 @@ everything below lives under **Unreleased**.
 ## [Unreleased]
 
 ### Added
+- **Test browser reale per gli stati dello store Web (`WEB-B-01`).** Chromium via
+  Playwright (opzionale, saltato se assente) conferma che store corrotti non
+  appaiono come vuoti.
 - **Demo interattiva a fixture su Vercel (`WEB-K-c`).** `public/demo.html` e
   `demo-report.html` generati da `scripts/build_preview.py`: job simulato
   recon → scan → enrich → report con output registrati, parser e renderer reali,

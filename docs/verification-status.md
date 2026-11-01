@@ -236,3 +236,13 @@ restore: la finestra di perdita dati coincide con l'intervallo dall'ultimo
 snapshot, nessun RPO è promesso. Non copre Athena, transizioni finding, job Themis,
 identità, audit, scope, vault, evidenze e chiavi. Tre test in
 `tests/unit/test_restore_drill.py`; non è una garanzia RPO/RTO di produzione.
+
+## WEB-B-01 — verifica browser reale dello stato store (2026-11-01)
+
+`tests/integration/test_web_store_states_browser.py` esegue l'app Web su
+`127.0.0.1` (porta effimera, dati sintetici) e la guida con Chromium via Playwright:
+store engagement corrotto e directory findings con JSON invalido mostrano
+"unavailable" e non onboarding vuoto/widget; store sano vuoto non mostra l'avviso.
+Due test passati con Chromium 1243 preinstallato (`OLYMPUS_CHROMIUM`,
+`OLYMPUS_CHROMIUM_NO_SANDBOX=1`); senza Playwright/Chromium il test viene saltato.
+Solo Chromium, nessun audit di accessibilità.

@@ -69,7 +69,7 @@ I dettagli sotto sono normativi per ciascuna riga, non task generici senza owner
 | `DEV-G-01` | Riconciliazione dichiarazioni e inventario | P1 | Writer/QA/Product | M | M1 | [~] |
 | `UX-A-01` | Parità TUI e consumer form | P1 | UX/Frontend/Product | L | M3 | [x] |
 | `WEB-A-01` | Ripresa SSE visibile | P1 | Frontend/Backend | M | M3 | [x] |
-| `WEB-B-01` | Store guasto distinto da vuoto | P1 | Frontend/UX | M | M3 | [~] |
+| `WEB-B-01` | Store guasto distinto da vuoto | P1 | Frontend/UX | M | M3 | [x] |
 | `WEB-G-01` | Conteggi dashboard corretti | P2 | Data/Frontend | S | M3 | [x] |
 | `OPS-PURPLE-01` | Coverage telemetria distinta da detection | P1 | Detection/QA | M | M2 | [x] |
 | `UX-E-01` | Accessibilità e parità IT/EN dimostrate | P1 | Accessibility/I18n/QA | L | M3 | [~] |
@@ -510,6 +510,16 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
   revisione browser è stata tentata il 31 ottobre 2026, ma il browser collegato
   non raggiunge il server loopback del workspace (`ERR_CONNECTION_REFUSED`);
   il server non è stato esposto in rete e il DoD browser resta aperto.
+  Chiusura (1 novembre 2026, `[x]` nello scope indicato): `tests/integration/
+  test_web_store_states_browser.py` avvia l'app Web su loopback (porta effimera,
+  dati sintetici) e la pilota con Chromium reale via Playwright: store
+  engagement corrotto e findings illeggibili mostrano "unavailable" e non
+  l'onboarding vuoto né il widget; uno store sano ma vuoto resta "No engagements
+  yet" senza avviso. Il test si salta se Playwright o Chromium mancano
+  (`OLYMPUS_CHROMIUM`, `OLYMPUS_CHROMIUM_NO_SANDBOX` per ambienti root); Playwright
+  non è una dipendenza obbligatoria. Gli errori dello store job e dell'inventario
+  scanner non sono mascherati (si propagano come errore server, non come vuoto).
+  Non è una revisione di accessibilità né multi-browser.
 
 ### WEB-G-01 — Conteggi dashboard corretti
 
