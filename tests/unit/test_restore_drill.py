@@ -24,6 +24,7 @@ def test_drill_restores_snapshot_state_and_reports_loss_window(tmp_path: Path) -
         "audit_records": 50,
         "jobs": 20,
         "athena_assessments": 5,
+        "finding_transitions": 20,
         "post_snapshot_writes": 3,
     }
     recovery = report["recovery_point"]
@@ -34,7 +35,10 @@ def test_drill_restores_snapshot_state_and_reports_loss_window(tmp_path: Path) -
     assert "not a production" in str(report["disclaimer"])
     assert "athena" in report["stores_covered"]  # type: ignore[operator]
     assert "athena" not in report["stores_not_covered"]  # type: ignore[operator]
-    assert "findings-transitions" in report["stores_not_covered"]  # type: ignore[operator]
+    assert "findings-transitions" in report["stores_covered"]  # type: ignore[operator]
+    assert "findings-transitions" not in report["stores_not_covered"]  # type: ignore[operator]
+    assert recovery["restored_finding_transitions"] == 20
+    assert recovery["finding_transitions_lost_after_snapshot"] == 3
     assert recovery["restored_athena_assessments"] == 5
     assert recovery["athena_assessments_lost_after_snapshot"] == 3
     assert {"identity", "audit"} <= set(report["stores_covered"])  # type: ignore[call-overload]
@@ -64,6 +68,8 @@ def test_drill_refuses_existing_workdir_and_bad_bounds(tmp_path: Path) -> None:
         run_drill(tmp_path / "j", audit_records=10_000)
     with pytest.raises(ValueError):
         run_drill(tmp_path / "a", assessments=0)
+    with pytest.raises(ValueError):
+        run_drill(tmp_path / "t", transitions=0)
     assert not (tmp_path / "y").exists()
 
 

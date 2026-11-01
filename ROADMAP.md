@@ -383,6 +383,14 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
   `stores_not_covered` a `stores_covered`; restano scoperti transizioni finding,
   vault, file di evidenza e chiavi. Test in `tests/unit/test_restore_drill.py`;
   `docs/cli-reference.md` rigenerato. Nessun RPO/RTO di produzione dichiarato.
+  Ulteriore slice (2026-11-01): il drill include anche il DB append-only delle
+  transizioni finding (`--transitions`, voce `findings-transitions` nel manifest):
+  conteggio e storia di un finding ripristinati devono coincidere con lo snapshot,
+  e le transizioni scritte dopo risultano non recuperate. `findings-transitions`
+  passa a `stores_covered`; restano scoperti vault, file di evidenza e chiavi
+  (la chiave di cifratura non è nello snapshot). Test in
+  `tests/unit/test_restore_drill.py`. Nessun RPO/RTO di produzione dichiarato; la
+  voce resta `[~]`.
 
 ### WEB-J-02 — Retention e privacy di sistema
 

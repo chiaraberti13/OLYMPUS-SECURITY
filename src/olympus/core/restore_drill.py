@@ -27,9 +27,11 @@ from olympus.athena.domain.contracts import AssessmentPlan, AssessmentResult, lo
 from olympus.core import backup_manifest as bm
 from olympus.core.audit_backup import backup_audit_log, restore_audit_backup
 from olympus.core.coverage import RunStatus
+from olympus.core.enums import FindingStatus
 from olympus.core.execution import StructuredAuditRecord, append_structured_audit
-from olympus.core.models import Engagement, EngagementScope, Evidence
+from olympus.core.models import Engagement, EngagementScope, Evidence, FindingTransition
 from olympus.engagements.store import SqliteEngagementStore
+from olympus.findings.store import SqliteFindingTransitionStore
 from olympus.minerva.custody import (
     AcquisitionProvenance,
     CustodyAction,
@@ -55,6 +57,7 @@ MAX_IDENTITIES = 200
 MAX_AUDIT_RECORDS = 5_000
 MAX_JOBS = 1_000
 MAX_ASSESSMENTS = 500
+MAX_TRANSITIONS = 5_000
 _T0 = datetime(2026, 1, 1, tzinfo=UTC)
 
 
@@ -110,6 +113,17 @@ def _seed_athena(repo: SqliteAssessmentRepository, index: int, plan_id: str) -> 
     repo.append_audit(assessment_id, 0, "2026-01-01T00:00:00Z", "drill", "ok", None, "{}")
 
 
+def _transition(index: int) -> FindingTransition:
+    return FindingTransition(
+        finding_id=f"FND-DRILL-{index % 7}",
+        from_status=FindingStatus.NEW,
+        to_status=FindingStatus.CONFIRMED,
+        actor="drill@example.test",
+        reason="synthetic drill transition",
+        occurred_at=_T0 + timedelta(minutes=index),
+    )
+
+
 def _timed(timings: dict[str, float], name: str, started: float) -> None:
     timings[name] = round(time.perf_counter() - started, 6)
 
@@ -124,6 +138,7 @@ def run_drill(
     audit_records: int = 50,
     jobs: int = 20,
     assessments: int = 5,
+    transitions: int = 20,
 ) -> dict[str, object]:
     """Run the drill under ``workdir`` (must not exist) and return a report."""
     if not 1 <= engagements <= MAX_ENGAGEMENTS:
@@ -138,6 +153,8 @@ def run_drill(
         raise ValueError(f"jobs must be 1..{MAX_JOBS}")
     if not 1 <= assessments <= MAX_ASSESSMENTS:
         raise ValueError(f"assessments must be 1..{MAX_ASSESSMENTS}")
+    if not 1 <= transitions <= MAX_TRANSITIONS:
+        raise ValueError(f"transitions must be 1..{MAX_TRANSITIONS}")
     if not 0 <= post_snapshot <= MAX_ENGAGEMENTS:
         raise ValueError("post_snapshot out of range")
     if workdir.exists() or workdir.is_symlink():
@@ -149,7 +166,11 @@ def run_drill(
     store = SqliteEngagementStore(live / "engagements.db")
     ledger = live / "custody.json"
     athena = SqliteAssessmentRepository(live / "athena.db")
+    transition_store = SqliteFindingTransitionStore(live / "transitions.db")
     try:
+        for index in range(transitions):
+            transition_store.append_next(_transition(index))
+        history_before = len(transition_store.history("FND-DRILL-0"))
         athena_plan_id = athena.save_plan(_athena_plan())
         for index in range(assessments):
             _seed_athena(athena, index, athena_plan_id)
@@ -232,6 +253,10 @@ def run_drill(
         jobs_info = job_store.backup(snaps / "jobs.sqlite3")
         scope_info = backup_scope(scope_path, snaps / "scope.json")
         athena_info = athena.backup(snaps / "athena.sqlite3")
+        transition_store.close()
+        transitions_info = SqliteFindingTransitionStore.backup_database(
+            live / "transitions.db", snaps / "transitions.sqlite3"
+        )
         _timed(timings, "backup", started)
 
         started = time.perf_counter()
@@ -247,6 +272,7 @@ def run_drill(
                     "themis-jobs": "jobs.sqlite3",
                     "themis-scope": "scope.json",
                     "athena": "athena.sqlite3",
+                    "findings-transitions": "transitions.sqlite3",
                 },
             ),
         )
@@ -265,9 +291,17 @@ def run_drill(
             )
         for index in range(assessments, assessments + post_snapshot):
             _seed_athena(athena, index, athena_plan_id)
+        # Reopen to append after the snapshot: this is the transitions loss window.
+        late_store = SqliteFindingTransitionStore(live / "transitions.db")
+        try:
+            for index in range(transitions, transitions + post_snapshot):
+                late_store.append_next(_transition(index))
+        finally:
+            late_store.close()
     finally:
         store.close()
         athena.close()
+        transition_store.close()
 
     started = time.perf_counter()
     bm.verify_manifest(snaps)
@@ -282,6 +316,9 @@ def run_drill(
     r_scope = restore_scope(snaps / "scope.json", restored / "scope.json")
     r_athena = SqliteAssessmentRepository.restore_backup(
         snaps / "athena.sqlite3", restored / "athena.db"
+    )
+    r_trans = SqliteFindingTransitionStore.restore_backup(
+        snaps / "transitions.sqlite3", restored / "transitions.db"
     )
     _timed(timings, "restore_and_verify", started)
 
@@ -319,6 +356,14 @@ def run_drill(
         )
     ):
         raise RestoreDrillError("restored Athena store differs from the snapshot")
+    if r_trans.transition_count != transitions or transitions_info.transition_count != transitions:
+        raise RestoreDrillError("restored finding-transition count differs from the snapshot")
+    restored_transitions = SqliteFindingTransitionStore(restored / "transitions.db")
+    try:
+        if len(restored_transitions.history("FND-DRILL-0")) != history_before:
+            raise RestoreDrillError("restored finding-transition history differs from the snapshot")
+    finally:
+        restored_transitions.close()
     states_after = ThemisJobStore(restored / "jobs.sqlite3").counts_by_state()
     if states_after != states_before:
         raise RestoreDrillError("restored Themis job states differ from the snapshot")
@@ -334,6 +379,7 @@ def run_drill(
             "audit_records": audit_records,
             "jobs": jobs,
             "athena_assessments": assessments,
+            "finding_transitions": transitions,
             "post_snapshot_writes": post_snapshot,
         },
         "timings_seconds": timings,
@@ -345,6 +391,8 @@ def run_drill(
             "jobs_lost_after_snapshot": post_snapshot,
             "restored_athena_assessments": r_athena.assessment_count,
             "athena_assessments_lost_after_snapshot": post_snapshot,
+            "restored_finding_transitions": r_trans.transition_count,
+            "finding_transitions_lost_after_snapshot": post_snapshot,
             "note": "data written after the snapshot is not recovered",
         },
         "stores_covered": [
@@ -355,9 +403,9 @@ def run_drill(
             "themis-jobs",
             "themis-scope",
             "athena",
+            "findings-transitions",
         ],
         "stores_not_covered": [
-            "findings-transitions",
             "vault",
             "evidence-files",
             "encryption-keys",

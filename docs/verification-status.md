@@ -239,8 +239,8 @@ snapshot, nessun RPO è promesso. Il drill include anche il database job Themis
 rivelato sidecar `-wal/-shm` orfani lasciati da `ThemisJobStore.backup`, corretti e
 coperti da test (31 test mirati superati; 9 fallimenti preesistenti di sandbox/PDF/TUI
 nella suite completa, identici su main pulito). Include anche il file di scope Themis (SHA-256 e conteggi
-confrontati dopo il restore) e lo store Athena (`--assessments`: piani, assessment, job, risultati e audit con conteggi confrontati). Non copre transizioni finding,
-vault, evidenze e chiavi. Tre test in
+confrontati dopo il restore) e lo store Athena (`--assessments`: piani, assessment, job, risultati e audit con conteggi confrontati). Include anche il DB append-only delle transizioni finding (`--transitions`: conteggio e storia di un finding confrontati dopo il restore; scritture successive non recuperate). Non copre
+vault, evidenze e chiavi (la chiave di cifratura delle transizioni non fa parte dello snapshot). Tre test in
 `tests/unit/test_restore_drill.py`; non è una garanzia RPO/RTO di produzione.
 
 ## WEB-B-01 — verifica browser reale dello stato store (2026-11-01)
