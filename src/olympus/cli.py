@@ -577,7 +577,7 @@ def capability_catalog(
 
     if output_format not in ("json", "table"):
         typer.echo("olympus: --format must be 'json' or 'table'", err=True)
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=int(ExitCode.USAGE))
     if output_format == "table":
         typer.echo(render_catalog_table())
     else:
