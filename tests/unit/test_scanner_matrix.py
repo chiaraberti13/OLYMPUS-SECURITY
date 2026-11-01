@@ -43,7 +43,7 @@ def test_render_derives_the_native_adapter_column() -> None:
 
 def test_render_marks_a_catalog_only_engine_as_pending() -> None:
     rendered = matrix.render()
-    row = next(line for line in rendered.splitlines() if line.startswith("| wpscan |"))
+    row = next(line for line in rendered.splitlines() if line.startswith("| nosqlmap |"))
     assert "— pending" in row and "n/a" in row
 
 

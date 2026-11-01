@@ -68,7 +68,7 @@ fixture e import/export locali; lookup/feed/scanner richiedono rete e autorizzaz
 | engagements / findings | manifest firmati, revoca, record engagement SQLite; lifecycle finding e transizioni | CLI/API/Web; schema fisico/backup da uniformare |
 | Argus | recon/OSINT DNS/RDAP/HTTP, pipeline/graph/diff | CLI/TUI, adapter Athena; lookup dipendono dalla rete, test offline non equivalgono a lab |
 | Athena | dominio/ports/application separati, coordinator e SQLite, piani/result/audit | CLI/TUI; adapter dns/whois/web-headers/themis (quest'ultimo nmap); P0 audit restart |
-| Themis | 15 adapter, parser/runner/sandbox, SQLite jobs/lease/retry/recovery | CLI/TUI/API/Web/worker; egress, plugin e release non completi |
+| Themis | 16 adapter, parser/runner/sandbox, SQLite jobs/lease/retry/recovery | CLI/TUI/API/Web/worker; egress, plugin e release non completi |
 | Helios / Artemis | discovery rete / assessment web, HTTP e scope condivisi | CLI/TUI; validazione live limitata dal lab |
 | Hermes | secret scanning file/git, baseline, SARIF | CLI/TUI e hook; segreti sintetici nei test, non prova Gitleaks history |
 | Apollo | Event ingest, regole exact-match, Sigma subset, ECS/OCSF | CLI/TUI/Purple; coverage non dimostra detection end-to-end |
@@ -138,7 +138,7 @@ P0 egress da controllo di confinamento assente, senza exploit live eseguito.
 | `OPS-PURPLE-01` | Dinamica: dict solo event_type accettato e JSON malformato ignorato | Falsa fiducia copertura; impatto alto | P1: Validare Event, contare scarti/troncamento; distinguere presence/schema/match/test pass; [roadmap](../ROADMAP.md) |
 | `UX-E-01` | Statica: lang=en/stringhe EN; TestClient non browser; live region assente | Fruibilità non dimostrata, impatto utenti alto | P1: Cataloghi IT/EN, tastiera/focus/live region, browser axe e review screen reader/contrasto; [roadmap](../ROADMAP.md) |
 | `DEV-E-02` | `RateLimiter` per-processo e secret sessione Web per-processo; 3 run con 4 processi × 50 submit sintetici | Quota/sessioni non condivise tra istanze; rischio operativo riproducibile | P2: limite one-process documentato; 600/600 job persistiti, zero errori e p95 SQLite 10,674–17,992 ms (host identificato); p95 Web e recovery restano non misurati; [roadmap](../ROADMAP.md) |
-| `OPS-SCAN-01` | Inventario: 24 catalogati, 15 adapter; live storico non rieseguito | Espansione non verificata accresce manutenzione e rischio | P2: Completare adapter e flussi prima di nuovi tool; schede proposta e gate per ogni livello; [roadmap](../ROADMAP.md) |
+| `OPS-SCAN-01` | Inventario: 24 catalogati, 16 adapter; live storico non rieseguito | Espansione non verificata accresce manutenzione e rischio | P2: Completare adapter e flussi prima di nuovi tool; schede proposta e gate per ogni livello; [roadmap](../ROADMAP.md) |
 
 ## Decisioni e compromessi
 

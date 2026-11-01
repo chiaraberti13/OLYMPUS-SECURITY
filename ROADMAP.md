@@ -97,7 +97,12 @@ di sicurezza nel frontend.
 ## 5. Piano moduli Red / Blue / Purple
 
 - **RED-1** [~] Recon attiva ProjectDiscovery/OSINT: adapter `subfinder`, `dnsx`, `naabu`, `amass`, `theHarvester`.
-- **RED-2** [~] Adapter web residui: `wpscan`, `nosqlmap`; portare Wapiti/altri a live-tested in lab autorizzato.
+- **RED-2** [~] Adapter web residui. **`wpscan` fatto** (adapter nativo + parser
+  JSON `--format json` → `core.Finding`, token API solo da secret d'ambiente,
+  registrato, maturity `adapter-ready`, provato offline su report sintetico
+  format-fedele): la capability CMS passa da *missing* a *simulated* in
+  `olympus catalog`. **Resta:** `nosqlmap`; promozione di `wpscan`/Wapiti a
+  *live-tested* in lab WordPress/NoSQL autorizzato (output reale registrato).
 - **RED-3** [ ] Password auditor (capacità assente oggi): nuovo tool/adapter, scope-gated.
 - **BLUE-1** [~] Apollo ingest Sysmon/Windows Event. Parser `windows-json`
   implementato (Sysmon 1/3/11/13/22 + Security 4624/4625, gating per provider,

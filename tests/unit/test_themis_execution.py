@@ -561,6 +561,7 @@ def test_registry() -> None:
         "arjun",
         "xsstrike",
         "wapiti",
+        "wpscan",
     }
     assert get_adapter("nmap").name == "nmap"
     with pytest.raises(UnknownScannerError):

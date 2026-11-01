@@ -23,6 +23,7 @@ from olympus.themis.adapters.testssl import TestsslAdapter
 from olympus.themis.adapters.wafw00f import Wafw00fAdapter
 from olympus.themis.adapters.wapiti import WapitiAdapter
 from olympus.themis.adapters.whatweb import WhatwebAdapter
+from olympus.themis.adapters.wpscan import WpscanAdapter
 from olympus.themis.adapters.xsstrike import XsstrikeAdapter
 from olympus.themis.base import ScannerAdapter
 
@@ -42,6 +43,7 @@ _ADAPTERS: dict[str, type[ScannerAdapter]] = {
     "arjun": ArjunAdapter,
     "xsstrike": XsstrikeAdapter,
     "wapiti": WapitiAdapter,
+    "wpscan": WpscanAdapter,
 }
 
 

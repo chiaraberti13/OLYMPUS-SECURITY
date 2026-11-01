@@ -66,9 +66,10 @@ def test_known_coverage_states_are_honest() -> None:
     assert states["port-scanner"] == "present"  # nmap live-tested
     assert states["subdomain-finder"] == "present"  # native CT discovery
     assert states["domain-finder"] == "present"  # native DNS/WHOIS
-    # Catalogued-only or absent -> missing, never overstated.
+    # A registered-but-unproven adapter -> simulated, never overstated as present.
+    assert states["cms-scanner"] == "simulated"  # wpscan adapter-ready (parser not live-proven)
+    # Catalogued-only or absent -> missing.
     assert states["network-scanner"] == "missing"  # nessus/openvas catalog-only
-    assert states["cms-scanner"] == "missing"  # wpscan catalog-only
     assert states["password-auditor"] == "missing"  # no module
 
 

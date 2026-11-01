@@ -59,8 +59,8 @@ _Il blocco seguente è generato da `olympus.integrations.maturity` tramite
 
 <!-- GENERATED:maturity-status START -->
 ```text
-catalog-only      9   acunetix, burp, nessus, nosqlmap, openvas, subfinder, theharvester, wpscan, zap
-adapter-ready     0
+catalog-only      8   acunetix, burp, nessus, nosqlmap, openvas, subfinder, theharvester, zap
+adapter-ready     1   wpscan
 offline-tested    3   testssl, wapiti, whatweb
 live-tested      12   arjun, commix, dalfox, dirsearch, httpx, katana, nikto, nmap, nuclei, sqlmap, wafw00f, xsstrike
 production-ready  0

@@ -88,9 +88,9 @@ def test_report_exposes_maturity_and_adapter_for_a_live_tested_engine() -> None:
 
 
 def test_catalog_only_engine_reports_no_adapter() -> None:
-    checks = _checks(scanner_doctor.scanner_report("wpscan").to_dict())
-    assert checks["scanner:wpscan:adapter"]["ok"] is False
-    assert "catalog-only" in checks["scanner:wpscan:maturity"]["detail"]
+    checks = _checks(scanner_doctor.scanner_report("nosqlmap").to_dict())
+    assert checks["scanner:nosqlmap:adapter"]["ok"] is False
+    assert "catalog-only" in checks["scanner:nosqlmap:maturity"]["detail"]
 
 
 # --- CLI -------------------------------------------------------------------- #

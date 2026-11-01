@@ -58,7 +58,7 @@ def test_at_least_compares_along_the_ladder() -> None:
 
 
 def test_undeclared_scanner_defaults_to_catalog_only() -> None:
-    record = record_for("wpscan")
+    record = record_for("nosqlmap")
     assert record.stage is Maturity.CATALOG_ONLY
     assert record.evidence == ""
     assert "no native execution adapter" in record.blocker.lower()
@@ -93,8 +93,8 @@ def test_guard_catches_a_claim_without_an_adapter(
 ) -> None:
     monkeypatch.setitem(
         maturity_module.DECLARED,
-        "wpscan",
-        MaturityRecord("wpscan", Maturity.LIVE_TESTED, "docs/themis-execution-evidence.md"),
+        "nosqlmap",
+        MaturityRecord("nosqlmap", Maturity.LIVE_TESTED, "docs/themis-execution-evidence.md"),
     )
     assert any("no native adapter" in problem for problem in verify_declarations())
 
@@ -198,8 +198,8 @@ def test_summary_covers_the_whole_catalogue() -> None:
 def test_summary_reflects_the_repository_today() -> None:
     """The honest numbers, restated so a change to them is a deliberate act."""
     assert summary() == {
-        "catalog-only": 9,
-        "adapter-ready": 0,
+        "catalog-only": 8,
+        "adapter-ready": 1,
         "offline-tested": 3,
         "live-tested": 12,
         "production-ready": 0,
@@ -269,7 +269,8 @@ def test_capabilities_reports_maturity_per_engine() -> None:
     by_name = {item["name"]: item for item in document["capabilities"]}
     assert by_name["nmap"]["maturity"] == "live-tested"
     assert by_name["whatweb"]["maturity"] == "offline-tested"
-    assert by_name["wpscan"]["maturity"] == "catalog-only"
+    assert by_name["wpscan"]["maturity"] == "adapter-ready"
+    assert by_name["nosqlmap"]["maturity"] == "catalog-only"
     assert document["maturity"]["production-ready"] == 0
 
 
@@ -300,8 +301,8 @@ def test_capabilities_reports_ledger_drift_as_a_usage_error(
     """Drift is a reporting bug, so it must not masquerade as a readiness result."""
     monkeypatch.setitem(
         maturity_module.DECLARED,
-        "wpscan",
-        MaturityRecord("wpscan", Maturity.LIVE_TESTED, "docs/themis-execution-evidence.md"),
+        "nosqlmap",
+        MaturityRecord("nosqlmap", Maturity.LIVE_TESTED, "docs/themis-execution-evidence.md"),
     )
     result = runner.invoke(app, ["themis", "capabilities"])
     assert result.exit_code == int(ExitCode.USAGE)

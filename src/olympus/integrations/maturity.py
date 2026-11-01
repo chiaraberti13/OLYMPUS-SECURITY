@@ -207,6 +207,15 @@ DECLARED: dict[str, MaturityRecord] = {
         "No authorized live run through the scope-gate yet: the committed evidence "
         "is a real wapiti JSON report (labs/mars) exercising the parser only.",
     ),
+    "wpscan": MaturityRecord(
+        "wpscan",
+        Maturity.ADAPTER_READY,
+        "tests/unit/test_wpscan_adapter.py",
+        "Parser exercised only on a synthetic, format-faithful WPScan JSON report; "
+        "promotion to offline-tested needs recorded real WPScan output, and "
+        "live-tested needs an authorized WordPress lab (and a WPScan API token via "
+        "the environment secret).",
+    ),
 }
 
 
