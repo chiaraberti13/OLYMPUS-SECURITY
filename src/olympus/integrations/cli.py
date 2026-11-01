@@ -79,6 +79,12 @@ retention_app = typer.Typer(
 )
 themis_app.add_typer(jobs_app, name="jobs")
 themis_app.add_typer(identities_app, name="identities")
+scope_app = typer.Typer(
+    add_completion=False,
+    no_args_is_help=True,
+    help="Backup, verify and restore the Themis engagement scope file.",
+)
+themis_app.add_typer(scope_app, name="scope")
 themis_app.add_typer(retention_app, name="retention")
 
 #: Credential hashes are deployment state, not a report: they follow the
@@ -1915,6 +1921,59 @@ def themis_identities_restore(
             indent=2,
         )
     )
+
+
+@scope_app.command("backup")
+def themis_scope_backup(
+    scope_path: str = typer.Option(..., "--scope", help="Valid Themis scope file."),
+    destination: str = typer.Option(..., "--destination", help="New snapshot path."),
+) -> None:
+    """Snapshot a validated scope file create-only, owner-only."""
+    from dataclasses import asdict
+
+    from olympus.themis.scope_backup import ScopeBackupError, backup_scope
+
+    try:
+        info = backup_scope(Path(scope_path), Path(destination))
+    except (ScopeBackupError, OSError) as exc:
+        typer.echo(f"olympus: scope backup refused: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    typer.echo(json.dumps({"snapshot": destination, **asdict(info)}, indent=2))
+
+
+@scope_app.command("verify-backup")
+def themis_scope_verify_backup(
+    backup: str = typer.Option(..., "--backup", help="Scope snapshot to validate."),
+) -> None:
+    """Verify a scope snapshot with the scan-time loader and fingerprint it."""
+    from dataclasses import asdict
+
+    from olympus.themis.scope_backup import ScopeBackupError, verify_scope_backup
+
+    try:
+        info = verify_scope_backup(Path(backup))
+    except (ScopeBackupError, OSError) as exc:
+        typer.echo(f"olympus: scope backup invalid: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    typer.echo(json.dumps({"verified": True, **asdict(info)}, indent=2))
+
+
+@scope_app.command("restore")
+def themis_scope_restore(
+    backup: str = typer.Option(..., "--backup", help="Verified scope snapshot."),
+    destination: str = typer.Option(..., "--destination", help="New, absent scope path."),
+) -> None:
+    """Restore a snapshot to a new path; review the perimeter before using it."""
+    from dataclasses import asdict
+
+    from olympus.themis.scope_backup import ScopeBackupError, restore_scope
+
+    try:
+        info = restore_scope(Path(backup), Path(destination))
+    except (ScopeBackupError, OSError) as exc:
+        typer.echo(f"olympus: scope restore refused: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    typer.echo(json.dumps({"restored_to": destination, **asdict(info)}, indent=2))
 
 
 @identities_app.command("add")

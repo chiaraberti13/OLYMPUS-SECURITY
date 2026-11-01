@@ -350,7 +350,14 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
   `0600`, validazione per riga (forma, metadata redatta, coda non troncata, limiti),
   rifiuto di overwrite/symlink; SHA-256 non autenticato, nessuna catena di hash.
   Test `tests/unit/test_audit_backup.py`.
-  Restano aperti: scope, vault ed evidenze, backup delle
+  Ulteriore slice (2026-11-01): `olympus themis scope backup|verify-backup|restore`
+  (`themis/scope_backup.py`) per il file di scope Themis: ogni operazione lo valida
+  con lo stesso `load_scope` usato in scansione (contratto strict, dimensione
+  limitata, non vuoto), quindi un perimetro che lo scanner rifiuterebbe non viene
+  né salvato né ripristinato; copia byte-esatta create-only `0600`, rifiuto di
+  overwrite/symlink, SHA-256 non autenticato. Test
+  `tests/unit/test_themis_scope_backup.py`. Lo scope Argus/Proteus non è coperto.
+  Restano aperti: vault ed evidenze, backup delle
   chiavi e snapshot coordinato point-in-time; la voce resta `[~]`.
   Ulteriore slice (2026-11-01): `olympus core restore-drill` (`core/restore_drill.py`)
   esegue offline backup → manifest → restore pulito su engagement store e ledger

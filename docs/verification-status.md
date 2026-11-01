@@ -259,3 +259,15 @@ autenticato; il log non ha catena di hash, quindi la verifica non prova autore n
 completezza storica. Nessun lock cooperativo con gli scrittori: una copia con coda
 parziale viene rifiutata e va ripetuta. Test sintetici: `tests/unit/test_audit_backup.py`.
 Restano fuori scope, vault, evidenze, chiavi e snapshot point-in-time coordinato.
+
+## WEB-J-01 — backup dello scope Themis (2026-11-01)
+
+`olympus themis scope backup|verify-backup|restore` (`themis/scope_backup.py`) copia
+byte-esatta il file di scope in un percorso nuovo `0600`, create-only. Ogni operazione
+valida il documento con lo stesso `load_scope` usato prima di una scansione (contratto
+strict, dimensione limitata, perimetro non vuoto): un perimetro che lo scanner
+rifiuterebbe non viene salvato né ripristinato. Rifiuta destinazione esistente e
+symlink; rileva modifica durante la copia. SHA-256 non autenticato. Dieci test sintetici
+in `tests/unit/test_themis_scope_backup.py`, tutti passati. Lo scope Argus/Proteus non è
+coperto. Quattro test preesistenti (`test_themis_execution`, `test_themis_web` PDF,
+`test_tui`, `test_vulcan_provenance`) falliscono anche su main pulito in questo ambiente.

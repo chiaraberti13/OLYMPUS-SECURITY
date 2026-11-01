@@ -1548,6 +1548,32 @@ List the complete Themis scanner catalogue (all 24 integrations).
 | --- | --- | --- | --- | --- |
 | `--check` | option | no | `False` | Also report whether each scanner's binary is available. |
 
+### `olympus themis scope backup`
+
+Snapshot a validated scope file create-only, owner-only.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--scope` | option | yes | — | Valid Themis scope file. |
+| `--destination` | option | yes | — | New snapshot path. |
+
+### `olympus themis scope restore`
+
+Restore a snapshot to a new path; review the perimeter before using it.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--backup` | option | yes | — | Verified scope snapshot. |
+| `--destination` | option | yes | — | New, absent scope path. |
+
+### `olympus themis scope verify-backup`
+
+Verify a scope snapshot with the scan-time loader and fingerprint it.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--backup` | option | yes | — | Scope snapshot to validate. |
+
 ### `olympus themis serve`
 
 Serve the native Themis web control plane (browser UI over the same core).

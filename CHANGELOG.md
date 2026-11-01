@@ -13,6 +13,9 @@ everything below lives under **Unreleased**.
 ## [Unreleased]
 
 ### Added
+
+- `olympus themis scope backup|verify-backup|restore`: validated, create-only,
+  owner-only snapshots of the Themis scope file (ROADMAP `WEB-J-01`).
 - **Test browser reale per gli stati dello store Web (`WEB-B-01`).** Chromium via
   Playwright (opzionale, saltato se assente) conferma che store corrotti non
   appaiono come vuoti.
