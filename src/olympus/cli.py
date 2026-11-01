@@ -558,20 +558,30 @@ def version() -> None:
 
 
 @app.command("catalog")
-def capability_catalog() -> None:
+def capability_catalog(
+    output_format: str = typer.Option(
+        "json", "--format", help="Output format: 'json' (default) or 'table'."
+    ),
+) -> None:
     """Show which integrated-toolkit capabilities Olympus delivers.
 
     For each product capability (website/network/SSL/CMS scanner, port scanner,
     subdomain/domain finder, password auditor) the catalogue reports an honest,
     code-derived coverage state — ``present``, ``simulated`` or ``missing`` — plus
     the backing Olympus modules and engines, so it never overstates what the
-    suite can do.
+    suite can do. ``--format table`` prints a human-readable table.
     """
     import json
 
-    from olympus.integrations.suite_catalog import catalog_document
+    from olympus.integrations.suite_catalog import catalog_document, render_catalog_table
 
-    typer.echo(json.dumps(catalog_document(), indent=2, sort_keys=True))
+    if output_format not in ("json", "table"):
+        typer.echo("olympus: --format must be 'json' or 'table'", err=True)
+        raise typer.Exit(code=2)
+    if output_format == "table":
+        typer.echo(render_catalog_table())
+    else:
+        typer.echo(json.dumps(catalog_document(), indent=2, sort_keys=True))
 
 
 @app.command("ui")

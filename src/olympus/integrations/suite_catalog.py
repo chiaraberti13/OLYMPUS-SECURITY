@@ -222,6 +222,35 @@ def _capability_dict(capability: SuiteCapability) -> dict[str, object]:
     }
 
 
+def render_catalog_table() -> str:
+    """Render the capability coverage as a sanitized, human-readable table.
+
+    Reuses :func:`olympus.core.output.render_table`, so every cell is stripped of
+    terminal control sequences; the data is the same honest, code-derived
+    coverage as :func:`catalog_document`.
+    """
+    from olympus.core.output import render_table
+
+    capabilities = sorted(SUITE_CAPABILITIES, key=lambda item: item.capability_id)
+    counts: dict[str, int] = dict.fromkeys((state.value for state in CoverageState), 0)
+    rows: list[list[str]] = []
+    for capability in capabilities:
+        state = coverage_of(capability)
+        counts[state.value] += 1
+        rows.append(
+            [
+                capability.capability_id,
+                state.value,
+                ", ".join(capability.modules) or "—",
+                ", ".join(capability.engines) or "—",
+            ]
+        )
+    title = "Suite capability coverage — " + ", ".join(
+        f"{state}: {count}" for state, count in sorted(counts.items())
+    )
+    return render_table(["capability", "coverage", "modules", "engines"], rows, title=title)
+
+
 def catalog_document() -> dict[str, object]:
     """Return the versioned, deterministic suite-capability alignment document."""
     capabilities = sorted(SUITE_CAPABILITIES, key=lambda item: item.capability_id)
@@ -276,5 +305,6 @@ __all__ = [
     "SuiteCapability",
     "catalog_document",
     "coverage_of",
+    "render_catalog_table",
     "verify_catalog",
 ]

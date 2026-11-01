@@ -491,6 +491,10 @@ Verify one Athena snapshot, including stored plan/result contracts.
 
 Show which integrated-toolkit capabilities Olympus delivers.
 
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--format` | option | no | `json` | Output format: 'json' (default) or 'table'. |
+
 ### `olympus config validate`
 
 Validate configuration and print only redacted effective values.

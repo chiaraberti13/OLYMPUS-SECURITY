@@ -17,6 +17,7 @@ from olympus.integrations.suite_catalog import (
     SuiteCapability,
     catalog_document,
     coverage_of,
+    render_catalog_table,
     verify_catalog,
 )
 
@@ -110,3 +111,25 @@ def test_cli_catalog_command_emits_the_document() -> None:
     doc = json.loads(result.output)
     assert doc["schema_name"] == "olympus.suite-capability-catalog"
     assert len(doc["capabilities"]) == len(SUITE_CAPABILITIES)
+
+
+def test_render_catalog_table_lists_every_capability_and_coverage() -> None:
+    table = render_catalog_table()
+    assert "Suite capability coverage" in table
+    for capability in SUITE_CAPABILITIES:
+        assert capability.capability_id in table
+    for state in ("present", "missing"):
+        assert state in table
+
+
+def test_cli_catalog_table_format() -> None:
+    result = runner.invoke(app, ["catalog", "--format", "table"])
+    assert result.exit_code == 0, result.output
+    assert "capability" in result.output and "coverage" in result.output
+    assert "port-scanner" in result.output
+
+
+def test_cli_catalog_rejects_unknown_format() -> None:
+    result = runner.invoke(app, ["catalog", "--format", "xml"])
+    assert result.exit_code == 2
+    assert "must be" in result.output
