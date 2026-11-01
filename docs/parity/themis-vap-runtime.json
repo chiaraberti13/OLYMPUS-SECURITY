@@ -357,6 +357,18 @@
     },
     {
       "surface": "api",
+      "method": "POST",
+      "path": "/api/v1/apollo/evaluate",
+      "handler": "apollo_evaluate"
+    },
+    {
+      "surface": "api",
+      "method": "GET",
+      "path": "/api/v1/apollo/rules",
+      "handler": "apollo_rules"
+    },
+    {
+      "surface": "api",
       "method": "GET",
       "path": "/api/v1/engagements",
       "handler": "list_engagements"
@@ -390,6 +402,18 @@
       "method": "POST",
       "path": "/api/v1/jobs/{job_id}/cancel",
       "handler": "cancel_job"
+    },
+    {
+      "surface": "web",
+      "method": "GET",
+      "path": "/apollo",
+      "handler": "apollo_page"
+    },
+    {
+      "surface": "web",
+      "method": "POST",
+      "path": "/apollo/evaluate",
+      "handler": "apollo_evaluate"
     },
     {
       "surface": "web",
