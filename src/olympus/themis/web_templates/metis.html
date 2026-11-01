@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Metis CTI · Olympus{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Metis STIX import workbench</h1>
+  <p class="muted">
+    Import a <abbr title="Structured Threat Information eXpression">STIX</abbr> 2.1
+    bundle into normalized Olympus indicators. The importer keeps the faithful
+    subset — single-comparison equality patterns (<code>domain-name</code>,
+    <code>ipv4-addr</code>, <code>ipv6-addr</code>, <code>url</code>,
+    <code>email-addr</code>, file hashes) and CVE vulnerabilities — and lists
+    everything it refused, with the reason. Parsing is local and offline: this
+    page performs no collection, scanning or network access.
+  </p>
+  <p class="risk-banner risk-passive">
+    Educational, training and research use only, on systems you own or are explicitly
+    authorized to assess.
+  </p>
+</section>
+
+<section class="card">
+  <h2>Import a bundle</h2>
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+  <form method="post" action="/metis/stix/import">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="bundle">STIX 2.1 bundle (JSON)</label>
+    <textarea id="bundle" name="bundle" rows="14" required
+      placeholder='{"type": "bundle", "objects": [ ... ]}'>{{ bundle_text }}</textarea>
+    <button type="submit">Import</button>
+  </form>
+</section>
+
+{% if indicators is not none %}
+<section class="card">
+  <h2>Result</h2>
+  <p>{{ indicators | length }} indicator(s) imported · {{ skipped | length }} skipped</p>
+  {% if skipped %}
+  <p role="status">Incomplete import: {{ skipped | length }} object(s) skipped. Unimported
+  patterns are not represented below; an empty or short list does not mean the bundle was clean.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Pattern / object</th><th>Reason</th></tr></thead>
+    <tbody>{% for pattern, reason in skipped %}<tr>
+      <td><code>{{ pattern }}</code></td><td>{{ reason }}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% endif %}
+  {% if indicators %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Type</th><th>Value</th></tr></thead>
+    <tbody>{% for indicator_type, value in indicators %}<tr>
+      <td><code>{{ indicator_type }}</code></td><td>{{ value }}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<p class="muted">No faithful indicator was recovered from the bundle.</p>{% endif %}
+</section>
+{% endif %}
+{% endblock %}

@@ -101,6 +101,7 @@ from olympus.integrations.smartscan import (
     objectives,
     propose_pipeline,
 )
+from olympus.metis.stix import StixError, bundle_to_indicators
 from olympus.minerva.triage import incident_status_breakdown, load_incidents
 from olympus.themis.api import (
     MAX_REQUEST_BYTES,
@@ -603,6 +604,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
     writes_findings = requires("findings:write")
     reads_apollo = requires("apollo:read")
     runs_apollo = requires("apollo:run")
+    reads_metis = requires("metis:read")
     engagements_database = settings.engagements_database
     findings_directory = settings.findings_directory
     findings_database = settings.findings_database
@@ -640,6 +642,22 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             "event_count": event_count,
             "error": error,
             "can_run": "apollo:run" in session.scopes,
+            "csrf_token": _csrf_token(session.nonce),
+        }
+
+    def _metis_context(
+        session: WebSession,
+        *,
+        bundle_text: str = "",
+        indicators: tuple[tuple[str, str], ...] | None = None,
+        skipped: tuple[tuple[str, str], ...] = (),
+        error: str | None = None,
+    ) -> dict[str, object]:
+        return {
+            "bundle_text": bundle_text,
+            "indicators": indicators,
+            "skipped": skipped,
+            "error": error,
             "csrf_token": _csrf_token(session.nonce),
         }
 
@@ -1216,6 +1234,48 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 alerts=alerts,
                 event_count=len(parsed),
             ),
+        )
+
+    @app.get("/metis", response_class=HTMLResponse, include_in_schema=False)
+    def metis_page(request: Request, session: WebSession = reads_metis) -> Response:
+        return _page(request, "metis.html", _metis_context(session))
+
+    @app.post("/metis/stix/import", response_class=HTMLResponse, include_in_schema=False)
+    def metis_stix_import(
+        request: Request,
+        bundle: Annotated[str, Form()],
+        csrf_token: Annotated[str, Form()],
+        session: WebSession = reads_metis,
+    ) -> Response:
+        _check_csrf(session, csrf_token)
+        _rate_limit(session)
+        # Bound the payload exactly as the typed API does, before any parsing.
+        if not 2 <= len(bundle) <= 1_000_000:
+            return _page(
+                request,
+                "metis.html",
+                _metis_context(
+                    session,
+                    bundle_text=bundle,
+                    error="Provide a STIX 2.1 bundle between 2 and 1,000,000 characters.",
+                ),
+                code=422,
+            )
+        try:
+            parsed = bundle_to_indicators(bundle)
+        except StixError as exc:
+            return _page(
+                request,
+                "metis.html",
+                _metis_context(session, bundle_text=bundle, error=str(exc)),
+                code=422,
+            )
+        indicators = tuple((item.indicator_type.value, item.value) for item in parsed.indicators)
+        skipped = tuple((item.pattern, item.reason) for item in parsed.skipped)
+        return _page(
+            request,
+            "metis.html",
+            _metis_context(session, bundle_text=bundle, indicators=indicators, skipped=skipped),
         )
 
     def _assessment_context(

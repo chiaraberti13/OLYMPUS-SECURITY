@@ -11,7 +11,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts" / "build_preview.py"
 PUBLIC = ROOT / "public"
-PAGES = ("index.html", "tools.html", "report.html", "attack.html", "apollo.html")
+PAGES = ("index.html", "tools.html", "report.html", "attack.html", "apollo.html", "metis.html")
 
 
 def _run(*args: str) -> subprocess.CompletedProcess[str]:
@@ -69,7 +69,7 @@ def test_generator_writes_all_pages(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     # A plain run (no --check) regenerates the pages in place and reports success.
     result = _run()
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "Wrote 8 page(s)" in result.stdout
+    assert "Wrote 9 page(s)" in result.stdout
     for name in PAGES:
         assert (PUBLIC / name).exists()
 
@@ -116,6 +116,16 @@ def test_apollo_preview_uses_the_real_bundled_rule_pack() -> None:
     assert "Apollo detection workbench" in text
     assert "APL-SYSMON-C2-DNS" in text
     assert "loader Apollo reale" in text
+    assert "non è possibile inviare dati" in text
+
+
+def test_metis_preview_uses_the_real_stix_importer_and_shows_skips() -> None:
+    text = (PUBLIC / "metis.html").read_text(encoding="utf-8")
+    assert "Metis STIX import workbench" in text
+    # A faithful IOC imported by the real parser, and the honest skip of a compound pattern.
+    assert "c2.olympusdemocorp.example" in text
+    assert "CVE-2021-44228" in text
+    assert "not a simple equality" in text
     assert "non è possibile inviare dati" in text
 
 

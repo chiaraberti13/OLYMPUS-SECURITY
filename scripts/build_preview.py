@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import html
+import json
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -33,6 +34,7 @@ from olympus.core.enums import AssetType, FindingStatus, Severity, Source
 from olympus.core.models import Asset, Finding
 from olympus.integrations.scanners import REGISTRY
 from olympus.integrations.suite_catalog import catalog_document
+from olympus.metis.stix import bundle_to_indicators
 from olympus.themis.adapters.nmap import NmapAdapter
 from olympus.themis.model import ScanRequest
 from olympus.themis.runner import CommandOutput
@@ -91,6 +93,7 @@ def _page(title: str, body: str) -> str:
         "<nav><a href='index.html'>Panoramica</a><a href='tools.html'>Strumenti</a>"
         "<a href='demo.html'>Demo guidata</a><a href='report.html'>Report di esempio</a>"
         "<a href='apollo.html'>Apollo</a>"
+        "<a href='metis.html'>Metis</a>"
         "<a href='attack.html'>Associazioni ATT&amp;CK</a>"
         "<a href='https://github.com/chiaraberti13/OLYMPUS-SECURITY'>Codice</a></nav>"
         f"<div class='banner'>{html.escape(_BANNER)}</div></header>"
@@ -429,6 +432,83 @@ def _apollo_html() -> str:
     )
 
 
+#: A synthetic, format-faithful STIX 2.1 bundle driven through the real importer.
+#: It mixes faithful single-equality patterns and a CVE with a deliberately
+#: compound pattern, so the preview shows both imports and honest skips.
+_DEMO_STIX_BUNDLE = json.dumps(
+    {
+        "type": "bundle",
+        "id": "bundle--olympus-demo",
+        "objects": [
+            {
+                "type": "indicator",
+                "spec_version": "2.1",
+                "pattern": "[domain-name:value = 'c2.olympusdemocorp.example']",
+                "pattern_type": "stix",
+            },
+            {
+                "type": "indicator",
+                "spec_version": "2.1",
+                "pattern": "[ipv4-addr:value = '198.51.100.7']",
+                "pattern_type": "stix",
+            },
+            {
+                "type": "indicator",
+                "spec_version": "2.1",
+                "pattern": (
+                    "[file:hashes.'SHA-256' = "
+                    "'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855']"
+                ),
+                "pattern_type": "stix",
+            },
+            {"type": "vulnerability", "spec_version": "2.1", "name": "CVE-2021-44228"},
+            {
+                "type": "indicator",
+                "spec_version": "2.1",
+                "pattern": (
+                    "[ipv4-addr:value = '203.0.113.9'] AND "
+                    "[domain-name:value = 'mirror.olympusdemocorp.example']"
+                ),
+                "pattern_type": "stix",
+            },
+        ],
+    }
+)
+
+
+def _metis_html() -> str:
+    """Render the real STIX importer over a synthetic bundle as an honest preview."""
+    parsed = bundle_to_indicators(_DEMO_STIX_BUNDLE)
+    indicator_rows = "".join(
+        "<tr>"
+        f"<td><code>{html.escape(item.indicator_type.value)}</code></td>"
+        f"<td>{html.escape(item.value)}</td></tr>"
+        for item in parsed.indicators
+    )
+    skipped_rows = "".join(
+        "<tr>"
+        f"<td><code>{html.escape(item.pattern)}</code></td>"
+        f"<td>{html.escape(item.reason)}</td></tr>"
+        for item in parsed.skipped
+    )
+    return _page(
+        "OLYMPUS-SECURITY — Metis",
+        "<h2>Metis STIX import workbench</h2>"
+        "<p>Questa pagina statica mostra l'importazione reale di un bundle STIX 2.1 "
+        "sintetico tramite il parser di Metis. La Web UI operativa espone "
+        "<code>/metis</code>: accetta un bundle STIX, importa il sottoinsieme fedele "
+        "(pattern di uguaglianza semplice e vulnerabilità CVE) ed elenca con motivo "
+        "tutto ciò che rifiuta. Qui non è possibile inviare dati e non viene eseguita "
+        "alcuna raccolta o chiamata di rete.</p>"
+        f"<table><caption>{len(parsed.indicators)} indicatore/i importato/i dal parser "
+        "STIX reale, su dati sintetici</caption>"
+        f"<tr><th>Tipo</th><th>Valore</th></tr>{indicator_rows}</table>"
+        f"<table><caption>{len(parsed.skipped)} oggetto/i scartato/i e non importato/i; "
+        "un elenco vuoto non implica un bundle pulito</caption>"
+        f"<tr><th>Pattern / oggetto</th><th>Motivo</th></tr>{skipped_rows}</table>",
+    )
+
+
 def _demo_js() -> str:
     return _DEMO_JS
 
@@ -442,6 +522,7 @@ _PAGES = {
     "demo.js": _demo_js,
     "attack.html": _attack_html,
     "apollo.html": _apollo_html,
+    "metis.html": _metis_html,
 }
 
 

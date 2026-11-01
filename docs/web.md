@@ -146,6 +146,8 @@ as on the API.
 | `GET /engagements`, `GET /engagements/{id}` | The shared engagements and their scope (requires `engagements:read`); available only when the server is started with `--engagement-storage`. |
 | `GET /tools` | The tool catalogue, read straight from the real capability inventory (requires `capabilities:read`). |
 | `GET /apollo` | Apollo detection workbench: inspect the configured validated rule pack and evaluate normalized `olympus.event` NDJSON locally (requires `apollo:read`; evaluation requires `apollo:run` and `--apollo-rules`). |
+| `GET /metis` | Metis STIX import workbench: paste a STIX 2.1 bundle and import the faithful IOC subset offline, with every refused object listed and explained (requires `metis:read`). |
+| `POST /metis/stix/import` | Import a submitted STIX 2.1 bundle into normalized indicators (requires `metis:read`, CSRF-protected); bounded to 1,000,000 characters, no network access. |
 | `GET /assessments/new` | Guided New Assessment wizard (requires `jobs:write`): engagement → target → scope → activity → tool or automatic. |
 | `GET /assessments/smart` | Smart Scan form (requires `jobs:write`): objective → target → scope → engagement → risk ceiling. |
 | `POST /assessments/smart/plan` | Proposes a deterministic, scope- and policy-aware pipeline; queues nothing (requires `jobs:write`, CSRF-protected). |
@@ -208,6 +210,19 @@ normalized `olympus.event` documents and returns `olympus.apollo-evaluation`
 `1.0.0`. The Web page uses the same strict rule loader and evaluator. Evaluation
 is offline and bounded, performs no collection or network access, and remains
 attributed by the existing request audit trail.
+
+## Metis STIX import workbench (`WEB-3` / `API-2`)
+
+`POST /api/v1/metis/stix/import` accepts one STIX 2.1 bundle (JSON text, bounded
+to 1,000,000 characters) and returns the versioned `olympus.metis-stix-import`
+`1.0.0` contract: the faithfully recovered indicators (single-comparison equality
+patterns for domain, IPv4/IPv6, URL, email and file hashes, plus CVE
+vulnerabilities) and every object it refused, each with a reason. The importer
+keeps only the exact subset Olympus indicators can represent and reports the rest
+out loud, so no-match is never silently presented as a clean bundle. The `GET
+/metis` Web page drives the identical `metis.stix.bundle_to_indicators` parser;
+both require `metis:read`. Parsing is pure and offline — no network access, no
+case store write — and stays attributed by the existing request audit trail.
 
 ### Report export (`WEB-I`)
 

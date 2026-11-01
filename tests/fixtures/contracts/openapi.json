@@ -613,6 +613,22 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "IndicatorType": {
+        "description": "Normalized CTI indicator types supported by the native case store.",
+        "enum": [
+          "domain",
+          "email",
+          "ipv4",
+          "ipv6",
+          "url",
+          "sha256",
+          "sha1",
+          "md5",
+          "cve"
+        ],
+        "title": "IndicatorType",
+        "type": "string"
+      },
       "JobList": {
         "additionalProperties": false,
         "properties": {
@@ -747,6 +763,71 @@
         "title": "JobSubmission",
         "type": "object"
       },
+      "MetisStixImportRequest": {
+        "additionalProperties": false,
+        "description": "A single STIX 2.1 bundle (JSON text) submitted for offline IOC import.",
+        "properties": {
+          "bundle": {
+            "maxLength": 1000000,
+            "minLength": 2,
+            "title": "Bundle",
+            "type": "string"
+          }
+        },
+        "required": [
+          "bundle"
+        ],
+        "title": "MetisStixImportRequest",
+        "type": "object"
+      },
+      "MetisStixImportResult": {
+        "additionalProperties": false,
+        "description": "Versioned Metis STIX import result shared by API clients and the Web UI.\n\nThe importer keeps the faithful subset (single-comparison equality patterns\nand CVE vulnerabilities) and records everything it refused, so no-match is\nnever silently presented as a clean bundle.",
+        "properties": {
+          "indicator_count": {
+            "title": "Indicator Count",
+            "type": "integer"
+          },
+          "indicators": {
+            "items": {
+              "$ref": "#/components/schemas/StixImportedIndicator"
+            },
+            "title": "Indicators",
+            "type": "array"
+          },
+          "schema_name": {
+            "const": "olympus.metis-stix-import",
+            "default": "olympus.metis-stix-import",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "skipped": {
+            "items": {
+              "$ref": "#/components/schemas/StixSkippedPattern"
+            },
+            "title": "Skipped",
+            "type": "array"
+          },
+          "skipped_count": {
+            "title": "Skipped Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "indicator_count",
+          "skipped_count",
+          "indicators",
+          "skipped"
+        ],
+        "title": "MetisStixImportResult",
+        "type": "object"
+      },
       "RiskClass": {
         "description": "How intrusive one scanner is against a target, worst-case.\n\nThe ordering is meaningful: ``PASSIVE < ACTIVE < INTRUSIVE <\nDESTRUCTIVE_PROHIBITED``. The first three drive how much friction the guided\nflow puts in front of a launch. ``DESTRUCTIVE_PROHIBITED`` is different in\nkind: it is a **declared product boundary**, not a launchable class \u2014 no\ncatalogued scanner carries it, and :func:`within_product_scope` is ``False``\nfor it, so a capability classified this way is refused, never run.",
         "enum": [
@@ -828,6 +909,45 @@
         ],
         "title": "Source",
         "type": "string"
+      },
+      "StixImportedIndicator": {
+        "additionalProperties": false,
+        "description": "One IOC faithfully recovered from a STIX bundle (type and value only).",
+        "properties": {
+          "indicator_type": {
+            "$ref": "#/components/schemas/IndicatorType"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indicator_type",
+          "value"
+        ],
+        "title": "StixImportedIndicator",
+        "type": "object"
+      },
+      "StixSkippedPattern": {
+        "additionalProperties": false,
+        "description": "A STIX object deliberately not imported, with the honest reason.",
+        "properties": {
+          "pattern": {
+            "title": "Pattern",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pattern",
+          "reason"
+        ],
+        "title": "StixSkippedPattern",
+        "type": "object"
       },
       "ThemisJob": {
         "additionalProperties": false,
@@ -1497,6 +1617,55 @@
         "summary": "Cancel Job",
         "tags": [
           "jobs"
+        ]
+      }
+    },
+    "/api/v1/metis/stix/import": {
+      "post": {
+        "operationId": "metis_stix_import_api_v1_metis_stix_import_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MetisStixImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetisStixImportResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Metis Stix Import",
+        "tags": [
+          "metis"
         ]
       }
     },

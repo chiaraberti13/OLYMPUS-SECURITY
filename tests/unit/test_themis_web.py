@@ -173,6 +173,64 @@ def test_apollo_web_requires_run_scope_for_evaluation(tmp_path: Path) -> None:
     assert client.post("/apollo/evaluate", data={"events": _apollo_event_json()}).status_code == 403
 
 
+def _stix_bundle() -> str:
+    return json.dumps(
+        {
+            "type": "bundle",
+            "id": "bundle--metis-web-test",
+            "objects": [
+                {
+                    "type": "indicator",
+                    "spec_version": "2.1",
+                    "pattern": "[ipv4-addr:value = '198.51.100.7']",
+                    "pattern_type": "stix",
+                },
+                {
+                    "type": "indicator",
+                    "spec_version": "2.1",
+                    "pattern": "[file:hashes.'SHA-256' LIKE 'ab%']",
+                    "pattern_type": "stix",
+                },
+            ],
+        }
+    )
+
+
+def test_metis_web_imports_stix_and_shows_skipped_patterns(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    page = client.get("/metis")
+    assert page.status_code == 200
+    assert "Metis STIX import workbench" in page.text
+    match = re.search(r'name="csrf_token" value="([0-9a-f]+)"', page.text)
+    assert match is not None
+
+    result = client.post(
+        "/metis/stix/import",
+        data={"csrf_token": match.group(1), "bundle": _stix_bundle()},
+    )
+    assert result.status_code == 200, result.text
+    assert "1 indicator(s) imported · 1 skipped" in result.text
+    assert "198.51.100.7" in result.text
+    # The refused LIKE pattern is shown with its reason, never silently dropped.
+    assert "not a simple equality" in result.text
+
+
+def test_metis_web_rejects_a_malformed_bundle_with_422(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    token = re.search(r'name="csrf_token" value="([0-9a-f]+)"', client.get("/metis").text).group(1)
+    result = client.post("/metis/stix/import", data={"csrf_token": token, "bundle": "not json"})
+    assert result.status_code == 422
+    assert "invalid STIX JSON" in result.text
+
+
+def test_metis_web_requires_the_metis_read_scope(tmp_path: Path) -> None:
+    client = _client(tmp_path, api_key_scopes=("capabilities:read",))
+    _login(client)
+    assert client.get("/metis").status_code == 403
+
+
 def test_security_headers_and_csp_are_restrictive(tmp_path: Path) -> None:
     response = _client(tmp_path).get("/login")
     csp = response.headers["content-security-policy"]

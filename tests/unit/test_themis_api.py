@@ -174,6 +174,73 @@ def test_apollo_api_is_fail_closed_when_rule_pack_is_not_configured(tmp_path: Pa
     assert "not configured" in response.json()["detail"]
 
 
+def _stix_bundle() -> str:
+    return json.dumps(
+        {
+            "type": "bundle",
+            "id": "bundle--metis-api-test",
+            "objects": [
+                {
+                    "type": "indicator",
+                    "spec_version": "2.1",
+                    "pattern": "[domain-name:value = 'evil.example']",
+                    "pattern_type": "stix",
+                },
+                {
+                    "type": "indicator",
+                    "spec_version": "2.1",
+                    "pattern": "[ipv4-addr:value = '1.2.3.4'] OR [domain-name:value = 'x']",
+                    "pattern_type": "stix",
+                },
+                {"type": "vulnerability", "spec_version": "2.1", "name": "CVE-2021-44228"},
+            ],
+        }
+    )
+
+
+def test_metis_stix_import_is_versioned_and_reports_skips(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    response = client.post(
+        "/api/v1/metis/stix/import", headers=AUTH, json={"bundle": _stix_bundle()}
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["schema_name"] == "olympus.metis-stix-import"
+    assert body["schema_version"] == "1.0.0"
+    assert (body["indicator_count"], body["skipped_count"]) == (2, 1)
+    kinds = {(item["indicator_type"], item["value"]) for item in body["indicators"]}
+    assert ("domain", "evil.example") in kinds
+    assert ("cve", "CVE-2021-44228") in kinds
+    assert "compound or unmapped" in body["skipped"][0]["reason"]
+
+
+def test_metis_stix_import_rejects_non_bundle_documents(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    response = client.post(
+        "/api/v1/metis/stix/import", headers=AUTH, json={"bundle": '{"type": "indicator"}'}
+    )
+    assert response.status_code == 422
+    assert "not a STIX bundle" in response.json()["detail"]
+
+
+def test_metis_stix_import_requires_the_metis_read_scope(tmp_path: Path) -> None:
+    scopes = tmp_path / "scopes"
+    _scope(scopes)
+    client = TestClient(
+        create_app(
+            ApiSettings(
+                database=tmp_path / "jobs.sqlite3",
+                scope_directory=scopes,
+                api_key=API_KEY,
+                api_key_scopes=("capabilities:read",),
+            )
+        )
+    )
+    denied = client.post("/api/v1/metis/stix/import", headers=AUTH, json={"bundle": _stix_bundle()})
+    assert denied.status_code == 403
+    assert "metis:read" in denied.json()["detail"]
+
+
 def test_shared_key_defaults_to_capabilities_read_only(tmp_path: Path) -> None:
     scopes = tmp_path / "scopes"
     _scope(scopes)

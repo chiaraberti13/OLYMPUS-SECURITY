@@ -46,6 +46,8 @@ from olympus.engagements.resolve import (
 )
 from olympus.engagements.store import SqliteEngagementStore
 from olympus.integrations.capabilities import inventory_document
+from olympus.metis.models import IndicatorType as MetisIndicatorType
+from olympus.metis.stix import StixError, bundle_to_indicators
 from olympus.themis.concurrency import RequestConcurrencyGate, RequestLease
 from olympus.themis.identity import (
     SCOPES,
@@ -335,6 +337,52 @@ class ApolloEvaluationResult(BaseModel):
     alerts: list[Alert]
 
 
+class MetisStixImportRequest(BaseModel):
+    """A single STIX 2.1 bundle (JSON text) submitted for offline IOC import."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # The bundle is bounded so a request cannot exhaust memory; the Web form
+    # applies the same cap. Parsing is pure and offline — no network, no store.
+    bundle: str = Field(min_length=2, max_length=1_000_000)
+
+
+class StixImportedIndicator(BaseModel):
+    """One IOC faithfully recovered from a STIX bundle (type and value only)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    indicator_type: MetisIndicatorType
+    value: str
+
+
+class StixSkippedPattern(BaseModel):
+    """A STIX object deliberately not imported, with the honest reason."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    pattern: str
+    reason: str
+
+
+class MetisStixImportResult(BaseModel):
+    """Versioned Metis STIX import result shared by API clients and the Web UI.
+
+    The importer keeps the faithful subset (single-comparison equality patterns
+    and CVE vulnerabilities) and records everything it refused, so no-match is
+    never silently presented as a clean bundle.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_name: Literal["olympus.metis-stix-import"] = "olympus.metis-stix-import"
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    indicator_count: int
+    skipped_count: int
+    indicators: list[StixImportedIndicator]
+    skipped: list[StixSkippedPattern]
+
+
 async def _renew_request_lease(gate: RequestConcurrencyGate, lease: RequestLease) -> None:
     """Keep a request lease alive until its middleware cancels this task."""
     while True:
@@ -432,6 +480,7 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
     reads_engagements = authenticated("engagements:read")
     reads_apollo = authenticated("apollo:read")
     runs_apollo = authenticated("apollo:run")
+    reads_metis = authenticated("metis:read")
 
     def _apollo_rules() -> tuple[DetectionRule, ...]:
         directory = settings.apollo_rules_directory
@@ -627,6 +676,31 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
             event_count=len(body.events),
             alert_count=len(alerts),
             alerts=alerts,
+        )
+
+    @app.post(
+        "/api/v1/metis/stix/import",
+        response_model=MetisStixImportResult,
+        tags=["metis"],
+    )
+    def metis_stix_import(
+        body: MetisStixImportRequest, caller: Caller = reads_metis
+    ) -> MetisStixImportResult:
+        try:
+            parsed = bundle_to_indicators(body.bundle)
+        except StixError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return MetisStixImportResult(
+            indicator_count=len(parsed.indicators),
+            skipped_count=len(parsed.skipped),
+            indicators=[
+                StixImportedIndicator(indicator_type=item.indicator_type, value=item.value)
+                for item in parsed.indicators
+            ],
+            skipped=[
+                StixSkippedPattern(pattern=item.pattern, reason=item.reason)
+                for item in parsed.skipped
+            ],
         )
 
     @app.get(
