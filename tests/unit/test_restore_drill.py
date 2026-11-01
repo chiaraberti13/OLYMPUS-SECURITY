@@ -36,6 +36,8 @@ def test_drill_restores_snapshot_state_and_reports_loss_window(tmp_path: Path) -
     assert "identity" not in report["stores_not_covered"]  # type: ignore[operator]
     assert "themis-jobs" in report["stores_covered"]  # type: ignore[operator]
     assert "themis-jobs" not in report["stores_not_covered"]  # type: ignore[operator]
+    assert "themis-scope" in report["stores_covered"]  # type: ignore[operator]
+    assert "scope" not in report["stores_not_covered"]  # type: ignore[operator]
     assert recovery["restored_jobs"] == 20
     assert recovery["jobs_lost_after_snapshot"] == 3
 

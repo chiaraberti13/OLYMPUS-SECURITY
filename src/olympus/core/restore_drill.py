@@ -15,6 +15,7 @@ volumes, other stores or other hardware.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import time
 from datetime import UTC, datetime, timedelta
@@ -41,6 +42,7 @@ from olympus.themis.identity import (
     save_register,
 )
 from olympus.themis.jobs import ThemisJobStore
+from olympus.themis.scope_backup import backup_scope, restore_scope
 
 SCHEMA_NAME = "olympus.restore-drill"
 SCHEMA_VERSION = "1.0.0"
@@ -187,6 +189,7 @@ def run_drill(
         id_info = backup_register(register_path, snaps / "identities.json")
         audit_info = backup_audit_log(audit_path, snaps / "audit.jsonl")
         jobs_info = job_store.backup(snaps / "jobs.sqlite3")
+        scope_info = backup_scope(scope_path, snaps / "scope.json")
         _timed(timings, "backup", started)
 
         started = time.perf_counter()
@@ -200,6 +203,7 @@ def run_drill(
                     "identities": "identities.json",
                     "audit": "audit.jsonl",
                     "themis-jobs": "jobs.sqlite3",
+                    "themis-scope": "scope.json",
                 },
             ),
         )
@@ -229,6 +233,7 @@ def run_drill(
     r_id = restore_register_backup(snaps / "identities.json", restored / "identities.json")
     r_audit = restore_audit_backup(snaps / "audit.jsonl", restored / "audit.jsonl")
     r_jobs = ThemisJobStore.restore_backup(snaps / "jobs.sqlite3", restored / "jobs.sqlite3")
+    r_scope = restore_scope(snaps / "scope.json", restored / "scope.json")
     _timed(timings, "restore_and_verify", started)
 
     if r_eng.engagement_count != engagements or eng_info.engagement_count != engagements:
@@ -241,6 +246,12 @@ def run_drill(
         raise RestoreDrillError("restored audit record count differs from the snapshot")
     if r_jobs.job_count != jobs or jobs_info.job_count != jobs:
         raise RestoreDrillError("restored Themis job count differs from the snapshot")
+    if (r_scope.sha256, r_scope.hosts, r_scope.cidrs) != (
+        scope_info.sha256,
+        scope_info.hosts,
+        scope_info.cidrs,
+    ) or r_scope.sha256 != hashlib.sha256(scope_path.read_bytes()).hexdigest():
+        raise RestoreDrillError("restored scope differs from the snapshot")
     states_after = ThemisJobStore(restored / "jobs.sqlite3").counts_by_state()
     if states_after != states_before:
         raise RestoreDrillError("restored Themis job states differ from the snapshot")
@@ -266,11 +277,17 @@ def run_drill(
             "jobs_lost_after_snapshot": post_snapshot,
             "note": "data written after the snapshot is not recovered",
         },
-        "stores_covered": ["engagements", "custody-ledger", "identity", "audit", "themis-jobs"],
+        "stores_covered": [
+            "engagements",
+            "custody-ledger",
+            "identity",
+            "audit",
+            "themis-jobs",
+            "themis-scope",
+        ],
         "stores_not_covered": [
             "athena",
             "findings-transitions",
-            "scope",
             "vault",
             "evidence-files",
             "encryption-keys",

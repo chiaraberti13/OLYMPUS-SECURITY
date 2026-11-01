@@ -371,7 +371,11 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
   (lo snapshot ereditava la modalità WAL); ora viene convertito in
   `journal_mode=DELETE` e un test verifica che resti un solo file. Il digest del file
   ripristinato può differire da quello dello snapshot a parità di dati. Gli altri store
-  (Athena, transizioni finding, scope, vault, evidenze, chiavi) non sono coperti; nessun RPO/RTO di produzione è dichiarato verificato.
+  (Athena, transizioni finding, vault, evidenze, chiavi) non sono coperti; nessun RPO/RTO di produzione è dichiarato verificato.
+  Ulteriore slice (2026-11-01): il drill include anche lo scope Themis
+  (`backup_scope`/`restore_scope`, voce `themis-scope` nel manifest): il restore
+  deve avere SHA-256 e conteggi identici allo snapshot e al file sorgente, altrimenti
+  `RestoreDrillError`. Test aggiornato in `tests/unit/test_restore_drill.py`.
 
 ### WEB-J-02 — Retention e privacy di sistema
 
