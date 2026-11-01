@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import html
+import json
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -29,6 +30,8 @@ from typing import cast
 
 from olympus.apollo.application import ApolloApplicationService
 from olympus.argus.ct import parse_crtsh_response
+from olympus.artemis.fingerprint import fingerprint_response
+from olympus.artemis.http import HttpResponse
 from olympus.athena.application.profiles import get_profile
 from olympus.athena.application.profiles import profiles as scan_profiles
 from olympus.athena.domain.contracts import Target
@@ -99,6 +102,8 @@ def _page(title: str, body: str) -> str:
         "<a href='metis.html'>Metis</a>"
         "<a href='minerva.html'>Minerva</a>"
         "<a href='athena.html'>Athena</a>"
+        "<a href='argus.html'>Argus</a>"
+        "<a href='artemis.html'>Artemis</a>"
         "<a href='attack.html'>Associazioni ATT&amp;CK</a>"
         "<a href='https://github.com/chiaraberti13/OLYMPUS-SECURITY'>Codice</a></nav>"
         f"<div class='banner'>{html.escape(_BANNER)}</div></header>"
@@ -552,6 +557,77 @@ def _athena_html() -> str:
     )
 
 
+_ARGUS_CT_SAMPLE = json.dumps(
+    [
+        {"name_value": "www.acme.lab.invalid\nmail.acme.lab.invalid"},
+        {"name_value": "*.api.acme.lab.invalid"},
+        {"name_value": "vpn.acme.lab.invalid"},
+        {"name_value": "unrelated.example"},
+    ]
+)
+
+
+def _argus_html() -> str:
+    """Extract subdomains from a synthetic CT export with the real Argus core."""
+    subdomains = parse_crtsh_response("acme.lab.invalid", _ARGUS_CT_SAMPLE)
+    rows = "".join(f"<tr><td><code>{html.escape(name)}</code></td></tr>" for name in subdomains)
+    return _page(
+        "OLYMPUS-SECURITY — Argus",
+        "<h2>Argus — sottodomini da Certificate Transparency</h2>"
+        "<p>Questa pagina statica mostra l'estrazione reale e offline dei sottodomini "
+        "da un export Certificate Transparency sintetico (formato crt.sh "
+        "<code>?output=json</code>), prodotta dallo stesso motore "
+        "<code>olympus.argus.ct.parse_crtsh_response</code>. La Web UI operativa espone "
+        "<code>/argus</code>: si incolla la risposta crt.sh di un dominio e si ottengono "
+        "i soli nomi in-dominio, normalizzati, deduplicati e ordinati. Nessuna query CT "
+        "viene inviata: qui non è possibile inviare dati e non c'è accesso di rete.</p>"
+        f"<pre>{html.escape(_ARGUS_CT_SAMPLE)}</pre>"
+        f"<table><caption>{len(subdomains)} sottodomini in-dominio estratti dal motore Argus "
+        "reale (dominio di laboratorio fittizio <code>acme.lab.invalid</code>)</caption>"
+        f"<tr><th>Sottodominio</th></tr>{rows}</table>",
+    )
+
+
+def _artemis_html() -> str:
+    """Fingerprint a synthetic HTTP response with the real Artemis core."""
+    response = HttpResponse(
+        url="https://app.acme.lab.invalid/",
+        status=200,
+        headers={
+            "Server": "nginx/1.25.3",
+            "X-Powered-By": "PHP/8.2.0",
+        },
+        body=(
+            b'<html><head><meta name="generator" content="WordPress 6.4"></head>'
+            b'<body><link href="/wp-content/themes/acme/style.css"></body></html>'
+        ),
+    )
+    fingerprints = fingerprint_response(response)
+    rows = "".join(
+        "<tr>"
+        f"<td><strong>{html.escape(fp.product)}</strong></td>"
+        f"<td>{html.escape(fp.version) if fp.version else '—'}</td>"
+        f"<td>{html.escape(fp.category)}</td>"
+        f"<td>{html.escape(fp.evidence)}</td></tr>"
+        for fp in fingerprints
+    )
+    return _page(
+        "OLYMPUS-SECURITY — Artemis",
+        "<h2>Artemis — fingerprint passivo della risposta</h2>"
+        "<p>Questa pagina statica mostra il fingerprinting reale e offline di una "
+        "risposta HTTP sintetica, prodotto dallo stesso motore "
+        "<code>olympus.artemis.fingerprint.fingerprint_response</code>. La Web UI "
+        "operativa espone <code>/artemis</code>: si incolla una risposta già acquisita "
+        "(status, header e body opzionale) e si ottengono le tecnologie rilevate. "
+        "Nessuna richiesta viene inviata: è una corrispondenza passiva, mai una sonda "
+        "attiva; qui non è possibile inviare dati e non c'è accesso di rete.</p>"
+        f"<table><caption>{len(fingerprints)} tecnologie rilevate dal motore Artemis reale "
+        "(risposta sintetica <code>app.acme.lab.invalid</code>)</caption>"
+        "<tr><th>Prodotto</th><th>Versione</th><th>Categoria</th><th>Evidenza</th></tr>"
+        f"{rows}</table>",
+    )
+
+
 def _demo_js() -> str:
     return _DEMO_JS
 
@@ -568,6 +644,8 @@ _PAGES = {
     "metis.html": _metis_html,
     "minerva.html": _minerva_html,
     "athena.html": _athena_html,
+    "argus.html": _argus_html,
+    "artemis.html": _artemis_html,
 }
 
 

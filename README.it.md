@@ -321,11 +321,16 @@ sua catena di hash viene verificata offline dallo stesso motore di
 `olympus minerva verify`, con l'API tipizzata su
 `POST /api/v1/minerva/verify-ledger`; il workbench CTI **Metis** (`/metis`,
 `POST /api/v1/metis/extract`) che normalizza gli IOC da testo libero, bundle
-STIX 2.1 o eventi MISP offline; e il pianificatore di assessment **Athena**
+STIX 2.1 o eventi MISP offline; il pianificatore di assessment **Athena**
 (`/athena`, `POST /api/v1/athena/plan`) che costruisce un piano firmabile
 `olympus.athena.plan` da un profilo di scansione con lo stesso motore di
 `olympus athena plan from-profile` — deterministico e offline, produce un
-documento di piano, non esegue mai una scansione. Vedi [`docs/web.md`](docs/web.md).
+documento di piano, non esegue mai una scansione; il workbench Certificate
+Transparency **Argus** (`/argus`, `POST /api/v1/argus/ct-subdomains`) che estrae i
+sottodomini in-dominio da un export crt.sh JSON incollato, offline; e il workbench
+di fingerprint **Artemis** (`/artemis`, `POST /api/v1/artemis/fingerprint`) che
+confronta passivamente una risposta HTTP acquisita con le signature tecnologiche.
+Vedi [`docs/web.md`](docs/web.md).
 
 Per i deployment multiutente l'API accetta anche bearer OIDC verificati offline
 con issuer, audience e JWKS locale fissati (`--oidc-issuer`,

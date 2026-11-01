@@ -58,6 +58,9 @@ from olympus.apollo.attack import build_navigator_layer
 from olympus.apollo.engine import evaluate_stream
 from olympus.apollo.ingest import SkippedLine, parse_access_log, parse_windows_json, parse_zeek_json
 from olympus.apollo.rules import DetectionRule
+from olympus.argus.ct import CertificateTransparencyError, parse_crtsh_response
+from olympus.artemis.fingerprint import Fingerprint, fingerprint_response
+from olympus.artemis.http import HttpResponse
 from olympus.athena.application.profiles import ScanProfile, UnknownProfileError, get_profile
 from olympus.athena.application.profiles import profiles as scan_profiles
 from olympus.athena.domain.contracts import AssessmentPlan, Target
@@ -617,6 +620,8 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
     runs_apollo = requires("apollo:run")
     reads_metis = requires("metis:read")
     reads_athena = requires("athena:read")
+    reads_argus = requires("argus:read")
+    reads_artemis = requires("artemis:read")
     reads_minerva = requires("minerva:read")
     minerva_public_key = (
         load_custody_ed25519_public_key(
@@ -736,6 +741,44 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             "profiles": _athena_profile_views(),
             "form": form or {},
             "plan": plan,
+            "error": error,
+            "csrf_token": _csrf_token(session.nonce),
+        }
+
+    def _argus_context(
+        session: WebSession,
+        *,
+        domain: str = "",
+        payload_text: str = "",
+        result: dict[str, object] | None = None,
+        error: str | None = None,
+    ) -> dict[str, object]:
+        return {
+            "domain": domain,
+            "payload_text": payload_text,
+            "result": result,
+            "error": error,
+            "csrf_token": _csrf_token(session.nonce),
+        }
+
+    def _artemis_context(
+        session: WebSession,
+        *,
+        url: str = "",
+        status: str = "200",
+        headers_text: str = "",
+        body_text: str = "",
+        fingerprints: list[Fingerprint] | None = None,
+        analyzed: bool = False,
+        error: str | None = None,
+    ) -> dict[str, object]:
+        return {
+            "url": url,
+            "status": status,
+            "headers_text": headers_text,
+            "body_text": body_text,
+            "fingerprints": fingerprints,
+            "analyzed": analyzed,
             "error": error,
             "csrf_token": _csrf_token(session.nonce),
         }
@@ -1511,6 +1554,126 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             request,
             "athena.html",
             _athena_context(session, form=form, plan=_athena_plan_result(plan, selected)),
+        )
+
+    @app.get("/argus", response_class=HTMLResponse, include_in_schema=False)
+    def argus_page(request: Request, session: WebSession = reads_argus) -> Response:
+        return _page(request, "argus.html", _argus_context(session))
+
+    @app.post("/argus/ct-subdomains", response_class=HTMLResponse, include_in_schema=False)
+    def argus_ct_subdomains(
+        request: Request,
+        csrf_token: Annotated[str, Form()],
+        domain: Annotated[str, Form()],
+        payload: Annotated[str, Form()],
+        session: WebSession = reads_argus,
+    ) -> Response:
+        _check_csrf(session, csrf_token)
+        _rate_limit(session)
+        try:
+            subdomains = parse_crtsh_response(domain, payload)
+        except CertificateTransparencyError:
+            # Static, structural message: the pasted payload is not a crt.sh JSON
+            # array. It never echoes the submitted content.
+            return _page(
+                request,
+                "argus.html",
+                _argus_context(
+                    session,
+                    domain=domain,
+                    payload_text=payload,
+                    error=(
+                        "The payload is not a valid Certificate Transparency JSON array "
+                        "(crt.sh ?output=json). Paste the exact response and try again."
+                    ),
+                ),
+                code=422,
+            )
+        result = {
+            "domain": domain.lower().rstrip("."),
+            "subdomain_count": len(subdomains),
+            "subdomains": subdomains,
+        }
+        return _page(
+            request,
+            "argus.html",
+            _argus_context(session, domain=domain, payload_text=payload, result=result),
+        )
+
+    def _parse_header_lines(raw: str) -> dict[str, str]:
+        """Parse ``Name: value`` lines into a header map (offline, shape only)."""
+        headers: dict[str, str] = {}
+        for line in raw.splitlines():
+            item = line.strip()
+            if not item:
+                continue
+            name, separator, value = item.partition(":")
+            if not separator:
+                raise ValueError("each header line must be 'Name: value'")
+            headers[name.strip()] = value.strip()
+        return headers
+
+    @app.get("/artemis", response_class=HTMLResponse, include_in_schema=False)
+    def artemis_page(request: Request, session: WebSession = reads_artemis) -> Response:
+        return _page(request, "artemis.html", _artemis_context(session))
+
+    @app.post("/artemis/fingerprint", response_class=HTMLResponse, include_in_schema=False)
+    def artemis_fingerprint(
+        request: Request,
+        csrf_token: Annotated[str, Form()],
+        url: Annotated[str, Form()],
+        headers: Annotated[str, Form()],
+        status: Annotated[str, Form()] = "200",
+        body: Annotated[str, Form()] = "",
+        session: WebSession = reads_artemis,
+    ) -> Response:
+        _check_csrf(session, csrf_token)
+        _rate_limit(session)
+
+        def _error(message: str) -> Response:
+            return _page(
+                request,
+                "artemis.html",
+                _artemis_context(
+                    session,
+                    url=url,
+                    status=status,
+                    headers_text=headers,
+                    body_text=body,
+                    error=message,
+                ),
+                code=422,
+            )
+
+        try:
+            status_code = int(status)
+        except ValueError:
+            return _error("The status code must be an integer between 100 and 599.")
+        if not 100 <= status_code <= 599:
+            return _error("The status code must be an integer between 100 and 599.")
+        try:
+            header_map = _parse_header_lines(headers)
+        except ValueError as exc:
+            return _error(str(exc))
+        response = HttpResponse(
+            url=url,
+            status=status_code,
+            headers=header_map,
+            body=body.encode("utf-8"),
+        )
+        fingerprints = fingerprint_response(response)
+        return _page(
+            request,
+            "artemis.html",
+            _artemis_context(
+                session,
+                url=url,
+                status=status,
+                headers_text=headers,
+                body_text=body,
+                fingerprints=fingerprints,
+                analyzed=True,
+            ),
         )
 
     def _assessment_context(

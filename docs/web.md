@@ -151,6 +151,10 @@ as on the API.
 | `POST /metis/extract` | Extract indicators from the submitted input and list any skipped elements with a reason (requires `metis:read`, CSRF-protected). Parsing is local; no collection or network access. |
 | `GET /athena` | Athena assessment planner: list the real, target-free scan profiles and build a validated, signable `olympus.athena.plan` from one (requires `athena:read`). |
 | `POST /athena/plan` | Build a plan from a profile, an authorized target, an engagement scope and a confirmed authorization reference, offline (requires `athena:read`, CSRF-protected). Plan-building is deterministic and network-free: it produces a plan document, it never executes a scan; a profile never self-authorizes a run. |
+| `GET /argus` | Argus Certificate Transparency workbench: extract in-domain subdomains from a crt.sh JSON export, offline (requires `argus:read`). |
+| `POST /argus/ct-subdomains` | Parse the pasted CT export for the given domain and list the normalized, deduplicated, in-domain subdomains (requires `argus:read`, CSRF-protected). Parsing is local; no Certificate Transparency query is issued. |
+| `GET /artemis` | Artemis response-fingerprint workbench: match a captured HTTP response against the curated technology signatures, offline (requires `artemis:read`). |
+| `POST /artemis/fingerprint` | Fingerprint the submitted response (status, headers, optional body) and list the detected technologies (requires `artemis:read`, CSRF-protected). This is a passive match; no request is ever sent. |
 | `GET /assessments/new` | Guided New Assessment wizard (requires `jobs:write`): engagement → target → scope → activity → tool or automatic. |
 | `GET /assessments/smart` | Smart Scan form (requires `jobs:write`): objective → target → scope → engagement → risk ceiling. |
 | `POST /assessments/smart/plan` | Proposes a deterministic, scope- and policy-aware pipeline; queues nothing (requires `jobs:write`, CSRF-protected). |
@@ -270,6 +274,34 @@ signable plan document, it never executes a scan. A profile never self-authorize
 a run — the authorization must be confirmed explicitly (`confirmed=true` on the
 API, the confirmation checkbox on the Web) — so an unconfirmed or out-of-shape
 request is rejected with `422` rather than yielding a silently runnable plan.
+
+## Argus Certificate Transparency workbench (`WEB-3` / `API-2`)
+
+`POST /api/v1/argus/ct-subdomains` accepts a domain and the exact crt.sh JSON
+array (`?output=json`) and returns the versioned `olympus.argus-ct-subdomains`
+`1.0.0` contract: the in-domain subdomains, normalized, deduplicated and sorted.
+The Web page `/argus` uses the identical `olympus.argus.ct.parse_crtsh_response`
+core, so the browser, the API and `olympus argus ct` agree on what a given export
+yields. Only names that are a subdomain of the supplied domain and are
+conservative ASCII DNS hostnames are kept; a wildcard prefix (`*.`) is normalized
+away. Parsing is local and offline: **no Certificate Transparency query is issued
+from the server** — the caller supplies a response they already fetched. Both
+surfaces require the `argus:read` scope, are CSRF-protected on the Web and bounded
+in payload size. A payload that is not a JSON array is rejected with `422`.
+
+## Artemis response-fingerprint workbench (`WEB-3` / `API-2`)
+
+`POST /api/v1/artemis/fingerprint` accepts a captured HTTP response (URL label,
+status, headers and an optional body) and returns the versioned
+`olympus.artemis-fingerprint` `1.0.0` contract: the detected technologies
+(product, category, optional version and the matched evidence). The Web page
+`/artemis` uses the identical `olympus.artemis.fingerprint.fingerprint_response`
+core, so the browser, the API and the Artemis scanner match a response the same
+way. Fingerprinting is a **passive match against a curated signature set**: no
+request is ever sent from the server, so the result reflects only the submitted
+headers and body. Both surfaces require the `artemis:read` scope, are
+CSRF-protected on the Web and bounded in header count and body size. An
+out-of-range status code or a malformed header line is rejected with `422`.
 
 ### Report export (`WEB-I`)
 

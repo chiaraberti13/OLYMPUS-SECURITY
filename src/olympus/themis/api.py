@@ -31,6 +31,9 @@ from olympus import __version__
 from olympus.apollo.application import ApolloApplicationService
 from olympus.apollo.engine import evaluate_stream
 from olympus.apollo.rules import DetectionRule
+from olympus.argus.ct import CertificateTransparencyError, parse_crtsh_response
+from olympus.artemis.fingerprint import Fingerprint, fingerprint_response
+from olympus.artemis.http import HttpResponse
 from olympus.athena.application.profiles import (
     ScanProfile,
     UnknownProfileError,
@@ -630,6 +633,88 @@ def _athena_plan_view(plan: AssessmentPlan, profile: ScanProfile) -> AthenaPlanV
     )
 
 
+#: Upper bound for a Certificate Transparency payload (crt.sh JSON). Generous
+#: enough for a real export, small enough to keep a single request bounded.
+MAX_ARGUS_CT_BYTES = 4_000_000
+#: Upper bounds for an Artemis response-fingerprint request.
+MAX_ARTEMIS_HEADERS = 200
+MAX_ARTEMIS_BODY_BYTES = 2_000_000
+
+
+class ArgusCtRequest(BaseModel):
+    """A Certificate Transparency (crt.sh JSON) export parsed offline for subdomains."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    domain: str = Field(min_length=1, max_length=253)
+    #: The exact JSON array returned by crt.sh (``?output=json``). It is parsed
+    #: locally: no query is ever issued from the server.
+    payload: str = Field(min_length=1, max_length=MAX_ARGUS_CT_BYTES)
+
+
+class ArgusCtResult(BaseModel):
+    """Versioned list of in-domain subdomains extracted from a CT export."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_name: Literal["olympus.argus-ct-subdomains"] = "olympus.argus-ct-subdomains"
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    domain: str
+    subdomain_count: int
+    subdomains: list[str]
+
+
+class ArtemisFingerprintRequest(BaseModel):
+    """A single HTTP response submitted for offline technology fingerprinting.
+
+    The caller supplies a response they already captured (status, headers and an
+    optional body). No request is ever sent from the server: fingerprinting is a
+    pure match against the curated signature set.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    url: str = Field(min_length=1, max_length=2048)
+    status: int = Field(ge=100, le=599)
+    headers: dict[str, str] = Field(default_factory=dict, max_length=MAX_ARTEMIS_HEADERS)
+    body: str = Field(default="", max_length=MAX_ARTEMIS_BODY_BYTES)
+
+
+class ArtemisFingerprintView(BaseModel):
+    """One matched technology projected for API clients and the Web UI."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    product: str
+    category: str
+    version: str | None = None
+    evidence: str
+    references: list[str]
+
+
+class ArtemisFingerprintResult(BaseModel):
+    """Versioned Artemis passive-fingerprint result shared by API and Web."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_name: Literal["olympus.artemis-fingerprint"] = "olympus.artemis-fingerprint"
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    url: str
+    status: int
+    fingerprint_count: int
+    fingerprints: list[ArtemisFingerprintView]
+
+
+def _fingerprint_view(fingerprint: Fingerprint) -> ArtemisFingerprintView:
+    return ArtemisFingerprintView(
+        product=fingerprint.product,
+        category=fingerprint.category,
+        version=fingerprint.version,
+        evidence=fingerprint.evidence,
+        references=list(fingerprint.references),
+    )
+
+
 async def _renew_request_lease(gate: RequestConcurrencyGate, lease: RequestLease) -> None:
     """Keep a request lease alive until its middleware cancels this task."""
     while True:
@@ -729,6 +814,8 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
     runs_apollo = authenticated("apollo:run")
     reads_metis = authenticated("metis:read")
     reads_athena = authenticated("athena:read")
+    reads_argus = authenticated("argus:read")
+    reads_artemis = authenticated("artemis:read")
     reads_minerva = authenticated("minerva:read")
     minerva_public_key = (
         load_custody_ed25519_public_key(
@@ -1029,6 +1116,59 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
             # out-of-shape target, an empty scope or an unknown report format.
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         return _athena_plan_view(plan, selected)
+
+    @app.post(
+        "/api/v1/argus/ct-subdomains",
+        response_model=ArgusCtResult,
+        tags=["argus"],
+    )
+    def argus_ct_subdomains(body: ArgusCtRequest, caller: Caller = reads_argus) -> ArgusCtResult:
+        """Extract in-domain subdomains from a Certificate Transparency export, offline.
+
+        The caller supplies the exact crt.sh JSON array (`?output=json`); it is
+        parsed locally with the same core as `olympus argus ct`. No Certificate
+        Transparency query is issued from the server. Only names that are a
+        subdomain of the given domain and are conservative ASCII DNS hostnames are
+        returned, deduplicated and sorted; a wildcard prefix is normalized away.
+        """
+        try:
+            subdomains = parse_crtsh_response(body.domain, body.payload)
+        except CertificateTransparencyError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return ArgusCtResult(
+            domain=body.domain.lower().rstrip("."),
+            subdomain_count=len(subdomains),
+            subdomains=subdomains,
+        )
+
+    @app.post(
+        "/api/v1/artemis/fingerprint",
+        response_model=ArtemisFingerprintResult,
+        tags=["artemis"],
+    )
+    def artemis_fingerprint(
+        body: ArtemisFingerprintRequest, caller: Caller = reads_artemis
+    ) -> ArtemisFingerprintResult:
+        """Fingerprint a captured HTTP response against the curated signatures, offline.
+
+        The caller supplies a response they already captured (status, headers and
+        an optional body); it is matched locally with the same core as the Artemis
+        scanner. No request is ever sent from the server — this is a passive match,
+        never an active probe.
+        """
+        response = HttpResponse(
+            url=body.url,
+            status=body.status,
+            headers=dict(body.headers),
+            body=body.body.encode("utf-8"),
+        )
+        fingerprints = fingerprint_response(response)
+        return ArtemisFingerprintResult(
+            url=body.url,
+            status=body.status,
+            fingerprint_count=len(fingerprints),
+            fingerprints=[_fingerprint_view(item) for item in fingerprints],
+        )
 
     @app.get(
         "/api/v1/engagements",

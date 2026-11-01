@@ -329,6 +329,128 @@ def test_athena_web_rejects_a_forged_csrf_token(tmp_path: Path) -> None:
     assert result.status_code == 403
 
 
+def test_argus_web_extracts_subdomains_from_a_ct_export(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    page = client.get("/argus")
+    assert page.status_code == 200
+    assert "Argus Certificate Transparency workbench" in page.text
+    match = re.search(r'name="csrf_token" value="([0-9a-f]+)"', page.text)
+    assert match is not None
+    payload = json.dumps(
+        [
+            {"name_value": "www.example.com\n*.api.example.com"},
+            {"name_value": "unrelated.test"},
+        ]
+    )
+    result = client.post(
+        "/argus/ct-subdomains",
+        data={"csrf_token": match.group(1), "domain": "example.com", "payload": payload},
+    )
+    assert result.status_code == 200, result.text
+    assert "2 subdomain(s)" in result.text
+    assert "<code>api.example.com</code>" in result.text
+    assert "<code>www.example.com</code>" in result.text
+    # The out-of-domain name is dropped from the result (the payload textarea
+    # legitimately echoes the submitted JSON, so only the result table is checked).
+    assert "<code>unrelated.test</code>" not in result.text
+
+
+def test_argus_web_reports_a_non_json_payload(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    page = client.get("/argus")
+    match = re.search(r'name="csrf_token" value="([0-9a-f]+)"', page.text)
+    assert match is not None
+    result = client.post(
+        "/argus/ct-subdomains",
+        data={"csrf_token": match.group(1), "domain": "example.com", "payload": "nope"},
+    )
+    assert result.status_code == 422
+    assert "not a valid Certificate Transparency JSON array" in result.text
+
+
+def test_argus_web_requires_the_argus_read_scope(tmp_path: Path) -> None:
+    client = _client(tmp_path, api_key_scopes=("capabilities:read",))
+    _login(client)
+    assert client.get("/argus").status_code == 403
+    assert client.post("/argus/ct-subdomains", data={"csrf_token": "x"}).status_code == 403
+
+
+def test_argus_web_rejects_a_forged_csrf_token(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    result = client.post(
+        "/argus/ct-subdomains",
+        data={"csrf_token": "forged", "domain": "example.com", "payload": "[]"},
+    )
+    assert result.status_code == 403
+
+
+def test_artemis_web_fingerprints_a_pasted_response(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    page = client.get("/artemis")
+    assert page.status_code == 200
+    assert "Artemis response fingerprint workbench" in page.text
+    match = re.search(r'name="csrf_token" value="([0-9a-f]+)"', page.text)
+    assert match is not None
+    result = client.post(
+        "/artemis/fingerprint",
+        data={
+            "csrf_token": match.group(1),
+            "url": "https://app.example.com/",
+            "status": "200",
+            "headers": "Server: nginx/1.25.3\nX-Powered-By: PHP/8.2.0",
+            "body": "<html></html>",
+        },
+    )
+    assert result.status_code == 200, result.text
+    assert "nginx" in result.text and "1.25.3" in result.text
+    assert "PHP" in result.text
+
+
+def test_artemis_web_reports_a_malformed_header_line(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    page = client.get("/artemis")
+    match = re.search(r'name="csrf_token" value="([0-9a-f]+)"', page.text)
+    assert match is not None
+    result = client.post(
+        "/artemis/fingerprint",
+        data={
+            "csrf_token": match.group(1),
+            "url": "https://app.example.com/",
+            "status": "200",
+            "headers": "this-is-not-a-header-line",
+        },
+    )
+    assert result.status_code == 422
+    assert "each header line must be" in result.text
+
+
+def test_artemis_web_requires_the_artemis_read_scope(tmp_path: Path) -> None:
+    client = _client(tmp_path, api_key_scopes=("capabilities:read",))
+    _login(client)
+    assert client.get("/artemis").status_code == 403
+    assert client.post("/artemis/fingerprint", data={"csrf_token": "x"}).status_code == 403
+
+
+def test_artemis_web_rejects_a_forged_csrf_token(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    result = client.post(
+        "/artemis/fingerprint",
+        data={
+            "csrf_token": "forged",
+            "url": "https://app.example.com/",
+            "status": "200",
+            "headers": "Server: nginx",
+        },
+    )
+    assert result.status_code == 403
+
+
 def test_security_headers_and_csp_are_restrictive(tmp_path: Path) -> None:
     response = _client(tmp_path).get("/login")
     csp = response.headers["content-security-policy"]

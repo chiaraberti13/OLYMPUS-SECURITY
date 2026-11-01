@@ -395,11 +395,16 @@ browser also exposes the **Apollo** detection workbench (`--apollo-rules`), a
 engine as `olympus minerva verify`, with the typed API at
 `POST /api/v1/minerva/verify-ledger`; the **Metis** CTI extraction workbench
 (`/metis`, `POST /api/v1/metis/extract`) that normalizes IOCs from free text, a
-STIX 2.1 bundle or a MISP event offline; and the **Athena** assessment planner
+STIX 2.1 bundle or a MISP event offline; the **Athena** assessment planner
 (`/athena`, `POST /api/v1/athena/plan`) that builds a validated, signable
 `olympus.athena.plan` from a scan profile using the same engine as
 `olympus athena plan from-profile` — deterministic and offline, producing a plan
-document, never executing a scan. See [`docs/web.md`](docs/web.md).
+document, never executing a scan; the **Argus** Certificate Transparency workbench
+(`/argus`, `POST /api/v1/argus/ct-subdomains`) that extracts in-domain subdomains
+from a pasted crt.sh JSON export offline; and the **Artemis** response-fingerprint
+workbench (`/artemis`, `POST /api/v1/artemis/fingerprint`) that passively matches a
+captured HTTP response against the curated technology signatures. See
+[`docs/web.md`](docs/web.md).
 
 For multi-user deployments the API also accepts offline-verified OIDC bearer
 tokens with a pinned issuer, audience and local JWKS (`--oidc-issuer`,

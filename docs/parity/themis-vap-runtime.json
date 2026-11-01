@@ -393,6 +393,18 @@
     },
     {
       "surface": "api",
+      "method": "POST",
+      "path": "/api/v1/argus/ct-subdomains",
+      "handler": "argus_ct_subdomains"
+    },
+    {
+      "surface": "api",
+      "method": "POST",
+      "path": "/api/v1/artemis/fingerprint",
+      "handler": "artemis_fingerprint"
+    },
+    {
+      "surface": "api",
       "method": "GET",
       "path": "/api/v1/engagements",
       "handler": "list_engagements"
@@ -474,6 +486,30 @@
       "method": "POST",
       "path": "/athena/plan",
       "handler": "athena_plan"
+    },
+    {
+      "surface": "web",
+      "method": "GET",
+      "path": "/argus",
+      "handler": "argus_page"
+    },
+    {
+      "surface": "web",
+      "method": "POST",
+      "path": "/argus/ct-subdomains",
+      "handler": "argus_ct_subdomains"
+    },
+    {
+      "surface": "web",
+      "method": "GET",
+      "path": "/artemis",
+      "handler": "artemis_page"
+    },
+    {
+      "surface": "web",
+      "method": "POST",
+      "path": "/artemis/fingerprint",
+      "handler": "artemis_fingerprint"
     },
     {
       "surface": "web",
