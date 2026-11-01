@@ -174,6 +174,102 @@ def test_apollo_api_is_fail_closed_when_rule_pack_is_not_configured(tmp_path: Pa
     assert "not configured" in response.json()["detail"]
 
 
+def test_metis_extract_is_versioned_offline_and_covers_every_format(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+
+    text = client.post(
+        "/api/v1/metis/extract",
+        headers=AUTH,
+        json={
+            "source_format": "text",
+            "text": "beacon to 203.0.113.9 from evil@bad.example, see CVE-2021-44228",
+        },
+    )
+    assert text.status_code == 200, text.text
+    body = text.json()
+    assert body["schema_name"] == "olympus.metis-extraction"
+    assert body["schema_version"] == "1.0.0"
+    assert body["source_format"] == "text"
+    kinds = {item["indicator_type"] for item in body["indicators"]}
+    assert {"ipv4", "email", "domain", "cve"} <= kinds
+    assert body["indicator_count"] == len(body["indicators"])
+    assert body["skipped_count"] == 0
+
+    stix_bundle = json.dumps(
+        {
+            "type": "bundle",
+            "id": "bundle--11111111-1111-4111-8111-111111111111",
+            "objects": [
+                {
+                    "type": "indicator",
+                    "id": "indicator--22222222-2222-4222-8222-222222222222",
+                    "pattern": "[ipv4-addr:value = '198.51.100.7']",
+                    "pattern_type": "stix",
+                }
+            ],
+        }
+    )
+    stix = client.post(
+        "/api/v1/metis/extract",
+        headers=AUTH,
+        json={"source_format": "stix", "text": stix_bundle},
+    )
+    assert stix.status_code == 200, stix.text
+    assert stix.json()["indicators"] == [{"indicator_type": "ipv4", "value": "198.51.100.7"}]
+
+    misp_event = json.dumps(
+        {
+            "Event": {
+                "Attribute": [
+                    {"type": "domain", "value": "bad.example"},
+                    {"type": "comment", "value": "analyst note"},
+                ]
+            }
+        }
+    )
+    misp = client.post(
+        "/api/v1/metis/extract",
+        headers=AUTH,
+        json={"source_format": "misp", "text": misp_event},
+    )
+    assert misp.status_code == 200, misp.text
+    misp_body = misp.json()
+    assert misp_body["indicators"] == [{"indicator_type": "domain", "value": "bad.example"}]
+    assert misp_body["skipped_count"] == 1
+    assert "analyst note" in misp_body["skipped"][0]["value"]
+
+
+def test_metis_extract_rejects_malformed_structured_input(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    response = client.post(
+        "/api/v1/metis/extract",
+        headers=AUTH,
+        json={"source_format": "stix", "text": "this is not a STIX bundle"},
+    )
+    assert response.status_code == 422
+
+
+def test_metis_extract_requires_the_metis_read_scope(tmp_path: Path) -> None:
+    scopes = tmp_path / "scopes"
+    _scope(scopes)
+    client = TestClient(
+        create_app(
+            ApiSettings(
+                database=tmp_path / "jobs.sqlite3",
+                scope_directory=scopes,
+                api_key=API_KEY,
+                api_key_scopes=("capabilities:read",),
+            )
+        )
+    )
+    response = client.post(
+        "/api/v1/metis/extract",
+        headers=AUTH,
+        json={"source_format": "text", "text": "203.0.113.9"},
+    )
+    assert response.status_code == 403
+
+
 def test_shared_key_defaults_to_capabilities_read_only(tmp_path: Path) -> None:
     scopes = tmp_path / "scopes"
     _scope(scopes)

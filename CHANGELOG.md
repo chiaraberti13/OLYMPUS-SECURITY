@@ -14,6 +14,18 @@ everything below lives under **Unreleased**.
 
 ### Added
 
+- **Workbench Metis di estrazione CTI su API e Web (`WEB-3` / `API-2`).** Nuovo
+  motore condiviso offline `olympus.metis.extraction.extract_from_source` che
+  unifica testo libero, bundle STIX 2.1 e eventi MISP in un'unica forma onesta
+  (indicatori normalizzati + elementi scartati con motivazione). `POST
+  /api/v1/metis/extract` espone il contratto versionato `olympus.metis-extraction`
+  `1.0.0`; la pagina Web `/metis` riusa lo stesso motore (scope `metis:read`, CSRF,
+  rate limit, input e numero di item limitati). Parsing locale e deterministico,
+  nessuna raccolta o chiamata di rete; un set vuoto di indicatori non implica input
+  pulito quando ci sono elementi scartati. Demo statica `public/metis.html`
+  generata dal motore reale. Doc [`docs/web.md`](docs/web.md); test
+  `tests/unit/test_metis_extraction.py`, `tests/unit/test_themis_api.py`,
+  `tests/unit/test_themis_web.py`, `tests/unit/test_build_preview.py`.
 - `olympus core restore-drill --jobs`: il drill copre anche il database job Themis;
   `ThemisJobStore.backup` non lascia più sidecar `-wal/-shm` orfani (ROADMAP `WEB-J-01`).
 - `olympus themis scope backup|verify-backup|restore`: validated, create-only,

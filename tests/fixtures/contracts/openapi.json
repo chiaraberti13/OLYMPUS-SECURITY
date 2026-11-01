@@ -613,6 +613,22 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "IndicatorType": {
+        "description": "Normalized CTI indicator types supported by the native case store.",
+        "enum": [
+          "domain",
+          "email",
+          "ipv4",
+          "ipv6",
+          "url",
+          "sha256",
+          "sha1",
+          "md5",
+          "cve"
+        ],
+        "title": "IndicatorType",
+        "type": "string"
+      },
       "JobList": {
         "additionalProperties": false,
         "properties": {
@@ -745,6 +761,125 @@
           "authorized"
         ],
         "title": "JobSubmission",
+        "type": "object"
+      },
+      "MetisExtractionRequest": {
+        "additionalProperties": false,
+        "description": "Bounded raw threat-intel submitted for offline, network-free IOC extraction.",
+        "properties": {
+          "source_format": {
+            "default": "text",
+            "enum": [
+              "text",
+              "stix",
+              "misp"
+            ],
+            "title": "Source Format",
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 1000000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "MetisExtractionRequest",
+        "type": "object"
+      },
+      "MetisExtractionResult": {
+        "additionalProperties": false,
+        "description": "Versioned Metis extraction result shared by API clients and the Web UI.",
+        "properties": {
+          "indicator_count": {
+            "title": "Indicator Count",
+            "type": "integer"
+          },
+          "indicators": {
+            "items": {
+              "$ref": "#/components/schemas/MetisIndicator"
+            },
+            "title": "Indicators",
+            "type": "array"
+          },
+          "schema_name": {
+            "const": "olympus.metis-extraction",
+            "default": "olympus.metis-extraction",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "skipped": {
+            "items": {
+              "$ref": "#/components/schemas/MetisSkippedItem"
+            },
+            "title": "Skipped",
+            "type": "array"
+          },
+          "skipped_count": {
+            "title": "Skipped Count",
+            "type": "integer"
+          },
+          "source_format": {
+            "title": "Source Format",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_format",
+          "indicator_count",
+          "skipped_count",
+          "indicators",
+          "skipped"
+        ],
+        "title": "MetisExtractionResult",
+        "type": "object"
+      },
+      "MetisIndicator": {
+        "additionalProperties": false,
+        "description": "A normalized IOC projected for API clients and the Web UI (type + value).",
+        "properties": {
+          "indicator_type": {
+            "$ref": "#/components/schemas/IndicatorType"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indicator_type",
+          "value"
+        ],
+        "title": "MetisIndicator",
+        "type": "object"
+      },
+      "MetisSkippedItem": {
+        "additionalProperties": false,
+        "description": "An input element deliberately not imported, with the honest reason.",
+        "properties": {
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "reason"
+        ],
+        "title": "MetisSkippedItem",
         "type": "object"
       },
       "RiskClass": {
@@ -1497,6 +1632,56 @@
         "summary": "Cancel Job",
         "tags": [
           "jobs"
+        ]
+      }
+    },
+    "/api/v1/metis/extract": {
+      "post": {
+        "description": "Extract IOCs from free text, a STIX bundle or a MISP event, offline.\n\nParsing and normalization are local and deterministic; no network access,\ncollection or enrichment is performed. Unparsed or unmapped input is\nreturned in ``skipped`` with a reason, never silently dropped.",
+        "operationId": "metis_extract_api_v1_metis_extract_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MetisExtractionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetisExtractionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Metis Extract",
+        "tags": [
+          "metis"
         ]
       }
     },
