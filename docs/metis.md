@@ -68,6 +68,27 @@ The SQLite database and exported reports are owner-only (`0600`), foreign keys
 are enabled, inputs are bounded, evidence files must be regular non-symlink
 files, and every finding retains source and confidence.
 
+## STIX / MISP import (API and Web)
+
+The Themis API and Web control plane expose the same STIX 2.1 and MISP import
+parsers over the network, so threat intelligence can be normalized into Olympus
+indicators from the browser without dropping to a terminal:
+
+- `POST /api/v1/metis/import` accepts `source_format` (`stix` or `misp`) and a
+  single JSON `document` (≤ 60 KiB) and returns the versioned
+  `olympus.metis-import` `1.0.0` contract — the faithfully recovered indicators
+  plus the objects deliberately **skipped**, each with a recorded reason. It
+  requires the `metis:run` scope.
+- `GET /metis` / `POST /metis/import` is the browser workbench backed by the
+  exact same parsers (`bundle_to_indicators`, `event_to_indicators`). The page
+  requires `metis:read`; submitting an import requires `metis:run` and is
+  CSRF-protected and audited.
+
+Parsing is offline and deterministic: no network access, nothing persisted, and
+the same import-the-subset / refuse-the-rest discipline as the CLI. A compound
+STIX pattern or an unmapped MISP attribute type is never guessed, and the absence
+of an indicator does not imply the source was clean. See [`web.md`](web.md).
+
 ## Guided labs
 
 ```bash

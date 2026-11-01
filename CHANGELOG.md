@@ -14,6 +14,16 @@ everything below lives under **Unreleased**.
 
 ### Added
 
+- **Workbench import CTI Metis (Web + API) (`WEB-3`/`API-2`).** Nuovo slice che
+  normalizza offline un bundle STIX 2.1 o un evento MISP in indicatori Olympus:
+  `POST /api/v1/metis/import` (contratto versionato `olympus.metis-import` 1.0.0,
+  scope `metis:run`) e pagina `/metis` (`metis:read` per aprirla, `metis:run` per
+  l'import, CSRF e audit). Riusa i parser esistenti `bundle_to_indicators` e
+  `event_to_indicators`: nessuna rete, nessuna persistenza, oggetti fuori dal
+  sottoinsieme fedele elencati con motivazione (mai indovinati). Nuovi scope
+  `metis:read`/`metis:run`; demo statica `public/metis.html` rigenerata dal
+  preview. Doc [`docs/metis.md`](docs/metis.md), [`docs/web.md`](docs/web.md);
+  test in `tests/unit/test_themis_api.py` e `tests/unit/test_themis_web.py`.
 - `olympus core restore-drill --jobs`: il drill copre anche il database job Themis;
   `ThemisJobStore.backup` non lascia più sidecar `-wal/-shm` orfani (ROADMAP `WEB-J-01`).
 - `olympus themis scope backup|verify-backup|restore`: validated, create-only,

@@ -747,6 +747,129 @@
         "title": "JobSubmission",
         "type": "object"
       },
+      "MetisImportRequest": {
+        "additionalProperties": false,
+        "description": "A bounded STIX 2.1 bundle or MISP event submitted for offline normalization.",
+        "properties": {
+          "document": {
+            "maxLength": 60000,
+            "minLength": 1,
+            "title": "Document",
+            "type": "string"
+          },
+          "source_format": {
+            "enum": [
+              "stix",
+              "misp"
+            ],
+            "title": "Source Format",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_format",
+          "document"
+        ],
+        "title": "MetisImportRequest",
+        "type": "object"
+      },
+      "MetisImportResult": {
+        "additionalProperties": false,
+        "description": "Versioned Metis CTI import result shared by API clients and the Web UI.",
+        "properties": {
+          "indicator_count": {
+            "title": "Indicator Count",
+            "type": "integer"
+          },
+          "indicators": {
+            "items": {
+              "$ref": "#/components/schemas/MetisParsedIndicator"
+            },
+            "title": "Indicators",
+            "type": "array"
+          },
+          "schema_name": {
+            "const": "olympus.metis-import",
+            "default": "olympus.metis-import",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "skipped": {
+            "items": {
+              "$ref": "#/components/schemas/MetisSkippedEntry"
+            },
+            "title": "Skipped",
+            "type": "array"
+          },
+          "skipped_count": {
+            "title": "Skipped Count",
+            "type": "integer"
+          },
+          "source_format": {
+            "enum": [
+              "stix",
+              "misp"
+            ],
+            "title": "Source Format",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_format",
+          "indicator_count",
+          "skipped_count",
+          "indicators",
+          "skipped"
+        ],
+        "title": "MetisImportResult",
+        "type": "object"
+      },
+      "MetisParsedIndicator": {
+        "additionalProperties": false,
+        "description": "A single IOC faithfully recovered from a STIX bundle or MISP event.",
+        "properties": {
+          "indicator_type": {
+            "title": "Indicator Type",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indicator_type",
+          "value"
+        ],
+        "title": "MetisParsedIndicator",
+        "type": "object"
+      },
+      "MetisSkippedEntry": {
+        "additionalProperties": false,
+        "description": "An object deliberately not imported, with the reason it was refused.",
+        "properties": {
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "reference": {
+            "title": "Reference",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reference",
+          "reason"
+        ],
+        "title": "MetisSkippedEntry",
+        "type": "object"
+      },
       "RiskClass": {
         "description": "How intrusive one scanner is against a target, worst-case.\n\nThe ordering is meaningful: ``PASSIVE < ACTIVE < INTRUSIVE <\nDESTRUCTIVE_PROHIBITED``. The first three drive how much friction the guided\nflow puts in front of a launch. ``DESTRUCTIVE_PROHIBITED`` is different in\nkind: it is a **declared product boundary**, not a launchable class \u2014 no\ncatalogued scanner carries it, and :func:`within_product_scope` is ``False``\nfor it, so a capability classified this way is refused, never run.",
         "enum": [
@@ -1497,6 +1620,55 @@
         "summary": "Cancel Job",
         "tags": [
           "jobs"
+        ]
+      }
+    },
+    "/api/v1/metis/import": {
+      "post": {
+        "operationId": "metis_import_api_v1_metis_import_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MetisImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetisImportResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Metis Import",
+        "tags": [
+          "metis"
         ]
       }
     },

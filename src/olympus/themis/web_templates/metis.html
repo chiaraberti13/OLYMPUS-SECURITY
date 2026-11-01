@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Metis CTI import · Olympus{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Metis CTI import workbench</h1>
+  <p class="muted">
+    Normalize a STIX 2.1 bundle or a MISP event into Olympus indicators. Parsing is
+    local and offline: this page performs no collection, enrichment or network
+    access, and it persists nothing. Objects outside the faithfully supported
+    subset are refused with a recorded reason — they are never guessed.
+  </p>
+  <p class="risk-banner risk-passive">
+    Educational, training and research use only, on systems you own or are explicitly
+    authorized to assess.
+  </p>
+</section>
+
+<section class="card">
+  <h2>Import indicators</h2>
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+  {% if can_run %}
+  <form method="post" action="/metis/import">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="source_format">Source format</label>
+    <select id="source_format" name="source_format">
+      {% for value, label in [('stix', 'STIX 2.1 bundle (JSON)'), ('misp', 'MISP event (JSON)')] %}
+      <option value="{{ value }}" {% if source_format == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <label for="document">Document (max {{ max_document_chars }} characters)</label>
+    <textarea id="document" name="document" rows="14" required>{{ document_text }}</textarea>
+    <button type="submit">Import</button>
+  </form>
+  {% else %}
+  <p class="muted">Your identity may open this page but is not granted <code>metis:run</code>.</p>
+  {% endif %}
+</section>
+
+{% if result is not none %}
+<section class="card">
+  <h2>Result</h2>
+  <p>
+    Format <code>{{ result.source_format }}</code> ·
+    {{ result.indicator_count }} indicator(s) imported ·
+    {{ result.skipped_count }} object(s) skipped
+  </p>
+  {% if result.skipped_count %}
+  <p role="status">
+    Incomplete import: {{ result.skipped_count }} object(s) were refused as outside the
+    faithful subset. They have not been normalized; absence of an indicator does not
+    imply the source was clean.
+  </p>
+  <table>
+    <thead><tr><th>Reference</th><th>Reason</th></tr></thead>
+    <tbody>
+    {% for item in result.skipped %}<tr><td><code>{{ item.reference }}</code></td><td>{{ item.reason }}</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  {% if result.indicators %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Type</th><th>Value</th></tr></thead>
+    <tbody>{% for indicator in result.indicators %}<tr>
+      <td><code>{{ indicator.indicator_type }}</code></td>
+      <td>{{ indicator.value }}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}
+  <p class="muted">No indicator in the faithful subset was recovered from the document.</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

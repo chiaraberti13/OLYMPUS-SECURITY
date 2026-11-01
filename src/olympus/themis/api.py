@@ -46,6 +46,8 @@ from olympus.engagements.resolve import (
 )
 from olympus.engagements.store import SqliteEngagementStore
 from olympus.integrations.capabilities import inventory_document
+from olympus.metis.misp import MispError, event_to_indicators
+from olympus.metis.stix import StixError, bundle_to_indicators
 from olympus.themis.concurrency import RequestConcurrencyGate, RequestLease
 from olympus.themis.identity import (
     SCOPES,
@@ -335,6 +337,95 @@ class ApolloEvaluationResult(BaseModel):
     alerts: list[Alert]
 
 
+#: Upper bound on a single CTI document submitted for import. A STIX bundle or
+#: MISP event is one JSON document, not line-delimited; 60 KiB keeps it well
+#: within the 64 KiB request-body ceiling with headroom for the JSON envelope.
+MAX_METIS_DOCUMENT_CHARS = 60_000
+
+
+class MetisParsedIndicator(BaseModel):
+    """A single IOC faithfully recovered from a STIX bundle or MISP event."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    indicator_type: str
+    value: str
+
+
+class MetisSkippedEntry(BaseModel):
+    """An object deliberately not imported, with the reason it was refused."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    reference: str
+    reason: str
+
+
+class MetisImportRequest(BaseModel):
+    """A bounded STIX 2.1 bundle or MISP event submitted for offline normalization."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source_format: Literal["stix", "misp"]
+    document: str = Field(min_length=1, max_length=MAX_METIS_DOCUMENT_CHARS)
+
+
+class MetisImportResult(BaseModel):
+    """Versioned Metis CTI import result shared by API clients and the Web UI."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_name: Literal["olympus.metis-import"] = "olympus.metis-import"
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    source_format: Literal["stix", "misp"]
+    indicator_count: int
+    skipped_count: int
+    indicators: list[MetisParsedIndicator]
+    skipped: list[MetisSkippedEntry]
+
+
+def import_cti_document(source_format: str, document: str) -> MetisImportResult:
+    """Normalize a STIX bundle or MISP event into IOCs plus skipped-with-reason.
+
+    The parsing is the same strict, offline, import-the-subset-refuse-the-rest
+    logic the CLI uses (:mod:`olympus.metis.stix`, :mod:`olympus.metis.misp`);
+    nothing here touches the network or persists anything. Raises
+    :class:`ValueError` (``StixError``/``MispError`` are subclasses) when the
+    document is malformed, so callers can map it to a 4xx response.
+    """
+    if source_format == "stix":
+        bundle = bundle_to_indicators(document)
+        indicators = [
+            MetisParsedIndicator(indicator_type=item.indicator_type.value, value=item.value)
+            for item in bundle.indicators
+        ]
+        skipped = [
+            MetisSkippedEntry(reference=item.pattern, reason=item.reason) for item in bundle.skipped
+        ]
+    elif source_format == "misp":
+        event = event_to_indicators(document)
+        indicators = [
+            MetisParsedIndicator(indicator_type=item.indicator_type.value, value=item.value)
+            for item in event.indicators
+        ]
+        skipped = [
+            MetisSkippedEntry(
+                reference=f"{item.misp_type}={item.value}" if item.value else item.misp_type,
+                reason=item.reason,
+            )
+            for item in event.skipped
+        ]
+    else:  # pragma: no cover - callers constrain the format first
+        raise ValueError(f"unsupported CTI format: {source_format!r}")
+    return MetisImportResult(
+        source_format=source_format,  # type: ignore[arg-type]
+        indicator_count=len(indicators),
+        skipped_count=len(skipped),
+        indicators=indicators,
+        skipped=skipped,
+    )
+
+
 async def _renew_request_lease(gate: RequestConcurrencyGate, lease: RequestLease) -> None:
     """Keep a request lease alive until its middleware cancels this task."""
     while True:
@@ -432,6 +523,7 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
     reads_engagements = authenticated("engagements:read")
     reads_apollo = authenticated("apollo:read")
     runs_apollo = authenticated("apollo:run")
+    runs_metis = authenticated("metis:run")
 
     def _apollo_rules() -> tuple[DetectionRule, ...]:
         directory = settings.apollo_rules_directory
@@ -628,6 +720,17 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
             alert_count=len(alerts),
             alerts=alerts,
         )
+
+    @app.post(
+        "/api/v1/metis/import",
+        response_model=MetisImportResult,
+        tags=["metis"],
+    )
+    def metis_import(body: MetisImportRequest, caller: Caller = runs_metis) -> MetisImportResult:
+        try:
+            return import_cti_document(body.source_format, body.document)
+        except (StixError, MispError, ValueError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @app.get(
         "/api/v1/engagements",

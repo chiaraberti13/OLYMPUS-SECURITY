@@ -64,7 +64,7 @@ non necessariamente provato in lab live.
 | Scanner plane | **Themis** (registry 24 engine, maturity ladder, sandbox, job SQLite, API, Web) | [~] | adapter a maturità diversa; pochi live-tested |
 | Web attiva | **Artemis** (fingerprint/header/XSS checks) | [x] | offline-tested |
 | Blue Team | **Apollo** (ingest access-log/Zeek, detection, ATT&CK, coverage) | [~] | manca ingest Windows/Sysmon |
-| CTI | **Metis** (IOC, STIX/MISP import, case) | [~] | manca CTI live (TAXII/MISP/OpenCTI) |
+| CTI | **Metis** (IOC, STIX/MISP import, case) | [~] | import STIX/MISP esposto via API/Web; manca CTI live (TAXII/MISP/OpenCTI) |
 | Evidenze | **Minerva** (timeline firmata Ed25519) | [x] | verify offline |
 | Reporting | **Vulcan** (aggregazione, JSON/MD/HTML/PDF, SARIF, enrichment KEV/EPSS, sezioni da manifest) | [x] | test completi |
 | Altri | Helios, Hermes, Proteus | [~] | superfici parziali |
@@ -145,7 +145,10 @@ export, storico, documentazione. La CLI resta alternativa, non unico accesso.
 
 - **WEB-1** [x] Web control plane nativo sopra l'API tipizzata (submit job, SSE, cancel), con security headers/CSP/CSRF/sessioni.
 - **WEB-2** [~] Pagine operative dei tool esistenti (Themis scan, findings, diff, trend, report, engagement).
-- **WEB-3** [~] Copertura Web di **tutti** i tool dell'ecosistema (Argus, Apollo, Metis, Minerva, Athena, Artemis…) con pagine dedicate operative. Vulcan: associazioni CWE→ATT&CK consultabili in `/findings/attack`, con provenienza, finding non mappati ed export Navigator; riuso del motore offline, accesso `findings:read`. Apollo: workbench operativo `/apollo` sul rule pack configurato dal server, input `olympus.event` NDJSON limitato, valutazione offline reale, scope `apollo:read`/`apollo:run`, CSRF e audit. Ingest Web di access log HTTP, Zeek JSON e Windows/Sysmon JSON tramite parser esistenti, limite di 500 righe fisiche e scarti visibili; verifica offline con fixture e regole Sysmon incluse. Restano gli altri flussi/moduli.
+- **WEB-3** [~] Copertura Web di **tutti** i tool dell'ecosistema (Argus, Apollo, Metis, Minerva, Athena, Artemis…) con pagine dedicate operative. Vulcan: associazioni CWE→ATT&CK consultabili in `/findings/attack`, con provenienza, finding non mappati ed export Navigator; riuso del motore offline, accesso `findings:read`. Apollo: workbench operativo `/apollo` sul rule pack configurato dal server, input `olympus.event` NDJSON limitato, valutazione offline reale, scope `apollo:read`/`apollo:run`, CSRF e audit. Ingest Web di access log HTTP, Zeek JSON e Windows/Sysmon JSON tramite parser esistenti, limite di 500 righe fisiche e scarti visibili; verifica offline con fixture e regole Sysmon incluse. Metis: workbench CTI operativo `/metis` che normalizza offline un
+  bundle STIX 2.1 o un evento MISP in indicatori Olympus, con oggetti scartati
+  elencati e motivati (import-the-subset, mai indovinati), scope `metis:read`/
+  `metis:run`, CSRF e audit. Restano gli altri flussi/moduli.
 - **WEB-4** [ ] Dashboard principale con stato sistema, job attivi, findings per severità, coverage ATT&CK.
 - **WEB-5** [ ] Wizard "New Assessment" end-to-end (engagement → scope → profilo → esecuzione → report).
 - **WEB-6** [ ] Configurazione guidata, feedback operazioni, gestione errori/eccezioni uniforme.
@@ -153,7 +156,10 @@ export, storico, documentazione. La CLI resta alternativa, non unico accesso.
 ## 9. Backend, API e orchestrazione
 
 - **API-1** [x] API FastAPI tipizzata (auth per-scope, accountability, `/jobs`, `/capabilities`, health/ready/metrics).
-- **API-2** [~] Estendere l'API a **tutti** i tool con contratti versionati (non solo Themis). Slice Apollo implementata: `GET /api/v1/apollo/rules` (`olympus.apollo-rule-list` 1.0.0) e `POST /api/v1/apollo/evaluate` (`olympus.apollo-evaluation` 1.0.0), rule pack server-owned e valutazione tipizzata/bounded; restano gli altri moduli.
+- **API-2** [~] Estendere l'API a **tutti** i tool con contratti versionati (non solo Themis). Slice Apollo implementata: `GET /api/v1/apollo/rules` (`olympus.apollo-rule-list` 1.0.0) e `POST /api/v1/apollo/evaluate` (`olympus.apollo-evaluation` 1.0.0), rule pack server-owned e valutazione tipizzata/bounded. Slice Metis implementata:
+  `POST /api/v1/metis/import` (`olympus.metis-import` 1.0.0) normalizza STIX 2.1 o
+  MISP (documento ≤ 60 KiB) in indicatori + scarti motivati, scope `metis:run`;
+  restano gli altri moduli.
 - **API-3** [ ] Execution Engine: worker persistente, coda, retry idempotenti, backpressure, checkpoint, cancellazione coerente CLI/TUI/API/Web.
 - **API-4** [ ] CORS/origin policy verso il dominio Web di deploy; autenticazione multiutente.
 
@@ -226,6 +232,23 @@ pertinenti, documentazione IT/EN aggiornata, nessun segreto nel diff, commit su
 per esecuzioni e promozioni senza evidenza.
 
 ## 19. Debito tecnico e rischi residui
+
+### Incremento import CTI Metis (Web + API) — 2026-11-01
+
+- `WEB-3`/`API-2`: nuovo slice Metis. `POST /api/v1/metis/import`
+  (`olympus.metis-import` 1.0.0, scope `metis:run`) e workbench `/metis`
+  (`metis:read` per la pagina, `metis:run` per l'import, CSRF) normalizzano
+  offline un bundle STIX 2.1 o un evento MISP in indicatori Olympus, riusando i
+  parser esistenti (`bundle_to_indicators`, `event_to_indicators`). Oggetti fuori
+  dal sottoinsieme fedele elencati con motivazione; nessuna rete, nessuna
+  persistenza, nessun claim live-tested. Nuovi scope `metis:read`/`metis:run`.
+- Demo statica ampliata con `public/metis.html`, generata eseguendo il parser
+  STIX reale su un bundle sintetico e verificata dal drift gate del preview.
+  Verifica deployment Vercel non eseguita in questo ambiente.
+- QA: 4 test API + 3 test Web mirati verdi; golden OpenAPI rigenerato
+  deliberatamente (solo aggiunte, retrocompatibile); Ruff lint/format e mypy
+  `--strict` su `src/olympus` verdi; doc-link check verde. Nessun quality gate
+  disabilitato.
 
 ### Incremento Web Vulcan — 2026-11-01
 

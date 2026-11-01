@@ -146,6 +146,7 @@ as on the API.
 | `GET /engagements`, `GET /engagements/{id}` | The shared engagements and their scope (requires `engagements:read`); available only when the server is started with `--engagement-storage`. |
 | `GET /tools` | The tool catalogue, read straight from the real capability inventory (requires `capabilities:read`). |
 | `GET /apollo` | Apollo detection workbench: inspect the configured validated rule pack and evaluate normalized `olympus.event` NDJSON locally (requires `apollo:read`; evaluation requires `apollo:run` and `--apollo-rules`). |
+| `GET /metis`, `POST /metis/import` | Metis CTI import workbench: normalize a STIX 2.1 bundle or a MISP event into Olympus indicators offline, with refused objects listed and a recorded reason (page requires `metis:read`; import requires `metis:run`, CSRF-protected). |
 | `GET /assessments/new` | Guided New Assessment wizard (requires `jobs:write`): engagement → target → scope → activity → tool or automatic. |
 | `GET /assessments/smart` | Smart Scan form (requires `jobs:write`): objective → target → scope → engagement → risk ceiling. |
 | `POST /assessments/smart/plan` | Proposes a deterministic, scope- and policy-aware pipeline; queues nothing (requires `jobs:write`, CSRF-protected). |
@@ -159,7 +160,9 @@ Scope enforcement is per route: a `jobs:read` identity can browse but cannot ope
 the new-assessment form or submit; `jobs:cancel` is required to cancel;
 `engagements:read` is required to view engagements; `capabilities:read` is
 required to view the tools page; `findings:read` is required to browse findings
-and `findings:write` to record a lifecycle transition.
+and `findings:write` to record a lifecycle transition; `apollo:read`/`apollo:run`
+gate the Apollo workbench and `metis:read`/`metis:run` gate the Metis CTI import
+workbench.
 
 ## Findings (`WEB-C`)
 
@@ -208,6 +211,23 @@ normalized `olympus.event` documents and returns `olympus.apollo-evaluation`
 `1.0.0`. The Web page uses the same strict rule loader and evaluator. Evaluation
 is offline and bounded, performs no collection or network access, and remains
 attributed by the existing request audit trail.
+
+## Metis CTI import workbench (`WEB-3` / `API-2`)
+
+Metis turns externally shared threat intelligence into Olympus indicators.
+`POST /api/v1/metis/import` accepts a bounded `source_format` (`stix` or `misp`)
+and a single JSON `document` (at most 60 KiB, inside the 64 KiB request ceiling)
+and returns the versioned `olympus.metis-import` `1.0.0` contract: the faithfully
+recovered indicators (type + value) and the objects deliberately **skipped** with
+a recorded reason. The Web page `GET /metis` / `POST /metis/import` drives the
+exact same parsers (`olympus.metis.stix.bundle_to_indicators`,
+`olympus.metis.misp.event_to_indicators`) the CLI uses. Parsing is offline and
+deterministic: it performs no network access, persists nothing, and follows the
+same import-the-subset / refuse-the-rest discipline — a compound STIX pattern or
+an unmapped MISP attribute type is never guessed. Absence of an indicator does
+not imply the source was clean; incomplete imports are reported explicitly. The
+API import requires `metis:run`; the page requires `metis:read` to open and
+`metis:run` to submit, and is CSRF-protected and audited like every other route.
 
 ### Report export (`WEB-I`)
 

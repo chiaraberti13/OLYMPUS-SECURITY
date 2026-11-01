@@ -173,6 +173,73 @@ def test_apollo_web_requires_run_scope_for_evaluation(tmp_path: Path) -> None:
     assert client.post("/apollo/evaluate", data={"events": _apollo_event_json()}).status_code == 403
 
 
+def _misp_event_json() -> str:
+    return json.dumps(
+        {
+            "Event": {
+                "Attribute": [
+                    {"type": "domain", "value": "bad.test"},
+                    {"type": "sha256", "value": "a" * 64},
+                    {"type": "btc", "value": "1abc"},
+                ]
+            }
+        }
+    )
+
+
+def test_metis_web_imports_a_misp_event_and_shows_skipped_with_reason(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    page = client.get("/metis")
+    assert page.status_code == 200
+    assert "Metis CTI import workbench" in page.text
+    match = re.search(r'name="csrf_token" value="([0-9a-f]+)"', page.text)
+    assert match is not None
+
+    result = client.post(
+        "/metis/import",
+        data={
+            "csrf_token": match.group(1),
+            "source_format": "misp",
+            "document": _misp_event_json(),
+        },
+    )
+    assert result.status_code == 200, result.text
+    assert "2 indicator(s) imported" in result.text
+    assert "1 object(s) skipped" in result.text
+    assert "bad.test" in result.text
+    assert "unmapped MISP attribute type" in result.text
+
+
+def test_metis_web_reports_a_malformed_document(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    page = client.get("/metis")
+    match = re.search(r'name="csrf_token" value="([0-9a-f]+)"', page.text)
+    assert match is not None
+    result = client.post(
+        "/metis/import",
+        data={"csrf_token": match.group(1), "source_format": "stix", "document": "{bad"},
+    )
+    assert result.status_code == 422
+    assert "not a valid STIX bundle or MISP event" in result.text
+
+
+def test_metis_web_requires_run_scope_for_import(tmp_path: Path) -> None:
+    client = _client(tmp_path, api_key_scopes=("metis:read",))
+    _login(client)
+    page = client.get("/metis")
+    assert page.status_code == 200
+    assert "not granted" in page.text
+    assert (
+        client.post(
+            "/metis/import",
+            data={"source_format": "stix", "document": _misp_event_json()},
+        ).status_code
+        == 403
+    )
+
+
 def test_security_headers_and_csp_are_restrictive(tmp_path: Path) -> None:
     response = _client(tmp_path).get("/login")
     csp = response.headers["content-security-policy"]

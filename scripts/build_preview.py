@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import html
+import json
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -33,6 +34,7 @@ from olympus.core.enums import AssetType, FindingStatus, Severity, Source
 from olympus.core.models import Asset, Finding
 from olympus.integrations.scanners import REGISTRY
 from olympus.integrations.suite_catalog import catalog_document
+from olympus.metis.stix import bundle_to_indicators
 from olympus.themis.adapters.nmap import NmapAdapter
 from olympus.themis.model import ScanRequest
 from olympus.themis.runner import CommandOutput
@@ -91,6 +93,7 @@ def _page(title: str, body: str) -> str:
         "<nav><a href='index.html'>Panoramica</a><a href='tools.html'>Strumenti</a>"
         "<a href='demo.html'>Demo guidata</a><a href='report.html'>Report di esempio</a>"
         "<a href='apollo.html'>Apollo</a>"
+        "<a href='metis.html'>Metis CTI</a>"
         "<a href='attack.html'>Associazioni ATT&amp;CK</a>"
         "<a href='https://github.com/chiaraberti13/OLYMPUS-SECURITY'>Codice</a></nav>"
         f"<div class='banner'>{html.escape(_BANNER)}</div></header>"
@@ -429,6 +432,66 @@ def _apollo_html() -> str:
     )
 
 
+#: A synthetic STIX 2.1 bundle rendered through the real Metis importer so the
+#: demo shows exactly what the offline normalizer produces — faithful IOCs plus
+#: the objects it deliberately refuses — without any network access.
+_METIS_SAMPLE_BUNDLE = json.dumps(
+    {
+        "type": "bundle",
+        "id": "bundle--00000000-0000-4000-8000-000000000000",
+        "objects": [
+            {
+                "type": "indicator",
+                "pattern": "[domain-name:value = 'malware.example']",
+                "pattern_type": "stix",
+            },
+            {
+                "type": "indicator",
+                "pattern": "[ipv4-addr:value = '203.0.113.17']",
+                "pattern_type": "stix",
+            },
+            {
+                "type": "indicator",
+                "pattern": "[domain-name:value = 'a.example'] OR [domain-name:value = 'b.example']",
+                "pattern_type": "stix",
+            },
+            {"type": "vulnerability", "name": "CVE-2026-12345"},
+        ],
+    }
+)
+
+
+def _metis_html() -> str:
+    """Render a synthetic STIX import through the real Metis parser."""
+    bundle = bundle_to_indicators(_METIS_SAMPLE_BUNDLE)
+    indicator_rows = "".join(
+        f"<tr><td><code>{html.escape(item.indicator_type.value)}</code></td>"
+        f"<td>{html.escape(item.value)}</td></tr>"
+        for item in bundle.indicators
+    )
+    skipped_rows = "".join(
+        f"<tr><td><code>{html.escape(item.pattern)}</code></td>"
+        f"<td>{html.escape(item.reason)}</td></tr>"
+        for item in bundle.skipped
+    )
+    return _page(
+        "OLYMPUS-SECURITY — Metis CTI",
+        "<h2>Metis CTI import workbench</h2>"
+        "<p>La Web UI operativa espone <code>/metis</code>: normalizza un bundle STIX 2.1 "
+        "o un evento MISP in indicatori Olympus. L'analisi è locale e offline, non "
+        "persiste nulla e non effettua alcuna chiamata di rete. Gli oggetti fuori dal "
+        "sottoinsieme supportato vengono rifiutati con motivazione, mai indovinati. "
+        "Qui non è possibile inviare dati: la tabella seguente è generata eseguendo il "
+        "parser Metis reale su un bundle sintetico incluso.</p>"
+        f"<table><caption>{len(bundle.indicators)} indicatore/i dal parser STIX reale</caption>"
+        f"<tr><th>Tipo</th><th>Valore</th></tr>{indicator_rows}</table>"
+        "<p>Oggetti scartati (import incompleto: l'assenza di un indicatore non implica "
+        "una sorgente pulita):</p>"
+        f"<table><caption>{len(bundle.skipped)} oggetto/i rifiutato/i con motivazione</caption>"
+        f"<tr><th>Riferimento</th><th>Motivo</th></tr>{skipped_rows}</table>",
+    )
+
+
 def _demo_js() -> str:
     return _DEMO_JS
 
@@ -442,6 +505,7 @@ _PAGES = {
     "demo.js": _demo_js,
     "attack.html": _attack_html,
     "apollo.html": _apollo_html,
+    "metis.html": _metis_html,
 }
 
 

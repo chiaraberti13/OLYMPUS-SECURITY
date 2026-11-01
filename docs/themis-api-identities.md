@@ -19,6 +19,12 @@ operated with `olympus themis identities …`; tested in
 | `jobs:write` | `POST /api/v1/jobs` |
 | `jobs:cancel` | `POST /api/v1/jobs/{id}/cancel` |
 | `engagements:read` | `GET /api/v1/engagements`, `GET /api/v1/engagements/{id}` |
+| `apollo:read` | `GET /api/v1/apollo/rules` |
+| `apollo:run` | `POST /api/v1/apollo/evaluate` |
+| `metis:run` | `POST /api/v1/metis/import` |
+
+(`apollo:read`/`metis:read` additionally gate the browser-only workbench pages;
+see [`web.md`](web.md).)
 
 A credential without the scope a route requires gets **403**, and the response
 names the missing scope. An unknown scope in the register is refused when the

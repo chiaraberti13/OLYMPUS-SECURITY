@@ -174,6 +174,106 @@ def test_apollo_api_is_fail_closed_when_rule_pack_is_not_configured(tmp_path: Pa
     assert "not configured" in response.json()["detail"]
 
 
+def _stix_bundle() -> str:
+    return json.dumps(
+        {
+            "type": "bundle",
+            "id": "bundle--11111111-1111-4111-8111-111111111111",
+            "objects": [
+                {
+                    "type": "indicator",
+                    "pattern": "[domain-name:value = 'evil.example']",
+                    "pattern_type": "stix",
+                },
+                {
+                    "type": "indicator",
+                    "pattern": "[ipv4-addr:value = '203.0.113.9'] AND [domain-name:value = 'a']",
+                    "pattern_type": "stix",
+                },
+                {"type": "vulnerability", "name": "CVE-2026-0001"},
+            ],
+        }
+    )
+
+
+def test_metis_import_normalizes_a_stix_bundle_and_is_versioned(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    response = client.post(
+        "/api/v1/metis/import",
+        headers=AUTH,
+        json={"source_format": "stix", "document": _stix_bundle()},
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["schema_name"] == "olympus.metis-import"
+    assert body["schema_version"] == "1.0.0"
+    assert body["source_format"] == "stix"
+    assert (body["indicator_count"], body["skipped_count"]) == (2, 1)
+    values = {(item["indicator_type"], item["value"]) for item in body["indicators"]}
+    assert ("domain", "evil.example") in values
+    assert ("cve", "CVE-2026-0001") in values
+    assert body["skipped"][0]["reason"]
+
+
+def test_metis_import_skips_unmapped_misp_attributes_with_a_reason(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    document = json.dumps(
+        {
+            "Event": {
+                "Attribute": [
+                    {"type": "domain", "value": "bad.test"},
+                    {"type": "ip-dst|port", "value": "198.51.100.2|443"},
+                    {"type": "btc", "value": "1abc"},
+                ]
+            }
+        }
+    )
+    response = client.post(
+        "/api/v1/metis/import",
+        headers=AUTH,
+        json={"source_format": "misp", "document": document},
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert (body["indicator_count"], body["skipped_count"]) == (2, 1)
+    assert body["skipped"][0]["reason"] == "unmapped MISP attribute type"
+    assert ("ipv4", "198.51.100.2") in {
+        (item["indicator_type"], item["value"]) for item in body["indicators"]
+    }
+
+
+def test_metis_import_rejects_a_malformed_document(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    response = client.post(
+        "/api/v1/metis/import",
+        headers=AUTH,
+        json={"source_format": "stix", "document": "{not json"},
+    )
+    assert response.status_code == 422, response.text
+
+
+def test_metis_import_requires_the_run_scope(tmp_path: Path) -> None:
+    scopes = tmp_path / "scopes"
+    _scope(scopes)
+    client = TestClient(
+        create_app(
+            ApiSettings(
+                database=tmp_path / "jobs.sqlite3",
+                scope_directory=scopes,
+                api_key=API_KEY,
+                api_key_scopes=("capabilities:read",),
+            )
+        )
+    )
+    response = client.post(
+        "/api/v1/metis/import",
+        headers=AUTH,
+        json={"source_format": "stix", "document": _stix_bundle()},
+    )
+    assert response.status_code == 403
+    assert "metis:run" in response.json()["detail"]
+
+
 def test_shared_key_defaults_to_capabilities_read_only(tmp_path: Path) -> None:
     scopes = tmp_path / "scopes"
     _scope(scopes)

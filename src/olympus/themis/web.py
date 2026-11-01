@@ -103,14 +103,17 @@ from olympus.integrations.smartscan import (
 )
 from olympus.minerva.triage import incident_status_breakdown, load_incidents
 from olympus.themis.api import (
+    MAX_METIS_DOCUMENT_CHARS,
     MAX_REQUEST_BYTES,
     ApiSettings,
     JobSubmission,
+    MetisImportResult,
     _registered_scope,
     _RegisterSource,
     _renew_request_lease,
     _trace_id,
     authorize_submission_manifest,
+    import_cti_document,
 )
 from olympus.themis.concurrency import RequestConcurrencyGate
 from olympus.themis.identity import IdentityError, RateLimiter
@@ -603,6 +606,8 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
     writes_findings = requires("findings:write")
     reads_apollo = requires("apollo:read")
     runs_apollo = requires("apollo:run")
+    reads_metis = requires("metis:read")
+    runs_metis = requires("metis:run")
     engagements_database = settings.engagements_database
     findings_directory = settings.findings_directory
     findings_database = settings.findings_database
@@ -640,6 +645,24 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             "event_count": event_count,
             "error": error,
             "can_run": "apollo:run" in session.scopes,
+            "csrf_token": _csrf_token(session.nonce),
+        }
+
+    def _metis_context(
+        session: WebSession,
+        *,
+        source_format: str = "stix",
+        document_text: str = "",
+        result: MetisImportResult | None = None,
+        error: str | None = None,
+    ) -> dict[str, object]:
+        return {
+            "source_format": source_format,
+            "document_text": document_text,
+            "result": result,
+            "error": error,
+            "max_document_chars": MAX_METIS_DOCUMENT_CHARS,
+            "can_run": "metis:run" in session.scopes,
             "csrf_token": _csrf_token(session.nonce),
         }
 
@@ -1215,6 +1238,63 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 skipped=skipped,
                 alerts=alerts,
                 event_count=len(parsed),
+            ),
+        )
+
+    @app.get("/metis", response_class=HTMLResponse, include_in_schema=False)
+    def metis_page(request: Request, session: WebSession = reads_metis) -> Response:
+        return _page(request, "metis.html", _metis_context(session))
+
+    @app.post("/metis/import", response_class=HTMLResponse, include_in_schema=False)
+    def metis_import(
+        request: Request,
+        document: Annotated[str, Form()],
+        csrf_token: Annotated[str, Form()],
+        source_format: Annotated[str, Form()] = "stix",
+        session: WebSession = runs_metis,
+    ) -> Response:
+        _check_csrf(session, csrf_token)
+        _rate_limit(session)
+        if source_format not in {"stix", "misp"}:
+            raise HTTPException(status_code=422, detail="Unsupported CTI format")
+        if not 1 <= len(document) <= MAX_METIS_DOCUMENT_CHARS:
+            return _page(
+                request,
+                "metis.html",
+                _metis_context(
+                    session,
+                    source_format=source_format,
+                    document_text=document,
+                    error=(
+                        "Provide a non-empty document of at most "
+                        f"{MAX_METIS_DOCUMENT_CHARS} characters."
+                    ),
+                ),
+                code=422,
+            )
+        try:
+            result = import_cti_document(source_format, document)
+        except ValueError:
+            return _page(
+                request,
+                "metis.html",
+                _metis_context(
+                    session,
+                    source_format=source_format,
+                    document_text=document,
+                    error="The document is not a valid STIX bundle or MISP event for the "
+                    "selected format.",
+                ),
+                code=422,
+            )
+        return _page(
+            request,
+            "metis.html",
+            _metis_context(
+                session,
+                source_format=source_format,
+                document_text=document,
+                result=result,
             ),
         )
 
