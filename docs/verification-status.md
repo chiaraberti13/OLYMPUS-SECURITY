@@ -226,7 +226,8 @@ nessun RPO/RTO dichiarato.
 ## WEB-J-01 — restore drill offline con RTO misurato (2026-11-01)
 
 `olympus core restore-drill --workdir <nuova-dir>` (`core/restore_drill.py`) crea uno
-store engagement e un ledger di custodia **sintetici**, li snapshotta con i verificatori
+store engagement, un ledger di custodia, un registro identità e un log di audit
+**sintetici**, li snapshotta con i verificatori
 dei rispettivi store, li lega in un `backup-manifest.json`, li ripristina in una
 directory pulita e confronta i conteggi. I tempi sono misurati con clock monotono;
 l'output dichiara dataset, store coperti e non coperti. Misura locale indicativa
@@ -234,7 +235,7 @@ l'output dichiara dataset, store coperti e non coperti. Misura locale indicativa
 verifica ≈ 0,02 s. Le scritture successive allo snapshot risultano assenti dal
 restore: la finestra di perdita dati coincide con l'intervallo dall'ultimo
 snapshot, nessun RPO è promesso. Non copre Athena, transizioni finding, job Themis,
-identità, audit, scope, vault, evidenze e chiavi. Tre test in
+scope, vault, evidenze e chiavi. Tre test in
 `tests/unit/test_restore_drill.py`; non è una garanzia RPO/RTO di produzione.
 
 ## WEB-B-01 — verifica browser reale dello stato store (2026-11-01)

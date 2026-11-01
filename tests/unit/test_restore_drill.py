@@ -20,6 +20,8 @@ def test_drill_restores_snapshot_state_and_reports_loss_window(tmp_path: Path) -
         "synthetic": True,
         "engagements": 7,
         "ledger_entries": 4,
+        "identities": 10,
+        "audit_records": 50,
         "post_snapshot_writes": 3,
     }
     recovery = report["recovery_point"]
@@ -29,6 +31,8 @@ def test_drill_restores_snapshot_state_and_reports_loss_window(tmp_path: Path) -
     assert float(str(report["rto_seconds"])) >= 0
     assert "not a production" in str(report["disclaimer"])
     assert "athena" in report["stores_not_covered"]  # type: ignore[operator]
+    assert {"identity", "audit"} <= set(report["stores_covered"])  # type: ignore[call-overload]
+    assert "identity" not in report["stores_not_covered"]  # type: ignore[operator]
 
 
 def test_drill_refuses_existing_workdir_and_bad_bounds(tmp_path: Path) -> None:
@@ -40,6 +44,10 @@ def test_drill_refuses_existing_workdir_and_bad_bounds(tmp_path: Path) -> None:
         run_drill(tmp_path / "y", engagements=0)
     with pytest.raises(ValueError):
         run_drill(tmp_path / "z", ledger_entries=10_000)
+    with pytest.raises(ValueError):
+        run_drill(tmp_path / "i", identities=0)
+    with pytest.raises(ValueError):
+        run_drill(tmp_path / "j", audit_records=10_000)
     assert not (tmp_path / "y").exists()
 
 

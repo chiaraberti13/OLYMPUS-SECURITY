@@ -363,8 +363,9 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
   esegue offline backup → manifest → restore pulito su engagement store e ledger
   Minerva con dati sintetici, misura l'RTO di quel dataset su quell'host e mostra
   che le scritture post-snapshot non vengono recuperate (finestra di perdita =
-  intervallo dall'ultimo snapshot). Test `tests/unit/test_restore_drill.py`. Gli altri
-  store non sono coperti; nessun RPO/RTO di produzione è dichiarato verificato.
+  intervallo dall'ultimo snapshot). Test `tests/unit/test_restore_drill.py`. Il drill
+  copre ora anche registro identità e log di audit (`--identities`, `--audit-records`);
+  gli altri store non sono coperti; nessun RPO/RTO di produzione è dichiarato verificato.
 
 ### WEB-J-02 — Retention e privacy di sistema
 
