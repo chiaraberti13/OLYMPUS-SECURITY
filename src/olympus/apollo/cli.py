@@ -20,7 +20,12 @@ from olympus.apollo.application import (
 )
 from olympus.apollo.attack import build_navigator_layer, techniques_from_rules
 from olympus.apollo.export import export_alerts, export_alerts_ecs, export_alerts_ocsf
-from olympus.apollo.ingest import IngestError, iter_access_log, iter_zeek_json
+from olympus.apollo.ingest import (
+    IngestError,
+    iter_access_log,
+    iter_windows_json,
+    iter_zeek_json,
+)
 from olympus.apollo.rules import DEFAULT_MAX_RULE_BYTES, DEFAULT_MAX_RULES
 from olympus.apollo.sigma import SigmaImportError, sigma_to_rule
 from olympus.core.contracts import ContractCompatibilityError
@@ -216,7 +221,9 @@ def ingest(
         ..., "--output", help="NDJSON of core.Event, ready for `apollo run --events`."
     ),
     telemetry_format: str = typer.Option(
-        "access-log", "--format", help="Telemetry format. Supported: access-log, zeek-json."
+        "access-log",
+        "--format",
+        help="Telemetry format. Supported: access-log, zeek-json, windows-json.",
     ),
     source: str = typer.Option(
         "manual", "--source", help="Source tag for the emitted events (an olympus source)."
@@ -232,7 +239,11 @@ def ingest(
     reason (reported on stderr), never coerced into a bogus event. The output is
     consumed directly by ``apollo run --events``.
     """
-    parsers = {"access-log": iter_access_log, "zeek-json": iter_zeek_json}
+    parsers = {
+        "access-log": iter_access_log,
+        "zeek-json": iter_zeek_json,
+        "windows-json": iter_windows_json,
+    }
     parser = parsers.get(telemetry_format)
     if parser is None:
         _echo_terminal(

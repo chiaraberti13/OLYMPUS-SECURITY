@@ -1,0 +1,12 @@
+{"EventID": 1, "Provider": "Microsoft-Windows-Sysmon", "Channel": "Microsoft-Windows-Sysmon/Operational", "TimeCreated": "2026-01-01T12:00:00Z", "EventData": {"Image": "C:\\Windows\\System32\\cmd.exe", "CommandLine": "cmd.exe /c whoami", "User": "LAB\\analyst", "ProcessId": "4321", "ParentImage": "C:\\Windows\\explorer.exe", "Hashes": "SHA256=ABCDEF"}}
+{"EventID": 3, "Provider": "Microsoft-Windows-Sysmon", "TimeCreated": "2026-01-01T12:00:05Z", "EventData": {"Image": "C:\\Windows\\System32\\cmd.exe", "SourceIp": "10.20.0.5", "SourcePort": "52344", "DestinationIp": "198.51.100.23", "DestinationPort": "443", "Protocol": "tcp"}}
+{"EventID": 22, "Provider": "Microsoft-Windows-Sysmon", "TimeCreated": "2026-01-01T12:00:07Z", "EventData": {"Image": "C:\\Windows\\System32\\cmd.exe", "QueryName": "c2.evil.example", "QueryResults": "198.51.100.23"}}
+{"EventID": 11, "Provider": "Microsoft-Windows-Sysmon", "TimeCreated": "2026-01-01T12:00:09Z", "EventData": {"Image": "C:\\Windows\\System32\\cmd.exe", "TargetFilename": "C:\\Users\\analyst\\AppData\\Local\\Temp\\payload.bin"}}
+{"EventID": 13, "Provider": "Microsoft-Windows-Sysmon", "TimeCreated": "2026-01-01T12:00:11Z", "EventData": {"Image": "C:\\Windows\\System32\\reg.exe", "TargetObject": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\evil", "Details": "C:\\Users\\analyst\\AppData\\Local\\Temp\\payload.bin"}}
+{"EventID": 4625, "Provider": "Microsoft-Windows-Security-Auditing", "Channel": "Security", "TimeCreated": "2026-01-01T12:00:13Z", "EventData": {"TargetUserName": "administrator", "LogonType": "3", "IpAddress": "10.20.0.9", "WorkstationName": "LAB-WS-02"}}
+{"EventID": 4624, "Provider": "Microsoft-Windows-Security-Auditing", "Channel": "Security", "TimeCreated": "2026-01-01T12:00:15Z", "EventData": {"TargetUserName": "analyst", "LogonType": "2", "IpAddress": "10.20.0.5", "WorkstationName": "LAB-WS-01"}}
+{"EventID": 1, "Provider": "Some-Other-Provider", "TimeCreated": "2026-01-01T12:00:17Z", "EventData": {"Image": "C:\\Windows\\System32\\notepad.exe"}}
+{"EventID": 4688, "Provider": "Microsoft-Windows-Security-Auditing", "Channel": "Security", "TimeCreated": "2026-01-01T12:00:19Z", "EventData": {"NewProcessName": "C:\\Windows\\System32\\cmd.exe"}}
+not a json line at all
+{"EventID": 3, "Provider": "Microsoft-Windows-Sysmon", "TimeCreated": "not-a-timestamp", "EventData": {"Image": "C:\\Windows\\System32\\powershell.exe", "DestinationIp": "203.0.113.7", "DestinationPort": "8080", "Protocol": "tcp"}}
+["not", "an", "object"]

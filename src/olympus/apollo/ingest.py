@@ -331,6 +331,197 @@ def parse_zeek_json(
     return IngestResult(events=tuple(events), skipped=tuple(skipped))
 
 
+#: Windows Event / Sysmon ``EventID`` -> (provider-family substring, event_type,
+#: {Windows field: event attribute}). Only documented Sysmon/Security IDs with
+#: stable fields are mapped, and only when the record's provider/channel matches
+#: the expected family, so a different provider that reuses a low EventID is
+#: skipped rather than guessed. Fields are read from the ``EventData`` object
+#: first (Sysmon layout), then from the flat record as a fallback.
+_WINDOWS_MAP: dict[int, tuple[str, str, dict[str, str]]] = {
+    1: (
+        "sysmon",
+        "process.create",
+        {
+            "Image": "image",
+            "CommandLine": "command_line",
+            "User": "user",
+            "ProcessId": "process_id",
+            "ParentImage": "parent_image",
+            "Hashes": "hashes",
+        },
+    ),
+    3: (
+        "sysmon",
+        "network.connection",
+        {
+            "Image": "image",
+            "SourceIp": "client_ip",
+            "SourcePort": "src_port",
+            "DestinationIp": "dest_ip",
+            "DestinationPort": "dest_port",
+            "Protocol": "transport",
+        },
+    ),
+    11: ("sysmon", "file.create", {"Image": "image", "TargetFilename": "target_filename"}),
+    13: (
+        "sysmon",
+        "registry.set",
+        {"Image": "image", "TargetObject": "target_object", "Details": "details"},
+    ),
+    22: (
+        "sysmon",
+        "dns.query",
+        {"Image": "image", "QueryName": "query", "QueryResults": "query_results"},
+    ),
+    4624: (
+        "security",
+        "auth.logon",
+        {
+            "TargetUserName": "user",
+            "LogonType": "logon_type",
+            "IpAddress": "client_ip",
+            "WorkstationName": "workstation",
+        },
+    ),
+    4625: (
+        "security",
+        "auth.logon_failed",
+        {
+            "TargetUserName": "user",
+            "LogonType": "logon_type",
+            "IpAddress": "client_ip",
+            "WorkstationName": "workstation",
+        },
+    ),
+}
+
+
+def _windows_event_id(record: dict[str, object]) -> int | None:
+    """Read the Windows ``EventID`` (or ``Id``) as an int; None when absent/invalid."""
+    raw = record.get("EventID", record.get("Id"))
+    if isinstance(raw, bool):
+        return None
+    if isinstance(raw, int):
+        return raw
+    if isinstance(raw, str) and raw.strip().isdigit():
+        return int(raw.strip())
+    return None
+
+
+def _windows_provider(record: dict[str, object]) -> str:
+    """Read the provider/channel as a lowercased string for family gating."""
+    for key in ("Provider", "ProviderName", "Channel"):
+        value = record.get(key)
+        if isinstance(value, str):
+            return value.lower()
+    return ""
+
+
+def _windows_field(record: dict[str, object], event_data: dict[str, object], key: str) -> object:
+    """Read a field from the Sysmon ``EventData`` object, then the flat record."""
+    if key in event_data:
+        return event_data[key]
+    return record.get(key)
+
+
+def _windows_timestamp(value: object) -> datetime | None:
+    """Convert a Windows ISO-8601 ``TimeCreated`` to a UTC datetime (naive -> UTC)."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    text = value.strip().replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def iter_windows_json(
+    lines: Iterable[str],
+    *,
+    source: Source = Source.MANUAL,
+    max_lines: int = 1_000_000,
+) -> Iterator[Event | SkippedLine]:
+    """Parse Windows Event / Sysmon JSON lines lazily into normalized events.
+
+    Each line is one Windows event record (NDJSON), as produced by
+    ``Get-WinEvent | ConvertTo-Json`` or an EVTX-to-JSON exporter: an ``EventID``,
+    a provider/channel and, for Sysmon, an ``EventData`` object of named fields.
+    Only documented Sysmon (1/3/11/13/22) and Security (4624/4625) IDs whose
+    provider matches the expected family are mapped; anything else — invalid JSON,
+    a non-object, an unknown or provider-mismatched id, or a record with no
+    mappable field — is recorded as skipped, never coerced into an invented event.
+    """
+    if not 1 <= max_lines <= 10_000_000:
+        raise ValueError("max_lines must be between 1 and 10000000")
+    for number, line in enumerate(lines, start=1):
+        if number > max_lines:
+            yield SkippedLine(number, line[:80], "line budget exceeded")
+            break
+        stripped = line.strip()
+        if not stripped:
+            continue
+        try:
+            record = json.loads(stripped)
+        except json.JSONDecodeError:
+            yield SkippedLine(number, stripped[:80], "not valid JSON")
+            continue
+        except RecursionError:
+            yield SkippedLine(number, stripped[:80], "JSON nesting too deep")
+            continue
+        if not isinstance(record, dict):
+            yield SkippedLine(number, stripped[:80], "not a JSON object")
+            continue
+        event_id = _windows_event_id(record)
+        if event_id is None or event_id not in _WINDOWS_MAP:
+            yield SkippedLine(number, stripped[:80], "unknown or missing Windows EventID")
+            continue
+        family, event_type, field_map = _WINDOWS_MAP[event_id]
+        provider = _windows_provider(record)
+        if family not in provider:
+            yield SkippedLine(number, stripped[:80], f"provider does not match EventID {event_id}")
+            continue
+        raw_data = record.get("EventData")
+        event_data = raw_data if isinstance(raw_data, dict) else {}
+        attributes = {
+            attribute: _stringify(_windows_field(record, event_data, win_key))
+            for win_key, attribute in field_map.items()
+        }
+        attributes = {key: value for key, value in attributes.items() if value}
+        if not attributes:
+            yield SkippedLine(number, stripped[:80], f"no mappable fields for EventID {event_id}")
+            continue
+        attributes["event_id"] = str(event_id)
+        fields: dict[str, object] = {
+            "event_type": event_type,
+            "source": source,
+            "attributes": attributes,
+        }
+        observed = _windows_timestamp(record.get("TimeCreated", record.get("@timestamp")))
+        if observed is not None:
+            fields["observed_at"] = observed
+        yield Event(**fields)  # type: ignore[arg-type]
+
+
+def parse_windows_json(
+    text: str,
+    *,
+    source: Source = Source.MANUAL,
+    max_lines: int = 1_000_000,
+) -> IngestResult:
+    """Parse Windows Event / Sysmon JSON text into normalized events (skip, never guess)."""
+    events: list[Event] = []
+    skipped: list[SkippedLine] = []
+    for item in iter_windows_json(text.splitlines(), source=source, max_lines=max_lines):
+        if isinstance(item, Event):
+            events.append(item)
+        else:
+            skipped.append(item)
+    return IngestResult(events=tuple(events), skipped=tuple(skipped))
+
+
 def events_to_ndjson(events: Iterable[Event]) -> str:
     """Serialize events as one canonical JSON object per line for ``apollo run``."""
     return "".join(event.model_dump_json() + "\n" for event in events)

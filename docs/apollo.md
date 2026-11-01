@@ -54,9 +54,27 @@ olympus apollo ingest --format zeek-json --input conn.log --output events.ndjson
 olympus apollo run --rules ./rules --events events.ndjson --output alerts.json
 ```
 
-A further format (Sysmon/Windows Event) plugs into the same `core.Event` shape;
-Sysmon capture needs real Windows telemetry, so it stays tracked in
-[`ROADMAP.md`](../ROADMAP.md) as `OPS-BLUE` rather than declared here.
+The third format is `windows-json` — Windows Event / Sysmon records (one JSON
+object per line), as produced by `Get-WinEvent | ConvertTo-Json` or an
+EVTX-to-JSON exporter. The `EventID` selects the kind and the provider/channel
+must match the expected family, so a different provider that reuses a low id is
+skipped rather than guessed. Documented Sysmon ids map as `1 → process.create`,
+`3 → network.connection`, `11 → file.create`, `13 → registry.set`,
+`22 → dns.query`, and Security ids as `4624 → auth.logon`,
+`4625 → auth.logon_failed`; fields are read from the `EventData` object first,
+then the flat record. A line that is not a JSON object, has an unknown or
+provider-mismatched id, or carries no mappable field is skipped, never guessed;
+the ISO-8601 `TimeCreated` is anchored to UTC.
+
+```bash
+olympus apollo ingest --format windows-json --input sysmon.jsonl --output events.ndjson
+olympus apollo run --rules ./rules --events events.ndjson --output alerts.json
+```
+
+The parser is proven offline against a format-faithful synthetic fixture
+(`tests/fixtures/apollo/ingest/windows.jsonl`); validation against **real**
+Windows telemetry in an authorized lab stays tracked in
+[`ROADMAP.md`](../ROADMAP.md) as `BLUE-1`.
 
 ## ATT&CK detection coverage (`OPS-PURPLE`)
 

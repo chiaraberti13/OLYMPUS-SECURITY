@@ -99,7 +99,12 @@ di sicurezza nel frontend.
 - **RED-1** [~] Recon attiva ProjectDiscovery/OSINT: adapter `subfinder`, `dnsx`, `naabu`, `amass`, `theHarvester`.
 - **RED-2** [~] Adapter web residui: `wpscan`, `nosqlmap`; portare Wapiti/altri a live-tested in lab autorizzato.
 - **RED-3** [ ] Password auditor (capacità assente oggi): nuovo tool/adapter, scope-gated.
-- **BLUE-1** [~] Apollo ingest Sysmon/Windows Event (Zeek fatto).
+- **BLUE-1** [~] Apollo ingest Sysmon/Windows Event. Parser `windows-json`
+  implementato (Sysmon 1/3/11/13/22 + Security 4624/4625, gating per provider,
+  *skip-never-guess*), provato **offline** su fixture format-fedele
+  (`tests/fixtures/apollo/ingest/windows.jsonl`); CLI `apollo ingest --format
+  windows-json`. **Resta:** validazione contro telemetria Windows **reale** in
+  lab autorizzato (promozione a live-tested). Zeek e access-log già fatti.
 - **BLUE-2** [ ] Connettori SIEM/EDR (Splunk HEC, Elastic, Sentinel) via porte iniettate, test offline.
 - **BLUE-3** [ ] CTI live in Metis (TAXII 2.1, MISP, OpenCTI) con provenance/caching/isolamento.
 - **PURPLE-1** [ ] `athena purple`: attacco simulato scope-safe → ingest Apollo → valutazione detection → report gap.
