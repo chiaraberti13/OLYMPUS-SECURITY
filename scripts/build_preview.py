@@ -46,8 +46,9 @@ _FIXTURES = _ROOT / "tests" / "fixtures"
 _GENERATED = datetime(2026, 1, 1, tzinfo=UTC)
 
 _BANNER = (
-    "Anteprima statica · nessuna esecuzione, nessun target reale · dati sintetici. "
-    "Le scansioni reali girano solo nel backend Olympus, mai su questo sito."
+    "Anteprima statica · uso didattico e test autorizzati · nessuna esecuzione, "
+    "nessun target reale · dati sintetici. Le scansioni reali girano solo nel "
+    "backend Olympus, contro target autorizzati, mai su questo sito."
 )
 
 _STYLE = (

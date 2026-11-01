@@ -378,10 +378,13 @@ e [provenienza](docs/provenance.md).
 
 ## ⚠️ Uso legale ed etico
 
-Olympus effettua test di sicurezza **autorizzati**. I moduli passivi
+Olympus è **per uso didattico e test di sicurezza autorizzati**. I moduli passivi
 interrogano solo informazioni pubblicamente disponibili; i moduli attivi si
 connettono solo a bersagli dentro uno scope dichiarato. Usalo esclusivamente
 dove hai **permesso documentato** (i tuoi sistemi, un ingaggio firmato o un lab
-che controlli). L'uso improprio è responsabilità esclusivamente tua.
+che controlli). Le attività che richiedono autorizzazione restano gated dal
+modello di autorizzazione (il flag `--i-am-authorized`, uno scope registrato e,
+per le operazioni attive, un manifest firmato); un disclaimer non sostituisce il
+permesso. L'uso improprio è responsabilità esclusivamente tua.
 
 Le sequenze audit di Athena sono assegnate da SQLite in transazione anche dopo riavvii della CLI e con scrittori concorrenti. I duplicati espliciti sono rifiutati senza sovrascrivere lo storico. [ADR-008](docs/architecture/adr-008-durable-athena-audit.md) descrive aggiornamento e limite residuo di atomicità tra stato e audit.

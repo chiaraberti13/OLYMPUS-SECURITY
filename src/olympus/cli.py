@@ -39,6 +39,13 @@ from olympus.vulcan.cli import app as vulcan_app
 app = typer.Typer(
     help="Olympus — offensive-security platform (Red + Blue).",
     no_args_is_help=True,
+    epilog=(
+        "DISCLAIMER: for authorized security testing and education only. "
+        "Active scans, network probes and offensive operations require a target "
+        "you own or have written permission to test, and stay gated by the "
+        "engagement authorization (signed manifest, registered scope, explicit "
+        "confirmation). A disclaimer does not replace authorization."
+    ),
 )
 
 
