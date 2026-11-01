@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Athena orchestration · Olympus{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Athena assessment planner</h1>
+  <p class="muted">
+    Build a validated, signable <code>olympus.athena.plan</code> from a named scan
+    profile. A profile chooses which registered adapters run and with which safe
+    limits; it carries no target of its own. Plan-building is local, deterministic
+    and network-free: this page produces a plan document — it never executes a
+    scan. Run a generated plan with <code>olympus athena run</code>.
+  </p>
+  <p class="risk-banner risk-passive">
+    Educational, training and research use only, on systems you own or are
+    explicitly authorized to assess. A plan is marked authorized only on your
+    explicit confirmation; it never self-authorizes a run.
+  </p>
+</section>
+
+<section class="card">
+  <h2>Scan profiles</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Profile</th><th>Summary</th><th>Adapters</th><th>Active</th></tr></thead>
+    <tbody>{% for profile in profiles %}<tr>
+      <td><code>{{ profile.profile_id }}</code><br><span class="muted">{{ profile.title }}</span></td>
+      <td>{{ profile.summary }}</td>
+      <td>{% for adapter in profile.adapters %}<code>{{ adapter }}</code>{% if not loop.last %} {% endif %}{% endfor %}</td>
+      <td>{% if profile.active %}<span class="risk-tag risk-active">active probing</span>{% else %}<span class="risk-tag risk-passive">passive</span>{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+
+<section class="card">
+  <h2>Build a plan</h2>
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+  <form method="post" action="/athena/plan">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="profile">Profile</label>
+    <select id="profile" name="profile">
+      {% for profile in profiles %}
+      <option value="{{ profile.profile_id }}" {% if form.profile == profile.profile_id %}selected{% endif %}>{{ profile.title }} ({{ profile.profile_id }})</option>
+      {% endfor %}
+    </select>
+
+    <label for="engagement">Engagement id</label>
+    <input id="engagement" name="engagement" value="{{ form.engagement }}" required placeholder="ENG-2026-001">
+
+    <label for="approval">Authorization / approval reference</label>
+    <input id="approval" name="approval" value="{{ form.approval }}" required placeholder="RoE-2026-001 (never a secret)">
+
+    <label for="targets">Targets (one per line, <code>kind:value</code>)</label>
+    <textarea id="targets" name="targets" rows="3" required placeholder="domain:app.example.com&#10;url:https://app.example.com/login">{{ form.targets }}</textarea>
+
+    <label for="allowed_domains">Allowed domains (scope — one per line or comma-separated)</label>
+    <textarea id="allowed_domains" name="allowed_domains" rows="2" required placeholder="example.com">{{ form.allowed_domains }}</textarea>
+
+    <label for="name">Plan name (optional)</label>
+    <input id="name" name="name" value="{{ form.name }}" placeholder="defaults to the profile title">
+
+    <label for="report_formats">Report formats (optional, comma-separated: json, markdown, html, pdf)</label>
+    <input id="report_formats" name="report_formats" value="{{ form.report_formats }}" placeholder="json, markdown">
+
+    <label class="checkbox">
+      <input type="checkbox" name="confirm" value="on" {% if form.confirm == "on" %}checked{% endif %}>
+      I confirm this engagement is authorized for assessment.
+    </label>
+
+    <button type="submit">Build plan</button>
+  </form>
+</section>
+
+{% if plan is not none %}
+<section class="card">
+  <h2>Plan</h2>
+  <p>
+    Profile <code>{{ plan.profile_id }}</code> ·
+    <strong>{{ plan.name }}</strong> ·
+    engagement <code>{{ plan.engagement_id }}</code> ·
+    {% if plan.active %}<span class="risk-tag risk-active">active probing</span>{% else %}<span class="risk-tag risk-passive">passive</span>{% endif %}
+  </p>
+  <p>
+    Adapters: {% for adapter in plan.adapters %}<code>{{ adapter }}</code>{% if not loop.last %} {% endif %}{% endfor %}<br>
+    Report formats: {% for fmt in plan.report_formats %}<code>{{ fmt }}</code>{% if not loop.last %} {% endif %}{% endfor %}<br>
+    Authorized: <strong>{{ "yes" if plan.authorized else "no" }}</strong>
+  </p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Target kind</th><th>Value</th></tr></thead>
+    <tbody>{% for kind, value in plan.targets %}<tr>
+      <td><code>{{ kind }}</code></td><td>{{ value }}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  <p class="muted">
+    Scope (allowed domains): {% for domain in plan.allowed_domains %}<code>{{ domain }}</code>{% if not loop.last %} {% endif %}{% endfor %}
+  </p>
+  <p class="muted">
+    Plan digest <code>{{ plan.plan_digest }}</code><br>
+    Scope digest <code>{{ plan.scope_digest }}</code>
+  </p>
+  <details>
+    <summary>Plan document (copy to run with <code>olympus athena run</code>)</summary>
+    <pre>{{ plan.plan_json }}</pre>
+  </details>
+</section>
+{% endif %}
+{% endblock %}

@@ -270,6 +270,121 @@ def test_metis_extract_requires_the_metis_read_scope(tmp_path: Path) -> None:
     assert response.status_code == 403
 
 
+def test_athena_profiles_are_versioned_and_target_free(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    response = client.get("/api/v1/athena/profiles", headers=AUTH)
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["schema_name"] == "olympus.athena-profile-list"
+    assert body["schema_version"] == "1.0.0"
+    by_id = {profile["profile_id"]: profile for profile in body["profiles"]}
+    assert {"light", "deep"} <= set(by_id)
+    # Light is passive; deep adds the active AEGIS scan step.
+    assert by_id["light"]["active"] is False
+    assert by_id["deep"]["active"] is True
+    assert "themis" in by_id["deep"]["adapters"]
+    # Profiles never carry a target of their own.
+    assert "targets" not in by_id["light"]
+
+
+def test_athena_plan_builds_a_signable_plan_from_a_profile(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    response = client.post(
+        "/api/v1/athena/plan",
+        headers=AUTH,
+        json={
+            "profile": "light",
+            "engagement_id": "ENG-2026-001",
+            "approval_reference": "RoE-2026-001",
+            "targets": [{"kind": "domain", "value": "app.example.com"}],
+            "allowed_domains": ["example.com"],
+            "report_formats": ["json", "markdown"],
+            "confirmed": True,
+        },
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["schema_name"] == "olympus.athena-plan"
+    assert body["schema_version"] == "1.0.0"
+    assert body["profile_id"] == "light"
+    assert body["engagement_id"] == "ENG-2026-001"
+    assert body["authorized"] is True
+    assert body["adapters"] == ["dns", "web-headers", "whois"]
+    assert body["targets"] == [{"kind": "domain", "value": "app.example.com"}]
+    assert body["allowed_domains"] == ["example.com"]
+    assert body["report_formats"] == ["json", "markdown"]
+    assert len(body["plan_digest"]) == 64
+    assert len(body["scope_digest"]) == 64
+    # The returned document is the exact canonical plan and re-digests identically.
+    plan_doc = json.loads(body["plan_json"])
+    assert plan_doc["schema_name"] == "olympus.athena.plan"
+    assert plan_doc["authorization"]["confirmed"] is True
+
+
+def test_athena_plan_requires_confirmed_authorization(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    response = client.post(
+        "/api/v1/athena/plan",
+        headers=AUTH,
+        json={
+            "profile": "deep",
+            "engagement_id": "ENG-1",
+            "approval_reference": "RoE-1",
+            "targets": [{"kind": "domain", "value": "app.example.com"}],
+            "allowed_domains": ["example.com"],
+            "confirmed": False,
+        },
+    )
+    # A profile never self-authorizes a run: an unconfirmed request is rejected.
+    assert response.status_code == 422
+
+
+def test_athena_plan_rejects_an_out_of_scope_or_malformed_target(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    response = client.post(
+        "/api/v1/athena/plan",
+        headers=AUTH,
+        json={
+            "profile": "light",
+            "engagement_id": "ENG-1",
+            "approval_reference": "RoE-1",
+            "targets": [{"kind": "domain", "value": "has space"}],
+            "allowed_domains": ["example.com"],
+            "confirmed": True,
+        },
+    )
+    assert response.status_code == 422
+
+
+def test_athena_endpoints_require_the_athena_read_scope(tmp_path: Path) -> None:
+    scopes = tmp_path / "scopes"
+    _scope(scopes)
+    client = TestClient(
+        create_app(
+            ApiSettings(
+                database=tmp_path / "jobs.sqlite3",
+                scope_directory=scopes,
+                api_key=API_KEY,
+                api_key_scopes=("capabilities:read",),
+            )
+        )
+    )
+    assert client.get("/api/v1/athena/profiles", headers=AUTH).status_code == 403
+    plan = client.post(
+        "/api/v1/athena/plan",
+        headers=AUTH,
+        json={
+            "profile": "light",
+            "engagement_id": "ENG-1",
+            "approval_reference": "RoE-1",
+            "targets": [{"kind": "domain", "value": "app.example.com"}],
+            "allowed_domains": ["example.com"],
+            "confirmed": True,
+        },
+    )
+    assert plan.status_code == 403
+
+
 def test_shared_key_defaults_to_capabilities_read_only(tmp_path: Path) -> None:
     scopes = tmp_path / "scopes"
     _scope(scopes)

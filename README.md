@@ -389,11 +389,17 @@ report (Markdown/HTML/JSON) with one click, reusing the same renderer as the CLI
 baseline run against the current findings — new / resolved / persistent — to
 evidence remediation (`WEB-I` slice 2), and `olympus vulcan trend` plots the
 finding-severity trajectory across a series of runs (`WEB-I` slice 3a). The
-browser also exposes the **Apollo** detection workbench (`--apollo-rules`) and a
+browser also exposes the **Apollo** detection workbench (`--apollo-rules`), a
 **Minerva** custody-ledger verification workbench (`/minerva`): paste an
 `olympus.custody` ledger and its hash chain is verified offline by the same
 engine as `olympus minerva verify`, with the typed API at
-`POST /api/v1/minerva/verify-ledger`. See [`docs/web.md`](docs/web.md).
+`POST /api/v1/minerva/verify-ledger`; the **Metis** CTI extraction workbench
+(`/metis`, `POST /api/v1/metis/extract`) that normalizes IOCs from free text, a
+STIX 2.1 bundle or a MISP event offline; and the **Athena** assessment planner
+(`/athena`, `POST /api/v1/athena/plan`) that builds a validated, signable
+`olympus.athena.plan` from a scan profile using the same engine as
+`olympus athena plan from-profile` — deterministic and offline, producing a plan
+document, never executing a scan. See [`docs/web.md`](docs/web.md).
 
 For multi-user deployments the API also accepts offline-verified OIDC bearer
 tokens with a pinned issuer, audience and local JWKS (`--oidc-issuer`,

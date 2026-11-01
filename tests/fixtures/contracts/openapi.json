@@ -202,6 +202,300 @@
         "title": "ApolloRuleList",
         "type": "object"
       },
+      "AthenaPlanRequest": {
+        "additionalProperties": false,
+        "description": "Engagement inputs that turn a named profile into a validated plan.\n\nNo target is ever assumed and ``confirmed`` must be set explicitly: a profile\nnever self-authorizes a run, so an unconfirmed request fails validation (422)\nrather than yielding a silently runnable plan. Building a plan is a pure,\noffline, network-free computation \u2014 it produces a signable document, it does\nnot execute anything.",
+        "properties": {
+          "allowed_domains": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "title": "Allowed Domains",
+            "type": "array"
+          },
+          "approval_reference": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Approval Reference",
+            "type": "string"
+          },
+          "confirmed": {
+            "default": false,
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "engagement_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Engagement Id",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "profile": {
+            "enum": [
+              "light",
+              "deep"
+            ],
+            "title": "Profile",
+            "type": "string"
+          },
+          "report_formats": {
+            "anyOf": [
+              {
+                "items": {
+                  "enum": [
+                    "json",
+                    "markdown",
+                    "html",
+                    "pdf"
+                  ],
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Formats"
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/AthenaPlanTarget"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "title": "Targets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "profile",
+          "engagement_id",
+          "approval_reference",
+          "targets",
+          "allowed_domains"
+        ],
+        "title": "AthenaPlanRequest",
+        "type": "object"
+      },
+      "AthenaPlanTarget": {
+        "additionalProperties": false,
+        "description": "One authorized assessment target (``domain`` or ``url``).",
+        "properties": {
+          "kind": {
+            "enum": [
+              "domain",
+              "url"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "value": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "value"
+        ],
+        "title": "AthenaPlanTarget",
+        "type": "object"
+      },
+      "AthenaPlanView": {
+        "additionalProperties": false,
+        "description": "Versioned, bounded projection of a built Athena plan for API and Web.",
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "adapters": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Adapters",
+            "type": "array"
+          },
+          "allowed_domains": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Domains",
+            "type": "array"
+          },
+          "authorized": {
+            "title": "Authorized",
+            "type": "boolean"
+          },
+          "engagement_id": {
+            "title": "Engagement Id",
+            "type": "string"
+          },
+          "limits": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Limits",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "plan_digest": {
+            "title": "Plan Digest",
+            "type": "string"
+          },
+          "plan_json": {
+            "title": "Plan Json",
+            "type": "string"
+          },
+          "profile_id": {
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "report_formats": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Report Formats",
+            "type": "array"
+          },
+          "schema_name": {
+            "const": "olympus.athena-plan",
+            "default": "olympus.athena-plan",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "scope_digest": {
+            "title": "Scope Digest",
+            "type": "string"
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/AthenaPlanTarget"
+            },
+            "title": "Targets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "profile_id",
+          "name",
+          "engagement_id",
+          "adapters",
+          "active",
+          "targets",
+          "allowed_domains",
+          "report_formats",
+          "authorized",
+          "plan_digest",
+          "scope_digest",
+          "limits",
+          "plan_json"
+        ],
+        "title": "AthenaPlanView",
+        "type": "object"
+      },
+      "AthenaProfileList": {
+        "additionalProperties": false,
+        "description": "Versioned list of the named scan profiles Athena can build plans from.",
+        "properties": {
+          "profiles": {
+            "items": {
+              "$ref": "#/components/schemas/AthenaProfileView"
+            },
+            "title": "Profiles",
+            "type": "array"
+          },
+          "schema_name": {
+            "const": "olympus.athena-profile-list",
+            "default": "olympus.athena-profile-list",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profiles"
+        ],
+        "title": "AthenaProfileList",
+        "type": "object"
+      },
+      "AthenaProfileView": {
+        "additionalProperties": false,
+        "description": "A target-free scan profile projected for API clients and the Web UI.",
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "active_adapters": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Active Adapters",
+            "type": "array"
+          },
+          "adapters": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Adapters",
+            "type": "array"
+          },
+          "profile_id": {
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profile_id",
+          "title",
+          "summary",
+          "adapters",
+          "active_adapters",
+          "active"
+        ],
+        "title": "AthenaProfileView",
+        "type": "object"
+      },
       "DetectionRule": {
         "additionalProperties": false,
         "description": "A minimal portable detection rule expressed as YAML-compatible JSON.",
@@ -1451,6 +1745,86 @@
         "summary": "Apollo Rules",
         "tags": [
           "apollo"
+        ]
+      }
+    },
+    "/api/v1/athena/plan": {
+      "post": {
+        "description": "Build a validated, signable assessment plan from a named profile, offline.\n\nThe profile supplies adapters and safe limits; the caller supplies the\nauthorized target(s), engagement scope and authorization reference.\nBuilding a plan is a pure, deterministic computation: it produces a plan\ndocument, it never executes a scan. ``confirmed`` must be true \u2014 a profile\nnever self-authorizes a run \u2014 so an unconfirmed or out-of-shape request is\nrejected with 422 rather than yielding a silently runnable plan.",
+        "operationId": "athena_plan_api_v1_athena_plan_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AthenaPlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AthenaPlanView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Athena Plan",
+        "tags": [
+          "athena"
+        ]
+      }
+    },
+    "/api/v1/athena/profiles": {
+      "get": {
+        "description": "List the named, target-free scan profiles Athena can build plans from.\n\nA profile only chooses which already-registered adapters run and with\nwhich safe limits; it carries no target and performs no network access.",
+        "operationId": "athena_profiles_api_v1_athena_profiles_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AthenaProfileList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Athena Profiles",
+        "tags": [
+          "athena"
         ]
       }
     },

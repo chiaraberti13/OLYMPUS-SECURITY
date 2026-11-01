@@ -58,6 +58,9 @@ from olympus.apollo.attack import build_navigator_layer
 from olympus.apollo.engine import evaluate_stream
 from olympus.apollo.ingest import SkippedLine, parse_access_log, parse_windows_json, parse_zeek_json
 from olympus.apollo.rules import DetectionRule
+from olympus.athena.application.profiles import ScanProfile, UnknownProfileError, get_profile
+from olympus.athena.application.profiles import profiles as scan_profiles
+from olympus.athena.domain.contracts import AssessmentPlan, Target
 from olympus.core.enums import FindingStatus, Severity, Source
 from olympus.core.execution import (
     StructuredAuditRecord,
@@ -613,6 +616,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
     reads_apollo = requires("apollo:read")
     runs_apollo = requires("apollo:run")
     reads_metis = requires("metis:read")
+    reads_athena = requires("athena:read")
     reads_minerva = requires("minerva:read")
     minerva_public_key = (
         load_custody_ed25519_public_key(
@@ -695,6 +699,43 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             "source_text": source_text,
             "source_format": source_format,
             "result": result,
+            "error": error,
+            "csrf_token": _csrf_token(session.nonce),
+        }
+
+    def _athena_profile_views() -> list[dict[str, object]]:
+        return [profile.describe() for profile in scan_profiles()]
+
+    def _athena_plan_result(plan: AssessmentPlan, profile: ScanProfile) -> dict[str, object]:
+        """Project a built plan for the template: the identical offline core the
+        CLI (`athena plan from-profile`) and the API (`/api/v1/athena/plan`) use."""
+        return {
+            "profile_id": profile.profile_id,
+            "name": plan.name,
+            "engagement_id": plan.engagement_id,
+            "adapters": list(plan.adapters),
+            "active": profile.active,
+            "targets": [(item.kind, item.value) for item in plan.targets],
+            "allowed_domains": list(plan.scope.allowed_domains),
+            "report_formats": list(plan.output.report_formats),
+            "authorized": plan.authorization.confirmed,
+            "plan_digest": plan.digest(),
+            "scope_digest": plan.scope_digest(),
+            "limits": plan.limits.model_dump(mode="json"),
+            "plan_json": json.dumps(plan.model_dump(mode="json"), indent=2, sort_keys=True),
+        }
+
+    def _athena_context(
+        session: WebSession,
+        *,
+        form: dict[str, str] | None = None,
+        plan: dict[str, object] | None = None,
+        error: str | None = None,
+    ) -> dict[str, object]:
+        return {
+            "profiles": _athena_profile_views(),
+            "form": form or {},
+            "plan": plan,
             "error": error,
             "csrf_token": _csrf_token(session.nonce),
         }
@@ -1366,6 +1407,110 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 source_format=source_format,
                 result=result,
             ),
+        )
+
+    def _parse_athena_targets(raw: str) -> tuple[Target, ...]:
+        """Parse ``kind:value`` lines into validated targets (shape only, offline).
+
+        Messages are static and structural: they never echo the submitted value,
+        so surfacing them on the page reflects nothing the caller typed.
+        """
+        targets: list[Target] = []
+        for line in raw.splitlines():
+            item = line.strip()
+            if not item:
+                continue
+            kind, separator, value = item.partition(":")
+            if not separator or not value:
+                raise ValueError("each target must be 'kind:value' (domain:… or url:…)")
+            if kind not in ("domain", "url"):
+                raise ValueError("target kind must be 'domain' or 'url'")
+            targets.append(Target(kind=kind, value=value))  # type: ignore[arg-type]
+        if not targets:
+            raise ValueError("at least one target is required")
+        return tuple(targets)
+
+    @app.get("/athena", response_class=HTMLResponse, include_in_schema=False)
+    def athena_page(request: Request, session: WebSession = reads_athena) -> Response:
+        return _page(request, "athena.html", _athena_context(session))
+
+    @app.post("/athena/plan", response_class=HTMLResponse, include_in_schema=False)
+    def athena_plan(
+        request: Request,
+        csrf_token: Annotated[str, Form()],
+        profile: Annotated[str, Form()],
+        engagement: Annotated[str, Form()],
+        approval: Annotated[str, Form()],
+        targets: Annotated[str, Form()],
+        allowed_domains: Annotated[str, Form()],
+        name: Annotated[str, Form()] = "",
+        report_formats: Annotated[str, Form()] = "",
+        confirm: Annotated[str, Form()] = "",
+        session: WebSession = reads_athena,
+    ) -> Response:
+        _check_csrf(session, csrf_token)
+        _rate_limit(session)
+        form = {
+            "profile": profile,
+            "engagement": engagement,
+            "approval": approval,
+            "targets": targets,
+            "allowed_domains": allowed_domains,
+            "name": name,
+            "report_formats": report_formats,
+            "confirm": confirm,
+        }
+
+        def _error(message: str) -> Response:
+            return _page(
+                request,
+                "athena.html",
+                _athena_context(session, form=form, error=message),
+                code=422,
+            )
+
+        if confirm != "on":
+            # A profile never self-authorizes a run: the plan is marked authorized
+            # only on an explicit, confirmed assertion by the operator.
+            return _error(
+                "Authorization must be confirmed: tick the confirmation box only for an "
+                "engagement you are authorized to assess. A profile never self-authorizes a run."
+            )
+        domains = tuple(
+            item.strip() for item in re.split(r"[\n,]", allowed_domains) if item.strip()
+        )
+        if not domains:
+            return _error("At least one allowed domain is required to embed the engagement scope.")
+        formats = tuple(item.strip() for item in report_formats.split(",") if item.strip())
+        try:
+            # Static, structural messages that never echo the submitted value.
+            parsed_targets = _parse_athena_targets(targets)
+        except ValueError as exc:
+            return _error(str(exc))
+        try:
+            selected = get_profile(profile)
+            plan = selected.build_plan(
+                engagement_id=engagement,
+                approval_reference=approval,
+                targets=parsed_targets,
+                allowed_domains=domains,
+                name=name or None,
+                confirmed=True,
+                report_formats=formats or None,
+            )
+        except UnknownProfileError:
+            return _error("Unknown profile: choose 'light' or 'deep'.")
+        except ValueError:
+            # Static, structural: the inputs are out of shape or bounds (empty
+            # scope, unknown report format, or a mismatched engagement id).
+            return _error(
+                "The plan could not be built: check that the profile, scope and "
+                "report formats are valid and within the accepted bounds."
+            )
+        return _page(
+            request,
+            "athena.html",
+            _athena_context(session, form=form, plan=_athena_plan_result(plan, selected)),
         )
 
     def _assessment_context(

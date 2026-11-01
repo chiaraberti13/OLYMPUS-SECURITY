@@ -14,6 +14,19 @@ everything below lives under **Unreleased**.
 
 ### Added
 
+- **Pianificatore Athena su Web e API (`WEB-3` / `API-2` / `INT-3`).** Nuovo
+  workbench `GET /athena` e slice tipizzata `GET /api/v1/athena/profiles`
+  (`olympus.athena-profile-list` `1.0.0`) + `POST /api/v1/athena/plan`
+  (`olympus.athena-plan` `1.0.0`): si scelgono un profilo di scansione (target-free),
+  uno o più target autorizzati, lo scope d'ingaggio e un riferimento di
+  autorizzazione confermato, e si ottiene un piano firmabile `olympus.athena.plan`
+  con digest del piano e dello scope, pronto per `olympus athena run`. Browser, API
+  e CLI (`athena plan from-profile`) usano lo stesso core offline
+  `ScanProfile.build_plan`, quindi producono piani identici. Nuovo scope
+  `athena:read`; CSRF, rate limit e bound su target/domini. La costruzione è
+  deterministica e senza rete: genera un documento, non esegue alcuna scansione, e
+  un profilo non si auto-autorizza mai (senza conferma esplicita la richiesta è
+  rifiutata con 422). Demo statica `public/athena.html` generata dal motore reale.
 - **Verifica della catena di custodia Minerva da Web e API (`WEB-3`/`API-2`/`INT-3`).**
   Nuovo workbench `GET /minerva` + `POST /minerva/verify` e endpoint tipizzato
   `POST /api/v1/minerva/verify-ledger` (contratto `olympus.minerva-ledger-verification`

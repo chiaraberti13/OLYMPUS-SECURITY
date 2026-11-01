@@ -227,6 +227,108 @@ def test_metis_web_rejects_a_forged_csrf_token(tmp_path: Path) -> None:
     assert result.status_code == 403
 
 
+def test_athena_web_builds_a_plan_from_a_profile(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    page = client.get("/athena")
+    assert page.status_code == 200
+    assert "Athena assessment planner" in page.text
+    # Both profiles are listed, target-free.
+    assert "Light scan" in page.text and "Deep scan" in page.text
+    match = re.search(r'name="csrf_token" value="([0-9a-f]+)"', page.text)
+    assert match is not None
+
+    result = client.post(
+        "/athena/plan",
+        data={
+            "csrf_token": match.group(1),
+            "profile": "light",
+            "engagement": "ENG-2026-001",
+            "approval": "RoE-2026-001",
+            "targets": "domain:app.example.com\nurl:https://app.example.com/login",
+            "allowed_domains": "example.com",
+            "report_formats": "json, markdown",
+            "confirm": "on",
+        },
+    )
+    assert result.status_code == 200, result.text
+    assert "ENG-2026-001" in result.text
+    # Plan and scope digests (64 hex) are shown for integrity.
+    assert re.search(r"[0-9a-f]{64}", result.text) is not None
+    assert "olympus.athena.plan" in result.text  # the embedded plan document
+
+
+def test_athena_web_refuses_to_build_without_confirmed_authorization(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    page = client.get("/athena")
+    match = re.search(r'name="csrf_token" value="([0-9a-f]+)"', page.text)
+    assert match is not None
+    result = client.post(
+        "/athena/plan",
+        data={
+            "csrf_token": match.group(1),
+            "profile": "light",
+            "engagement": "ENG-1",
+            "approval": "RoE-1",
+            "targets": "domain:app.example.com",
+            "allowed_domains": "example.com",
+            # confirm omitted: a profile never self-authorizes a run.
+        },
+    )
+    assert result.status_code == 422
+    assert "Authorization must be confirmed" in result.text
+
+
+def test_athena_web_reports_a_malformed_target_with_a_static_message(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    page = client.get("/athena")
+    match = re.search(r'name="csrf_token" value="([0-9a-f]+)"', page.text)
+    assert match is not None
+    result = client.post(
+        "/athena/plan",
+        data={
+            "csrf_token": match.group(1),
+            "profile": "light",
+            "engagement": "ENG-1",
+            "approval": "RoE-1",
+            "targets": "ftp:bad-target",
+            "allowed_domains": "example.com",
+            "confirm": "on",
+        },
+    )
+    assert result.status_code == 422
+    # The error is a static, structural statement; no plan is built.
+    assert "target kind must be" in result.text
+    assert "Plan document" not in result.text
+
+
+def test_athena_web_requires_the_athena_read_scope(tmp_path: Path) -> None:
+    client = _client(tmp_path, api_key_scopes=("capabilities:read",))
+    _login(client)
+    assert client.get("/athena").status_code == 403
+    assert client.post("/athena/plan", data={"csrf_token": "x"}).status_code == 403
+
+
+def test_athena_web_rejects_a_forged_csrf_token(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    result = client.post(
+        "/athena/plan",
+        data={
+            "csrf_token": "forged",
+            "profile": "light",
+            "engagement": "ENG-1",
+            "approval": "RoE-1",
+            "targets": "domain:app.example.com",
+            "allowed_domains": "example.com",
+            "confirm": "on",
+        },
+    )
+    assert result.status_code == 403
+
+
 def test_security_headers_and_csp_are_restrictive(tmp_path: Path) -> None:
     response = _client(tmp_path).get("/login")
     csp = response.headers["content-security-policy"]
