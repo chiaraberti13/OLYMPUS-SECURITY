@@ -193,5 +193,5 @@ parte in [`ROADMAP.md`](../ROADMAP.md) sotto `DEV-B`.
 
 - Catalogo e licenze: [`docs/scanner-matrix.md`](scanner-matrix.md)
 - Evidenze di esecuzione reale: [`docs/themis-execution-evidence.md`](themis-execution-evidence.md)
-- Definition of Done: [`ROADMAP.md`](../ROADMAP.md#definition-of-done-trasversale)
+- Definition of Done: [`ROADMAP.md`](../ROADMAP.md)
 - Licenze di terze parti: [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md)
