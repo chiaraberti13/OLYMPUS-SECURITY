@@ -88,6 +88,39 @@ def _client(tmp_path: Path) -> TestClient:
     )
 
 
+def _apollo_rules(tmp_path: Path) -> Path:
+    directory = tmp_path / "apollo-rules"
+    directory.mkdir(parents=True)
+    (directory / "suspicious-process.yaml").write_text(
+        json.dumps(
+            {
+                "schema_name": "olympus.apollo-rule",
+                "schema_version": "1.0.0",
+                "rule_id": "APL-API-TEST",
+                "title": "Suspicious process",
+                "event_type": "process.start",
+                "conditions": {"image": "powershell.exe"},
+                "severity": "high",
+                "mitre_attack": ["T1059.001"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    return directory
+
+
+def _apollo_event() -> dict[str, object]:
+    return {
+        "schema_name": "olympus.event",
+        "schema_version": "1.0.0",
+        "event_id": "EVT-2026-00001",
+        "event_type": "process.start",
+        "source": "apollo",
+        "observed_at": "2026-11-01T09:00:00Z",
+        "attributes": {"image": "powershell.exe"},
+    }
+
+
 def test_health_is_public_but_operational_routes_require_auth(tmp_path: Path) -> None:
     client = _client(tmp_path)
     health = client.get("/health")
@@ -99,6 +132,46 @@ def test_health_is_public_but_operational_routes_require_auth(tmp_path: Path) ->
     ready = client.get("/ready", headers=AUTH)
     assert ready.status_code == 200
     assert ready.json()["control_plane"] is True
+
+
+def test_apollo_rules_and_evaluation_are_versioned_and_deterministic(tmp_path: Path) -> None:
+    scopes = tmp_path / "scopes"
+    _scope(scopes)
+    client = TestClient(
+        create_app(
+            ApiSettings(
+                database=tmp_path / "jobs.sqlite3",
+                scope_directory=scopes,
+                api_key=API_KEY,
+                api_key_scopes=SCOPES,
+                apollo_rules_directory=_apollo_rules(tmp_path),
+            )
+        )
+    )
+
+    listed = client.get("/api/v1/apollo/rules", headers=AUTH)
+    assert listed.status_code == 200
+    assert listed.json()["schema_name"] == "olympus.apollo-rule-list"
+    assert listed.json()["schema_version"] == "1.0.0"
+    assert listed.json()["rules"][0]["rule_id"] == "APL-API-TEST"
+
+    evaluated = client.post(
+        "/api/v1/apollo/evaluate", headers=AUTH, json={"events": [_apollo_event()]}
+    )
+    assert evaluated.status_code == 200, evaluated.text
+    body = evaluated.json()
+    assert body["schema_name"] == "olympus.apollo-evaluation"
+    assert body["schema_version"] == "1.0.0"
+    assert (body["rule_count"], body["event_count"], body["alert_count"]) == (1, 1, 1)
+    assert body["alerts"][0]["alert_id"] == "ALT-A4FABDF3F2910D6C48B3F82F"
+    assert body["alerts"][0]["event_id"] == "EVT-2026-00001"
+
+
+def test_apollo_api_is_fail_closed_when_rule_pack_is_not_configured(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    response = client.get("/api/v1/apollo/rules", headers=AUTH)
+    assert response.status_code == 503
+    assert "not configured" in response.json()["detail"]
 
 
 def test_shared_key_defaults_to_capabilities_read_only(tmp_path: Path) -> None:
@@ -212,6 +285,7 @@ def test_api_accepts_minimum_concurrency_limit(tmp_path: Path) -> None:
         "findings_directory",
         "baseline_findings_directory",
         "incidents_directory",
+        "apollo_rules_directory",
     ),
 )
 @pytest.mark.parametrize("broken", (False, True))

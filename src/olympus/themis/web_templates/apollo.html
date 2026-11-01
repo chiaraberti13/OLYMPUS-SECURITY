@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Apollo detections · Olympus{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Apollo detection workbench</h1>
+  <p class="muted">
+    Evaluate normalized <code>olympus.event</code> NDJSON against the server-owned,
+    validated Apollo rule pack. Evaluation is local and offline: this page performs
+    no collection, scanning or network access.
+  </p>
+  <p class="risk-banner risk-passive">
+    Educational, training and research use only, on systems you own or are explicitly
+    authorized to assess.
+  </p>
+</section>
+
+{% if not configured %}
+<section class="card"><h2>Not configured</h2><p>No Apollo rule pack is configured on this server.</p></section>
+{% elif unavailable %}
+<section class="card"><h2>Unavailable</h2><p>The configured Apollo rule pack is unreadable or invalid.</p></section>
+{% else %}
+<section class="card">
+  <h2>Rules <span class="muted">({{ rules | length }})</span></h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Title</th><th>Event type</th><th>Severity</th><th>ATT&amp;CK</th></tr></thead>
+    <tbody>{% for rule in rules %}<tr>
+      <td><code>{{ rule.rule_id }}</code></td><td>{{ rule.title }}</td>
+      <td><code>{{ rule.event_type }}</code></td><td>{{ rule.severity.value }}</td>
+      <td>{{ rule.mitre_attack | join(', ') or '—' }}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+
+<section class="card">
+  <h2>Evaluate normalized telemetry</h2>
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+  {% if can_run %}
+  <form method="post" action="/apollo/evaluate">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="events">Event NDJSON (1–500 lines)</label>
+    <textarea id="events" name="events" rows="12" required>{{ events_text }}</textarea>
+    <button type="submit">Evaluate</button>
+  </form>
+  {% else %}
+  <p class="muted">Your identity may inspect rules but is not granted <code>apollo:run</code>.</p>
+  {% endif %}
+</section>
+
+{% if alerts is not none %}
+<section class="card">
+  <h2>Result</h2>
+  <p>{{ event_count }} event(s) evaluated · {{ alerts | length }} alert(s)</p>
+  {% if alerts %}<div class="table-wrap"><table>
+    <thead><tr><th>Alert ID</th><th>Rule</th><th>Event ID</th><th>Severity</th><th>ATT&amp;CK</th></tr></thead>
+    <tbody>{% for alert in alerts %}<tr>
+      <td><code>{{ alert.alert_id }}</code></td><td>{{ alert.rule_id }}</td>
+      <td><code>{{ alert.event_id }}</code></td><td>{{ alert.severity.value }}</td>
+      <td>{{ alert.mitre_attack | join(', ') or '—' }}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>{% else %}<p class="muted">No rule matched the submitted events.</p>{% endif %}
+</section>
+{% endif %}
+{% endif %}
+{% endblock %}

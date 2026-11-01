@@ -11,7 +11,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts" / "build_preview.py"
 PUBLIC = ROOT / "public"
-PAGES = ("index.html", "tools.html", "report.html", "attack.html")
+PAGES = ("index.html", "tools.html", "report.html", "attack.html", "apollo.html")
 
 
 def _run(*args: str) -> subprocess.CompletedProcess[str]:
@@ -69,7 +69,7 @@ def test_generator_writes_all_pages(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     # A plain run (no --check) regenerates the pages in place and reports success.
     result = _run()
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "Wrote 7 page(s)" in result.stdout
+    assert "Wrote 8 page(s)" in result.stdout
     for name in PAGES:
         assert (PUBLIC / name).exists()
 
@@ -109,6 +109,14 @@ def test_attack_preview_labels_automatic_synthetic_mapping() -> None:
     assert "DEMO · dati sintetici" in text
     assert "T1190" in text and "derived from CWE-89" in text
     assert "non dimostrano attacchi avvenuti" in text
+
+
+def test_apollo_preview_uses_the_real_bundled_rule_pack() -> None:
+    text = (PUBLIC / "apollo.html").read_text(encoding="utf-8")
+    assert "Apollo detection workbench" in text
+    assert "APL-SYSMON-C2-DNS" in text
+    assert "loader Apollo reale" in text
+    assert "non è possibile inviare dati" in text
 
 
 def test_vercel_headers_allow_script_only_on_the_demo_route() -> None:

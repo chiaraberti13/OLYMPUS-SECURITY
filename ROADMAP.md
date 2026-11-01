@@ -140,7 +140,7 @@ export, storico, documentazione. La CLI resta alternativa, non unico accesso.
 
 - **WEB-1** [x] Web control plane nativo sopra l'API tipizzata (submit job, SSE, cancel), con security headers/CSP/CSRF/sessioni.
 - **WEB-2** [~] Pagine operative dei tool esistenti (Themis scan, findings, diff, trend, report, engagement).
-- **WEB-3** [~] Copertura Web di **tutti** i tool dell'ecosistema (Argus, Apollo, Metis, Minerva, Athena, Artemis…) con pagine dedicate operative. Vulcan: associazioni CWE→ATT&CK consultabili in `/findings/attack`, con provenienza, finding non mappati ed export Navigator; riuso del motore offline, accesso `findings:read`. Restano gli altri flussi/moduli.
+- **WEB-3** [~] Copertura Web di **tutti** i tool dell'ecosistema (Argus, Apollo, Metis, Minerva, Athena, Artemis…) con pagine dedicate operative. Vulcan: associazioni CWE→ATT&CK consultabili in `/findings/attack`, con provenienza, finding non mappati ed export Navigator; riuso del motore offline, accesso `findings:read`. Apollo: workbench operativo `/apollo` sul rule pack configurato dal server, input `olympus.event` NDJSON limitato, valutazione offline reale, scope `apollo:read`/`apollo:run`, CSRF e audit. Restano gli altri flussi/moduli.
 - **WEB-4** [ ] Dashboard principale con stato sistema, job attivi, findings per severità, coverage ATT&CK.
 - **WEB-5** [ ] Wizard "New Assessment" end-to-end (engagement → scope → profilo → esecuzione → report).
 - **WEB-6** [ ] Configurazione guidata, feedback operazioni, gestione errori/eccezioni uniforme.
@@ -148,7 +148,7 @@ export, storico, documentazione. La CLI resta alternativa, non unico accesso.
 ## 9. Backend, API e orchestrazione
 
 - **API-1** [x] API FastAPI tipizzata (auth per-scope, accountability, `/jobs`, `/capabilities`, health/ready/metrics).
-- **API-2** [ ] Estendere l'API a **tutti** i tool con contratti versionati (non solo Themis).
+- **API-2** [~] Estendere l'API a **tutti** i tool con contratti versionati (non solo Themis). Slice Apollo implementata: `GET /api/v1/apollo/rules` (`olympus.apollo-rule-list` 1.0.0) e `POST /api/v1/apollo/evaluate` (`olympus.apollo-evaluation` 1.0.0), rule pack server-owned e valutazione tipizzata/bounded; restano gli altri moduli.
 - **API-3** [ ] Execution Engine: worker persistente, coda, retry idempotenti, backpressure, checkpoint, cancellazione coerente CLI/TUI/API/Web.
 - **API-4** [ ] CORS/origin policy verso il dominio Web di deploy; autenticazione multiutente.
 

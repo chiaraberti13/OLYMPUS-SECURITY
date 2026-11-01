@@ -82,6 +82,41 @@ def _csrf(client: TestClient) -> str:
     return match.group(1)
 
 
+def _apollo_rules(tmp_path: Path) -> Path:
+    directory = tmp_path / "apollo-rules"
+    directory.mkdir(parents=True)
+    (directory / "web-rule.yaml").write_text(
+        json.dumps(
+            {
+                "schema_name": "olympus.apollo-rule",
+                "schema_version": "1.0.0",
+                "rule_id": "APL-WEB-TEST",
+                "title": "Web test rule",
+                "event_type": "process.start",
+                "conditions": {"image": "powershell.exe"},
+                "severity": "high",
+                "mitre_attack": ["T1059.001"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    return directory
+
+
+def _apollo_event_json() -> str:
+    return json.dumps(
+        {
+            "schema_name": "olympus.event",
+            "schema_version": "1.0.0",
+            "event_id": "EVT-2026-00002",
+            "event_type": "process.start",
+            "source": "apollo",
+            "observed_at": "2026-11-01T09:00:00Z",
+            "attributes": {"image": "powershell.exe"},
+        }
+    )
+
+
 def _submit(client: TestClient, csrf: str, **overrides: str) -> str:
     payload = {
         "scanner": "nmap",
@@ -104,6 +139,38 @@ def test_pages_require_a_session_and_health_is_public(tmp_path: Path) -> None:
         redirect = client.get(route, follow_redirects=False)
         assert redirect.status_code == 303
         assert redirect.headers["location"] == "/login"
+
+
+def test_apollo_web_lists_rules_and_evaluates_normalized_events(tmp_path: Path) -> None:
+    client = _client(tmp_path, apollo_rules_directory=_apollo_rules(tmp_path))
+    _login(client)
+    page = client.get("/apollo")
+    assert page.status_code == 200
+    assert "APL-WEB-TEST" in page.text
+    match = re.search(r'name="csrf_token" value="([0-9a-f]+)"', page.text)
+    assert match is not None
+
+    result = client.post(
+        "/apollo/evaluate",
+        data={"csrf_token": match.group(1), "events": _apollo_event_json()},
+    )
+    assert result.status_code == 200, result.text
+    assert "1 event(s) evaluated · 1 alert(s)" in result.text
+    assert "EVT-2026-00002" in result.text
+    assert "T1059.001" in result.text
+
+
+def test_apollo_web_requires_run_scope_for_evaluation(tmp_path: Path) -> None:
+    client = _client(
+        tmp_path,
+        api_key_scopes=("apollo:read",),
+        apollo_rules_directory=_apollo_rules(tmp_path),
+    )
+    _login(client)
+    page = client.get("/apollo")
+    assert page.status_code == 200
+    assert "not granted" in page.text
+    assert client.post("/apollo/evaluate", data={"events": _apollo_event_json()}).status_code == 403
 
 
 def test_security_headers_and_csp_are_restrictive(tmp_path: Path) -> None:

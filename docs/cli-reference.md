@@ -1161,6 +1161,7 @@ Serve the authenticated native Themis API.
 | `--oidc-jwks` | option | no | — | Pinned local JWKS file; discovery is disabled. |
 | `--audit` | option | no | — | Redacted per-request audit log. |
 | `--engagement-storage` | option | no | — | Directory holding the shared engagements database; enables the engagement read endpoints and engagement-derived scope enforcement. |
+| `--apollo-rules` | option | no | — | Server-owned Apollo rule directory; enables versioned rule-list and offline evaluation API endpoints. |
 | `--manifest-public-key` | option | no | — | Pinned Ed25519 approver public key; requires --engagement-storage and signed manifests on API job submissions. |
 | `--ssl-certfile` | option | no | — | — |
 | `--ssl-keyfile` | option | no | — | — |
@@ -1607,6 +1608,7 @@ Serve the native Themis web control plane (browser UI over the same core).
 | `--findings-storage` | option | no | — | Append-only SQLite finding-lifecycle store; enables recording triage decisions (status transitions) from the browser. |
 | `--baseline-directory` | option | no | — | Directory of core.Finding JSON bundles from an earlier run; enables the Scan diff page (new/resolved/persistent vs the current findings). |
 | `--incidents-directory` | option | no | — | Directory of core.Incident JSON documents (olympus minerva triage output); enables the dashboard incidents-by-status widget for an incidents:read identity (read-only producer artifacts). |
+| `--apollo-rules` | option | no | — | Server-owned Apollo rule directory; enables the authenticated detection workbench. |
 | `--ssl-certfile` | option | no | — | — |
 | `--ssl-keyfile` | option | no | — | — |
 
@@ -1648,6 +1650,7 @@ Serve the native Themis web control plane (browser UI over the same core).
 | `--findings-storage` | option | no | — | Append-only SQLite finding-lifecycle store; enables recording triage decisions (status transitions) from the browser. |
 | `--baseline-directory` | option | no | — | Directory of core.Finding JSON bundles from an earlier run; enables the Scan diff page (new/resolved/persistent vs the current findings). |
 | `--incidents-directory` | option | no | — | Directory of core.Incident JSON documents (olympus minerva triage output); enables the dashboard incidents-by-status widget for an incidents:read identity (read-only producer artifacts). |
+| `--apollo-rules` | option | no | — | Server-owned Apollo rule directory; enables the authenticated detection workbench. |
 | `--ssl-certfile` | option | no | — | — |
 | `--ssl-keyfile` | option | no | — | — |
 

@@ -145,6 +145,7 @@ as on the API.
 | `POST /findings/{id}/transition` | Record a lifecycle transition for one finding (requires `findings:write`, CSRF-protected); available only with `--findings-storage`. |
 | `GET /engagements`, `GET /engagements/{id}` | The shared engagements and their scope (requires `engagements:read`); available only when the server is started with `--engagement-storage`. |
 | `GET /tools` | The tool catalogue, read straight from the real capability inventory (requires `capabilities:read`). |
+| `GET /apollo` | Apollo detection workbench: inspect the configured validated rule pack and evaluate normalized `olympus.event` NDJSON locally (requires `apollo:read`; evaluation requires `apollo:run` and `--apollo-rules`). |
 | `GET /assessments/new` | Guided New Assessment wizard (requires `jobs:write`): engagement → target → scope → activity → tool or automatic. |
 | `GET /assessments/smart` | Smart Scan form (requires `jobs:write`): objective → target → scope → engagement → risk ceiling. |
 | `POST /assessments/smart/plan` | Proposes a deterministic, scope- and policy-aware pipeline; queues nothing (requires `jobs:write`, CSRF-protected). |
@@ -196,6 +197,17 @@ CLI uses — no security or presentation logic is re-implemented in the page:
 Without `--findings-directory` the pages state plainly that the feature is not
 configured; without `--findings-storage` findings are shown read-only. Both
 degrade honestly rather than pretending there are no findings.
+
+## Apollo detection workbench (`WEB-3` / `API-2`)
+
+Start API or Web with `--apollo-rules <directory>` to expose a server-owned
+Apollo rule pack. Callers never choose filesystem paths or upload executable
+rules. `GET /api/v1/apollo/rules` returns the versioned
+`olympus.apollo-rule-list` contract; `POST /api/v1/apollo/evaluate` accepts 1–500
+normalized `olympus.event` documents and returns `olympus.apollo-evaluation`
+`1.0.0`. The Web page uses the same strict rule loader and evaluator. Evaluation
+is offline and bounded, performs no collection or network access, and remains
+attributed by the existing request audit trail.
 
 ### Report export (`WEB-I`)
 

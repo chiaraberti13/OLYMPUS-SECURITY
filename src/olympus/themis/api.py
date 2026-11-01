@@ -27,8 +27,11 @@ from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import Response
 
 from olympus import __version__
+from olympus.apollo.application import ApolloApplicationService
+from olympus.apollo.engine import evaluate_stream
+from olympus.apollo.rules import DetectionRule
 from olympus.core.execution import StructuredAuditRecord, append_structured_audit
-from olympus.core.models import Engagement
+from olympus.core.models import Alert, Engagement, Event
 from olympus.core.observability import Correlation, Observability, observability_from_config
 from olympus.engagements.manifest import (
     ManifestAuthorizationError,
@@ -123,6 +126,9 @@ class ApiSettings:
     #: absent. Read-only private producer artifacts, exactly as
     #: :func:`olympus.minerva.triage.export_incident` writes them — never a store.
     incidents_directory: Path | None = None
+    #: Server-owned Apollo rule pack exposed through the typed API and Web UI.
+    #: Requests may supply normalized events, never filesystem paths or rules.
+    apollo_rules_directory: Path | None = None
     #: Pinned Ed25519 approver key. When configured, every API/Web job submission
     #: must carry a signed manifest and is rejected unless it authorizes the
     #: exact engagement, scanner, target and current time.
@@ -185,6 +191,7 @@ class ApiSettings:
             ("findings", self.findings_directory),
             ("baseline findings", self.baseline_findings_directory),
             ("incidents", self.incidents_directory),
+            ("Apollo rules", self.apollo_rules_directory),
         ):
             if directory is None:
                 continue
@@ -296,6 +303,38 @@ class JobList(BaseModel):
     jobs: list[ThemisJob]
 
 
+class ApolloRuleList(BaseModel):
+    """Versioned projection of the configured, validated Apollo rule pack."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_name: Literal["olympus.apollo-rule-list"] = "olympus.apollo-rule-list"
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    count: int
+    rules: list[DetectionRule]
+
+
+class ApolloEvaluationRequest(BaseModel):
+    """Bounded normalized telemetry submitted for offline detection evaluation."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    events: list[Event] = Field(min_length=1, max_length=500)
+
+
+class ApolloEvaluationResult(BaseModel):
+    """Versioned Apollo evaluation result shared by API clients and the Web UI."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_name: Literal["olympus.apollo-evaluation"] = "olympus.apollo-evaluation"
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    rule_count: int
+    event_count: int
+    alert_count: int
+    alerts: list[Alert]
+
+
 async def _renew_request_lease(gate: RequestConcurrencyGate, lease: RequestLease) -> None:
     """Keep a request lease alive until its middleware cancels this task."""
     while True:
@@ -391,6 +430,23 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
     writes_jobs = authenticated("jobs:write")
     cancels_jobs = authenticated("jobs:cancel")
     reads_engagements = authenticated("engagements:read")
+    reads_apollo = authenticated("apollo:read")
+    runs_apollo = authenticated("apollo:run")
+
+    def _apollo_rules() -> tuple[DetectionRule, ...]:
+        directory = settings.apollo_rules_directory
+        if directory is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Apollo rule pack is not configured on this server",
+            )
+        try:
+            return ApolloApplicationService().list_rules(directory)
+        except (OSError, TimeoutError, ValueError) as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Apollo rule pack is unavailable or invalid",
+            ) from exc
 
     @app.middleware("http")
     async def accountability(request: Request, call_next):  # type: ignore[no-untyped-def]
@@ -543,6 +599,35 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
     @app.get("/api/v1/capabilities", tags=["capabilities"])
     def capabilities(caller: Caller = reads_capabilities) -> dict[str, object]:
         return inventory_document()
+
+    @app.get(
+        "/api/v1/apollo/rules",
+        response_model=ApolloRuleList,
+        tags=["apollo"],
+    )
+    def apollo_rules(caller: Caller = reads_apollo) -> ApolloRuleList:
+        rules = _apollo_rules()
+        return ApolloRuleList(count=len(rules), rules=list(rules))
+
+    @app.post(
+        "/api/v1/apollo/evaluate",
+        response_model=ApolloEvaluationResult,
+        tags=["apollo"],
+    )
+    def apollo_evaluate(
+        body: ApolloEvaluationRequest, caller: Caller = runs_apollo
+    ) -> ApolloEvaluationResult:
+        rules = _apollo_rules()
+        try:
+            alerts = evaluate_stream(list(rules), body.events, max_evaluations=500_000)
+        except (TimeoutError, ValueError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return ApolloEvaluationResult(
+            rule_count=len(rules),
+            event_count=len(body.events),
+            alert_count=len(alerts),
+            alerts=alerts,
+        )
 
     @app.get(
         "/api/v1/engagements",

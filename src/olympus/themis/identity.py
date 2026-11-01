@@ -68,6 +68,8 @@ SCOPES: tuple[str, ...] = (
     "findings:read",
     "findings:write",
     "incidents:read",
+    "apollo:read",
+    "apollo:run",
 )
 
 

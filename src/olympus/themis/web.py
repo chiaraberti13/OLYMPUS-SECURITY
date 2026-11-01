@@ -53,7 +53,10 @@ from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import JSONResponse, Response
 
 from olympus import __version__
+from olympus.apollo.application import ApolloApplicationService
 from olympus.apollo.attack import build_navigator_layer
+from olympus.apollo.engine import evaluate_stream
+from olympus.apollo.rules import DetectionRule
 from olympus.core.enums import FindingStatus, Severity, Source
 from olympus.core.execution import (
     StructuredAuditRecord,
@@ -66,7 +69,7 @@ from olympus.core.finding_lifecycle import (
     allowed_transitions,
     record_transition,
 )
-from olympus.core.models import Engagement, Finding, Incident
+from olympus.core.models import Alert, Engagement, Event, Finding, Incident
 from olympus.core.observability import Correlation, Observability, observability_from_config
 from olympus.engagements.manifest import SignedEngagementManifest
 from olympus.engagements.resolve import (
@@ -597,11 +600,43 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
     reads_findings = requires("findings:read")
     reads_incidents = requires("incidents:read")
     writes_findings = requires("findings:write")
+    reads_apollo = requires("apollo:read")
+    runs_apollo = requires("apollo:run")
     engagements_database = settings.engagements_database
     findings_directory = settings.findings_directory
     findings_database = settings.findings_database
     baseline_findings_directory = settings.baseline_findings_directory
     incidents_directory = settings.incidents_directory
+    apollo_rules_directory = settings.apollo_rules_directory
+
+    def _apollo_rules() -> tuple[DetectionRule, ...] | None:
+        if apollo_rules_directory is None:
+            return None
+        try:
+            return ApolloApplicationService().list_rules(apollo_rules_directory)
+        except (OSError, TimeoutError, ValueError):
+            return ()
+
+    def _apollo_context(
+        session: WebSession,
+        *,
+        events_text: str = "",
+        alerts: list[Alert] | None = None,
+        event_count: int = 0,
+        error: str | None = None,
+    ) -> dict[str, object]:
+        rules = _apollo_rules()
+        return {
+            "configured": rules is not None,
+            "unavailable": rules == (),
+            "rules": list(rules or ()),
+            "events_text": events_text,
+            "alerts": alerts,
+            "event_count": event_count,
+            "error": error,
+            "can_run": "apollo:run" in session.scopes,
+            "csrf_token": _csrf_token(session.nonce),
+        }
 
     def _load_findings_from(directory: Path) -> list[Finding]:
         """Load every ``*.json`` finding bundle in ``directory``, bounded.
@@ -1087,6 +1122,75 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             request,
             "tools.html",
             {"capabilities": capabilities, "summary": summary},
+        )
+
+    @app.get("/apollo", response_class=HTMLResponse, include_in_schema=False)
+    def apollo_page(request: Request, session: WebSession = reads_apollo) -> Response:
+        return _page(request, "apollo.html", _apollo_context(session))
+
+    @app.post("/apollo/evaluate", response_class=HTMLResponse, include_in_schema=False)
+    def apollo_evaluate(
+        request: Request,
+        events: Annotated[str, Form()],
+        csrf_token: Annotated[str, Form()],
+        session: WebSession = runs_apollo,
+    ) -> Response:
+        _check_csrf(session, csrf_token)
+        _rate_limit(session)
+        rules = _apollo_rules()
+        if rules is None:
+            return _page(
+                request,
+                "apollo.html",
+                _apollo_context(session, events_text=events),
+                code=503,
+            )
+        if not rules:
+            return _page(
+                request,
+                "apollo.html",
+                _apollo_context(
+                    session,
+                    events_text=events,
+                    error="The configured Apollo rule pack is unavailable or invalid.",
+                ),
+                code=503,
+            )
+        lines = [line for line in events.splitlines() if line.strip()]
+        if not 1 <= len(lines) <= 500:
+            return _page(
+                request,
+                "apollo.html",
+                _apollo_context(
+                    session,
+                    events_text=events,
+                    error="Provide between 1 and 500 normalized Event JSON lines.",
+                ),
+                code=422,
+            )
+        try:
+            parsed = [Event.model_validate_json(line) for line in lines]
+            alerts = evaluate_stream(list(rules), parsed, max_evaluations=500_000)
+        except (ValidationError, TimeoutError, ValueError):
+            return _page(
+                request,
+                "apollo.html",
+                _apollo_context(
+                    session,
+                    events_text=events,
+                    error="Telemetry must be valid normalized olympus.event NDJSON.",
+                ),
+                code=422,
+            )
+        return _page(
+            request,
+            "apollo.html",
+            _apollo_context(
+                session,
+                events_text=events,
+                alerts=alerts,
+                event_count=len(parsed),
+            ),
         )
 
     def _assessment_context(

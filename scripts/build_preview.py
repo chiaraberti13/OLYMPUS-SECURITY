@@ -27,6 +27,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
+from olympus.apollo.application import ApolloApplicationService
 from olympus.argus.ct import parse_crtsh_response
 from olympus.core.enums import AssetType, FindingStatus, Severity, Source
 from olympus.core.models import Asset, Finding
@@ -89,6 +90,7 @@ def _page(title: str, body: str) -> str:
         "<header><h1>🏛️ OLYMPUS-SECURITY</h1>"
         "<nav><a href='index.html'>Panoramica</a><a href='tools.html'>Strumenti</a>"
         "<a href='demo.html'>Demo guidata</a><a href='report.html'>Report di esempio</a>"
+        "<a href='apollo.html'>Apollo</a>"
         "<a href='attack.html'>Associazioni ATT&amp;CK</a>"
         "<a href='https://github.com/chiaraberti13/OLYMPUS-SECURITY'>Codice</a></nav>"
         f"<div class='banner'>{html.escape(_BANNER)}</div></header>"
@@ -399,6 +401,32 @@ def _attack_html() -> str:
     )
 
 
+def _apollo_html() -> str:
+    """Render the bundled Sysmon rule pack as an honest static preview."""
+    rules = ApolloApplicationService().list_rules(_ROOT / "examples" / "input" / "apollo-sysmon")
+    rows = "".join(
+        "<tr>"
+        f"<td><code>{html.escape(rule.rule_id)}</code></td>"
+        f"<td>{html.escape(rule.title)}</td>"
+        f"<td><code>{html.escape(rule.event_type)}</code></td>"
+        f"<td>{html.escape(rule.severity.value)}</td>"
+        f"<td>{html.escape(', '.join(rule.mitre_attack) or '—')}</td></tr>"
+        for rule in rules
+    )
+    return _page(
+        "OLYMPUS-SECURITY — Apollo",
+        "<h2>Apollo detection workbench</h2>"
+        "<p>Questa pagina statica mostra il rule pack Sysmon incluso nel repository. "
+        "La Web UI operativa espone <code>/apollo</code>: accetta eventi "
+        "<code>olympus.event</code> normalizzati, applica davvero le regole sul backend "
+        "e restituisce alert deterministici. Qui non è possibile inviare dati e non "
+        "viene eseguita alcuna raccolta o chiamata di rete.</p>"
+        f"<table><caption>{len(rules)} regole validate dal loader Apollo reale</caption>"
+        "<tr><th>ID</th><th>Titolo</th><th>Tipo evento</th><th>Severità</th>"
+        f"<th>ATT&amp;CK</th></tr>{rows}</table>",
+    )
+
+
 def _demo_js() -> str:
     return _DEMO_JS
 
@@ -411,6 +439,7 @@ _PAGES = {
     "demo-report.html": _demo_report_html,
     "demo.js": _demo_js,
     "attack.html": _attack_html,
+    "apollo.html": _apollo_html,
 }
 
 

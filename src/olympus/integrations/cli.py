@@ -243,6 +243,12 @@ def themis_api(
         help="Directory holding the shared engagements database; enables the "
         "engagement read endpoints and engagement-derived scope enforcement.",
     ),
+    apollo_rules: str = typer.Option(
+        "",
+        "--apollo-rules",
+        help="Server-owned Apollo rule directory; enables versioned rule-list and "
+        "offline evaluation API endpoints.",
+    ),
     manifest_public_key: str = typer.Option(
         "",
         "--manifest-public-key",
@@ -303,6 +309,7 @@ def themis_api(
                 engagements_database=(
                     Path(engagement_storage) / ENGAGEMENTS_DB_NAME if engagement_storage else None
                 ),
+                apollo_rules_directory=Path(apollo_rules) if apollo_rules else None,
                 trusted_manifest_public_key_pem=(
                     read_regular_text(
                         Path(manifest_public_key),
@@ -395,6 +402,11 @@ def themis_web(
         "output); enables the dashboard incidents-by-status widget for an "
         "incidents:read identity (read-only producer artifacts).",
     ),
+    apollo_rules: str = typer.Option(
+        "",
+        "--apollo-rules",
+        help="Server-owned Apollo rule directory; enables the authenticated detection workbench.",
+    ),
     ssl_certfile: str = typer.Option("", "--ssl-certfile"),
     ssl_keyfile: str = typer.Option("", "--ssl-keyfile"),
 ) -> None:
@@ -466,6 +478,7 @@ def themis_web(
                     Path(baseline_directory) if baseline_directory else None
                 ),
                 incidents_directory=(Path(incidents_directory) if incidents_directory else None),
+                apollo_rules_directory=Path(apollo_rules) if apollo_rules else None,
                 max_concurrent_requests=max_concurrent_requests,
             )
         )
