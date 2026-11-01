@@ -561,6 +561,7 @@ Run an offline backup/restore drill on synthetic data and print RTO (WEB-J-01).
 | `--post-snapshot` | option | no | `5` | — |
 | `--identities` | option | no | `10` | — |
 | `--audit-records` | option | no | `50` | — |
+| `--jobs` | option | no | `20` | — |
 
 ### `olympus core sbom`
 

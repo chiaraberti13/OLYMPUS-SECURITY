@@ -361,6 +361,9 @@ class ThemisJobStore:
             target = sqlite3.connect(temporary)
             try:
                 source.backup(target)
+                # The online backup copies the WAL flag; a read-only verification would
+                # then leave orphan -wal/-shm sidecars next to the published snapshot.
+                target.execute("PRAGMA journal_mode = DELETE")
             finally:
                 target.close()
             temporary.chmod(0o600)

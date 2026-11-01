@@ -14,6 +14,8 @@ everything below lives under **Unreleased**.
 
 ### Added
 
+- `olympus core restore-drill --jobs`: il drill copre anche il database job Themis;
+  `ThemisJobStore.backup` non lascia più sidecar `-wal/-shm` orfani (ROADMAP `WEB-J-01`).
 - `olympus themis scope backup|verify-backup|restore`: validated, create-only,
   owner-only snapshots of the Themis scope file (ROADMAP `WEB-J-01`).
 - **Test browser reale per gli stati dello store Web (`WEB-B-01`).** Chromium via

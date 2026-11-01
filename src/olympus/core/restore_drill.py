@@ -15,6 +15,7 @@ volumes, other stores or other hardware.
 
 from __future__ import annotations
 
+import json
 import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -39,6 +40,7 @@ from olympus.themis.identity import (
     restore_register_backup,
     save_register,
 )
+from olympus.themis.jobs import ThemisJobStore
 
 SCHEMA_NAME = "olympus.restore-drill"
 SCHEMA_VERSION = "1.0.0"
@@ -46,6 +48,7 @@ MAX_ENGAGEMENTS = 5_000
 MAX_LEDGER_ENTRIES = 2_000
 MAX_IDENTITIES = 200
 MAX_AUDIT_RECORDS = 5_000
+MAX_JOBS = 1_000
 _T0 = datetime(2026, 1, 1, tzinfo=UTC)
 
 
@@ -83,6 +86,7 @@ def run_drill(
     post_snapshot: int = 5,
     identities: int = 10,
     audit_records: int = 50,
+    jobs: int = 20,
 ) -> dict[str, object]:
     """Run the drill under ``workdir`` (must not exist) and return a report."""
     if not 1 <= engagements <= MAX_ENGAGEMENTS:
@@ -93,6 +97,8 @@ def run_drill(
         raise ValueError(f"identities must be 1..{MAX_IDENTITIES}")
     if not 1 <= audit_records <= MAX_AUDIT_RECORDS:
         raise ValueError(f"audit_records must be 1..{MAX_AUDIT_RECORDS}")
+    if not 1 <= jobs <= MAX_JOBS:
+        raise ValueError(f"jobs must be 1..{MAX_JOBS}")
     if not 0 <= post_snapshot <= MAX_ENGAGEMENTS:
         raise ValueError("post_snapshot out of range")
     if workdir.exists() or workdir.is_symlink():
@@ -146,12 +152,41 @@ def run_drill(
                 ),
             )
 
+        scope_path = live / "scope.json"
+        scope_path.write_text(
+            json.dumps(
+                {
+                    "schema_name": "olympus.themis-scope",
+                    "schema_version": "1.0.0",
+                    "allowed_hosts": ["127.0.0.1"],
+                    "allowed_cidrs": ["127.0.0.0/8"],
+                }
+            ),
+            encoding="utf-8",
+        )
+        job_store = ThemisJobStore(live / "jobs.sqlite3")
+        job_ids = [
+            job_store.submit(
+                scanner="synthetic",
+                target="127.0.0.1",
+                target_kind="host",
+                scope_path=scope_path,
+                authorized=True,
+            ).job_id
+            for _ in range(jobs)
+        ]
+        # Cancel a share of the jobs so more than one lifecycle state is restored.
+        for job_id in job_ids[::2]:
+            job_store.cancel(job_id)
+        states_before = job_store.counts_by_state()
+
         timings: dict[str, float] = {}
         started = time.perf_counter()
         eng_info = store.backup(snaps / "engagements.sqlite3")
         led_info = backup_ledger(ledger, snaps / "custody.json")
         id_info = backup_register(register_path, snaps / "identities.json")
         audit_info = backup_audit_log(audit_path, snaps / "audit.jsonl")
+        jobs_info = job_store.backup(snaps / "jobs.sqlite3")
         _timed(timings, "backup", started)
 
         started = time.perf_counter()
@@ -164,6 +199,7 @@ def run_drill(
                     "custody": "custody.json",
                     "identities": "identities.json",
                     "audit": "audit.jsonl",
+                    "themis-jobs": "jobs.sqlite3",
                 },
             ),
         )
@@ -172,6 +208,14 @@ def run_drill(
         # Writes after the snapshot: these define the (non-zero) data-loss window.
         for index in range(post_snapshot):
             store.save(_engagement(engagements + index))
+        for _ in range(post_snapshot):
+            job_store.submit(
+                scanner="synthetic",
+                target="127.0.0.1",
+                target_kind="host",
+                scope_path=scope_path,
+                authorized=True,
+            )
     finally:
         store.close()
 
@@ -184,6 +228,7 @@ def run_drill(
     r_led = restore_ledger_backup(snaps / "custody.json", restored / "custody.json")
     r_id = restore_register_backup(snaps / "identities.json", restored / "identities.json")
     r_audit = restore_audit_backup(snaps / "audit.jsonl", restored / "audit.jsonl")
+    r_jobs = ThemisJobStore.restore_backup(snaps / "jobs.sqlite3", restored / "jobs.sqlite3")
     _timed(timings, "restore_and_verify", started)
 
     if r_eng.engagement_count != engagements or eng_info.engagement_count != engagements:
@@ -194,6 +239,11 @@ def run_drill(
         raise RestoreDrillError("restored identity count differs from the snapshot")
     if r_audit.records != audit_records or audit_info.records != audit_records:
         raise RestoreDrillError("restored audit record count differs from the snapshot")
+    if r_jobs.job_count != jobs or jobs_info.job_count != jobs:
+        raise RestoreDrillError("restored Themis job count differs from the snapshot")
+    states_after = ThemisJobStore(restored / "jobs.sqlite3").counts_by_state()
+    if states_after != states_before:
+        raise RestoreDrillError("restored Themis job states differ from the snapshot")
 
     return {
         "schema_name": SCHEMA_NAME,
@@ -204,6 +254,7 @@ def run_drill(
             "ledger_entries": ledger_entries,
             "identities": identities,
             "audit_records": audit_records,
+            "jobs": jobs,
             "post_snapshot_writes": post_snapshot,
         },
         "timings_seconds": timings,
@@ -211,13 +262,14 @@ def run_drill(
         "recovery_point": {
             "restored_engagements": r_eng.engagement_count,
             "engagements_lost_after_snapshot": post_snapshot,
+            "restored_jobs": r_jobs.job_count,
+            "jobs_lost_after_snapshot": post_snapshot,
             "note": "data written after the snapshot is not recovered",
         },
-        "stores_covered": ["engagements", "custody-ledger", "identity", "audit"],
+        "stores_covered": ["engagements", "custody-ledger", "identity", "audit", "themis-jobs"],
         "stores_not_covered": [
             "athena",
             "findings-transitions",
-            "themis-jobs",
             "scope",
             "vault",
             "evidence-files",

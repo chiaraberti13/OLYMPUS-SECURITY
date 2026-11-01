@@ -234,7 +234,11 @@ l'output dichiara dataset, store coperti e non coperti. Misura locale indicativa
 (1000 engagement + 200 voci di custodia, questo host, disco locale): ripristino e
 verifica ≈ 0,02 s. Le scritture successive allo snapshot risultano assenti dal
 restore: la finestra di perdita dati coincide con l'intervallo dall'ultimo
-snapshot, nessun RPO è promesso. Non copre Athena, transizioni finding, job Themis,
+snapshot, nessun RPO è promesso. Il drill include anche il database job Themis
+(`--jobs`, job in stati diversi; conteggio per stato confrontato dopo il restore) e ha
+rivelato sidecar `-wal/-shm` orfani lasciati da `ThemisJobStore.backup`, corretti e
+coperti da test (31 test mirati superati; 9 fallimenti preesistenti di sandbox/PDF/TUI
+nella suite completa, identici su main pulito). Non copre Athena, transizioni finding,
 scope, vault, evidenze e chiavi. Tre test in
 `tests/unit/test_restore_drill.py`; non è una garanzia RPO/RTO di produzione.
 

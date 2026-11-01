@@ -364,8 +364,14 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
   Minerva con dati sintetici, misura l'RTO di quel dataset su quell'host e mostra
   che le scritture post-snapshot non vengono recuperate (finestra di perdita =
   intervallo dall'ultimo snapshot). Test `tests/unit/test_restore_drill.py`. Il drill
-  copre ora anche registro identità e log di audit (`--identities`, `--audit-records`);
-  gli altri store non sono coperti; nessun RPO/RTO di produzione è dichiarato verificato.
+  copre ora anche registro identità e log di audit (`--identities`, `--audit-records`)
+  e il database job Themis (`--jobs`, con job in stati diversi: il conteggio per stato
+  ripristinato deve coincidere con lo snapshot). Il drill ha rivelato un difetto reale:
+  `ThemisJobStore.backup` lasciava sidecar `-wal/-shm` orfani accanto allo snapshot
+  (lo snapshot ereditava la modalità WAL); ora viene convertito in
+  `journal_mode=DELETE` e un test verifica che resti un solo file. Il digest del file
+  ripristinato può differire da quello dello snapshot a parità di dati. Gli altri store
+  (Athena, transizioni finding, scope, vault, evidenze, chiavi) non sono coperti; nessun RPO/RTO di produzione è dichiarato verificato.
 
 ### WEB-J-02 — Retention e privacy di sistema
 

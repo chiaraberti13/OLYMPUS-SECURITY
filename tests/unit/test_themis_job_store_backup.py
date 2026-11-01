@@ -71,7 +71,12 @@ def test_online_backup_verifies_and_restores_committed_wal(tmp_path: Path) -> No
 
     restored = tmp_path / "restore" / "jobs.sqlite3"
     restored_info = ThemisJobStore.restore_backup(backup, restored)
-    assert restored_info == info
+    # The restored file is rebuilt, so its byte digest may differ from the snapshot's.
+    assert (restored_info.schema_version, restored_info.job_count) == (
+        info.schema_version,
+        info.job_count,
+    )
+    assert ThemisJobStore.verify_backup(restored) == restored_info
     assert ThemisJobStore(restored).get(job_id).job_id == job_id
     assert ThemisJobStore(restored).get(second_job.job_id).job_id == second_job.job_id
 
@@ -172,3 +177,10 @@ def test_jobs_backup_verify_restore_cli_round_trip(tmp_path: Path) -> None:
     assert restored.exit_code == 0, restored.output
     assert json.loads(restored.output)["services_must_be_stopped_before_switching_config"] is True
     assert ThemisJobStore(destination).get(job_id).job_id == job_id
+
+
+def test_backup_publishes_a_self_contained_file_without_sidecars(tmp_path: Path) -> None:
+    store, _job_id = _seed_store(tmp_path)
+    backup = tmp_path / "snapshots" / "jobs.sqlite3"
+    store.backup(backup)
+    assert sorted(path.name for path in backup.parent.iterdir()) == ["jobs.sqlite3"]
