@@ -382,6 +382,18 @@
     {
       "surface": "api",
       "method": "GET",
+      "path": "/api/v1/athena/profiles",
+      "handler": "athena_profiles"
+    },
+    {
+      "surface": "api",
+      "method": "POST",
+      "path": "/api/v1/athena/plan",
+      "handler": "athena_plan"
+    },
+    {
+      "surface": "api",
+      "method": "GET",
       "path": "/api/v1/engagements",
       "handler": "list_engagements"
     },
@@ -450,6 +462,18 @@
       "method": "POST",
       "path": "/metis/extract",
       "handler": "metis_extract"
+    },
+    {
+      "surface": "web",
+      "method": "GET",
+      "path": "/athena",
+      "handler": "athena_page"
+    },
+    {
+      "surface": "web",
+      "method": "POST",
+      "path": "/athena/plan",
+      "handler": "athena_plan"
     },
     {
       "surface": "web",

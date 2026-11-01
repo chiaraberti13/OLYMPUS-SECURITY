@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -19,6 +20,7 @@ PAGES = (
     "apollo.html",
     "metis.html",
     "minerva.html",
+    "athena.html",
 )
 
 
@@ -77,7 +79,7 @@ def test_generator_writes_all_pages(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     # A plain run (no --check) regenerates the pages in place and reports success.
     result = _run()
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "Wrote 10 page(s)" in result.stdout
+    assert "Wrote 11 page(s)" in result.stdout
     for name in PAGES:
         assert (PUBLIC / name).exists()
 
@@ -143,6 +145,18 @@ def test_metis_preview_uses_the_real_extraction_engine() -> None:
     assert "203.0.113.42" in text
     assert "CVE-2021-44228" in text
     assert "non è possibile inviare dati" in text
+
+
+def test_athena_preview_lists_profiles_and_builds_a_real_plan() -> None:
+    text = (PUBLIC / "athena.html").read_text(encoding="utf-8")
+    assert "Athena assessment planner" in text
+    # The real profiles and a plan built by the real engine over a fictitious lab target.
+    assert "Profili di scansione reali" in text
+    assert "DEMO-ENG-2026" in text
+    assert "app.acme.lab.invalid" in text
+    # A 64-hex plan digest derived by the engine.
+    assert re.search(r"[0-9a-f]{64}", text) is not None
+    assert "non si esegue alcuna scansione" in text
 
 
 def test_vercel_headers_allow_script_only_on_the_demo_route() -> None:

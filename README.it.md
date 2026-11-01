@@ -315,11 +315,17 @@ confronta un run di baseline con i finding correnti — nuovi / risolti /
 persistenti — per dar prova delle remediation (`WEB-I` slice 2), e
 `olympus vulcan trend` traccia l'andamento della severità dei finding su una
 serie di run (`WEB-I` slice 3a). Il browser espone anche il workbench di
-detection **Apollo** (`--apollo-rules`) e un workbench di verifica della catena
+detection **Apollo** (`--apollo-rules`); un workbench di verifica della catena
 di custodia **Minerva** (`/minerva`): si incolla un ledger `olympus.custody` e la
 sua catena di hash viene verificata offline dallo stesso motore di
 `olympus minerva verify`, con l'API tipizzata su
-`POST /api/v1/minerva/verify-ledger`. Vedi [`docs/web.md`](docs/web.md).
+`POST /api/v1/minerva/verify-ledger`; il workbench CTI **Metis** (`/metis`,
+`POST /api/v1/metis/extract`) che normalizza gli IOC da testo libero, bundle
+STIX 2.1 o eventi MISP offline; e il pianificatore di assessment **Athena**
+(`/athena`, `POST /api/v1/athena/plan`) che costruisce un piano firmabile
+`olympus.athena.plan` da un profilo di scansione con lo stesso motore di
+`olympus athena plan from-profile` — deterministico e offline, produce un
+documento di piano, non esegue mai una scansione. Vedi [`docs/web.md`](docs/web.md).
 
 Per i deployment multiutente l'API accetta anche bearer OIDC verificati offline
 con issuer, audience e JWKS locale fissati (`--oidc-issuer`,

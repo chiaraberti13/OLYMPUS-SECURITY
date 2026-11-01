@@ -149,6 +149,8 @@ as on the API.
 | `GET /minerva`, `POST /minerva/verify` | Minerva custody-ledger verification workbench: paste an `olympus.custody` ledger and verify its hash chain offline (a truncation, inserted/reordered entry or any edit to a sealed record is caught); requires `minerva:read`, CSRF-protected. When the server is started with `--minerva-custody-public-key`, an Ed25519-signed ledger also has its signature verified against that published key; otherwise a signed ledger is reported as *not signature-verified*. No key or evidence payload is ever accepted from the browser. |
 | `GET /metis` | Metis CTI extraction workbench: extract and normalize IOCs from free text, a STIX 2.1 bundle or a MISP event, offline (requires `metis:read`). |
 | `POST /metis/extract` | Extract indicators from the submitted input and list any skipped elements with a reason (requires `metis:read`, CSRF-protected). Parsing is local; no collection or network access. |
+| `GET /athena` | Athena assessment planner: list the real, target-free scan profiles and build a validated, signable `olympus.athena.plan` from one (requires `athena:read`). |
+| `POST /athena/plan` | Build a plan from a profile, an authorized target, an engagement scope and a confirmed authorization reference, offline (requires `athena:read`, CSRF-protected). Plan-building is deterministic and network-free: it produces a plan document, it never executes a scan; a profile never self-authorizes a run. |
 | `GET /assessments/new` | Guided New Assessment wizard (requires `jobs:write`): engagement → target → scope → activity → tool or automatic. |
 | `GET /assessments/smart` | Smart Scan form (requires `jobs:write`): objective → target → scope → engagement → risk ceiling. |
 | `POST /assessments/smart/plan` | Proposes a deterministic, scope- and policy-aware pipeline; queues nothing (requires `jobs:write`, CSRF-protected). |
@@ -247,6 +249,27 @@ the Web, and are bounded in input size and parsed-item count. Extraction is loca
 and deterministic: no collection, enrichment or network access is performed, and
 an empty indicator set never implies the input was clean when elements were
 skipped.
+
+## Athena assessment planner (`WEB-3` / `API-2`)
+
+`GET /api/v1/athena/profiles` returns the versioned `olympus.athena-profile-list`
+`1.0.0` contract: the named, target-free scan profiles (`light` passive, `deep`
+active) with the registered adapters each one runs and whether it probes a target
+actively. `POST /api/v1/athena/plan` turns a profile plus an authorized target, an
+engagement scope and a confirmed authorization reference into the versioned
+`olympus.athena-plan` `1.0.0` contract: the resolved adapters, the embedded scope,
+the plan and scope SHA-256 digests, and the full canonical plan document ready to
+run with `olympus athena run`. The Web page `/athena` uses the identical
+`olympus.athena` core (`ScanProfile.build_plan`), so the browser, the API and the
+CLI (`athena plan from-profile`) produce byte-identical plans. Both surfaces
+require the `athena:read` scope and are CSRF- and rate-limited on the Web, with
+bounded target and domain counts.
+
+Plan-building is a pure, deterministic, network-free computation: it produces a
+signable plan document, it never executes a scan. A profile never self-authorizes
+a run — the authorization must be confirmed explicitly (`confirmed=true` on the
+API, the confirmation checkbox on the Web) — so an unconfirmed or out-of-shape
+request is rejected with `422` rather than yielding a silently runnable plan.
 
 ### Report export (`WEB-I`)
 

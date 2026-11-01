@@ -31,6 +31,14 @@ from olympus import __version__
 from olympus.apollo.application import ApolloApplicationService
 from olympus.apollo.engine import evaluate_stream
 from olympus.apollo.rules import DetectionRule
+from olympus.athena.application.profiles import (
+    ScanProfile,
+    UnknownProfileError,
+    get_profile,
+)
+from olympus.athena.application.profiles import profiles as scan_profiles
+from olympus.athena.application.registry import active_adapters
+from olympus.athena.domain.contracts import AssessmentPlan, Target
 from olympus.core.execution import StructuredAuditRecord, append_structured_audit
 from olympus.core.models import Alert, Engagement, Event
 from olympus.core.observability import Correlation, Observability, observability_from_config
@@ -504,6 +512,124 @@ def _metis_result_model(result: ExtractionResult) -> MetisExtractionResult:
     )
 
 
+#: Upper bounds for an Athena plan request. They keep a single request small and
+#: bounded; the domain contract enforces its own stricter maxima on top.
+MAX_ATHENA_TARGETS = 64
+MAX_ATHENA_DOMAINS = 64
+
+
+class AthenaProfileView(BaseModel):
+    """A target-free scan profile projected for API clients and the Web UI."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    profile_id: str
+    title: str
+    summary: str
+    adapters: list[str]
+    active_adapters: list[str]
+    #: ``true`` when the profile runs at least one adapter that actively probes a
+    #: target (so it requires active-scan authorization for the engagement).
+    active: bool
+
+
+class AthenaProfileList(BaseModel):
+    """Versioned list of the named scan profiles Athena can build plans from."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_name: Literal["olympus.athena-profile-list"] = "olympus.athena-profile-list"
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    profiles: list[AthenaProfileView]
+
+
+class AthenaPlanTarget(BaseModel):
+    """One authorized assessment target (``domain`` or ``url``)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["domain", "url"]
+    value: str = Field(min_length=1, max_length=2048)
+
+
+class AthenaPlanRequest(BaseModel):
+    """Engagement inputs that turn a named profile into a validated plan.
+
+    No target is ever assumed and ``confirmed`` must be set explicitly: a profile
+    never self-authorizes a run, so an unconfirmed request fails validation (422)
+    rather than yielding a silently runnable plan. Building a plan is a pure,
+    offline, network-free computation — it produces a signable document, it does
+    not execute anything.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    profile: Literal["light", "deep"]
+    engagement_id: str = Field(min_length=1, max_length=256)
+    approval_reference: str = Field(min_length=1, max_length=256)
+    targets: list[AthenaPlanTarget] = Field(min_length=1, max_length=MAX_ATHENA_TARGETS)
+    allowed_domains: list[str] = Field(min_length=1, max_length=MAX_ATHENA_DOMAINS)
+    name: str | None = Field(default=None, max_length=256)
+    confirmed: bool = False
+    report_formats: list[Literal["json", "markdown", "html", "pdf"]] | None = None
+
+
+class AthenaPlanView(BaseModel):
+    """Versioned, bounded projection of a built Athena plan for API and Web."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_name: Literal["olympus.athena-plan"] = "olympus.athena-plan"
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    profile_id: str
+    name: str
+    engagement_id: str
+    adapters: list[str]
+    active: bool
+    targets: list[AthenaPlanTarget]
+    allowed_domains: list[str]
+    report_formats: list[str]
+    #: Always ``true`` on a success response: the plan contract rejects an
+    #: unconfirmed authorization, so a returned plan is always confirmed.
+    authorized: bool
+    plan_digest: str
+    scope_digest: str
+    limits: dict[str, int]
+    #: The full canonical plan document, indented and ready to run with
+    #: ``olympus athena run`` (authorization reference, never a secret).
+    plan_json: str
+
+
+def _athena_profile_view(profile: ScanProfile) -> AthenaProfileView:
+    active = set(active_adapters())
+    return AthenaProfileView(
+        profile_id=profile.profile_id,
+        title=profile.title,
+        summary=profile.summary,
+        adapters=list(profile.adapters),
+        active_adapters=sorted(name for name in profile.adapters if name in active),
+        active=profile.active,
+    )
+
+
+def _athena_plan_view(plan: AssessmentPlan, profile: ScanProfile) -> AthenaPlanView:
+    return AthenaPlanView(
+        profile_id=profile.profile_id,
+        name=plan.name,
+        engagement_id=plan.engagement_id,
+        adapters=list(plan.adapters),
+        active=profile.active,
+        targets=[AthenaPlanTarget(kind=item.kind, value=item.value) for item in plan.targets],
+        allowed_domains=list(plan.scope.allowed_domains),
+        report_formats=list(plan.output.report_formats),
+        authorized=plan.authorization.confirmed,
+        plan_digest=plan.digest(),
+        scope_digest=plan.scope_digest(),
+        limits=plan.limits.model_dump(mode="json"),
+        plan_json=json.dumps(plan.model_dump(mode="json"), indent=2, sort_keys=True),
+    )
+
+
 async def _renew_request_lease(gate: RequestConcurrencyGate, lease: RequestLease) -> None:
     """Keep a request lease alive until its middleware cancels this task."""
     while True:
@@ -602,6 +728,7 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
     reads_apollo = authenticated("apollo:read")
     runs_apollo = authenticated("apollo:run")
     reads_metis = authenticated("metis:read")
+    reads_athena = authenticated("athena:read")
     reads_minerva = authenticated("minerva:read")
     minerva_public_key = (
         load_custody_ed25519_public_key(
@@ -851,6 +978,57 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         return _metis_result_model(result)
+
+    @app.get(
+        "/api/v1/athena/profiles",
+        response_model=AthenaProfileList,
+        tags=["athena"],
+    )
+    def athena_profiles(caller: Caller = reads_athena) -> AthenaProfileList:
+        """List the named, target-free scan profiles Athena can build plans from.
+
+        A profile only chooses which already-registered adapters run and with
+        which safe limits; it carries no target and performs no network access.
+        """
+        return AthenaProfileList(
+            profiles=[_athena_profile_view(profile) for profile in scan_profiles()]
+        )
+
+    @app.post(
+        "/api/v1/athena/plan",
+        response_model=AthenaPlanView,
+        tags=["athena"],
+    )
+    def athena_plan(body: AthenaPlanRequest, caller: Caller = reads_athena) -> AthenaPlanView:
+        """Build a validated, signable assessment plan from a named profile, offline.
+
+        The profile supplies adapters and safe limits; the caller supplies the
+        authorized target(s), engagement scope and authorization reference.
+        Building a plan is a pure, deterministic computation: it produces a plan
+        document, it never executes a scan. ``confirmed`` must be true — a profile
+        never self-authorizes a run — so an unconfirmed or out-of-shape request is
+        rejected with 422 rather than yielding a silently runnable plan.
+        """
+        try:
+            selected = get_profile(body.profile)
+            targets = tuple(Target(kind=item.kind, value=item.value) for item in body.targets)
+            plan = selected.build_plan(
+                engagement_id=body.engagement_id,
+                approval_reference=body.approval_reference,
+                targets=targets,
+                allowed_domains=tuple(body.allowed_domains),
+                name=body.name,
+                confirmed=body.confirmed,
+                report_formats=tuple(body.report_formats) if body.report_formats else None,
+            )
+        except UnknownProfileError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except ValueError as exc:
+            # Pydantic ValidationError (a ValueError subclass) and the contract's
+            # own ValueError both land here: an unconfirmed authorization, an
+            # out-of-shape target, an empty scope or an unknown report format.
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return _athena_plan_view(plan, selected)
 
     @app.get(
         "/api/v1/engagements",
