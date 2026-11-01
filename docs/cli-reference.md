@@ -539,6 +539,17 @@ Emit a hash-pinned ``pip --require-hashes`` constraints file.
 
 Print every explicit persisted-contract migration edge.
 
+### `olympus core restore-drill`
+
+Run an offline backup/restore drill on synthetic data and print RTO (WEB-J-01).
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--workdir` | option | yes | — | New directory for the drill. |
+| `--engagements` | option | no | `100` | — |
+| `--ledger-entries` | option | no | `50` | — |
+| `--post-snapshot` | option | no | `5` | — |
+
 ### `olympus core sbom`
 
 Emit a CycloneDX SBOM of the installed Olympus runtime closure.

@@ -286,6 +286,29 @@ def backup_manifest(
     typer.echo(json.dumps(payload, indent=2, sort_keys=True))
 
 
+@core_app.command("restore-drill")
+def restore_drill(
+    workdir: Path = typer.Option(..., "--workdir", help="New directory for the drill."),
+    engagements: int = typer.Option(100, "--engagements", min=1, max=5000),
+    ledger_entries: int = typer.Option(50, "--ledger-entries", min=1, max=2000),
+    post_snapshot: int = typer.Option(5, "--post-snapshot", min=0, max=5000),
+) -> None:
+    """Run an offline backup/restore drill on synthetic data and print RTO (WEB-J-01)."""
+    from olympus.core.restore_drill import RestoreDrillError, run_drill
+
+    try:
+        report = run_drill(
+            workdir,
+            engagements=engagements,
+            ledger_entries=ledger_entries,
+            post_snapshot=post_snapshot,
+        )
+    except (RestoreDrillError, ValueError, OSError) as exc:
+        typer.echo(f"restore-drill: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.FAILED) from exc
+    typer.echo(json.dumps(report, indent=2, sort_keys=True))
+
+
 @core_app.command("migrations")
 def list_migrations() -> None:
     """Print every explicit persisted-contract migration edge."""

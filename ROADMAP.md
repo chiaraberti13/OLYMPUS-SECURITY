@@ -346,8 +346,13 @@ La madre `SEC-E` e l'atomicità stato/audit `DEV-E-01` restano aperte.
   catena, overwrite/symlink, manomissione, firma con/senza chiave, append
   concorrenti, CLI). Il SHA-256 è un fingerprint non autenticato.
   Restano aperti: audit, scope, vault ed evidenze, backup delle
-  chiavi, snapshot coordinato e RPO/RTO misurati; la voce resta `[~]`.
-  Nessun backup di piattaforma o RPO/RTO è dichiarato verificato.
+  chiavi e snapshot coordinato point-in-time; la voce resta `[~]`.
+  Ulteriore slice (2026-11-01): `olympus core restore-drill` (`core/restore_drill.py`)
+  esegue offline backup → manifest → restore pulito su engagement store e ledger
+  Minerva con dati sintetici, misura l'RTO di quel dataset su quell'host e mostra
+  che le scritture post-snapshot non vengono recuperate (finestra di perdita =
+  intervallo dall'ultimo snapshot). Test `tests/unit/test_restore_drill.py`. Gli altri
+  store non sono coperti; nessun RPO/RTO di produzione è dichiarato verificato.
 
 ### WEB-J-02 — Retention e privacy di sistema
 
