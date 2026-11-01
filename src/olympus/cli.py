@@ -322,6 +322,7 @@ def restore_drill(
     identities: int = typer.Option(10, "--identities", min=1, max=200),
     audit_records: int = typer.Option(50, "--audit-records", min=1, max=5000),
     jobs: int = typer.Option(20, "--jobs", min=1, max=1000),
+    assessments: int = typer.Option(5, "--assessments", min=1, max=500),
 ) -> None:
     """Run an offline backup/restore drill on synthetic data and print RTO (WEB-J-01)."""
     from olympus.core.restore_drill import RestoreDrillError, run_drill
@@ -335,6 +336,7 @@ def restore_drill(
             identities=identities,
             audit_records=audit_records,
             jobs=jobs,
+            assessments=assessments,
         )
     except (RestoreDrillError, ValueError, OSError) as exc:
         typer.echo(f"restore-drill: {exc}", err=True)

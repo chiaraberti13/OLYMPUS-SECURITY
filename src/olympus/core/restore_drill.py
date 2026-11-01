@@ -21,6 +21,9 @@ import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from olympus.athena.adapters.sqlite import SqliteAssessmentRepository
+from olympus.athena.domain.assessment import Assessment, Job
+from olympus.athena.domain.contracts import AssessmentPlan, AssessmentResult, load_plan
 from olympus.core import backup_manifest as bm
 from olympus.core.audit_backup import backup_audit_log, restore_audit_backup
 from olympus.core.coverage import RunStatus
@@ -51,6 +54,7 @@ MAX_LEDGER_ENTRIES = 2_000
 MAX_IDENTITIES = 200
 MAX_AUDIT_RECORDS = 5_000
 MAX_JOBS = 1_000
+MAX_ASSESSMENTS = 500
 _T0 = datetime(2026, 1, 1, tzinfo=UTC)
 
 
@@ -76,6 +80,36 @@ def _evidence() -> Evidence:
     )
 
 
+def _athena_plan() -> AssessmentPlan:
+    return load_plan(
+        {
+            "engagement_id": "ENG-DRILL",
+            "name": "synthetic drill plan",
+            "targets": [{"kind": "domain", "value": "example.com"}],
+            "adapters": ["dns"],
+            "scope": {"allowed_domains": ["example.com"]},
+            "authorization": {
+                "engagement_id": "ENG-DRILL",
+                "approval_reference": "SYNTHETIC-ONLY",
+                "confirmed": True,
+            },
+        }
+    )
+
+
+def _seed_athena(repo: SqliteAssessmentRepository, index: int, plan_id: str) -> None:
+    """Persist one synthetic assessment with a job, a stored result and an audit row."""
+    assessment_id, job_id = f"ASSESS-DRILL-{index}", f"JOB-DRILL-{index}"
+    job = Job(job_id=job_id, adapter="dns", target_kind="domain", target_value="example.com")
+    repo.save_assessment(Assessment(assessment_id=assessment_id, plan_id=plan_id, jobs=(job,)))
+    document = AssessmentResult(
+        assessment_id=assessment_id,
+        job=job.to_contract(assessment_id).model_copy(update={"state": "succeeded"}),
+    ).canonical_json()
+    repo.save_result(assessment_id, job_id, document)
+    repo.append_audit(assessment_id, 0, "2026-01-01T00:00:00Z", "drill", "ok", None, "{}")
+
+
 def _timed(timings: dict[str, float], name: str, started: float) -> None:
     timings[name] = round(time.perf_counter() - started, 6)
 
@@ -89,6 +123,7 @@ def run_drill(
     identities: int = 10,
     audit_records: int = 50,
     jobs: int = 20,
+    assessments: int = 5,
 ) -> dict[str, object]:
     """Run the drill under ``workdir`` (must not exist) and return a report."""
     if not 1 <= engagements <= MAX_ENGAGEMENTS:
@@ -101,6 +136,8 @@ def run_drill(
         raise ValueError(f"audit_records must be 1..{MAX_AUDIT_RECORDS}")
     if not 1 <= jobs <= MAX_JOBS:
         raise ValueError(f"jobs must be 1..{MAX_JOBS}")
+    if not 1 <= assessments <= MAX_ASSESSMENTS:
+        raise ValueError(f"assessments must be 1..{MAX_ASSESSMENTS}")
     if not 0 <= post_snapshot <= MAX_ENGAGEMENTS:
         raise ValueError("post_snapshot out of range")
     if workdir.exists() or workdir.is_symlink():
@@ -111,7 +148,11 @@ def run_drill(
 
     store = SqliteEngagementStore(live / "engagements.db")
     ledger = live / "custody.json"
+    athena = SqliteAssessmentRepository(live / "athena.db")
     try:
+        athena_plan_id = athena.save_plan(_athena_plan())
+        for index in range(assessments):
+            _seed_athena(athena, index, athena_plan_id)
         for index in range(engagements):
             store.save(_engagement(index))
         evidence = _evidence()
@@ -190,6 +231,7 @@ def run_drill(
         audit_info = backup_audit_log(audit_path, snaps / "audit.jsonl")
         jobs_info = job_store.backup(snaps / "jobs.sqlite3")
         scope_info = backup_scope(scope_path, snaps / "scope.json")
+        athena_info = athena.backup(snaps / "athena.sqlite3")
         _timed(timings, "backup", started)
 
         started = time.perf_counter()
@@ -204,6 +246,7 @@ def run_drill(
                     "audit": "audit.jsonl",
                     "themis-jobs": "jobs.sqlite3",
                     "themis-scope": "scope.json",
+                    "athena": "athena.sqlite3",
                 },
             ),
         )
@@ -220,8 +263,11 @@ def run_drill(
                 scope_path=scope_path,
                 authorized=True,
             )
+        for index in range(assessments, assessments + post_snapshot):
+            _seed_athena(athena, index, athena_plan_id)
     finally:
         store.close()
+        athena.close()
 
     started = time.perf_counter()
     bm.verify_manifest(snaps)
@@ -234,6 +280,9 @@ def run_drill(
     r_audit = restore_audit_backup(snaps / "audit.jsonl", restored / "audit.jsonl")
     r_jobs = ThemisJobStore.restore_backup(snaps / "jobs.sqlite3", restored / "jobs.sqlite3")
     r_scope = restore_scope(snaps / "scope.json", restored / "scope.json")
+    r_athena = SqliteAssessmentRepository.restore_backup(
+        snaps / "athena.sqlite3", restored / "athena.db"
+    )
     _timed(timings, "restore_and_verify", started)
 
     if r_eng.engagement_count != engagements or eng_info.engagement_count != engagements:
@@ -252,6 +301,24 @@ def run_drill(
         scope_info.cidrs,
     ) or r_scope.sha256 != hashlib.sha256(scope_path.read_bytes()).hexdigest():
         raise RestoreDrillError("restored scope differs from the snapshot")
+    athena_counts = (
+        r_athena.plan_count,
+        r_athena.assessment_count,
+        r_athena.job_count,
+        r_athena.result_count,
+        r_athena.audit_event_count,
+    )
+    if athena_counts != (1, assessments, assessments, assessments, assessments) or (
+        athena_counts
+        != (
+            athena_info.plan_count,
+            athena_info.assessment_count,
+            athena_info.job_count,
+            athena_info.result_count,
+            athena_info.audit_event_count,
+        )
+    ):
+        raise RestoreDrillError("restored Athena store differs from the snapshot")
     states_after = ThemisJobStore(restored / "jobs.sqlite3").counts_by_state()
     if states_after != states_before:
         raise RestoreDrillError("restored Themis job states differ from the snapshot")
@@ -266,6 +333,7 @@ def run_drill(
             "identities": identities,
             "audit_records": audit_records,
             "jobs": jobs,
+            "athena_assessments": assessments,
             "post_snapshot_writes": post_snapshot,
         },
         "timings_seconds": timings,
@@ -275,6 +343,8 @@ def run_drill(
             "engagements_lost_after_snapshot": post_snapshot,
             "restored_jobs": r_jobs.job_count,
             "jobs_lost_after_snapshot": post_snapshot,
+            "restored_athena_assessments": r_athena.assessment_count,
+            "athena_assessments_lost_after_snapshot": post_snapshot,
             "note": "data written after the snapshot is not recovered",
         },
         "stores_covered": [
@@ -284,9 +354,9 @@ def run_drill(
             "audit",
             "themis-jobs",
             "themis-scope",
+            "athena",
         ],
         "stores_not_covered": [
-            "athena",
             "findings-transitions",
             "vault",
             "evidence-files",
