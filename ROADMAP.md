@@ -131,7 +131,7 @@ export, storico, documentazione. La CLI resta alternativa, non unico accesso.
 
 - **WEB-1** [x] Web control plane nativo sopra l'API tipizzata (submit job, SSE, cancel), con security headers/CSP/CSRF/sessioni.
 - **WEB-2** [~] Pagine operative dei tool esistenti (Themis scan, findings, diff, trend, report, engagement).
-- **WEB-3** [ ] Copertura Web di **tutti** i tool dell'ecosistema (Argus, Apollo, Metis, Minerva, Athena, Artemis…) con pagine dedicate operative.
+- **WEB-3** [~] Copertura Web di **tutti** i tool dell'ecosistema (Argus, Apollo, Metis, Minerva, Athena, Artemis…) con pagine dedicate operative. Vulcan: associazioni CWE→ATT&CK consultabili in `/findings/attack`, con provenienza, finding non mappati ed export Navigator; riuso del motore offline, accesso `findings:read`. Restano gli altri flussi/moduli.
 - **WEB-4** [ ] Dashboard principale con stato sistema, job attivi, findings per severità, coverage ATT&CK.
 - **WEB-5** [ ] Wizard "New Assessment" end-to-end (engagement → scope → profilo → esecuzione → report).
 - **WEB-6** [ ] Configurazione guidata, feedback operazioni, gestione errori/eccezioni uniforme.
@@ -212,6 +212,22 @@ pertinenti, documentazione IT/EN aggiornata, nessun segreto nel diff, commit su
 per esecuzioni e promozioni senza evidenza.
 
 ## 19. Debito tecnico e rischi residui
+
+### Incremento Web Vulcan — 2026-11-01
+
+- Dashboard e pagina operativa ATT&CK con export Navigator: riuso della mappa
+  offline versionata, autorizzazione `findings:read`, provenienza automatica e
+  distinzione esplicita dalla copertura difensiva. Nessuna scansione di rete.
+- Demo statica ampliata con `public/attack.html`, rigenerabile e verificata dal
+  drift gate. Verifica del deployment Vercel bloccata da HTTP 403 del provider;
+  nessun claim di pubblicazione live.
+- QA: test Web/Vulcan/preview e contratto inventario route; lint, formato e
+  typing. I test di processo/sandbox di questo ambiente falliscono sul cambio
+  proprietario `os.chown(..., 65534, 65534)` (EINVAL), anche sulla baseline:
+  serve riesecuzione in un host che supporti l'isolamento richiesto. Nessun
+  controllo di sicurezza o quality gate è stato disabilitato.
+- `WEB-3` resta parziale; gli altri tool e la copertura detection Apollo
+  richiedono ulteriori interventi. Nessuna promozione di adapter live-tested.
 
 - Web UI copre solo un sottoinsieme dei tool → rischio "catalogo" se non si completa `WEB-3`.
 - Operatività reale impossibile solo-su-Vercel → mitigato dallo split (`DEPLOY-2`).

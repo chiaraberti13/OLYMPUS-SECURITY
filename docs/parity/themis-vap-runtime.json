@@ -340,6 +340,12 @@
     {
       "surface": "web",
       "method": "GET",
+      "path": "/findings/attack",
+      "handler": "findings_attack"
+    },
+    {
+      "surface": "web",
+      "method": "GET",
       "path": "/",
       "handler": "dashboard"
     },

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}ATT&CK associations · Olympus Vulcan{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>ATT&CK finding associations</h1>
+  <p>Automatic CWE → ATT&CK mapping, version {{ map_version }}. These associations
+    are analytical suggestions, not verified attacks or detection coverage. No network activity is performed.</p>
+  <p>Educational and research use only, on systems you own or are explicitly authorized to assess.</p>
+  {% if not configured %}
+  <p role="status">No findings directory is configured.</p>
+  {% elif error %}
+  <p role="alert">Findings unavailable: {{ error }}</p>
+  {% else %}
+  <div class="tiles">
+    <div class="tile"><span class="tile-value">{{ total }}</span><span class="tile-label">findings assessed</span></div>
+    <div class="tile"><span class="tile-value">{{ mapped }}</span><span class="tile-label">findings mapped</span></div>
+    <div class="tile"><span class="tile-value">{{ total - mapped }}</span><span class="tile-label">findings unmapped</span></div>
+    <div class="tile"><span class="tile-value">{{ techniques }}</span><span class="tile-label">distinct techniques</span></div>
+  </div>
+  <p><a href="/findings/attack?format=navigator">Download ATT&CK Navigator layer (JSON)</a></p>
+  <p class="muted">Scores count automatic associations. Unmapped findings are retained below;
+    absence of a mapping does not imply absence of risk. All stored findings are included, regardless of lifecycle status.</p>
+  {% endif %}
+</section>
+{% if configured and not error %}
+<section class="card">
+  <h2>Mapping evidence</h2>
+  {% for row in rows %}
+  <h3><a href="/findings/{{ row.finding_id }}">{{ row.finding_id }}</a> · {{ row.title }}</h3>
+  {% if row.associations %}
+  <table>
+    <caption>Automatic associations for {{ row.finding_id }}</caption>
+    <thead><tr><th scope="col">Technique</th><th scope="col">Tactic</th><th scope="col">Confidence</th><th scope="col">Provenance</th></tr></thead>
+    <tbody>{% for item in row.associations %}
+      <tr><td>{{ item.technique }} · {{ item.name }}</td><td>{{ item.tactic }}</td><td>{{ item.confidence }}</td><td>{{ item.source }} · {{ item.rationale }}</td></tr>
+    {% endfor %}</tbody>
+  </table>
+  {% else %}<p class="muted">No association in the current mapping.</p>{% endif %}
+  {% else %}<p class="muted">No findings in the configured store.</p>{% endfor %}
+</section>
+{% endif %}
+{% endblock %}

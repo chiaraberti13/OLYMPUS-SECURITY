@@ -53,6 +53,7 @@ from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import JSONResponse, Response
 
 from olympus import __version__
+from olympus.apollo.attack import build_navigator_layer
 from olympus.core.enums import FindingStatus, Severity, Source
 from olympus.core.execution import (
     StructuredAuditRecord,
@@ -123,6 +124,7 @@ from olympus.vulcan.aggregate import (
     severity_breakdown,
     source_breakdown,
 )
+from olympus.vulcan.attack import ATTACK_MAP_VERSION, associate_all, technique_counts
 from olympus.vulcan.compare import diff_findings
 from olympus.vulcan.evidence_view import build_finding_evidence_view
 from olympus.vulcan.report import (
@@ -893,8 +895,11 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 # first, capped so the card stays compact. The drill-down uses the
                 # exact asset filter so it shows only that asset's findings.
                 assets = asset_breakdown(catalogue)[:5]
+                attack_overlays = associate_all(catalogue)
                 findings_summary = {
                     "total": len(catalogue),
+                    "attack_mapped": sum(bool(item.associations) for item in attack_overlays),
+                    "attack_techniques": len(technique_counts(attack_overlays)),
                     "levels": [
                         {"severity": level, "count": breakdown[level]}
                         for level in ("critical", "high", "medium", "low", "info")
@@ -1595,6 +1600,69 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 "findings": rows,
                 "total": len(catalogue),
                 "matched": len(rows),
+            },
+        )
+
+    @app.get("/findings/attack", response_class=HTMLResponse, include_in_schema=False)
+    def findings_attack(
+        request: Request,
+        format: str = "html",
+        session: WebSession = reads_findings,
+    ) -> Response:
+        """Expose the existing offline CWE overlay without implying detection coverage."""
+        if format not in {"html", "navigator"}:
+            raise HTTPException(status_code=422, detail="format must be html or navigator")
+        context: dict[str, object] = {
+            "configured": findings_directory is not None,
+            "error": None,
+            "rows": [],
+            "total": 0,
+            "mapped": 0,
+            "techniques": 0,
+            "map_version": ATTACK_MAP_VERSION,
+        }
+        if findings_directory is None:
+            if format == "navigator":
+                raise HTTPException(status_code=400, detail="no findings directory is configured")
+            return _page(request, "findings_attack.html", context)
+        try:
+            catalogue = _load_findings_catalogue()
+        except _FindingsUnavailable as exc:
+            if format == "navigator":
+                raise HTTPException(status_code=503, detail=exc.detail) from exc
+            return _page(request, "findings_attack.html", {**context, "error": exc.detail}, 503)
+        overlays = associate_all(catalogue)
+        counts = technique_counts(overlays)
+        if format == "navigator":
+            layer = build_navigator_layer(
+                counts,
+                name="Olympus Vulcan finding associations",
+                description=(
+                    f"Automatic CWE associations (map {ATTACK_MAP_VERSION}). "
+                    "Scores count associations, not verified attacks or detection coverage."
+                ),
+            )
+            return JSONResponse(
+                layer,
+                headers={"Content-Disposition": 'attachment; filename="olympus-attack.json"'},
+            )
+        titles = {finding.finding_id: _safe(finding.title) for finding in catalogue}
+        return _page(
+            request,
+            "findings_attack.html",
+            {
+                **context,
+                "total": len(overlays),
+                "mapped": sum(bool(overlay.associations) for overlay in overlays),
+                "techniques": len(counts),
+                "rows": [
+                    {
+                        "finding_id": overlay.finding_id,
+                        "title": titles[overlay.finding_id],
+                        "associations": [item.to_dict() for item in overlay.associations],
+                    }
+                    for overlay in overlays
+                ],
             },
         )
 

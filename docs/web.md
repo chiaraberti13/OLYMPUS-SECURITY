@@ -1,5 +1,38 @@
 # Web control plane
 
+## Vulcan ATT&CK associations / Associazioni ATT&CK Vulcan
+
+Authenticated readers with `findings:read` can open `/findings/attack` from the
+ATT&CK navigation link. The page reads the configured findings directory and
+reuses Vulcan's versioned offline CWE mapping: technique, tactic, confidence,
+automatic provenance and rationale are shown beside links to each finding.
+Unmapped findings remain visible. All stored findings are included, regardless
+of lifecycle status. This is an association view, not evidence of exploitation
+or validated detection coverage. No network activity is performed.
+The dashboard summarises mapped findings and distinct techniques with a link
+to the evidence page; the card uses the same `findings:read` permission.
+
+`GET /findings/attack?format=navigator` downloads a Navigator layer whose scores
+count automatic associations. Both routes require the same scope. A missing
+store is distinguished from an empty one; unreadable inputs return HTTP 503
+instead of a misleading empty analysis. The export returns HTTP 400 when no
+directory is configured. Invalid formats return HTTP 422.
+
+Gli utenti autenticati con `findings:read` accedono a `/findings/attack` dal link
+ATT&CK. La pagina riutilizza la mappa CWE offline e versionata di Vulcan, mostrando
+tecnica, tattica, confidenza, provenienza automatica e motivazione con collegamenti
+ai finding. I finding non mappati restano visibili; sono inclusi tutti gli stati
+del ciclo di vita. Le associazioni non attestano sfruttamento o copertura
+difensiva verificata. Non viene effettuata alcuna attività di rete.
+La dashboard riepiloga finding mappati e tecniche distinte, con collegamento
+alle evidenze e lo stesso permesso `findings:read`.
+
+`GET /findings/attack?format=navigator` esporta il layer Navigator: i punteggi
+contano le associazioni automatiche. Entrambi i percorsi richiedono lo stesso
+permesso. Una directory assente è distinta da una vuota; dati illeggibili
+restituiscono HTTP 503, export senza directory HTTP 400 e formato invalido HTTP
+422. L'anteprima statica `attack.html` usa soltanto dati sintetici dichiarati.
+
 Olympus exposes four interfaces over the **same** core use cases: the Typer
 CLI, the Textual TUI, the authenticated HTTP API (`olympus.themis.api`) and the
 browser **web control plane** (`olympus.themis.web`). None of them carries its

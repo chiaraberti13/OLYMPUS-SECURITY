@@ -27,6 +27,12 @@
 {% endif %}
 {% if findings_summary %}
 <section class="card">
+  <h2>ATT&CK finding associations</h2>
+  <p>{{ findings_summary.attack_mapped }} mapped findings · {{ findings_summary.attack_techniques }} distinct techniques.</p>
+  <p class="muted">Automatic CWE associations, not verified attacks or detection coverage.</p>
+  <a href="/findings/attack">Review mapping evidence and export Navigator layer</a>
+</section>
+<section class="card">
   <h2>Findings by severity</h2>
   <div class="tiles">
     <div class="tile"><span class="tile-value"><a class="button-link" href="/findings">{{ findings_summary.total }}</a></span><span class="tile-label">findings total</span></div>

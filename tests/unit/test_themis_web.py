@@ -1102,6 +1102,70 @@ def _findings_client(
     )
 
 
+def test_attack_page_and_navigator_reuse_vulcan_mapping(tmp_path: Path) -> None:
+    from olympus.apollo.attack import build_navigator_layer
+    from olympus.core.models import Finding
+    from olympus.vulcan.attack import associate_all, technique_counts
+
+    mapped = {**_FINDING, "cwe": ["CWE-78", "CWE-89"]}
+    unmapped = {**_FINDING, "finding_id": "FND-2026-00002", "cwe": ["CWE-99999"]}
+    client = _findings_client(tmp_path, mapped, unmapped)
+    _login(client)
+    page = client.get("/findings/attack")
+    assert page.status_code == 200
+    assert "T1190" in page.text and "T1059" in page.text
+    assert "derived from CWE-78" in page.text
+    assert "No association in the current mapping" in page.text
+    assert "not verified attacks or detection coverage" in page.text
+    assert "/findings/FND-2026-00002" in page.text
+    response = client.get("/findings/attack?format=navigator")
+    assert response.status_code == 200
+    assert "attachment" in response.headers["content-disposition"]
+    expected = technique_counts(associate_all([Finding(**mapped), Finding(**unmapped)]))
+    assert response.json()["techniques"] == build_navigator_layer(expected)["techniques"]
+    assert response.headers["cache-control"] == "no-store"
+    dashboard = client.get("/").text
+    assert "1 mapped findings · 2 distinct techniques" in dashboard
+    assert 'href="/findings/attack"' in dashboard
+
+
+@pytest.mark.parametrize("suffix", ["", "?format=navigator"])
+def test_attack_routes_require_findings_scope(tmp_path: Path, suffix: str) -> None:
+    client = _client(
+        tmp_path,
+        api_key_scopes=("jobs:read",),
+        findings_directory=_findings_dir(tmp_path),
+    )
+    assert client.get(f"/findings/attack{suffix}", follow_redirects=False).status_code == 303
+    _login(client)
+    assert client.get(f"/findings/attack{suffix}").status_code == 403
+
+
+def test_attack_routes_distinguish_missing_empty_and_unreadable_store(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    assert "No findings directory is configured" in client.get("/findings/attack").text
+    assert client.get("/findings/attack?format=navigator").status_code == 400
+    directory = tmp_path / "empty-findings"
+    directory.mkdir()
+    client = _client(tmp_path, findings_directory=directory)
+    _login(client)
+    assert "No findings in the configured store" in client.get("/findings/attack").text
+    assert client.get("/findings/attack?format=navigator").json()["techniques"] == []
+    (directory / "bad.json").write_text("not json", encoding="utf-8")
+    assert client.get("/findings/attack").status_code == 503
+    assert client.get("/findings/attack?format=navigator").status_code == 503
+    assert client.get("/findings/attack?format=unknown").status_code == 422
+
+
+def test_attack_page_escapes_untrusted_finding_titles(tmp_path: Path) -> None:
+    client = _findings_client(tmp_path, {**_FINDING, "title": "<script>alert(1)</script>"})
+    _login(client)
+    response = client.get("/findings/attack")
+    assert "<script>alert(1)</script>" not in response.text
+    assert "&lt;script&gt;" in response.text
+
+
 def _incidents_dir(tmp_path: Path, statuses: tuple[str, ...] = ("open", "triaged")) -> Path:
     from olympus.core.enums import IncidentStatus, Source
     from olympus.core.models import Incident

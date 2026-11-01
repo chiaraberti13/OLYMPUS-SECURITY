@@ -35,6 +35,7 @@ from olympus.integrations.suite_catalog import catalog_document
 from olympus.themis.adapters.nmap import NmapAdapter
 from olympus.themis.model import ScanRequest
 from olympus.themis.runner import CommandOutput
+from olympus.vulcan.attack import ATTACK_MAP_VERSION, associate_all, technique_counts
 from olympus.vulcan.report import build_report_model, render_report_html
 
 _ROOT = Path(__file__).resolve().parents[1]
@@ -88,6 +89,7 @@ def _page(title: str, body: str) -> str:
         "<header><h1>🏛️ OLYMPUS-SECURITY</h1>"
         "<nav><a href='index.html'>Panoramica</a><a href='tools.html'>Strumenti</a>"
         "<a href='demo.html'>Demo guidata</a><a href='report.html'>Report di esempio</a>"
+        "<a href='attack.html'>Associazioni ATT&amp;CK</a>"
         "<a href='https://github.com/chiaraberti13/OLYMPUS-SECURITY'>Codice</a></nav>"
         f"<div class='banner'>{html.escape(_BANNER)}</div></header>"
         f"{body}"
@@ -363,6 +365,40 @@ def _demo_report_html() -> str:
     return render_report_html(report)
 
 
+def _attack_html() -> str:
+    finding = Finding(
+        finding_id="FND-2026-00001",
+        title="SQL injection — esempio sintetico",
+        asset_id="AST-2026-00001",
+        severity=Severity.HIGH,
+        source=Source.ARTEMIS,
+        cwe=["CWE-89"],
+    )
+    overlays = associate_all([finding])
+    counts = technique_counts(overlays)
+    rows = "".join(
+        "<tr>"
+        f"<td>{html.escape(item.technique)}</td><td>{html.escape(item.name)}</td>"
+        f"<td>{html.escape(item.tactic)}</td><td>{html.escape(item.confidence.value)}</td>"
+        f"<td>{html.escape(item.rationale)}</td></tr>"
+        for overlay in overlays
+        for item in overlay.associations
+    )
+    return _page(
+        "OLYMPUS-SECURITY — Associazioni ATT&CK",
+        "<h2>Associazioni ATT&amp;CK dei finding</h2>"
+        f"<p>DEMO · dati sintetici · mappa CWE versione {ATTACK_MAP_VERSION}. "
+        "La Web UI operativa espone questa analisi in <code>/findings/attack</code>, "
+        "con accesso autenticato, evidenze e download ATT&amp;CK Navigator.</p>"
+        "<p>Le associazioni automatiche non dimostrano attacchi avvenuti né copertura "
+        "difensiva. L'assenza di una mappatura non implica assenza di rischio.</p>"
+        f"<p>Esempio: {html.escape(finding.title)} · {len(counts)} tecnica distinta.</p>"
+        "<table><caption>Esempio derivato dal motore Vulcan, senza esecuzioni di rete</caption>"
+        "<tr><th>Tecnica</th><th>Nome</th><th>Tattica</th><th>Confidenza</th>"
+        f"<th>Provenienza automatica</th></tr>{rows}</table>",
+    )
+
+
 def _demo_js() -> str:
     return _DEMO_JS
 
@@ -374,6 +410,7 @@ _PAGES = {
     "demo.html": _demo_html,
     "demo-report.html": _demo_report_html,
     "demo.js": _demo_js,
+    "attack.html": _attack_html,
 }
 
 
