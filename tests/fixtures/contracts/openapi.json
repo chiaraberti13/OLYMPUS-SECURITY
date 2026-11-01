@@ -202,6 +202,197 @@
         "title": "ApolloRuleList",
         "type": "object"
       },
+      "ArgusCtRequest": {
+        "additionalProperties": false,
+        "description": "A Certificate Transparency (crt.sh JSON) export parsed offline for subdomains.",
+        "properties": {
+          "domain": {
+            "maxLength": 253,
+            "minLength": 1,
+            "title": "Domain",
+            "type": "string"
+          },
+          "payload": {
+            "maxLength": 4000000,
+            "minLength": 1,
+            "title": "Payload",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "payload"
+        ],
+        "title": "ArgusCtRequest",
+        "type": "object"
+      },
+      "ArgusCtResult": {
+        "additionalProperties": false,
+        "description": "Versioned list of in-domain subdomains extracted from a CT export.",
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "schema_name": {
+            "const": "olympus.argus-ct-subdomains",
+            "default": "olympus.argus-ct-subdomains",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "subdomain_count": {
+            "title": "Subdomain Count",
+            "type": "integer"
+          },
+          "subdomains": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Subdomains",
+            "type": "array"
+          }
+        },
+        "required": [
+          "domain",
+          "subdomain_count",
+          "subdomains"
+        ],
+        "title": "ArgusCtResult",
+        "type": "object"
+      },
+      "ArtemisFingerprintRequest": {
+        "additionalProperties": false,
+        "description": "A single HTTP response submitted for offline technology fingerprinting.\n\nThe caller supplies a response they already captured (status, headers and an\noptional body). No request is ever sent from the server: fingerprinting is a\npure match against the curated signature set.",
+        "properties": {
+          "body": {
+            "default": "",
+            "maxLength": 2000000,
+            "title": "Body",
+            "type": "string"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 200,
+            "title": "Headers",
+            "type": "object"
+          },
+          "status": {
+            "maximum": 599.0,
+            "minimum": 100.0,
+            "title": "Status",
+            "type": "integer"
+          },
+          "url": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "status"
+        ],
+        "title": "ArtemisFingerprintRequest",
+        "type": "object"
+      },
+      "ArtemisFingerprintResult": {
+        "additionalProperties": false,
+        "description": "Versioned Artemis passive-fingerprint result shared by API and Web.",
+        "properties": {
+          "fingerprint_count": {
+            "title": "Fingerprint Count",
+            "type": "integer"
+          },
+          "fingerprints": {
+            "items": {
+              "$ref": "#/components/schemas/ArtemisFingerprintView"
+            },
+            "title": "Fingerprints",
+            "type": "array"
+          },
+          "schema_name": {
+            "const": "olympus.artemis-fingerprint",
+            "default": "olympus.artemis-fingerprint",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "integer"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "status",
+          "fingerprint_count",
+          "fingerprints"
+        ],
+        "title": "ArtemisFingerprintResult",
+        "type": "object"
+      },
+      "ArtemisFingerprintView": {
+        "additionalProperties": false,
+        "description": "One matched technology projected for API clients and the Web UI.",
+        "properties": {
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "evidence": {
+            "title": "Evidence",
+            "type": "string"
+          },
+          "product": {
+            "title": "Product",
+            "type": "string"
+          },
+          "references": {
+            "items": {
+              "type": "string"
+            },
+            "title": "References",
+            "type": "array"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "product",
+          "category",
+          "evidence",
+          "references"
+        ],
+        "title": "ArtemisFingerprintView",
+        "type": "object"
+      },
       "AthenaPlanRequest": {
         "additionalProperties": false,
         "description": "Engagement inputs that turn a named profile into a validated plan.\n\nNo target is ever assumed and ``confirmed`` must be set explicitly: a profile\nnever self-authorizes a run, so an unconfirmed request fails validation (422)\nrather than yielding a silently runnable plan. Building a plan is a pure,\noffline, network-free computation \u2014 it produces a signable document, it does\nnot execute anything.",
@@ -1745,6 +1936,106 @@
         "summary": "Apollo Rules",
         "tags": [
           "apollo"
+        ]
+      }
+    },
+    "/api/v1/argus/ct-subdomains": {
+      "post": {
+        "description": "Extract in-domain subdomains from a Certificate Transparency export, offline.\n\nThe caller supplies the exact crt.sh JSON array (`?output=json`); it is\nparsed locally with the same core as `olympus argus ct`. No Certificate\nTransparency query is issued from the server. Only names that are a\nsubdomain of the given domain and are conservative ASCII DNS hostnames are\nreturned, deduplicated and sorted; a wildcard prefix is normalized away.",
+        "operationId": "argus_ct_subdomains_api_v1_argus_ct_subdomains_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArgusCtRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArgusCtResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Argus Ct Subdomains",
+        "tags": [
+          "argus"
+        ]
+      }
+    },
+    "/api/v1/artemis/fingerprint": {
+      "post": {
+        "description": "Fingerprint a captured HTTP response against the curated signatures, offline.\n\nThe caller supplies a response they already captured (status, headers and\nan optional body); it is matched locally with the same core as the Artemis\nscanner. No request is ever sent from the server \u2014 this is a passive match,\nnever an active probe.",
+        "operationId": "artemis_fingerprint_api_v1_artemis_fingerprint_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArtemisFingerprintRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtemisFingerprintResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Artemis Fingerprint",
+        "tags": [
+          "artemis"
         ]
       }
     },

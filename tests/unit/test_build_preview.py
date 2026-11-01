@@ -21,6 +21,8 @@ PAGES = (
     "metis.html",
     "minerva.html",
     "athena.html",
+    "argus.html",
+    "artemis.html",
 )
 
 
@@ -79,7 +81,7 @@ def test_generator_writes_all_pages(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     # A plain run (no --check) regenerates the pages in place and reports success.
     result = _run()
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "Wrote 11 page(s)" in result.stdout
+    assert "Wrote 13 page(s)" in result.stdout
     for name in PAGES:
         assert (PUBLIC / name).exists()
 
@@ -157,6 +159,26 @@ def test_athena_preview_lists_profiles_and_builds_a_real_plan() -> None:
     # A 64-hex plan digest derived by the engine.
     assert re.search(r"[0-9a-f]{64}", text) is not None
     assert "non si esegue alcuna scansione" in text
+
+
+def test_argus_preview_extracts_subdomains_with_the_real_core() -> None:
+    text = (PUBLIC / "argus.html").read_text(encoding="utf-8")
+    assert "Certificate Transparency" in text
+    # Real extraction over the synthetic CT export: in-domain names only, sorted.
+    assert "www.acme.lab.invalid" in text
+    assert "api.acme.lab.invalid" in text
+    # Out-of-domain name is dropped by the real parser.
+    assert "unrelated.example" not in text.split("</table>")[-1]
+    assert "non c'è accesso di rete" in text
+
+
+def test_artemis_preview_fingerprints_with_the_real_core() -> None:
+    text = (PUBLIC / "artemis.html").read_text(encoding="utf-8")
+    assert "fingerprint passivo" in text
+    # Real fingerprint engine over the synthetic response.
+    assert "nginx" in text and "1.25.3" in text
+    assert "WordPress" in text
+    assert "mai una sonda" in text
 
 
 def test_vercel_headers_allow_script_only_on_the_demo_route() -> None:

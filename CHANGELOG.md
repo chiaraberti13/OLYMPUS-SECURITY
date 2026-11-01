@@ -14,6 +14,19 @@ everything below lives under **Unreleased**.
 
 ### Added
 
+- **Workbench Argus e Artemis su Web e API (`WEB-3` / `API-2`).** Due slice offline
+  che completano la copertura Web per-tool dell'ecosistema. **Argus:** `GET /argus`
+  + `POST /api/v1/argus/ct-subdomains` (`olympus.argus-ct-subdomains` `1.0.0`)
+  estraggono i sottodomini in-dominio da un export Certificate Transparency
+  (crt.sh JSON) con il core condiviso `parse_crtsh_response` — normalizzati,
+  deduplicati, ordinati; nessuna query CT inviata. **Artemis:** `GET /artemis` +
+  `POST /api/v1/artemis/fingerprint` (`olympus.artemis-fingerprint` `1.0.0`)
+  effettuano il fingerprint passivo di una risposta HTTP acquisita (status, header,
+  body opzionale) contro le signature tecnologiche con il core condiviso
+  `fingerprint_response` — nessuna richiesta inviata. Nuovi scope `argus:read` e
+  `artemis:read`; CSRF, rate limit e bound su input sulla Web. Demo statiche
+  `public/argus.html` e `public/artemis.html` generate dai motori reali. Con questo
+  incremento ogni tool dell'ecosistema ha una pagina Web dedicata.
 - **Pianificatore Athena su Web e API (`WEB-3` / `API-2` / `INT-3`).** Nuovo
   workbench `GET /athena` e slice tipizzata `GET /api/v1/athena/profiles`
   (`olympus.athena-profile-list` `1.0.0`) + `POST /api/v1/athena/plan`

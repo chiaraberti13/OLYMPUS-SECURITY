@@ -59,10 +59,10 @@ non necessariamente provato in lab live.
 | Area | Componente | Stato | Nota |
 |---|---|---|---|
 | Core | `core.models`/contratti versionati, migrazioni, redaction, crypto, signing | [x] | contratti golden + schema catalog |
-| Recon | **Argus** (DNS/WHOIS/CT/OSINT, SSRF-safe) | [x] | nativo, test offline |
+| Recon | **Argus** (DNS/WHOIS/CT/OSINT, SSRF-safe) | [x] | nativo, test offline; workbench Web `/argus` (sottodomini CT) + API `/api/v1/argus/ct-subdomains` |
 | Orchestrazione | **Athena** (piani firmabili, job, profili Light/Deep) | [x] | `athena profiles`, `plan from-profile`; pianificatore Web `/athena` + API `/api/v1/athena/plan` |
 | Scanner plane | **Themis** (registry 24 engine, maturity ladder, sandbox, job SQLite, API, Web) | [~] | adapter a maturità diversa; pochi live-tested |
-| Web attiva | **Artemis** (fingerprint/header/XSS checks) | [x] | offline-tested |
+| Web attiva | **Artemis** (fingerprint/header/XSS checks) | [x] | offline-tested; workbench Web `/artemis` (fingerprint passivo) + API `/api/v1/artemis/fingerprint` |
 | Blue Team | **Apollo** (ingest access-log/Zeek, detection, ATT&CK, coverage) | [~] | manca ingest Windows/Sysmon |
 | CTI | **Metis** (IOC, STIX/MISP import, case) | [~] | estrazione IOC su API+Web (`/metis`, `/api/v1/metis/extract`); manca CTI live (TAXII/MISP/OpenCTI) |
 | Evidenze | **Minerva** (timeline firmata Ed25519) | [x] | verify offline |
@@ -145,7 +145,7 @@ export, storico, documentazione. La CLI resta alternativa, non unico accesso.
 
 - **WEB-1** [x] Web control plane nativo sopra l'API tipizzata (submit job, SSE, cancel), con security headers/CSP/CSRF/sessioni.
 - **WEB-2** [~] Pagine operative dei tool esistenti (Themis scan, findings, diff, trend, report, engagement).
-- **WEB-3** [~] Copertura Web di **tutti** i tool dell'ecosistema (Argus, Apollo, Metis, Minerva, Athena, Artemis…) con pagine dedicate operative. **Vulcan:** associazioni CWE→ATT&CK consultabili in `/findings/attack`, con provenienza, finding non mappati ed export Navigator; riuso del motore offline, accesso `findings:read`. **Apollo:** workbench operativo `/apollo` sul rule pack configurato dal server, input `olympus.event` NDJSON limitato, valutazione offline reale, scope `apollo:read`/`apollo:run`, CSRF e audit; ingest Web di access log HTTP, Zeek JSON e Windows/Sysmon JSON tramite parser esistenti, limite di 500 righe fisiche e scarti visibili, verifica offline con fixture e regole Sysmon incluse. **Minerva:** workbench `/minerva` di verifica della catena di custodia — si incolla un ledger `olympus.custody` e la catena di hash è verificata offline dallo stesso motore della CLI (`inspect_ledger_text`), firma Ed25519 verificata quando il server è configurato con la chiave pubblica; scope `minerva:read`, CSRF, nessun input di chiavi/evidenze dal browser. **Metis:** workbench CTI `/metis` che estrae e normalizza IOC da testo libero, bundle STIX 2.1 ed eventi MISP tramite il motore condiviso offline, con elenco degli elementi scartati e motivazione; scope `metis:read`, CSRF, rate limit e bound su input e item. **Athena:** pianificatore `/athena` che elenca i profili di scansione (target-free) e costruisce un piano firmabile `olympus.athena.plan` dallo stesso core della CLI (`ScanProfile.build_plan`) — profilo + target autorizzato + scope + autorizzazione confermata → piano deterministico e offline (nessuna esecuzione); scope `athena:read`, CSRF, rate limit. **Restano** Argus e Artemis.
+- **WEB-3** [~] Copertura Web di **tutti** i tool dell'ecosistema (Argus, Apollo, Metis, Minerva, Athena, Artemis…) con pagine dedicate operative. **Vulcan:** associazioni CWE→ATT&CK consultabili in `/findings/attack`, con provenienza, finding non mappati ed export Navigator; riuso del motore offline, accesso `findings:read`. **Apollo:** workbench operativo `/apollo` sul rule pack configurato dal server, input `olympus.event` NDJSON limitato, valutazione offline reale, scope `apollo:read`/`apollo:run`, CSRF e audit; ingest Web di access log HTTP, Zeek JSON e Windows/Sysmon JSON tramite parser esistenti, limite di 500 righe fisiche e scarti visibili, verifica offline con fixture e regole Sysmon incluse. **Minerva:** workbench `/minerva` di verifica della catena di custodia — si incolla un ledger `olympus.custody` e la catena di hash è verificata offline dallo stesso motore della CLI (`inspect_ledger_text`), firma Ed25519 verificata quando il server è configurato con la chiave pubblica; scope `minerva:read`, CSRF, nessun input di chiavi/evidenze dal browser. **Metis:** workbench CTI `/metis` che estrae e normalizza IOC da testo libero, bundle STIX 2.1 ed eventi MISP tramite il motore condiviso offline, con elenco degli elementi scartati e motivazione; scope `metis:read`, CSRF, rate limit e bound su input e item. **Athena:** pianificatore `/athena` che elenca i profili di scansione (target-free) e costruisce un piano firmabile `olympus.athena.plan` dallo stesso core della CLI (`ScanProfile.build_plan`) — profilo + target autorizzato + scope + autorizzazione confermata → piano deterministico e offline (nessuna esecuzione); scope `athena:read`, CSRF, rate limit. **Argus:** workbench `/argus` che estrae i sottodomini in-dominio da un export Certificate Transparency (crt.sh JSON) con lo stesso core offline (`parse_crtsh_response`) — nessuna query CT inviata; scope `argus:read`, CSRF. **Artemis:** workbench `/artemis` che effettua il fingerprint passivo di una risposta HTTP acquisita (status/header/body) contro le signature tecnologiche con lo stesso core offline (`fingerprint_response`) — nessuna richiesta inviata; scope `artemis:read`, CSRF. **Copertura per-tool completa:** ogni tool dell'ecosistema (Vulcan, Apollo, Minerva, Metis, Athena, Argus, Artemis, Themis) ha ora una pagina Web dedicata; le funzionalità operative più profonde (dashboard, wizard end-to-end, configurazione guidata) proseguono in `WEB-4/5/6`.
 - **WEB-4** [ ] Dashboard principale con stato sistema, job attivi, findings per severità, coverage ATT&CK.
 - **WEB-5** [ ] Wizard "New Assessment" end-to-end (engagement → scope → profilo → esecuzione → report).
 - **WEB-6** [ ] Configurazione guidata, feedback operazioni, gestione errori/eccezioni uniforme.
@@ -153,7 +153,7 @@ export, storico, documentazione. La CLI resta alternativa, non unico accesso.
 ## 9. Backend, API e orchestrazione
 
 - **API-1** [x] API FastAPI tipizzata (auth per-scope, accountability, `/jobs`, `/capabilities`, health/ready/metrics).
-- **API-2** [~] Estendere l'API a **tutti** i tool con contratti versionati (non solo Themis). **Apollo:** `GET /api/v1/apollo/rules` (`olympus.apollo-rule-list` 1.0.0) e `POST /api/v1/apollo/evaluate` (`olympus.apollo-evaluation` 1.0.0), rule pack server-owned e valutazione tipizzata/bounded. **Minerva:** `POST /api/v1/minerva/verify-ledger` (`olympus.minerva-ledger-verification` 1.0.0), verifica della catena di custodia in memoria, firma Ed25519 opzionale (chiave pubblica server-owned), scope `minerva:read`. **Metis:** `POST /api/v1/metis/extract` (`olympus.metis-extraction` 1.0.0), estrazione IOC offline tipizzata/bounded da testo/STIX/MISP condivisa con la Web UI, scope `metis:read`. **Athena:** `GET /api/v1/athena/profiles` (`olympus.athena-profile-list` 1.0.0) e `POST /api/v1/athena/plan` (`olympus.athena-plan` 1.0.0), costruzione offline di un piano firmabile da un profilo con digest piano/scope, scope `athena:read`. Restano gli altri moduli.
+- **API-2** [~] Estendere l'API a **tutti** i tool con contratti versionati (non solo Themis). **Apollo:** `GET /api/v1/apollo/rules` (`olympus.apollo-rule-list` 1.0.0) e `POST /api/v1/apollo/evaluate` (`olympus.apollo-evaluation` 1.0.0), rule pack server-owned e valutazione tipizzata/bounded. **Minerva:** `POST /api/v1/minerva/verify-ledger` (`olympus.minerva-ledger-verification` 1.0.0), verifica della catena di custodia in memoria, firma Ed25519 opzionale (chiave pubblica server-owned), scope `minerva:read`. **Metis:** `POST /api/v1/metis/extract` (`olympus.metis-extraction` 1.0.0), estrazione IOC offline tipizzata/bounded da testo/STIX/MISP condivisa con la Web UI, scope `metis:read`. **Athena:** `GET /api/v1/athena/profiles` (`olympus.athena-profile-list` 1.0.0) e `POST /api/v1/athena/plan` (`olympus.athena-plan` 1.0.0), costruzione offline di un piano firmabile da un profilo con digest piano/scope, scope `athena:read`. **Argus:** `POST /api/v1/argus/ct-subdomains` (`olympus.argus-ct-subdomains` 1.0.0), estrazione offline dei sottodomini in-dominio da un export crt.sh JSON, scope `argus:read`. **Artemis:** `POST /api/v1/artemis/fingerprint` (`olympus.artemis-fingerprint` 1.0.0), fingerprint passivo offline di una risposta HTTP acquisita, scope `artemis:read`. Restano i moduli senza slice API dedicata (Helios/Hermes/Proteus).
 - **API-3** [ ] Execution Engine: worker persistente, coda, retry idempotenti, backpressure, checkpoint, cancellazione coerente CLI/TUI/API/Web.
 - **API-4** [ ] CORS/origin policy verso il dominio Web di deploy; autenticazione multiutente.
 
@@ -226,6 +226,32 @@ pertinenti, documentazione IT/EN aggiornata, nessun segreto nel diff, commit su
 per esecuzioni e promozioni senza evidenza.
 
 ## 19. Debito tecnico e rischi residui
+
+### Incremento workbench Argus + Artemis (Web + API) — 2026-11-01
+
+- `WEB-3`/`API-2`: ultimi due tool dell'ecosistema senza pagina Web. **Argus:**
+  workbench `/argus` e `POST /api/v1/argus/ct-subdomains`
+  (`olympus.argus-ct-subdomains` 1.0.0) — estrazione offline dei sottodomini
+  in-dominio da un export Certificate Transparency (crt.sh JSON) con il core
+  condiviso `parse_crtsh_response`; nessuna query CT inviata. **Artemis:**
+  workbench `/artemis` e `POST /api/v1/artemis/fingerprint`
+  (`olympus.artemis-fingerprint` 1.0.0) — fingerprint passivo di una risposta
+  HTTP acquisita (status/header/body) contro le signature tecnologiche con il core
+  condiviso `fingerprint_response`; nessuna richiesta inviata. Nuovi scope
+  `argus:read` e `artemis:read`; CSRF, rate limit e bound su input mantenuti.
+- Entrambe le analisi sono pure, deterministiche e senza rete: operano su dati che
+  l'utente ha già raccolto, non eseguono né scansioni né query. Demo statiche
+  `public/argus.html` e `public/artemis.html` generate dai motori reali su dati
+  sintetici (dominio di laboratorio fittizio `acme.lab.invalid`), coperte dal drift
+  gate preview.
+- **Copertura Web per-tool di `WEB-3` completa:** ogni tool dell'ecosistema ha ora
+  una pagina Web dedicata. Proseguono le funzionalità operative trasversali
+  (`WEB-4` dashboard, `WEB-5` wizard, `WEB-6` configurazione guidata).
+- QA: nuovi test API (estrazione/fingerprint, 422, scope-gating) e Web
+  (estrazione/fingerprint, input malformato, scope, CSRF), più asserzioni preview;
+  golden OpenAPI e manifest route parity rigenerati. `mypy --strict`, Ruff
+  lint/format verdi. Verifiche offline con TestClient; nessun claim di test browser
+  reale o di pubblicazione live. Nessun controllo o quality gate disabilitato.
 
 ### Incremento pianificatore Athena (Web + API) — 2026-11-01
 

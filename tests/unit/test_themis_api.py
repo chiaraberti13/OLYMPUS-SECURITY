@@ -385,6 +385,116 @@ def test_athena_endpoints_require_the_athena_read_scope(tmp_path: Path) -> None:
     assert plan.status_code == 403
 
 
+def test_argus_ct_subdomains_are_extracted_offline_and_versioned(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    payload = json.dumps(
+        [
+            {"name_value": "www.example.com\n*.api.example.com"},
+            {"name_value": "mail.example.com"},
+            {"name_value": "unrelated.test"},
+        ]
+    )
+    response = client.post(
+        "/api/v1/argus/ct-subdomains",
+        headers=AUTH,
+        json={"domain": "example.com", "payload": payload},
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["schema_name"] == "olympus.argus-ct-subdomains"
+    assert body["schema_version"] == "1.0.0"
+    assert body["domain"] == "example.com"
+    # In-domain only, wildcard normalized, deduplicated and sorted; out-of-domain dropped.
+    assert body["subdomains"] == ["api.example.com", "mail.example.com", "www.example.com"]
+    assert body["subdomain_count"] == 3
+
+
+def test_argus_ct_rejects_a_non_json_payload(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    response = client.post(
+        "/api/v1/argus/ct-subdomains",
+        headers=AUTH,
+        json={"domain": "example.com", "payload": "not json at all"},
+    )
+    assert response.status_code == 422
+
+
+def test_argus_ct_requires_the_argus_read_scope(tmp_path: Path) -> None:
+    scopes = tmp_path / "scopes"
+    _scope(scopes)
+    client = TestClient(
+        create_app(
+            ApiSettings(
+                database=tmp_path / "jobs.sqlite3",
+                scope_directory=scopes,
+                api_key=API_KEY,
+                api_key_scopes=("capabilities:read",),
+            )
+        )
+    )
+    response = client.post(
+        "/api/v1/argus/ct-subdomains",
+        headers=AUTH,
+        json={"domain": "example.com", "payload": "[]"},
+    )
+    assert response.status_code == 403
+
+
+def test_artemis_fingerprint_is_offline_and_versioned(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    response = client.post(
+        "/api/v1/artemis/fingerprint",
+        headers=AUTH,
+        json={
+            "url": "https://app.example.com/",
+            "status": 200,
+            "headers": {"Server": "nginx/1.25.3", "X-Powered-By": "PHP/8.2.0"},
+            "body": "<html></html>",
+        },
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["schema_name"] == "olympus.artemis-fingerprint"
+    assert body["schema_version"] == "1.0.0"
+    assert body["url"] == "https://app.example.com/"
+    assert body["status"] == 200
+    products = {fp["product"]: fp for fp in body["fingerprints"]}
+    assert "nginx" in products and products["nginx"]["version"] == "1.25.3"
+    assert "PHP" in products and products["PHP"]["version"] == "8.2.0"
+    assert body["fingerprint_count"] == len(body["fingerprints"])
+
+
+def test_artemis_fingerprint_rejects_an_invalid_status(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    response = client.post(
+        "/api/v1/artemis/fingerprint",
+        headers=AUTH,
+        json={"url": "https://x.example/", "status": 999, "headers": {}},
+    )
+    assert response.status_code == 422
+
+
+def test_artemis_fingerprint_requires_the_artemis_read_scope(tmp_path: Path) -> None:
+    scopes = tmp_path / "scopes"
+    _scope(scopes)
+    client = TestClient(
+        create_app(
+            ApiSettings(
+                database=tmp_path / "jobs.sqlite3",
+                scope_directory=scopes,
+                api_key=API_KEY,
+                api_key_scopes=("capabilities:read",),
+            )
+        )
+    )
+    response = client.post(
+        "/api/v1/artemis/fingerprint",
+        headers=AUTH,
+        json={"url": "https://x.example/", "status": 200, "headers": {}},
+    )
+    assert response.status_code == 403
+
+
 def test_shared_key_defaults_to_capabilities_read_only(tmp_path: Path) -> None:
     scopes = tmp_path / "scopes"
     _scope(scopes)
