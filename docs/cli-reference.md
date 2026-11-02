@@ -77,6 +77,7 @@ Evaluate a bounded rule set against a strict streaming NDJSON event source.
 | `--output` | option | no | — | Alerts JSON output. |
 | `--ecs` | option | no | — | Also write alerts as newline-delimited ECS JSON for a SIEM. |
 | `--ocsf` | option | no | — | Also write alerts as newline-delimited OCSF Detection Findings. |
+| `--hec` | option | no | — | Also write alerts as newline-delimited Splunk HEC event envelopes. |
 | `--max-rules` | option | no | `1000` | — |
 | `--max-rule-bytes` | option | no | `1000000` | — |
 | `--max-event-bytes` | option | no | `1000000` | — |
@@ -108,6 +109,7 @@ Evaluate one rule against one strict, normalized Event fixture.
 | `--output` | option | no | — | — |
 | `--ecs` | option | no | — | Also write alerts as newline-delimited ECS JSON for a SIEM. |
 | `--ocsf` | option | no | — | Also write alerts as newline-delimited OCSF Detection Findings. |
+| `--hec` | option | no | — | Also write alerts as newline-delimited Splunk HEC event envelopes. |
 | `--max-rule-bytes` | option | no | `1000000` | — |
 | `--max-event-bytes` | option | no | `1000000` | — |
 | `--deadline` | option | no | `60.0` | — |

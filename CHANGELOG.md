@@ -14,6 +14,13 @@ everything below lives under **Unreleased**.
 
 ### Added
 
+- **Apollo: export degli alert in Splunk HEC (`BLUE-2`).** Nuovo
+  `olympus.apollo.hec` e opzione `--hec` su `apollo test`/`apollo run` che
+  scrivono gli alert come envelope Splunk HTTP Event Collector (NDJSON,
+  owner-only `0o600`), con il documento ECS riusato come payload `event`.
+  Formatter puro e offline accanto a ECS (`--ecs`) e OCSF (`--ocsf`); la consegna
+  a un SIEM live resta un passo separato e gated. Primo tassello offline di BLUE-2.
+
 - **Demo: pagina dashboard statica (`DEMO-2`).** Nuova `public/dashboard.html`
   (voce nav "Dashboard") che riproduce la dashboard operativa nella demo Vercel:
   stato sistema con le versioni reali, findings per severità e copertura ATT&CK per

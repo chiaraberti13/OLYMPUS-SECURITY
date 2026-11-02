@@ -19,7 +19,12 @@ from olympus.apollo.application import (
     ApolloTestRequest,
 )
 from olympus.apollo.attack import build_navigator_layer, techniques_from_rules
-from olympus.apollo.export import export_alerts, export_alerts_ecs, export_alerts_ocsf
+from olympus.apollo.export import (
+    export_alerts,
+    export_alerts_ecs,
+    export_alerts_hec,
+    export_alerts_ocsf,
+)
 from olympus.apollo.ingest import (
     IngestError,
     iter_access_log,
@@ -64,6 +69,9 @@ def test(
     ocsf: Path | None = typer.Option(
         None, "--ocsf", help="Also write alerts as newline-delimited OCSF Detection Findings."
     ),
+    hec: Path | None = typer.Option(
+        None, "--hec", help="Also write alerts as newline-delimited Splunk HEC event envelopes."
+    ),
     max_rule_bytes: int = typer.Option(DEFAULT_MAX_RULE_BYTES, "--max-rule-bytes"),
     max_event_bytes: int = typer.Option(DEFAULT_MAX_EVENT_BYTES, "--max-event-bytes"),
     deadline: float = typer.Option(60.0, "--deadline"),
@@ -77,7 +85,7 @@ def test(
                 max_rule_bytes=max_rule_bytes,
                 max_event_bytes=max_event_bytes,
                 deadline_seconds=deadline,
-                excluded_paths=tuple(p for p in (output, ecs, ocsf) if p is not None),
+                excluded_paths=tuple(p for p in (output, ecs, ocsf, hec) if p is not None),
             )
         )
         export_alerts(outcome.alerts, output)
@@ -85,6 +93,8 @@ def test(
             export_alerts_ecs(outcome.alerts, ecs)
         if ocsf is not None:
             export_alerts_ocsf(outcome.alerts, ocsf)
+        if hec is not None:
+            export_alerts_hec(outcome.alerts, hec)
     except CancellationRequested as exc:
         _echo_terminal(f"apollo: evaluation cancelled: {exc}", err=True)
         raise typer.Exit(code=ExitCode.CANCELLED) from exc
@@ -111,6 +121,9 @@ def run(
     ocsf: Path | None = typer.Option(
         None, "--ocsf", help="Also write alerts as newline-delimited OCSF Detection Findings."
     ),
+    hec: Path | None = typer.Option(
+        None, "--hec", help="Also write alerts as newline-delimited Splunk HEC event envelopes."
+    ),
     max_rules: int = typer.Option(DEFAULT_MAX_RULES, "--max-rules"),
     max_rule_bytes: int = typer.Option(DEFAULT_MAX_RULE_BYTES, "--max-rule-bytes"),
     max_event_bytes: int = typer.Option(DEFAULT_MAX_EVENT_BYTES, "--max-event-bytes"),
@@ -129,7 +142,7 @@ def run(
             ApolloRunRequest(
                 rules_path=rules,
                 events_path=events,
-                excluded_paths=tuple(p for p in (output, ecs, ocsf) if p is not None),
+                excluded_paths=tuple(p for p in (output, ecs, ocsf, hec) if p is not None),
                 max_rules=max_rules,
                 max_rule_bytes=max_rule_bytes,
                 max_event_bytes=max_event_bytes,
@@ -146,6 +159,8 @@ def run(
             export_alerts_ecs(outcome.alerts, ecs)
         if ocsf is not None:
             export_alerts_ocsf(outcome.alerts, ocsf)
+        if hec is not None:
+            export_alerts_hec(outcome.alerts, hec)
     except CancellationRequested as exc:
         _echo_terminal(f"apollo: run cancelled: {exc}", err=True)
         raise typer.Exit(code=ExitCode.CANCELLED) from exc
