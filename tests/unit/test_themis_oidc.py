@@ -146,7 +146,18 @@ def test_oidc_configuration_is_all_or_none_and_https(tmp_path: Path) -> None:
         settings.validate()
 
 
-@settings(max_examples=100, suppress_health_check=[HealthCheck.function_scoped_fixture])
+# ``deadline=None``: this is a correctness property (a hostile bearer must always
+# surface as an ``OidcError``, never an unhandled exception), not a latency test.
+# Each example runs real RSA/JWKS verification, whose cold-call wall-clock exceeds
+# Hypothesis' 200 ms per-example deadline under CI load, producing a nondeterministic
+# ``DeadlineExceeded`` flake. Disabling the deadline keeps all 100 examples and the
+# assertion intact while removing the load-sensitive timing guard (same convention as
+# the parser-corpus fuzz test).
+@settings(
+    max_examples=100,
+    deadline=None,
+    suppress_health_check=[HealthCheck.function_scoped_fixture],
+)
 @given(st.text(max_size=20_000))
 def test_oidc_hostile_bearer_never_escapes_as_an_unhandled_error(
     tmp_path: Path, candidate: str
