@@ -14,6 +14,7 @@ SCRIPT = ROOT / "scripts" / "build_preview.py"
 PUBLIC = ROOT / "public"
 PAGES = (
     "index.html",
+    "dashboard.html",
     "tools.html",
     "report.html",
     "attack.html",
@@ -81,7 +82,7 @@ def test_generator_writes_all_pages(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     # A plain run (no --check) regenerates the pages in place and reports success.
     result = _run()
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "Wrote 13 page(s)" in result.stdout
+    assert "Wrote 14 page(s)" in result.stdout
     for name in PAGES:
         assert (PUBLIC / name).exists()
 
@@ -179,6 +180,22 @@ def test_artemis_preview_fingerprints_with_the_real_core() -> None:
     assert "nginx" in text and "1.25.3" in text
     assert "WordPress" in text
     assert "mai una sonda" in text
+
+
+def test_dashboard_preview_uses_the_real_aggregation_engines() -> None:
+    from olympus import __version__
+    from olympus.vulcan.attack import ATTACK_MAP_VERSION
+
+    text = (PUBLIC / "dashboard.html").read_text(encoding="utf-8")
+    assert "Dashboard operativa" in text
+    # System status uses the real version constants.
+    assert __version__ in text
+    assert ATTACK_MAP_VERSION in text
+    # Severity aggregation and ATT&CK tactic coverage from the real engines.
+    assert "critical" in text
+    assert "initial-access" in text
+    # Job counts are explicitly labelled as illustrative (the static demo runs none).
+    assert "nessuna esecuzione reale" in text
 
 
 def test_vercel_headers_allow_script_only_on_the_demo_route() -> None:
