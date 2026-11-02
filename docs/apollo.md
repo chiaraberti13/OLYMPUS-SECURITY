@@ -27,9 +27,18 @@ create a new identity. The output is directly consumable by Minerva and Vulcan.
 
 `apollo ingest` is the front door that turns real telemetry into the
 `olympus.event` NDJSON the engine consumes, so the same rules, ATT&CK mapping and
-ECS/OCSF export apply to operational data. Parsing is bounded and *skip, never
+SIEM export apply to operational data. Parsing is bounded and *skip, never
 guess*: a line that is not a valid record for the chosen format is reported and
 skipped, never coerced into a bogus event.
+
+Both `apollo test` and `apollo run` can additionally write the resulting alerts
+in three SIEM-ingestable formats, selected by option (each to its own
+owner-only `0o600` file): `--ecs` (Elastic Common Schema, newline-delimited
+JSON), `--ocsf` (OCSF Detection Findings) and `--hec` (Splunk HTTP Event
+Collector envelopes, one JSON event per line, with the ECS document embedded as
+the `event` payload). All three are pure, offline formatters — they write files,
+they never open a network connection; delivering them to a live SIEM is a
+separate, scope- and authorization-gated step.
 
 The first format is `access-log` — HTTP access logs in the Apache/nginx *Common*
 and *Combined* Log Formats and the Python `http.server` variant — mapped to

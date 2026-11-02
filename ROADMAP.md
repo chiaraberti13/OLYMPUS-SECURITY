@@ -114,7 +114,7 @@ di sicurezza nel frontend.
   fallito) guidate end-to-end dall'ingest. **Resta:** validazione contro
   telemetria Windows **reale** in lab autorizzato (promozione a live-tested).
   Zeek e access-log già fatti.
-- **BLUE-2** [ ] Connettori SIEM/EDR (Splunk HEC, Elastic, Sentinel) via porte iniettate, test offline.
+- **BLUE-2** [~] Connettori SIEM/EDR (Splunk HEC, Elastic, Sentinel) via porte iniettate, test offline. **Formatter offline fatti:** export alert in ECS (`--ecs`), OCSF (`--ocsf`) e **Splunk HEC** (`--hec`, nuovo: `alerts_to_hec`, envelope HEC con documento ECS nel payload `event`), su `apollo test`/`apollo run`, file owner-only `0o600`, puri e deterministici (nessuna rete). **Resta:** layer di dispatch verso endpoint live via transport iniettato (consegna HEC/Elastic bulk/Sentinel, credenziali solo da env, gated da scope+autorizzazione), validazione in lab autorizzato.
 - **BLUE-3** [ ] CTI live in Metis (TAXII 2.1, MISP, OpenCTI) con provenance/caching/isolamento.
 - **PURPLE-1** [ ] `athena purple`: attacco simulato scope-safe → ingest Apollo → valutazione detection → report gap.
 - **PURPLE-2** [ ] Profilo lab ripetibile (`labs/mars`) con seed/versioni/output atteso.
@@ -226,6 +226,22 @@ pertinenti, documentazione IT/EN aggiornata, nessun segreto nel diff, commit su
 per esecuzioni e promozioni senza evidenza.
 
 ## 19. Debito tecnico e rischi residui
+
+### Incremento export SIEM Splunk HEC (BLUE-2) — 2026-11-02
+
+- `BLUE-2`: aggiunto il formatter **Splunk HTTP Event Collector** accanto a
+  ECS/OCSF. Nuovo `olympus.apollo.hec` (`alert_to_hec`, `alerts_to_hec`): envelope
+  HEC (`time` epoch, `host`/`source`/`sourcetype`, `event`) con il documento ECS
+  riusato come payload (nessuna mappatura duplicata). `export_alerts_hec` e
+  l'opzione `--hec` su `apollo test` e `apollo run` scrivono NDJSON owner-only
+  `0o600`, come i formatter ECS/OCSF esistenti.
+- Puro e offline: scrive file, **nessuna chiamata di rete**. La consegna a un SIEM
+  live resta un passo separato, da implementare con transport iniettato e gating
+  scope/autorizzazione (parte rimanente di BLUE-2, insieme a Elastic bulk/Sentinel
+  dispatch e validazione in lab autorizzato).
+- QA: `tests/unit/test_apollo_hec.py` (mappatura envelope, time=created_at, NDJSON
+  una riga per alert, vuoto→vuoto, permessi `0o600` via CLI). Ruff/mypy verdi;
+  `docs/cli-reference.md` rigenerato; `docs/apollo.md` aggiornato.
 
 ### Incremento demo dashboard (DEMO-2) — 2026-11-02
 

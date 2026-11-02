@@ -8,6 +8,7 @@ from contextlib import suppress
 from pathlib import Path
 
 from olympus.apollo.ecs import alerts_to_ndjson
+from olympus.apollo.hec import alerts_to_hec
 from olympus.apollo.ocsf import alerts_to_ndjson as ocsf_alerts_to_ndjson
 from olympus.core.fileio import atomic_write_text
 from olympus.core.models import Alert
@@ -45,3 +46,8 @@ def export_alerts_ecs(alerts: Sequence[Alert], output: Path) -> None:
 def export_alerts_ocsf(alerts: Sequence[Alert], output: Path) -> None:
     """Write alerts as owner-only newline-delimited OCSF Detection Findings."""
     atomic_write_text(output, ocsf_alerts_to_ndjson(alerts), mode=0o600)
+
+
+def export_alerts_hec(alerts: Sequence[Alert], output: Path) -> None:
+    """Write alerts as owner-only newline-delimited Splunk HEC event envelopes."""
+    atomic_write_text(output, alerts_to_hec(alerts), mode=0o600)
