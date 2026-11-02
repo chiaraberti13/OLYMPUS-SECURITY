@@ -143,7 +143,12 @@ from olympus.vulcan.aggregate import (
     severity_breakdown,
     source_breakdown,
 )
-from olympus.vulcan.attack import ATTACK_MAP_VERSION, associate_all, technique_counts
+from olympus.vulcan.attack import (
+    ATTACK_MAP_VERSION,
+    associate_all,
+    tactic_counts,
+    technique_counts,
+)
 from olympus.vulcan.compare import diff_findings
 from olympus.vulcan.evidence_view import build_finding_evidence_view
 from olympus.vulcan.report import (
@@ -1076,10 +1081,17 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 # exact asset filter so it shows only that asset's findings.
                 assets = asset_breakdown(catalogue)[:5]
                 attack_overlays = associate_all(catalogue)
+                tactics = tactic_counts(attack_overlays)
                 findings_summary = {
                     "total": len(catalogue),
                     "attack_mapped": sum(bool(item.associations) for item in attack_overlays),
                     "attack_techniques": len(technique_counts(attack_overlays)),
+                    "attack_tactics": [
+                        {"tactic": tactic, "techniques": count}
+                        for tactic, count in sorted(
+                            tactics.items(), key=lambda item: (-item[1], item[0])
+                        )
+                    ],
                     "levels": [
                         {"severity": level, "count": breakdown[level]}
                         for level in ("critical", "high", "medium", "low", "info")
@@ -1137,6 +1149,50 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                         )
                     ],
                 }
+        # System-status card (WEB-4): platform version, the versioned ATT&CK map
+        # in use, and an honest per-subsystem configuration status. Each row
+        # reflects server configuration (which optional stores/inputs are wired
+        # up), the same flags the runtime docs describe — never a secret or a
+        # target. The job store is always active (the dashboard just read it).
+        subsystems = [
+            {"name": "Job store", "detail": "SQLite (always on)", "ready": True},
+            {
+                "name": "Findings catalogue",
+                "detail": "--findings-directory",
+                "ready": findings_directory is not None,
+            },
+            {
+                "name": "Findings lifecycle store",
+                "detail": "--findings-storage",
+                "ready": findings_database is not None,
+            },
+            {
+                "name": "Baseline findings",
+                "detail": "--baseline-findings-directory",
+                "ready": baseline_findings_directory is not None,
+            },
+            {
+                "name": "Engagements store",
+                "detail": "--engagement-storage",
+                "ready": engagements_database is not None,
+            },
+            {
+                "name": "Incidents",
+                "detail": "--incidents-directory",
+                "ready": incidents_directory is not None,
+            },
+            {
+                "name": "Apollo rule pack",
+                "detail": "--apollo-rules",
+                "ready": apollo_rules_directory is not None,
+            },
+        ]
+        system_status = {
+            "version": __version__,
+            "attack_map_version": ATTACK_MAP_VERSION,
+            "configured": sum(1 for item in subsystems if item["ready"]),
+            "subsystems": subsystems,
+        }
         return _page(
             request,
             "dashboard.html",
@@ -1152,6 +1208,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 "scanner_readiness": scanner_readiness,
                 "incident_summary": incident_summary,
                 "incidents_unavailable": incidents_unavailable,
+                "system_status": system_status,
                 "csrf_token": _csrf_token(session.nonce),
             },
         )

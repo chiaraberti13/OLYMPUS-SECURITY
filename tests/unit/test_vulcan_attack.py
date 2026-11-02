@@ -24,6 +24,7 @@ from olympus.vulcan.attack import (
     ReviewedAssociation,
     associate_all,
     associate_attack,
+    tactic_counts,
     technique_counts,
 )
 
@@ -105,6 +106,23 @@ def test_technique_counts_feed_the_navigator() -> None:
     counts = technique_counts(overlays)
     assert counts["T1190"] == 1
     assert counts["T1059"] == 1
+
+
+def test_tactic_counts_group_distinct_techniques_per_tactic() -> None:
+    # CWE-78 maps to T1190 (initial-access) and T1059 (execution).
+    overlays = associate_all(
+        [_finding("FND-2026-00001", "CWE-78"), _finding("FND-2026-00002", "CWE-78")]
+    )
+    counts = tactic_counts(overlays)
+    # A technique+tactic seen on many findings counts once per tactic, so two
+    # findings sharing the same CWE do not inflate the coverage.
+    assert counts["initial-access"] == 1
+    assert counts["execution"] == 1
+
+
+def test_tactic_counts_empty_without_associations() -> None:
+    overlays = associate_all([_finding("FND-2026-00001", "CWE-99999")])
+    assert tactic_counts(overlays) == {}
 
 
 # --- CLI -------------------------------------------------------------------- #

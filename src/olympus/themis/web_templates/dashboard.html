@@ -14,6 +14,24 @@
     {% endfor %}
   </div>
 </section>
+{% if system_status %}
+<section class="card">
+  <h2>System status</h2>
+  <p class="muted">
+    Olympus <code>{{ system_status.version }}</code> ·
+    ATT&CK map <code>{{ system_status.attack_map_version }}</code> ·
+    {{ system_status.configured }} of {{ system_status.subsystems | length }} optional subsystems configured
+  </p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Subsystem</th><th>Source</th><th>Status</th></tr></thead>
+    <tbody>{% for item in system_status.subsystems %}<tr>
+      <td>{{ item.name }}</td>
+      <td><code>{{ item.detail }}</code></td>
+      <td>{% if item.ready %}<span class="risk-tag risk-passive">configured</span>{% else %}<span class="risk-tag">not configured</span>{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+{% endif %}
 {% if assessment_progress %}
 <section class="card">
   <h2>Assessment progress</h2>
@@ -29,6 +47,15 @@
 <section class="card">
   <h2>ATT&CK finding associations</h2>
   <p>{{ findings_summary.attack_mapped }} mapped findings · {{ findings_summary.attack_techniques }} distinct techniques.</p>
+  {% if findings_summary.attack_tactics %}
+  <h3>Tactic coverage</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Tactic</th><th>Techniques</th></tr></thead>
+    <tbody>{% for item in findings_summary.attack_tactics %}<tr>
+      <td>{{ item.tactic }}</td><td>{{ item.techniques }}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% endif %}
   <p class="muted">Automatic CWE associations, not verified attacks or detection coverage.</p>
   <a href="/findings/attack">Review mapping evidence and export Navigator layer</a>
 </section>

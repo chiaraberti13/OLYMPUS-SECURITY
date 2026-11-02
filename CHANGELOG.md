@@ -14,6 +14,14 @@ everything below lives under **Unreleased**.
 
 ### Added
 
+- **Dashboard WEB-4: card stato sistema e coverage ATT&CK per tattica.** La
+  dashboard principale `/` guadagna una card **System status** (versione della
+  piattaforma, versione della mappa ATT&CK e stato per-sottosistema
+  configurato/non configurato — job store, catalogo/lifecycle/baseline findings,
+  engagements, incidenti, rule pack Apollo) e una sezione **Tactic coverage** che
+  mostra le tecniche distinte per tattica ATT&CK tramite il nuovo helper offline
+  `olympus.vulcan.attack.tactic_counts`. Tutto read-only e derivato dalle sorgenti
+  reali già esposte, gated per scope; con questo `WEB-4` è completo.
 - **Workbench Argus e Artemis su Web e API (`WEB-3` / `API-2`).** Due slice offline
   che completano la copertura Web per-tool dell'ecosistema. **Argus:** `GET /argus`
   + `POST /api/v1/argus/ct-subdomains` (`olympus.argus-ct-subdomains` `1.0.0`)
