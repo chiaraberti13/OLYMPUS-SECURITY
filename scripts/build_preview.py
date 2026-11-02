@@ -28,6 +28,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
+from olympus import __version__
 from olympus.apollo.application import ApolloApplicationService
 from olympus.argus.ct import parse_crtsh_response
 from olympus.artemis.fingerprint import fingerprint_response
@@ -44,7 +45,13 @@ from olympus.minerva.custody import inspect_ledger
 from olympus.themis.adapters.nmap import NmapAdapter
 from olympus.themis.model import ScanRequest
 from olympus.themis.runner import CommandOutput
-from olympus.vulcan.attack import ATTACK_MAP_VERSION, associate_all, technique_counts
+from olympus.vulcan.aggregate import severity_breakdown
+from olympus.vulcan.attack import (
+    ATTACK_MAP_VERSION,
+    associate_all,
+    tactic_counts,
+    technique_counts,
+)
 from olympus.vulcan.report import build_report_model, render_report_html
 
 _ROOT = Path(__file__).resolve().parents[1]
@@ -96,7 +103,8 @@ def _page(title: str, body: str) -> str:
         f'<meta http-equiv="Content-Security-Policy" content="{_CSP}">'
         f"<title>{html.escape(title)}</title><style>{_STYLE}</style></head><body>"
         "<header><h1>🏛️ OLYMPUS-SECURITY</h1>"
-        "<nav><a href='index.html'>Panoramica</a><a href='tools.html'>Strumenti</a>"
+        "<nav><a href='index.html'>Panoramica</a>"
+        "<a href='dashboard.html'>Dashboard</a><a href='tools.html'>Strumenti</a>"
         "<a href='demo.html'>Demo guidata</a><a href='report.html'>Report di esempio</a>"
         "<a href='apollo.html'>Apollo</a>"
         "<a href='metis.html'>Metis</a>"
@@ -628,12 +636,95 @@ def _artemis_html() -> str:
     )
 
 
+def _dashboard_findings() -> list[Finding]:
+    """Synthetic, fictitious findings with mappable CWEs for the demo dashboard."""
+    return [
+        Finding(
+            finding_id="FND-DEMO-10",
+            asset_id="AST-DEMO-1",
+            source=Source.ARTEMIS,
+            title="SQL injection in search (demo)",
+            severity=Severity.CRITICAL,
+            description="Synthetic finding for the demo dashboard.",
+            cwe=["CWE-89"],
+            status=FindingStatus.NEW,
+        ),
+        Finding(
+            finding_id="FND-DEMO-11",
+            asset_id="AST-DEMO-1",
+            source=Source.THEMIS,
+            title="OS command injection (demo)",
+            severity=Severity.HIGH,
+            description="Synthetic finding for the demo dashboard.",
+            cwe=["CWE-78"],
+            status=FindingStatus.NEW,
+        ),
+        Finding(
+            finding_id="FND-DEMO-12",
+            asset_id="AST-DEMO-1",
+            source=Source.ARTEMIS,
+            title="Missing security headers (demo)",
+            severity=Severity.LOW,
+            description="Synthetic finding for the demo dashboard.",
+            status=FindingStatus.NEW,
+        ),
+    ]
+
+
+def _dashboard_html() -> str:
+    """Render a demo of the operational dashboard with the real aggregation engines."""
+    findings = _dashboard_findings()
+    severities = severity_breakdown(findings)
+    overlays = associate_all(findings)
+    tactics = tactic_counts(overlays)
+    techniques = technique_counts(overlays)
+    sev_rows = "".join(
+        f"<tr><td>{level}</td><td>{severities[level]}</td></tr>"
+        for level in ("critical", "high", "medium", "low", "info")
+    )
+    tactic_rows = "".join(
+        f"<tr><td>{html.escape(tactic)}</td><td>{count}</td></tr>"
+        for tactic, count in sorted(tactics.items(), key=lambda item: (-item[1], item[0]))
+    )
+    # Fictitious job-state summary, clearly labelled: the static demo runs no jobs.
+    job_rows = "".join(
+        f"<tr><td>{state}</td><td>{count}</td></tr>"
+        for state, count in (("succeeded", 7), ("running", 1), ("queued", 2), ("failed", 0))
+    )
+    return _page(
+        "OLYMPUS-SECURITY — Dashboard (demo)",
+        "<h2>Dashboard operativa (anteprima)</h2>"
+        "<p>Questa pagina riproduce la dashboard operativa di OLYMPUS "
+        "(<code>/</code> nella Web UI) con dati sintetici etichettati. I riepiloghi "
+        "per severità e la copertura ATT&amp;CK per tattica sono prodotti dai motori "
+        "reali (<code>olympus.vulcan.aggregate.severity_breakdown</code> e "
+        "<code>olympus.vulcan.attack.tactic_counts</code>); i conteggi dei job sono "
+        "illustrativi, perché la demo statica non esegue alcun job.</p>"
+        "<h3>Stato sistema</h3>"
+        f"<p>Olympus <code>{html.escape(__version__)}</code> · "
+        f"mappa ATT&amp;CK <code>{html.escape(ATTACK_MAP_VERSION)}</code> · "
+        f"{len(techniques)} tecniche distinte su {len(tactics)} tattiche.</p>"
+        "<h3>Job (illustrativo)</h3>"
+        "<table><caption>Conteggi job sintetici — nessuna esecuzione reale</caption>"
+        f"<tr><th>Stato</th><th>Conteggio</th></tr>{job_rows}</table>"
+        "<h3>Findings per severità</h3>"
+        f"<table><caption>{len(findings)} findings sintetici aggregati dal motore reale"
+        f"</caption><tr><th>Severità</th><th>Conteggio</th></tr>{sev_rows}</table>"
+        "<h3>Copertura ATT&amp;CK per tattica</h3>"
+        "<table><caption>Tecniche distinte per tattica dal motore ATT&amp;CK reale</caption>"
+        f"<tr><th>Tattica</th><th>Tecniche</th></tr>{tactic_rows}</table>"
+        "<p class='banner'>Associazioni automatiche CWE→ATT&amp;CK, non attacchi "
+        "verificati né copertura di detection; dati sintetici a scopo dimostrativo.</p>",
+    )
+
+
 def _demo_js() -> str:
     return _DEMO_JS
 
 
 _PAGES = {
     "index.html": _index_html,
+    "dashboard.html": _dashboard_html,
     "tools.html": _tools_html,
     "report.html": _report_html,
     "demo.html": _demo_html,

@@ -14,6 +14,12 @@ everything below lives under **Unreleased**.
 
 ### Added
 
+- **Demo: pagina dashboard statica (`DEMO-2`).** Nuova `public/dashboard.html`
+  (voce nav "Dashboard") che riproduce la dashboard operativa nella demo Vercel:
+  stato sistema con le versioni reali, findings per severità e copertura ATT&CK per
+  tattica prodotti dai motori reali (`severity_breakdown`, `tactic_counts`) su dati
+  sintetici etichettati; conteggi job illustrativi. Mantiene la demo fedele alla
+  Web UI dopo l'incremento WEB-4. Offline, coperta dal drift gate preview.
 - **Dashboard WEB-4: card stato sistema e coverage ATT&CK per tattica.** La
   dashboard principale `/` guadagna una card **System status** (versione della
   piattaforma, versione della mappa ATT&CK e stato per-sottosistema

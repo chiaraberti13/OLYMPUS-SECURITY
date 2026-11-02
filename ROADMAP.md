@@ -171,7 +171,7 @@ long-lived, stato durevole). Modello adottato:
 ## 11. Demo professionale su Vercel
 
 - **DEMO-1** [x] Demo statica/fixture navigabile (panoramica, catalogo tool, pagine, report d'esempio nel formato reale) con banner «DEMO — nessuna esecuzione, dati sintetici».
-- **DEMO-2** [ ] Ampliare la demo: dashboard, identità visiva completa, flussi rappresentativi, grafici/visualizzazioni, esempi realistici etichettati.
+- **DEMO-2** [~] Ampliare la demo: dashboard, identità visiva completa, flussi rappresentativi, grafici/visualizzazioni, esempi realistici etichettati. **Fatto:** pagina demo `public/dashboard.html` che riproduce la dashboard operativa (stato sistema con versioni reali, findings per severità e copertura ATT&CK per tattica dai motori reali su dati sintetici etichettati; conteggi job illustrativi). **Resta:** identità visiva completa, grafici/visualizzazioni, flussi rappresentativi aggiuntivi.
 - **DEMO-3** [ ] Quando possibile, integrare funzioni realmente eseguibili via backend dedicato (split), senza confondere live e demo.
 
 ## 12. Database, persistenza ed evidenze
@@ -226,6 +226,21 @@ pertinenti, documentazione IT/EN aggiornata, nessun segreto nel diff, commit su
 per esecuzioni e promozioni senza evidenza.
 
 ## 19. Debito tecnico e rischi residui
+
+### Incremento demo dashboard (DEMO-2) — 2026-11-02
+
+- `DEMO-2`: nuova pagina statica `public/dashboard.html` (voce nav "Dashboard")
+  che riproduce la dashboard operativa WEB-4 nella demo Vercel. Stato sistema con
+  le versioni reali (`olympus.__version__`, `ATTACK_MAP_VERSION`); findings per
+  severità e copertura ATT&CK per tattica prodotti dai **motori reali**
+  (`severity_breakdown`, `tactic_counts`, `associate_all`) su findings sintetici
+  etichettati con CWE mappabili; conteggi job esplicitamente illustrativi (la demo
+  statica non esegue job). Mantiene la coerenza fra demo e Web UI dopo WEB-4.
+- Offline e senza rete; rigenerabile e coperta dal drift gate preview (14 pagine).
+- QA: `tests/unit/test_build_preview.py` aggiornato (PAGES, conteggio pagine,
+  asserzioni su stato sistema/severità/tattiche); Ruff lint/format verdi.
+- Resta `DEMO-2` parziale: identità visiva completa, grafici/visualizzazioni e
+  ulteriori flussi rappresentativi.
 
 ### Incremento dashboard WEB-4 (stato sistema + coverage ATT&CK per tattica) — 2026-11-02
 
