@@ -2098,6 +2098,35 @@ def test_dashboard_assessment_progress_absent_without_jobs(tmp_path: Path) -> No
     assert "Assessment progress" not in page.text
 
 
+def test_dashboard_shows_system_status_card(tmp_path: Path) -> None:
+    from olympus import __version__
+    from olympus.vulcan.attack import ATTACK_MAP_VERSION
+
+    client = _client(tmp_path)  # no optional stores configured
+    _login(client)
+    page = client.get("/")
+    assert page.status_code == 200
+    assert "System status" in page.text
+    # Honest operational status: platform + ATT&CK map versions and subsystems.
+    assert __version__ in page.text
+    assert ATTACK_MAP_VERSION in page.text
+    assert "Job store" in page.text
+    assert "Apollo rule pack" in page.text
+    # The job store is always active; an unconfigured optional store is shown as such.
+    assert "not configured" in page.text
+
+
+def test_dashboard_shows_attack_tactic_coverage(tmp_path: Path) -> None:
+    # CWE-89 maps to ATT&CK T1190 (initial-access) via the offline map.
+    mapped = {**_FINDING, "cwe": ["CWE-89"]}
+    client = _findings_client(tmp_path, mapped)
+    _login(client)
+    page = client.get("/")
+    assert page.status_code == 200
+    assert "Tactic coverage" in page.text
+    assert "initial-access" in page.text
+
+
 def test_dashboard_assessment_progress_tracks_terminal_jobs(tmp_path: Path) -> None:
     client = _client(tmp_path)
     _login(client)

@@ -276,6 +276,28 @@ def technique_counts(overlays: Iterable[FindingAttack]) -> Counter[str]:
     return counter
 
 
+def tactic_counts(overlays: Iterable[FindingAttack]) -> Counter[str]:
+    """Count distinct ATT&CK techniques per tactic across finding overlays.
+
+    Gives a tactic-level coverage view — how many unique techniques each tactic
+    has evidence for — deterministic and offline. Each ``(technique, tactic)``
+    pair is counted once, so a technique seen on many findings still counts a
+    single time toward its tactic rather than inflating the coverage.
+    """
+    seen: set[tuple[str, str]] = set()
+    counter: Counter[str] = Counter()
+    for overlay in overlays:
+        for association in overlay.associations:
+            if not _TECHNIQUE_RE.match(association.technique):
+                continue
+            key = (association.technique, association.tactic)
+            if key in seen:
+                continue
+            seen.add(key)
+            counter[association.tactic] += 1
+    return counter
+
+
 __all__ = [
     "ATTACK_MAP_VERSION",
     "AttackAssociation",
@@ -286,5 +308,6 @@ __all__ = [
     "ReviewedAssociation",
     "associate_all",
     "associate_attack",
+    "tactic_counts",
     "technique_counts",
 ]
