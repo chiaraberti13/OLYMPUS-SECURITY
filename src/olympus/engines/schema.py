@@ -48,6 +48,7 @@ _DIGEST = re.compile(r"^sha256:[a-f0-9]{64}$")
 _ENV_NAME = r"^[A-Z][A-Z0-9_]{2,63}$"
 _BUILD_ARG = r"^--[a-z0-9][a-z0-9-]{0,40}(=[A-Za-z0-9/._-]{1,80})?$"
 _RUNTIME_PACKAGE = r"^[A-Za-z0-9][A-Za-z0-9._-]{0,80}==[0-9][A-Za-z0-9._+-]{0,40}$"
+_FLAG = r"^-{1,2}[A-Za-z0-9][A-Za-z0-9-]{0,40}$"
 _ENTRYPOINT = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*$")
 
 DottedId = Annotated[str, StringConstraints(pattern=_DOTTED, max_length=64)]
@@ -118,6 +119,18 @@ class Adapter(_Frozen):
     entrypoint: str
     timeout_seconds: int = Field(ge=1, le=3600)
     resource_profile: ResourceProfile
+    #: Allow-list the adapter may put on the command line (see ``engines.argv``). Fixed
+    #: flags first; ``value_flags`` take exactly one runtime value each and are required
+    #: unless also listed in ``optional_flags``. Empty for adapters not yet migrated.
+    static_flags: list[Annotated[str, StringConstraints(pattern=_FLAG)]] = Field(
+        default_factory=list, max_length=32
+    )
+    value_flags: list[Annotated[str, StringConstraints(pattern=_FLAG)]] = Field(
+        default_factory=list, max_length=16
+    )
+    optional_flags: list[Annotated[str, StringConstraints(pattern=_FLAG)]] = Field(
+        default_factory=list, max_length=16
+    )
     #: False while ``timeout_seconds``/``resource_profile`` are estimates rather than
     #: values derived from evidence. A pilot review flips it; nobody should have to
     #: guess later which numbers were ever measured.
@@ -127,6 +140,11 @@ class Adapter(_Frozen):
     def _entrypoint(self) -> Self:
         if _ENTRYPOINT.fullmatch(self.entrypoint) is None:
             raise ValueError("entrypoint must look like 'package.module:ClassName'")
+        every = [*self.static_flags, *self.value_flags]
+        if len(set(every)) != len(every):
+            raise ValueError("a flag may appear once, as static or as value flag, never both")
+        if not set(self.optional_flags) <= set(self.value_flags):
+            raise ValueError("optional_flags must be a subset of value_flags")
         return self
 
 

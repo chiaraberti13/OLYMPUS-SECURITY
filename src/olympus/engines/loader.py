@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import tomllib
+from functools import lru_cache
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -95,3 +96,11 @@ def load_all_data(root: Path = DATA_ROOT) -> dict[str, DataManifest]:
         manifest.data.name: manifest
         for manifest in (load_data_manifest(path) for path in sorted(root.glob("*.toml")))
     }
+
+
+@lru_cache(maxsize=64)
+def manifest_for(name: str) -> EngineManifest:
+    """Return the validated manifest of one shipped engine (cached; manifests are static)."""
+    if not name or not name.replace("-", "").isalnum() or name != name.lower():
+        raise ManifestError(f"invalid engine name {name!r}")
+    return load_manifest(ENGINES_ROOT / name / MANIFEST_NAME)

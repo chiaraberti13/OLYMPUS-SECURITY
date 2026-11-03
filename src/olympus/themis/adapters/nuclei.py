@@ -28,6 +28,8 @@ import json
 
 from olympus.core.enums import AssetType, Severity, Source
 from olympus.core.models import Asset, Finding
+from olympus.engines.argv import ArgvError, build_argv
+from olympus.engines.loader import manifest_for
 from olympus.themis.base import MAX_JSON_DEPTH, ParseError, ScannerAdapter, check_json_depth
 from olympus.themis.config import get as get_env
 from olympus.themis.model import ScanRequest
@@ -63,6 +65,11 @@ class NucleiAdapter(ScannerAdapter):
     version_expected = "3.x"
     install = "go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest"
 
+    #: Records the last :meth:`parse` call had to skip. An adapter instance serves one
+    #: run (the registry hands out a fresh one), so this is per-run state, reset on
+    #: every parse; :meth:`coverage_loss` reports it as a partial result.
+    _skipped_records: int = 0
+
     def templates_path(self) -> str:
         """Return the configured template directory, or an empty string."""
         return get_env(TEMPLATES_VARIABLE, "").strip()
@@ -78,28 +85,23 @@ class NucleiAdapter(ScannerAdapter):
         )
 
     def build_argv(self, host: str, request: ScanRequest) -> list[str]:
+        """Return the command line, built only from the manifest's flag allow-list."""
         target = request.target if request.target_kind == "url" else f"http://{host}"
-        argv = [
-            self.binary,
-            "-target",
-            target,
-            "-jsonl",
-            "-silent",  # keep the banner and progress bar out of stdout
-            "-no-color",
-            "-disable-update-check",  # never reach out to GitHub mid-scan
-            "-no-interactsh",  # no out-of-band callbacks to a third-party server
-            "-omit-raw",  # response bodies carry cookies, tokens and PII
-            "-omit-template",  # the base64 template body is noise in evidence
-        ]
+        values = {"-target": target}
         templates = self.templates_path()
         if templates:
-            argv += ["-templates", templates]
-        return argv
+            values["-templates"] = templates
+        try:
+            return build_argv(manifest_for(self.name), values)
+        except ArgvError as exc:
+            raise ParseError(f"nuclei command refused: {exc}") from exc
 
     def parse(self, output: CommandOutput, host: str, request: ScanRequest) -> list[Finding]:
         asset_id = self.asset_id(host)
         findings: list[Finding] = []
         saw_object = False
+        skipped = 0
+        self._skipped_records = 0
 
         for line in output.stdout.splitlines():
             line = line.strip()
@@ -116,18 +118,22 @@ class NucleiAdapter(ScannerAdapter):
             check_json_depth(line, limit=MAX_NUCLEI_JSON_DEPTH, scanner="nuclei")
             try:
                 entry = json.loads(line)
-            except (json.JSONDecodeError, RecursionError) as exc:
-                raise ParseError(f"nuclei emitted an unparseable JSONL line: {exc}") from exc
+            except (json.JSONDecodeError, RecursionError):
+                skipped += 1  # a malformed record loses that match, not the whole run
+                continue
             if not isinstance(entry, dict):
-                raise ParseError("nuclei JSONL record must be an object")
-            saw_object = True
+                skipped += 1
+                continue
 
             template_id = entry.get("template-id")
             info = entry.get("info")
             if not isinstance(template_id, str) or not template_id.strip():
-                raise ParseError("nuclei JSONL record has no valid template-id")
+                skipped += 1
+                continue
             if not isinstance(info, dict):
-                raise ParseError("nuclei JSONL record has no valid info object")
+                skipped += 1
+                continue
+            saw_object = True
             template = template_id
             title = str(info.get("name") or template)
             severity = _SEVERITY.get(str(info.get("severity", "")).lower(), Severity.INFO)
@@ -161,8 +167,20 @@ class NucleiAdapter(ScannerAdapter):
         # real result. Output that carried no JSON object at all, however, means
         # the stream was something else entirely and must not read as "clean".
         if output.stdout.strip() and not saw_object:
+            # Nothing usable at all (plain text, or only malformed records): that is a
+            # failed parse, not a partial one, and it must never read as a clean target.
             raise ParseError("nuclei produced output but no JSONL object")
+        self._skipped_records = skipped
         return findings
+
+    def coverage_loss(self, output: CommandOutput, request: ScanRequest) -> str | None:
+        """Report skipped records: some matches exist that the findings do not show."""
+        if self._skipped_records:
+            return (
+                f"{self._skipped_records} nuclei output record(s) could not be parsed and "
+                "were skipped; findings are not exhaustive"
+            )
+        return None
 
     def missing_templates_hint(self, output: CommandOutput) -> str | None:
         """Return actionable guidance when nuclei refused for want of templates."""
