@@ -49,7 +49,7 @@ Nessun engine è `production-ready`. Nessuna riga del ledger è stata promossa d
 | `testssl` | tls | offline-tested | sì (timeout/profilo non rivisti) | - | https://github.com/drwetter/testssl.sh | no | GPL-2.0 | Bash | git | `v3.2.4` @ `97763a4` | 3.x (compatible) | sì |
 | `theharvester` | dns | catalog-only | no | - | https://github.com/laramies/theHarvester | no | GPL-2.0 | Python | git | `4.11.1` @ `fd832de` | - (-) | no |
 | `wafw00f` | web | live-tested | sì (timeout/profilo non rivisti) | - | https://github.com/EnableSecurity/wafw00f | no | BSD-3-Clause | Python | pip | `2.4.2` | 2.x (compatible) | sì |
-| `wapiti` | web | offline-tested | sì (timeout/profilo non rivisti) | - | https://github.com/wapiti-scanner/wapiti | no | GPL-2.0 | Python | pip | `3.3.2` | - (-) | sì |
+| `wapiti` | web | offline-tested | sì (timeout/profilo non rivisti) | - | https://github.com/wapiti-scanner/wapiti | no | GPL-2.0 | Python | pip | `3.2.3` | - (-) | sì |
 | `whatweb` | web | offline-tested | sì (timeout/profilo non rivisti) | - | https://github.com/urbanadventurer/WhatWeb | no | GPL-2.0 | Ruby | git | `v0.6.4` @ `d279d93` | - (-) | sì |
 | `wpscan` | web | adapter-ready | sì (timeout/profilo non rivisti) | - | https://github.com/wpscanteam/wpscan | no | WPScan Public Source (non-OSI) | Ruby | gem | `4.2.0` | - (-) | sì |
 | `xsstrike` | web | live-tested | sì (timeout/profilo non rivisti) | - | https://github.com/s0md3v/XSStrike | no | GPL-3.0 | Python | git | `3.1.6` @ `65dd68a` (l'engine stampa `3.1.5`: pin = commit) | 3.1.5 (RECONFIRM) | sì |
@@ -91,9 +91,10 @@ Un engine passa a `production-ready` solo se **tutte** queste condizioni sono ve
 | `pip install commix` | Il pacchetto PyPI `commix` 0.1 è di un autore terzo (*Bhai4You*), non di `commixproject/commix`. Era nell'immagine. | Installato da git (`v4.1`, commit pinnato). Lo schema rifiuta un manifest `pip` che nomini `commix` o `theHarvester`. |
 | `theHarvester` | PyPI `theHarvester` 0.0.1 è una release obsoleta; la 4.11.1 richiede Python >= 3.12, l'immagine è 3.11. | Fuori dall'immagine, `catalog-only`, TODO nel Dockerfile. Debito tecnico: portare la base a Python 3.12. |
 | `nikto` | Non è più installabile da apt; la 2.6.1 da git richiede il modulo Perl `XML::Writer`. | Fuori dall'immagine finché la build non è verificata (TODO nel Dockerfile). |
-| Toolchain Go | I `go.mod` dei pin richiedono Go 1.25-1.26; nessun `golang-go` Debian è così recente. Il vecchio `\|\| true` mascherava il fallimento. | `GOTOOLCHAIN=go1.26.10` pinnato; i 5 engine Go compilati e avviati in sandbox con questi pin. |
+| Toolchain Go | I `go.mod` dei pin richiedono Go 1.25-1.26; nessun `golang-go` Debian è così recente (la base è trixie, 1.24). Il vecchio `\|\| true` mascherava il fallimento. | `GOTOOLCHAIN=go1.26.10` pinnato; i 5 engine Go compilati e avviati in sandbox con questi pin. |
 | apt | Debian rimuove le versioni vecchie e `snapshot.debian.org` non era raggiungibile. | Nessun engine via apt. `nmap` è compilato dal commit pinnato (il tarball firmato su nmap.org non era raggiungibile). |
 | Licenze | `nmap` è sotto Nmap Public Source License 0.95 (non OSI), non GPL-2.0; `whatweb` è GPL-2.0, non GPL-3.0; `arjun` è AGPL-3.0 (corretto nel registry; i metadati PyPI dicono GPL-3). | Registry corretto. La NPSL e l'AGPL hanno implicazioni sulla ridistribuzione dell'immagine: da far valutare prima di pubblicarla. `nikto` ha una licenza propria (codice GPL, database non GPL, distribuibili solo con nikto): non modificata, da rivedere. |
+| `wapiti3` | `3.3.x` richiede Python >= 3.12 (scoperto dal primo build CI: `No matching distribution found`). | Pin a `3.2.3`, l'ultima versione per Python 3.11. Debito: base Python 3.12 (TOOLS-5). |
 | `xsstrike` | Il tag `3.1.6` punta a un commit il cui script stampa `v3.1.5`. | Il pin è il **commit**; la stringa di versione dell'engine non è usata come prova. |
 | Installazioni non pinnate | Le dipendenze transitive di pip e gem restano libere. | Residuo noto: ambiente con hash per engine (Fase 4). |
 | Template di nuclei | `nuclei-templates` è una dipendenza dati non pinnata. | Da pinnare nel pilota nuclei (Fase 2). |

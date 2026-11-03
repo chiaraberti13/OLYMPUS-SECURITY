@@ -68,13 +68,15 @@ COPY --chown=0:0 deploy/security/scanner-runtime-attestation.json \
 RUN chmod 0444 /etc/olympus/scanner-runtime.json
 RUN pip install --no-cache-dir ".[api,report]"
 
+# wapiti3 is held at 3.2.3: 3.3.x requires Python >= 3.12 and this image is 3.11
+# (found by the first CI build of this file; TOOLS-5 tracks moving the base).
 # Python scanners, exact versions from PyPI (each confirmed to be the upstream
 # project's own package). Only top-level packages are pinned; their transitive
 # dependencies float until each engine gets a hash-locked environment. `commix` is
 # deliberately NOT here: PyPI "commix" is a third-party package (author
 # "Bhai4You"), not commixproject/commix, which is installed from git below.
 RUN pip install --no-cache-dir \
-        'sqlmap==1.10.11' 'wafw00f==2.4.2' 'arjun==2.2.7' 'wapiti3==3.3.2' 'dirsearch==0.5.0'
+        'sqlmap==1.10.11' 'wafw00f==2.4.2' 'arjun==2.2.7' 'wapiti3==3.2.3' 'dirsearch==0.5.0'
 
 # Git-distributed engines, each fetched by full commit SHA and verified. The recipe
 # is the one EngineManifest.install_command() prints, so what an operator is told

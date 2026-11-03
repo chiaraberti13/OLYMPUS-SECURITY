@@ -6,7 +6,7 @@ upstream_verified = false
 language = "Python"
 license = "GPL-2.0"
 distribution = "pip"
-pinned_version = "3.3.2"
+pinned_version = "3.2.3"  # 3.3.x needs Python >= 3.12, the image is 3.11 (TOOLS-5)
 update_policy = "minor"
 mandatory = false
 presence_probe = ["wapiti", "--version"]

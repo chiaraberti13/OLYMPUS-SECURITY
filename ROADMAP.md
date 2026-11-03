@@ -134,8 +134,8 @@ password auditor. La maturità per-engine è in
 - **TOOLS-5** [ ] Debito tecnico dell'immagine scanner e degli engine (TOOLS-4):
   - **Blocker: l'immagine non è mai stata buildata.** Il job CI `scanner-image` (`.github/workflows/docker-build.yml`) la costruisce e la verifica con `scripts/smoke_scanner_image.py`, ma non ha ancora un run verde: finché non c'è, il Dockerfile fail-closed è teorico.
   - **Debito legale**: nmap è sotto Nmap Public Source License 0.95 (non OSI) e nikto ha codice GPL con database non GPL; `redistributable = "conditional"` nel registry e `docker/NOTICE` nell'immagine, ma la decisione di pubblicare l'immagine spetta a chi la pubblica. Valutare anche l'AGPL-3.0 di arjun.
-  - **Toolchain Go**: `GOTOOLCHAIN=go1.26.10` richiede un `golang-go` di bootstrap >= 1.21 (il guard del Dockerfile lo verifica); la release Debian della base `python:3.11-slim@sha256:9534e5a8...` non è stata determinata (Docker Hub rispondeva 429).
-  - Base Python 3.12 (theHarvester 4.x); build verificata di nikto 2.6.1 (richiede `XML::Writer`) e NoSQLMap; ambienti con hash per engine per le dipendenze transitive di pip/gem; `engines doctor --strict` come ultimo step del Dockerfile.
+  - **Toolchain Go**: `GOTOOLCHAIN=go1.26.10` richiede un `golang-go` di bootstrap >= 1.21 (il guard del Dockerfile lo verifica); la base `python:3.11-slim@sha256:9534e5a8...` è Debian trixie (dedotto dal log CI: `ruby 1:3.3+b1`), quindi `golang-go` 1.24 e Ruby 3.3 bastano.
+  - Base Python 3.12 (theHarvester 4.x e wapiti3 3.3.x, ora fermo a 3.2.3); build verificata di nikto 2.6.1 (richiede `XML::Writer`) e NoSQLMap; ambienti con hash per engine per le dipendenze transitive di pip/gem; `engines doctor --strict` come ultimo step del Dockerfile.
   - **Valori stimati**: `timeout_seconds` e `resource_profile` di ogni adapter sono stime (`reviewed = false` nei manifest) fino alla revisione con evidenza, a partire dal pilota nuclei.
 
 ## 7. Piano di integrazione dei tool
