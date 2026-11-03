@@ -17,7 +17,7 @@ here as a working live scan.
 from __future__ import annotations
 
 import shutil
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Literal
 
 
@@ -94,7 +94,7 @@ KIND: dict[str, str] = {
 
 # The complete catalogue — all 24 integrations. Binary names match the vendored
 # scanners' shutil.which(...) / settings.*_path defaults.
-REGISTRY: tuple[ScannerSpec, ...] = (
+_CATALOGUE: tuple[ScannerSpec, ...] = (
     ScannerSpec(
         "nmap",
         "Network port & service enumeration",
@@ -172,7 +172,7 @@ REGISTRY: tuple[ScannerSpec, ...] = (
         "commix",
         "GPL-3.0",
         True,
-        "pip install commix (VAP_COMMIX_PATH)",
+        "git: commixproject/commix (pin in engine.toml; NON la PyPI 'commix')",
         True,
     ),
     ScannerSpec(
@@ -272,7 +272,7 @@ REGISTRY: tuple[ScannerSpec, ...] = (
         "theHarvester",
         "GPL-2.0",
         True,
-        "pip install theHarvester",
+        "git: laramies/theHarvester (pin in engine.toml; NON la PyPI 'theHarvester')",
         False,
     ),
     ScannerSpec(
@@ -336,6 +336,27 @@ REGISTRY: tuple[ScannerSpec, ...] = (
         False,
     ),
 )
+
+
+def _with_pinned_install(spec: ScannerSpec) -> ScannerSpec:
+    """Return ``spec`` with its install hint replaced by the pinned manifest command.
+
+    The catalogue's hand-written hints could suggest an unpinned or outright wrong
+    package — e.g. ``pip install commix`` / ``pip install theHarvester``, where the PyPI
+    name is a different, third-party project than the ``git`` upstream the manifest pins
+    (see ``olympus.engines.schema.NOT_UPSTREAM_ON_PYPI``). Deriving the hint from
+    ``engine.toml`` (:func:`olympus.engines.loader.install_hint`) makes the single source
+    of truth the pinned manifest, exactly as for ``ScannerAdapter.install``. The original
+    string is kept only for an engine with no installable manifest (api/commercial).
+    """
+    from olympus.engines.loader import install_hint
+
+    pinned = install_hint(spec.name)
+    return replace(spec, install=pinned) if pinned else spec
+
+
+#: Public catalogue: the hand-written specs with install hints pinned from the manifests.
+REGISTRY: tuple[ScannerSpec, ...] = tuple(_with_pinned_install(spec) for spec in _CATALOGUE)
 
 #: The number of scanner integrations Themis ships (all present in REGISTRY).
 SCANNER_COUNT = 24

@@ -16,6 +16,7 @@ import pytest
 from olympus.engines.doctor import adapter_for
 from olympus.engines.loader import install_hint, load_all
 from olympus.engines.schema import MOBILE_REFERENCES
+from olympus.integrations.scanners import REGISTRY
 
 _MOVING = re.compile(r"@(" + "|".join(sorted(MOBILE_REFERENCES)) + r")(\b|$)")
 
@@ -23,6 +24,11 @@ _WITH_ADAPTER = [
     (name, manifest) for name, manifest in sorted(load_all().items()) if manifest.adapter
 ]
 _IDS = [name for name, _ in _WITH_ADAPTER]
+
+_SPECS_WITH_MANIFEST = [
+    (spec.name, spec) for spec in REGISTRY if install_hint(spec.name) is not None
+]
+_SPEC_IDS = [name for name, _ in _SPECS_WITH_MANIFEST]
 
 
 @pytest.mark.parametrize("name,manifest", _WITH_ADAPTER, ids=_IDS)
@@ -61,6 +67,19 @@ def test_mandatory_engine_install_hints_carry_their_exact_pin():
         # the commit for one built from a ``git`` checkout (e.g. nmap).
         version, commit = manifest.engine.pinned_version, manifest.engine.source.commit
         assert (version and version in adapter.install) or (commit and commit in adapter.install)
+
+
+@pytest.mark.parametrize("name,spec", _SPECS_WITH_MANIFEST, ids=_SPEC_IDS)
+def test_catalogue_install_hint_is_pinned_and_not_a_wrong_package(name, spec):  # type: ignore[no-untyped-def]
+    # The scanner catalogue (olympus themis scanners) must show the same pinned command
+    # as the manifest — no unpinned or dependency-confusion install for an engine whose
+    # PyPI name is a different project than its git upstream.
+    assert spec.install == install_hint(name)
+    assert not _MOVING.search(spec.install), (
+        f"{name}: moving reference in catalogue: {spec.install}"
+    )
+    assert "pip install commix" not in spec.install
+    assert "pip install theHarvester" not in spec.install
 
 
 def test_commix_install_hint_is_the_git_project_not_the_pypi_package():
