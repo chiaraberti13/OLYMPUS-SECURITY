@@ -10,7 +10,7 @@
 # Coverage of the 24-scanner catalogue. Every pin below mirrors
 # src/olympus/engines/<name>/engine.toml; tests/unit/test_engine_dockerfile_pins.py
 # fails when a manifest and this file disagree.
-#   pip      : sqlmap, wafw00f, arjun, wapiti3, dirsearch   (exact ==pins)
+#   pip      : sqlmap, wafw00f, arjun, wapiti3, dirsearch   (exact ==pins, one venv each)
 #   git      : nmap (built), whatweb, testssl.sh, xsstrike, commix, and the
 #              nuclei-templates data dependency (full commit SHA)
 #   go       : nuclei, httpx, katana, subfinder, dalfox     (exact tags, pinned
@@ -69,15 +69,25 @@ COPY --chown=0:0 deploy/security/scanner-runtime-attestation.json \
 RUN chmod 0444 /etc/olympus/scanner-runtime.json
 RUN pip install --no-cache-dir ".[api,report]"
 
-# wapiti3 is held at 3.2.3: 3.3.x requires Python >= 3.12 and this image is 3.11
-# (found by the first CI build of this file; TOOLS-5 tracks moving the base).
-# Python scanners, exact versions from PyPI (each confirmed to be the upstream
-# project's own package). Only top-level packages are pinned; their transitive
-# dependencies float until each engine gets a hash-locked environment. `commix` is
-# deliberately NOT here: PyPI "commix" is a third-party package (author
-# "Bhai4You"), not commixproject/commix, which is installed from git below.
-RUN pip install --no-cache-dir \
-        'sqlmap==1.10.11' 'wafw00f==2.4.2' 'arjun==2.2.7' 'wapiti3==3.2.3' 'dirsearch==0.5.0'
+# Python scanners, exact versions from PyPI (each confirmed to be the upstream project's
+# own package), each in ITS OWN virtualenv. Isolation is not optional: the first CI build
+# showed wapiti3 3.2.3 (beautifulsoup4==4.12.3) and dirsearch 0.5.0 (beautifulsoup4==4.14.3)
+# cannot share an interpreter, and a shared one would also let a scanner's dependencies
+# change Olympus's own runtime. Each console script is linked into /usr/local/bin.
+# Only top-level packages are pinned; transitive dependencies float until each engine gets
+# a hash-locked environment (TOOLS-5). wapiti3 is held at 3.2.3 because 3.3.x requires
+# Python >= 3.12 and this image is 3.11. `commix` is deliberately NOT here: PyPI "commix" is
+# a third-party package (author "Bhai4You"), not commixproject/commix (installed from git).
+RUN pip_engine() { \
+        python -m venv "/opt/venvs/$1" \
+        && "/opt/venvs/$1/bin/pip" install --no-cache-dir "$2" \
+        && ln -s "/opt/venvs/$1/bin/$3" "/usr/local/bin/$3"; \
+    }; \
+    pip_engine sqlmap 'sqlmap==1.10.11' sqlmap; \
+    pip_engine wafw00f 'wafw00f==2.4.2' wafw00f; \
+    pip_engine arjun 'arjun==2.2.7' arjun; \
+    pip_engine wapiti 'wapiti3==3.2.3' wapiti; \
+    pip_engine dirsearch 'dirsearch==0.5.0' dirsearch
 
 # Git-distributed engines, each fetched by full commit SHA and verified. The recipe
 # is the one EngineManifest.install_command() prints, so what an operator is told
@@ -100,8 +110,9 @@ RUN git_pin() { \
     git_pin https://github.com/drwetter/testssl.sh 97763a411c525720a5f9bd9d2cded416b10f210a /opt/testssl; \
     ln -s /opt/testssl/testssl.sh /usr/local/bin/testssl.sh; \
     git_pin https://github.com/s0md3v/XSStrike 65dd68ae9051ce7cecf3be23fbda6e329d8580af /opt/xsstrike; \
-    pip install --no-cache-dir 'tld==0.13.2' 'fuzzywuzzy==0.18.0' 'requests==2.34.2'; \
-    launcher xsstrike python /opt/xsstrike/xsstrike.py; \
+    python -m venv /opt/venvs/xsstrike; \
+    /opt/venvs/xsstrike/bin/pip install --no-cache-dir 'tld==0.13.2' 'fuzzywuzzy==0.18.0' 'requests==2.34.2'; \
+    launcher xsstrike /opt/venvs/xsstrike/bin/python /opt/xsstrike/xsstrike.py; \
     git_pin https://github.com/commixproject/commix 06beb622db6f9b8ffe4e51f7dea4414303c750ce /opt/commix; \
     launcher commix python /opt/commix/commix.py; \
     git_pin https://github.com/projectdiscovery/nuclei-templates 79fb682760ab3d5b0e22afbb44709353cbebf023 /opt/nuclei-templates

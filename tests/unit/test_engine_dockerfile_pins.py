@@ -38,7 +38,9 @@ def _expected_fragments(manifest: EngineManifest) -> list[str]:
                     fragments.append(f"'{item}'")
             return fragments
         case "pip":
-            return [f"'{source.package}=={engine.pinned_version}'"]
+            # one virtualenv per engine: the line also names the console script it links
+            pin = f"'{source.package}=={engine.pinned_version}'"
+            return [f"pip_engine {engine.name} {pin} {engine.presence_probe[0]}"]
         case "gem":
             return [f"gem install {source.package} -v {engine.pinned_version}"]
         case _:
@@ -145,3 +147,22 @@ def test_data_dependencies_are_pinned_in_the_image_and_wired_to_their_engine() -
     for _repo, commit, _path in re.findall(r"git_pin (\S+) ([0-9a-f]{40}) (\S+);?", text):
         engine_commits = {m.engine.source.commit for m in load_all().values()}
         assert commit in commits | engine_commits, f"unmanifested git_pin {commit}"
+
+
+def test_python_engines_never_share_an_interpreter_with_each_other_or_with_olympus() -> None:
+    code = "\n".join(
+        line
+        for line in DOCKERFILE.read_text(encoding="utf-8").splitlines()
+        if not line.lstrip().startswith("#")
+    )
+    # The only bare `pip install` allowed installs Olympus itself; engines go in venvs.
+    bare = [
+        line.strip()
+        for line in code.splitlines()
+        if "pip install" in line
+        and "/opt/venvs/" not in line
+        and '".[api,report]"' not in line
+        and "typing_extensions" not in line
+    ]
+    assert bare == [], f"engine installed into the system interpreter: {bare}"
+    assert code.count("python -m venv") >= 2
