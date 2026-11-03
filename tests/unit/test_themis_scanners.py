@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
+from olympus.engines.loader import load_all
 from olympus.integrations import scanners
 from olympus.integrations.diagnostics import (
     Report,
@@ -18,6 +22,27 @@ def test_registry_has_all_24_scanners() -> None:
     assert len(scanners.names()) == 24
     # No duplicate names.
     assert len(set(scanners.names())) == 24
+
+
+def test_readme_native_engine_count_matches_reality() -> None:
+    """README's 'Native for N of M' must equal the engines that have a native adapter.
+
+    Guards the documentation drift fixed on 2026-11-03 (README stated 15 while 16 engines
+    already had an adapter): adding or removing an adapter must update the README claim,
+    not silently diverge from it. An engine is natively executable iff its manifest
+    declares an ``[adapter]`` (what ``resolve_adapter`` can instantiate).
+    """
+    manifests = load_all()
+    native = sum(1 for manifest in manifests.values() if manifest.adapter is not None)
+    readme = Path(__file__).resolve().parents[2] / "README.md"
+    match = re.search(
+        r"Native for (\d+) of (\d+) catalogued engines", readme.read_text(encoding="utf-8")
+    )
+    assert match is not None, "README no longer states the native engine count"
+    assert int(match.group(1)) == native, (
+        f"README claims {match.group(1)} native engines, but {native} declare an adapter"
+    )
+    assert int(match.group(2)) == len(manifests) == scanners.SCANNER_COUNT
 
 
 def test_registry_fields_are_populated() -> None:
