@@ -15,6 +15,7 @@ from olympus.engines.doctor import (
     verdict,
 )
 from olympus.engines.loader import ManifestError, load_all
+from olympus.engines.preflight import UnknownEngineError, preflight
 from olympus.integrations.maturity import record_for
 from olympus.integrations.scanners import by_name
 
@@ -166,3 +167,53 @@ def engines_doctor(
                 if status.install_command:
                     typer.echo(f"  install: {status.install_command}", err=True)
     raise typer.Exit(code=result.exit_code)
+
+
+@app.command("preflight")
+def engines_preflight(
+    engine: list[str] = typer.Option(
+        [], "--engine", help="Also require this engine (repeatable), beyond the mandatory set."
+    ),
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.TABLE, "--format", help="table or json."
+    ),
+) -> None:
+    """Fail-closed readiness gate for a planned scan (no network, no target).
+
+    Checks that every engine the run needs — the mandatory engines (nmap, nuclei, httpx)
+    plus any passed with --engine — is present at its pinned version. Exits 0 when all are
+    ready, 8 (engine missing) when one is not, printing the exact install command for each
+    gap. Meant to be run by an operator, or to gate CI/automation, before launching a scan.
+    """
+    try:
+        verdict = preflight(system_environment(), engines=tuple(engine))
+    except UnknownEngineError as exc:
+        typer.echo(f"olympus: unknown engine: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    if output_format is OutputFormat.JSON:
+        typer.echo(
+            json.dumps(
+                {
+                    "required": list(verdict.required),
+                    "blocking": [status.name for status in verdict.blocking],
+                    "ready": verdict.ok,
+                    "exit_code": int(verdict.exit_code),
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+    else:
+        if verdict.ok:
+            typer.echo(f"preflight OK: {len(verdict.required)} required engine(s) present.")
+        else:
+            typer.echo(
+                f"preflight BLOCKED: {len(verdict.blocking)} of {len(verdict.required)} "
+                "required engine(s) missing.",
+                err=True,
+            )
+            for status in verdict.blocking:
+                typer.echo(f"REQUIRED: {status.name}: {status.detail}", err=True)
+                if status.install_command:
+                    typer.echo(f"  install: {status.install_command}", err=True)
+    raise typer.Exit(code=verdict.exit_code)
