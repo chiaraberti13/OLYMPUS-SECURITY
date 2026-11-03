@@ -22,8 +22,12 @@ everything below lives under **Unreleased**.
   il suggerimento **errato** `pip install commix` (su PyPI `commix` è un pacchetto
   di terze parti, non `commixproject/commix`: rischio di dependency-confusion); ora
   l'hint è il comando esatto e pinnato che la build verifica. Gli hint non possono
-  più divergere dal pin. Nuovo test di regressione `tests/unit/test_engine_install_hints.py`
-  vieta ogni riferimento mobile o pacchetto errato e àncora l'hint al manifest.
+  più divergere dal pin. **Esteso al catalogo** `olympus.integrations.scanners`:
+  anche `ScannerSpec.install` (mostrato da `olympus themis scanners`) deriva ora dal
+  pin del manifest, chiudendo gli stessi riferimenti non pinnati e i suggerimenti al
+  pacchetto PyPI errato per `commix` e `theHarvester` (entrambi distribuiti da `git`).
+  Nuovo test di regressione `tests/unit/test_engine_install_hints.py` vieta ogni
+  riferimento mobile o pacchetto errato e àncora adapter **e** catalogo al manifest.
 
 ### Added
 
