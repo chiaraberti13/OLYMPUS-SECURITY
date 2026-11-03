@@ -31,7 +31,6 @@ class WpscanAdapter(ScannerAdapter):
     name = "wpscan"
     binary = "wpscan"
     version_expected = "3.8.x"
-    install = "gem install wpscan (requires a working Ruby environment)"
     # WPScan exits 5 when it completes and vulnerabilities were detected; that is a
     # successful scan, not a failure, so both 0 and 5 are accepted.
     success_exit_codes = frozenset({0, 5})

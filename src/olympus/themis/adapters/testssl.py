@@ -23,7 +23,6 @@ class TestsslAdapter(ScannerAdapter):
     name = "testssl"
     binary = "testssl.sh"
     version_expected = "3.x"
-    install = "git clone https://github.com/drwetter/testssl.sh"
 
     def build_argv(self, host: str, request: ScanRequest) -> list[str]:
         target = request.target if ":" in request.target else f"{host}:443"

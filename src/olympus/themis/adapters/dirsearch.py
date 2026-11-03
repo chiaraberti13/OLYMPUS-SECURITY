@@ -61,7 +61,6 @@ class DirsearchAdapter(ScannerAdapter):
     name = "dirsearch"
     binary = "dirsearch"
     version_expected = "0.4.x-0.5.x"
-    install = "pip install dirsearch (or clone maurosoria/dirsearch)"
     #: dirsearch exits 1 when the user interrupts; a completed run exits 0.
     success_exit_codes = frozenset({0})
 

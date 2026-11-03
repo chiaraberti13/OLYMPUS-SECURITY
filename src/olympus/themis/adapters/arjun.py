@@ -42,7 +42,6 @@ class ArjunAdapter(ScannerAdapter):
     name = "arjun"
     binary = "arjun"
     version_expected = "2.x"
-    install = "pip install arjun"
 
     def build_asset(self, host: str, request: ScanRequest) -> Asset:
         return Asset(

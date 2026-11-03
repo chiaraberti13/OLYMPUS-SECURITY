@@ -21,7 +21,6 @@ class NiktoAdapter(ScannerAdapter):
     name = "nikto"
     binary = "nikto"
     version_expected = "2.x"
-    install = "apt-get install nikto"
 
     def build_argv(self, host: str, request: ScanRequest) -> list[str]:
         # nikto takes -host and -port; keep it bounded with -maxtime.
