@@ -21,8 +21,8 @@ _Generated from `olympus.integrations.scanners` (registry) and `olympus.themis.r
 | dirsearch | web | local-oss-binary | active | `dirsearch` | GPL-2.0 | yes | yes | ✅ implemented | ✅ yes |
 | httpx | web | local-oss-binary | active | `httpx` | MIT | yes | yes | ✅ implemented | ✅ yes |
 | katana | web | local-oss-binary | active | `katana` | MIT | yes | yes | ✅ implemented | ✅ yes |
-| nikto | web | local-oss-binary | active | `nikto` | GPL-2.0 | yes | no | ✅ implemented | ✅ yes |
-| nmap | network | local-oss-binary | active | `nmap` | Nmap Public Source License 0.95 (non-OSI) | yes | yes | ✅ implemented | ✅ yes |
+| nikto | web | local-oss-binary | active | `nikto` | GPL-2.0 | conditional | no | ✅ implemented | ✅ yes |
+| nmap | network | local-oss-binary | active | `nmap` | Nmap Public Source License 0.95 (non-OSI) | conditional | yes | ✅ implemented | ✅ yes |
 | nosqlmap | web | local-oss-binary | intrusive | `nosqlmap` | GPL-3.0 | yes | no | — pending | n/a |
 | nuclei | web | local-oss-binary | active | `nuclei` | MIT | yes | yes | ✅ implemented | ✅ yes |
 | sqlmap | web | local-oss-binary | intrusive | `sqlmap` | GPL-2.0 | yes | yes | ✅ implemented | ✅ yes |
@@ -45,7 +45,7 @@ _Generated from `olympus.integrations.scanners` (registry) and `olympus.themis.r
   - `local-oss-binary`: 19
   - `proprietary-local`: 1
   - `proprietary-remote-api`: 2
-- **Auto-installable / redistributable**: 20/24
+- **Auto-installable / redistributable**: 20/24 (2 only under extra licence terms)
 - **Bundled in `docker/Dockerfile.scanners`**: 16/24
 - **Proprietary (commercial licence)**: 3/24 (acunetix, burp, nessus)
 - **Native Themis execution adapters implemented**: 16/24 (arjun, commix, dalfox, dirsearch, httpx, katana, nikto, nmap, nuclei, sqlmap, testssl, wafw00f, wapiti, whatweb, wpscan, xsstrike)

@@ -106,6 +106,9 @@ silently skipped.
 """
 
 
+_REDISTRIBUTION_LABEL = {"free": "yes", "conditional": "conditional", "no": "no"}
+
+
 def _sorted_specs() -> list[ScannerSpec]:
     return sorted(REGISTRY, key=lambda spec: (_KIND_ORDER[spec.kind], spec.name))
 
@@ -128,7 +131,7 @@ def _row(spec: ScannerSpec, adapters: set[str]) -> str:
     risk = classify(spec).risk.value
     return (
         f"| {spec.name} | {spec.category} | {spec.kind} | {risk} | {binary} | {spec.licence} "
-        f"| {'yes' if spec.redistributable else 'no'} "
+        f"| {_REDISTRIBUTION_LABEL[spec.redistribution]} "
         f"| {'yes' if spec.in_scanner_image else 'no'} "
         f"| {_native_adapter_cell(spec.name, adapters)} "
         f"| {_live_cell(spec.name)} |"
@@ -141,6 +144,7 @@ def _totals() -> str:
     by_kind = {kind: sum(1 for s in specs if s.kind == kind) for kind in _KIND_ORDER}
     oss = by_kind["containerised-oss-service"] + by_kind["local-oss-binary"]
     redistributable = sum(1 for s in specs if s.redistributable)
+    conditional = sum(1 for s in specs if s.redistribution == "conditional")
     in_image = sum(1 for s in specs if s.in_scanner_image)
     proprietary = sorted(
         s.name for s in specs if s.kind in {"proprietary-local", "proprietary-remote-api"}
@@ -163,7 +167,8 @@ def _totals() -> str:
             f"  - `local-oss-binary`: {by_kind['local-oss-binary']}",
             f"  - `proprietary-local`: {by_kind['proprietary-local']}",
             f"  - `proprietary-remote-api`: {by_kind['proprietary-remote-api']}",
-            f"- **Auto-installable / redistributable**: {redistributable}/{total}",
+            f"- **Auto-installable / redistributable**: {redistributable}/{total} "
+            f"({conditional} only under extra licence terms)",
             f"- **Bundled in `docker/Dockerfile.scanners`**: {in_image}/{total}",
             f"- **Proprietary (commercial licence)**: {len(proprietary)}/{total} "
             f"({', '.join(proprietary)})",

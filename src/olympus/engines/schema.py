@@ -118,6 +118,10 @@ class Adapter(_Frozen):
     entrypoint: str
     timeout_seconds: int = Field(ge=1, le=3600)
     resource_profile: ResourceProfile
+    #: False while ``timeout_seconds``/``resource_profile`` are estimates rather than
+    #: values derived from evidence. A pilot review flips it; nobody should have to
+    #: guess later which numbers were ever measured.
+    reviewed: bool = False
 
     @model_validator(mode="after")
     def _entrypoint(self) -> Self:
@@ -142,6 +146,9 @@ class Engine(_Frozen):
     #: Version the maturity evidence was actually captured against, as recorded in the
     #: evidence documents (free text, e.g. "7.94SVN" or "2.x"). Absent when none exists.
     evidence_version: str | None = Field(default=None, max_length=40)
+    #: Version string the engine itself prints when it differs from ``pinned_version``
+    #: (e.g. a tag whose code was never bumped). The pin is the tag/commit, never this.
+    reported_version: str | None = Field(default=None, max_length=40)
     update_policy: UpdatePolicy
     mandatory: bool = False
     required_for_commands: list[DottedId] = Field(default_factory=list, max_length=16)

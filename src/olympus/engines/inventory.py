@@ -45,7 +45,16 @@ def _pin_text(manifest: EngineManifest) -> str:
     engine = manifest.engine
     version = f"`{engine.pinned_version}`"
     commit = engine.source.commit
-    return f"{version} @ `{commit[:7]}`" if commit else version
+    text = f"{version} @ `{commit[:7]}`" if commit else version
+    if engine.reported_version:
+        text += f" (l'engine stampa `{engine.reported_version}`: pin = commit)"
+    return text
+
+
+def _adapter_text(manifest: EngineManifest) -> str:
+    if manifest.adapter is None:
+        return "no"
+    return "sì" if manifest.adapter.reviewed else "sì (timeout/profilo non rivisti)"
 
 
 def _row_local(name: str, manifest: EngineManifest) -> str:
@@ -58,7 +67,7 @@ def _row_local(name: str, manifest: EngineManifest) -> str:
         f"`{name}`",
         engine.category,
         record_for(name).stage.value,
-        "sì" if manifest.adapter else "no",
+        _adapter_text(manifest),
         "sì" if engine.mandatory else "-",
         engine.upstream,
         "sì" if engine.upstream_verified else "no",

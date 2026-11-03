@@ -34,25 +34,25 @@ Nessun engine è `production-ready`. Nessuna riga del ledger è stata promossa d
 
 | Engine | Categoria | Stato | Adapter | Mandatory | Upstream | Upstream verificato | Licenza | Linguaggio | Distribuzione | Pin | Evidenza (esito pin) | In immagine |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `arjun` | web | live-tested | sì | - | https://github.com/s0md3v/Arjun | no | AGPL-3.0 | Python | pip | `2.2.7` | 2.x (compatible) | sì |
-| `commix` | web | live-tested | sì | - | https://github.com/commixproject/commix | no | GPL-3.0 | Python | git | `v4.1` @ `06beb62` | 4.x (compatible) | sì |
-| `dalfox` | web | live-tested | sì | - | https://github.com/hahwul/dalfox | no | MIT | Go | go | `v2.13.0` | v2.13.0 (match) | sì |
-| `dirsearch` | web | live-tested | sì | - | https://github.com/maurosoria/dirsearch | no | GPL-2.0 | Python | pip | `0.5.0` | v0.5.0 (match) | sì |
-| `httpx` | web | live-tested | sì | sì | https://github.com/projectdiscovery/httpx | no | MIT | Go | go | `v1.11.0` | 1.x (compatible) | sì |
-| `katana` | web | live-tested | sì | - | https://github.com/projectdiscovery/katana | no | MIT | Go | go | `v1.7.0` | 1.x (compatible) | sì |
-| `nikto` | web | live-tested | sì | - | https://github.com/sullo/nikto | no | GPL-2.0 | Perl | git | `2.6.1` @ `d201dac` | 2.5 (RECONFIRM) | no |
-| `nmap` | network | live-tested | sì | sì | https://github.com/nmap/nmap | no | Nmap Public Source License 0.95 (non-OSI) | C/C++ | git | `v7.992` @ `0ee5616` | 7.94SVN (RECONFIRM) | sì |
+| `arjun` | web | live-tested | sì (timeout/profilo non rivisti) | - | https://github.com/s0md3v/Arjun | no | AGPL-3.0 | Python | pip | `2.2.7` | 2.x (compatible) | sì |
+| `commix` | web | live-tested | sì (timeout/profilo non rivisti) | - | https://github.com/commixproject/commix | no | GPL-3.0 | Python | git | `v4.1` @ `06beb62` | 4.x (compatible) | sì |
+| `dalfox` | web | live-tested | sì (timeout/profilo non rivisti) | - | https://github.com/hahwul/dalfox | no | MIT | Go | go | `v2.13.0` | v2.13.0 (match) | sì |
+| `dirsearch` | web | live-tested | sì (timeout/profilo non rivisti) | - | https://github.com/maurosoria/dirsearch | no | GPL-2.0 | Python | pip | `0.5.0` | v0.5.0 (match) | sì |
+| `httpx` | web | live-tested | sì (timeout/profilo non rivisti) | sì | https://github.com/projectdiscovery/httpx | no | MIT | Go | go | `v1.11.0` | 1.x (compatible) | sì |
+| `katana` | web | live-tested | sì (timeout/profilo non rivisti) | - | https://github.com/projectdiscovery/katana | no | MIT | Go | go | `v1.7.0` | 1.x (compatible) | sì |
+| `nikto` | web | live-tested | sì (timeout/profilo non rivisti) | - | https://github.com/sullo/nikto | no | GPL-2.0 | Perl | git | `2.6.1` @ `d201dac` | 2.5 (RECONFIRM) | no |
+| `nmap` | network | live-tested | sì (timeout/profilo non rivisti) | sì | https://github.com/nmap/nmap | no | Nmap Public Source License 0.95 (non-OSI) | C/C++ | git | `v7.992` @ `0ee5616` | 7.94SVN (RECONFIRM) | sì |
 | `nosqlmap` | web | catalog-only | no | - | https://github.com/codingo/NoSQLMap | no | GPL-3.0 | Python | git | `0.5` @ `898a60b` | - (-) | no |
-| `nuclei` | web | live-tested | sì | sì | https://github.com/projectdiscovery/nuclei | no | MIT | Go | go | `v3.11.1` | v3.11.1 (match) | sì |
-| `sqlmap` | web | live-tested | sì | - | https://github.com/sqlmapproject/sqlmap | no | GPL-2.0 | Python | pip | `1.10.11` | 1.10.8 (RECONFIRM) | sì |
+| `nuclei` | web | live-tested | sì (timeout/profilo non rivisti) | sì | https://github.com/projectdiscovery/nuclei | no | MIT | Go | go | `v3.11.1` | v3.11.1 (match) | sì |
+| `sqlmap` | web | live-tested | sì (timeout/profilo non rivisti) | - | https://github.com/sqlmapproject/sqlmap | no | GPL-2.0 | Python | pip | `1.10.11` | 1.10.8 (RECONFIRM) | sì |
 | `subfinder` | dns | catalog-only | no | - | https://github.com/projectdiscovery/subfinder | no | MIT | Go | go | `v2.16.0` | - (-) | sì |
-| `testssl` | tls | offline-tested | sì | - | https://github.com/drwetter/testssl.sh | no | GPL-2.0 | Bash | git | `v3.2.4` @ `97763a4` | 3.x (compatible) | sì |
+| `testssl` | tls | offline-tested | sì (timeout/profilo non rivisti) | - | https://github.com/drwetter/testssl.sh | no | GPL-2.0 | Bash | git | `v3.2.4` @ `97763a4` | 3.x (compatible) | sì |
 | `theharvester` | dns | catalog-only | no | - | https://github.com/laramies/theHarvester | no | GPL-2.0 | Python | git | `4.11.1` @ `fd832de` | - (-) | no |
-| `wafw00f` | web | live-tested | sì | - | https://github.com/EnableSecurity/wafw00f | no | BSD-3-Clause | Python | pip | `2.4.2` | 2.x (compatible) | sì |
-| `wapiti` | web | offline-tested | sì | - | https://github.com/wapiti-scanner/wapiti | no | GPL-2.0 | Python | pip | `3.3.2` | - (-) | sì |
-| `whatweb` | web | offline-tested | sì | - | https://github.com/urbanadventurer/WhatWeb | no | GPL-2.0 | Ruby | git | `v0.6.4` @ `d279d93` | - (-) | sì |
-| `wpscan` | web | adapter-ready | sì | - | https://github.com/wpscanteam/wpscan | no | WPScan Public Source (non-OSI) | Ruby | gem | `4.2.0` | - (-) | sì |
-| `xsstrike` | web | live-tested | sì | - | https://github.com/s0md3v/XSStrike | no | GPL-3.0 | Python | git | `3.1.6` @ `65dd68a` | 3.1.5 (RECONFIRM) | sì |
+| `wafw00f` | web | live-tested | sì (timeout/profilo non rivisti) | - | https://github.com/EnableSecurity/wafw00f | no | BSD-3-Clause | Python | pip | `2.4.2` | 2.x (compatible) | sì |
+| `wapiti` | web | offline-tested | sì (timeout/profilo non rivisti) | - | https://github.com/wapiti-scanner/wapiti | no | GPL-2.0 | Python | pip | `3.3.2` | - (-) | sì |
+| `whatweb` | web | offline-tested | sì (timeout/profilo non rivisti) | - | https://github.com/urbanadventurer/WhatWeb | no | GPL-2.0 | Ruby | git | `v0.6.4` @ `d279d93` | - (-) | sì |
+| `wpscan` | web | adapter-ready | sì (timeout/profilo non rivisti) | - | https://github.com/wpscanteam/wpscan | no | WPScan Public Source (non-OSI) | Ruby | gem | `4.2.0` | - (-) | sì |
+| `xsstrike` | web | live-tested | sì (timeout/profilo non rivisti) | - | https://github.com/s0md3v/XSStrike | no | GPL-3.0 | Python | git | `3.1.6` @ `65dd68a` (l'engine stampa `3.1.5`: pin = commit) | 3.1.5 (RECONFIRM) | sì |
 
 ### Engine che richiedono un prodotto esterno (solo manifest, `catalog-only`)
 

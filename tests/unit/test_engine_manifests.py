@@ -416,3 +416,34 @@ def test_live_tested_engines_record_the_version_their_evidence_was_captured_on()
     for name, manifest in load_all().items():
         if at_least(record_for(name).stage, Maturity.LIVE_TESTED):
             assert manifest.engine.evidence_version, f"{name}: live-tested without evidence_version"
+
+
+def test_estimated_adapter_values_are_marked_until_reviewed() -> None:
+    unreviewed = sorted(n for n, m in load_all().items() if m.adapter and not m.adapter.reviewed)
+    for name in unreviewed:
+        text = _shipped()[name].read_text(encoding="utf-8")
+        assert "reviewed = false" in text and "TODO(TOOLS-4)" in text, name
+    assert _manifest().count("reviewed") == 0  # the schema default is "not reviewed"
+    assert parse_manifest(_manifest()).adapter is not None
+    assert parse_manifest(_manifest()).adapter.reviewed is False  # type: ignore[union-attr]
+
+
+def test_a_tag_whose_code_prints_another_version_is_recorded_not_trusted() -> None:
+    manifest = load_all()["xsstrike"]
+    assert manifest.engine.pinned_version == "3.1.6"
+    assert manifest.engine.reported_version == "3.1.5"
+    assert manifest.engine.source.commit  # the commit, not the string, is the pin
+
+
+def test_licences_with_extra_terms_are_conditional_in_the_registry() -> None:
+    from olympus.integrations.scanners import by_name
+
+    for name in ("nmap", "nikto"):
+        spec = by_name(name)
+        assert spec is not None
+        assert spec.redistributable == "conditional"
+        assert spec.redistribution == "conditional"
+    gpl = by_name("sqlmap")
+    assert gpl is not None and gpl.redistribution == "free"
+    commercial = by_name("nessus")
+    assert commercial is not None and commercial.redistribution == "no"
