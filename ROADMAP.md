@@ -632,7 +632,7 @@ scheduling di §20. **Non si crea un motore parallelo.**
 Da prendere nelle fasi di implementazione, con valutazione delle alternative disponibili, **senza anticiparne l'esito**:
 
 - `DEC-1` Politica di merge su `main`: approvazioni con un solo owner, permessi di bypass, merge queue o branch aggiornato, cronologia lineare, gestione dei check con filtro di percorso.
-- `DEC-2` Collocazione e contratto del preflight (nucleo condiviso vs servizio del piano Themis) e rappresentazione di `ENGINE_MISSING` come stato di job e risposta HTTP.
+- `DEC-2` Collocazione e contratto del preflight (nucleo condiviso vs servizio del piano Themis) e rappresentazione di `ENGINE_MISSING` come stato di job e risposta HTTP. **[deciso in parte 2026-11-03 — v. «Decisioni già prese» sotto]** collocazione risolta (servizio core puro condiviso `olympus.engines.preflight`); rappresentazione come stato di job / HTTP ancora **aperta** (si decide col cablaggio in `API-3`).
 - `DEC-3` Servizio di evidenza: uno solo condiviso o convergenza con la custodia Minerva; formato della busta; gestione delle chiavi (file, keyring, KMS); evidenza dei run rifiutati.
 - `DEC-4` Formato dei profili di risorse, rapporto manifest ↔ policy, metodo di misura (RLIMIT, cgroup, container).
 - `DEC-5` Strumento di scansione vulnerabilità per engine e immagine e strategia di lock delle dipendenze transitive.
@@ -642,6 +642,45 @@ Da prendere nelle fasi di implementazione, con valutazione delle alternative dis
 - `DEC-9` Stack frontend e design system per le due modalità (con `TECH-2`).
 - `DEC-10` Fonte di verità per i livelli L1/L2/L3 di maturità degli engine (ledger esistente o estensione).
 - `DEC-11` Assorbimento di `scripts/smoke_scanner_image.py` in `engines doctor --strict` o coesistenza.
+
+#### Decisioni già prese (2026-11-03)
+
+Decisioni assunte autonomamente dal team e **già implementate e verificate** (suite offline,
+Ruff, mypy `--strict`, drift gate verdi). Ogni voce indica dove vive e il test che la
+custodisce. Restano aperte solo le parti che richiedono CI/lab, segnalate esplicitamente.
+
+- **`DEC-2` (parziale) — collocazione del preflight.** Il preflight è un **servizio core puro
+  e offline** (`olympus.engines.preflight`), I/O iniettato via `doctor.Environment`, nessuna
+  rete/target, riusabile da ogni interfaccia; **non** un servizio interno al solo piano
+  Themis. Esposto dal comando `olympus engines preflight`. Guardia: `test_engine_preflight`.
+  *Aperto:* `ENGINE_MISSING` come stato di job e risposta HTTP (con l'Execution Engine,
+  `API-3`), e l'invocazione automatica in preview/run/API/Web/worker.
+- **Regole di "engine richiesti" (parte di `TOOLS-4.1`).** Mandatory sempre richiesti; engine
+  nominati esplicitamente sempre richiesti; `api`/commerciali mai bloccanti (nessun artefatto
+  locale). Un richiesto non usabile → exit 8 con comando d'installazione **pinnato**, mai un
+  segreto. `--allow-missing-engines` resterà limitato alle **sole** dipendenze opzionali
+  (via `required_for_commands`), mai ai mandatory (già annotato in `TOOLS-4.1`).
+- **Supply chain — sorgente unica degli hint d'installazione (`TOOLS-4`).** Sia
+  `ScannerAdapter.install` sia `ScannerSpec.install` derivano dal pin del manifest
+  (`engines.loader.install_hint`): niente `@latest`, niente pacchetto PyPI errato
+  (commix/theHarvester). Guardia: `test_engine_install_hints`.
+- **CI — least-privilege del `GITHUB_TOKEN`.** Ogni workflow dichiara `permissions` top-level
+  con `contents: read`, elevando solo per-job dove serve. Guardia:
+  `test_threat_model::test_every_workflow_sets_least_privilege_token_permissions`.
+- **Supply chain — versione unica di gitleaks.** pre-commit e CI usano la stessa versione
+  (`v8.28.0`). Guardia:
+  `test_threat_model::test_gitleaks_version_is_consistent_between_pre_commit_and_ci`.
+- **Docs — conteggio engine nativi bilingue.** README EN/IT dichiarano lo stesso numero di
+  engine nativi (16/24), legato al conteggio reale degli adapter. Guardia:
+  `test_themis_scanners::test_readme_native_engine_count_matches_reality`.
+- **Docs — procedura di aggiornamento engine.** `docs/engines/UPDATES.md` documenta la
+  procedura **manuale** attuale e il criterio di policy; l'automazione `check-updates`/
+  `update` resta pianificata (Fase 4).
+
+Le decisioni `DEC-3`, `DEC-4`, `DEC-5`, `DEC-6`, `DEC-7`, `DEC-8`, `DEC-9`, `DEC-10`, `DEC-11`
+restano **aperte**: non sono state prese in questa sessione perché la loro accettazione
+richiede capacità non disponibili qui (CI, lab autorizzato, rete verso terze parti) o
+dipendono da workstream non ancora avviati.
 
 ### 21.8 Sequenza proposta di implementazione
 
