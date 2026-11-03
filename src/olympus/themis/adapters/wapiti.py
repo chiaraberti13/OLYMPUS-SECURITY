@@ -26,7 +26,6 @@ class WapitiAdapter(ScannerAdapter):
     name = "wapiti"
     binary = "wapiti"
     version_expected = "3.x"
-    install = "apt-get install wapiti (or pip install wapiti3)"
 
     def build_asset(self, host: str, request: ScanRequest) -> Asset:
         return Asset(

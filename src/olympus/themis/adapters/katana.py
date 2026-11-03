@@ -49,7 +49,6 @@ class KatanaAdapter(ScannerAdapter):
     name = "katana"
     binary = "katana"
     version_expected = "1.x"
-    install = "go install github.com/projectdiscovery/katana/cmd/katana@latest"
 
     def build_asset(self, host: str, request: ScanRequest) -> Asset:
         return Asset(

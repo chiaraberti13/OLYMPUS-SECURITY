@@ -29,7 +29,6 @@ class WhatwebAdapter(ScannerAdapter):
     name = "whatweb"
     binary = "whatweb"
     version_expected = "0.5.x"
-    install = "apt-get install whatweb (requires a working Ruby environment)"
 
     def build_asset(self, host: str, request: ScanRequest) -> Asset:
         return Asset(

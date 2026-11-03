@@ -119,8 +119,23 @@ class ScannerAdapter(ABC):
     name: str = ""
     binary: str = ""
     version_expected: str = "any"
-    install: str = ""
+    #: Fallback install hint, used only when the engine ships no manifest. The real
+    #: hint comes from the pinned manifest via the ``install`` property below.
+    _install_fallback: str = ""
     success_exit_codes: frozenset[int] = frozenset({0})
+
+    @property
+    def install(self) -> str:
+        """The exact, pinned command that installs this engine, from its manifest.
+
+        Derived from ``engine.toml`` (:func:`olympus.engines.loader.install_hint`) so the
+        hint an operator is shown on a missing engine is the version the build verifies —
+        never an unpinned ``@latest`` or the wrong PyPI package. Falls back to
+        ``_install_fallback`` only for an engine that ships no manifest.
+        """
+        from olympus.engines.loader import install_hint
+
+        return install_hint(self.name) or self._install_fallback
 
     @abstractmethod
     def build_argv(self, host: str, request: ScanRequest) -> list[str]:

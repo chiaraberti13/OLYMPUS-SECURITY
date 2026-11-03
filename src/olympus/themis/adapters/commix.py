@@ -45,7 +45,6 @@ class CommixAdapter(ScannerAdapter):
     name = "commix"
     binary = "commix"
     version_expected = "3.x-4.x"
-    install = "pip install commix (or clone commixproject/commix)"
 
     def build_asset(self, host: str, request: ScanRequest) -> Asset:
         return Asset(

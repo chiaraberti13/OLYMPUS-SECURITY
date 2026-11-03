@@ -19,7 +19,6 @@ class SqlmapAdapter(ScannerAdapter):
     name = "sqlmap"
     binary = "sqlmap"
     version_expected = "1.x"
-    install = "pip install sqlmap (or apt-get install sqlmap)"
 
     def build_asset(self, host: str, request: ScanRequest) -> Asset:
         return Asset(

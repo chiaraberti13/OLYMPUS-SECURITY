@@ -106,6 +106,21 @@ def manifest_for(name: str) -> EngineManifest:
     return load_manifest(ENGINES_ROOT / name / MANIFEST_NAME)
 
 
+def install_hint(name: str) -> str | None:
+    """Return the exact, pinned install command for engine ``name``, from its manifest.
+
+    The single source of truth for "how do I get this engine" is the manifest's
+    structured pin (:meth:`EngineManifest.install_command`), so the hint an adapter
+    shows an operator can never drift from, or soften, the version the build verifies —
+    no ``@latest``, no unpinned ``pip install``. ``None`` when the engine ships no
+    manifest or is an ``api`` product with nothing to install locally.
+    """
+    try:
+        return manifest_for(name).install_command()
+    except (ManifestError, OSError):
+        return None
+
+
 def reviewed_timeouts(
     name: str, *, default_timeout: float, default_deadline: float
 ) -> tuple[float, float]:

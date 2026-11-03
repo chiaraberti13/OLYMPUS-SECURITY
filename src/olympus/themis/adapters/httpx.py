@@ -34,7 +34,6 @@ class HttpxAdapter(ScannerAdapter):
     name = "httpx"
     binary = "httpx"
     version_expected = "1.x (ProjectDiscovery)"
-    install = "go install github.com/projectdiscovery/httpx/cmd/httpx@latest"
 
     def recognises(self, version_output: str) -> bool:
         """Only the ProjectDiscovery probe prints ``Current Version``; the Python client does not.

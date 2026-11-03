@@ -15,7 +15,6 @@ class Wafw00fAdapter(ScannerAdapter):
     name = "wafw00f"
     binary = "wafw00f"
     version_expected = "2.x"
-    install = "pip install wafw00f"
 
     def build_asset(self, host: str, request: ScanRequest) -> Asset:
         return Asset(

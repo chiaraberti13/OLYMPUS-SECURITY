@@ -12,6 +12,19 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Supply chain: gli hint d'installazione degli engine derivano dal pin del
+  manifest (`TOOLS-4`).** `ScannerAdapter.install` non è più una stringa scritta a
+  mano ma è derivato da `engine.toml` tramite `olympus.engines.loader.install_hint`
+  (singola fonte di verità). Elimina i riferimenti **mobili** `@latest` mostrati
+  all'operatore per `nuclei`/`httpx` (entrambi `mandatory`), `katana` e `dalfox`, e
+  il suggerimento **errato** `pip install commix` (su PyPI `commix` è un pacchetto
+  di terze parti, non `commixproject/commix`: rischio di dependency-confusion); ora
+  l'hint è il comando esatto e pinnato che la build verifica. Gli hint non possono
+  più divergere dal pin. Nuovo test di regressione `tests/unit/test_engine_install_hints.py`
+  vieta ogni riferimento mobile o pacchetto errato e àncora l'hint al manifest.
+
 ### Added
 
 - **Apollo: export degli alert in Splunk HEC (`BLUE-2`).** Nuovo

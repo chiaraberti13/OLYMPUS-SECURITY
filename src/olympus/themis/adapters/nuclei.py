@@ -63,7 +63,6 @@ class NucleiAdapter(ScannerAdapter):
     name = "nuclei"
     binary = "nuclei"
     version_expected = "3.x"
-    install = "go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest"
 
     #: Records the last :meth:`parse` call had to skip. An adapter instance serves one
     #: run (the registry hands out a fresh one), so this is per-run state, reset on

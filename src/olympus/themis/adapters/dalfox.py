@@ -43,7 +43,6 @@ class DalfoxAdapter(ScannerAdapter):
     name = "dalfox"
     binary = "dalfox"
     version_expected = "2.x"
-    install = "go install github.com/hahwul/dalfox/v2@latest"
 
     def build_asset(self, host: str, request: ScanRequest) -> Asset:
         return Asset(

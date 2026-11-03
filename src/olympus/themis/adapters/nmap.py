@@ -23,7 +23,6 @@ class NmapAdapter(ScannerAdapter):
     name = "nmap"
     binary = "nmap"
     version_expected = "7.x"
-    install = "apt-get install nmap"
 
     def build_argv(self, host: str, request: ScanRequest) -> list[str]:
         # -Pn: no ping (works on filtered hosts). -sV: service/version. -F: top

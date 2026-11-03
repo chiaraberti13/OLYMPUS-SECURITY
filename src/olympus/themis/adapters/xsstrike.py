@@ -49,7 +49,6 @@ class XsstrikeAdapter(ScannerAdapter):
     name = "xsstrike"
     binary = "xsstrike"
     version_expected = "3.x"
-    install = "git clone s0md3v/XSStrike"
 
     def build_asset(self, host: str, request: ScanRequest) -> Asset:
         return Asset(
