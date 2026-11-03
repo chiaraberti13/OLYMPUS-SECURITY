@@ -12,11 +12,18 @@ from olympus.core.execution import (
     Cancellation,
     ExecutionPolicy,
     NeverCancelled,
+    redact_arguments,
     redact_text,
     redact_url,
 )
 from olympus.core.models import Asset, Finding
-from olympus.themis.model import MAX_RAW_EVIDENCE, Dependency, ScanRequest, ScanResult
+from olympus.themis.model import (
+    MAX_RAW_EVIDENCE,
+    Dependency,
+    OutputDigests,
+    ScanRequest,
+    ScanResult,
+)
 from olympus.themis.runner import (
     CommandError,
     CommandOutput,
@@ -219,6 +226,14 @@ class ScannerAdapter(ABC):
             engine=self.name, present=True, path=path, version=version, install=self.install
         )
 
+    def failure_hint(self, output: CommandOutput) -> str | None:
+        """Return actionable guidance for a non-zero exit, or ``None``.
+
+        Engines die in engine-specific ways (no templates, out of memory under the sandbox
+        limit); the operator should read what to change, not just "exited with status 2".
+        """
+        return None
+
     def coverage_loss(self, output: CommandOutput, request: ScanRequest) -> str | None:
         """Return why this run covered less than requested, or ``None`` if complete.
 
@@ -358,6 +373,8 @@ class ScannerAdapter(ABC):
             )
         duration = time.monotonic() - started
         evidence = _evidence(output)
+        command = tuple(redact_arguments(argv))
+        digests = OutputDigests.of(output.stdout, output.stderr)
         if output.exit_code not in self.success_exit_codes:
             return ScanResult(
                 scanner=self.name,
@@ -366,10 +383,12 @@ class ScannerAdapter(ABC):
                 resolved_addresses=addresses,
                 version=version,
                 raw_evidence=evidence,
-                error=_exit_error(self.name, output),
+                error=_exit_error(self.name, output, self.failure_hint(output)),
                 exit_code=output.exit_code,
                 termination=output.termination,
                 duration_seconds=duration,
+                argv=command,
+                output_digests=digests,
             )
         try:
             findings = self.parse(output, host, request_with_addresses)
@@ -385,6 +404,8 @@ class ScannerAdapter(ABC):
                 exit_code=output.exit_code,
                 termination=output.termination,
                 duration_seconds=duration,
+                argv=command,
+                output_digests=digests,
             )
         if len(findings) > request.max_findings:
             return ScanResult(
@@ -397,6 +418,8 @@ class ScannerAdapter(ABC):
                 exit_code=output.exit_code,
                 termination=output.termination,
                 duration_seconds=duration,
+                argv=command,
+                output_digests=digests,
             )
         lost = self.coverage_loss(output, request_with_addresses)
         return ScanResult(
@@ -413,6 +436,8 @@ class ScannerAdapter(ABC):
             duration_seconds=duration,
             partial=lost is not None,
             partial_reason=lost,
+            argv=command,
+            output_digests=digests,
         )
 
 
@@ -429,12 +454,14 @@ def _termination_of(exc: BaseException) -> TerminationReport:
     return TerminationReport(cause=cause, detail=str(exc), limit="deadline_seconds")
 
 
-def _exit_error(scanner: str, output: CommandOutput) -> str:
+def _exit_error(scanner: str, output: CommandOutput, hint: str | None = None) -> str:
     """Explain a non-success exit, naming the signal or limit when there was one."""
     report = output.termination
     if report is not None and report.cause is not TerminationCause.COMPLETED and report.detail:
-        return f"{scanner} did not complete: {report.detail}"
-    return f"{scanner} exited with non-success status {output.exit_code}"
+        message = f"{scanner} did not complete: {report.detail}"
+    else:
+        message = f"{scanner} exited with non-success status {output.exit_code}"
+    return f"{message}. {hint}" if hint else message
 
 
 # The value is one non-space run, but an ``Authorization`` header carries the
@@ -460,5 +487,10 @@ def _evidence(output: CommandOutput) -> str:
     return redact_text(value)[:MAX_RAW_EVIDENCE]
 
 
+#: ANSI CSI/OSC escape sequences. Engines colour their banners even when piped (nuclei,
+#: wafw00f), and ``translate``-style control stripping would leave their ``[34m`` tails.
+_ANSI = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[@-Z\\-_]")
+
+
 def _safe_line(value: str, maximum: int) -> str:
-    return " ".join(value.replace("\x00", "").split())[:maximum]
+    return " ".join(_ANSI.sub("", value).replace("\x00", "").split())[:maximum]

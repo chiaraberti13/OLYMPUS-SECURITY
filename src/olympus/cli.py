@@ -23,6 +23,7 @@ from olympus.core import policy as core_policy
 from olympus.core.execution import redact_mapping
 from olympus.core.exit_codes import ExitCode
 from olympus.engagements.cli import app as engagement_app
+from olympus.engines.cli import app as engines_app
 from olympus.helios.cli import app as helios_app
 from olympus.hermes.cli import app as hermes_app
 from olympus.integrations.cli import (
@@ -389,6 +390,11 @@ def export_sbom(
         "--reproducible",
         help="Omit the timestamp and serial number for a byte-stable document.",
     ),
+    engines: bool = typer.Option(
+        False,
+        "--engines",
+        help="Also list the external engines and data dependencies pinned in engine.toml.",
+    ),
 ) -> None:
     """Emit a CycloneDX SBOM of the installed Olympus runtime closure.
 
@@ -407,8 +413,18 @@ def export_sbom(
     if not reproducible:
         timestamp = datetime.datetime.now(datetime.UTC).isoformat()
         serial = f"urn:uuid:{uuid.uuid4()}"
+    extra_components: list[dict[str, object]] = []
+    extra_dependencies: list[dict[str, object]] = []
+    if engines:
+        from olympus.engines.sbom import engine_components
+
+        extra_components, extra_dependencies = engine_components()
     document = sbom_module.render_sbom(
-        extras=frozenset(extra), timestamp=timestamp, serial_number=serial
+        extras=frozenset(extra),
+        timestamp=timestamp,
+        serial_number=serial,
+        extra_components=extra_components,
+        extra_dependencies=extra_dependencies,
     )
     payload = json.dumps(document, indent=2, sort_keys=True)
     if output is None:
@@ -546,6 +562,7 @@ app.add_typer(minerva_app, name="minerva")
 app.add_typer(vulcan_app, name="vulcan")
 app.add_typer(metis_app, name="metis")
 app.add_typer(themis_app, name="themis")
+app.add_typer(engines_app, name="engines")
 register_aegis_shim(app)  # deprecated 'olympus aegis' -> forwards to 'olympus themis'
 register_vap_shim(app)  # deprecated 'olympus vap' -> forwards to 'olympus themis'
 register_doctor(app)  # 'olympus doctor'

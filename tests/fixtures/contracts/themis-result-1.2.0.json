@@ -1,0 +1,34 @@
+{
+  "asset_count": 0,
+  "assets": [],
+  "dependency": null,
+  "duration_seconds": 0.123,
+  "error": null,
+  "exit_code": 0,
+  "finding_count": 0,
+  "findings": [],
+  "job_id": null,
+  "manifest_sha256": null,
+  "raw_evidence": "",
+  "raw_evidence_sha256": null,
+  "real_execution": true,
+  "resolved_addresses": [
+    "127.0.0.1"
+  ],
+  "scanner": "nuclei",
+  "schema_name": "olympus.themis-result",
+  "schema_version": "1.2.0",
+  "state": "live",
+  "target": "http://127.0.0.1:8099",
+  "termination": {
+    "cause": "completed",
+    "detail": "",
+    "escalated_to_kill": false,
+    "exit_code": 0,
+    "limit": null,
+    "process_group_signalled": false,
+    "signal_name": null,
+    "unprivileged_user": null
+  },
+  "version": "Nuclei Engine Version: v3.11.1"
+}

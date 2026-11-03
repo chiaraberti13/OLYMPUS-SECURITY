@@ -331,7 +331,10 @@ def test_compiled_git_install_command_runs_the_pinned_build() -> None:
         _git_manifest('build = "autotools"\nbuild_args = ["--without-zenmap"]')
     ).install_command()
     assert command is not None
-    assert command.endswith("cd /opt/d && ./configure --without-zenmap && make && make install")
+    assert command.endswith(
+        "cd /opt/d && find . -name configure -type f -exec touch {} + "
+        "&& ./configure --without-zenmap && make && make install"
+    )
 
 
 def test_interpreted_git_install_command_pins_packages_and_writes_a_launcher() -> None:
@@ -416,3 +419,103 @@ def test_live_tested_engines_record_the_version_their_evidence_was_captured_on()
     for name, manifest in load_all().items():
         if at_least(record_for(name).stage, Maturity.LIVE_TESTED):
             assert manifest.engine.evidence_version, f"{name}: live-tested without evidence_version"
+
+
+def test_estimated_adapter_values_are_marked_until_reviewed() -> None:
+    unreviewed = sorted(n for n, m in load_all().items() if m.adapter and not m.adapter.reviewed)
+    for name in unreviewed:
+        text = _shipped()[name].read_text(encoding="utf-8")
+        assert "reviewed = false" in text and "TODO(TOOLS-4)" in text, name
+    assert _manifest().count("reviewed") == 0  # the schema default is "not reviewed"
+    assert parse_manifest(_manifest()).adapter is not None
+    assert parse_manifest(_manifest()).adapter.reviewed is False  # type: ignore[union-attr]
+
+
+def test_a_tag_whose_code_prints_another_version_is_recorded_not_trusted() -> None:
+    manifest = load_all()["xsstrike"]
+    assert manifest.engine.pinned_version == "3.1.6"
+    assert manifest.engine.reported_version == "3.1.5"
+    assert manifest.engine.source.commit  # the commit, not the string, is the pin
+
+
+def test_licences_with_extra_terms_are_conditional_in_the_registry() -> None:
+    from olympus.integrations.scanners import by_name
+
+    for name in ("nmap", "nikto"):
+        spec = by_name(name)
+        assert spec is not None
+        assert spec.redistributable == "conditional"
+        assert spec.redistribution == "conditional"
+    gpl = by_name("sqlmap")
+    assert gpl is not None and gpl.redistribution == "free"
+    commercial = by_name("nessus")
+    assert commercial is not None and commercial.redistribution == "no"
+
+
+# --- data dependencies ------------------------------------------------------ #
+_DATA = """
+[data]
+name = "tpl"
+upstream = "https://github.com/example/tpl"
+license = "MIT"
+pinned_version = "v1.0.0"
+update_policy = "manual"
+used_by = ["nuclei"]
+
+[data.source]
+repo = "https://github.com/example/tpl"
+commit = "{commit}"
+checkout_path = "/opt/tpl"
+"""
+
+
+def _data(**changes: str) -> str:
+    text = _DATA.format(commit=changes.pop("commit", SHA))
+    for old, new in changes.items():
+        text = text.replace(old, new)
+    return text
+
+
+def _load_data_text(tmp_path: Path, text: str, name: str = "tpl"):  # type: ignore[no-untyped-def]
+    from olympus.engines.loader import load_data_manifest
+
+    path = tmp_path / f"{name}.toml"
+    path.write_text(text, encoding="utf-8")
+    return load_data_manifest(path)
+
+
+def test_a_data_dependency_is_pinned_like_an_engine(tmp_path: Path) -> None:
+    manifest = _load_data_text(tmp_path, _data())
+    assert manifest.data.source.commit == SHA
+    assert SHA in manifest.install_command()
+    assert manifest.data.upstream_verified is False
+    for bad in ("latest", "main", "master"):
+        with pytest.raises(ManifestError, match="exact version"):
+            _load_data_text(tmp_path, _data(**{'"v1.0.0"': f'"{bad}"'}))
+    with pytest.raises(ManifestError, match="40-hex"):
+        _load_data_text(tmp_path, _data(commit="abc"))
+    with pytest.raises(ManifestError, match=r"requires source\.commit"):
+        _load_data_text(tmp_path, _data().replace(f'commit = "{SHA}"\n', ""))
+
+
+def test_data_manifest_file_name_must_match_and_unknown_keys_fail(tmp_path: Path) -> None:
+    with pytest.raises(ManifestError, match="must equal the file name"):
+        _load_data_text(tmp_path, _data(), name="other")
+    with pytest.raises(ManifestError, match="Extra inputs"):
+        _load_data_text(tmp_path, _data() + "\n[extra]\nx = 1\n")
+
+
+def test_requires_data_and_used_by_agree_and_point_at_real_manifests() -> None:
+    from olympus.engines.loader import load_all_data
+
+    engines, data = load_all(), load_all_data()
+    for name, manifest in engines.items():
+        for needed in manifest.engine.requires_data:
+            assert needed in data, f"{name}: requires_data {needed!r} has no _data manifest"
+            assert name in data[needed].data.used_by, f"{needed}.used_by does not list {name}"
+    for dep_name, dep in data.items():
+        for user in dep.data.used_by:
+            assert dep_name in engines[user].engine.requires_data, (
+                f"{user} does not require {dep_name}"
+            )
+    assert engines["nuclei"].engine.requires_data == ["nuclei-templates"]

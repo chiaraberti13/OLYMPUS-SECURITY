@@ -24,6 +24,7 @@ from olympus.core.execution import (
 )
 from olympus.core.fileio import atomic_write_text, read_regular_text
 from olympus.core.migrations import migrate_document
+from olympus.engines.evidence import Signer, build_evidence, signature_path, write_signed
 from olympus.themis.base import ScannerAdapter
 from olympus.themis.model import (
     DEFAULT_MAX_FINDINGS,
@@ -101,8 +102,17 @@ class ThemisRunRequest:
     max_output_bytes: int = DEFAULT_MAX_PROCESS_OUTPUT_BYTES
     max_findings: int = DEFAULT_MAX_FINDINGS
     cancellation: Cancellation = field(default_factory=NeverCancelled, repr=False, compare=False)
+    #: Where to write the signed evidence manifest of this run (and ``<path>.sig``).
+    evidence_path: Path | None = None
+    #: Produces the signature; injected so the private key never lives in this request.
+    evidence_signer: Signer | None = field(default=None, repr=False, compare=False)
 
     def __post_init__(self) -> None:
+        if self.evidence_path is not None and self.evidence_signer is None:
+            raise ValueError(
+                "evidence was requested but no signer is configured: unsigned evidence is "
+                "never produced, so the run is refused before it starts"
+            )
         if self.job_id is not None and _JOB_ID_RE.fullmatch(self.job_id) is None:
             raise ValueError("job_id must be a canonical Themis job id")
         if self.manifest_sha256 is not None:
@@ -150,25 +160,24 @@ class ThemisApplicationService:
                 self.isolation_verifier()
             scope = load_scope(request.scope_path, max_bytes=request.max_scope_bytes)
             adapter = self.adapter_factory(request.scanner)
-            result = adapter.run(
-                ScanRequest(
-                    scanner=request.scanner,
-                    target=request.target,
-                    target_kind=request.target_kind,
-                    allowed=scope.allowed_hosts,
-                    allowed_domains=scope.allowed_domains,
-                    allowed_cidrs=scope.allowed_cidrs,
-                    required_cidrs=request.lab_allowed_cidrs,
-                    timeout_seconds=request.timeout_seconds,
-                    deadline_seconds=request.deadline_seconds,
-                    max_output_bytes=request.max_output_bytes,
-                    max_findings=request.max_findings,
-                    authorized=request.authorized,
-                    live_enabled=request.live_enabled,
-                    simulate=request.simulate,
-                    cancellation=request.cancellation,
-                )
+            scan_request = ScanRequest(
+                scanner=request.scanner,
+                target=request.target,
+                target_kind=request.target_kind,
+                allowed=scope.allowed_hosts,
+                allowed_domains=scope.allowed_domains,
+                allowed_cidrs=scope.allowed_cidrs,
+                required_cidrs=request.lab_allowed_cidrs,
+                timeout_seconds=request.timeout_seconds,
+                deadline_seconds=request.deadline_seconds,
+                max_output_bytes=request.max_output_bytes,
+                max_findings=request.max_findings,
+                authorized=request.authorized,
+                live_enabled=request.live_enabled,
+                simulate=request.simulate,
+                cancellation=request.cancellation,
             )
+            result = adapter.run(scan_request)
             result = replace(
                 result,
                 job_id=request.job_id,
@@ -183,17 +192,25 @@ class ThemisApplicationService:
         except BaseException as exc:
             self._audit(request, execution_id, "failed", {"error_type": type(exc).__name__})
             raise
-        self._audit(
-            request,
-            execution_id,
-            result.state.value,
-            {
-                "scanner": result.scanner,
-                "finding_count": len(result.findings),
-                "asset_count": len(result.assets),
-                "resolved_addresses": list(result.resolved_addresses),
-            },
-        )
+        audit_metadata: dict[str, object] = {
+            "scanner": result.scanner,
+            "finding_count": len(result.findings),
+            "asset_count": len(result.assets),
+            "resolved_addresses": list(result.resolved_addresses),
+        }
+        if result.partial:
+            audit_metadata["partial_reason"] = result.partial_reason
+        if request.evidence_path is not None and request.evidence_signer is not None:
+            evidence = build_evidence(
+                run_id=execution_id,
+                result=result,
+                request=scan_request,
+                lab_policy_sha256=request.lab_policy_sha256,
+            )
+            audit_metadata["evidence_sha256"] = write_signed(
+                evidence, request.evidence_signer, request.evidence_path
+            )
+        self._audit(request, execution_id, result.state.value, audit_metadata)
         if request.output_path is not None:
             export_result(result, request.output_path)
         return result
@@ -254,7 +271,14 @@ def export_result(result: ScanResult, output: Path) -> None:
 def _validate_path_conflicts(request: ThemisRunRequest) -> None:
     scope = request.scope_path.resolve()
     outputs = [
-        path.resolve() for path in (request.output_path, request.audit_path) if path is not None
+        path.resolve()
+        for path in (
+            request.output_path,
+            request.audit_path,
+            request.evidence_path,
+            signature_path(request.evidence_path) if request.evidence_path else None,
+        )
+        if path is not None
     ]
     if len(outputs) != len(set(outputs)):
         raise ValueError("Themis result and audit paths must differ")

@@ -34,25 +34,25 @@ Nessun engine è `production-ready`. Nessuna riga del ledger è stata promossa d
 
 | Engine | Categoria | Stato | Adapter | Mandatory | Upstream | Upstream verificato | Licenza | Linguaggio | Distribuzione | Pin | Evidenza (esito pin) | In immagine |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `arjun` | web | live-tested | sì | - | https://github.com/s0md3v/Arjun | no | AGPL-3.0 | Python | pip | `2.2.7` | 2.x (compatible) | sì |
-| `commix` | web | live-tested | sì | - | https://github.com/commixproject/commix | no | GPL-3.0 | Python | git | `v4.1` @ `06beb62` | 4.x (compatible) | sì |
-| `dalfox` | web | live-tested | sì | - | https://github.com/hahwul/dalfox | no | MIT | Go | go | `v2.13.0` | v2.13.0 (match) | sì |
-| `dirsearch` | web | live-tested | sì | - | https://github.com/maurosoria/dirsearch | no | GPL-2.0 | Python | pip | `0.5.0` | v0.5.0 (match) | sì |
-| `httpx` | web | live-tested | sì | sì | https://github.com/projectdiscovery/httpx | no | MIT | Go | go | `v1.11.0` | 1.x (compatible) | sì |
-| `katana` | web | live-tested | sì | - | https://github.com/projectdiscovery/katana | no | MIT | Go | go | `v1.7.0` | 1.x (compatible) | sì |
-| `nikto` | web | live-tested | sì | - | https://github.com/sullo/nikto | no | GPL-2.0 | Perl | git | `2.6.1` @ `d201dac` | 2.5 (RECONFIRM) | no |
-| `nmap` | network | live-tested | sì | sì | https://github.com/nmap/nmap | no | Nmap Public Source License 0.95 (non-OSI) | C/C++ | git | `v7.992` @ `0ee5616` | 7.94SVN (RECONFIRM) | sì |
+| `arjun` | web | live-tested | sì (timeout/profilo non rivisti) | - | https://github.com/s0md3v/Arjun | no | AGPL-3.0 | Python | pip | `2.2.7` | 2.x (compatible) | sì |
+| `commix` | web | live-tested | sì (timeout/profilo non rivisti) | - | https://github.com/commixproject/commix | no | GPL-3.0 | Python | git | `v4.1` @ `06beb62` | 4.x (compatible) | sì |
+| `dalfox` | web | live-tested | sì (timeout/profilo non rivisti) | - | https://github.com/hahwul/dalfox | no | MIT | Go | go | `v2.13.0` | v2.13.0 (match) | sì |
+| `dirsearch` | web | live-tested | sì (timeout/profilo non rivisti) | - | https://github.com/maurosoria/dirsearch | no | GPL-2.0 | Python | pip | `0.5.0` | v0.5.0 (match) | sì |
+| `httpx` | web | live-tested | sì (timeout/profilo non rivisti) | sì | https://github.com/projectdiscovery/httpx | no | MIT | Go | go | `v1.11.0` | 1.x (compatible) | sì |
+| `katana` | web | live-tested | sì (timeout/profilo non rivisti) | - | https://github.com/projectdiscovery/katana | no | MIT | Go | go | `v1.7.0` | 1.x (compatible) | sì |
+| `nikto` | web | live-tested | sì (timeout/profilo non rivisti) | - | https://github.com/sullo/nikto | no | GPL-2.0 | Perl | git | `2.6.1` @ `d201dac` | 2.5 (RECONFIRM) | no |
+| `nmap` | network | live-tested | sì (timeout/profilo non rivisti) | sì | https://github.com/nmap/nmap | no | Nmap Public Source License 0.95 (non-OSI) | C/C++ | git | `v7.992` @ `0ee5616` | 7.94SVN (RECONFIRM) | sì |
 | `nosqlmap` | web | catalog-only | no | - | https://github.com/codingo/NoSQLMap | no | GPL-3.0 | Python | git | `0.5` @ `898a60b` | - (-) | no |
 | `nuclei` | web | live-tested | sì | sì | https://github.com/projectdiscovery/nuclei | no | MIT | Go | go | `v3.11.1` | v3.11.1 (match) | sì |
-| `sqlmap` | web | live-tested | sì | - | https://github.com/sqlmapproject/sqlmap | no | GPL-2.0 | Python | pip | `1.10.11` | 1.10.8 (RECONFIRM) | sì |
+| `sqlmap` | web | live-tested | sì (timeout/profilo non rivisti) | - | https://github.com/sqlmapproject/sqlmap | no | GPL-2.0 | Python | pip | `1.10.11` | 1.10.8 (RECONFIRM) | sì |
 | `subfinder` | dns | catalog-only | no | - | https://github.com/projectdiscovery/subfinder | no | MIT | Go | go | `v2.16.0` | - (-) | sì |
-| `testssl` | tls | offline-tested | sì | - | https://github.com/drwetter/testssl.sh | no | GPL-2.0 | Bash | git | `v3.2.4` @ `97763a4` | 3.x (compatible) | sì |
+| `testssl` | tls | offline-tested | sì (timeout/profilo non rivisti) | - | https://github.com/drwetter/testssl.sh | no | GPL-2.0 | Bash | git | `v3.2.4` @ `97763a4` | 3.x (compatible) | sì |
 | `theharvester` | dns | catalog-only | no | - | https://github.com/laramies/theHarvester | no | GPL-2.0 | Python | git | `4.11.1` @ `fd832de` | - (-) | no |
-| `wafw00f` | web | live-tested | sì | - | https://github.com/EnableSecurity/wafw00f | no | BSD-3-Clause | Python | pip | `2.4.2` | 2.x (compatible) | sì |
-| `wapiti` | web | offline-tested | sì | - | https://github.com/wapiti-scanner/wapiti | no | GPL-2.0 | Python | pip | `3.3.2` | - (-) | sì |
-| `whatweb` | web | offline-tested | sì | - | https://github.com/urbanadventurer/WhatWeb | no | GPL-2.0 | Ruby | git | `v0.6.4` @ `d279d93` | - (-) | sì |
-| `wpscan` | web | adapter-ready | sì | - | https://github.com/wpscanteam/wpscan | no | WPScan Public Source (non-OSI) | Ruby | gem | `4.2.0` | - (-) | sì |
-| `xsstrike` | web | live-tested | sì | - | https://github.com/s0md3v/XSStrike | no | GPL-3.0 | Python | git | `3.1.6` @ `65dd68a` | 3.1.5 (RECONFIRM) | sì |
+| `wafw00f` | web | live-tested | sì (timeout/profilo non rivisti) | - | https://github.com/EnableSecurity/wafw00f | no | BSD-3-Clause | Python | pip | `2.4.2` | 2.x (compatible) | sì |
+| `wapiti` | web | offline-tested | sì (timeout/profilo non rivisti) | - | https://github.com/wapiti-scanner/wapiti | no | GPL-2.0 | Python | pip | `3.2.3` | - (-) | sì |
+| `whatweb` | web | offline-tested | sì (timeout/profilo non rivisti) | - | https://github.com/urbanadventurer/WhatWeb | no | GPL-2.0 | Ruby | git | `v0.6.4` @ `d279d93` | - (-) | sì |
+| `wpscan` | web | adapter-ready | sì (timeout/profilo non rivisti) | - | https://github.com/wpscanteam/wpscan | no | WPScan Public Source (non-OSI) | Ruby | gem | `4.2.0` | - (-) | sì |
+| `xsstrike` | web | live-tested | sì (timeout/profilo non rivisti) | - | https://github.com/s0md3v/XSStrike | no | GPL-3.0 | Python | git | `3.1.6` @ `65dd68a` (l'engine stampa `3.1.5`: pin = commit) | 3.1.5 (RECONFIRM) | sì |
 
 ### Engine che richiedono un prodotto esterno (solo manifest, `catalog-only`)
 
@@ -65,6 +65,14 @@ Nessun adapter, nessun pin, `mandatory = false`: Olympus non li ha mai eseguiti.
 | `nessus` | vuln | catalog-only | https://www.tenable.com/products/nessus | Commercial (Tenable) | Tenable Nessus (commercial licence) | `THEMIS_NESSUS_URL`, `THEMIS_NESSUS_TOKEN` |
 | `openvas` | vuln | catalog-only | https://github.com/greenbone/openvas-scanner | GPL-2.0 | Greenbone GVM stack (open source, heavy multi-service deployment) | `THEMIS_OPENVAS_URL`, `THEMIS_OPENVAS_TOKEN` |
 | `zap` | web | catalog-only | https://github.com/zaproxy/zaproxy | Apache-2.0 | OWASP ZAP daemon (open source, runs as a separate service) | `THEMIS_ZAP_URL`, `THEMIS_ZAP_API_KEY` |
+
+### Dipendenze dati (pinnate come gli engine)
+
+Non sono codice ma decidono cosa trova l'engine: un insieme di template mobile cambierebbe i risultati senza che Olympus cambi.
+
+| Dipendenza | Usata da | Upstream | Verificato | Licenza | Pin |
+| --- | --- | --- | --- | --- | --- |
+| `nuclei-templates` | `nuclei` | https://github.com/projectdiscovery/nuclei-templates | no | MIT | `v10.5.1` @ `79fb682` |
 
 <!-- GENERATED:engine-inventory END -->
 
@@ -91,12 +99,16 @@ Un engine passa a `production-ready` solo se **tutte** queste condizioni sono ve
 | `pip install commix` | Il pacchetto PyPI `commix` 0.1 è di un autore terzo (*Bhai4You*), non di `commixproject/commix`. Era nell'immagine. | Installato da git (`v4.1`, commit pinnato). Lo schema rifiuta un manifest `pip` che nomini `commix` o `theHarvester`. |
 | `theHarvester` | PyPI `theHarvester` 0.0.1 è una release obsoleta; la 4.11.1 richiede Python >= 3.12, l'immagine è 3.11. | Fuori dall'immagine, `catalog-only`, TODO nel Dockerfile. Debito tecnico: portare la base a Python 3.12. |
 | `nikto` | Non è più installabile da apt; la 2.6.1 da git richiede il modulo Perl `XML::Writer`. | Fuori dall'immagine finché la build non è verificata (TODO nel Dockerfile). |
-| Toolchain Go | I `go.mod` dei pin richiedono Go 1.25-1.26; nessun `golang-go` Debian è così recente. Il vecchio `\|\| true` mascherava il fallimento. | `GOTOOLCHAIN=go1.26.10` pinnato; i 5 engine Go compilati e avviati in sandbox con questi pin. |
+| Toolchain Go | I `go.mod` dei pin richiedono Go 1.25-1.26; nessun `golang-go` Debian è così recente (la base è trixie, 1.24). Il vecchio `\|\| true` mascherava il fallimento. | `GOTOOLCHAIN=go1.26.10` pinnato; i 5 engine Go compilati e avviati in sandbox con questi pin. |
 | apt | Debian rimuove le versioni vecchie e `snapshot.debian.org` non era raggiungibile. | Nessun engine via apt. `nmap` è compilato dal commit pinnato (il tarball firmato su nmap.org non era raggiungibile). |
 | Licenze | `nmap` è sotto Nmap Public Source License 0.95 (non OSI), non GPL-2.0; `whatweb` è GPL-2.0, non GPL-3.0; `arjun` è AGPL-3.0 (corretto nel registry; i metadati PyPI dicono GPL-3). | Registry corretto. La NPSL e l'AGPL hanno implicazioni sulla ridistribuzione dell'immagine: da far valutare prima di pubblicarla. `nikto` ha una licenza propria (codice GPL, database non GPL, distribuibili solo con nikto): non modificata, da rivedere. |
+| `wapiti3` | `3.3.x` richiede Python >= 3.12 (scoperto dal primo build CI: `No matching distribution found`). | Pin a `3.2.3`, l'ultima versione per Python 3.11. Debito: base Python 3.12 (TOOLS-5). |
+| Immagine scanner | Il primo build CI reale ha trovato, uno alla volta: `wapiti3` 3.3.x richiede Python 3.12; `wapiti3` 3.2.3 e `dirsearch` 0.5.0 chiedono `beautifulsoup4` incompatibili; `nmap` da git tenta di rigenerare `configure` (`autoconf` assente); `testssl.sh` richiede `ps`; `git` rifiuta i checkout di root come utente dell'immagine. | Un virtualenv per engine Python, `touch configure`, `procps`, `safe.directory` nel doctor e nello smoke test, `wapiti3` fermo a 3.2.3. |
+| Memoria del sandbox | nuclei con i 14.104 template pinnati è in OOM sotto il limite di default (`RLIMIT_AS` 2 GiB; Go riserva molto più di quanto usa) e dura ~420 s, oltre il timeout di default di 300 s. | Misurato nel sandbox reale: 4 GiB bastano. `min_memory_bytes = 4 GiB` e `timeout_seconds = 1200` nel manifest (`reviewed = true`); l'immagine imposta `THEMIS_SANDBOX_MEMORY_BYTES`; `themis run` usa il timeout del manifest solo per gli engine rivisti. |
 | `xsstrike` | Il tag `3.1.6` punta a un commit il cui script stampa `v3.1.5`. | Il pin è il **commit**; la stringa di versione dell'engine non è usata come prova. |
 | Installazioni non pinnate | Le dipendenze transitive di pip e gem restano libere. | Residuo noto: ambiente con hash per engine (Fase 4). |
-| Template di nuclei | `nuclei-templates` è una dipendenza dati non pinnata. | Da pinnare nel pilota nuclei (Fase 2). |
+| Template di nuclei | `nuclei-templates` è una dipendenza dati che decide cosa trova nuclei. | Manifest separato `_data/nuclei-templates.toml`, pin al commit (`v10.5.1`), referenziato da `requires_data` nel manifest di nuclei; nell'immagine in `/opt/nuclei-templates` con `THEMIS_NUCLEI_TEMPLATES`. |
+| nuclei e stdin | nuclei legge target anche da stdin quando non è un terminale e resta appeso. | Il runner Themis chiude stdin (`DEVNULL`): nessun appeso e nessun target fuori scope da quella via. |
 
 ## Stato delle fasi
 
@@ -104,8 +116,8 @@ Un engine passa a `production-ready` solo se **tutte** queste condizioni sono ve
 | --- | --- | --- |
 | 0 | Inventario | fatta |
 | 1 | Schema `engine.toml`, 24 manifest, `ExitCode.ENGINE_MISSING` (8), `probe()`/`partial` in `ScannerAdapter`, Dockerfile fail-closed, test di coerenza e di drift | fatta (vedi i TODO del Dockerfile) |
-| 2 | Pilota nuclei: allow-list argv, `partial`, pin dei template, evidence manifest | da fare |
-| 3 | Preflight fail-closed, `olympus engines list/doctor`, `--allow-missing-engines`, mappa dei comandi per `required_for_commands`, testo di installazione dal manifest | da fare |
+| 2 | Pilota nuclei: allow-list argv da manifest, `partial` (schema 1.3.0 additivo), pin dei template, evidence manifest firmato, SBOM con engine e template, `engines list/doctor`, test live opzionale, valori misurati | fatta; job CI `scanner-image` verde (run 9) |
+| 3 | Preflight fail-closed (exit 8 + audit prima di toccare la rete), `--allow-missing-engines`, mappa dei comandi per `required_for_commands`, testo di installazione dal manifest negli adapter, `doctor --strict` nel Dockerfile. (`engines list/doctor` esistono già dalla Fase 2.) | da fare |
 | 4 | `engines check-updates` / `update`, SBOM esteso agli engine, osv-scanner in CI, `docs/engines/UPDATES.md` | da fare |
 | 5 | Adapter per `nosqlmap`, `subfinder`, `theharvester`; replica del pattern | da fare |
 | 6 | Aggiornamento README e tabella di maturità, solo per gli engine che rispettano il criterio sopra | da fare |

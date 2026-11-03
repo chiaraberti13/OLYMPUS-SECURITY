@@ -24,3 +24,4 @@ runtime = "python"
 entrypoint = "olympus.themis.adapters.commix:CommixAdapter"
 timeout_seconds = 300
 resource_profile = "network-heavy"
+reviewed = false  # TODO(TOOLS-4): review in Fase 2, values are estimates

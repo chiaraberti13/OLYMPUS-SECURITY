@@ -48,6 +48,7 @@ _DIGEST = re.compile(r"^sha256:[a-f0-9]{64}$")
 _ENV_NAME = r"^[A-Z][A-Z0-9_]{2,63}$"
 _BUILD_ARG = r"^--[a-z0-9][a-z0-9-]{0,40}(=[A-Za-z0-9/._-]{1,80})?$"
 _RUNTIME_PACKAGE = r"^[A-Za-z0-9][A-Za-z0-9._-]{0,80}==[0-9][A-Za-z0-9._+-]{0,40}$"
+_FLAG = r"^-{1,2}[A-Za-z0-9][A-Za-z0-9-]{0,40}$"
 _ENTRYPOINT = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*$")
 
 DottedId = Annotated[str, StringConstraints(pattern=_DOTTED, max_length=64)]
@@ -118,11 +119,36 @@ class Adapter(_Frozen):
     entrypoint: str
     timeout_seconds: int = Field(ge=1, le=3600)
     resource_profile: ResourceProfile
+    #: Allow-list the adapter may put on the command line (see ``engines.argv``). Fixed
+    #: flags first; ``value_flags`` take exactly one runtime value each and are required
+    #: unless also listed in ``optional_flags``. Empty for adapters not yet migrated.
+    static_flags: list[Annotated[str, StringConstraints(pattern=_FLAG)]] = Field(
+        default_factory=list, max_length=32
+    )
+    value_flags: list[Annotated[str, StringConstraints(pattern=_FLAG)]] = Field(
+        default_factory=list, max_length=16
+    )
+    optional_flags: list[Annotated[str, StringConstraints(pattern=_FLAG)]] = Field(
+        default_factory=list, max_length=16
+    )
+    #: Address space (bytes) the engine needs under the Themis sandbox, measured, not
+    #: guessed. The sandbox default (2 GiB) is the operator's call and is never raised
+    #: automatically; ``engines doctor`` reports the gap and the failure message names it.
+    min_memory_bytes: int | None = Field(default=None, ge=64 * 1024 * 1024, le=64 * 1024**3)
+    #: False while ``timeout_seconds``/``resource_profile`` are estimates rather than
+    #: values derived from evidence. A pilot review flips it; nobody should have to
+    #: guess later which numbers were ever measured.
+    reviewed: bool = False
 
     @model_validator(mode="after")
     def _entrypoint(self) -> Self:
         if _ENTRYPOINT.fullmatch(self.entrypoint) is None:
             raise ValueError("entrypoint must look like 'package.module:ClassName'")
+        every = [*self.static_flags, *self.value_flags]
+        if len(set(every)) != len(every):
+            raise ValueError("a flag may appear once, as static or as value flag, never both")
+        if not set(self.optional_flags) <= set(self.value_flags):
+            raise ValueError("optional_flags must be a subset of value_flags")
         return self
 
 
@@ -142,11 +168,18 @@ class Engine(_Frozen):
     #: Version the maturity evidence was actually captured against, as recorded in the
     #: evidence documents (free text, e.g. "7.94SVN" or "2.x"). Absent when none exists.
     evidence_version: str | None = Field(default=None, max_length=40)
+    #: Version string the engine itself prints when it differs from ``pinned_version``
+    #: (e.g. a tag whose code was never bumped). The pin is the tag/commit, never this.
+    reported_version: str | None = Field(default=None, max_length=40)
     update_policy: UpdatePolicy
     mandatory: bool = False
     required_for_commands: list[DottedId] = Field(default_factory=list, max_length=16)
     #: Fixed argv that proves the executable is present. Empty only for ``api`` engines.
     presence_probe: list[str] = Field(default_factory=list, max_length=8)
+    #: Names of ``_data/<name>.toml`` dependencies this engine cannot work without.
+    requires_data: list[Annotated[str, StringConstraints(pattern=_NAME)]] = Field(
+        default_factory=list, max_length=8
+    )
     capability: DottedId
     source: Source
 
@@ -172,6 +205,53 @@ class Engine(_Frozen):
                 "(checked only for those commands), not both"
             )
         return self
+
+
+class DataDependency(_Frozen):
+    """Data an engine needs that is not code (e.g. nuclei's template repository).
+
+    Pinned and verified exactly like an engine, because it decides what the engine
+    does: a floating template set changes findings without any change to Olympus.
+    """
+
+    name: str = Field(pattern=_NAME)
+    upstream: str = Field(pattern=r"^https://[A-Za-z0-9.-]+(/[^\s]*)?$", max_length=300)
+    upstream_verified: bool = False
+    license: str = Field(min_length=1, max_length=100)
+    pinned_version: str
+    update_policy: UpdatePolicy
+    used_by: list[Annotated[str, StringConstraints(pattern=_NAME)]] = Field(
+        min_length=1, max_length=16
+    )
+    source: Source
+
+    @model_validator(mode="after")
+    def _pinned_git_checkout(self) -> Self:
+        version = self.pinned_version
+        if version.lower() in MOBILE_REFERENCES or _VERSION.fullmatch(version) is None:
+            raise ValueError(f"pinned_version {version!r} is not an exact version or tag")
+        missing = [
+            field
+            for field in ("repo", "commit", "checkout_path")
+            if getattr(self.source, field) is None
+        ]
+        if missing:
+            raise ValueError(f"a data dependency requires source.{', source.'.join(missing)}")
+        return self
+
+
+class DataManifest(_Frozen):
+    """One validated ``_data/<name>.toml``."""
+
+    data: DataDependency
+
+    def install_command(self) -> str:
+        source = self.data.source
+        return (
+            f"git init {source.checkout_path} && "
+            f"git -C {source.checkout_path} fetch --depth 1 {source.repo} {source.commit} && "
+            f"git -C {source.checkout_path} checkout --detach FETCH_HEAD"
+        )
 
 
 class EngineManifest(_Frozen):
@@ -272,8 +352,11 @@ class EngineManifest(_Frozen):
                 ]
                 if source.build == "autotools":
                     flags = " ".join(source.build_args)
+                    # A fresh checkout leaves the committed `configure` older than configure.ac,
+                    # which makes `make` try to regenerate it; touch fixes the timestamp only.
                     steps.append(
-                        f"cd {source.checkout_path} && ./configure {flags} && make && make install"
+                        f"cd {source.checkout_path} && find . -name configure -type f "
+                        f"-exec touch {{}} + && ./configure {flags} && make && make install"
                     )
                 else:
                     if source.runtime == "python" and source.runtime_packages:

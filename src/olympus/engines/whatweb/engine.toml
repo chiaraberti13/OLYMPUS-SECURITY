@@ -24,3 +24,4 @@ runtime_packages = ["addressable==2.9.2"]
 entrypoint = "olympus.themis.adapters.whatweb:WhatwebAdapter"
 timeout_seconds = 300
 resource_profile = "light"
+reviewed = false  # TODO(TOOLS-4): review in Fase 2, values are estimates

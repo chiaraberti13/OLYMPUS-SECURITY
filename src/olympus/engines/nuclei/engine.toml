@@ -12,11 +12,26 @@ update_policy = "minor"
 mandatory = true
 presence_probe = ["nuclei", "-version"]
 capability = "web.scan"
+requires_data = ["nuclei-templates"]
 
 [engine.source]
 module = "github.com/projectdiscovery/nuclei/v3/cmd/nuclei"
 
 [adapter]
 entrypoint = "olympus.themis.adapters.nuclei:NucleiAdapter"
-timeout_seconds = 600
+# Measured (pilot, 2026-11-03): the full pinned template set (14,104 templates) against a
+# loopback server finishes in 365 s unsandboxed and 415-422 s under the Themis sandbox, with
+# 36 s of CPU and ~0.9 GB resident -> I/O-bound, hence network-heavy. 1200 s is ~3x the
+# loopback figure, as headroom for real network latency.
+timeout_seconds = 1200
 resource_profile = "network-heavy"
+# The sandbox limits ADDRESS SPACE (RLIMIT_AS), and Go reserves far more than it uses:
+# 2 GiB (the default) -> out of memory in 5 s; 4 GiB and 8 GiB -> complete.
+min_memory_bytes = 4294967296
+# The only flags the adapter may pass. -target and -templates take one runtime value each;
+# everything else is fixed. -omit-raw keeps session material out of evidence, -no-interactsh
+# forbids third-party callbacks, -disable-update-check forbids reaching out mid-scan.
+value_flags = ["-target", "-templates"]
+optional_flags = ["-templates"]
+static_flags = ["-jsonl", "-silent", "-no-color", "-disable-update-check", "-no-interactsh", "-omit-raw", "-omit-template"]
+reviewed = true

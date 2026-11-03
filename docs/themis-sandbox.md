@@ -71,10 +71,36 @@ It is persisted as the optional `termination` object of the
 and `manifest_sha256` authorization provenance; consumers pinned to `1.1.0`
 must negotiate or upgrade before accepting the newer document.
 
+Schema `1.3.0` adds `partial` and `partial_reason` (the engine ran but covered less than
+requested, e.g. output records it could not parse). It is **emitted only for a partial result**;
+every other result is still written as `1.2.0` with no new keys, so readers pinned to `1.2.0`
+keep working and only need to upgrade to read a partial document. A partial live result exits
+`5`, becomes a `partial` job and is never reported as a clean empty.
+
 Note that CPython ignores `SIGXFSZ` and surfaces `EFBIG` instead, so a
 Python-based scanner that crosses `file_size_bytes` fails with a write error
 rather than a signal. The limit holds either way; only the recorded cause
 differs.
+
+## Memory limit and Go engines
+
+`THEMIS_SANDBOX_MEMORY_BYTES` (default 2 GiB) is applied as `RLIMIT_AS`, a limit on **address
+space**, not on resident memory. Go programs reserve far more address space than they use, so an
+engine that needs under 1 GB of RAM can still be refused by a 2 GiB limit. Measured with the
+pinned nuclei v3.11.1 and the full pinned template set (14,104 templates), run through this
+sandbox against a loopback server:
+
+| `THEMIS_SANDBOX_MEMORY_BYTES` | Result |
+| --- | --- |
+| 2 GiB (default) | `fatal error: out of memory` within ~5 s, exit 2 (reported as `failed`, never clean) |
+| 4 GiB | completes: `live`, not partial, ~420 s |
+| 8 GiB | completes: `live`, not partial, ~415 s |
+
+The requirement is recorded in the engine manifest (`[adapter].min_memory_bytes`); `olympus
+engines doctor` notes when the host limit is below it, and the failure message names the
+variable. Olympus never raises the limit by itself: the scanner image sets 4 GiB because it
+ships nuclei with the full templates, and a host running a smaller template set can keep the
+default.
 
 ## Configuration
 

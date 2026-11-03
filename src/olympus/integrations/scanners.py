@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import shutil
 from dataclasses import dataclass
+from typing import Literal
 
 
 @dataclass(frozen=True)
@@ -30,8 +31,11 @@ class ScannerSpec:
     #: External executable checked with ``shutil.which``; ``None`` for API/daemon engines.
     binary: str | None
     licence: str
-    #: True if the tool can be redistributed / installed automatically (OSS).
-    redistributable: bool
+    #: True if the tool can be redistributed / installed automatically (OSS);
+    #: ``"conditional"`` when redistribution is allowed only under extra terms
+    #: (e.g. the Nmap Public Source License), so whoever publishes an image must
+    #: review them first; False when it cannot be redistributed at all.
+    redistributable: bool | Literal["conditional"]
     #: How to install it in a reproducible environment.
     install: str
     #: Whether docker/Dockerfile.scanners bundles it by default.
@@ -40,6 +44,13 @@ class ScannerSpec:
     def available(self) -> bool:
         """Return True if the scanner's binary is on PATH (API engines: unknown → False)."""
         return bool(self.binary and shutil.which(self.binary))
+
+    @property
+    def redistribution(self) -> str:
+        """``free``, ``conditional`` or ``no`` - the three-state view of ``redistributable``."""
+        if self.redistributable == "conditional":
+            return "conditional"
+        return "free" if self.redistributable else "no"
 
     @property
     def kind(self) -> str:
@@ -90,7 +101,7 @@ REGISTRY: tuple[ScannerSpec, ...] = (
         "network",
         "nmap",
         "Nmap Public Source License 0.95 (non-OSI)",
-        True,
+        "conditional",
         "apt-get install nmap",
         True,
     ),
@@ -100,7 +111,7 @@ REGISTRY: tuple[ScannerSpec, ...] = (
         "web",
         "nikto",
         "GPL-2.0",
-        True,
+        "conditional",
         "apt-get install nikto",
         False,
     ),

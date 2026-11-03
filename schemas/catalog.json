@@ -57,6 +57,13 @@
       "sha256": "bd433d2a5edcf22bc4c1fcfd7621431c0a9f0c203da77bf4897ee2b7604fceb6"
     },
     {
+      "direction": "output",
+      "name": "olympus.engine-run-evidence",
+      "path": "contracts/olympus.engine-run-evidence/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "52c7290db3058c806d2d87aab55b814a920aa78dfed4c5e0fa00e35e638750ec"
+    },
+    {
       "direction": "shared",
       "name": "olympus.event",
       "path": "contracts/olympus.event/1.0.0.schema.json",

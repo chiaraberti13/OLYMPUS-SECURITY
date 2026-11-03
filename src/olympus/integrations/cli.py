@@ -1005,7 +1005,8 @@ def themis_scanners(
             "risk": classify(spec).risk.value,
             "binary": spec.binary,
             "licence": spec.licence,
-            "redistributable": spec.redistributable,
+            "redistributable": bool(spec.redistributable),
+            "redistribution": spec.redistribution,
             "in_scanner_image": spec.in_scanner_image,
             "available": spec.available(),
             "install": spec.install,
@@ -2563,8 +2564,17 @@ def themis_run(
     target: str = typer.Option("", "--target", help="Authorized target (host/url/domain)."),
     kind: str = typer.Option("host", "--kind", help="Target kind: host, url, or domain."),
     scope: str = typer.Option("", "--scope", help="Versioned Themis scope JSON file."),
-    timeout: float = typer.Option(300.0, "--timeout", help="Per-process timeout in seconds."),
-    deadline: float = typer.Option(600.0, "--deadline", help="Overall scan deadline in seconds."),
+    timeout: float | None = typer.Option(
+        None,
+        "--timeout",
+        help=(
+            "Per-process timeout in seconds. Default 300, or the engine's measured value "
+            "when its manifest is reviewed (nuclei: 1200)."
+        ),
+    ),
+    deadline: float | None = typer.Option(
+        None, "--deadline", help="Overall scan deadline in seconds (default 600, or timeout+300)."
+    ),
     max_scope_bytes: int = typer.Option(1_000_000, "--max-scope-bytes"),
     max_output_bytes: int = typer.Option(5_000_000, "--max-output-bytes"),
     max_findings: int = typer.Option(10_000, "--max-findings"),
@@ -2591,6 +2601,15 @@ def themis_run(
         "",
         "--lab-policy",
         help="Explicit signed policy file for a direct live scan limited to declared lab CIDRs.",
+    ),
+    evidence: str = typer.Option(
+        "",
+        "--evidence",
+        help=(
+            "Write a signed evidence manifest for this run (and PATH.sig). Needs "
+            "OLYMPUS_EVIDENCE_SIGNING_KEY_FILE to name an Ed25519 private key; without it "
+            "the run is refused before it starts."
+        ),
     ),
     i_am_authorized: bool = typer.Option(
         False, "--i-am-authorized", help="Confirm documented authorization for a real scan."
@@ -2639,6 +2658,24 @@ def themis_run(
     except ThemisConfigError as exc:
         typer.echo(f"olympus: Themis execution error: {exc}", err=True)
         raise typer.Exit(code=ExitCode.FAILED) from exc
+
+    from olympus.engines.loader import reviewed_timeouts
+
+    declared_timeout, declared_deadline = reviewed_timeouts(
+        scanner, default_timeout=300.0, default_deadline=600.0
+    )
+    timeout = declared_timeout if timeout is None else timeout
+    # An explicit longer timeout must not be capped silently by the default deadline.
+    deadline = max(declared_deadline, timeout + 300.0) if deadline is None else deadline
+    evidence_signer = None
+    if evidence:
+        from olympus.engines.evidence import EvidenceError, signer_from_environment
+
+        try:
+            evidence_signer = signer_from_environment()
+        except EvidenceError as exc:
+            typer.echo(safe_terminal_text(f"olympus: {exc}"), err=True)
+            raise typer.Exit(code=ExitCode.USAGE) from exc
 
     job_id: str | None = None
     manifest_sha256: str | None = None
@@ -2715,6 +2752,8 @@ def themis_run(
                 max_scope_bytes=max_scope_bytes,
                 max_output_bytes=max_output_bytes,
                 max_findings=max_findings,
+                evidence_path=Path(evidence) if evidence else None,
+                evidence_signer=evidence_signer,
             )
         )
     except (OutOfScopeError, SsrfBlockedError) as exc:

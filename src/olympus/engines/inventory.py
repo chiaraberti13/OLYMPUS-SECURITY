@@ -9,8 +9,8 @@ maturity ledger (stage) - and a test fails when the committed file differs.
 
 from __future__ import annotations
 
-from olympus.engines.loader import load_all
-from olympus.engines.schema import EngineManifest
+from olympus.engines.loader import load_all, load_all_data
+from olympus.engines.schema import DataManifest, EngineManifest
 from olympus.integrations.maturity import record_for
 from olympus.integrations.scanners import by_name
 
@@ -45,7 +45,16 @@ def _pin_text(manifest: EngineManifest) -> str:
     engine = manifest.engine
     version = f"`{engine.pinned_version}`"
     commit = engine.source.commit
-    return f"{version} @ `{commit[:7]}`" if commit else version
+    text = f"{version} @ `{commit[:7]}`" if commit else version
+    if engine.reported_version:
+        text += f" (l'engine stampa `{engine.reported_version}`: pin = commit)"
+    return text
+
+
+def _adapter_text(manifest: EngineManifest) -> str:
+    if manifest.adapter is None:
+        return "no"
+    return "sì" if manifest.adapter.reviewed else "sì (timeout/profilo non rivisti)"
 
 
 def _row_local(name: str, manifest: EngineManifest) -> str:
@@ -58,7 +67,7 @@ def _row_local(name: str, manifest: EngineManifest) -> str:
         f"`{name}`",
         engine.category,
         record_for(name).stage.value,
-        "sì" if manifest.adapter else "no",
+        _adapter_text(manifest),
         "sì" if engine.mandatory else "-",
         engine.upstream,
         "sì" if engine.upstream_verified else "no",
@@ -70,6 +79,11 @@ def _row_local(name: str, manifest: EngineManifest) -> str:
         "sì" if spec.in_scanner_image else "no",
     ]
     return "| " + " | ".join(cells) + " |"
+
+
+def _data_pin_text(manifest: DataManifest) -> str:
+    commit = manifest.data.source.commit or ""
+    return f"`{manifest.data.pinned_version}` @ `{commit[:7]}`"
 
 
 def _row_api(name: str, manifest: EngineManifest) -> str:
@@ -111,6 +125,29 @@ def render_inventory_block() -> str:
         "Variabili d'ambiente (solo nomi) |",
         "| --- | --- | --- | --- | --- | --- | --- |",
         *(_row_api(name, manifest) for name, manifest in api),
+        "",
+        "### Dipendenze dati (pinnate come gli engine)",
+        "",
+        "Non sono codice ma decidono cosa trova l'engine: un insieme di template mobile "
+        "cambierebbe i risultati senza che Olympus cambi.",
+        "",
+        "| Dipendenza | Usata da | Upstream | Verificato | Licenza | Pin |",
+        "| --- | --- | --- | --- | --- | --- |",
+        *(
+            "| "
+            + " | ".join(
+                [
+                    f"`{name}`",
+                    ", ".join(f"`{item}`" for item in manifest.data.used_by),
+                    manifest.data.upstream,
+                    "sì" if manifest.data.upstream_verified else "no",
+                    manifest.data.license,
+                    _data_pin_text(manifest),
+                ]
+            )
+            + " |"
+            for name, manifest in sorted(load_all_data().items())
+        ),
         "",
         BLOCK_END,
     ]

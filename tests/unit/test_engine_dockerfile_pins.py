@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from olympus.engines.loader import load_all
+from olympus.engines.loader import load_all, load_all_data
 from olympus.engines.schema import EngineManifest
 from olympus.integrations.scanners import by_name
 
@@ -38,7 +38,9 @@ def _expected_fragments(manifest: EngineManifest) -> list[str]:
                     fragments.append(f"'{item}'")
             return fragments
         case "pip":
-            return [f"'{source.package}=={engine.pinned_version}'"]
+            # one virtualenv per engine: the line also names the console script it links
+            pin = f"'{source.package}=={engine.pinned_version}'"
+            return [f"pip_engine {engine.name} {pin} {engine.presence_probe[0]}"]
         case "gem":
             return [f"gem install {source.package} -v {engine.pinned_version}"]
         case _:
@@ -58,12 +60,45 @@ def test_dockerfile_installs_the_manifest_pin(name: str) -> None:
 
 
 def test_engines_not_shipped_in_the_image_are_documented_as_todo() -> None:
-    text = DOCKERFILE.read_text(encoding="utf-8")
+    """``in_scanner_image = False`` needs a ``TODO(TOOLS-4)`` line naming the engine.
+
+    Otherwise someone can drop an engine from the Dockerfile and the inventory would
+    keep saying nothing about why it is missing.
+    """
     from olympus.integrations.scanners import REGISTRY
 
+    todo_lines = [
+        line.lower()
+        for line in DOCKERFILE.read_text(encoding="utf-8").splitlines()
+        if line.lstrip().startswith("#") and "TODO(TOOLS-4)" in line
+    ]
     for spec in REGISTRY:
         if spec.binary is not None and not spec.in_scanner_image:
-            assert spec.name in text.lower(), f"{spec.name}: absent from the image but undocumented"
+            assert any(spec.name in line for line in todo_lines), (
+                f"{spec.name}: in_scanner_image=False but no TODO(TOOLS-4) names it"
+            )
+
+
+def test_go_toolchain_is_pinned_before_the_first_go_command_and_sumdb_stays_on() -> None:
+    code = "\n".join(
+        line
+        for line in DOCKERFILE.read_text(encoding="utf-8").splitlines()
+        if not line.lstrip().startswith("#")
+    )
+    first_go = min(code.index(token) for token in ("go install", "go version", "go env"))
+    assert code.index("GOTOOLCHAIN=go1.26") < first_go
+    assert code.index("GOSUMDB=sum.golang.org") < first_go
+    assert "GOSUMDB=off" not in code and "GONOSUMDB" not in code and "GOFLAGS" not in code
+    assert "GOINSECURE" not in code
+
+
+def test_image_ships_the_licence_notice_and_the_nmap_licence_text() -> None:
+    code = DOCKERFILE.read_text(encoding="utf-8")
+    assert "COPY docker/NOTICE /NOTICE" in code
+    assert "/opt/nmap/LICENSE" in code
+    notice = (DOCKERFILE.parent / "NOTICE").read_text(encoding="utf-8")
+    assert "Nmap Public Source License" in notice and "https://nmap.org/npsl/" in notice
+    assert "nikto" in notice and "databases" in notice
 
 
 def test_dockerfile_has_no_best_effort_installs_or_moving_references() -> None:
@@ -97,3 +132,46 @@ def test_every_pin_in_the_dockerfile_belongs_to_a_manifest() -> None:
     for pin in re.findall(r"'([A-Za-z0-9._-]+==[0-9][A-Za-z0-9._-]*)'", text):
         runtime = {p for m in manifests for p in m.engine.source.runtime_packages}
         assert pin in pips or pin in runtime, f"pip pin {pin} has no engine.toml"
+
+
+def test_data_dependencies_are_pinned_in_the_image_and_wired_to_their_engine() -> None:
+    text = DOCKERFILE.read_text(encoding="utf-8")
+    for name, manifest in load_all_data().items():
+        source = manifest.data.source
+        assert f"git_pin {source.repo} {source.commit} {source.checkout_path}" in text, name
+    # nuclei is told where the pinned templates are, explicitly (its $HOME is not ours).
+    assert "ENV THEMIS_NUCLEI_TEMPLATES=/opt/nuclei-templates" in text
+    commits = {m.data.source.commit for m in load_all_data().values()}
+    import re
+
+    for _repo, commit, _path in re.findall(r"git_pin (\S+) ([0-9a-f]{40}) (\S+);?", text):
+        engine_commits = {m.engine.source.commit for m in load_all().values()}
+        assert commit in commits | engine_commits, f"unmanifested git_pin {commit}"
+
+
+def test_python_engines_never_share_an_interpreter_with_each_other_or_with_olympus() -> None:
+    code = "\n".join(
+        line
+        for line in DOCKERFILE.read_text(encoding="utf-8").splitlines()
+        if not line.lstrip().startswith("#")
+    )
+    # The only bare `pip install` allowed installs Olympus itself; engines go in venvs.
+    bare = [
+        line.strip()
+        for line in code.splitlines()
+        if "pip install" in line
+        and "/opt/venvs/" not in line
+        and '".[api,report]"' not in line
+        and "typing_extensions" not in line
+    ]
+    assert bare == [], f"engine installed into the system interpreter: {bare}"
+    assert code.count("python -m venv") >= 2
+
+
+def test_the_image_sets_the_sandbox_memory_nuclei_was_measured_to_need() -> None:
+    from olympus.engines.loader import manifest_for
+
+    adapter = manifest_for("nuclei").adapter
+    assert adapter is not None and adapter.min_memory_bytes
+    text = DOCKERFILE.read_text(encoding="utf-8")
+    assert f"ENV THEMIS_SANDBOX_MEMORY_BYTES={adapter.min_memory_bytes}" in text

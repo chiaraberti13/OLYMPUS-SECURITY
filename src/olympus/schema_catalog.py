@@ -35,6 +35,7 @@ from olympus.core.models import (
 )
 from olympus.core.notifications import Notification
 from olympus.engagements.manifest import EngagementManifest, SignedEngagementManifest
+from olympus.engines.evidence import EngineRunEvidence
 from olympus.metis.models import EngagementPlan, IntelCaseDocument
 from olympus.themis.legacy_vap import (
     LegacyVapConversionPlan,
@@ -85,6 +86,7 @@ PUBLISHED_CONTRACTS = (
     PublishedContract("olympus.scan-job", "shared", ScanJob),
     PublishedContract("olympus.notification", "output", Notification),
     PublishedContract("olympus.security-report", "output", SecurityReport),
+    PublishedContract("olympus.engine-run-evidence", "output", EngineRunEvidence),
     PublishedContract("olympus.legacy-vap-snapshot", "output", LegacyVapSnapshot),
     PublishedContract("olympus.legacy-vap-conversion-plan", "output", LegacyVapConversionPlan),
     PublishedContract("olympus.legacy-vap-import-approval", "output", LegacyVapImportApproval),

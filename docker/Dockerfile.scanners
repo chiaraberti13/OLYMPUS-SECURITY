@@ -10,8 +10,9 @@
 # Coverage of the 24-scanner catalogue. Every pin below mirrors
 # src/olympus/engines/<name>/engine.toml; tests/unit/test_engine_dockerfile_pins.py
 # fails when a manifest and this file disagree.
-#   pip      : sqlmap, wafw00f, arjun, wapiti3, dirsearch   (exact ==pins)
-#   git      : nmap (built), whatweb, testssl.sh, xsstrike, commix (full commit SHA)
+#   pip      : sqlmap, wafw00f, arjun, wapiti3, dirsearch   (exact ==pins, one venv each)
+#   git      : nmap (built), whatweb, testssl.sh, xsstrike, commix, and the
+#              nuclei-templates data dependency (full commit SHA)
 #   go       : nuclei, httpx, katana, subfinder, dalfox     (exact tags, pinned
 #              Go toolchain)
 #   gem      : wpscan            (WPScan Public Source licence; free API token
@@ -50,10 +51,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH=/usr/local/go/bin:/usr/local/bin:$PATH
 
 # Mandatory toolchain + helpers (strict): the pip/go/gem/git layers below need
-# these, so a failure here *should* fail the build.
+# these, so a failure here *should* fail the build. procps (ps), bsdmainutils (hexdump)
+# and dnsutils (dig) are runtime requirements of testssl.sh, found by the image smoke test.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        dnsutils whois curl ca-certificates git libssl-dev \
+        dnsutils whois curl ca-certificates git libssl-dev procps \
         golang-go ruby ruby-dev build-essential bsdmainutils \
     && rm -rf /var/lib/apt/lists/*
 
@@ -68,15 +70,30 @@ COPY --chown=0:0 deploy/security/scanner-runtime-attestation.json \
 RUN chmod 0444 /etc/olympus/scanner-runtime.json
 RUN pip install --no-cache-dir ".[api,report]"
 
-# Python scanners, exact versions from PyPI (each confirmed to be the upstream
-# project's own package). Only top-level packages are pinned; their transitive
-# dependencies float until each engine gets a hash-locked environment. `commix` is
-# deliberately NOT here: PyPI "commix" is a third-party package (author
-# "Bhai4You"), not commixproject/commix, which is installed from git below.
-RUN pip install --no-cache-dir \
-        'sqlmap==1.10.11' 'wafw00f==2.4.2' 'arjun==2.2.7' 'wapiti3==3.3.2' 'dirsearch==0.5.0'
+# Python scanners, exact versions from PyPI (each confirmed to be the upstream project's
+# own package), each in ITS OWN virtualenv. Isolation is not optional: the first CI build
+# showed wapiti3 3.2.3 (beautifulsoup4==4.12.3) and dirsearch 0.5.0 (beautifulsoup4==4.14.3)
+# cannot share an interpreter, and a shared one would also let a scanner's dependencies
+# change Olympus's own runtime. Each console script is linked into /usr/local/bin.
+# Only top-level packages are pinned; transitive dependencies float until each engine gets
+# a hash-locked environment (TOOLS-5). wapiti3 is held at 3.2.3 because 3.3.x requires
+# Python >= 3.12 and this image is 3.11. `commix` is deliberately NOT here: PyPI "commix" is
+# a third-party package (author "Bhai4You"), not commixproject/commix (installed from git).
+RUN pip_engine() { \
+        python -m venv "/opt/venvs/$1" \
+        && "/opt/venvs/$1/bin/pip" install --no-cache-dir "$2" \
+        && ln -s "/opt/venvs/$1/bin/$3" "/usr/local/bin/$3"; \
+    }; \
+    pip_engine sqlmap 'sqlmap==1.10.11' sqlmap; \
+    pip_engine wafw00f 'wafw00f==2.4.2' wafw00f; \
+    pip_engine arjun 'arjun==2.2.7' arjun; \
+    pip_engine wapiti 'wapiti3==3.2.3' wapiti; \
+    pip_engine dirsearch 'dirsearch==0.5.0' dirsearch
 
-# Git-distributed engines, each fetched by full commit SHA and verified. The recipe
+# Git-distributed engines, each fetched by full commit SHA and verified. (nmap ships a
+# generated `configure`; a fresh checkout leaves it older than configure.ac, so make would
+# try to regenerate it with autoconf. `touch` only fixes the timestamp: the tree stays
+# byte-identical to the pinned commit.) The recipe
 # is the one EngineManifest.install_command() prints, so what an operator is told
 # to run is what this image runs.
 RUN git_pin() { \
@@ -90,28 +107,49 @@ RUN git_pin() { \
         chmod 0755 "/usr/local/bin/$1"; \
     }; \
     git_pin https://github.com/nmap/nmap 0ee561663c1d7d2d4e708cd414dccfd3d9df30d9 /opt/nmap; \
-    (cd /opt/nmap && ./configure --without-zenmap --without-ndiff --without-nping --without-ncat --without-nmap-update && make -j"$(nproc)" && make install); \
+    (cd /opt/nmap && find . -name configure -type f -exec touch {} + && ./configure --without-zenmap --without-ndiff --without-nping --without-ncat --without-nmap-update && make -j"$(nproc)" && make install); \
     git_pin https://github.com/urbanadventurer/WhatWeb d279d93042d034f3fd29d5a893d44ccc0595d3f8 /opt/whatweb; \
     gem install --no-document addressable -v 2.9.2; \
     launcher whatweb ruby /opt/whatweb/whatweb; \
     git_pin https://github.com/drwetter/testssl.sh 97763a411c525720a5f9bd9d2cded416b10f210a /opt/testssl; \
     ln -s /opt/testssl/testssl.sh /usr/local/bin/testssl.sh; \
     git_pin https://github.com/s0md3v/XSStrike 65dd68ae9051ce7cecf3be23fbda6e329d8580af /opt/xsstrike; \
-    pip install --no-cache-dir 'tld==0.13.2' 'fuzzywuzzy==0.18.0' 'requests==2.34.2'; \
-    launcher xsstrike python /opt/xsstrike/xsstrike.py; \
+    python -m venv /opt/venvs/xsstrike; \
+    /opt/venvs/xsstrike/bin/pip install --no-cache-dir 'tld==0.13.2' 'fuzzywuzzy==0.18.0' 'requests==2.34.2'; \
+    launcher xsstrike /opt/venvs/xsstrike/bin/python /opt/xsstrike/xsstrike.py; \
     git_pin https://github.com/commixproject/commix 06beb622db6f9b8ffe4e51f7dea4414303c750ce /opt/commix; \
-    launcher commix python /opt/commix/commix.py
+    launcher commix python /opt/commix/commix.py; \
+    git_pin https://github.com/projectdiscovery/nuclei-templates 79fb682760ab3d5b0e22afbb44709353cbebf023 /opt/nuclei-templates
+
+# nuclei finds its templates through $HOME, which the sandbox user does not share, so
+# Themis passes the directory explicitly (-templates) from this variable. The checkout
+# above is the pinned data dependency src/olympus/engines/_data/nuclei-templates.toml.
+ENV THEMIS_NUCLEI_TEMPLATES=/opt/nuclei-templates
+
+# The Themis sandbox limits a scanner's ADDRESS SPACE (2 GiB by default). Measured with the
+# pinned engine and the full template set above: 2 GiB -> nuclei is out of memory within
+# seconds; 4 GiB -> the scan completes. The image ships nuclei with its full templates, so
+# it sets the limit it needs (engine.toml: [adapter].min_memory_bytes). A host that runs
+# nuclei with a smaller template set can lower it again.
+ENV THEMIS_SANDBOX_MEMORY_BYTES=4294967296
 
 # Go engines, exact tags. Their go.mod files require Go 1.25-1.26, newer than any
-# Debian golang-go, so the toolchain is pinned too (GOTOOLCHAIN downloads exactly
-# this release through the Go module proxy, verified by the checksum database);
-# the distro Go only bootstraps it, and must be >= 1.21 or `go version` fails the
-# build. Static binaries (CGO_ENABLED=0) were built and run with these pins.
+# Debian golang-go, so the toolchain is pinned too: GOTOOLCHAIN makes Go download
+# exactly this release through the Go module proxy and verify it against the
+# checksum database (GOSUMDB is explicit and never "off": a failed verification
+# fails the build). The distro golang-go (installed above) is ONLY the bootstrap
+# that performs that download; it must be >= 1.21, which the guard below enforces
+# with a readable message. Both ENV lines come before the first `go` command.
+# Static binaries (CGO_ENABLED=0) were built and run with these pins.
 # Bump deliberately via `olympus engines update`.
 ENV GOTOOLCHAIN=go1.26.10 \
+    GOSUMDB=sum.golang.org \
     CGO_ENABLED=0
-RUN go version | grep -F 'go1.26.10' \
-    && go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@v3.11.1 \
+RUN v="$(GOTOOLCHAIN=local go env GOVERSION)"; minor="${v#go1.}"; minor="${minor%%.*}"; \
+    test "$minor" -ge 21 \
+        || { echo "bootstrap Go is ${v}; >= go1.21 is required to fetch the pinned toolchain" >&2; exit 1; }; \
+    go version | grep -F 'go1.26.10'
+RUN go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@v3.11.1 \
     && go install github.com/projectdiscovery/httpx/cmd/httpx@v1.11.0 \
     && go install github.com/projectdiscovery/katana/cmd/katana@v1.7.0 \
     && go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@v2.16.0 \
@@ -119,6 +157,12 @@ RUN go version | grep -F 'go1.26.10' \
 
 # WordPress scanner (Ruby gem; needs a free WPScan API token for the vuln DB).
 RUN gem install wpscan -v 4.2.0
+
+# Licence texts of the engines bundled with their own terms, and the notice that
+# tells whoever publishes this image what to review (see docker/NOTICE).
+COPY docker/NOTICE /NOTICE
+RUN install -d /usr/share/licenses/olympus-engines/nmap \
+    && cp /opt/nmap/LICENSE /usr/share/licenses/olympus-engines/nmap/LICENSE
 
 # The scanner installs above can pull an older transitive pin (seen:
 # a scanner dragged typing_extensions down to 4.10, where pydantic_core's
