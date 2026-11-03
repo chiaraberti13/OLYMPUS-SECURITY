@@ -141,7 +141,8 @@ olympus athena plan from-profile light \
 
 Athena usa gli stessi exit code canonici di ogni altro modulo — `0` pulito,
 `1` finding, `2` input non valido, `3` negazione di scope, `5` parziale,
-`6` errore d'esecuzione, `7` annullato — quindi si integra bene in CI e negli
+`6` errore d'esecuzione, `7` annullato, `8` engine obbligatorio mancante (non è
+partito nulla) — quindi si integra bene in CI e negli
 script. Un'esecuzione parziale non viene mai riportata come pulita; vedi
 [stato e copertura delle esecuzioni](docs/run-status.md).
 

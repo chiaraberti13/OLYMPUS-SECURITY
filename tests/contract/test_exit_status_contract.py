@@ -12,7 +12,7 @@ from olympus.athena.application.coordinator import RunOutcome
 from olympus.athena.cli import _exit_code_for
 from olympus.athena.domain.assessment import AssessmentState
 from olympus.core.coverage import RunStatus, exit_code_for
-from olympus.core.exit_codes import ExitCode
+from olympus.core.exit_codes import EXIT_ENGINE_MISSING, ExitCode, normalize_exit_code
 from olympus.integrations.cli import _job_exit_code, _scan_exit_code
 from olympus.themis.states import ExecutionState
 
@@ -97,3 +97,43 @@ def test_cli_modules_do_not_embed_numeric_typer_exit_codes() -> None:
     assert violations == [], "numeric Typer exit codes bypass the shared contract: " + ", ".join(
         violations
     )
+
+
+@pytest.mark.contract
+def test_exit_code_contract_is_exactly_zero_to_eight() -> None:
+    assert {code.value for code in ExitCode} == set(range(9))
+    assert ExitCode.ENGINE_MISSING == 8
+    assert EXIT_ENGINE_MISSING is ExitCode.ENGINE_MISSING
+
+
+@pytest.mark.contract
+def test_engine_missing_is_a_canonical_code_and_unknown_codes_stay_failed() -> None:
+    assert normalize_exit_code(8) is ExitCode.ENGINE_MISSING
+    assert normalize_exit_code(9) is ExitCode.FAILED
+    assert normalize_exit_code(-1) is ExitCode.FAILED
+
+
+@pytest.mark.contract
+def test_engine_missing_is_never_confused_with_partial_or_failed() -> None:
+    # 5 = ran with reduced coverage, 6 = ran and failed, 8 = refused to start.
+    assert len({ExitCode.PARTIAL, ExitCode.FAILED, ExitCode.ENGINE_MISSING}) == 3
+
+
+@pytest.mark.contract
+def test_tui_labels_every_exit_code() -> None:
+    from olympus.tui.app import _EXIT_LABELS, describe_completion
+
+    assert set(_EXIT_LABELS) == set(ExitCode)
+    status, _, style = describe_completion(False, ExitCode.ENGINE_MISSING)
+    assert "mandatory engine" in status
+    assert style == "red"
+
+
+@pytest.mark.contract
+@pytest.mark.parametrize(
+    "document",
+    ["README.md", "README.it.md", "docs/run-status.md", "docs/reference.md"],
+)
+def test_documentation_lists_exit_code_8(document: str) -> None:
+    text = (Path(__file__).parents[2] / document).read_text(encoding="utf-8")
+    assert "`8`" in text, f"{document} does not document exit code 8"

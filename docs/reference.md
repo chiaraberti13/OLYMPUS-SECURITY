@@ -312,6 +312,7 @@ command stopped, not just to the fact that it did:
 | `5` | **partial**: the run lost coverage, so its findings are not exhaustive |
 | `6` | **failed**: nothing completed, so the result carries no information |
 | `7` | **cancelled**: the run stopped on request before finishing |
+| `8` | **engine missing**: a mandatory external engine is absent, so nothing ran (no network was touched) |
 
 Codes `5` and `6` are what let a pipeline tell "we looked everywhere and found
 nothing" from "we could not look" — see [run status and coverage](run-status.md).
@@ -685,6 +686,7 @@ un comando si è fermato, non solo al fatto che si sia fermato:
 | `5` | **parziale**: l'esecuzione ha perso copertura, quindi i finding non sono esaustivi |
 | `6` | **fallito**: nulla è stato completato, il risultato non porta informazione |
 | `7` | **annullato**: l'esecuzione si è fermata su richiesta prima di finire |
+| `8` | **engine mancante**: un engine esterno obbligatorio è assente, quindi non è partito nulla (nessuna rete toccata) |
 
 I codici `5` e `6` sono ciò che permette di distinguere "abbiamo guardato ovunque e non
 c'era niente" da "non siamo riusciti a guardare" — vedi

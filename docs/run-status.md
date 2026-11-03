@@ -59,6 +59,7 @@ break `complete`, so neither can be mistaken for a clean answer.
 | `5` | partial: coverage was lost, findings are not exhaustive |
 | `6` | failed: nothing completed |
 | `7` | cancelled before finishing |
+| `8` | engine missing: a mandatory external engine is absent; nothing ran |
 
 Codes `5` and `6` are what let a caller tell "we looked everywhere and found
 nothing" from "we could not look".

@@ -150,8 +150,19 @@ class ScanResult:
     exit_code: int | None = None
     termination: TerminationReport | None = None
     duration_seconds: float = 0.0
+    #: True when the engine ran but covered less than requested. A partial live
+    #: result exits 5, never 0 or 1. Not yet part of ``ThemisResultDocument``:
+    #: persisting it is a schema bump, deferred until an adapter produces it.
+    partial: bool = False
+    partial_reason: str | None = None
 
     def __post_init__(self) -> None:
+        if self.partial and self.state is not ExecutionState.LIVE:
+            raise ValueError("only a live result can be partial")
+        if self.partial and not self.partial_reason:
+            raise ValueError("a partial result must say why coverage was lost")
+        if not self.partial and self.partial_reason is not None:
+            raise ValueError("partial_reason requires partial=True")
         if self.job_id is not None and re.fullmatch(r"THEMIS-[A-F0-9]{32}", self.job_id) is None:
             raise ValueError("job_id must be a canonical Themis job id")
         if self.manifest_sha256 is not None:

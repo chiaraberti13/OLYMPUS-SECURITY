@@ -130,6 +130,7 @@ password auditor. La maturità per-engine è in
 - **TOOLS-1** [x] Catalogo capability allineato e verificabile.
 - **TOOLS-2** [ ] Colmare le capability *missing* con adapter/moduli reali (vedi RED/BLUE).
 - **TOOLS-3** [ ] Promuovere adapter a *live-tested* in lab autorizzato (con evidenze committate).
+- **TOOLS-4** [~] Governance supply-chain degli engine esterni: `engine.toml` per engine (pin esatto, checksum/commit/digest, `mandatory`/`required_for_commands`), preflight fail-closed con `ExitCode.ENGINE_MISSING` (8), `olympus engines list|doctor|check-updates|update`, SBOM ed evidence manifest per run, immagine scanner riproducibile e verificata da `engines doctor`. In corso: schema + pin Dockerfile + exit code 8; il resto è pianificato in `docs/engines/INVENTORY.md`.
 
 ## 7. Piano di integrazione dei tool
 

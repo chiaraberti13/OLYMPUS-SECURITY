@@ -151,6 +151,7 @@ cleanly in CI:
 | `5` | Partial: coverage was lost, so any findings are **not** exhaustive. |
 | `6` | Failed: nothing completed, so the result carries no information. |
 | `7` | Cancelled on request before finishing. |
+| `8` | Engine missing: a mandatory external engine is absent, so nothing ran (no network was touched). |
 
 Codes `5` and `6` exist so a caller can tell "we looked everywhere and found
 nothing" from "we could not look". A run that produced findings *and* lost
