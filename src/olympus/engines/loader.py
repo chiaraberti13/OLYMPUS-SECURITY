@@ -1,0 +1,63 @@
+"""Load and validate ``engine.toml`` manifests, in the same form for CLI, CI and tests."""
+
+from __future__ import annotations
+
+import tomllib
+from pathlib import Path
+
+from pydantic import ValidationError
+
+from olympus.core.errors import ValidationReport, format_validation_error
+from olympus.core.fileio import read_regular_bytes
+from olympus.engines.schema import EngineManifest
+
+MANIFEST_NAME = "engine.toml"
+#: A manifest is a few hundred bytes; anything near this cap is not a manifest.
+MAX_MANIFEST_BYTES = 64 * 1024
+ENGINES_ROOT = Path(__file__).resolve().parent
+
+
+class ManifestError(ValueError):
+    """A manifest is unreadable, malformed, or inconsistent with where it lives."""
+
+    def __init__(self, message: str, report: ValidationReport | None = None) -> None:
+        super().__init__(message)
+        self.report = report
+
+
+def parse_manifest(text: str, *, source: str = "<string>") -> EngineManifest:
+    """Validate manifest ``text``; raise :class:`ManifestError` with a structured report."""
+    try:
+        raw = tomllib.loads(text)
+    except tomllib.TOMLDecodeError as exc:
+        raise ManifestError(f"{source}: invalid TOML: {exc}") from exc
+    try:
+        return EngineManifest.model_validate(raw)
+    except ValidationError as exc:
+        report = format_validation_error(exc, schema="olympus.engine-manifest", source=source)
+        raise ManifestError(report.to_human(), report) from exc
+
+
+def load_manifest(path: Path) -> EngineManifest:
+    """Read one manifest file (bounded, no symlinks) and check the directory name matches."""
+    try:
+        data = read_regular_bytes(path, max_bytes=MAX_MANIFEST_BYTES, label="engine manifest")
+        text = data.decode("utf-8")
+    except (OSError, ValueError) as exc:  # ValueError: size cap, UnicodeDecodeError
+        raise ManifestError(f"{path}: cannot read manifest: {exc}") from exc
+    manifest = parse_manifest(text, source=str(path))
+    if manifest.engine.name != path.parent.name:
+        raise ManifestError(
+            f"{path}: engine.name {manifest.engine.name!r} must equal its directory "
+            f"{path.parent.name!r}"
+        )
+    return manifest
+
+
+def load_all(root: Path = ENGINES_ROOT) -> dict[str, EngineManifest]:
+    """Load every ``<root>/<name>/engine.toml``; names are unique by construction."""
+    manifests: dict[str, EngineManifest] = {}
+    for path in sorted(root.glob(f"*/{MANIFEST_NAME}")):
+        manifest = load_manifest(path)
+        manifests[manifest.engine.name] = manifest
+    return manifests

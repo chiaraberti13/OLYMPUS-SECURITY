@@ -1,0 +1,22 @@
+[engine]
+name = "arjun"
+category = "web"
+upstream = "https://github.com/s0md3v/Arjun"
+upstream_verified = false
+language = "Python"
+license = "AGPL-3.0"
+distribution = "pip"
+pinned_version = "2.2.7"
+evidence_version = "2.x"
+update_policy = "minor"
+mandatory = false
+presence_probe = ["arjun", "--help"]
+capability = "web.params"
+
+[engine.source]
+package = "arjun"
+
+[adapter]
+entrypoint = "olympus.themis.adapters.arjun:ArjunAdapter"
+timeout_seconds = 300
+resource_profile = "network-heavy"

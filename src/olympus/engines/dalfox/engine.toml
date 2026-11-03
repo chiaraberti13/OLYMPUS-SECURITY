@@ -1,0 +1,22 @@
+[engine]
+name = "dalfox"
+category = "web"
+upstream = "https://github.com/hahwul/dalfox"
+upstream_verified = false
+language = "Go"
+license = "MIT"
+distribution = "go"
+pinned_version = "v2.13.0"
+evidence_version = "v2.13.0"
+update_policy = "minor"
+mandatory = false
+presence_probe = ["dalfox", "version"]
+capability = "web.xss"
+
+[engine.source]
+module = "github.com/hahwul/dalfox/v2"
+
+[adapter]
+entrypoint = "olympus.themis.adapters.dalfox:DalfoxAdapter"
+timeout_seconds = 300
+resource_profile = "network-heavy"

@@ -1,0 +1,15 @@
+[engine]
+name = "acunetix"
+category = "web"
+upstream = "https://www.acunetix.com"
+upstream_verified = false
+language = "proprietario"
+license = "Commercial (Invicti)"
+distribution = "api"
+update_policy = "manual"
+mandatory = false
+capability = "web.scan"
+
+[engine.source]
+requires_product = "Invicti Acunetix (commercial licence)"
+env_vars = ["THEMIS_ACUNETIX_URL", "THEMIS_ACUNETIX_API_KEY"]

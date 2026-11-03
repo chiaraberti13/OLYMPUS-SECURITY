@@ -1,0 +1,22 @@
+[engine]
+name = "nuclei"
+category = "web"
+upstream = "https://github.com/projectdiscovery/nuclei"
+upstream_verified = false
+language = "Go"
+license = "MIT"
+distribution = "go"
+pinned_version = "v3.11.1"
+evidence_version = "v3.11.1"
+update_policy = "minor"
+mandatory = true
+presence_probe = ["nuclei", "-version"]
+capability = "web.scan"
+
+[engine.source]
+module = "github.com/projectdiscovery/nuclei/v3/cmd/nuclei"
+
+[adapter]
+entrypoint = "olympus.themis.adapters.nuclei:NucleiAdapter"
+timeout_seconds = 600
+resource_profile = "network-heavy"

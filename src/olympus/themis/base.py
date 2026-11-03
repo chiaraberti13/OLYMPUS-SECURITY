@@ -6,9 +6,15 @@ import hashlib
 import re
 import time
 from abc import ABC, abstractmethod
-from dataclasses import replace
+from dataclasses import dataclass, replace
 
-from olympus.core.execution import ExecutionPolicy, redact_text, redact_url
+from olympus.core.execution import (
+    Cancellation,
+    ExecutionPolicy,
+    NeverCancelled,
+    redact_text,
+    redact_url,
+)
 from olympus.core.models import Asset, Finding
 from olympus.themis.model import MAX_RAW_EVIDENCE, Dependency, ScanRequest, ScanResult
 from olympus.themis.runner import (
@@ -70,6 +76,36 @@ def check_json_depth(text: str, *, limit: int = MAX_JSON_DEPTH, scanner: str = "
             depth -= 1
 
 
+@dataclass(frozen=True)
+class PresenceResult:
+    """Whether an engine's executable is installed on this host (no network).
+
+    A probe only inspects ``PATH`` and asks the executable for its version through
+    the sandboxed runner. It never contacts a target and never reads the
+    environment for secrets, so it is safe to run before any scope or
+    authorization decision.
+    """
+
+    engine: str
+    present: bool
+    path: str | None = None
+    version: str | None = None
+    #: Why the engine counts as absent (missing, or found but not the right tool).
+    detail: str = ""
+    #: The exact command an operator can run to install it.
+    install: str = ""
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "engine": self.engine,
+            "present": self.present,
+            "path": self.path,
+            "version": self.version,
+            "detail": self.detail,
+            "install": self.install,
+        }
+
+
 class ScannerAdapter(ABC):
     """Abstract external-CLI scanner adapter."""
 
@@ -119,6 +155,13 @@ class ScannerAdapter(ABC):
 
     def version(self, request: ScanRequest, timeout: float) -> str | None:
         """Return a bounded scanner version string, or ``None`` if undetermined."""
+        return self._detect_version(
+            timeout, min(request.max_output_bytes, 65_536), request.cancellation
+        )
+
+    def _detect_version(
+        self, timeout: float, max_output_bytes: int, cancellation: Cancellation
+    ) -> str | None:
         path = which(self.binary)
         if not path:
             return None
@@ -127,8 +170,8 @@ class ScannerAdapter(ABC):
                 output = run_command(
                     [self.binary, flag],
                     timeout=min(timeout, 15.0),
-                    max_output_bytes=min(request.max_output_bytes, 65_536),
-                    cancellation=request.cancellation,
+                    max_output_bytes=max_output_bytes,
+                    cancellation=cancellation,
                 )
             except (CommandError, CommandTimeout):
                 continue
@@ -138,6 +181,53 @@ class ScannerAdapter(ABC):
             if lines:
                 return _safe_line(lines[0], 500)
         return path
+
+    def recognises(self, version_output: str) -> bool:
+        """Return whether ``version_output`` really comes from this engine.
+
+        The default accepts anything. Engines whose executable name collides with
+        an unrelated tool (``httpx`` is also the Python HTTP library's CLI) override
+        this so :meth:`probe` cannot report the wrong program as present.
+        """
+        return True
+
+    def probe(self, timeout: float = 15.0) -> PresenceResult:
+        """Report whether the engine is installed, without any network access.
+
+        Run by the preflight *before* any scope check or live operation, so a
+        missing mandatory engine aborts a run before a single packet is sent.
+        """
+        path = which(self.binary)
+        if not path:
+            return PresenceResult(
+                engine=self.name,
+                present=False,
+                detail=f"'{self.binary}' is not on PATH",
+                install=self.install,
+            )
+        version = self._detect_version(timeout, 65_536, NeverCancelled())
+        if version is not None and not self.recognises(version):
+            return PresenceResult(
+                engine=self.name,
+                present=False,
+                path=path,
+                version=version,
+                detail=f"'{self.binary}' on PATH is not the {self.name} engine",
+                install=self.install,
+            )
+        return PresenceResult(
+            engine=self.name, present=True, path=path, version=version, install=self.install
+        )
+
+    def coverage_loss(self, output: CommandOutput, request: ScanRequest) -> str | None:
+        """Return why this run covered less than requested, or ``None`` if complete.
+
+        Called after a successful parse. Adapters override it when the engine can
+        exit 0 while silently skipping work (templates that failed to load, hosts
+        that timed out). The default reports no loss, so existing adapters keep
+        their current behaviour until they opt in.
+        """
+        return None
 
     def simulate(self, host: str, request: ScanRequest) -> list[Finding]:
         """Return clearly-labelled illustrative findings (SIMULATION only)."""
@@ -308,6 +398,7 @@ class ScannerAdapter(ABC):
                 termination=output.termination,
                 duration_seconds=duration,
             )
+        lost = self.coverage_loss(output, request_with_addresses)
         return ScanResult(
             scanner=self.name,
             state=ExecutionState.LIVE,
@@ -320,6 +411,8 @@ class ScannerAdapter(ABC):
             exit_code=output.exit_code,
             termination=output.termination,
             duration_seconds=duration,
+            partial=lost is not None,
+            partial_reason=lost,
         )
 
 

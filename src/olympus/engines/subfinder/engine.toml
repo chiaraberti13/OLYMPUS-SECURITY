@@ -1,0 +1,16 @@
+[engine]
+name = "subfinder"
+category = "dns"
+upstream = "https://github.com/projectdiscovery/subfinder"
+upstream_verified = false
+language = "Go"
+license = "MIT"
+distribution = "go"
+pinned_version = "v2.16.0"
+update_policy = "minor"
+mandatory = false
+presence_probe = ["subfinder", "-version"]
+capability = "dns.subdomains"
+
+[engine.source]
+module = "github.com/projectdiscovery/subfinder/v2/cmd/subfinder"

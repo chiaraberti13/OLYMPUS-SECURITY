@@ -1,0 +1,28 @@
+[engine]
+name = "xsstrike"
+category = "web"
+upstream = "https://github.com/s0md3v/XSStrike"
+upstream_verified = false
+language = "Python"
+license = "GPL-3.0"
+distribution = "git"
+# Tag 3.1.6; the commit below is what the probe checks (`git rev-parse HEAD`).
+pinned_version = "3.1.6"
+evidence_version = "3.1.5"
+update_policy = "manual"
+mandatory = false
+presence_probe = ["xsstrike", "--help"]
+capability = "web.xss"
+
+[engine.source]
+repo = "https://github.com/s0md3v/XSStrike"
+commit = "65dd68ae9051ce7cecf3be23fbda6e329d8580af"
+checkout_path = "/opt/xsstrike"
+entry = "xsstrike.py"
+runtime = "python"
+runtime_packages = ["tld==0.13.2", "fuzzywuzzy==0.18.0", "requests==2.34.2"]
+
+[adapter]
+entrypoint = "olympus.themis.adapters.xsstrike:XsstrikeAdapter"
+timeout_seconds = 300
+resource_profile = "network-heavy"

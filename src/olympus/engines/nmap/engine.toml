@@ -1,0 +1,26 @@
+[engine]
+name = "nmap"
+category = "network"
+upstream = "https://github.com/nmap/nmap"
+upstream_verified = false
+language = "C/C++"
+license = "Nmap Public Source License 0.95 (non-OSI)"
+distribution = "git"
+pinned_version = "v7.992"
+evidence_version = "7.94SVN"
+update_policy = "manual"
+mandatory = true
+presence_probe = ["nmap", "--version"]
+capability = "network.scan"
+
+[engine.source]
+repo = "https://github.com/nmap/nmap"
+commit = "0ee561663c1d7d2d4e708cd414dccfd3d9df30d9"
+checkout_path = "/opt/nmap"
+build = "autotools"
+build_args = ["--without-zenmap", "--without-ndiff", "--without-nping", "--without-ncat", "--without-nmap-update"]
+
+[adapter]
+entrypoint = "olympus.themis.adapters.nmap:NmapAdapter"
+timeout_seconds = 600
+resource_profile = "network-heavy"

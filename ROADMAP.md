@@ -130,6 +130,8 @@ password auditor. La maturità per-engine è in
 - **TOOLS-1** [x] Catalogo capability allineato e verificabile.
 - **TOOLS-2** [ ] Colmare le capability *missing* con adapter/moduli reali (vedi RED/BLUE).
 - **TOOLS-3** [ ] Promuovere adapter a *live-tested* in lab autorizzato (con evidenze committate).
+- **TOOLS-4** [~] Governance supply-chain degli engine esterni: `engine.toml` per engine (pin esatto, commit/checksum/digest, `mandatory`/`required_for_commands`), preflight fail-closed con `ExitCode.ENGINE_MISSING` (8), `olympus engines list|doctor|check-updates|update`, SBOM ed evidence manifest per run, immagine scanner riproducibile e verificata da `engines doctor`. Fatto: schema, 24 manifest, exit code 8, `probe()`/`partial`, Dockerfile fail-closed, inventario generato e verificato. Da fare (Fasi 2-6): pilota nuclei (incl. pin dei template), preflight e `engines doctor`, `check-updates`/`update`, SBOM engine, osv-scanner in CI, adapter per nosqlmap/subfinder/theharvester. Sotto-nota: le stringhe `install` degli adapter (`@latest`, `pip install commix`) vengono sostituite dal testo derivato dal manifest in Fase 3. Dettaglio in `docs/engines/INVENTORY.md`.
+- **TOOLS-5** [ ] Debito tecnico dell'immagine scanner: base Python 3.12 (theHarvester 4.x), build verificata di nikto 2.6.1 (richiede `XML::Writer`) e NoSQLMap, ambienti con hash per engine per le dipendenze transitive di pip/gem, `engines doctor --strict` come ultimo step del Dockerfile, valutazione delle implicazioni NPSL/AGPL sulla ridistribuzione dell'immagine.
 
 ## 7. Piano di integrazione dei tool
 

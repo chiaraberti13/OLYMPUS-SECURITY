@@ -5,11 +5,11 @@ mandatory components. This test keeps those pins from silently regressing to a
 floating tag on a later edit — the same drift discipline used for the scanner
 matrix and the maturity ledger.
 
-The distinction the roadmap draws is deliberate and encoded here: the *mandatory*
-components (the base images for the scanner and native control-plane images)
-must be digest-pinned; the *best-effort* scanner installs keep
-their ``|| true`` so one unavailable tool never fails the build, but must not
-track ``@latest``.
+Policy (TOOLS-4, supersedes the earlier "best-effort" rule): the base images are
+digest-pinned **and** every scanner install is fail-closed. A scanner that
+silently fails to install yields an image that "could not look" yet still runs,
+which is exactly the outcome the platform refuses to report as clean. Installs
+therefore carry no ``|| true`` and never track ``@latest``.
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ def test_native_control_plane_image_is_pinned_by_digest() -> None:
 
 
 def test_go_scanner_installs_are_version_pinned_not_latest() -> None:
-    """Best-effort scanners keep ``|| true`` but must pin a version, not @latest."""
+    """Go scanners must pin an exact version, never @latest."""
     go_lines = [ln for ln in _lines(_DOCKERFILE_SCANNERS) if "go install" in ln]
     assert go_lines, "no 'go install' lines found"
     for line in go_lines:
@@ -54,11 +54,11 @@ def test_go_scanner_installs_are_version_pinned_not_latest() -> None:
         assert re.search(r"@v\d+\.\d+\.\d+", line), f"no pinned version in: {line.strip()!r}"
 
 
-def test_best_effort_scanner_installs_keep_their_guard() -> None:
-    """The design intent — one missing tool must not fail the build — is preserved."""
-    go_lines = [ln for ln in _lines(_DOCKERFILE_SCANNERS) if "go install" in ln]
-    for line in go_lines:
-        assert "|| true" in line, f"best-effort guard removed from: {line.strip()!r}"
+def test_scanner_installs_are_fail_closed() -> None:
+    """One failed install must fail the build (TOOLS-4): no ``|| true`` anywhere."""
+    code = [ln for ln in _lines(_DOCKERFILE_SCANNERS) if not ln.lstrip().startswith("#")]
+    offenders = [ln.strip() for ln in code if "|| true" in ln]
+    assert offenders == [], f"best-effort guards left in Dockerfile.scanners: {offenders}"
 
 
 @pytest.mark.parametrize("path", [_DOCKERFILE_SCANNERS, _COMPOSE])

@@ -2753,5 +2753,7 @@ def _scan_exit_code(result: object) -> ExitCode:
     if state is ExecutionState.DISABLED:
         return ExitCode.NOT_AUTHORIZED
     if state is ExecutionState.LIVE:
+        if getattr(result, "partial", False):
+            return exit_code_for(RunStatus.PARTIAL)
         return exit_code_for(classify_run_status(len(findings)))
     return ExitCode.OK

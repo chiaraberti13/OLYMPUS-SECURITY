@@ -1,0 +1,21 @@
+[engine]
+name = "wpscan"
+category = "web"
+upstream = "https://github.com/wpscanteam/wpscan"
+upstream_verified = false
+language = "Ruby"
+license = "WPScan Public Source (non-OSI)"
+distribution = "gem"
+pinned_version = "4.2.0"
+update_policy = "minor"
+mandatory = false
+presence_probe = ["wpscan", "--version"]
+capability = "web.cms"
+
+[engine.source]
+package = "wpscan"
+
+[adapter]
+entrypoint = "olympus.themis.adapters.wpscan:WpscanAdapter"
+timeout_seconds = 600
+resource_profile = "network-heavy"

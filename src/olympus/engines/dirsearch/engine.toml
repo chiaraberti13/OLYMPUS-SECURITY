@@ -1,0 +1,22 @@
+[engine]
+name = "dirsearch"
+category = "web"
+upstream = "https://github.com/maurosoria/dirsearch"
+upstream_verified = false
+language = "Python"
+license = "GPL-2.0"
+distribution = "pip"
+pinned_version = "0.5.0"
+evidence_version = "v0.5.0"
+update_policy = "minor"
+mandatory = false
+presence_probe = ["dirsearch", "--version"]
+capability = "web.content"
+
+[engine.source]
+package = "dirsearch"
+
+[adapter]
+entrypoint = "olympus.themis.adapters.dirsearch:DirsearchAdapter"
+timeout_seconds = 600
+resource_profile = "network-heavy"

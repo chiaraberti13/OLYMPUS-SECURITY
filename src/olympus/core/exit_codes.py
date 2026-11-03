@@ -12,6 +12,7 @@ command stopped, not just whether it failed:
 5    partial: the run lost coverage; findings (if any) are not exhaustive
 6    failed: nothing completed, so the result carries no information
 7    cancelled: the run stopped on request before finishing
+8    engine missing: a mandatory external engine is absent, so nothing ran
 ===  ==========================================================================
 
 Codes 5 and 6 exist so a caller can tell "we looked everywhere and found
@@ -19,6 +20,12 @@ nothing" from "we could not look". A run that both produced findings and lost
 coverage exits 5, not 1: the findings are still printed, but the run must not
 be read as exhaustive. See :mod:`olympus.core.coverage` for how modules derive
 that status.
+
+Code 8 is raised by the engine preflight *before* any engine runs or any network
+is touched: it means the platform cannot honour a mandatory engine dependency, not
+that a run lost coverage. It is deliberately distinct from 6 (a run that started
+and failed) and 5 (a run that completed with reduced coverage, which is also what
+``--allow-missing-engines`` produces).
 """
 
 from __future__ import annotations
@@ -37,6 +44,11 @@ class ExitCode(IntEnum):
     PARTIAL = 5
     FAILED = 6
     CANCELLED = 7
+    ENGINE_MISSING = 8
+
+
+#: Spelling used by the engine documentation (``EXIT_ENGINE_MISSING``).
+EXIT_ENGINE_MISSING = ExitCode.ENGINE_MISSING
 
 
 def normalize_exit_code(code: int | None) -> ExitCode:
@@ -44,7 +56,7 @@ def normalize_exit_code(code: int | None) -> ExitCode:
 
     Legacy Click applications and vendored subprocesses may return arbitrary
     integers. Those values must not leak through the public Olympus CLI because
-    callers rely on the stable 0-7 contract.
+    callers rely on the stable 0-8 contract.
     """
     candidate = ExitCode.OK if code is None else code
     try:

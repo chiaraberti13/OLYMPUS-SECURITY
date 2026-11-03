@@ -1,0 +1,15 @@
+[engine]
+name = "nessus"
+category = "vuln"
+upstream = "https://www.tenable.com/products/nessus"
+upstream_verified = false
+language = "proprietario"
+license = "Commercial (Tenable)"
+distribution = "api"
+update_policy = "manual"
+mandatory = false
+capability = "vuln.scan"
+
+[engine.source]
+requires_product = "Tenable Nessus (commercial licence)"
+env_vars = ["THEMIS_NESSUS_URL", "THEMIS_NESSUS_TOKEN"]

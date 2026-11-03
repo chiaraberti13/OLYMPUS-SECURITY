@@ -1,0 +1,21 @@
+[engine]
+name = "wapiti"
+category = "web"
+upstream = "https://github.com/wapiti-scanner/wapiti"
+upstream_verified = false
+language = "Python"
+license = "GPL-2.0"
+distribution = "pip"
+pinned_version = "3.3.2"
+update_policy = "minor"
+mandatory = false
+presence_probe = ["wapiti", "--version"]
+capability = "web.scan"
+
+[engine.source]
+package = "wapiti3"
+
+[adapter]
+entrypoint = "olympus.themis.adapters.wapiti:WapitiAdapter"
+timeout_seconds = 600
+resource_profile = "network-heavy"
