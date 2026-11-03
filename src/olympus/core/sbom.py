@@ -34,6 +34,7 @@ load without re-implementing a PEP 508 marker evaluator in the hot path.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from importlib.metadata import Distribution, PackageNotFoundError, distribution
 from typing import Any
 
@@ -197,8 +198,14 @@ def render_sbom(
     *,
     timestamp: str | None = None,
     serial_number: str | None = None,
+    extra_components: Sequence[dict[str, Any]] = (),
+    extra_dependencies: Sequence[dict[str, Any]] = (),
 ) -> dict[str, Any]:
     """Return the CycloneDX 1.5 document for ``root`` and the requested extras.
+
+    ``extra_components`` / ``extra_dependencies`` append components that are not Python
+    distributions (the external engines and their data); their ``bom-ref`` values must be
+    unique against everything else in the document.
 
     ``timestamp`` and ``serial_number`` are injected so the document can be made
     reproducible (omit both) or stamped (the CLI supplies real values). The
@@ -232,7 +239,16 @@ def render_sbom(
         for name in dependency_closure(root, extras)
         if (component := component_for(name)) is not None
     ]
+    seen = {str(component["bom-ref"]) for component in components}
+    for component in extra_components:
+        reference = str(component["bom-ref"])
+        if reference in seen:
+            raise ValueError(f"duplicate SBOM bom-ref: {reference}")
+        seen.add(reference)
+        components.append(component)
     document["components"] = components
+    if extra_dependencies:
+        document["dependencies"] = list(extra_dependencies)
     return document
 
 

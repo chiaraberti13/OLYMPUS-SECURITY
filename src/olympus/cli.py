@@ -389,6 +389,11 @@ def export_sbom(
         "--reproducible",
         help="Omit the timestamp and serial number for a byte-stable document.",
     ),
+    engines: bool = typer.Option(
+        False,
+        "--engines",
+        help="Also list the external engines and data dependencies pinned in engine.toml.",
+    ),
 ) -> None:
     """Emit a CycloneDX SBOM of the installed Olympus runtime closure.
 
@@ -407,8 +412,18 @@ def export_sbom(
     if not reproducible:
         timestamp = datetime.datetime.now(datetime.UTC).isoformat()
         serial = f"urn:uuid:{uuid.uuid4()}"
+    extra_components: list[dict[str, object]] = []
+    extra_dependencies: list[dict[str, object]] = []
+    if engines:
+        from olympus.engines.sbom import engine_components
+
+        extra_components, extra_dependencies = engine_components()
     document = sbom_module.render_sbom(
-        extras=frozenset(extra), timestamp=timestamp, serial_number=serial
+        extras=frozenset(extra),
+        timestamp=timestamp,
+        serial_number=serial,
+        extra_components=extra_components,
+        extra_dependencies=extra_dependencies,
     )
     payload = json.dumps(document, indent=2, sort_keys=True)
     if output is None:
