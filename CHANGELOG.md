@@ -14,6 +14,13 @@ everything below lives under **Unreleased**.
 
 ### Fixed
 
+- **Docs: il README dichiarava 15 engine nativi invece di 16.** La riga Themis del
+  README (`Native for N of 24 catalogued engines`) era rimasta a `15` dopo l'aggiunta
+  del 16° adapter nativo. Corretta a `16` (conteggio reale verificato via
+  `resolve_adapter` e dai manifest con `[adapter]`). Nuova guardia di regressione
+  `tests/unit/test_themis_scanners.py::test_readme_native_engine_count_matches_reality`
+  lega il numero del README al conteggio reale, così un nuovo adapter deve aggiornare
+  il claim e non può più divergere in silenzio.
 - **Supply chain: gli hint d'installazione degli engine derivano dal pin del
   manifest (`TOOLS-4`).** `ScannerAdapter.install` non è più una stringa scritta a
   mano ma è derivato da `engine.toml` tramite `olympus.engines.loader.install_hint`
