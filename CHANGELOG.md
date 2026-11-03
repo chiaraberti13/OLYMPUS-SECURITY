@@ -20,7 +20,9 @@ everything below lives under **Unreleased**.
   `resolve_adapter` e dai manifest con `[adapter]`). Nuova guardia di regressione
   `tests/unit/test_themis_scanners.py::test_readme_native_engine_count_matches_reality`
   lega il numero del README al conteggio reale, così un nuovo adapter deve aggiornare
-  il claim e non può più divergere in silenzio.
+  il claim e non può più divergere in silenzio. Il claim è stato aggiunto anche al
+  **README italiano** (`Nativo per 16 dei 24 motori`), mantenuto in parità EN/IT, e la
+  guardia ora verifica entrambe le lingue.
 - **Supply chain: gli hint d'installazione degli engine derivano dal pin del
   manifest (`TOOLS-4`).** `ScannerAdapter.install` non è più una stringa scritta a
   mano ma è derivato da `engine.toml` tramite `olympus.engines.loader.install_hint`
