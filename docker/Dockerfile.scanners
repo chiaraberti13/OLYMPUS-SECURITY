@@ -7,25 +7,41 @@
 #
 #     docker compose -f docker-compose.yml -f docker-compose.scanners.yml up --build
 #
-# Coverage of the 24-scanner catalogue:
-#   apt      : nmap, nikto, whatweb  (+ dnsutils/whois/testssl helpers)
-#   pip      : sqlmap, wafw00f, arjun, wapiti3, dirsearch, xsstrike, commix,
-#              theHarvester
-#   go       : nuclei, httpx, katana, subfinder, dalfox
-#   git      : testssl.sh, NoSQLMap
+# Coverage of the 24-scanner catalogue. Every pin below mirrors
+# src/olympus/engines/<name>/engine.toml; tests/unit/test_engine_dockerfile_pins.py
+# fails when a manifest and this file disagree.
+#   pip      : sqlmap, wafw00f, arjun, wapiti3, dirsearch   (exact ==pins)
+#   git      : nmap (built), whatweb, testssl.sh, xsstrike, commix (full commit SHA)
+#   go       : nuclei, httpx, katana, subfinder, dalfox     (exact tags, pinned
+#              Go toolchain)
 #   gem      : wpscan            (WPScan Public Source licence; free API token
 #                                 required for the vulnerability database)
-#   API/daemon or commercial (NOT installable here — see docs/scanner-matrix.md
-#   and `olympus themis deps`): zap, openvas, nessus, burp, acunetix.
 #
-# Every extra *scanner* install is best-effort ("|| true") so a single
-# unavailable tool never fails the image build; `olympus themis deps` reports what
-# is actually present at runtime. The mandatory base image and the Go toolchain
-# targets, by contrast, are pinned: the base by digest and the Go scanners to
-# exact versions, so a rebuild is reproducible instead of tracking a moving tag.
+# NOT installed yet, and deliberately not faked with `|| true` (an engine that is
+# absent and declared beats one that is only pretend-installed):
+#   TODO(TOOLS-4): nikto 2.6.1 (git) - needs the Perl module XML::Writer
+#       (libxml-writer-perl) on top of libnet-ssleay-perl; verify the build first.
+#   TODO(TOOLS-4): NoSQLMap 0.5 (git) - runtime dependencies not yet verified;
+#       it has no Olympus adapter either.
+#   TODO(TOOLS-4): theHarvester - 4.x needs Python >= 3.12 and this image is 3.11;
+#       PyPI "theHarvester" 0.0.1 is a stale release, not the tool.
+#   TODO(TOOLS-4): `olympus engines doctor --strict` as the last step (Phase 3).
+#   API/daemon or commercial engines zap, openvas, nessus, burp, acunetix cannot
+#   be installed here (see docs/scanner-matrix.md and `olympus themis deps`).
+#
+# Nothing here is best-effort: a failed install fails the build. A scanner that is
+# silently missing from the image is the "could not look" outcome the platform
+# refuses to call "clean". Git engines are fetched BY COMMIT and re-checked with
+# `git rev-parse HEAD`. There is deliberately no apt-installed engine: Debian drops
+# old versions, so an apt pin cannot be reproduced; nmap is built from its pinned
+# commit instead (nmap.org and the PGP-signed tarball were not reachable from the
+# environment this was verified in).
 #
 # To refresh the base digest: `docker manifest inspect python:3.11-slim`.
 FROM python:3.11-slim@sha256:9534e5a8e315485d4061ed659af0fd78a284c015f9b73661b41d6bab25604534
+
+# Every RUN below is `set -eux -o pipefail`: no step may fail silently.
+SHELL ["/bin/bash", "-euxo", "pipefail", "-c"]
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -37,22 +53,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # these, so a failure here *should* fail the build.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        dnsutils whois curl ca-certificates git \
+        dnsutils whois curl ca-certificates git libssl-dev \
         golang-go ruby ruby-dev build-essential bsdmainutils \
-    && rm -rf /var/lib/apt/lists/*
-
-# apt-native scanners (best-effort, as the catalogue note promises): a scanner
-# the distribution no longer ships — e.g. nikto was dropped from recent Debian —
-# must NOT fail the whole image. Install them tolerantly and let
-# `olympus themis deps` report what is actually present at runtime.
-RUN apt-get update \
-    && (apt-get install -y --no-install-recommends nmap whatweb || true) \
-    && (apt-get install -y --no-install-recommends nikto || true) \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Python scanners (best-effort).
 COPY pyproject.toml README.md LICENSE ./
 COPY src ./src
 COPY --chown=0:0 deploy/security/scanner-runtime-attestation.json \
@@ -60,37 +66,61 @@ COPY --chown=0:0 deploy/security/scanner-runtime-attestation.json \
 # Pin the trust anchor's mode: root-owned, not group/other writable, or
 # require_scanner_isolation() rejects it (COPY preserves the context's 0664).
 RUN chmod 0444 /etc/olympus/scanner-runtime.json
-RUN pip install --no-cache-dir ".[api,report]" \
-    && (pip install --no-cache-dir \
-          sqlmap wafw00f arjun wapiti3 dirsearch commix theHarvester || true)
+RUN pip install --no-cache-dir ".[api,report]"
 
-# XSStrike + NoSQLMap + testssl.sh (git-distributed) into /opt with launchers.
-RUN set -eux; \
-    git clone --depth 1 https://github.com/s0md3v/XSStrike /opt/xsstrike || true; \
-    if [ -f /opt/xsstrike/xsstrike.py ]; then \
-        printf '#!/bin/sh\nexec python /opt/xsstrike/xsstrike.py "$@"\n' > /usr/local/bin/xsstrike; \
-        chmod +x /usr/local/bin/xsstrike; fi; \
-    git clone --depth 1 https://github.com/codingo/NoSQLMap /opt/nosqlmap || true; \
-    if [ -f /opt/nosqlmap/nosqlmap.py ]; then \
-        printf '#!/bin/sh\nexec python /opt/nosqlmap/nosqlmap.py "$@"\n' > /usr/local/bin/nosqlmap; \
-        chmod +x /usr/local/bin/nosqlmap; fi; \
-    git clone --depth 1 https://github.com/drwetter/testssl.sh /opt/testssl || true; \
-    if [ -f /opt/testssl/testssl.sh ]; then \
-        ln -sf /opt/testssl/testssl.sh /usr/local/bin/testssl.sh; fi
+# Python scanners, exact versions from PyPI (each confirmed to be the upstream
+# project's own package). Only top-level packages are pinned; their transitive
+# dependencies float until each engine gets a hash-locked environment. `commix` is
+# deliberately NOT here: PyPI "commix" is a third-party package (author
+# "Bhai4You"), not commixproject/commix, which is installed from git below.
+RUN pip install --no-cache-dir \
+        'sqlmap==1.10.11' 'wafw00f==2.4.2' 'arjun==2.2.7' 'wapiti3==3.3.2' 'dirsearch==0.5.0'
 
-# Go-based ProjectDiscovery / dalfox scanners (best-effort, but version-pinned:
-# a build tracking @latest is not reproducible). Bump these deliberately.
-RUN set -eux; \
-    go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@v3.11.1 || true; \
-    go install github.com/projectdiscovery/httpx/cmd/httpx@v1.11.0 || true; \
-    go install github.com/projectdiscovery/katana/cmd/katana@v1.7.0 || true; \
-    go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@v2.16.0 || true; \
-    go install github.com/hahwul/dalfox/v2@v2.13.0 || true
+# Git-distributed engines, each fetched by full commit SHA and verified. The recipe
+# is the one EngineManifest.install_command() prints, so what an operator is told
+# to run is what this image runs.
+RUN git_pin() { \
+        git init -q "$3" \
+        && git -C "$3" fetch -q --depth 1 "$1" "$2" \
+        && git -C "$3" checkout -q --detach FETCH_HEAD \
+        && test "$(git -C "$3" rev-parse HEAD)" = "$2"; \
+    }; \
+    launcher() { \
+        printf '#!/bin/sh\nexec %s %s "$@"\n' "$2" "$3" > "/usr/local/bin/$1"; \
+        chmod 0755 "/usr/local/bin/$1"; \
+    }; \
+    git_pin https://github.com/nmap/nmap 0ee561663c1d7d2d4e708cd414dccfd3d9df30d9 /opt/nmap; \
+    (cd /opt/nmap && ./configure --without-zenmap --without-ndiff --without-nping --without-ncat --without-nmap-update && make -j"$(nproc)" && make install); \
+    git_pin https://github.com/urbanadventurer/WhatWeb d279d93042d034f3fd29d5a893d44ccc0595d3f8 /opt/whatweb; \
+    gem install --no-document addressable -v 2.9.2; \
+    launcher whatweb ruby /opt/whatweb/whatweb; \
+    git_pin https://github.com/drwetter/testssl.sh 97763a411c525720a5f9bd9d2cded416b10f210a /opt/testssl; \
+    ln -s /opt/testssl/testssl.sh /usr/local/bin/testssl.sh; \
+    git_pin https://github.com/s0md3v/XSStrike 65dd68ae9051ce7cecf3be23fbda6e329d8580af /opt/xsstrike; \
+    pip install --no-cache-dir 'tld==0.13.2' 'fuzzywuzzy==0.18.0' 'requests==2.34.2'; \
+    launcher xsstrike python /opt/xsstrike/xsstrike.py; \
+    git_pin https://github.com/commixproject/commix 06beb622db6f9b8ffe4e51f7dea4414303c750ce /opt/commix; \
+    launcher commix python /opt/commix/commix.py
+
+# Go engines, exact tags. Their go.mod files require Go 1.25-1.26, newer than any
+# Debian golang-go, so the toolchain is pinned too (GOTOOLCHAIN downloads exactly
+# this release through the Go module proxy, verified by the checksum database);
+# the distro Go only bootstraps it, and must be >= 1.21 or `go version` fails the
+# build. Static binaries (CGO_ENABLED=0) were built and run with these pins.
+# Bump deliberately via `olympus engines update`.
+ENV GOTOOLCHAIN=go1.26.10 \
+    CGO_ENABLED=0
+RUN go version | grep -F 'go1.26.10' \
+    && go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@v3.11.1 \
+    && go install github.com/projectdiscovery/httpx/cmd/httpx@v1.11.0 \
+    && go install github.com/projectdiscovery/katana/cmd/katana@v1.7.0 \
+    && go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@v2.16.0 \
+    && go install github.com/hahwul/dalfox/v2@v2.13.0
 
 # WordPress scanner (Ruby gem; needs a free WPScan API token for the vuln DB).
-RUN gem install wpscan || true
+RUN gem install wpscan -v 4.2.0
 
-# The best-effort scanner installs above can pull an older transitive pin (seen:
+# The scanner installs above can pull an older transitive pin (seen:
 # a scanner dragged typing_extensions down to 4.10, where pydantic_core's
 # ``Sentinel`` import fails and *olympus itself* no longer imports in the image).
 # Re-assert the controlling runtime's own constraint LAST so the worker always
