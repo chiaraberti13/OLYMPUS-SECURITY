@@ -5,6 +5,13 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Least-privilege default for the GITHUB_TOKEN: every job gets read-only `contents`
+# unless it explicitly elevates (the CodeQL SARIF upload job sets security-events:
+# write). Without this top-level block the jobs inherit the repository default, which
+# may grant write scopes none of them need.
+permissions:
+  contents: read
+
 jobs:
   quality:
     name: ruff · format · mypy (required)

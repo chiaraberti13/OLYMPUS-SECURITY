@@ -12,6 +12,17 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Security
+
+- **CI: `GITHUB_TOKEN` least-privilege anche in `ci.yml`.** Il workflow `ci.yml` era
+  l'unico senza un blocco `permissions` **top-level**: i suoi job ereditavano lo scope
+  di default del token del repository (potenzialmente con permessi di scrittura non
+  necessari). Aggiunto `permissions: contents: read` a livello di workflow (come già in
+  `codeql.yml`/`docker-build.yml`/`labels.yml`); il job di upload SARIF mantiene la sua
+  elevazione per-job `security-events: write`. Nuova guardia di regressione
+  `tests/unit/test_threat_model.py::test_every_workflow_sets_least_privilege_token_permissions`
+  impone a ogni workflow un `permissions` top-level con `contents: read`.
+
 ### Fixed
 
 - **Docs: il README dichiarava 15 engine nativi invece di 16.** La riga Themis del
