@@ -148,3 +148,25 @@ def test_every_workflow_sets_least_privilege_token_permissions() -> None:
         assert permissions.get("contents") == "read", (
             f"{path.name}: top-level permissions must pin 'contents: read', got {permissions!r}"
         )
+
+
+def test_gitleaks_version_is_consistent_between_pre_commit_and_ci() -> None:
+    """The gitleaks version must match between the pre-commit hook and the blocking CI scan.
+
+    A developer's local pre-commit run and the CI gitleaks gate have to use the same
+    version and rule set, otherwise a secret caught by one can slip past the other
+    ("passes locally, fails in CI", or the reverse). Guards the drift fixed on 2026-11-03
+    (pre-commit pinned v8.18.4 while CI ran v8.28.0).
+    """
+    pre_commit = yaml.safe_load((_ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8"))
+    hook_rev = next(
+        repo["rev"]
+        for repo in pre_commit["repos"]
+        if "gitleaks/gitleaks" in str(repo.get("repo", ""))
+    )
+    ci_text = (_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    ci_match = re.search(r"gitleaks:(v\d+\.\d+\.\d+)", ci_text)
+    assert ci_match is not None, "ci.yml no longer pins a gitleaks image version"
+    assert hook_rev == ci_match.group(1), (
+        f"gitleaks version drift: pre-commit {hook_rev} vs CI {ci_match.group(1)}"
+    )
