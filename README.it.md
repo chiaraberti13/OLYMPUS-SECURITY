@@ -73,7 +73,7 @@ $ olympus athena run plan.json --storage ./.athena
 | **Vulcan** | `olympus vulcan` | Aggregazione, deduplica, ranking, confronto tra run (nuovi/risolti/persistenti), trend di severità e rendering dei report. |
 | **Metis** | `olympus metis` | Routing deterministico delle competenze, piani d'ingaggio, casi CTI, correlazione IOC e report operativi. |
 | **core** | `olympus core` | Utility del contratto dati condiviso (es. `export-schemas`). |
-| **Themis** | `olympus themis` | Orchestrazione scanner con scope, stato capacità, job SQLite persistenti, cancellazione, audit e stati di esecuzione espliciti. |
+| **Themis** | `olympus themis` | Orchestrazione scanner con scope, stato capacità, job SQLite persistenti, cancellazione, audit e stati di esecuzione espliciti. Nativo per 16 dei 24 motori catalogati; API, Web, migrazioni e worker non richiedono alcun albero vendor. |
 | **TUI unificata** | `olympus ui` | Interfaccia da tastiera su tutti i comandi reali Olympus, con form tipizzati guidati (validati localmente prima del run), output in streaming e cancellazione del processo. |
 
 La custodia Minerva 3.x vincola ogni nuova acquisizione al digest dell'evidenza,
