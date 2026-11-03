@@ -149,7 +149,10 @@ class OutcomeSummary:
 
 
 def _kind(
-    state: ExecutionState, finding_count: int, termination_cause: TerminationCause | None
+    state: ExecutionState,
+    finding_count: int,
+    termination_cause: TerminationCause | None,
+    partial: bool = False,
 ) -> OutcomeKind:
     if state is ExecutionState.SIMULATION:
         return OutcomeKind.SIMULATION
@@ -161,8 +164,11 @@ def _kind(
         return OutcomeKind.CANCELLED
     if state is ExecutionState.FAILED:
         return OutcomeKind.FAILED
-    # From here the run is LIVE. Any non-clean termination means coverage is
-    # incomplete, so it can never be reported as a trustworthy empty.
+    # From here the run is LIVE. Any non-clean termination, or an engine that
+    # reported losing coverage, means coverage is incomplete, so it can never be
+    # reported as a trustworthy empty.
+    if partial:
+        return OutcomeKind.PARTIAL
     if termination_cause is not None and termination_cause is not TerminationCause.COMPLETED:
         return OutcomeKind.PARTIAL
     return OutcomeKind.FINDINGS if finding_count else OutcomeKind.CLEAN
@@ -173,9 +179,10 @@ def summarize(
     state: ExecutionState,
     finding_count: int,
     termination_cause: TerminationCause | None = None,
+    partial: bool = False,
 ) -> OutcomeSummary:
     """Classify a finished scan into one distinct, honest operator verdict."""
-    kind = _kind(state, finding_count, termination_cause)
+    kind = _kind(state, finding_count, termination_cause, partial)
     conclusive = kind in (OutcomeKind.FINDINGS, OutcomeKind.CLEAN)
     return OutcomeSummary(
         kind=kind,
@@ -194,6 +201,7 @@ def from_result(result: ScanResult) -> OutcomeSummary:
         state=result.state,
         finding_count=len(result.findings),
         termination_cause=cause,
+        partial=result.partial,
     )
 
 
@@ -225,7 +233,12 @@ def from_mapping(result: Mapping[str, object]) -> OutcomeSummary:
             except ValueError:
                 cause = None
 
-    return summarize(state=state, finding_count=finding_count, termination_cause=cause)
+    return summarize(
+        state=state,
+        finding_count=finding_count,
+        termination_cause=cause,
+        partial=result.get("partial") is True,
+    )
 
 
 __all__ = [

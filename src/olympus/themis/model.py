@@ -5,9 +5,16 @@ from __future__ import annotations
 import hashlib
 import re
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SerializerFunctionWrapHandler,
+    model_serializer,
+    model_validator,
+)
 
 from olympus.core.execution import Cancellation, NeverCancelled, redact_url
 from olympus.core.models import Asset, Finding
@@ -93,7 +100,10 @@ class ThemisResultDocument(BaseModel):
     # 1.2.0 adds optional authorization provenance. Results produced outside a
     # durable job remain valid with both fields unset; a manifest digest can
     # never appear without the canonical job that consumed it.
-    schema_version: Literal["1.2.0"] = "1.2.0"
+    # 1.3.0 adds ``partial``/``partial_reason`` and is emitted ONLY for a partial
+    # result: every other document stays 1.2.0 with no new keys, so readers that
+    # predate 1.3.0 (``extra="forbid"``) keep working. This model reads both.
+    schema_version: Literal["1.2.0", "1.3.0"] = "1.2.0"
     job_id: str | None = Field(default=None, pattern=r"^THEMIS-[A-F0-9]{32}$")
     manifest_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
     scanner: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{0,63}$")
@@ -115,6 +125,29 @@ class ThemisResultDocument(BaseModel):
     #: output budget, a kernel-enforced resource limit, or a clean exit.
     termination: dict[str, object] | None = None
     duration_seconds: float = Field(ge=0, le=86_400)
+    #: The engine ran but covered less than requested (schema 1.3.0 only).
+    partial: bool = False
+    partial_reason: str | None = Field(default=None, max_length=1_000)
+
+    @model_serializer(mode="wrap")
+    def _omit_partial_before_1_3(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        data: dict[str, Any] = handler(self)
+        if self.schema_version == "1.2.0":
+            data.pop("partial", None)
+            data.pop("partial_reason", None)
+        return data
+
+    @model_validator(mode="after")
+    def _consistent_partial(self) -> ThemisResultDocument:
+        if self.schema_version == "1.2.0" and (self.partial or self.partial_reason is not None):
+            raise ValueError("schema 1.2.0 cannot carry partial coverage; it is a 1.3.0 field")
+        if self.partial and self.state is not ExecutionState.LIVE:
+            raise ValueError("only a live result can be partial")
+        if self.partial and not self.partial_reason:
+            raise ValueError("a partial result must say why (partial_reason)")
+        if not self.partial and self.partial_reason is not None:
+            raise ValueError("partial_reason requires partial=true")
+        return self
 
     @model_validator(mode="after")
     def _consistent_state(self) -> ThemisResultDocument:
@@ -151,8 +184,7 @@ class ScanResult:
     termination: TerminationReport | None = None
     duration_seconds: float = 0.0
     #: True when the engine ran but covered less than requested. A partial live
-    #: result exits 5, never 0 or 1. Not yet part of ``ThemisResultDocument``:
-    #: persisting it is a schema bump, deferred until an adapter produces it.
+    #: result exits 5, never 0 or 1. Serialised as ``ThemisResultDocument`` 1.3.0.
     partial: bool = False
     partial_reason: str | None = None
 
@@ -176,6 +208,9 @@ class ScanResult:
         evidence = self.raw_evidence[:MAX_RAW_EVIDENCE]
         evidence_digest = hashlib.sha256(evidence.encode()).hexdigest() if evidence else None
         return ThemisResultDocument(
+            schema_version="1.3.0" if self.partial else "1.2.0",
+            partial=self.partial,
+            partial_reason=self.partial_reason,
             job_id=self.job_id,
             manifest_sha256=self.manifest_sha256,
             scanner=self.scanner,

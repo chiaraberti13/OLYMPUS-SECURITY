@@ -193,7 +193,7 @@ def report(
     themis_results: list[Path] = typer.Option(
         [],
         "--themis-result",
-        help="Manifest-bound olympus.themis-result 1.2.0 file(s) (repeatable).",
+        help="Manifest-bound olympus.themis-result 1.2.0 or 1.3.0 file(s) (repeatable).",
     ),
     signed_manifests: list[Path] = typer.Option(
         [],

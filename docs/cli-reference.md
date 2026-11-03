@@ -1916,7 +1916,7 @@ Aggregate strict inputs into consistent JSON, Markdown, HTML and PDF views.
 | `--assets` | option | no | — | core.Asset JSON file(s) to include (repeatable). |
 | `--findings` | option | no | — | core.Finding JSON file(s) to include (repeatable). |
 | `--alerts` | option | no | — | core.Alert JSON file(s) to include (repeatable). |
-| `--themis-result` | option | no | — | Manifest-bound olympus.themis-result 1.2.0 file(s) (repeatable). |
+| `--themis-result` | option | no | — | Manifest-bound olympus.themis-result 1.2.0 or 1.3.0 file(s) (repeatable). |
 | `--signed-manifest` | option | no | — | Signed engagement manifest file(s) matching the Themis results (repeatable). |
 | `--manifest-public-key` | option | no | — | Pinned Ed25519 public key used to verify report authorization provenance. |
 | `--manifest` | option | no | — | Engagement manifest (signed or plain) whose scope, methodology and disclaimer populate the reusable Markdown/HTML report sections. |

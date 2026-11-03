@@ -71,6 +71,12 @@ It is persisted as the optional `termination` object of the
 and `manifest_sha256` authorization provenance; consumers pinned to `1.1.0`
 must negotiate or upgrade before accepting the newer document.
 
+Schema `1.3.0` adds `partial` and `partial_reason` (the engine ran but covered less than
+requested, e.g. output records it could not parse). It is **emitted only for a partial result**;
+every other result is still written as `1.2.0` with no new keys, so readers pinned to `1.2.0`
+keep working and only need to upgrade to read a partial document. A partial live result exits
+`5`, becomes a `partial` job and is never reported as a clean empty.
+
 Note that CPython ignores `SIGXFSZ` and surfaces `EFBIG` instead, so a
 Python-based scanner that crosses `file_size_bytes` fails with a write error
 rather than a signal. The limit holds either way; only the recorded cause

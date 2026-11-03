@@ -1457,6 +1457,8 @@ class ThemisWorker:
 
 def classify_result(result: ScanResult) -> tuple[JobState, str | None]:
     """Map one scan outcome onto a job state that means exactly one thing."""
+    if result.state is ExecutionState.LIVE and result.partial:
+        return JobState.PARTIAL, result.partial_reason
     if result.state in {ExecutionState.LIVE, ExecutionState.SIMULATION}:
         return JobState.SUCCEEDED, None
     if result.state in {ExecutionState.UNAVAILABLE, ExecutionState.DISABLED}:
