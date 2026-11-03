@@ -9,8 +9,8 @@ maturity ledger (stage) - and a test fails when the committed file differs.
 
 from __future__ import annotations
 
-from olympus.engines.loader import load_all
-from olympus.engines.schema import EngineManifest
+from olympus.engines.loader import load_all, load_all_data
+from olympus.engines.schema import DataManifest, EngineManifest
 from olympus.integrations.maturity import record_for
 from olympus.integrations.scanners import by_name
 
@@ -81,6 +81,11 @@ def _row_local(name: str, manifest: EngineManifest) -> str:
     return "| " + " | ".join(cells) + " |"
 
 
+def _data_pin_text(manifest: DataManifest) -> str:
+    commit = manifest.data.source.commit or ""
+    return f"`{manifest.data.pinned_version}` @ `{commit[:7]}`"
+
+
 def _row_api(name: str, manifest: EngineManifest) -> str:
     engine, source = manifest.engine, manifest.engine.source
     cells = [
@@ -120,6 +125,29 @@ def render_inventory_block() -> str:
         "Variabili d'ambiente (solo nomi) |",
         "| --- | --- | --- | --- | --- | --- | --- |",
         *(_row_api(name, manifest) for name, manifest in api),
+        "",
+        "### Dipendenze dati (pinnate come gli engine)",
+        "",
+        "Non sono codice ma decidono cosa trova l'engine: un insieme di template mobile "
+        "cambierebbe i risultati senza che Olympus cambi.",
+        "",
+        "| Dipendenza | Usata da | Upstream | Verificato | Licenza | Pin |",
+        "| --- | --- | --- | --- | --- | --- |",
+        *(
+            "| "
+            + " | ".join(
+                [
+                    f"`{name}`",
+                    ", ".join(f"`{item}`" for item in manifest.data.used_by),
+                    manifest.data.upstream,
+                    "sì" if manifest.data.upstream_verified else "no",
+                    manifest.data.license,
+                    _data_pin_text(manifest),
+                ]
+            )
+            + " |"
+            for name, manifest in sorted(load_all_data().items())
+        ),
         "",
         BLOCK_END,
     ]

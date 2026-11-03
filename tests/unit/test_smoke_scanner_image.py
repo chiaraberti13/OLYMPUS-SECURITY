@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from olympus.engines.loader import load_all
+from olympus.engines.loader import load_all, load_all_data
 from olympus.integrations.scanners import REGISTRY
 
 pytestmark = pytest.mark.unit
@@ -34,6 +34,9 @@ def _healthy(argv: list[str]) -> tuple[int, str]:
         for manifest in load_all().values():
             if manifest.engine.source.checkout_path == checkout:
                 return 0, str(manifest.engine.source.commit)
+        for dep in load_all_data().values():
+            if dep.data.source.checkout_path == checkout:
+                return 0, str(dep.data.source.commit)
     return 0, "ok"
 
 
@@ -96,3 +99,13 @@ def test_ci_builds_the_image_on_pushes_and_pull_requests_then_smoke_tests_it() -
     assert any("docker build" in s and "docker/Dockerfile.scanners" in s for s in steps)
     assert any("scripts/smoke_scanner_image.py" in s for s in steps)
     assert workflow["permissions"] == {"contents": "read"}
+
+
+def test_a_wrong_template_commit_is_reported() -> None:
+    def runner(argv: list[str]) -> tuple[int, str]:
+        if "rev-parse" in argv and "/opt/nuclei-templates" in argv:
+            return 0, "1" * 40
+        return _healthy(argv)
+
+    problems = _module().smoke("img", runner)
+    assert any(p.startswith("nuclei-templates: checkout is at") for p in problems)

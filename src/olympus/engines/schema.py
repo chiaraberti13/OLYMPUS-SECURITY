@@ -154,6 +154,10 @@ class Engine(_Frozen):
     required_for_commands: list[DottedId] = Field(default_factory=list, max_length=16)
     #: Fixed argv that proves the executable is present. Empty only for ``api`` engines.
     presence_probe: list[str] = Field(default_factory=list, max_length=8)
+    #: Names of ``_data/<name>.toml`` dependencies this engine cannot work without.
+    requires_data: list[Annotated[str, StringConstraints(pattern=_NAME)]] = Field(
+        default_factory=list, max_length=8
+    )
     capability: DottedId
     source: Source
 
@@ -179,6 +183,53 @@ class Engine(_Frozen):
                 "(checked only for those commands), not both"
             )
         return self
+
+
+class DataDependency(_Frozen):
+    """Data an engine needs that is not code (e.g. nuclei's template repository).
+
+    Pinned and verified exactly like an engine, because it decides what the engine
+    does: a floating template set changes findings without any change to Olympus.
+    """
+
+    name: str = Field(pattern=_NAME)
+    upstream: str = Field(pattern=r"^https://[A-Za-z0-9.-]+(/[^\s]*)?$", max_length=300)
+    upstream_verified: bool = False
+    license: str = Field(min_length=1, max_length=100)
+    pinned_version: str
+    update_policy: UpdatePolicy
+    used_by: list[Annotated[str, StringConstraints(pattern=_NAME)]] = Field(
+        min_length=1, max_length=16
+    )
+    source: Source
+
+    @model_validator(mode="after")
+    def _pinned_git_checkout(self) -> Self:
+        version = self.pinned_version
+        if version.lower() in MOBILE_REFERENCES or _VERSION.fullmatch(version) is None:
+            raise ValueError(f"pinned_version {version!r} is not an exact version or tag")
+        missing = [
+            field
+            for field in ("repo", "commit", "checkout_path")
+            if getattr(self.source, field) is None
+        ]
+        if missing:
+            raise ValueError(f"a data dependency requires source.{', source.'.join(missing)}")
+        return self
+
+
+class DataManifest(_Frozen):
+    """One validated ``_data/<name>.toml``."""
+
+    data: DataDependency
+
+    def install_command(self) -> str:
+        source = self.data.source
+        return (
+            f"git init {source.checkout_path} && "
+            f"git -C {source.checkout_path} fetch --depth 1 {source.repo} {source.commit} && "
+            f"git -C {source.checkout_path} checkout --detach FETCH_HEAD"
+        )
 
 
 class EngineManifest(_Frozen):

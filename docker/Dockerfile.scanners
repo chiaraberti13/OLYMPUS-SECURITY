@@ -11,7 +11,8 @@
 # src/olympus/engines/<name>/engine.toml; tests/unit/test_engine_dockerfile_pins.py
 # fails when a manifest and this file disagree.
 #   pip      : sqlmap, wafw00f, arjun, wapiti3, dirsearch   (exact ==pins)
-#   git      : nmap (built), whatweb, testssl.sh, xsstrike, commix (full commit SHA)
+#   git      : nmap (built), whatweb, testssl.sh, xsstrike, commix, and the
+#              nuclei-templates data dependency (full commit SHA)
 #   go       : nuclei, httpx, katana, subfinder, dalfox     (exact tags, pinned
 #              Go toolchain)
 #   gem      : wpscan            (WPScan Public Source licence; free API token
@@ -102,7 +103,13 @@ RUN git_pin() { \
     pip install --no-cache-dir 'tld==0.13.2' 'fuzzywuzzy==0.18.0' 'requests==2.34.2'; \
     launcher xsstrike python /opt/xsstrike/xsstrike.py; \
     git_pin https://github.com/commixproject/commix 06beb622db6f9b8ffe4e51f7dea4414303c750ce /opt/commix; \
-    launcher commix python /opt/commix/commix.py
+    launcher commix python /opt/commix/commix.py; \
+    git_pin https://github.com/projectdiscovery/nuclei-templates 79fb682760ab3d5b0e22afbb44709353cbebf023 /opt/nuclei-templates
+
+# nuclei finds its templates through $HOME, which the sandbox user does not share, so
+# Themis passes the directory explicitly (-templates) from this variable. The checkout
+# above is the pinned data dependency src/olympus/engines/_data/nuclei-templates.toml.
+ENV THEMIS_NUCLEI_TEMPLATES=/opt/nuclei-templates
 
 # Go engines, exact tags. Their go.mod files require Go 1.25-1.26, newer than any
 # Debian golang-go, so the toolchain is pinned too: GOTOOLCHAIN makes Go download

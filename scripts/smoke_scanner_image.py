@@ -16,7 +16,7 @@ import subprocess
 import sys
 from collections.abc import Callable
 
-from olympus.engines.loader import load_all
+from olympus.engines.loader import load_all, load_all_data
 from olympus.integrations.scanners import by_name
 
 Runner = Callable[[list[str]], tuple[int, str]]
@@ -65,6 +65,23 @@ def smoke(image: str, runner: Runner = _docker) -> list[str]:
             )
             if code != 0 or head.strip() != source.commit:
                 problems.append(f"{name}: checkout is at {head.strip()!r}, pinned {source.commit}")
+    for data_name, data in sorted(load_all_data().items()):
+        source = data.data.source
+        code, head = runner(
+            [
+                "run",
+                "--rm",
+                "--entrypoint",
+                "git",
+                image,
+                "-C",
+                str(source.checkout_path),
+                "rev-parse",
+                "HEAD",
+            ]
+        )
+        if code != 0 or head.strip() != source.commit:
+            problems.append(f"{data_name}: checkout is at {head.strip()!r}, pinned {source.commit}")
     return problems
 
 

@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from olympus.engines.loader import load_all
+from olympus.engines.loader import load_all, load_all_data
 from olympus.engines.schema import EngineManifest
 from olympus.integrations.scanners import by_name
 
@@ -130,3 +130,18 @@ def test_every_pin_in_the_dockerfile_belongs_to_a_manifest() -> None:
     for pin in re.findall(r"'([A-Za-z0-9._-]+==[0-9][A-Za-z0-9._-]*)'", text):
         runtime = {p for m in manifests for p in m.engine.source.runtime_packages}
         assert pin in pips or pin in runtime, f"pip pin {pin} has no engine.toml"
+
+
+def test_data_dependencies_are_pinned_in_the_image_and_wired_to_their_engine() -> None:
+    text = DOCKERFILE.read_text(encoding="utf-8")
+    for name, manifest in load_all_data().items():
+        source = manifest.data.source
+        assert f"git_pin {source.repo} {source.commit} {source.checkout_path}" in text, name
+    # nuclei is told where the pinned templates are, explicitly (its $HOME is not ours).
+    assert "ENV THEMIS_NUCLEI_TEMPLATES=/opt/nuclei-templates" in text
+    commits = {m.data.source.commit for m in load_all_data().values()}
+    import re
+
+    for _repo, commit, _path in re.findall(r"git_pin (\S+) ([0-9a-f]{40}) (\S+);?", text):
+        engine_commits = {m.engine.source.commit for m in load_all().values()}
+        assert commit in commits | engine_commits, f"unmanifested git_pin {commit}"

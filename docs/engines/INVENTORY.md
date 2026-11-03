@@ -66,6 +66,14 @@ Nessun adapter, nessun pin, `mandatory = false`: Olympus non li ha mai eseguiti.
 | `openvas` | vuln | catalog-only | https://github.com/greenbone/openvas-scanner | GPL-2.0 | Greenbone GVM stack (open source, heavy multi-service deployment) | `THEMIS_OPENVAS_URL`, `THEMIS_OPENVAS_TOKEN` |
 | `zap` | web | catalog-only | https://github.com/zaproxy/zaproxy | Apache-2.0 | OWASP ZAP daemon (open source, runs as a separate service) | `THEMIS_ZAP_URL`, `THEMIS_ZAP_API_KEY` |
 
+### Dipendenze dati (pinnate come gli engine)
+
+Non sono codice ma decidono cosa trova l'engine: un insieme di template mobile cambierebbe i risultati senza che Olympus cambi.
+
+| Dipendenza | Usata da | Upstream | Verificato | Licenza | Pin |
+| --- | --- | --- | --- | --- | --- |
+| `nuclei-templates` | `nuclei` | https://github.com/projectdiscovery/nuclei-templates | no | MIT | `v10.5.1` @ `79fb682` |
+
 <!-- GENERATED:engine-inventory END -->
 
 ## Criterio di promozione a `production-ready`
@@ -97,7 +105,8 @@ Un engine passa a `production-ready` solo se **tutte** queste condizioni sono ve
 | `wapiti3` | `3.3.x` richiede Python >= 3.12 (scoperto dal primo build CI: `No matching distribution found`). | Pin a `3.2.3`, l'ultima versione per Python 3.11. Debito: base Python 3.12 (TOOLS-5). |
 | `xsstrike` | Il tag `3.1.6` punta a un commit il cui script stampa `v3.1.5`. | Il pin è il **commit**; la stringa di versione dell'engine non è usata come prova. |
 | Installazioni non pinnate | Le dipendenze transitive di pip e gem restano libere. | Residuo noto: ambiente con hash per engine (Fase 4). |
-| Template di nuclei | `nuclei-templates` è una dipendenza dati non pinnata. | Da pinnare nel pilota nuclei (Fase 2). |
+| Template di nuclei | `nuclei-templates` è una dipendenza dati che decide cosa trova nuclei. | Manifest separato `_data/nuclei-templates.toml`, pin al commit (`v10.5.1`), referenziato da `requires_data` nel manifest di nuclei; nell'immagine in `/opt/nuclei-templates` con `THEMIS_NUCLEI_TEMPLATES`. |
+| nuclei e stdin | nuclei legge target anche da stdin quando non è un terminale e resta appeso. | Il runner Themis chiude stdin (`DEVNULL`): nessun appeso e nessun target fuori scope da quella via. |
 
 ## Stato delle fasi
 

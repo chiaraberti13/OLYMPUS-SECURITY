@@ -447,3 +447,72 @@ def test_licences_with_extra_terms_are_conditional_in_the_registry() -> None:
     assert gpl is not None and gpl.redistribution == "free"
     commercial = by_name("nessus")
     assert commercial is not None and commercial.redistribution == "no"
+
+
+# --- data dependencies ------------------------------------------------------ #
+_DATA = """
+[data]
+name = "tpl"
+upstream = "https://github.com/example/tpl"
+license = "MIT"
+pinned_version = "v1.0.0"
+update_policy = "manual"
+used_by = ["nuclei"]
+
+[data.source]
+repo = "https://github.com/example/tpl"
+commit = "{commit}"
+checkout_path = "/opt/tpl"
+"""
+
+
+def _data(**changes: str) -> str:
+    text = _DATA.format(commit=changes.pop("commit", SHA))
+    for old, new in changes.items():
+        text = text.replace(old, new)
+    return text
+
+
+def _load_data_text(tmp_path: Path, text: str, name: str = "tpl"):  # type: ignore[no-untyped-def]
+    from olympus.engines.loader import load_data_manifest
+
+    path = tmp_path / f"{name}.toml"
+    path.write_text(text, encoding="utf-8")
+    return load_data_manifest(path)
+
+
+def test_a_data_dependency_is_pinned_like_an_engine(tmp_path: Path) -> None:
+    manifest = _load_data_text(tmp_path, _data())
+    assert manifest.data.source.commit == SHA
+    assert SHA in manifest.install_command()
+    assert manifest.data.upstream_verified is False
+    for bad in ("latest", "main", "master"):
+        with pytest.raises(ManifestError, match="exact version"):
+            _load_data_text(tmp_path, _data(**{'"v1.0.0"': f'"{bad}"'}))
+    with pytest.raises(ManifestError, match="40-hex"):
+        _load_data_text(tmp_path, _data(commit="abc"))
+    with pytest.raises(ManifestError, match=r"requires source\.commit"):
+        _load_data_text(tmp_path, _data().replace(f'commit = "{SHA}"\n', ""))
+
+
+def test_data_manifest_file_name_must_match_and_unknown_keys_fail(tmp_path: Path) -> None:
+    with pytest.raises(ManifestError, match="must equal the file name"):
+        _load_data_text(tmp_path, _data(), name="other")
+    with pytest.raises(ManifestError, match="Extra inputs"):
+        _load_data_text(tmp_path, _data() + "\n[extra]\nx = 1\n")
+
+
+def test_requires_data_and_used_by_agree_and_point_at_real_manifests() -> None:
+    from olympus.engines.loader import load_all_data
+
+    engines, data = load_all(), load_all_data()
+    for name, manifest in engines.items():
+        for needed in manifest.engine.requires_data:
+            assert needed in data, f"{name}: requires_data {needed!r} has no _data manifest"
+            assert name in data[needed].data.used_by, f"{needed}.used_by does not list {name}"
+    for dep_name, dep in data.items():
+        for user in dep.data.used_by:
+            assert dep_name in engines[user].engine.requires_data, (
+                f"{user} does not require {dep_name}"
+            )
+    assert engines["nuclei"].engine.requires_data == ["nuclei-templates"]

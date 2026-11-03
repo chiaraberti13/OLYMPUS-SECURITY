@@ -12,6 +12,7 @@ update_policy = "minor"
 mandatory = true
 presence_probe = ["nuclei", "-version"]
 capability = "web.scan"
+requires_data = ["nuclei-templates"]
 
 [engine.source]
 module = "github.com/projectdiscovery/nuclei/v3/cmd/nuclei"
