@@ -31,6 +31,7 @@ Distribution = Literal["apt", "pip", "gem", "go", "git", "binary", "docker", "np
 UpdatePolicy = Literal["manual", "patch", "minor", "major"]
 ResourceProfile = Literal["light", "network-heavy", "cpu-heavy"]
 Runtime = Literal["python", "perl", "bash", "ruby"]
+Build = Literal["autotools"]
 
 #: Moving references that make a build non-reproducible. Rejected for every pin.
 MOBILE_REFERENCES = frozenset(
@@ -44,6 +45,8 @@ _PROBE_TOKEN = re.compile(r"^[A-Za-z0-9._=:@%+,/-]{1,128}$")
 _SHA1 = re.compile(r"^[a-f0-9]{40}$")
 _SHA256 = re.compile(r"^[a-f0-9]{64}$")
 _DIGEST = re.compile(r"^sha256:[a-f0-9]{64}$")
+_BUILD_ARG = r"^--[a-z0-9][a-z0-9-]{0,40}(=[A-Za-z0-9/._-]{1,80})?$"
+_RUNTIME_PACKAGE = r"^[A-Za-z0-9][A-Za-z0-9._-]{0,80}==[0-9][A-Za-z0-9._+-]{0,40}$"
 _ENTRYPOINT = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*$")
 
 DottedId = Annotated[str, StringConstraints(pattern=_DOTTED, max_length=64)]
@@ -62,11 +65,18 @@ class Source(_Frozen):
     commit: str | None = None
     #: Absolute directory the git checkout lives in (also where ``git rev-parse`` runs).
     checkout_path: str | None = Field(default=None, pattern=r"^/[A-Za-z0-9._/-]{1,200}$")
-    #: Script inside the checkout, relative, and the interpreter that runs it.
+    #: Interpreted engines: script inside the checkout (relative) and its interpreter.
     entry: str | None = Field(default=None, pattern=r"^[A-Za-z0-9._-][A-Za-z0-9._/-]{0,120}$")
     runtime: Runtime | None = None
-    #: Requirements file inside the checkout installed with the checkout's pins.
-    python_requirements: str | None = Field(default=None, pattern=r"^[A-Za-z0-9._/-]{1,120}$")
+    #: Compiled engines: build system used on the checkout, and its configure flags.
+    build: Build | None = None
+    build_args: list[Annotated[str, StringConstraints(pattern=_BUILD_ARG)]] = Field(
+        default_factory=list, max_length=16
+    )
+    #: Exact ``name==version`` packages the runtime needs (pip for python, gem for ruby).
+    runtime_packages: list[Annotated[str, StringConstraints(pattern=_RUNTIME_PACKAGE)]] = Field(
+        default_factory=list, max_length=16
+    )
     url: str | None = Field(default=None, pattern=r"^https://[^\s'\"]{1,500}$")
     sha256: str | None = None
     image: str | None = Field(default=None, pattern=r"^[a-z0-9][a-z0-9./_-]{0,200}$")
@@ -155,7 +165,7 @@ class EngineManifest(_Frozen):
             "gem": ("package",),
             "npm": ("package",),
             "go": ("module",),
-            "git": ("repo", "commit", "checkout_path", "entry", "runtime"),
+            "git": ("repo", "commit", "checkout_path"),
             "binary": ("url", "sha256"),
             "docker": ("image", "digest"),
             "api": ("requires_product",),
@@ -167,6 +177,14 @@ class EngineManifest(_Frozen):
             raise ValueError(
                 f"distribution {engine.distribution!r} requires source.{', source.'.join(missing)}"
             )
+        if engine.distribution == "git":
+            interpreted = source.entry is not None and source.runtime is not None
+            half = (source.entry is None) != (source.runtime is None)
+            if half or interpreted == (source.build is not None):
+                raise ValueError(
+                    "a git engine is either interpreted (source.entry + source.runtime) "
+                    "or compiled (source.build), never both and never neither"
+                )
         if engine.distribution == "go" and not engine.pinned_version.startswith("v"):
             raise ValueError("a go pin must be a module version tag such as 'v3.11.1'")
         if engine.distribution == "api":
@@ -204,12 +222,31 @@ class EngineManifest(_Frozen):
             case "go":
                 return f"go install {source.module}@{version}"
             case "git":
-                return (
-                    f"git init {source.checkout_path} && "
-                    f"git -C {source.checkout_path} fetch --depth 1 "
-                    f"{source.repo} {source.commit} && "
-                    f"git -C {source.checkout_path} checkout --detach FETCH_HEAD"
-                )
+                steps = [
+                    f"git init {source.checkout_path}",
+                    f"git -C {source.checkout_path} fetch --depth 1 {source.repo} {source.commit}",
+                    f"git -C {source.checkout_path} checkout --detach FETCH_HEAD",
+                ]
+                if source.build == "autotools":
+                    flags = " ".join(source.build_args)
+                    steps.append(
+                        f"cd {source.checkout_path} && ./configure {flags} && make && make install"
+                    )
+                else:
+                    if source.runtime == "python" and source.runtime_packages:
+                        quoted = " ".join(f"'{item}'" for item in source.runtime_packages)
+                        steps.append(f"pip install {quoted}")
+                    if source.runtime == "ruby" and source.runtime_packages:
+                        for item in source.runtime_packages:
+                            package, _, gem_version = item.partition("==")
+                            steps.append(f"gem install --no-document {package} -v {gem_version}")
+                    steps.append(
+                        f"printf '#!/bin/sh\\nexec {source.runtime} "
+                        f'{source.checkout_path}/{source.entry} "$@"\\n\' '
+                        f"> /usr/local/bin/{engine.presence_probe[0]} "
+                        f"&& chmod 0755 /usr/local/bin/{engine.presence_probe[0]}"
+                    )
+                return " && ".join(steps)
             case "binary":
                 return (
                     f"curl -fsSLo {engine.name} {source.url} && "

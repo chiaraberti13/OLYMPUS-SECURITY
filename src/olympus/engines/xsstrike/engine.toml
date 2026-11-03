@@ -18,7 +18,7 @@ commit = "65dd68ae9051ce7cecf3be23fbda6e329d8580af"
 checkout_path = "/opt/xsstrike"
 entry = "xsstrike.py"
 runtime = "python"
-python_requirements = "requirements.txt"
+runtime_packages = ["tld==0.13.2", "fuzzywuzzy==0.18.0", "requests==2.34.2"]
 
 [adapter]
 entrypoint = "olympus.themis.adapters.xsstrike:XsstrikeAdapter"

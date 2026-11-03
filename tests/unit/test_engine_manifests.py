@@ -275,3 +275,61 @@ def test_manifests_never_contain_secrets_or_command_strings() -> None:
         for forbidden in ("token", "password", "api_key", "secret", "sh -c", "shell"):
             assert forbidden not in text, f"{path}: contains {forbidden!r}"
         json.dumps(load_manifest(path).model_dump())  # serialisable, no objects
+
+
+def _git_manifest(source_lines: str, probe: str = "demo") -> str:
+    return (
+        _manifest(adapter="")
+        .replace('distribution = "go"', 'distribution = "git"')
+        .replace('presence_probe = ["demo", "-version"]', f'presence_probe = ["{probe}", "-v"]')
+        .replace(
+            'module = "github.com/example/demo/cmd/demo"',
+            f'repo = "https://github.com/e/d"\ncommit = "{SHA}"\ncheckout_path = "/opt/d"\n'
+            + source_lines,
+        )
+    )
+
+
+def test_git_engine_is_interpreted_xor_compiled() -> None:
+    interpreted = 'entry = "d.py"\nruntime = "python"'
+    compiled = 'build = "autotools"\nbuild_args = ["--without-zenmap", "--prefix=/usr/local"]'
+    assert parse_manifest(_git_manifest(interpreted)).engine.source.runtime == "python"
+    assert parse_manifest(_git_manifest(compiled)).engine.source.build == "autotools"
+    for bad in ("", interpreted + "\n" + compiled, 'entry = "d.py"', 'runtime = "python"'):
+        with pytest.raises(ManifestError, match=r"interpreted .* or compiled"):
+            parse_manifest(_git_manifest(bad))
+
+
+def test_compiled_git_install_command_runs_the_pinned_build() -> None:
+    command = parse_manifest(
+        _git_manifest('build = "autotools"\nbuild_args = ["--without-zenmap"]')
+    ).install_command()
+    assert command is not None
+    assert command.endswith("cd /opt/d && ./configure --without-zenmap && make && make install")
+
+
+def test_interpreted_git_install_command_pins_packages_and_writes_a_launcher() -> None:
+    command = parse_manifest(
+        _git_manifest(
+            'entry = "d.py"\nruntime = "python"\nruntime_packages = ["tld==0.13.2"]',
+            probe="demo",
+        )
+    ).install_command()
+    assert command is not None
+    assert "pip install 'tld==0.13.2'" in command
+    assert 'exec python /opt/d/d.py "$@"' in command
+    assert "> /usr/local/bin/demo" in command
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        'runtime_packages = ["tld"]',  # not pinned
+        'runtime_packages = ["tld>=0.13"]',  # range, not ==
+        'build_args = ["--prefix=/x; rm -rf /"]',  # shell syntax
+        'build_args = ["-O3"]',  # not a long option
+    ],
+)
+def test_runtime_packages_and_build_args_must_be_exact_and_inert(extra: str) -> None:
+    with pytest.raises(ManifestError):
+        parse_manifest(_git_manifest('entry = "d.py"\nruntime = "python"\n' + extra))
