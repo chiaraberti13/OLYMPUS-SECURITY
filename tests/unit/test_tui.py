@@ -24,6 +24,33 @@ from olympus.tui.app import (
 from olympus.tui.catalog import TOOLS, commands_for
 
 
+def _pid_is_terminated(pid: int) -> bool:
+    """True once *pid* has stopped running — gone, or a zombie awaiting reaping.
+
+    ``os.kill(pid, 0)`` keeps succeeding for a *defunct* (zombie) process: the
+    PID stays in the table until the parent — or a subreaper — reaps it. The TUI
+    kills the whole process group, so the child does die, but when an orphaned
+    child is reparented to an init that is not a subreaper (e.g. a bare container
+    whose PID 1 never reaps orphans) it lingers in the ``Z`` state and the plain
+    ``os.kill`` probe never observes it leave. A zombie is a terminated process,
+    which is exactly what this check asserts, so treat it as stopped. On systems
+    without ``/proc`` (e.g. macOS) PID 1 is a reaper, so the orphan disappears and
+    the ``ProcessLookupError`` branch already covers it.
+    """
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return True
+    try:
+        raw = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8")
+    except (FileNotFoundError, ProcessLookupError, PermissionError):
+        return False
+    # ``/proc/<pid>/stat`` is ``pid (comm) state …``; ``comm`` may contain spaces
+    # and parentheses, so take the state letter just past the final ``)``.
+    marker = raw.rfind(")")
+    return marker != -1 and raw[marker + 2 : marker + 3] == "Z"
+
+
 def test_catalog_exposes_every_tool_and_real_leaf_commands() -> None:
     root = get_command(app)
     inventory = {tool.command: commands_for(root, tool) for tool in TOOLS}
@@ -259,9 +286,7 @@ def test_closing_tui_stops_running_command_process_tree(tmp_path: Path) -> None:
         assert child_pid is not None
         child_stopped = False
         for _ in range(100):
-            try:
-                os.kill(child_pid, 0)
-            except ProcessLookupError:
+            if _pid_is_terminated(child_pid):
                 child_stopped = True
                 break
             await asyncio.sleep(0.01)
