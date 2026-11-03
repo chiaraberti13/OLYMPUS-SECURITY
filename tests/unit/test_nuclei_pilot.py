@@ -17,6 +17,7 @@ from olympus.core.exit_codes import ExitCode
 from olympus.integrations.cli import _scan_exit_code
 from olympus.themis import base as base_module
 from olympus.themis.adapters.nuclei import NucleiAdapter
+from olympus.themis.application import ThemisRunRequest
 from olympus.themis.base import NotAuthorizedError
 from olympus.themis.model import ScanRequest
 from olympus.themis.runner import CommandOutput, TerminationCause, TerminationReport
@@ -235,3 +236,92 @@ def test_text_after_a_space_in_a_url_stays_inside_the_single_target_argument(
     (argv,) = runner.scans
     assert argv[argv.index("-target") + 1] == target
     assert "-update-templates" not in argv  # never a separate argv token
+
+
+# --- measured defaults reach the command ----------------------------------- #
+def _invoke_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, scanner: str, *extra: str
+) -> ThemisRunRequest:
+    import json as _json
+
+    from typer.testing import CliRunner
+
+    from olympus.cli import app
+
+    scope = tmp_path / "scope.json"
+    scope.write_text(
+        _json.dumps(
+            {
+                "schema_name": "olympus.themis-scope",
+                "schema_version": "1.0.0",
+                "allowed_hosts": ["127.0.0.1"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("THEMIS_ENABLE_LIVE_SCANS", "false")
+    captured: list[ThemisRunRequest] = []
+
+    class _Capture:
+        def run(self, request: ThemisRunRequest):  # type: ignore[no-untyped-def]
+            from olympus.themis.model import ScanResult
+
+            captured.append(request)
+            return ScanResult(scanner=scanner, state=ExecutionState.DISABLED, target=request.target)
+
+    monkeypatch.setattr("olympus.themis.application.ThemisApplicationService", _Capture)
+    CliRunner().invoke(
+        app,
+        [
+            "themis",
+            "run",
+            scanner,
+            "--target",
+            "127.0.0.1",
+            "--scope",
+            str(scope),
+            "--audit",
+            "",
+            *extra,
+        ],
+    )
+    return captured[0]
+
+
+def test_nuclei_runs_with_its_measured_timeout_unless_the_operator_says_otherwise(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    default = _invoke_run(tmp_path, monkeypatch, "nuclei")
+    assert default.timeout_seconds == 1200.0 and default.deadline_seconds == 1500.0
+    explicit = _invoke_run(tmp_path, monkeypatch, "nuclei", "--timeout", "90")
+    assert explicit.timeout_seconds == 90.0 and explicit.deadline_seconds == 1500.0
+    both = _invoke_run(tmp_path, monkeypatch, "nuclei", "--timeout", "90", "--deadline", "120")
+    assert (both.timeout_seconds, both.deadline_seconds) == (90.0, 120.0)
+
+
+def test_engines_with_estimated_values_keep_the_legacy_defaults(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    request = _invoke_run(tmp_path, monkeypatch, "nmap")
+    assert (request.timeout_seconds, request.deadline_seconds) == (300.0, 600.0)
+    long_run = _invoke_run(tmp_path, monkeypatch, "nmap", "--timeout", "900")
+    assert (long_run.timeout_seconds, long_run.deadline_seconds) == (900.0, 1200.0)
+
+
+def test_nuclei_out_of_memory_names_the_setting_to_change(
+    installed: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    oom = "runtime: out of memory: cannot allocate 8388608-byte block\nfatal error: out of memory\n"
+    result = _run(_Runner("", stderr=oom, exit_code=2), monkeypatch)
+    assert result.state is ExecutionState.FAILED
+    assert "THEMIS_SANDBOX_MEMORY_BYTES" in (result.error or "") and "4 GiB" in (result.error or "")
+    assert _scan_exit_code(result) is ExitCode.FAILED  # never a clean empty
+
+
+def test_nuclei_without_templates_keeps_its_actionable_message(
+    installed: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    result = _run(
+        _Runner("", stderr="[FTL] no templates provided for scan", exit_code=1), monkeypatch
+    )
+    assert "THEMIS_NUCLEI_TEMPLATES" in (result.error or "")

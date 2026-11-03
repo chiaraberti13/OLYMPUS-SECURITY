@@ -580,6 +580,7 @@ Emit a CycloneDX SBOM of the installed Olympus runtime closure.
 | `--output`, `-o` | option | no | — | Write the SBOM here instead of stdout. |
 | `--extra` | option | no | — | Include an optional-dependency extra (e.g. --extra themis). Repeatable. |
 | `--reproducible` | option | no | `False` | Omit the timestamp and serial number for a byte-stable document. |
+| `--engines` | option | no | `False` | Also list the external engines and data dependencies pinned in engine.toml. |
 
 ### `olympus core sign`
 
@@ -682,6 +683,24 @@ Verify one engagements database snapshot.
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `--backup` | option | yes | — | Snapshot file to verify. |
+
+### `olympus engines doctor`
+
+Check the host against the manifests; print the exact install command for any gap.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--engine` | option | no | — | Check only this engine. Repeatable. |
+| `--strict` | option | no | `False` | Also require every engine the scanner image ships, not only the mandatory ones. |
+| `--format` | option | no | `table` | table or json. |
+
+### `olympus engines list`
+
+List every engine Olympus knows: maturity, pin, whether it must be present.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--format` | option | no | `table` | table or json. |
 
 ### `olympus helios scan`
 
@@ -1524,8 +1543,8 @@ Run a real scanner with explicit execution states (never implicit simulation).
 | `--target` | option | no | — | Authorized target (host/url/domain). |
 | `--kind` | option | no | `host` | Target kind: host, url, or domain. |
 | `--scope` | option | no | — | Versioned Themis scope JSON file. |
-| `--timeout` | option | no | `300.0` | Per-process timeout in seconds. |
-| `--deadline` | option | no | `600.0` | Overall scan deadline in seconds. |
+| `--timeout` | option | no | — | Per-process timeout in seconds. Default 300, or the engine's measured value when its manifest is reviewed (nuclei: 1200). |
+| `--deadline` | option | no | — | Overall scan deadline in seconds (default 600, or timeout+300). |
 | `--max-scope-bytes` | option | no | `1000000` | — |
 | `--max-output-bytes` | option | no | `5000000` | — |
 | `--max-findings` | option | no | `10000` | — |
@@ -1535,6 +1554,7 @@ Run a real scanner with explicit execution states (never implicit simulation).
 | `--manifest-public-key` | option | no | — | Pinned Ed25519 approver public key required for direct live execution. |
 | `--engagement-storage` | option | no | — | Directory holding the durable signed-manifest and revocation store. |
 | `--lab-policy` | option | no | — | Explicit signed policy file for a direct live scan limited to declared lab CIDRs. |
+| `--evidence` | option | no | — | Write a signed evidence manifest for this run (and PATH.sig). Needs OLYMPUS_EVIDENCE_SIGNING_KEY_FILE to name an Ed25519 private key; without it the run is refused before it starts. |
 | `--i-am-authorized` | option | no | `False` | Confirm documented authorization for a real scan. |
 | `--simulate` | option | no | `False` | Explicitly produce ILLUSTRATIVE output (never a real scan). |
 | `--list` | option | no | `False` | List scanners with a native execution adapter and exit. |

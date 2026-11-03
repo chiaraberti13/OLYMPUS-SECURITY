@@ -226,6 +226,14 @@ class ScannerAdapter(ABC):
             engine=self.name, present=True, path=path, version=version, install=self.install
         )
 
+    def failure_hint(self, output: CommandOutput) -> str | None:
+        """Return actionable guidance for a non-zero exit, or ``None``.
+
+        Engines die in engine-specific ways (no templates, out of memory under the sandbox
+        limit); the operator should read what to change, not just "exited with status 2".
+        """
+        return None
+
     def coverage_loss(self, output: CommandOutput, request: ScanRequest) -> str | None:
         """Return why this run covered less than requested, or ``None`` if complete.
 
@@ -375,7 +383,7 @@ class ScannerAdapter(ABC):
                 resolved_addresses=addresses,
                 version=version,
                 raw_evidence=evidence,
-                error=_exit_error(self.name, output),
+                error=_exit_error(self.name, output, self.failure_hint(output)),
                 exit_code=output.exit_code,
                 termination=output.termination,
                 duration_seconds=duration,
@@ -446,12 +454,14 @@ def _termination_of(exc: BaseException) -> TerminationReport:
     return TerminationReport(cause=cause, detail=str(exc), limit="deadline_seconds")
 
 
-def _exit_error(scanner: str, output: CommandOutput) -> str:
+def _exit_error(scanner: str, output: CommandOutput, hint: str | None = None) -> str:
     """Explain a non-success exit, naming the signal or limit when there was one."""
     report = output.termination
     if report is not None and report.cause is not TerminationCause.COMPLETED and report.detail:
-        return f"{scanner} did not complete: {report.detail}"
-    return f"{scanner} exited with non-success status {output.exit_code}"
+        message = f"{scanner} did not complete: {report.detail}"
+    else:
+        message = f"{scanner} exited with non-success status {output.exit_code}"
+    return f"{message}. {hint}" if hint else message
 
 
 # The value is one non-space run, but an ``Authorization`` header carries the

@@ -47,7 +47,13 @@ def system_environment() -> Environment:
         head = text.strip()
         return head if code == 0 and len(head) == 40 else None
 
-    return Environment(which=which, probe=probe, git_head=git_head)
+    from olympus.themis.sandbox import SandboxError, SandboxPolicy
+
+    try:
+        memory = SandboxPolicy.from_environment().memory_bytes
+    except (SandboxError, ValueError):
+        memory = SandboxPolicy().memory_bytes
+    return Environment(which=which, probe=probe, git_head=git_head, sandbox_memory_bytes=memory)
 
 
 def _records(statuses: list[EngineStatus]) -> list[dict[str, object]]:
@@ -152,6 +158,8 @@ def engines_doctor(
         ]
         typer.echo(render_table(["engine", "state", "mandatory", "detail"], rows, title="engines"))
         for status in statuses:
+            for note in status.notes:
+                typer.echo(f"note: {status.name}: {note}", err=True)
             if status.name in result.blocking or (not status.ok and status.install_command):
                 label = "REQUIRED" if status.name in result.blocking else "optional"
                 typer.echo(f"{label}: {status.name}: {status.detail}", err=True)

@@ -166,3 +166,12 @@ def test_python_engines_never_share_an_interpreter_with_each_other_or_with_olymp
     ]
     assert bare == [], f"engine installed into the system interpreter: {bare}"
     assert code.count("python -m venv") >= 2
+
+
+def test_the_image_sets_the_sandbox_memory_nuclei_was_measured_to_need() -> None:
+    from olympus.engines.loader import manifest_for
+
+    adapter = manifest_for("nuclei").adapter
+    assert adapter is not None and adapter.min_memory_bytes
+    text = DOCKERFILE.read_text(encoding="utf-8")
+    assert f"ENV THEMIS_SANDBOX_MEMORY_BYTES={adapter.min_memory_bytes}" in text

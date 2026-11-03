@@ -131,6 +131,10 @@ class Adapter(_Frozen):
     optional_flags: list[Annotated[str, StringConstraints(pattern=_FLAG)]] = Field(
         default_factory=list, max_length=16
     )
+    #: Address space (bytes) the engine needs under the Themis sandbox, measured, not
+    #: guessed. The sandbox default (2 GiB) is the operator's call and is never raised
+    #: automatically; ``engines doctor`` reports the gap and the failure message names it.
+    min_memory_bytes: int | None = Field(default=None, ge=64 * 1024 * 1024, le=64 * 1024**3)
     #: False while ``timeout_seconds``/``resource_profile`` are estimates rather than
     #: values derived from evidence. A pilot review flips it; nobody should have to
     #: guess later which numbers were ever measured.

@@ -104,3 +104,22 @@ def manifest_for(name: str) -> EngineManifest:
     if not name or not name.replace("-", "").isalnum() or name != name.lower():
         raise ManifestError(f"invalid engine name {name!r}")
     return load_manifest(ENGINES_ROOT / name / MANIFEST_NAME)
+
+
+def reviewed_timeouts(
+    name: str, *, default_timeout: float, default_deadline: float
+) -> tuple[float, float]:
+    """Return ``(timeout, deadline)`` defaults for ``name``.
+
+    A manifest's ``timeout_seconds`` is used only when ``reviewed = true`` (measured, not
+    estimated); every other engine keeps the legacy defaults. The overall deadline always
+    leaves 300 s of room beyond the per-process timeout, otherwise it would cap it silently.
+    """
+    try:
+        adapter = manifest_for(name).adapter
+    except (ManifestError, OSError):
+        adapter = None
+    if adapter is None or not adapter.reviewed:
+        return default_timeout, default_deadline
+    timeout = float(adapter.timeout_seconds)
+    return timeout, max(default_deadline, timeout + 300.0)

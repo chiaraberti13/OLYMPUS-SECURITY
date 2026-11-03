@@ -224,3 +224,16 @@ def test_the_default_environment_uses_the_sandboxed_runner_and_a_safe_git_direct
     code, _text = environment.probe(["definitely-not-an-installed-engine"])
     assert code != 0
     assert environment.git_head(str(Path("/nonexistent-checkout-dir"))) is None
+
+
+def test_a_sandbox_memory_limit_below_the_engine_need_is_noted_not_hidden() -> None:
+    from dataclasses import replace
+
+    low = replace(_healthy(), sandbox_memory_bytes=2 * 1024**3)
+    (status,) = check_all(low, ("nuclei",))
+    assert status.state is EngineState.PRESENT  # works with a small template set
+    assert len(status.notes) == 1 and "needs 4 GiB" in status.notes[0]
+    assert "THEMIS_SANDBOX_MEMORY_BYTES" in status.notes[0]
+    enough = replace(_healthy(), sandbox_memory_bytes=4 * 1024**3)
+    assert check_all(enough, ("nuclei",))[0].notes == ()
+    assert check_all(low, ("nmap",))[0].notes == ()  # no declared need, nothing to say

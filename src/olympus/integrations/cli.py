@@ -2564,8 +2564,17 @@ def themis_run(
     target: str = typer.Option("", "--target", help="Authorized target (host/url/domain)."),
     kind: str = typer.Option("host", "--kind", help="Target kind: host, url, or domain."),
     scope: str = typer.Option("", "--scope", help="Versioned Themis scope JSON file."),
-    timeout: float = typer.Option(300.0, "--timeout", help="Per-process timeout in seconds."),
-    deadline: float = typer.Option(600.0, "--deadline", help="Overall scan deadline in seconds."),
+    timeout: float | None = typer.Option(
+        None,
+        "--timeout",
+        help=(
+            "Per-process timeout in seconds. Default 300, or the engine's measured value "
+            "when its manifest is reviewed (nuclei: 1200)."
+        ),
+    ),
+    deadline: float | None = typer.Option(
+        None, "--deadline", help="Overall scan deadline in seconds (default 600, or timeout+300)."
+    ),
     max_scope_bytes: int = typer.Option(1_000_000, "--max-scope-bytes"),
     max_output_bytes: int = typer.Option(5_000_000, "--max-output-bytes"),
     max_findings: int = typer.Option(10_000, "--max-findings"),
@@ -2650,6 +2659,14 @@ def themis_run(
         typer.echo(f"olympus: Themis execution error: {exc}", err=True)
         raise typer.Exit(code=ExitCode.FAILED) from exc
 
+    from olympus.engines.loader import reviewed_timeouts
+
+    declared_timeout, declared_deadline = reviewed_timeouts(
+        scanner, default_timeout=300.0, default_deadline=600.0
+    )
+    timeout = declared_timeout if timeout is None else timeout
+    # An explicit longer timeout must not be capped silently by the default deadline.
+    deadline = max(declared_deadline, timeout + 300.0) if deadline is None else deadline
     evidence_signer = None
     if evidence:
         from olympus.engines.evidence import EvidenceError, signer_from_environment

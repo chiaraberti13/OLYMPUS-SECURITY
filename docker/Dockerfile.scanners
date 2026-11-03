@@ -51,10 +51,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH=/usr/local/go/bin:/usr/local/bin:$PATH
 
 # Mandatory toolchain + helpers (strict): the pip/go/gem/git layers below need
-# these, so a failure here *should* fail the build.
+# these, so a failure here *should* fail the build. procps (ps), bsdmainutils (hexdump)
+# and dnsutils (dig) are runtime requirements of testssl.sh, found by the image smoke test.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        dnsutils whois curl ca-certificates git libssl-dev \
+        dnsutils whois curl ca-certificates git libssl-dev procps \
         golang-go ruby ruby-dev build-essential bsdmainutils \
     && rm -rf /var/lib/apt/lists/*
 
@@ -124,6 +125,13 @@ RUN git_pin() { \
 # Themis passes the directory explicitly (-templates) from this variable. The checkout
 # above is the pinned data dependency src/olympus/engines/_data/nuclei-templates.toml.
 ENV THEMIS_NUCLEI_TEMPLATES=/opt/nuclei-templates
+
+# The Themis sandbox limits a scanner's ADDRESS SPACE (2 GiB by default). Measured with the
+# pinned engine and the full template set above: 2 GiB -> nuclei is out of memory within
+# seconds; 4 GiB -> the scan completes. The image ships nuclei with its full templates, so
+# it sets the limit it needs (engine.toml: [adapter].min_memory_bytes). A host that runs
+# nuclei with a smaller template set can lower it again.
+ENV THEMIS_SANDBOX_MEMORY_BYTES=4294967296
 
 # Go engines, exact tags. Their go.mod files require Go 1.25-1.26, newer than any
 # Debian golang-go, so the toolchain is pinned too: GOTOOLCHAIN makes Go download

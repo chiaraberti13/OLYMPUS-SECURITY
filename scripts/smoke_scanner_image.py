@@ -34,10 +34,32 @@ def _docker(argv: list[str]) -> tuple[int, str]:
     return completed.returncode, (completed.stdout + completed.stderr).strip()
 
 
+#: Engines write caches and config under $HOME. The image's service user has no home
+#: directory (and the Themis sandbox gives each scanner a private scratch one), so the smoke
+#: test supplies a writable one instead of reporting a harmless FileNotFoundError.
+_RUN = ["run", "--rm", "--env", "HOME=/tmp"]
+
+
+def _git_head(image: str, directory: str) -> list[str]:
+    # safe.directory: the checkouts belong to root, the image user does not.
+    return [
+        *_RUN,
+        "--entrypoint",
+        "git",
+        image,
+        "-c",
+        f"safe.directory={directory}",
+        "-C",
+        directory,
+        "rev-parse",
+        "HEAD",
+    ]
+
+
 def smoke(image: str, runner: Runner = _docker) -> list[str]:
     """Return every way the image differs from the manifests; empty means it passes."""
     problems: list[str] = []
-    code, output = runner(["run", "--rm", "--entrypoint", "test", image, "-f", "/NOTICE"])
+    code, output = runner([*_RUN, "--entrypoint", "test", image, "-f", "/NOTICE"])
     if code != 0:
         problems.append(f"/NOTICE is missing from the image ({output})")
     for name, manifest in sorted(load_all().items()):
@@ -45,41 +67,17 @@ def smoke(image: str, runner: Runner = _docker) -> list[str]:
         if spec is None or not spec.in_scanner_image or manifest.engine.distribution == "api":
             continue
         probe = manifest.engine.presence_probe
-        code, output = runner(["run", "--rm", "--entrypoint", probe[0], image, *probe[1:]])
+        code, output = runner([*_RUN, "--entrypoint", probe[0], image, *probe[1:]])
         if code != 0:
             problems.append(f"{name}: presence probe {probe} exited {code}: {output[:200]}")
         source = manifest.engine.source
         if manifest.engine.distribution == "git":
-            code, head = runner(
-                [
-                    "run",
-                    "--rm",
-                    "--entrypoint",
-                    "git",
-                    image,
-                    "-C",
-                    str(source.checkout_path),
-                    "rev-parse",
-                    "HEAD",
-                ]
-            )
+            code, head = runner(_git_head(image, str(source.checkout_path)))
             if code != 0 or head.strip() != source.commit:
                 problems.append(f"{name}: checkout is at {head.strip()!r}, pinned {source.commit}")
     for data_name, data in sorted(load_all_data().items()):
         source = data.data.source
-        code, head = runner(
-            [
-                "run",
-                "--rm",
-                "--entrypoint",
-                "git",
-                image,
-                "-C",
-                str(source.checkout_path),
-                "rev-parse",
-                "HEAD",
-            ]
-        )
+        code, head = runner(_git_head(image, str(source.checkout_path)))
         if code != 0 or head.strip() != source.commit:
             problems.append(f"{data_name}: checkout is at {head.strip()!r}, pinned {source.commit}")
     return problems

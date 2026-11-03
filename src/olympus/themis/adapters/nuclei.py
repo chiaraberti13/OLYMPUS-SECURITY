@@ -182,12 +182,26 @@ class NucleiAdapter(ScannerAdapter):
             )
         return None
 
+    def failure_hint(self, output: CommandOutput) -> str | None:
+        """Say what to change when nuclei dies for want of templates or memory."""
+        text = output.stdout + output.stderr
+        if "no templates provided" in text:
+            return (
+                f"nuclei has no templates. Set {TEMPLATES_VARIABLE} to a nuclei-templates "
+                "directory readable by the sandbox user, or run 'nuclei -update-templates' "
+                "and point the variable at the result"
+            )
+        if "out of memory" in text:
+            required = manifest_for(self.name).adapter
+            need = required.min_memory_bytes if required is not None else None
+            gib = f"{need / 1024**3:.0f} GiB" if need else "more"
+            return (
+                "nuclei ran out of memory under the sandbox address-space limit. The full "
+                f"pinned template set needs about {gib}: raise THEMIS_SANDBOX_MEMORY_BYTES, or "
+                f"point {TEMPLATES_VARIABLE} at a smaller template directory"
+            )
+        return None
+
     def missing_templates_hint(self, output: CommandOutput) -> str | None:
-        """Return actionable guidance when nuclei refused for want of templates."""
-        if "no templates provided" not in (output.stdout + output.stderr):
-            return None
-        return (
-            f"nuclei has no templates. Set {TEMPLATES_VARIABLE} to a nuclei-templates "
-            "directory readable by the sandbox user, or run 'nuclei -update-templates' "
-            "and point the variable at the result"
-        )
+        """Kept for callers of the earlier API; :meth:`failure_hint` is the general hook."""
+        return self.failure_hint(output) if "no templates provided" in output.stderr else None

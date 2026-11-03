@@ -54,6 +54,8 @@ class Environment:
     probe: Probe
     git_head: GitHead
     environ: Mapping[str, str] = field(default_factory=lambda: dict(os.environ))
+    #: Address-space limit the Themis sandbox would apply to a scanner on this host.
+    sandbox_memory_bytes: int = 2 * 1024**3
 
 
 @dataclass(frozen=True)
@@ -80,6 +82,8 @@ class EngineStatus:
     configured: bool | None = None
     data: tuple[DataStatus, ...] = ()
     in_scanner_image: bool = False
+    #: Non-blocking observations (e.g. the sandbox memory limit is below what the engine needs).
+    notes: tuple[str, ...] = ()
 
     @property
     def ok(self) -> bool:
@@ -99,6 +103,7 @@ class EngineStatus:
             "install_command": self.install_command,
             "configured": self.configured,
             "in_scanner_image": self.in_scanner_image,
+            "notes": list(self.notes),
             "data": [
                 {
                     "name": item.name,
@@ -173,6 +178,19 @@ def _inspect_data(manifest: EngineManifest, env: Environment) -> tuple[DataStatu
             )
         )
     return tuple(statuses)
+
+
+def _memory_notes(name: str, manifest: EngineManifest, env: Environment) -> tuple[str, ...]:
+    adapter = manifest.adapter
+    if adapter is None or adapter.min_memory_bytes is None:
+        return ()
+    if env.sandbox_memory_bytes >= adapter.min_memory_bytes:
+        return ()
+    return (
+        f"the sandbox allows {env.sandbox_memory_bytes / 1024**3:.0f} GiB of address space but "
+        f"{name} needs {adapter.min_memory_bytes / 1024**3:.0f} GiB with its full data set; "
+        "raise THEMIS_SANDBOX_MEMORY_BYTES (the sandbox limit is never raised automatically)",
+    )
 
 
 def inspect_engine(name: str, manifest: EngineManifest, env: Environment) -> EngineStatus:
@@ -258,7 +276,12 @@ def inspect_engine(name: str, manifest: EngineManifest, env: Environment) -> Eng
             ),
             install_command=bad.install_command,
         )
-    return EngineStatus(**common, state=EngineState.PRESENT, version_check=check)  # type: ignore[arg-type]
+    return EngineStatus(
+        **common,  # type: ignore[arg-type]
+        state=EngineState.PRESENT,
+        version_check=check,
+        notes=_memory_notes(name, manifest, env),
+    )
 
 
 def check_all(env: Environment, only: tuple[str, ...] = ()) -> list[EngineStatus]:

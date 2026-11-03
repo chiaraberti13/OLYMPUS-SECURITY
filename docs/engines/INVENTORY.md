@@ -43,7 +43,7 @@ Nessun engine è `production-ready`. Nessuna riga del ledger è stata promossa d
 | `nikto` | web | live-tested | sì (timeout/profilo non rivisti) | - | https://github.com/sullo/nikto | no | GPL-2.0 | Perl | git | `2.6.1` @ `d201dac` | 2.5 (RECONFIRM) | no |
 | `nmap` | network | live-tested | sì (timeout/profilo non rivisti) | sì | https://github.com/nmap/nmap | no | Nmap Public Source License 0.95 (non-OSI) | C/C++ | git | `v7.992` @ `0ee5616` | 7.94SVN (RECONFIRM) | sì |
 | `nosqlmap` | web | catalog-only | no | - | https://github.com/codingo/NoSQLMap | no | GPL-3.0 | Python | git | `0.5` @ `898a60b` | - (-) | no |
-| `nuclei` | web | live-tested | sì (timeout/profilo non rivisti) | sì | https://github.com/projectdiscovery/nuclei | no | MIT | Go | go | `v3.11.1` | v3.11.1 (match) | sì |
+| `nuclei` | web | live-tested | sì | sì | https://github.com/projectdiscovery/nuclei | no | MIT | Go | go | `v3.11.1` | v3.11.1 (match) | sì |
 | `sqlmap` | web | live-tested | sì (timeout/profilo non rivisti) | - | https://github.com/sqlmapproject/sqlmap | no | GPL-2.0 | Python | pip | `1.10.11` | 1.10.8 (RECONFIRM) | sì |
 | `subfinder` | dns | catalog-only | no | - | https://github.com/projectdiscovery/subfinder | no | MIT | Go | go | `v2.16.0` | - (-) | sì |
 | `testssl` | tls | offline-tested | sì (timeout/profilo non rivisti) | - | https://github.com/drwetter/testssl.sh | no | GPL-2.0 | Bash | git | `v3.2.4` @ `97763a4` | 3.x (compatible) | sì |
@@ -103,6 +103,8 @@ Un engine passa a `production-ready` solo se **tutte** queste condizioni sono ve
 | apt | Debian rimuove le versioni vecchie e `snapshot.debian.org` non era raggiungibile. | Nessun engine via apt. `nmap` è compilato dal commit pinnato (il tarball firmato su nmap.org non era raggiungibile). |
 | Licenze | `nmap` è sotto Nmap Public Source License 0.95 (non OSI), non GPL-2.0; `whatweb` è GPL-2.0, non GPL-3.0; `arjun` è AGPL-3.0 (corretto nel registry; i metadati PyPI dicono GPL-3). | Registry corretto. La NPSL e l'AGPL hanno implicazioni sulla ridistribuzione dell'immagine: da far valutare prima di pubblicarla. `nikto` ha una licenza propria (codice GPL, database non GPL, distribuibili solo con nikto): non modificata, da rivedere. |
 | `wapiti3` | `3.3.x` richiede Python >= 3.12 (scoperto dal primo build CI: `No matching distribution found`). | Pin a `3.2.3`, l'ultima versione per Python 3.11. Debito: base Python 3.12 (TOOLS-5). |
+| Immagine scanner | Il primo build CI reale ha trovato, uno alla volta: `wapiti3` 3.3.x richiede Python 3.12; `wapiti3` 3.2.3 e `dirsearch` 0.5.0 chiedono `beautifulsoup4` incompatibili; `nmap` da git tenta di rigenerare `configure` (`autoconf` assente); `testssl.sh` richiede `ps`; `git` rifiuta i checkout di root come utente dell'immagine. | Un virtualenv per engine Python, `touch configure`, `procps`, `safe.directory` nel doctor e nello smoke test, `wapiti3` fermo a 3.2.3. |
+| Memoria del sandbox | nuclei con i 14.104 template pinnati è in OOM sotto il limite di default (`RLIMIT_AS` 2 GiB; Go riserva molto più di quanto usa) e dura ~420 s, oltre il timeout di default di 300 s. | Misurato nel sandbox reale: 4 GiB bastano. `min_memory_bytes = 4 GiB` e `timeout_seconds = 1200` nel manifest (`reviewed = true`); l'immagine imposta `THEMIS_SANDBOX_MEMORY_BYTES`; `themis run` usa il timeout del manifest solo per gli engine rivisti. |
 | `xsstrike` | Il tag `3.1.6` punta a un commit il cui script stampa `v3.1.5`. | Il pin è il **commit**; la stringa di versione dell'engine non è usata come prova. |
 | Installazioni non pinnate | Le dipendenze transitive di pip e gem restano libere. | Residuo noto: ambiente con hash per engine (Fase 4). |
 | Template di nuclei | `nuclei-templates` è una dipendenza dati che decide cosa trova nuclei. | Manifest separato `_data/nuclei-templates.toml`, pin al commit (`v10.5.1`), referenziato da `requires_data` nel manifest di nuclei; nell'immagine in `/opt/nuclei-templates` con `THEMIS_NUCLEI_TEMPLATES`. |
@@ -114,8 +116,8 @@ Un engine passa a `production-ready` solo se **tutte** queste condizioni sono ve
 | --- | --- | --- |
 | 0 | Inventario | fatta |
 | 1 | Schema `engine.toml`, 24 manifest, `ExitCode.ENGINE_MISSING` (8), `probe()`/`partial` in `ScannerAdapter`, Dockerfile fail-closed, test di coerenza e di drift | fatta (vedi i TODO del Dockerfile) |
-| 2 | Pilota nuclei: allow-list argv, `partial`, pin dei template, evidence manifest | da fare |
-| 3 | Preflight fail-closed, `olympus engines list/doctor`, `--allow-missing-engines`, mappa dei comandi per `required_for_commands`, testo di installazione dal manifest | da fare |
+| 2 | Pilota nuclei: allow-list argv da manifest, `partial` (schema 1.3.0 additivo), pin dei template, evidence manifest firmato, SBOM con engine e template, `engines list/doctor`, test live opzionale, valori misurati | fatta in codice; **chiude solo con un run CI verde del job `scanner-image`** |
+| 3 | Preflight fail-closed (exit 8 + audit prima di toccare la rete), `--allow-missing-engines`, mappa dei comandi per `required_for_commands`, testo di installazione dal manifest negli adapter, `doctor --strict` nel Dockerfile. (`engines list/doctor` esistono già dalla Fase 2.) | da fare |
 | 4 | `engines check-updates` / `update`, SBOM esteso agli engine, osv-scanner in CI, `docs/engines/UPDATES.md` | da fare |
 | 5 | Adapter per `nosqlmap`, `subfinder`, `theharvester`; replica del pattern | da fare |
 | 6 | Aggiornamento README e tabella di maturità, solo per gli engine che rispettano il criterio sopra | da fare |

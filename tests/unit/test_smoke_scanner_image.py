@@ -110,3 +110,18 @@ def test_a_wrong_template_commit_is_reported() -> None:
 
     problems = _module().smoke("img", runner)
     assert any(p.startswith("nuclei-templates: checkout is at") for p in problems)
+
+
+def test_probes_run_with_a_writable_home_and_git_trusts_the_root_owned_checkouts() -> None:
+    seen: list[list[str]] = []
+
+    def runner(argv: list[str]) -> tuple[int, str]:
+        seen.append(argv)
+        return _healthy(argv)
+
+    _module().smoke("img", runner)
+    assert all(argv[:5] == ["run", "--rm", "--env", "HOME=/tmp", "--entrypoint"] for argv in seen)
+    git_calls = [argv for argv in seen if "rev-parse" in argv]
+    assert git_calls and all(
+        any(a.startswith("safe.directory=/opt/") for a in argv) for argv in git_calls
+    )
