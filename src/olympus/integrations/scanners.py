@@ -172,7 +172,7 @@ _CATALOGUE: tuple[ScannerSpec, ...] = (
         "commix",
         "GPL-3.0",
         True,
-        "pip install commix (VAP_COMMIX_PATH)",
+        "git: commixproject/commix (pin in engine.toml; NON la PyPI 'commix')",
         True,
     ),
     ScannerSpec(
@@ -272,7 +272,7 @@ _CATALOGUE: tuple[ScannerSpec, ...] = (
         "theHarvester",
         "GPL-2.0",
         True,
-        "pip install theHarvester",
+        "git: laramies/theHarvester (pin in engine.toml; NON la PyPI 'theHarvester')",
         False,
     ),
     ScannerSpec(
