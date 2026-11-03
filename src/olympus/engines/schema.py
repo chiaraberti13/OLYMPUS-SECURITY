@@ -348,8 +348,11 @@ class EngineManifest(_Frozen):
                 ]
                 if source.build == "autotools":
                     flags = " ".join(source.build_args)
+                    # A fresh checkout leaves the committed `configure` older than configure.ac,
+                    # which makes `make` try to regenerate it; touch fixes the timestamp only.
                     steps.append(
-                        f"cd {source.checkout_path} && ./configure {flags} && make && make install"
+                        f"cd {source.checkout_path} && find . -name configure -type f "
+                        f"-exec touch {{}} + && ./configure {flags} && make && make install"
                     )
                 else:
                     if source.runtime == "python" and source.runtime_packages:

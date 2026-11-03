@@ -331,7 +331,10 @@ def test_compiled_git_install_command_runs_the_pinned_build() -> None:
         _git_manifest('build = "autotools"\nbuild_args = ["--without-zenmap"]')
     ).install_command()
     assert command is not None
-    assert command.endswith("cd /opt/d && ./configure --without-zenmap && make && make install")
+    assert command.endswith(
+        "cd /opt/d && find . -name configure -type f -exec touch {} + "
+        "&& ./configure --without-zenmap && make && make install"
+    )
 
 
 def test_interpreted_git_install_command_pins_packages_and_writes_a_launcher() -> None:

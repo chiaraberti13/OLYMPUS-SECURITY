@@ -36,6 +36,15 @@ class HttpxAdapter(ScannerAdapter):
     version_expected = "1.x (ProjectDiscovery)"
     install = "go install github.com/projectdiscovery/httpx/cmd/httpx@latest"
 
+    def recognises(self, version_output: str) -> bool:
+        """Only the ProjectDiscovery probe prints ``Current Version``; the Python client does not.
+
+        The Python library answers ``-version`` with a usage error or ``httpx, version X``, so
+        the presence probe can refuse it before any scan is attempted.
+        """
+        lowered = version_output.lower()
+        return "current version" in lowered and "httpx, version" not in lowered
+
     def build_asset(self, host: str, request: ScanRequest) -> Asset:
         return Asset(
             asset_id=self.asset_id(host),

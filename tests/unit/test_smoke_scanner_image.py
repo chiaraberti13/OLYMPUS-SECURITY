@@ -99,6 +99,7 @@ def test_ci_builds_the_image_on_pushes_and_pull_requests_then_smoke_tests_it() -
     assert any("docker build" in s and "docker/Dockerfile.scanners" in s for s in steps)
     assert any("scripts/smoke_scanner_image.py" in s for s in steps)
     assert workflow["permissions"] == {"contents": "read"}
+    assert workflow["concurrency"]["cancel-in-progress"] is True
 
 
 def test_a_wrong_template_commit_is_reported() -> None:

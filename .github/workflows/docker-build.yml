@@ -20,6 +20,11 @@ on:
 permissions:
   contents: read
 
+# A newer push to the same ref supersedes an unfinished build of this slow image.
+concurrency:
+  group: scanner-image-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: build · engine smoke test

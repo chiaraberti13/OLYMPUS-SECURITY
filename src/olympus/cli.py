@@ -23,6 +23,7 @@ from olympus.core import policy as core_policy
 from olympus.core.execution import redact_mapping
 from olympus.core.exit_codes import ExitCode
 from olympus.engagements.cli import app as engagement_app
+from olympus.engines.cli import app as engines_app
 from olympus.helios.cli import app as helios_app
 from olympus.hermes.cli import app as hermes_app
 from olympus.integrations.cli import (
@@ -561,6 +562,7 @@ app.add_typer(minerva_app, name="minerva")
 app.add_typer(vulcan_app, name="vulcan")
 app.add_typer(metis_app, name="metis")
 app.add_typer(themis_app, name="themis")
+app.add_typer(engines_app, name="engines")
 register_aegis_shim(app)  # deprecated 'olympus aegis' -> forwards to 'olympus themis'
 register_vap_shim(app)  # deprecated 'olympus vap' -> forwards to 'olympus themis'
 register_doctor(app)  # 'olympus doctor'
