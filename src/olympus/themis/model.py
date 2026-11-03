@@ -165,6 +165,27 @@ class ThemisResultDocument(BaseModel):
 
 
 @dataclass(frozen=True)
+class OutputDigests:
+    """SHA-256 and size of the engine's RAW stdout/stderr (before any redaction).
+
+    Hashing the raw bytes lets a later reader prove which output a result came from
+    without the output (which may hold secrets) travelling with the evidence.
+    """
+
+    stdout_sha256: str
+    stderr_sha256: str
+    stdout_bytes: int
+    stderr_bytes: int
+
+    @classmethod
+    def of(cls, stdout: str, stderr: str) -> OutputDigests:
+        out, err = stdout.encode("utf-8", "replace"), stderr.encode("utf-8", "replace")
+        return cls(
+            hashlib.sha256(out).hexdigest(), hashlib.sha256(err).hexdigest(), len(out), len(err)
+        )
+
+
+@dataclass(frozen=True)
 class ScanResult:
     """The domain outcome of one scanner invocation."""
 
@@ -187,6 +208,10 @@ class ScanResult:
     #: result exits 5, never 0 or 1. Serialised as ``ThemisResultDocument`` 1.3.0.
     partial: bool = False
     partial_reason: str | None = None
+    #: The command line that was run, already redacted. Empty when nothing was started.
+    argv: tuple[str, ...] = ()
+    #: Digests of the raw engine output; ``None`` when no process produced any.
+    output_digests: OutputDigests | None = None
 
     def __post_init__(self) -> None:
         if self.partial and self.state is not ExecutionState.LIVE:

@@ -12,11 +12,18 @@ from olympus.core.execution import (
     Cancellation,
     ExecutionPolicy,
     NeverCancelled,
+    redact_arguments,
     redact_text,
     redact_url,
 )
 from olympus.core.models import Asset, Finding
-from olympus.themis.model import MAX_RAW_EVIDENCE, Dependency, ScanRequest, ScanResult
+from olympus.themis.model import (
+    MAX_RAW_EVIDENCE,
+    Dependency,
+    OutputDigests,
+    ScanRequest,
+    ScanResult,
+)
 from olympus.themis.runner import (
     CommandError,
     CommandOutput,
@@ -358,6 +365,8 @@ class ScannerAdapter(ABC):
             )
         duration = time.monotonic() - started
         evidence = _evidence(output)
+        command = tuple(redact_arguments(argv))
+        digests = OutputDigests.of(output.stdout, output.stderr)
         if output.exit_code not in self.success_exit_codes:
             return ScanResult(
                 scanner=self.name,
@@ -370,6 +379,8 @@ class ScannerAdapter(ABC):
                 exit_code=output.exit_code,
                 termination=output.termination,
                 duration_seconds=duration,
+                argv=command,
+                output_digests=digests,
             )
         try:
             findings = self.parse(output, host, request_with_addresses)
@@ -385,6 +396,8 @@ class ScannerAdapter(ABC):
                 exit_code=output.exit_code,
                 termination=output.termination,
                 duration_seconds=duration,
+                argv=command,
+                output_digests=digests,
             )
         if len(findings) > request.max_findings:
             return ScanResult(
@@ -397,6 +410,8 @@ class ScannerAdapter(ABC):
                 exit_code=output.exit_code,
                 termination=output.termination,
                 duration_seconds=duration,
+                argv=command,
+                output_digests=digests,
             )
         lost = self.coverage_loss(output, request_with_addresses)
         return ScanResult(
@@ -413,6 +428,8 @@ class ScannerAdapter(ABC):
             duration_seconds=duration,
             partial=lost is not None,
             partial_reason=lost,
+            argv=command,
+            output_digests=digests,
         )
 
 
@@ -460,5 +477,10 @@ def _evidence(output: CommandOutput) -> str:
     return redact_text(value)[:MAX_RAW_EVIDENCE]
 
 
+#: ANSI CSI/OSC escape sequences. Engines colour their banners even when piped (nuclei,
+#: wafw00f), and ``translate``-style control stripping would leave their ``[34m`` tails.
+_ANSI = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[@-Z\\-_]")
+
+
 def _safe_line(value: str, maximum: int) -> str:
-    return " ".join(value.replace("\x00", "").split())[:maximum]
+    return " ".join(_ANSI.sub("", value).replace("\x00", "").split())[:maximum]

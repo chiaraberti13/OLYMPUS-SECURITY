@@ -89,7 +89,10 @@ RUN pip_engine() { \
     pip_engine wapiti 'wapiti3==3.2.3' wapiti; \
     pip_engine dirsearch 'dirsearch==0.5.0' dirsearch
 
-# Git-distributed engines, each fetched by full commit SHA and verified. The recipe
+# Git-distributed engines, each fetched by full commit SHA and verified. (nmap ships a
+# generated `configure`; a fresh checkout leaves it older than configure.ac, so make would
+# try to regenerate it with autoconf. `touch` only fixes the timestamp: the tree stays
+# byte-identical to the pinned commit.) The recipe
 # is the one EngineManifest.install_command() prints, so what an operator is told
 # to run is what this image runs.
 RUN git_pin() { \
@@ -103,7 +106,7 @@ RUN git_pin() { \
         chmod 0755 "/usr/local/bin/$1"; \
     }; \
     git_pin https://github.com/nmap/nmap 0ee561663c1d7d2d4e708cd414dccfd3d9df30d9 /opt/nmap; \
-    (cd /opt/nmap && ./configure --without-zenmap --without-ndiff --without-nping --without-ncat --without-nmap-update && make -j"$(nproc)" && make install); \
+    (cd /opt/nmap && find . -name configure -type f -exec touch {} + && ./configure --without-zenmap --without-ndiff --without-nping --without-ncat --without-nmap-update && make -j"$(nproc)" && make install); \
     git_pin https://github.com/urbanadventurer/WhatWeb d279d93042d034f3fd29d5a893d44ccc0595d3f8 /opt/whatweb; \
     gem install --no-document addressable -v 2.9.2; \
     launcher whatweb ruby /opt/whatweb/whatweb; \

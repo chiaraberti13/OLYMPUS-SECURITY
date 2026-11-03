@@ -2593,6 +2593,15 @@ def themis_run(
         "--lab-policy",
         help="Explicit signed policy file for a direct live scan limited to declared lab CIDRs.",
     ),
+    evidence: str = typer.Option(
+        "",
+        "--evidence",
+        help=(
+            "Write a signed evidence manifest for this run (and PATH.sig). Needs "
+            "OLYMPUS_EVIDENCE_SIGNING_KEY_FILE to name an Ed25519 private key; without it "
+            "the run is refused before it starts."
+        ),
+    ),
     i_am_authorized: bool = typer.Option(
         False, "--i-am-authorized", help="Confirm documented authorization for a real scan."
     ),
@@ -2640,6 +2649,16 @@ def themis_run(
     except ThemisConfigError as exc:
         typer.echo(f"olympus: Themis execution error: {exc}", err=True)
         raise typer.Exit(code=ExitCode.FAILED) from exc
+
+    evidence_signer = None
+    if evidence:
+        from olympus.engines.evidence import EvidenceError, signer_from_environment
+
+        try:
+            evidence_signer = signer_from_environment()
+        except EvidenceError as exc:
+            typer.echo(safe_terminal_text(f"olympus: {exc}"), err=True)
+            raise typer.Exit(code=ExitCode.USAGE) from exc
 
     job_id: str | None = None
     manifest_sha256: str | None = None
@@ -2716,6 +2735,8 @@ def themis_run(
                 max_scope_bytes=max_scope_bytes,
                 max_output_bytes=max_output_bytes,
                 max_findings=max_findings,
+                evidence_path=Path(evidence) if evidence else None,
+                evidence_signer=evidence_signer,
             )
         )
     except (OutOfScopeError, SsrfBlockedError) as exc:
