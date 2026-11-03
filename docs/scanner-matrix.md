@@ -21,17 +21,17 @@ _Generated from `olympus.integrations.scanners` (registry) and `olympus.themis.r
 | dirsearch | web | local-oss-binary | active | `dirsearch` | GPL-2.0 | yes | yes | ✅ implemented | ✅ yes |
 | httpx | web | local-oss-binary | active | `httpx` | MIT | yes | yes | ✅ implemented | ✅ yes |
 | katana | web | local-oss-binary | active | `katana` | MIT | yes | yes | ✅ implemented | ✅ yes |
-| nikto | web | local-oss-binary | active | `nikto` | GPL-2.0 | yes | yes | ✅ implemented | ✅ yes |
-| nmap | network | local-oss-binary | active | `nmap` | GPL-2.0 | yes | yes | ✅ implemented | ✅ yes |
-| nosqlmap | web | local-oss-binary | intrusive | `nosqlmap` | GPL-3.0 | yes | yes | — pending | n/a |
+| nikto | web | local-oss-binary | active | `nikto` | GPL-2.0 | yes | no | ✅ implemented | ✅ yes |
+| nmap | network | local-oss-binary | active | `nmap` | Nmap Public Source License 0.95 (non-OSI) | yes | yes | ✅ implemented | ✅ yes |
+| nosqlmap | web | local-oss-binary | intrusive | `nosqlmap` | GPL-3.0 | yes | no | — pending | n/a |
 | nuclei | web | local-oss-binary | active | `nuclei` | MIT | yes | yes | ✅ implemented | ✅ yes |
 | sqlmap | web | local-oss-binary | intrusive | `sqlmap` | GPL-2.0 | yes | yes | ✅ implemented | ✅ yes |
 | subfinder | dns | local-oss-binary | passive | `subfinder` | MIT | yes | yes | — pending | n/a |
 | testssl | tls | local-oss-binary | active | `testssl.sh` | GPL-2.0 | yes | yes | ✅ implemented | parser only |
-| theharvester | dns | local-oss-binary | passive | `theHarvester` | GPL-2.0 | yes | yes | — pending | n/a |
+| theharvester | dns | local-oss-binary | passive | `theHarvester` | GPL-2.0 | yes | no | — pending | n/a |
 | wafw00f | web | local-oss-binary | active | `wafw00f` | BSD-3-Clause | yes | yes | ✅ implemented | ✅ yes |
 | wapiti | web | local-oss-binary | active | `wapiti` | GPL-2.0 | yes | yes | ✅ implemented | parser only |
-| whatweb | web | local-oss-binary | active | `whatweb` | GPL-3.0 | yes | yes | ✅ implemented | parser only |
+| whatweb | web | local-oss-binary | active | `whatweb` | GPL-2.0 | yes | yes | ✅ implemented | parser only |
 | wpscan | web | local-oss-binary | active | `wpscan` | WPScan Public Source (non-OSI) | no | yes | ✅ implemented | n/a |
 | xsstrike | web | local-oss-binary | intrusive | `xsstrike` | GPL-3.0 | yes | yes | ✅ implemented | ✅ yes |
 | burp | web | proprietary-local | active | `API/daemon` | Commercial (PortSwigger) | no | no | — pending | n/a |
@@ -46,7 +46,7 @@ _Generated from `olympus.integrations.scanners` (registry) and `olympus.themis.r
   - `proprietary-local`: 1
   - `proprietary-remote-api`: 2
 - **Auto-installable / redistributable**: 20/24
-- **Bundled in `docker/Dockerfile.scanners`**: 19/24
+- **Bundled in `docker/Dockerfile.scanners`**: 16/24
 - **Proprietary (commercial licence)**: 3/24 (acunetix, burp, nessus)
 - **Native Themis execution adapters implemented**: 16/24 (arjun, commix, dalfox, dirsearch, httpx, katana, nikto, nmap, nuclei, sqlmap, testssl, wafw00f, wapiti, whatweb, wpscan, xsstrike)
 - **Live end-to-end verified in this environment**: 12/24 (arjun, commix, dalfox, dirsearch, httpx, katana, nikto, nmap, nuclei, sqlmap, wafw00f, xsstrike) — see evidence doc
