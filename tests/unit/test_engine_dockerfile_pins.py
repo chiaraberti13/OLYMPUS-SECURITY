@@ -79,3 +79,21 @@ def test_dockerfile_has_no_best_effort_installs_or_moving_references() -> None:
     assert 'SHELL ["/bin/bash", "-euxo", "pipefail", "-c"]' in code
     assert "apt-get install" in code and "nmap=" not in code  # no apt-installed engine
     assert "GOTOOLCHAIN=go1.26" in code  # the Go toolchain is pinned too
+
+
+def test_every_pin_in_the_dockerfile_belongs_to_a_manifest() -> None:
+    """The reverse direction: an install nobody declared in an engine.toml is a bug."""
+    import re
+
+    text = DOCKERFILE.read_text(encoding="utf-8")
+    manifests = load_all().values()
+    commits = {m.engine.source.commit for m in manifests if m.engine.source.commit}
+    for repo, commit, _path in re.findall(r"git_pin (\S+) ([0-9a-f]{40}) (\S+);", text):
+        assert commit in commits, f"git_pin {repo} {commit} has no engine.toml"
+    modules = {f"{m.engine.source.module}@{m.engine.pinned_version}" for m in manifests}
+    for target in re.findall(r"go install (\S+)", text):
+        assert target in modules, f"go install {target} has no engine.toml"
+    pips = {f"{m.engine.source.package}=={m.engine.pinned_version}" for m in manifests}
+    for pin in re.findall(r"'([A-Za-z0-9._-]+==[0-9][A-Za-z0-9._-]*)'", text):
+        runtime = {p for m in manifests for p in m.engine.source.runtime_packages}
+        assert pin in pips or pin in runtime, f"pip pin {pin} has no engine.toml"

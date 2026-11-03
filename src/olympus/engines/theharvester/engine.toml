@@ -1,0 +1,20 @@
+[engine]
+name = "theharvester"
+category = "dns"
+upstream = "https://github.com/laramies/theHarvester"
+upstream_verified = false
+language = "Python"
+license = "GPL-2.0"
+distribution = "git"
+pinned_version = "4.11.1"
+update_policy = "manual"
+mandatory = false
+presence_probe = ["theHarvester", "--help"]
+capability = "dns.osint"
+
+[engine.source]
+repo = "https://github.com/laramies/theHarvester"
+commit = "fd832dee7936458a4f6e2029bf37ba6797228676"
+checkout_path = "/opt/theharvester"
+entry = "bin/theHarvester"
+runtime = "python"

@@ -16,7 +16,7 @@ from olympus.engines.loader import (
     parse_manifest,
 )
 from olympus.engines.schema import MOBILE_REFERENCES
-from olympus.integrations.maturity import Maturity, record_for
+from olympus.integrations.maturity import Maturity, at_least, record_for
 from olympus.integrations.scanners import by_name
 from olympus.themis.base import ScannerAdapter
 
@@ -29,6 +29,7 @@ _BASE = """
 name = "demo"
 category = "web"
 upstream = "https://github.com/example/demo"
+language = "Go"
 license = "MIT"
 distribution = "go"
 pinned_version = "v1.2.3"
@@ -80,7 +81,6 @@ def test_incomplete_manifest_reports_every_missing_field_in_both_forms() -> None
     assert {
         "engine.category",
         "engine.upstream",
-        "engine.pinned_version",
         "engine.source",
     } <= fields
     assert "Olympus Schema Validation Error (olympus.engine-manifest)" in str(caught.value)
@@ -163,15 +163,15 @@ _API = """
 name = "burp"
 category = "web"
 upstream = "https://portswigger.net/burp"
+language = "Java (proprietario)"
 license = "Commercial (PortSwigger)"
 distribution = "api"
-pinned_version = "2025.1"
 update_policy = "manual"
-presence_probe = ["burp", "--version"]
 capability = "web.scan"
 {engine_extra}
 [engine.source]
 requires_product = "PortSwigger Burp Suite Professional (commercial licence)"
+env_vars = ["THEMIS_BURP_URL", "THEMIS_BURP_API_KEY"]
 {adapter}
 """
 
@@ -183,6 +183,27 @@ def test_api_engines_are_catalog_only_never_mandatory_never_adapted() -> None:
         parse_manifest(_API.format(engine_extra="mandatory = true", adapter=_ADAPTER))
     with pytest.raises(ManifestError, match="stay catalog-only"):
         parse_manifest(_API.format(engine_extra="", adapter=_ADAPTER))
+
+
+def test_api_engine_has_no_pin_no_probe_and_only_env_var_names() -> None:
+    no_names = _API.format(engine_extra="", adapter="").replace(
+        'env_vars = ["THEMIS_BURP_URL", "THEMIS_BURP_API_KEY"]', ""
+    )
+    with pytest.raises(ManifestError, match="env var NAMES"):
+        parse_manifest(no_names)
+    with pytest.raises(ManifestError, match="no executable"):
+        parse_manifest(_API.format(engine_extra='presence_probe = ["burp"]', adapter=""))
+    with pytest.raises(ManifestError, match="String should match"):
+        parse_manifest(
+            _API.format(engine_extra="", adapter="").replace("THEMIS_BURP_URL", "secret-value-123")
+        )
+    # every other distribution must still pin and probe
+    no_pin = _manifest(adapter="").replace('pinned_version = "v1.2.3"\n', "")
+    with pytest.raises(ManifestError, match="requires pinned_version"):
+        parse_manifest(no_pin)
+    no_probe = _manifest(adapter="").replace('presence_probe = ["demo", "-version"]\n', "")
+    with pytest.raises(ManifestError, match="requires presence_probe"):
+        parse_manifest(no_probe)
 
 
 def test_install_command_is_derived_from_the_pin_for_every_distribution() -> None:
@@ -271,7 +292,12 @@ def test_oversized_and_symlinked_manifests_are_refused(tmp_path: Path) -> None:
 
 def test_manifests_never_contain_secrets_or_command_strings() -> None:
     for path in _shipped().values():
-        text = path.read_text(encoding="utf-8").lower()
+        manifest = load_manifest(path)
+        text = path.read_text(encoding="utf-8")
+        # env var NAMES are allowed (the schema pins their shape); values never appear.
+        for name in manifest.engine.source.env_vars:
+            text = text.replace(name, "")
+        text = text.lower()
         for forbidden in ("token", "password", "api_key", "secret", "sh -c", "shell"):
             assert forbidden not in text, f"{path}: contains {forbidden!r}"
         json.dumps(load_manifest(path).model_dump())  # serialisable, no objects
@@ -333,3 +359,60 @@ def test_interpreted_git_install_command_pins_packages_and_writes_a_launcher() -
 def test_runtime_packages_and_build_args_must_be_exact_and_inert(extra: str) -> None:
     with pytest.raises(ManifestError):
         parse_manifest(_git_manifest('entry = "d.py"\nruntime = "python"\n' + extra))
+
+
+# --- the catalogue as a whole ---------------------------------------------- #
+def test_every_catalogued_engine_has_exactly_one_manifest() -> None:
+    from olympus.integrations.scanners import REGISTRY
+
+    assert set(_shipped()) == {spec.name for spec in REGISTRY}
+
+
+def test_manifest_adapter_presence_matches_the_adapter_registry() -> None:
+    from olympus.themis.registry import implemented
+
+    for name, manifest in load_all().items():
+        assert (manifest.adapter is not None) == (name in implemented()), name
+
+
+def test_the_mandatory_set_is_the_core_path_and_changing_it_is_deliberate() -> None:
+    """nmap/nuclei/httpx are the defaults of recommended_scanner, Smart Scan and Athena deep.
+
+    ``mandatory`` means "baseline infrastructure every engine-using command assumes", not
+    "engines we like". Widening this set must be a reviewed decision, hence this lock.
+    """
+    mandatory = {name for name, m in load_all().items() if m.engine.mandatory}
+    assert mandatory == {"nmap", "nuclei", "httpx"}
+
+
+def test_adapter_backed_manifests_are_not_catalog_only_and_vice_versa() -> None:
+    for name, manifest in load_all().items():
+        stage = record_for(name).stage
+        assert (stage is Maturity.CATALOG_ONLY) == (manifest.adapter is None), name
+
+
+def test_every_manifest_is_unverified_until_check_updates_says_otherwise() -> None:
+    assert not [n for n, m in load_all().items() if m.engine.upstream_verified]
+
+
+def test_api_engines_are_the_five_external_products() -> None:
+    api = {n for n, m in load_all().items() if m.engine.distribution == "api"}
+    assert api == {"zap", "openvas", "nessus", "burp", "acunetix"}
+    for name in api:
+        manifest = load_all()[name]
+        assert manifest.engine.mandatory is False and manifest.adapter is None
+        assert manifest.engine.source.requires_product
+
+
+def test_pypi_packages_that_are_not_the_upstream_project_are_rejected() -> None:
+    for package, fragment in (("commix", "Bhai4You"), ("theHarvester", "stale")):
+        text = _manifest(adapter="").replace('distribution = "go"', 'distribution = "pip"')
+        text = text.replace('module = "github.com/example/demo/cmd/demo"', f'package = "{package}"')
+        with pytest.raises(ManifestError, match=fragment):
+            parse_manifest(text.replace('"v1.2.3"', '"0.1"'))
+
+
+def test_live_tested_engines_record_the_version_their_evidence_was_captured_on() -> None:
+    for name, manifest in load_all().items():
+        if at_least(record_for(name).stage, Maturity.LIVE_TESTED):
+            assert manifest.engine.evidence_version, f"{name}: live-tested without evidence_version"

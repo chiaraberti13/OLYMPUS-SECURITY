@@ -1,0 +1,15 @@
+[engine]
+name = "zap"
+category = "web"
+upstream = "https://github.com/zaproxy/zaproxy"
+upstream_verified = false
+language = "Java"
+license = "Apache-2.0"
+distribution = "api"
+update_policy = "manual"
+mandatory = false
+capability = "web.scan"
+
+[engine.source]
+requires_product = "OWASP ZAP daemon (open source, runs as a separate service)"
+env_vars = ["THEMIS_ZAP_URL", "THEMIS_ZAP_API_KEY"]

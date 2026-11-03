@@ -3,10 +3,12 @@ name = "xsstrike"
 category = "web"
 upstream = "https://github.com/s0md3v/XSStrike"
 upstream_verified = false
+language = "Python"
 license = "GPL-3.0"
 distribution = "git"
 # Tag 3.1.6; the commit below is what the probe checks (`git rev-parse HEAD`).
 pinned_version = "3.1.6"
+evidence_version = "3.1.5"
 update_policy = "manual"
 mandatory = false
 presence_probe = ["xsstrike", "--help"]

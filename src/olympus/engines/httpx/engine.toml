@@ -1,0 +1,22 @@
+[engine]
+name = "httpx"
+category = "web"
+upstream = "https://github.com/projectdiscovery/httpx"
+upstream_verified = false
+language = "Go"
+license = "MIT"
+distribution = "go"
+pinned_version = "v1.11.0"
+evidence_version = "1.x"
+update_policy = "minor"
+mandatory = true
+presence_probe = ["httpx", "-version"]
+capability = "web.probe"
+
+[engine.source]
+module = "github.com/projectdiscovery/httpx/cmd/httpx"
+
+[adapter]
+entrypoint = "olympus.themis.adapters.httpx:HttpxAdapter"
+timeout_seconds = 300
+resource_profile = "light"

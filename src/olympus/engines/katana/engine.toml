@@ -1,0 +1,22 @@
+[engine]
+name = "katana"
+category = "web"
+upstream = "https://github.com/projectdiscovery/katana"
+upstream_verified = false
+language = "Go"
+license = "MIT"
+distribution = "go"
+pinned_version = "v1.7.0"
+evidence_version = "1.x"
+update_policy = "minor"
+mandatory = false
+presence_probe = ["katana", "-version"]
+capability = "web.crawl"
+
+[engine.source]
+module = "github.com/projectdiscovery/katana/cmd/katana"
+
+[adapter]
+entrypoint = "olympus.themis.adapters.katana:KatanaAdapter"
+timeout_seconds = 300
+resource_profile = "network-heavy"

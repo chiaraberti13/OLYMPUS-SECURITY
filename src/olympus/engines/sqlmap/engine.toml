@@ -1,0 +1,22 @@
+[engine]
+name = "sqlmap"
+category = "web"
+upstream = "https://github.com/sqlmapproject/sqlmap"
+upstream_verified = false
+language = "Python"
+license = "GPL-2.0"
+distribution = "pip"
+pinned_version = "1.10.11"
+evidence_version = "1.10.8"
+update_policy = "minor"
+mandatory = false
+presence_probe = ["sqlmap", "--version"]
+capability = "web.sqli"
+
+[engine.source]
+package = "sqlmap"
+
+[adapter]
+entrypoint = "olympus.themis.adapters.sqlmap:SqlmapAdapter"
+timeout_seconds = 600
+resource_profile = "network-heavy"

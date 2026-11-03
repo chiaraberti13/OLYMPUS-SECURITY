@@ -1,0 +1,15 @@
+[engine]
+name = "openvas"
+category = "vuln"
+upstream = "https://github.com/greenbone/openvas-scanner"
+upstream_verified = false
+language = "C (stack GVM)"
+license = "GPL-2.0"
+distribution = "api"
+update_policy = "manual"
+mandatory = false
+capability = "vuln.scan"
+
+[engine.source]
+requires_product = "Greenbone GVM stack (open source, heavy multi-service deployment)"
+env_vars = ["THEMIS_OPENVAS_URL", "THEMIS_OPENVAS_TOKEN"]

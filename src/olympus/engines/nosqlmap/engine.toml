@@ -1,0 +1,20 @@
+[engine]
+name = "nosqlmap"
+category = "web"
+upstream = "https://github.com/codingo/NoSQLMap"
+upstream_verified = false
+language = "Python"
+license = "GPL-3.0"
+distribution = "git"
+pinned_version = "0.5"
+update_policy = "manual"
+mandatory = false
+presence_probe = ["nosqlmap", "--help"]
+capability = "web.nosqli"
+
+[engine.source]
+repo = "https://github.com/codingo/NoSQLMap"
+commit = "898a60b0c916eb53ec65b7417baffddaf74f41b5"
+checkout_path = "/opt/nosqlmap"
+entry = "nosqlmap.py"
+runtime = "python"

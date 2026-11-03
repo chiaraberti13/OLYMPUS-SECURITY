@@ -1,137 +1,111 @@
 # Inventario degli engine esterni
 
-Stato: **Fase 0 — analisi** (nessun codice modificato). Fonte di verità del catalogo:
-`olympus.integrations.scanners.REGISTRY` (24 voci) e il ledger di maturità
-`olympus.integrations.maturity.DECLARED`. La colonna *stato* riflette il ledger
-(`verify_declarations()` restituisce `[]` su questo commit); non è stata
-riclassificata nessuna voce.
+Roadmap: **TOOLS-4**. Le tabelle qui sotto sono **generate**: derivano dai manifest
+`src/olympus/engines/<nome>/engine.toml` (pin, upstream, distribuzione), dal registry
+`olympus.integrations.scanners` (categoria, licenza, presenza nell'immagine) e dal ledger
+`olympus.integrations.maturity` (stato). Non modificarle a mano: `tests/unit/test_engine_inventory_doc.py`
+fallisce quando il file diverge, e `python scripts/generate_engine_inventory.py --write` le riscrive.
 
-## Tabella
+Nessun engine è `production-ready`. Nessuna riga del ledger è stata promossa da questo lavoro.
 
-Legenda stato: `catalog-only` · `adapter-ready` · `offline-tested` · `live-tested` ·
-`production-ready` (scala di `docs/scanner-maturity.md`; **nessun engine è
-`production-ready`**). *Adapter* = esiste un `ScannerAdapter` in
-`olympus.themis.registry` (16 su 24). *Pin oggi* = ciò che `docker/Dockerfile.scanners`
-fissa effettivamente.
+## Come leggere le tabelle
 
-| Engine | Categoria | Stato | Adapter | Upstream | Licenza | Linguaggio | Distribuzione oggi | Pin oggi | Binario (probe) |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `acunetix` | web | catalog-only | no | https://www.acunetix.com | Commercial (Invicti) | proprietario | manuale + licenza (API) | n/a (non installato) | `—` |
-| `arjun` | web | live-tested | sì | https://github.com/s0md3v/Arjun | AGPL-3.0 | Python | pip | nessuno | `arjun` |
-| `burp` | web | catalog-only | no | https://portswigger.net/burp | Commercial (PortSwigger) | Java (proprietario) | manuale + licenza (API) | n/a (non installato) | `—` |
-| `commix` | web | live-tested | sì | https://github.com/commixproject/commix | GPL-3.0 | Python | pip | nessuno | `commix` |
-| `dalfox` | web | live-tested | sì | https://github.com/hahwul/dalfox | MIT | Go | go install | v2.13.0 | `dalfox` |
-| `dirsearch` | web | live-tested | sì | https://github.com/maurosoria/dirsearch | GPL-2.0 | Python | pip | nessuno | `dirsearch` |
-| `httpx` | web | live-tested | sì | https://github.com/projectdiscovery/httpx | MIT | Go | go install | v1.11.0 | `httpx` |
-| `katana` | web | live-tested | sì | https://github.com/projectdiscovery/katana | MIT | Go | go install | v1.7.0 | `katana` |
-| `nessus` | vuln | catalog-only | no | https://www.tenable.com/products/nessus | Commercial (Tenable) | proprietario | manuale + licenza (API) | n/a (non installato) | `—` |
-| `nikto` | web | live-tested | sì | https://github.com/sullo/nikto | GPL-2.0 | Perl | apt | nessuno (apt) | `nikto` |
-| `nmap` | network | live-tested | sì | https://github.com/nmap/nmap | GPL-2.0 | C/C++ | apt | nessuno (apt, versione distro) | `nmap` |
-| `nosqlmap` | web | catalog-only | no | https://github.com/codingo/NoSQLMap | GPL-3.0 | Python | git clone | nessuno (HEAD, `--depth 1`) | `nosqlmap` |
-| `nuclei` | web | live-tested | sì | https://github.com/projectdiscovery/nuclei | MIT | Go | go install | v3.11.1 | `nuclei` |
-| `openvas` | vuln | catalog-only | no | https://github.com/greenbone/openvas-scanner | GPL-2.0 | C (stack GVM) | docker/manuale (API) | n/a (non installato) | `—` |
-| `sqlmap` | web | live-tested | sì | https://github.com/sqlmapproject/sqlmap | GPL-2.0 | Python | pip | nessuno | `sqlmap` |
-| `subfinder` | dns | catalog-only | no | https://github.com/projectdiscovery/subfinder | MIT | Go | go install | v2.16.0 | `subfinder` |
-| `testssl` | tls | offline-tested | sì | https://github.com/drwetter/testssl.sh | GPL-2.0 | Bash | git clone | nessuno (HEAD, `--depth 1`) | `testssl.sh` |
-| `theharvester` | dns | catalog-only | no | https://github.com/laramies/theHarvester | GPL-2.0 | Python | pip | nessuno | `theHarvester` |
-| `wafw00f` | web | live-tested | sì | https://github.com/EnableSecurity/wafw00f | BSD-3-Clause | Python | pip | nessuno | `wafw00f` |
-| `wapiti` | web | offline-tested | sì | https://github.com/wapiti-scanner/wapiti | GPL-2.0 | Python | pip (`wapiti3`) | nessuno | `wapiti` |
-| `whatweb` | web | offline-tested | sì | https://github.com/urbanadventurer/WhatWeb | GPL-3.0 | Ruby | apt | nessuno (apt) | `whatweb` |
-| `wpscan` | web | adapter-ready | sì | https://github.com/wpscanteam/wpscan | WPScan Public Source (non-OSI) | Ruby | gem | nessuno | `wpscan` |
-| `xsstrike` | web | live-tested | sì | https://github.com/s0md3v/XSStrike | GPL-3.0 | Python | git clone | nessuno (HEAD, `--depth 1`) | `xsstrike` |
-| `zap` | web | catalog-only | no | https://github.com/zaproxy/zaproxy | Apache-2.0 | Java | docker/daemon (API) | n/a (non installato) | `—` |
+- **Stato**: scala di `docs/scanner-maturity.md`. L'asse è la maturità *del progetto*, non la presenza su questa macchina.
+- **Mandatory**: l'engine fa parte della baseline d'infrastruttura (`nmap`, `nuclei`, `httpx`): i default di
+  `recommended_scanner`, dello Smart Scan e del profilo Athena `deep`. Un test blocca l'insieme: allargarlo è una
+  decisione da rivedere, non un effetto collaterale. Gli altri engine con adapter useranno `required_for_commands`
+  (Fase 3, con la mappa dei comandi); l'engine nominato esplicitamente da un comando è sempre richiesto.
+- **Upstream verificato**: `no` per tutti. Lo diventa solo quando `olympus engines check-updates` (Fase 4) risolve
+  l'URL e trova tag compatibili col pin. Il 2026-11-03 i 21 repo GitHub rispondevano a `git ls-remote`; i siti dei
+  tre prodotti commerciali non sono stati controllati.
+- **Pin**: versione/tag esatto; per gli engine git anche il commit (7 caratteri) che il probe dovrà verificare con
+  `git rev-parse HEAD`. Nessun `latest`, `main` o `master`.
+- **Evidenza (esito pin)**: versione su cui è stata catturata l'evidenza di maturità
+  (`docs/themis-execution-evidence.md`) e confronto col pin. `match`: identiche. `compatible`: l'evidenza registra
+  solo la linea maggiore (`2.x`). **`RECONFIRM`: l'evidenza è su una versione diversa dal pin, quindi lo stato va
+  ri-provato sul pin prima di fidarsene** (Fase 2 per nuclei, Fase 3 per gli altri). Un engine `live-tested` senza
+  `evidence_version` fa fallire i test.
+- **In immagine**: se `docker/Dockerfile.scanners` lo installa davvero. Un test confronta ogni pin dei manifest con
+  il Dockerfile e, in senso inverso, ogni pin del Dockerfile con un manifest.
 
-Note sulle fonti:
+<!-- GENERATED:engine-inventory START -->
 
-- **Categoria, stato, licenza, binario, presenza adapter**: derivati dal codice del
-  repo (registry + ledger + registry degli adapter). Le licenze sono quelle già
-  dichiarate in `ScannerSpec`, non riverificate upstream.
-- **Upstream e linguaggio**: URL pubblici dei progetti. Quelli di XSStrike, NoSQLMap,
-  testssl.sh e dei 5 engine Go compaiono già nel Dockerfile; gli altri non sono
-  citati dal repo e **vanno verificati** contro la pagina release ufficiale quando
-  `olympus engines check-updates` (Fase 4) li interrogherà per la prima volta.
-- **Pin oggi**: solo i 5 engine Go sono fissati a una versione esatta; il digest
-  dell'immagine base è fissato. Tutto il resto è non riproducibile (vedi sotto).
-- La spec del registry per nuclei dice `go install github.com/projectdiscovery/nuclei`:
-  il percorso corretto del modulo è `.../nuclei/v3/cmd/nuclei` (come nel Dockerfile).
-  Da correggere nel manifest.
+### Engine locali (installabili)
 
-## Cosa esiste già (da riusare, non duplicare)
+| Engine | Categoria | Stato | Adapter | Mandatory | Upstream | Upstream verificato | Licenza | Linguaggio | Distribuzione | Pin | Evidenza (esito pin) | In immagine |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `arjun` | web | live-tested | sì | - | https://github.com/s0md3v/Arjun | no | AGPL-3.0 | Python | pip | `2.2.7` | 2.x (compatible) | sì |
+| `commix` | web | live-tested | sì | - | https://github.com/commixproject/commix | no | GPL-3.0 | Python | git | `v4.1` @ `06beb62` | 4.x (compatible) | sì |
+| `dalfox` | web | live-tested | sì | - | https://github.com/hahwul/dalfox | no | MIT | Go | go | `v2.13.0` | v2.13.0 (match) | sì |
+| `dirsearch` | web | live-tested | sì | - | https://github.com/maurosoria/dirsearch | no | GPL-2.0 | Python | pip | `0.5.0` | v0.5.0 (match) | sì |
+| `httpx` | web | live-tested | sì | sì | https://github.com/projectdiscovery/httpx | no | MIT | Go | go | `v1.11.0` | 1.x (compatible) | sì |
+| `katana` | web | live-tested | sì | - | https://github.com/projectdiscovery/katana | no | MIT | Go | go | `v1.7.0` | 1.x (compatible) | sì |
+| `nikto` | web | live-tested | sì | - | https://github.com/sullo/nikto | no | GPL-2.0 | Perl | git | `2.6.1` @ `d201dac` | 2.5 (RECONFIRM) | no |
+| `nmap` | network | live-tested | sì | sì | https://github.com/nmap/nmap | no | Nmap Public Source License 0.95 (non-OSI) | C/C++ | git | `v7.992` @ `0ee5616` | 7.94SVN (RECONFIRM) | sì |
+| `nosqlmap` | web | catalog-only | no | - | https://github.com/codingo/NoSQLMap | no | GPL-3.0 | Python | git | `0.5` @ `898a60b` | - (-) | no |
+| `nuclei` | web | live-tested | sì | sì | https://github.com/projectdiscovery/nuclei | no | MIT | Go | go | `v3.11.1` | v3.11.1 (match) | sì |
+| `sqlmap` | web | live-tested | sì | - | https://github.com/sqlmapproject/sqlmap | no | GPL-2.0 | Python | pip | `1.10.11` | 1.10.8 (RECONFIRM) | sì |
+| `subfinder` | dns | catalog-only | no | - | https://github.com/projectdiscovery/subfinder | no | MIT | Go | go | `v2.16.0` | - (-) | sì |
+| `testssl` | tls | offline-tested | sì | - | https://github.com/drwetter/testssl.sh | no | GPL-2.0 | Bash | git | `v3.2.4` @ `97763a4` | 3.x (compatible) | sì |
+| `theharvester` | dns | catalog-only | no | - | https://github.com/laramies/theHarvester | no | GPL-2.0 | Python | git | `4.11.1` @ `fd832de` | - (-) | no |
+| `wafw00f` | web | live-tested | sì | - | https://github.com/EnableSecurity/wafw00f | no | BSD-3-Clause | Python | pip | `2.4.2` | 2.x (compatible) | sì |
+| `wapiti` | web | offline-tested | sì | - | https://github.com/wapiti-scanner/wapiti | no | GPL-2.0 | Python | pip | `3.3.2` | - (-) | sì |
+| `whatweb` | web | offline-tested | sì | - | https://github.com/urbanadventurer/WhatWeb | no | GPL-2.0 | Ruby | git | `v0.6.4` @ `d279d93` | - (-) | sì |
+| `wpscan` | web | adapter-ready | sì | - | https://github.com/wpscanteam/wpscan | no | WPScan Public Source (non-OSI) | Ruby | gem | `4.2.0` | - (-) | sì |
+| `xsstrike` | web | live-tested | sì | - | https://github.com/s0md3v/XSStrike | no | GPL-3.0 | Python | git | `3.1.6` @ `65dd68a` | 3.1.5 (RECONFIRM) | sì |
 
-| Esigenza del brief | Cosa c'è nel repo | Dove |
+### Engine che richiedono un prodotto esterno (solo manifest, `catalog-only`)
+
+Nessun adapter, nessun pin, `mandatory = false`: Olympus non li ha mai eseguiti. Nessus, Burp e Acunetix richiedono un prodotto commerciale; ZAP e OpenVAS sono open source ma vanno eseguiti come servizio separato.
+
+| Engine | Categoria | Stato | Upstream | Licenza | Prodotto richiesto | Variabili d'ambiente (solo nomi) |
+| --- | --- | --- | --- | --- | --- | --- |
+| `acunetix` | web | catalog-only | https://www.acunetix.com | Commercial (Invicti) | Invicti Acunetix (commercial licence) | `THEMIS_ACUNETIX_URL`, `THEMIS_ACUNETIX_API_KEY` |
+| `burp` | web | catalog-only | https://portswigger.net/burp | Commercial (PortSwigger) | PortSwigger Burp Suite Professional (commercial licence) | `THEMIS_BURP_URL`, `THEMIS_BURP_API_KEY` |
+| `nessus` | vuln | catalog-only | https://www.tenable.com/products/nessus | Commercial (Tenable) | Tenable Nessus (commercial licence) | `THEMIS_NESSUS_URL`, `THEMIS_NESSUS_TOKEN` |
+| `openvas` | vuln | catalog-only | https://github.com/greenbone/openvas-scanner | GPL-2.0 | Greenbone GVM stack (open source, heavy multi-service deployment) | `THEMIS_OPENVAS_URL`, `THEMIS_OPENVAS_TOKEN` |
+| `zap` | web | catalog-only | https://github.com/zaproxy/zaproxy | Apache-2.0 | OWASP ZAP daemon (open source, runs as a separate service) | `THEMIS_ZAP_URL`, `THEMIS_ZAP_API_KEY` |
+
+<!-- GENERATED:engine-inventory END -->
+
+## Criterio di promozione a `production-ready`
+
+Un engine passa a `production-ready` solo se **tutte** queste condizioni sono vere, ciascuna con evidenza committata:
+
+1. **Manifest completo**: `engine.toml` valido, con pin esatto, `evidence_version` uguale al pin, e `upstream_verified = true`.
+2. **SBOM**: l'engine compare nell'SBOM CycloneDX di Olympus con versione e digest/commit.
+3. **Test offline verdi**: parser esercitato su output reale registrato (`test_<engine>_parser*`) e test di contratto.
+4. **Test live opzionale documentato**: eseguito end-to-end in un lab autorizzato sul **pin** (non su un'altra versione),
+   con la procedura e l'esito in `docs/themis-execution-evidence.md`.
+5. **Presence probe funzionante**: `probe()` riconosce l'engine giusto (non uno omonimo), verifica il commit per gli
+   engine git, e l'assenza produce il fail-closed atteso (exit 8 se `mandatory`).
+6. **Evidence manifest**: ogni run produce un manifest che referenzia engine, versione, comando redatto, scope applicato
+   e hash degli output grezzi.
+
+`verify_declarations()` continua a rifiutare `production-ready` finché esiste un blocker aperto.
+
+## Supply chain: cosa è stato trovato e deciso
+
+| Tema | Fatto verificato | Decisione |
 | --- | --- | --- |
-| Interfaccia adapter | `ScannerAdapter` (ABC): `build_argv`, `parse`, `run(ScanRequest)`, `version()`, `simulate()` | `src/olympus/themis/base.py` |
-| Registro adapter | `_ADAPTERS: dict[str, type[ScannerAdapter]]` + plugin allowlistati | `themis/registry.py`, `themis/plugins.py` |
-| I/O iniettato | `Resolver` (Protocol), `run_command` (runner sandbox, no shell, rlimit, utente non privilegiato), `Cancellation` | `themis/scope.py`, `themis/runner.py`, `core/execution.py` |
-| Scope-gating | `ensure_allowed` + `resolve_and_validate` (anti-SSRF, anti-rebinding) dentro `ScannerAdapter.run`, più manifest firmato per `themis run` | `themis/scope.py`, `themis/base.py` |
-| Audit trail | `StructuredAuditRecord` / `append_structured_audit` con redazione | `core/execution.py`, `themis/application.py` |
-| Stati d'esecuzione | `ExecutionState`: live / unavailable / failed / disabled / simulation | `themis/states.py` |
-| Segreti | solo da variabili d'ambiente (`THEMIS_*`), redazione in `redact_*` | `core/secrets.py`, `core/execution.py` |
-| Evidence | `Evidence` con sha256 calcolato a cattura; `raw_evidence_sha256` nel risultato | `core/evidence.py`, `themis/model.py` |
-| Firma | Ed25519 | `core/signing.py` |
-| SBOM | CycloneDX 1.5 **solo del runtime Python** (`olympus core sbom`) | `core/sbom.py` |
-| Lock con hash | `olympus core lock` (pip `--require-hashes`) | `core/lockfile.py` |
-| Audit vulnerabilità | `pip-audit` bloccante + registro waiver con scadenza | `ci.yml` (`dependency-audit`), `.github/audit-exceptions.toml` |
-| Readiness vs maturità | `Capability`/`inspect()`; `themis doctor --scanner`, `themis capabilities` | `integrations/capabilities.py`, `scanner_doctor.py` |
-| Exit code | `ExitCode` 0–7, contratto stabile (`normalize_exit_code` rimappa gli ignoti a `FAILED`) | `core/exit_codes.py` |
+| `pip install commix` | Il pacchetto PyPI `commix` 0.1 è di un autore terzo (*Bhai4You*), non di `commixproject/commix`. Era nell'immagine. | Installato da git (`v4.1`, commit pinnato). Lo schema rifiuta un manifest `pip` che nomini `commix` o `theHarvester`. |
+| `theHarvester` | PyPI `theHarvester` 0.0.1 è una release obsoleta; la 4.11.1 richiede Python >= 3.12, l'immagine è 3.11. | Fuori dall'immagine, `catalog-only`, TODO nel Dockerfile. Debito tecnico: portare la base a Python 3.12. |
+| `nikto` | Non è più installabile da apt; la 2.6.1 da git richiede il modulo Perl `XML::Writer`. | Fuori dall'immagine finché la build non è verificata (TODO nel Dockerfile). |
+| Toolchain Go | I `go.mod` dei pin richiedono Go 1.25-1.26; nessun `golang-go` Debian è così recente. Il vecchio `\|\| true` mascherava il fallimento. | `GOTOOLCHAIN=go1.26.10` pinnato; i 5 engine Go compilati e avviati in sandbox con questi pin. |
+| apt | Debian rimuove le versioni vecchie e `snapshot.debian.org` non era raggiungibile. | Nessun engine via apt. `nmap` è compilato dal commit pinnato (il tarball firmato su nmap.org non era raggiungibile). |
+| Licenze | `nmap` è sotto Nmap Public Source License 0.95 (non OSI), non GPL-2.0; `whatweb` è GPL-2.0, non GPL-3.0; `arjun` è AGPL-3.0 (corretto nel registry; i metadati PyPI dicono GPL-3). | Registry corretto. La NPSL e l'AGPL hanno implicazioni sulla ridistribuzione dell'immagine: da far valutare prima di pubblicarla. `nikto` ha una licenza propria (codice GPL, database non GPL, distribuibili solo con nikto): non modificata, da rivedere. |
+| `xsstrike` | Il tag `3.1.6` punta a un commit il cui script stampa `v3.1.5`. | Il pin è il **commit**; la stringa di versione dell'engine non è usata come prova. |
+| Installazioni non pinnate | Le dipendenze transitive di pip e gem restano libere. | Residuo noto: ambiente con hash per engine (Fase 4). |
+| Template di nuclei | `nuclei-templates` è una dipendenza dati non pinnata. | Da pinnare nel pilota nuclei (Fase 2). |
 
-## Scostamenti tra il brief e lo stato reale del repo
+## Stato delle fasi
 
-Il brief presuppone una struttura che qui **non esiste**. Prima di scrivere codice
-servono decisioni su questi punti (le raccomandazioni sono mie).
-
-1. **Non esiste `olympus/engines/`, né `BaseEngineAdapter`, `Scope`, `EngineIO`,
-   `PresenceResult`, `EngineRunResult`.** Gli adapter vivono in
-   `olympus/themis/adapters/<nome>.py` e ereditano `ScannerAdapter`; la richiesta è
-   `ScanRequest`, il risultato `ScanResult`. Il brief dice "interfaccia comune già
-   usata dagli engine esistenti (es. `BaseEngineAdapter`)": l'interfaccia comune
-   esistente è `ScannerAdapter`.
-   *Raccomandazione*: **non** creare una gerarchia parallela. `olympus/engines/<nome>/engine.toml`
-   contiene solo il manifest (dati); `[adapter].entrypoint` punta agli adapter esistenti
-   (`olympus.themis.adapters.nuclei:NucleiAdapter`). `probe()` e `partial` si aggiungono
-   a `ScannerAdapter` come estensioni retro-compatibili.
-2. **Solo 16 engine su 24 hanno un adapter.** Senza adapter: `nosqlmap`, `subfinder`,
-   `theharvester` (binari OSS, fattibili) e `zap`, `openvas`, `nessus`, `burp`,
-   `acunetix` (API/daemon/commerciali: servono endpoint, licenza e un client HTTP
-   iniettato; non verificabili qui). "Un adapter per ogni engine" per questi 5 non è
-   onestamente raggiungibile senza accesso a quei prodotti.
-   *Raccomandazione*: manifest per tutti i 24; adapter nuovi per i 3 binari OSS; i 5
-   API-driven restano `catalog-only` con manifest `mandatory = false` e probe di
-   configurazione (variabili d'ambiente), senza dichiarare maturità che non hanno.
-3. **`distribution` nel brief ammette `binary | pip | npm | docker | go`**, ma il repo
-   usa anche `apt` (nmap, nikto, whatweb), `git` (xsstrike, nosqlmap, testssl.sh) e `gem`
-   (wpscan). Nessun engine usa npm.
-   *Raccomandazione*: estendere l'enum a `apt | gem | git` e trattare i `git` come
-   *source-build con commit pinnato* (il brief propone git submodule; per tool Python
-   puri come XSStrike è più semplice un pin a commit SHA verificato al `probe`, senza
-   submodule — da decidere).
-4. **Il Dockerfile contraddice i vincoli**: `|| true` su ogni install di scanner
-   (incompatibile con fail-closed), pip/gem/apt non pinnati, `git clone --depth 1` di
-   HEAD. Va riscritto in Fase 5 contro i manifest.
-5. **`EXIT_ENGINE_MISSING` cambia un contratto pubblico**: `ExitCode` è 0–7, descritto
-   in `core/exit_codes.py`, `docs/run-status.md` e coperto da
-   `tests/contract/test_exit_status_contract.py`. Aggiungere `8` è una modifica
-   deliberata (docs + test di contratto + CLI reference), non un dettaglio.
-6. **"mandatory" va definito per comando, non globale.** Proposta di semantica:
-   `mandatory = true` ⇒ se il comando richiede quell'engine e manca, abort con
-   `EXIT_ENGINE_MISSING` (o `degraded` con `--allow-missing-engines`);
-   `mandatory = false` ⇒ l'assenza produce esecuzione **parziale** (exit 5), mai
-   successo pieno. Servono i criteri su *quali* engine marcare mandatory (vedi domanda).
-7. **Rete "reale" non verificabile in questa sandbox**: i test live sono opzionali per
-   brief, e qui non ci sono i binari upstream. Nessuna riga del ledger verrà promossa
-   senza evidenza committata.
-8. **Fuori portata di un singolo passaggio**: promuovere gli engine a `production-ready`
-   richiede evidenza live per ciascuno (lab autorizzato). L'infrastruttura (manifest,
-   SBOM, evidence, probe) si può costruire per tutti; la *promozione* di stadio resta
-   un passo separato per engine, come da brief (punto 7 dell'ordine consigliato).
-
-## Piano per le fasi successive (invariato rispetto al brief, adattato al repo)
-
-| Fase | Contenuto | File principali (nuovi) |
+| Fase | Contenuto | Stato |
 | --- | --- | --- |
-| 1 | Schema `engine.toml` (Pydantic) + loader + test di completezza/adapter esistente + 24 manifest | `src/olympus/engines/{schema,loader}.py`, `engines/<nome>/engine.toml`, `tests/unit/test_engine_manifests.py` |
-| 2 | `probe()`/`version()` su `ScannerAdapter`; pilota **nuclei** (argv da allow-list, `partial`, evidence manifest) | `themis/base.py`, `engines/evidence.py` |
-| 3 | Preflight fail-closed, `ExitCode.ENGINE_MISSING`, `engines doctor`, `--allow-missing-engines` | `engines/preflight.py`, `engines/cli.py` |
-| 4 | `engines check-updates` / `update`, `UPDATES.md`, SBOM esteso agli engine, CI (checksum, osv-scanner) | `engines/updates.py`, `core/sbom.py`, `ci.yml` |
-| 5 | Replica a tutti gli engine con adapter; riscrittura Dockerfile | — |
-| 6 | README/maturity solo per engine che soddisfano la DoD | — |
+| 0 | Inventario | fatta |
+| 1 | Schema `engine.toml`, 24 manifest, `ExitCode.ENGINE_MISSING` (8), `probe()`/`partial` in `ScannerAdapter`, Dockerfile fail-closed, test di coerenza e di drift | fatta (vedi i TODO del Dockerfile) |
+| 2 | Pilota nuclei: allow-list argv, `partial`, pin dei template, evidence manifest | da fare |
+| 3 | Preflight fail-closed, `olympus engines list/doctor`, `--allow-missing-engines`, mappa dei comandi per `required_for_commands`, testo di installazione dal manifest | da fare |
+| 4 | `engines check-updates` / `update`, SBOM esteso agli engine, osv-scanner in CI, `docs/engines/UPDATES.md` | da fare |
+| 5 | Adapter per `nosqlmap`, `subfinder`, `theharvester`; replica del pattern | da fare |
+| 6 | Aggiornamento README e tabella di maturità, solo per gli engine che rispettano il criterio sopra | da fare |

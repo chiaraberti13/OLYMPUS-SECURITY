@@ -45,11 +45,22 @@ _PROBE_TOKEN = re.compile(r"^[A-Za-z0-9._=:@%+,/-]{1,128}$")
 _SHA1 = re.compile(r"^[a-f0-9]{40}$")
 _SHA256 = re.compile(r"^[a-f0-9]{64}$")
 _DIGEST = re.compile(r"^sha256:[a-f0-9]{64}$")
+_ENV_NAME = r"^[A-Z][A-Z0-9_]{2,63}$"
 _BUILD_ARG = r"^--[a-z0-9][a-z0-9-]{0,40}(=[A-Za-z0-9/._-]{1,80})?$"
 _RUNTIME_PACKAGE = r"^[A-Za-z0-9][A-Za-z0-9._-]{0,80}==[0-9][A-Za-z0-9._+-]{0,40}$"
 _ENTRYPOINT = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*$")
 
 DottedId = Annotated[str, StringConstraints(pattern=_DOTTED, max_length=64)]
+
+
+#: PyPI names that look like an engine but are NOT the upstream project. A ``pip``
+#: manifest naming one of these is rejected, so the mistake cannot come back.
+NOT_UPSTREAM_ON_PYPI: dict[str, str] = {
+    "commix": 'PyPI "commix" 0.1 is a third-party package (author "Bhai4You"), not '
+    "commixproject/commix; install commix from git",
+    "theharvester": 'PyPI "theHarvester" 0.0.1 is a stale release, not the 4.x tool; '
+    "install theHarvester from git",
+}
 
 
 class _Frozen(BaseModel):
@@ -81,8 +92,12 @@ class Source(_Frozen):
     sha256: str | None = None
     image: str | None = Field(default=None, pattern=r"^[a-z0-9][a-z0-9./_-]{0,200}$")
     digest: str | None = None
-    #: For ``api`` engines: the external product/service Olympus talks to.
+    #: For ``api`` engines: the external product/service Olympus talks to, and the
+    #: NAMES of the environment variables that configure it (never their values).
     requires_product: str | None = Field(default=None, max_length=200)
+    env_vars: list[Annotated[str, StringConstraints(pattern=_ENV_NAME)]] = Field(
+        default_factory=list, max_length=8
+    )
 
     @model_validator(mode="after")
     def _shapes(self) -> Self:
@@ -118,27 +133,36 @@ class Engine(_Frozen):
     #: True only once ``engines check-updates`` has resolved the URL and found
     #: tags compatible with the pin. A hand-written URL starts as False.
     upstream_verified: bool = False
+    language: str = Field(min_length=1, max_length=40)
     license: str = Field(min_length=1, max_length=100)
     distribution: Distribution
-    pinned_version: str
+    #: Exact version/tag the adapter is validated against. Absent only for ``api``
+    #: engines, which are external products Olympus has never been run against.
+    pinned_version: str | None = None
+    #: Version the maturity evidence was actually captured against, as recorded in the
+    #: evidence documents (free text, e.g. "7.94SVN" or "2.x"). Absent when none exists.
+    evidence_version: str | None = Field(default=None, max_length=40)
     update_policy: UpdatePolicy
     mandatory: bool = False
     required_for_commands: list[DottedId] = Field(default_factory=list, max_length=16)
-    presence_probe: list[str] = Field(min_length=1, max_length=8)
+    #: Fixed argv that proves the executable is present. Empty only for ``api`` engines.
+    presence_probe: list[str] = Field(default_factory=list, max_length=8)
     capability: DottedId
     source: Source
 
     @model_validator(mode="after")
     def _pin_and_probe(self) -> Self:
         version = self.pinned_version
-        if version.lower() in MOBILE_REFERENCES or _VERSION.fullmatch(version) is None:
+        if version is not None and (
+            version.lower() in MOBILE_REFERENCES or _VERSION.fullmatch(version) is None
+        ):
             raise ValueError(
                 f"pinned_version {version!r} is not an exact version, tag, commit or digest "
                 f"(moving references such as {sorted(MOBILE_REFERENCES)} are forbidden)"
             )
         if any(_PROBE_TOKEN.fullmatch(token) is None for token in self.presence_probe):
             raise ValueError("presence_probe tokens may only use [A-Za-z0-9._=:@%+,/-]")
-        if "/" in self.presence_probe[0]:
+        if self.presence_probe and "/" in self.presence_probe[0]:
             raise ValueError("presence_probe[0] must be a bare executable name, not a path")
         if len(set(self.required_for_commands)) != len(self.required_for_commands):
             raise ValueError("required_for_commands must not repeat a command")
@@ -177,6 +201,10 @@ class EngineManifest(_Frozen):
             raise ValueError(
                 f"distribution {engine.distribution!r} requires source.{', source.'.join(missing)}"
             )
+        if engine.distribution == "pip" and source.package is not None:
+            reason = NOT_UPSTREAM_ON_PYPI.get(source.package.lower())
+            if reason is not None:
+                raise ValueError(reason)
         if engine.distribution == "git":
             interpreted = source.entry is not None and source.runtime is not None
             half = (source.entry is None) != (source.runtime is None)
@@ -185,7 +213,16 @@ class EngineManifest(_Frozen):
                     "a git engine is either interpreted (source.entry + source.runtime) "
                     "or compiled (source.build), never both and never neither"
                 )
-        if engine.distribution == "go" and not engine.pinned_version.startswith("v"):
+        if engine.distribution != "api":
+            if engine.pinned_version is None:
+                raise ValueError(f"distribution {engine.distribution!r} requires pinned_version")
+            if not engine.presence_probe:
+                raise ValueError(f"distribution {engine.distribution!r} requires presence_probe")
+        if (
+            engine.distribution == "go"
+            and engine.pinned_version is not None
+            and not engine.pinned_version.startswith("v")
+        ):
             raise ValueError("a go pin must be a module version tag such as 'v3.11.1'")
         if engine.distribution == "api":
             if engine.mandatory or engine.required_for_commands:
@@ -194,6 +231,12 @@ class EngineManifest(_Frozen):
                 )
             if self.adapter is not None:
                 raise ValueError("an api engine has no adapter yet and must stay catalog-only")
+            if engine.presence_probe:
+                raise ValueError(
+                    "an api engine has no executable: use source.env_vars, not a probe"
+                )
+            if not source.env_vars:
+                raise ValueError("an api engine must list the env var NAMES that configure it")
         if engine.mandatory and self.adapter is None:
             raise ValueError("a mandatory engine must declare an [adapter]")
         if engine.required_for_commands and self.adapter is None:

@@ -1,0 +1,26 @@
+[engine]
+name = "nikto"
+category = "web"
+upstream = "https://github.com/sullo/nikto"
+upstream_verified = false
+language = "Perl"
+license = "GPL-2.0"
+distribution = "git"
+pinned_version = "2.6.1"
+evidence_version = "2.5"
+update_policy = "manual"
+mandatory = false
+presence_probe = ["nikto", "-Version"]
+capability = "web.scan"
+
+[engine.source]
+repo = "https://github.com/sullo/nikto"
+commit = "d201dac320fc5187eac75e723dd07a716196ec5a"
+checkout_path = "/opt/nikto"
+entry = "program/nikto.pl"
+runtime = "perl"
+
+[adapter]
+entrypoint = "olympus.themis.adapters.nikto:NiktoAdapter"
+timeout_seconds = 600
+resource_profile = "network-heavy"

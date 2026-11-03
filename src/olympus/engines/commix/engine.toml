@@ -1,0 +1,26 @@
+[engine]
+name = "commix"
+category = "web"
+upstream = "https://github.com/commixproject/commix"
+upstream_verified = false
+language = "Python"
+license = "GPL-3.0"
+distribution = "git"
+pinned_version = "v4.1"
+evidence_version = "4.x"
+update_policy = "manual"
+mandatory = false
+presence_probe = ["commix", "--version"]
+capability = "web.cmdi"
+
+[engine.source]
+repo = "https://github.com/commixproject/commix"
+commit = "06beb622db6f9b8ffe4e51f7dea4414303c750ce"
+checkout_path = "/opt/commix"
+entry = "commix.py"
+runtime = "python"
+
+[adapter]
+entrypoint = "olympus.themis.adapters.commix:CommixAdapter"
+timeout_seconds = 300
+resource_profile = "network-heavy"

@@ -1,0 +1,15 @@
+[engine]
+name = "burp"
+category = "web"
+upstream = "https://portswigger.net/burp"
+upstream_verified = false
+language = "Java (proprietario)"
+license = "Commercial (PortSwigger)"
+distribution = "api"
+update_policy = "manual"
+mandatory = false
+capability = "web.scan"
+
+[engine.source]
+requires_product = "PortSwigger Burp Suite Professional (commercial licence)"
+env_vars = ["THEMIS_BURP_URL", "THEMIS_BURP_API_KEY"]

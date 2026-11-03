@@ -1,0 +1,26 @@
+[engine]
+name = "testssl"
+category = "tls"
+upstream = "https://github.com/drwetter/testssl.sh"
+upstream_verified = false
+language = "Bash"
+license = "GPL-2.0"
+distribution = "git"
+pinned_version = "v3.2.4"
+evidence_version = "3.x"
+update_policy = "manual"
+mandatory = false
+presence_probe = ["testssl.sh", "--version"]
+capability = "tls.scan"
+
+[engine.source]
+repo = "https://github.com/drwetter/testssl.sh"
+commit = "97763a411c525720a5f9bd9d2cded416b10f210a"
+checkout_path = "/opt/testssl"
+entry = "testssl.sh"
+runtime = "bash"
+
+[adapter]
+entrypoint = "olympus.themis.adapters.testssl:TestsslAdapter"
+timeout_seconds = 600
+resource_profile = "light"

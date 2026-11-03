@@ -1,0 +1,26 @@
+[engine]
+name = "whatweb"
+category = "web"
+upstream = "https://github.com/urbanadventurer/WhatWeb"
+upstream_verified = false
+language = "Ruby"
+license = "GPL-2.0"
+distribution = "git"
+pinned_version = "v0.6.4"
+update_policy = "manual"
+mandatory = false
+presence_probe = ["whatweb", "--version"]
+capability = "web.fingerprint"
+
+[engine.source]
+repo = "https://github.com/urbanadventurer/WhatWeb"
+commit = "d279d93042d034f3fd29d5a893d44ccc0595d3f8"
+checkout_path = "/opt/whatweb"
+entry = "whatweb"
+runtime = "ruby"
+runtime_packages = ["addressable==2.9.2"]
+
+[adapter]
+entrypoint = "olympus.themis.adapters.whatweb:WhatwebAdapter"
+timeout_seconds = 300
+resource_profile = "light"
