@@ -103,15 +103,22 @@ RUN git_pin() { \
     launcher commix python /opt/commix/commix.py
 
 # Go engines, exact tags. Their go.mod files require Go 1.25-1.26, newer than any
-# Debian golang-go, so the toolchain is pinned too (GOTOOLCHAIN downloads exactly
-# this release through the Go module proxy, verified by the checksum database);
-# the distro Go only bootstraps it, and must be >= 1.21 or `go version` fails the
-# build. Static binaries (CGO_ENABLED=0) were built and run with these pins.
+# Debian golang-go, so the toolchain is pinned too: GOTOOLCHAIN makes Go download
+# exactly this release through the Go module proxy and verify it against the
+# checksum database (GOSUMDB is explicit and never "off": a failed verification
+# fails the build). The distro golang-go (installed above) is ONLY the bootstrap
+# that performs that download; it must be >= 1.21, which the guard below enforces
+# with a readable message. Both ENV lines come before the first `go` command.
+# Static binaries (CGO_ENABLED=0) were built and run with these pins.
 # Bump deliberately via `olympus engines update`.
 ENV GOTOOLCHAIN=go1.26.10 \
+    GOSUMDB=sum.golang.org \
     CGO_ENABLED=0
-RUN go version | grep -F 'go1.26.10' \
-    && go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@v3.11.1 \
+RUN v="$(GOTOOLCHAIN=local go env GOVERSION)"; minor="${v#go1.}"; minor="${minor%%.*}"; \
+    test "$minor" -ge 21 \
+        || { echo "bootstrap Go is ${v}; >= go1.21 is required to fetch the pinned toolchain" >&2; exit 1; }; \
+    go version | grep -F 'go1.26.10'
+RUN go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@v3.11.1 \
     && go install github.com/projectdiscovery/httpx/cmd/httpx@v1.11.0 \
     && go install github.com/projectdiscovery/katana/cmd/katana@v1.7.0 \
     && go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@v2.16.0 \
@@ -119,6 +126,12 @@ RUN go version | grep -F 'go1.26.10' \
 
 # WordPress scanner (Ruby gem; needs a free WPScan API token for the vuln DB).
 RUN gem install wpscan -v 4.2.0
+
+# Licence texts of the engines bundled with their own terms, and the notice that
+# tells whoever publishes this image what to review (see docker/NOTICE).
+COPY docker/NOTICE /NOTICE
+RUN install -d /usr/share/licenses/olympus-engines/nmap \
+    && cp /opt/nmap/LICENSE /usr/share/licenses/olympus-engines/nmap/LICENSE
 
 # The scanner installs above can pull an older transitive pin (seen:
 # a scanner dragged typing_extensions down to 4.10, where pydantic_core's

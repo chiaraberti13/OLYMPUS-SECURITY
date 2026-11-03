@@ -58,12 +58,45 @@ def test_dockerfile_installs_the_manifest_pin(name: str) -> None:
 
 
 def test_engines_not_shipped_in_the_image_are_documented_as_todo() -> None:
-    text = DOCKERFILE.read_text(encoding="utf-8")
+    """``in_scanner_image = False`` needs a ``TODO(TOOLS-4)`` line naming the engine.
+
+    Otherwise someone can drop an engine from the Dockerfile and the inventory would
+    keep saying nothing about why it is missing.
+    """
     from olympus.integrations.scanners import REGISTRY
 
+    todo_lines = [
+        line.lower()
+        for line in DOCKERFILE.read_text(encoding="utf-8").splitlines()
+        if line.lstrip().startswith("#") and "TODO(TOOLS-4)" in line
+    ]
     for spec in REGISTRY:
         if spec.binary is not None and not spec.in_scanner_image:
-            assert spec.name in text.lower(), f"{spec.name}: absent from the image but undocumented"
+            assert any(spec.name in line for line in todo_lines), (
+                f"{spec.name}: in_scanner_image=False but no TODO(TOOLS-4) names it"
+            )
+
+
+def test_go_toolchain_is_pinned_before_the_first_go_command_and_sumdb_stays_on() -> None:
+    code = "\n".join(
+        line
+        for line in DOCKERFILE.read_text(encoding="utf-8").splitlines()
+        if not line.lstrip().startswith("#")
+    )
+    first_go = min(code.index(token) for token in ("go install", "go version", "go env"))
+    assert code.index("GOTOOLCHAIN=go1.26") < first_go
+    assert code.index("GOSUMDB=sum.golang.org") < first_go
+    assert "GOSUMDB=off" not in code and "GONOSUMDB" not in code and "GOFLAGS" not in code
+    assert "GOINSECURE" not in code
+
+
+def test_image_ships_the_licence_notice_and_the_nmap_licence_text() -> None:
+    code = DOCKERFILE.read_text(encoding="utf-8")
+    assert "COPY docker/NOTICE /NOTICE" in code
+    assert "/opt/nmap/LICENSE" in code
+    notice = (DOCKERFILE.parent / "NOTICE").read_text(encoding="utf-8")
+    assert "Nmap Public Source License" in notice and "https://nmap.org/npsl/" in notice
+    assert "nikto" in notice and "databases" in notice
 
 
 def test_dockerfile_has_no_best_effort_installs_or_moving_references() -> None:

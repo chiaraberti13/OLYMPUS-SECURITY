@@ -1,0 +1,30 @@
+Olympus scanner image - third-party notices
+============================================
+
+This image bundles third-party security tools. Each keeps its own licence; the
+licence texts of the bundled engines are copied to /usr/share/licenses/olympus-engines/.
+
+Engines distributed under extra terms (review BEFORE publishing this image)
+---------------------------------------------------------------------------
+
+nmap - Nmap Public Source License (NPSL) version 0.95, NOT the GNU GPL.
+  Text: /usr/share/licenses/olympus-engines/nmap/LICENSE (copied from the pinned source)
+  Terms: https://nmap.org/npsl/
+  It is based on GPLv2 with additional conditions on redistribution and on embedding
+  nmap in proprietary products. Using it inside this image for internal tooling is
+  one thing; republishing the image publicly is a decision for whoever publishes it.
+
+nikto - not shipped in this image today (see the TODO(TOOLS-4) in
+  docker/Dockerfile.scanners). Its licence covers Nikto's code only; the databases
+  are NOT GPL and may only be distributed as part of Nikto. Before nikto is added,
+  copy its COPYING file here and review the terms the same way.
+
+Other bundled engines
+---------------------
+
+whatweb GPL-2.0, sqlmap GPL-2.0, wapiti GPL-2.0, dirsearch GPL-2.0, testssl.sh GPL-2.0,
+commix GPL-3.0, XSStrike GPL-3.0, arjun AGPL-3.0 (network-use clause), wafw00f BSD-3-Clause,
+nuclei / httpx / katana / subfinder / dalfox MIT, wpscan WPScan Public Source Licence
+(non-OSI: free for non-commercial use).
+This file records licences as declared in src/olympus/engines/*/engine.toml and the
+scanner registry; it is not legal advice.
