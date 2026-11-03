@@ -117,7 +117,7 @@ Un engine passa a `production-ready` solo se **tutte** queste condizioni sono ve
 | 0 | Inventario | fatta |
 | 1 | Schema `engine.toml`, 24 manifest, `ExitCode.ENGINE_MISSING` (8), `probe()`/`partial` in `ScannerAdapter`, Dockerfile fail-closed, test di coerenza e di drift | fatta (vedi i TODO del Dockerfile) |
 | 2 | Pilota nuclei: allow-list argv da manifest, `partial` (schema 1.3.0 additivo), pin dei template, evidence manifest firmato, SBOM con engine e template, `engines list/doctor`, test live opzionale, valori misurati | fatta; job CI `scanner-image` verde (run 9) |
-| 3 | Preflight fail-closed (exit 8 + audit prima di toccare la rete), `--allow-missing-engines`, mappa dei comandi per `required_for_commands`, testo di installazione dal manifest negli adapter, `doctor --strict` nel Dockerfile. (`engines list/doctor` esistono già dalla Fase 2.) | da fare |
-| 4 | `engines check-updates` / `update`, SBOM esteso agli engine, osv-scanner in CI, `docs/engines/UPDATES.md` | da fare |
+| 3 | Preflight fail-closed (exit 8 + audit prima di toccare la rete), `--allow-missing-engines`, mappa dei comandi per `required_for_commands`, `doctor --strict` nel Dockerfile. (`engines list/doctor` esistono già dalla Fase 2; il testo di installazione deriva dal manifest dal 2026-11-03.) | in corso |
+| 4 | `engines check-updates` / `update`, SBOM esteso agli engine, osv-scanner in CI | in corso (`docs/engines/UPDATES.md`: fatta 2026-11-03, procedura manuale) |
 | 5 | Adapter per `nosqlmap`, `subfinder`, `theharvester`; replica del pattern | da fare |
 | 6 | Aggiornamento README e tabella di maturità, solo per gli engine che rispettano il criterio sopra | da fare |
