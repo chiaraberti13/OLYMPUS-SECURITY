@@ -10,8 +10,11 @@ repos:
       - id: ruff-format
   # NOTE: strict mypy is intentionally NOT a pre-commit hook. Type checking is
   # an optional tool (`make type`) and must never block a commit or a release.
+  # Keep this gitleaks version in lockstep with the blocking CI scan
+  # (GITLEAKS_IMAGE in .github/workflows/ci.yml), so a local pre-commit run and the
+  # CI gate use the same rules — enforced by test_gitleaks_version_is_consistent.
   - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.18.4
+    rev: v8.28.0
     hooks:
       - id: gitleaks
   - repo: local

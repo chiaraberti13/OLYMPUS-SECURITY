@@ -14,6 +14,14 @@ everything below lives under **Unreleased**.
 
 ### Security
 
+- **Supply chain: versione di gitleaks allineata tra pre-commit e CI.** Il hook
+  pre-commit usava `v8.18.4` mentre la scansione CI bloccante girava su `v8.28.0`: due
+  versioni (e rule set) diverse dello stesso scanner di segreti tra controllo locale e
+  gate CI, con il rischio che un segreto colto da uno sfugga all'altro. Pre-commit
+  allineato a `v8.28.0` (la versione, più recente, già usata in CI). Nuova guardia
+  `tests/unit/test_threat_model.py::test_gitleaks_version_is_consistent_between_pre_commit_and_ci`
+  impedisce il futuro disallineamento.
+
 - **CI: `GITHUB_TOKEN` least-privilege anche in `ci.yml`.** Il workflow `ci.yml` era
   l'unico senza un blocco `permissions` **top-level**: i suoi job ereditavano lo scope
   di default del token del repository (potenzialmente con permessi di scrittura non
