@@ -13,6 +13,7 @@ import re
 from pathlib import Path
 
 import pytest
+import yaml
 
 _ROOT = Path(__file__).resolve().parents[2]
 _THREAT_MODEL = _ROOT / "docs" / "threat-model.md"
@@ -125,3 +126,25 @@ def test_owned_security_paths_exist_in_the_tree() -> None:
     """A CODEOWNERS rule for a moved/deleted file silently stops protecting it."""
     for path in _OWNED_PATHS:
         assert (_ROOT / path.lstrip("/")).is_file(), f"CODEOWNERS points at a missing file: {path}"
+
+
+def test_every_workflow_sets_least_privilege_token_permissions() -> None:
+    """Each GitHub Actions workflow declares top-level least-privilege token permissions.
+
+    Without a top-level ``permissions`` block a workflow's jobs inherit the repository
+    default ``GITHUB_TOKEN`` scope, which may grant write access none of them need. Every
+    workflow pins ``contents: read`` at the top level and elevates per-job only where
+    required (e.g. the CodeQL SARIF upload sets ``security-events: write``). Guards against
+    a workflow — as ``ci.yml`` once did — silently running on the broad default token.
+    """
+    workflows = sorted((_ROOT / ".github" / "workflows").glob("*.yml"))
+    assert workflows, "no GitHub Actions workflows found"
+    for path in workflows:
+        document = yaml.safe_load(path.read_text(encoding="utf-8"))
+        permissions = document.get("permissions")
+        assert isinstance(permissions, dict), (
+            f"{path.name}: no top-level 'permissions'; jobs inherit the default token scope"
+        )
+        assert permissions.get("contents") == "read", (
+            f"{path.name}: top-level permissions must pin 'contents: read', got {permissions!r}"
+        )
