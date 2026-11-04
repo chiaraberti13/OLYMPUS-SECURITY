@@ -70,10 +70,15 @@ everything below lives under **Unreleased**.
   alcun processo (il probe non viene raggiunto). **Primo cablaggio in `themis preview`:** il
   preview ora riporta la prontezza dell'engine richiesto (solo lookup su PATH, nessuna
   esecuzione) in output umano e JSON (`engine_ready`/`engine_install`), e il nuovo flag
-  opt-in **`--require-engine`** fa uscire il preview con **8** se l'engine governato manca —
-  così un'automazione può gatare una scansione sulla prontezza. Default invariato: un preview
-  normale continua solo a descrivere. Resta da cablare l'invocazione automatica negli altri
-  percorsi (run/API/Web/worker) con la parità cross-interfaccia e la verifica in CI/lab.
+  opt-in **`--require-engine`** fa uscire il preview con **8** se l'engine governato non è
+  pronto. Il gate ora usa la **readiness completa** scope-ata al singolo scanner (binario,
+  tool corretto, versione/commit rispetto al pin **e dipendenze dati pinnate**, es. i
+  template di nuclei) via `olympus.engines.preflight.scanner_readiness` — non più solo la
+  presenza del binario, così `nuclei` con template al commit sbagliato è correttamente «non
+  pronto». Così un'automazione può gatare una scansione sulla prontezza reale. Default
+  invariato: un preview normale descrive soltanto (nessun processo avviato). Resta da cablare
+  l'invocazione automatica negli altri percorsi (run/API/Web/worker) con la parità
+  cross-interfaccia e la verifica in CI/lab.
 
 - **Apollo: export degli alert in Splunk HEC (`BLUE-2`).** Nuovo
   `olympus.apollo.hec` e opzione `--hec` su `apollo test`/`apollo run` che

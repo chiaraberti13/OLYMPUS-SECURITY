@@ -1235,8 +1235,10 @@ def themis_preview(
     require_engine: bool = typer.Option(
         False,
         "--require-engine",
-        help="Exit 8 (engine missing) if the scanner's engine is not installed, so automation "
-        "can gate a scan on readiness. Off by default: a preview still only describes.",
+        help="Exit 8 (engine missing) if the scanner's engine is not ready — binary, "
+        "version/commit and pinned data (e.g. nuclei templates) all checked — so automation "
+        "can gate a scan on readiness. Runs the engine's version probe. Off by default: a "
+        "plain preview launches nothing.",
     ),
     timeout: float = typer.Option(300.0, "--timeout", min=0.05, max=3_600),
     deadline: float = typer.Option(600.0, "--deadline", min=0.05, max=7_200),
@@ -1299,19 +1301,34 @@ def themis_preview(
 
     preview = preview_run(request, loaded_scope)
 
-    # Engine readiness is a PATH lookup only — no process is launched, so the preview
-    # still "runs nothing". ``engine_ready`` is None for an engine Olympus does not govern
-    # with a manifest or an api/commercial engine with no local binary.
+    # Engine readiness. By default this is a PATH lookup only — no process is launched, so
+    # a plain preview still "runs nothing". With --require-engine it is the FULL check
+    # (binary, right tool, version/commit against the pin and pinned data dependencies —
+    # e.g. nuclei's templates), scoped to this one scanner, which may run the engine's own
+    # --version probe; that is why it is behind the explicit flag. ``engine_ready`` is None
+    # for an engine Olympus does not govern with a manifest or an api/commercial engine.
     from olympus.engines.loader import ManifestError, install_hint, manifest_for
     from olympus.themis.runner import which
 
     engine_ready: bool | None = None
     engine_install: str | None = None
+    engine_detail: str | None = None
     try:
         manifest = manifest_for(scanner)
     except (ManifestError, OSError):
         manifest = None
-    if manifest is not None and manifest.engine.presence_probe:
+
+    if require_engine:
+        from olympus.engines.cli import system_environment
+        from olympus.engines.doctor import EngineState
+        from olympus.engines.preflight import scanner_readiness
+
+        status = scanner_readiness(system_environment(), scanner)
+        if status is not None and status.state is not EngineState.REQUIRES_PRODUCT:
+            engine_ready = status.ok
+            engine_detail = status.detail or None
+            engine_install = status.install_command
+    elif manifest is not None and manifest.engine.presence_probe:
         engine_ready = which(manifest.engine.presence_probe[0]) is not None
         if not engine_ready:
             engine_install = install_hint(scanner)
@@ -1327,9 +1344,9 @@ def themis_preview(
         # cannot forge lines or inject escape sequences (ROADMAP ``SEC-H``).
         lines = list(preview.lines())
         if engine_ready is not None:
-            status = "installed" if engine_ready else "NOT installed"
+            label = "ready" if engine_ready else "NOT ready"
             note = f" (install: {engine_install})" if engine_install else ""
-            lines.append(f"Engine:         {status}{note}")
+            lines.append(f"Engine:         {label}{note}")
         typer.echo("\n".join(safe_terminal_text(line) for line in lines))
 
     # A scope verdict that would block the run is an honest, non-error outcome,
@@ -1337,13 +1354,14 @@ def themis_preview(
     # text (same discipline as smart-scan's out-of-scope exit).
     if preview.blocks_launch:
         raise typer.Exit(code=int(ExitCode.OUT_OF_SCOPE))
-    # Opt-in fail-closed gate for automation: an in-scope plan whose engine is absent
+    # Opt-in fail-closed gate for automation: an in-scope plan whose engine is not ready
     # cannot run, so --require-engine turns that into exit 8 instead of a silent later
     # UNAVAILABLE. Off by default, so a plain preview keeps describing without failing.
     if require_engine and engine_ready is False:
         typer.echo(
             safe_terminal_text(
-                f"olympus: {scanner} engine is not installed"
+                f"olympus: {scanner} engine is not ready"
+                + (f": {engine_detail}" if engine_detail else "")
                 + (f"; install: {engine_install}" if engine_install else "")
             ),
             err=True,

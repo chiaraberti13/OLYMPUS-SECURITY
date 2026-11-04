@@ -1511,7 +1511,7 @@ Show the safety preview of a single planned scan.
 | `--scope` | option | yes | — | Themis scope file authorizing the target. |
 | `--simulate` | option | no | `False` | Preview a simulated run (no live traffic, no authorization). |
 | `--i-am-authorized` | option | no | `False` | Reflect that live authorization would be asserted. |
-| `--require-engine` | option | no | `False` | Exit 8 (engine missing) if the scanner's engine is not installed, so automation can gate a scan on readiness. Off by default: a preview still only describes. |
+| `--require-engine` | option | no | `False` | Exit 8 (engine missing) if the scanner's engine is not ready — binary, version/commit and pinned data (e.g. nuclei templates) all checked — so automation can gate a scan on readiness. Runs the engine's version probe. Off by default: a plain preview launches nothing. |
 | `--timeout` | option | no | `300.0` | — |
 | `--deadline` | option | no | `600.0` | — |
 | `--output`, `-o` | option | no | — | Where a result would be written. |

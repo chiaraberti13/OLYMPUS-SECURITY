@@ -31,7 +31,7 @@ from dataclasses import dataclass
 
 from olympus.core.exit_codes import ExitCode
 from olympus.engines.doctor import EngineState, EngineStatus, Environment, inspect_engine
-from olympus.engines.loader import ManifestError, load_all
+from olympus.engines.loader import ManifestError, load_all, manifest_for
 from olympus.engines.schema import EngineManifest
 
 
@@ -115,3 +115,20 @@ def preflight_for_scanner(env: Environment, scanner: str | None) -> PreflightVer
     except ManifestError:  # pragma: no cover - manifests ship with the package
         governed = False
     return preflight(env, engines=(scanner,) if governed and scanner else ())
+
+
+def scanner_readiness(env: Environment, scanner: str) -> EngineStatus | None:
+    """Full readiness of a *single* governed scanner, offline via the injected ``env``.
+
+    Unlike :func:`preflight`, this checks **only** the named scanner (a single-scanner
+    preview must not demand the whole mandatory baseline), but it is the *full*
+    :func:`~olympus.engines.doctor.inspect_engine` check — binary presence, the right tool,
+    version/commit against the pin **and** the pinned data dependencies (e.g. nuclei needs
+    its templates at the pinned commit). Returns ``None`` when Olympus does not govern the
+    scanner with a manifest, so a caller can treat an ungoverned name as "nothing to gate".
+    """
+    try:
+        manifest = manifest_for(scanner)
+    except (ManifestError, OSError):
+        return None
+    return inspect_engine(scanner, manifest, env)
