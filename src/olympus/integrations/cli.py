@@ -1232,6 +1232,12 @@ def themis_preview(
     i_am_authorized: bool = typer.Option(
         False, "--i-am-authorized", help="Reflect that live authorization would be asserted."
     ),
+    require_engine: bool = typer.Option(
+        False,
+        "--require-engine",
+        help="Exit 8 (engine missing) if the scanner's engine is not installed, so automation "
+        "can gate a scan on readiness. Off by default: a preview still only describes.",
+    ),
     timeout: float = typer.Option(300.0, "--timeout", min=0.05, max=3_600),
     deadline: float = typer.Option(600.0, "--deadline", min=0.05, max=7_200),
     output: str | None = typer.Option(
@@ -1293,18 +1299,56 @@ def themis_preview(
 
     preview = preview_run(request, loaded_scope)
 
+    # Engine readiness is a PATH lookup only — no process is launched, so the preview
+    # still "runs nothing". ``engine_ready`` is None for an engine Olympus does not govern
+    # with a manifest or an api/commercial engine with no local binary.
+    from olympus.engines.loader import ManifestError, install_hint, manifest_for
+    from olympus.themis.runner import which
+
+    engine_ready: bool | None = None
+    engine_install: str | None = None
+    try:
+        manifest = manifest_for(scanner)
+    except (ManifestError, OSError):
+        manifest = None
+    if manifest is not None and manifest.engine.presence_probe:
+        engine_ready = which(manifest.engine.presence_probe[0]) is not None
+        if not engine_ready:
+            engine_install = install_hint(scanner)
+
     if fmt is OutputFormat.JSON:
-        typer.echo(json.dumps(preview.to_dict(), indent=2, sort_keys=True))
+        payload = preview.to_dict()
+        payload["engine_ready"] = engine_ready
+        if engine_install is not None:
+            payload["engine_install"] = engine_install
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
     else:
         # Target-derived fields are terminal-sanitized so a hostile hostname
         # cannot forge lines or inject escape sequences (ROADMAP ``SEC-H``).
-        typer.echo("\n".join(safe_terminal_text(line) for line in preview.lines()))
+        lines = list(preview.lines())
+        if engine_ready is not None:
+            status = "installed" if engine_ready else "NOT installed"
+            note = f" (install: {engine_install})" if engine_install else ""
+            lines.append(f"Engine:         {status}{note}")
+        typer.echo("\n".join(safe_terminal_text(line) for line in lines))
 
     # A scope verdict that would block the run is an honest, non-error outcome,
     # but the exit code distinguishes it so a caller can branch without parsing
     # text (same discipline as smart-scan's out-of-scope exit).
     if preview.blocks_launch:
         raise typer.Exit(code=int(ExitCode.OUT_OF_SCOPE))
+    # Opt-in fail-closed gate for automation: an in-scope plan whose engine is absent
+    # cannot run, so --require-engine turns that into exit 8 instead of a silent later
+    # UNAVAILABLE. Off by default, so a plain preview keeps describing without failing.
+    if require_engine and engine_ready is False:
+        typer.echo(
+            safe_terminal_text(
+                f"olympus: {scanner} engine is not installed"
+                + (f"; install: {engine_install}" if engine_install else "")
+            ),
+            err=True,
+        )
+        raise typer.Exit(code=int(ExitCode.ENGINE_MISSING))
 
 
 @themis_app.command("smart-scan")
