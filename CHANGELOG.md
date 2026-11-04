@@ -59,6 +59,18 @@ everything below lives under **Unreleased**.
 
 ### Added
 
+- **Engine: preflight fail-closed condiviso e comando `olympus engines preflight`
+  (`TOOLS-4.1`).** Nuovo servizio puro e offline `olympus.engines.preflight` (I/O
+  iniettato, nessuna rete né target) che decide se una scansione può partire: richiede
+  ogni engine `mandatory` (nmap, nuclei, httpx) più quelli nominati con `--engine`, ed
+  esce **8** (`ENGINE_MISSING`) con il comando d'installazione **pinnato** per ogni engine
+  assente/sbagliato, **0** se tutto è pronto; gli engine `api`/commerciali non bloccano mai
+  (nessun artefatto locale). Pensato come gate operatore/CI prima di lanciare una scansione.
+  La decisione è fail-closed per costruzione: un engine assente è deciso senza avviare
+  alcun processo (il probe non viene raggiunto). Resta da cablare l'invocazione automatica
+  nei percorsi di esecuzione (preview/run/API/Web/worker) con la parità cross-interfaccia e
+  la verifica in CI/lab (seguito di `TOOLS-4.1`).
+
 - **Apollo: export degli alert in Splunk HEC (`BLUE-2`).** Nuovo
   `olympus.apollo.hec` e opzione `--hec` su `apollo test`/`apollo run` che
   scrivono gli alert come envelope Splunk HTTP Event Collector (NDJSON,

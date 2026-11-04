@@ -702,6 +702,15 @@ List every engine Olympus knows: maturity, pin, whether it must be present.
 | --- | --- | --- | --- | --- |
 | `--format` | option | no | `table` | table or json. |
 
+### `olympus engines preflight`
+
+Fail-closed readiness gate for a planned scan (no network, no target).
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--engine` | option | no | — | Also require this engine (repeatable), beyond the mandatory set. |
+| `--format` | option | no | `table` | table or json. |
+
 ### `olympus helios scan`
 
 Perform bounded TCP discovery only after scope authorization.
