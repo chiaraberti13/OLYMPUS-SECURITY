@@ -78,6 +78,8 @@ Evaluate a bounded rule set against a strict streaming NDJSON event source.
 | `--ecs` | option | no | — | Also write alerts as newline-delimited ECS JSON for a SIEM. |
 | `--ocsf` | option | no | — | Also write alerts as newline-delimited OCSF Detection Findings. |
 | `--hec` | option | no | — | Also write alerts as newline-delimited Splunk HEC event envelopes. |
+| `--elastic-bulk` | option | no | — | Also write alerts as an Elasticsearch _bulk request body (ECS documents). |
+| `--elastic-index` | option | no | `olympus-apollo` | Index/data-stream for --elastic-bulk. |
 | `--max-rules` | option | no | `1000` | — |
 | `--max-rule-bytes` | option | no | `1000000` | — |
 | `--max-event-bytes` | option | no | `1000000` | — |
@@ -110,6 +112,8 @@ Evaluate one rule against one strict, normalized Event fixture.
 | `--ecs` | option | no | — | Also write alerts as newline-delimited ECS JSON for a SIEM. |
 | `--ocsf` | option | no | — | Also write alerts as newline-delimited OCSF Detection Findings. |
 | `--hec` | option | no | — | Also write alerts as newline-delimited Splunk HEC event envelopes. |
+| `--elastic-bulk` | option | no | — | Also write alerts as an Elasticsearch _bulk request body (ECS documents). |
+| `--elastic-index` | option | no | `olympus-apollo` | Index/data-stream for --elastic-bulk. |
 | `--max-rule-bytes` | option | no | `1000000` | — |
 | `--max-event-bytes` | option | no | `1000000` | — |
 | `--deadline` | option | no | `60.0` | — |

@@ -32,13 +32,16 @@ guess*: a line that is not a valid record for the chosen format is reported and
 skipped, never coerced into a bogus event.
 
 Both `apollo test` and `apollo run` can additionally write the resulting alerts
-in three SIEM-ingestable formats, selected by option (each to its own
+in four SIEM-ingestable formats, selected by option (each to its own
 owner-only `0o600` file): `--ecs` (Elastic Common Schema, newline-delimited
-JSON), `--ocsf` (OCSF Detection Findings) and `--hec` (Splunk HTTP Event
+JSON), `--ocsf` (OCSF Detection Findings), `--hec` (Splunk HTTP Event
 Collector envelopes, one JSON event per line, with the ECS document embedded as
-the `event` payload). All three are pure, offline formatters — they write files,
-they never open a network connection; delivering them to a live SIEM is a
-separate, scope- and authorization-gated step.
+the `event` payload) and `--elastic-bulk` (an Elasticsearch `_bulk` request body
+— a `create` action line keyed by the alert id, then the ECS document, ready to
+POST to `_bulk` with no log shipper; the index defaults to `olympus-apollo` and
+is set with `--elastic-index`). All four are pure, offline formatters — they
+write files, they never open a network connection; delivering them to a live SIEM
+is a separate, scope- and authorization-gated step.
 
 The first format is `access-log` — HTTP access logs in the Apache/nginx *Common*
 and *Combined* Log Formats and the Python `http.server` variant — mapped to

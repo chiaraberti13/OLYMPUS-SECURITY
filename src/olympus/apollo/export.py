@@ -8,6 +8,7 @@ from contextlib import suppress
 from pathlib import Path
 
 from olympus.apollo.ecs import alerts_to_ndjson
+from olympus.apollo.elastic import DEFAULT_ELASTIC_INDEX, alerts_to_elastic_bulk
 from olympus.apollo.hec import alerts_to_hec
 from olympus.apollo.ocsf import alerts_to_ndjson as ocsf_alerts_to_ndjson
 from olympus.core.fileio import atomic_write_text
@@ -51,3 +52,10 @@ def export_alerts_ocsf(alerts: Sequence[Alert], output: Path) -> None:
 def export_alerts_hec(alerts: Sequence[Alert], output: Path) -> None:
     """Write alerts as owner-only newline-delimited Splunk HEC event envelopes."""
     atomic_write_text(output, alerts_to_hec(alerts), mode=0o600)
+
+
+def export_alerts_elastic_bulk(
+    alerts: Sequence[Alert], output: Path, *, index: str = DEFAULT_ELASTIC_INDEX
+) -> None:
+    """Write alerts as an owner-only Elasticsearch ``_bulk`` request body."""
+    atomic_write_text(output, alerts_to_elastic_bulk(alerts, index=index), mode=0o600)
