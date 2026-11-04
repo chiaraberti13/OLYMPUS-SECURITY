@@ -182,7 +182,7 @@ def test_preview_require_engine_exits_engine_missing_when_absent(tmp_path: Path)
         ],
     )
     assert result.exit_code == int(ExitCode.ENGINE_MISSING)
-    assert "not installed" in result.output
+    assert "not ready" in result.output
 
 
 def test_preview_require_engine_never_blocks_an_ungoverned_scanner(tmp_path: Path) -> None:

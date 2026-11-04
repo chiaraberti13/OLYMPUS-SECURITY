@@ -142,3 +142,37 @@ def test_cli_preflight_rejects_an_unknown_engine() -> None:
     result = runner.invoke(app, ["engines", "preflight", "--engine", "definitely-not-an-engine"])
     assert result.exit_code == int(ExitCode.USAGE)
     assert "unknown engine" in result.output
+
+
+def test_scanner_readiness_flags_a_wrong_commit_data_dependency() -> None:
+    # The point of the full scanner readiness (vs a bare PATH lookup): nuclei's binary can be
+    # present and at the right version, yet the engine is NOT ready if its pinned data
+    # dependency (nuclei-templates) is at the wrong commit — a bare `which` would miss it.
+    from olympus.engines.loader import load_all_data, manifest_for
+    from olympus.engines.preflight import scanner_readiness
+
+    manifest = manifest_for("nuclei")
+    templates_path = str(load_all_data()["nuclei-templates"].data.source.checkout_path)
+    version = (manifest.engine.pinned_version or "").lstrip("v")
+
+    def which(binary: str) -> str:
+        return f"/usr/bin/{binary}"
+
+    def probe(argv: list[str]) -> tuple[int, str]:
+        return (0, f"nuclei {version}")
+
+    def git_head(directory: str) -> str | None:
+        # The templates checkout is at a different commit than the pin.
+        return "0" * 40 if directory == templates_path else None
+
+    env = Environment(which=which, probe=probe, git_head=git_head, environ={})
+    status = scanner_readiness(env, "nuclei")
+    assert status is not None
+    assert not status.ok
+    assert status.state is EngineState.DATA_PROBLEM
+
+
+def test_scanner_readiness_is_none_for_an_ungoverned_scanner() -> None:
+    from olympus.engines.preflight import scanner_readiness
+
+    assert scanner_readiness(_all_missing_env(), "not-a-real-engine") is None
