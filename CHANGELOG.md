@@ -67,9 +67,13 @@ everything below lives under **Unreleased**.
   assente/sbagliato, **0** se tutto è pronto; gli engine `api`/commerciali non bloccano mai
   (nessun artefatto locale). Pensato come gate operatore/CI prima di lanciare una scansione.
   La decisione è fail-closed per costruzione: un engine assente è deciso senza avviare
-  alcun processo (il probe non viene raggiunto). Resta da cablare l'invocazione automatica
-  nei percorsi di esecuzione (preview/run/API/Web/worker) con la parità cross-interfaccia e
-  la verifica in CI/lab (seguito di `TOOLS-4.1`).
+  alcun processo (il probe non viene raggiunto). **Primo cablaggio in `themis preview`:** il
+  preview ora riporta la prontezza dell'engine richiesto (solo lookup su PATH, nessuna
+  esecuzione) in output umano e JSON (`engine_ready`/`engine_install`), e il nuovo flag
+  opt-in **`--require-engine`** fa uscire il preview con **8** se l'engine governato manca —
+  così un'automazione può gatare una scansione sulla prontezza. Default invariato: un preview
+  normale continua solo a descrivere. Resta da cablare l'invocazione automatica negli altri
+  percorsi (run/API/Web/worker) con la parità cross-interfaccia e la verifica in CI/lab.
 
 - **Apollo: export degli alert in Splunk HEC (`BLUE-2`).** Nuovo
   `olympus.apollo.hec` e opzione `--hec` su `apollo test`/`apollo run` che

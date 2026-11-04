@@ -137,3 +137,73 @@ def test_preview_rejects_missing_scope_file(tmp_path: Path) -> None:
         ],
     )
     assert result.exit_code == int(ExitCode.USAGE)
+
+
+def test_preview_reports_engine_readiness_without_changing_the_exit(tmp_path: Path) -> None:
+    # nmap is governed by a manifest but not installed in the test environment: the preview
+    # reports it as not ready, with the pinned install command, yet still exits OK — a plain
+    # preview only describes and must not fail just because the engine is absent locally.
+    scope = _scope_file(tmp_path)
+    result = runner.invoke(
+        app,
+        [
+            "themis",
+            "preview",
+            "nmap",
+            "--target",
+            "10.0.0.5",
+            "--scope",
+            str(scope),
+            "--i-am-authorized",
+            "--format",
+            "json",
+        ],
+    )
+    assert result.exit_code == int(ExitCode.OK)
+    data = json.loads(result.stdout)
+    assert data["engine_ready"] is False
+    assert "git" in data["engine_install"]  # the pinned nmap install, not an @latest/apt guess
+
+
+def test_preview_require_engine_exits_engine_missing_when_absent(tmp_path: Path) -> None:
+    scope = _scope_file(tmp_path)
+    result = runner.invoke(
+        app,
+        [
+            "themis",
+            "preview",
+            "nmap",
+            "--target",
+            "10.0.0.5",
+            "--scope",
+            str(scope),
+            "--i-am-authorized",
+            "--require-engine",
+        ],
+    )
+    assert result.exit_code == int(ExitCode.ENGINE_MISSING)
+    assert "not installed" in result.output
+
+
+def test_preview_require_engine_never_blocks_an_ungoverned_scanner(tmp_path: Path) -> None:
+    # A scanner Olympus does not govern with a manifest has no readiness to assert, so
+    # --require-engine must not turn it into a false ENGINE_MISSING.
+    scope = _scope_file(tmp_path)
+    result = runner.invoke(
+        app,
+        [
+            "themis",
+            "preview",
+            "not-a-real-engine",
+            "--target",
+            "10.0.0.5",
+            "--scope",
+            str(scope),
+            "--i-am-authorized",
+            "--require-engine",
+            "--format",
+            "json",
+        ],
+    )
+    assert result.exit_code == int(ExitCode.OK)
+    assert json.loads(result.stdout)["engine_ready"] is None
