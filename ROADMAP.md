@@ -161,7 +161,7 @@ di sicurezza nel frontend.
   fallito) guidate end-to-end dall'ingest. **Resta:** validazione contro
   telemetria Windows **reale** in lab autorizzato (promozione a live-tested).
   Zeek e access-log già fatti.
-- **BLUE-2** [~] Connettori SIEM/EDR (Splunk HEC, Elastic, Sentinel) via porte iniettate, test offline. **Formatter offline fatti:** export alert in ECS (`--ecs`), OCSF (`--ocsf`) e **Splunk HEC** (`--hec`, nuovo: `alerts_to_hec`, envelope HEC con documento ECS nel payload `event`), su `apollo test`/`apollo run`, file owner-only `0o600`, puri e deterministici (nessuna rete). **Resta:** layer di dispatch verso endpoint live via transport iniettato (consegna HEC/Elastic bulk/Sentinel, credenziali solo da env, gated da scope+autorizzazione), validazione in lab autorizzato.
+- **BLUE-2** [~] Connettori SIEM/EDR (Splunk HEC, Elastic, Sentinel) via porte iniettate, test offline. **Formatter offline fatti:** export alert in ECS (`--ecs`), OCSF (`--ocsf`), **Splunk HEC** (`--hec`, envelope HEC con documento ECS nel payload `event`) ed **Elasticsearch `_bulk`** (`--elastic-bulk` + `--elastic-index`, nuovo: `alerts_to_elastic_bulk`, action `create` per-alert_id + documento ECS, pronto per l'API `_bulk` senza log shipper), su `apollo test`/`apollo run`, file owner-only `0o600`, puri e deterministici (nessuna rete). **Resta:** layer di dispatch verso endpoint live via transport iniettato (consegna HEC/Elastic/Sentinel, credenziali solo da env, gated da scope+autorizzazione), formatter Sentinel, validazione in lab autorizzato.
 - **BLUE-3** [ ] CTI live in Metis (TAXII 2.1, MISP, OpenCTI) con provenance/caching/isolamento.
 - **PURPLE-1** [ ] `athena purple`: attacco simulato scope-safe → ingest Apollo → valutazione detection → report gap. È il veicolo delle simulazioni di `VAL-2` e della misura di copertura di `VAL-3` (§21.4): si estende questa voce, non si crea un motore parallelo.
 - **PURPLE-2** [ ] Profilo lab ripetibile (`labs/mars`) con seed/versioni/output atteso. È anche il bersaglio autorizzato per il livello L3 di `TOOLS-4.2` e per le promozioni di `QA-3`.
@@ -352,6 +352,23 @@ pertinenti a una voce non si applicano. Una voce i cui criteri richiedono valida
 («validato in lab» / «operativo») non è raggiunto e documentato.
 
 ## 19. Debito tecnico e rischi residui
+
+### Incremento export SIEM Elasticsearch _bulk (BLUE-2) — 2026-11-04
+
+- `BLUE-2`: aggiunto il formatter **Elasticsearch `_bulk`** accanto a
+  ECS/OCSF/HEC. Nuovo `olympus.apollo.elastic` (`alerts_to_elastic_bulk`): per
+  ogni alert una riga azione `{"create": {"_index": …, "_id": alert_id}}` seguita
+  dal documento ECS, con newline finale come richiede l'API `_bulk`; l'azione
+  `create` per-alert_id rende l'ingest idempotente (un alert ri-inviato è rifiutato
+  come duplicato, non sovrascrive). `export_alerts_elastic_bulk` e le opzioni
+  `--elastic-bulk`/`--elastic-index` (default `olympus-apollo`) su `apollo test`
+  e `apollo run` scrivono file owner-only `0o600`.
+- Puro e offline: scrive file, **nessuna chiamata di rete**; la consegna al
+  cluster live resta un passo separato gated da scope/autorizzazione (parte
+  rimanente di BLUE-2, con dispatch via transport iniettato e formatter Sentinel).
+- QA: `tests/unit/test_apollo_elastic.py` (coppia azione/documento, newline finale,
+  default/override indice, due righe per alert, `0o600` via CLI). Ruff/mypy verdi;
+  `docs/cli-reference.md` rigenerato; `docs/apollo.md` aggiornato.
 
 ### Incremento export SIEM Splunk HEC (BLUE-2) — 2026-11-02
 

@@ -19,9 +19,11 @@ from olympus.apollo.application import (
     ApolloTestRequest,
 )
 from olympus.apollo.attack import build_navigator_layer, techniques_from_rules
+from olympus.apollo.elastic import DEFAULT_ELASTIC_INDEX
 from olympus.apollo.export import (
     export_alerts,
     export_alerts_ecs,
+    export_alerts_elastic_bulk,
     export_alerts_hec,
     export_alerts_ocsf,
 )
@@ -72,6 +74,14 @@ def test(
     hec: Path | None = typer.Option(
         None, "--hec", help="Also write alerts as newline-delimited Splunk HEC event envelopes."
     ),
+    elastic_bulk: Path | None = typer.Option(
+        None,
+        "--elastic-bulk",
+        help="Also write alerts as an Elasticsearch _bulk request body (ECS documents).",
+    ),
+    elastic_index: str = typer.Option(
+        DEFAULT_ELASTIC_INDEX, "--elastic-index", help="Index/data-stream for --elastic-bulk."
+    ),
     max_rule_bytes: int = typer.Option(DEFAULT_MAX_RULE_BYTES, "--max-rule-bytes"),
     max_event_bytes: int = typer.Option(DEFAULT_MAX_EVENT_BYTES, "--max-event-bytes"),
     deadline: float = typer.Option(60.0, "--deadline"),
@@ -85,7 +95,9 @@ def test(
                 max_rule_bytes=max_rule_bytes,
                 max_event_bytes=max_event_bytes,
                 deadline_seconds=deadline,
-                excluded_paths=tuple(p for p in (output, ecs, ocsf, hec) if p is not None),
+                excluded_paths=tuple(
+                    p for p in (output, ecs, ocsf, hec, elastic_bulk) if p is not None
+                ),
             )
         )
         export_alerts(outcome.alerts, output)
@@ -95,6 +107,8 @@ def test(
             export_alerts_ocsf(outcome.alerts, ocsf)
         if hec is not None:
             export_alerts_hec(outcome.alerts, hec)
+        if elastic_bulk is not None:
+            export_alerts_elastic_bulk(outcome.alerts, elastic_bulk, index=elastic_index)
     except CancellationRequested as exc:
         _echo_terminal(f"apollo: evaluation cancelled: {exc}", err=True)
         raise typer.Exit(code=ExitCode.CANCELLED) from exc
@@ -124,6 +138,14 @@ def run(
     hec: Path | None = typer.Option(
         None, "--hec", help="Also write alerts as newline-delimited Splunk HEC event envelopes."
     ),
+    elastic_bulk: Path | None = typer.Option(
+        None,
+        "--elastic-bulk",
+        help="Also write alerts as an Elasticsearch _bulk request body (ECS documents).",
+    ),
+    elastic_index: str = typer.Option(
+        DEFAULT_ELASTIC_INDEX, "--elastic-index", help="Index/data-stream for --elastic-bulk."
+    ),
     max_rules: int = typer.Option(DEFAULT_MAX_RULES, "--max-rules"),
     max_rule_bytes: int = typer.Option(DEFAULT_MAX_RULE_BYTES, "--max-rule-bytes"),
     max_event_bytes: int = typer.Option(DEFAULT_MAX_EVENT_BYTES, "--max-event-bytes"),
@@ -142,7 +164,9 @@ def run(
             ApolloRunRequest(
                 rules_path=rules,
                 events_path=events,
-                excluded_paths=tuple(p for p in (output, ecs, ocsf, hec) if p is not None),
+                excluded_paths=tuple(
+                    p for p in (output, ecs, ocsf, hec, elastic_bulk) if p is not None
+                ),
                 max_rules=max_rules,
                 max_rule_bytes=max_rule_bytes,
                 max_event_bytes=max_event_bytes,
@@ -161,6 +185,8 @@ def run(
             export_alerts_ocsf(outcome.alerts, ocsf)
         if hec is not None:
             export_alerts_hec(outcome.alerts, hec)
+        if elastic_bulk is not None:
+            export_alerts_elastic_bulk(outcome.alerts, elastic_bulk, index=elastic_index)
     except CancellationRequested as exc:
         _echo_terminal(f"apollo: run cancelled: {exc}", err=True)
         raise typer.Exit(code=ExitCode.CANCELLED) from exc

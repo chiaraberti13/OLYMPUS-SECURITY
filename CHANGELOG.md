@@ -59,6 +59,13 @@ everything below lives under **Unreleased**.
 
 ### Added
 
+- **Apollo: export degli alert in Elasticsearch `_bulk` (`BLUE-2`).** Nuovo
+  `olympus.apollo.elastic` e opzioni `--elastic-bulk` / `--elastic-index` su
+  `apollo test`/`apollo run` che scrivono gli alert come corpo di richiesta
+  `_bulk` (riga azione `create` keyata sull'`alert_id` + documento ECS, newline
+  finale), file owner-only `0o600`. Ingest idempotente per `alert_id`; formatter
+  puro e offline accanto a ECS/OCSF/HEC, la consegna live al cluster resta
+  separata e gated. Secondo formatter offline di BLUE-2.
 - **Engine: preflight fail-closed condiviso e comando `olympus engines preflight`
   (`TOOLS-4.1`).** Nuovo servizio puro e offline `olympus.engines.preflight` (I/O
   iniettato, nessuna rete né target) che decide se una scansione può partire: richiede
