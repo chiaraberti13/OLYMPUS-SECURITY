@@ -148,7 +148,9 @@ def deliver_alerts(
         timeout=policy.timeout_seconds,
     )
     if not 200 <= response.status_code < 300:
-        raise ExecutionPolicyError("SIEM destination rejected delivery (HTTP status not successful)")
+        raise ExecutionPolicyError(
+            "SIEM destination rejected delivery (HTTP status not successful)"
+        )
     if len(response.body) > MAX_RESPONSE_BYTES:
         raise ExecutionPolicyError("SIEM response exceeds bounded response limit")
     if destination.provider is SiemProvider.ELASTIC:
@@ -167,6 +169,4 @@ def deliver_alerts(
                 raise ValueError("non-successful HEC response")
         except (ValueError, UnicodeError) as exc:
             raise ExecutionPolicyError("Splunk HEC response is incomplete or unsuccessful") from exc
-    return SiemDeliveryResult(
-        destination.provider, response.status_code, len(alerts), len(body)
-    )
+    return SiemDeliveryResult(destination.provider, response.status_code, len(alerts), len(body))

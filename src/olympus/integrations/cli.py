@@ -261,6 +261,13 @@ def themis_api(
         help="File holding a hex-encoded Ed25519 custody verification public key "
         "(not a secret); enables Minerva ledger signature verification over the API.",
     ),
+    cors_allow_origin: list[str] = typer.Option(
+        [],
+        "--cors-allow-origin",
+        help="Exact browser Origin (scheme://host[:port]) allowed to call the API "
+        "cross-origin; repeatable. Empty (default) emits no CORS headers; the "
+        "wildcard '*' is rejected.",
+    ),
     ssl_certfile: str = typer.Option("", "--ssl-certfile"),
     ssl_keyfile: str = typer.Option("", "--ssl-keyfile"),
 ) -> None:
@@ -335,6 +342,9 @@ def themis_api(
                     else None
                 ),
                 max_concurrent_requests=max_concurrent_requests,
+                cors_allowed_origins=tuple(
+                    origin.strip() for origin in cors_allow_origin if origin.strip()
+                ),
             )
         )
     except (ImportError, OSError, ValueError) as exc:

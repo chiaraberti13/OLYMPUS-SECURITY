@@ -73,6 +73,16 @@ default: una scansione disabilitata o un binario assente produce `partial`,
 senza finding inventati. La Web UI usa cookie `Secure`: usare HTTPS anche per
 la sessione browser locale. I bind non-loopback richiedono certificato e chiave.
 
+L'API è *fail-closed* verso le origini browser (ROADMAP `API-4`): per default
+non emette alcun header `Access-Control-Allow-Origin`, quindi nessun sito
+cross-origin può leggere una risposta. Per un deployment separato (frontend su
+dominio proprio) elencare ogni origine esatta con il flag ripetibile
+`--cors-allow-origin https://app.example.com` (schema `http`/`https`, host e
+porta opzionale; niente path, query, fragment, userinfo o slash finale). Il
+wildcard `*` è rifiutato all'avvio e l'origine non è mai riflessa: le credenziali
+sono ammesse solo contro questa allowlist esplicita, con metodi (`GET`, `POST`) e
+header consentiti ristretti.
+
 Il worker continuo stampa una riga JSON quando è pronto e una per ogni job
 terminato. Una singola scansione fallita/parziale non interrompe il servizio.
 Ogni processo esegue un job alla volta; processi distinti condividono i claim
@@ -311,6 +321,14 @@ a certificate and private key. Set a random 32+ character API credential or
 provide an identity register. A shared key defaults to `capabilities:read`;
 grant additional permissions explicitly with `--api-key-scopes` (prefer named,
 least-privilege identities). Scopes and per-job authorization stay mandatory.
+The API is fail-closed toward browser origins (ROADMAP `API-4`): by default it
+emits no `Access-Control-Allow-Origin` header, so no cross-origin site can read a
+response. For a split deployment (frontend on its own domain) list each exact
+origin with the repeatable flag `--cors-allow-origin https://app.example.com`
+(`http`/`https` scheme, host and optional port; no path, query, fragment,
+userinfo or trailing slash). The wildcard `*` is rejected at startup and the
+origin is never reflected: credentials are allowed only against this explicit
+allowlist, with restricted allowed methods (`GET`, `POST`) and headers.
 API and Web default to 64 aggregate concurrent requests across processes that
 share the same `--database`; tune this with `--max-concurrent-requests`
 (1–4096). A `<database>.requests` SQLite sidecar uses atomic acquisitions and

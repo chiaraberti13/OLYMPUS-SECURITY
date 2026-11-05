@@ -96,27 +96,35 @@ def test_fail_closed_before_transport_without_authorization() -> None:
         deliver_alerts(
             [_alert()],
             SiemDestination(SiemProvider.SPLUNK, DESTINATIONS[0][1], "OLYMPUS_SIEM_TEST"),
-            policy=_policy(authorized=False), authorize_endpoint=lambda _: None,
-            transport=transport, environ={"OLYMPUS_SIEM_TEST": "secret"},
+            policy=_policy(authorized=False),
+            authorize_endpoint=lambda _: None,
+            transport=transport,
+            environ={"OLYMPUS_SIEM_TEST": "secret"},
         )
     assert not transport.calls
 
 
-@pytest.mark.parametrize("url", [
-    "http://siem.example/_bulk",
-    "https://user:pass@siem.example/_bulk",
-    "https://siem.example/_bulk?token=secret",
-    "https://siem.example/other",
-    "https://siem.example/_bulk#fragment",
-    "https://siem.example:invalid/_bulk",
-    "https://[broken/_bulk",
-])
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://siem.example/_bulk",
+        "https://user:pass@siem.example/_bulk",
+        "https://siem.example/_bulk?token=secret",
+        "https://siem.example/other",
+        "https://siem.example/_bulk#fragment",
+        "https://siem.example:invalid/_bulk",
+        "https://[broken/_bulk",
+    ],
+)
 def test_invalid_endpoints_do_not_reach_transport(url: str) -> None:
     transport = FakeTransport(SiemResponse(200, b'{"errors":false}'))
     with pytest.raises(ExecutionPolicyError):
         deliver_alerts(
-            [_alert()], SiemDestination(SiemProvider.ELASTIC, url, "OLYMPUS_SIEM_TEST"),
-            policy=_policy(), authorize_endpoint=lambda _: None, transport=transport,
+            [_alert()],
+            SiemDestination(SiemProvider.ELASTIC, url, "OLYMPUS_SIEM_TEST"),
+            policy=_policy(),
+            authorize_endpoint=lambda _: None,
+            transport=transport,
             environ={"OLYMPUS_SIEM_TEST": "secret"},
         )
     assert not transport.calls
@@ -124,30 +132,41 @@ def test_invalid_endpoints_do_not_reach_transport(url: str) -> None:
 
 def test_scope_denial_prevents_delivery() -> None:
     transport = FakeTransport(SiemResponse(204))
+
     def deny(_: str) -> None:
         raise AuthorizationRequiredError("out of scope")
+
     with pytest.raises(AuthorizationRequiredError):
         deliver_alerts(
             [_alert()],
             SiemDestination(SiemProvider.SENTINEL, DESTINATIONS[2][1], "OLYMPUS_SIEM_TEST"),
-            policy=_policy(), authorize_endpoint=deny, transport=transport,
+            policy=_policy(),
+            authorize_endpoint=deny,
+            transport=transport,
             environ={"OLYMPUS_SIEM_TEST": "secret"},
         )
     assert not transport.calls
 
 
-@pytest.mark.parametrize("response", [
-    SiemResponse(403, b"unauthorized secret"),
-    SiemResponse(200, b'{"errors":true}'),
-    SiemResponse(200, b"not json"),
-])
-def test_elastic_failure_or_partial_bulk_cannot_be_reported_as_success(response: SiemResponse) -> None:
+@pytest.mark.parametrize(
+    "response",
+    [
+        SiemResponse(403, b"unauthorized secret"),
+        SiemResponse(200, b'{"errors":true}'),
+        SiemResponse(200, b"not json"),
+    ],
+)
+def test_elastic_failure_or_partial_bulk_cannot_be_reported_as_success(
+    response: SiemResponse,
+) -> None:
     transport = FakeTransport(response)
     with pytest.raises(ExecutionPolicyError, match=r"SIEM destination|Elasticsearch bulk"):
         deliver_alerts(
             [_alert()],
             SiemDestination(SiemProvider.ELASTIC, DESTINATIONS[1][1], "OLYMPUS_SIEM_TEST"),
-            policy=_policy(), authorize_endpoint=lambda _: None, transport=transport,
+            policy=_policy(),
+            authorize_endpoint=lambda _: None,
+            transport=transport,
             environ={"OLYMPUS_SIEM_TEST": "secret"},
         )
 
