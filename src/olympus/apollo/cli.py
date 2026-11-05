@@ -26,6 +26,7 @@ from olympus.apollo.export import (
     export_alerts_elastic_bulk,
     export_alerts_hec,
     export_alerts_ocsf,
+    export_alerts_sentinel,
 )
 from olympus.apollo.ingest import (
     IngestError,
@@ -82,6 +83,9 @@ def test(
     elastic_index: str = typer.Option(
         DEFAULT_ELASTIC_INDEX, "--elastic-index", help="Index/data-stream for --elastic-bulk."
     ),
+    sentinel: Path | None = typer.Option(
+        None, "--sentinel", help="Also write alerts as Azure Monitor DCR JSON array (offline)."
+    ),
     max_rule_bytes: int = typer.Option(DEFAULT_MAX_RULE_BYTES, "--max-rule-bytes"),
     max_event_bytes: int = typer.Option(DEFAULT_MAX_EVENT_BYTES, "--max-event-bytes"),
     deadline: float = typer.Option(60.0, "--deadline"),
@@ -96,7 +100,7 @@ def test(
                 max_event_bytes=max_event_bytes,
                 deadline_seconds=deadline,
                 excluded_paths=tuple(
-                    p for p in (output, ecs, ocsf, hec, elastic_bulk) if p is not None
+                    p for p in (output, ecs, ocsf, hec, elastic_bulk, sentinel) if p is not None
                 ),
             )
         )
@@ -109,6 +113,8 @@ def test(
             export_alerts_hec(outcome.alerts, hec)
         if elastic_bulk is not None:
             export_alerts_elastic_bulk(outcome.alerts, elastic_bulk, index=elastic_index)
+        if sentinel is not None:
+            export_alerts_sentinel(outcome.alerts, sentinel)
     except CancellationRequested as exc:
         _echo_terminal(f"apollo: evaluation cancelled: {exc}", err=True)
         raise typer.Exit(code=ExitCode.CANCELLED) from exc
@@ -146,6 +152,9 @@ def run(
     elastic_index: str = typer.Option(
         DEFAULT_ELASTIC_INDEX, "--elastic-index", help="Index/data-stream for --elastic-bulk."
     ),
+    sentinel: Path | None = typer.Option(
+        None, "--sentinel", help="Also write alerts as Azure Monitor DCR JSON array (offline)."
+    ),
     max_rules: int = typer.Option(DEFAULT_MAX_RULES, "--max-rules"),
     max_rule_bytes: int = typer.Option(DEFAULT_MAX_RULE_BYTES, "--max-rule-bytes"),
     max_event_bytes: int = typer.Option(DEFAULT_MAX_EVENT_BYTES, "--max-event-bytes"),
@@ -165,7 +174,7 @@ def run(
                 rules_path=rules,
                 events_path=events,
                 excluded_paths=tuple(
-                    p for p in (output, ecs, ocsf, hec, elastic_bulk) if p is not None
+                    p for p in (output, ecs, ocsf, hec, elastic_bulk, sentinel) if p is not None
                 ),
                 max_rules=max_rules,
                 max_rule_bytes=max_rule_bytes,
@@ -187,6 +196,8 @@ def run(
             export_alerts_hec(outcome.alerts, hec)
         if elastic_bulk is not None:
             export_alerts_elastic_bulk(outcome.alerts, elastic_bulk, index=elastic_index)
+        if sentinel is not None:
+            export_alerts_sentinel(outcome.alerts, sentinel)
     except CancellationRequested as exc:
         _echo_terminal(f"apollo: run cancelled: {exc}", err=True)
         raise typer.Exit(code=ExitCode.CANCELLED) from exc
