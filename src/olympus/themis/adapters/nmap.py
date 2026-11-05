@@ -24,6 +24,12 @@ class NmapAdapter(ScannerAdapter):
     binary = "nmap"
     version_expected = "7.x"
 
+    #: Why the last parsed run may be incomplete, or ``None`` for a clean,
+    #: fully-completed scan. An adapter instance serves one run, so this is
+    #: per-run state (reset on every :meth:`parse`); :meth:`coverage_loss`
+    #: reports it as a partial result.
+    _coverage_reason: str | None = None
+
     def build_argv(self, host: str, request: ScanRequest) -> list[str]:
         # -Pn: no ping (works on filtered hosts). -sV: service/version. -F: top
         # 100 ports (bounded). -oX -: XML to stdout. --host-timeout caps runtime.
@@ -41,6 +47,7 @@ class NmapAdapter(ScannerAdapter):
         ]
 
     def parse(self, output: CommandOutput, host: str, request: ScanRequest) -> list[Finding]:
+        self._coverage_reason = None
         xml_bytes = output.stdout.encode("utf-8")
         if len(xml_bytes) > MAX_NMAP_XML_BYTES:
             raise ParseError(f"nmap XML exceeds the {MAX_NMAP_XML_BYTES}-byte limit")
@@ -78,6 +85,19 @@ class NmapAdapter(ScannerAdapter):
                 raise ParseError("nmap XML has no root element")
         except (ET.ParseError, DefusedXmlException, LookupError, UnicodeError) as exc:
             raise ParseError(f"nmap XML unparseable: {exc}") from exc
+        if root.tag != "nmaprun":
+            # Well-formed XML that is not an nmap run (the wrong tool on PATH, or an
+            # error document): it carries no ports, so silently it would read as a
+            # clean target. Fail closed, exactly like an unparseable stream
+            # (TOOLS-4.4).
+            raise ParseError(f"nmap XML root is <{root.tag}>, not <nmaprun>")
+        # nmap can exit 0 and still declare the scan failed in its run trailer
+        # (<runstats><finished exit="error" errormsg="...">). A declared error is a
+        # known error and must read as FAILED, never as a clean target.
+        finished = root.find("runstats/finished")
+        if finished is not None and finished.get("exit") == "error":
+            errormsg = (finished.get("errormsg") or "").strip() or "no message"
+            raise ParseError(f"nmap reported a failed scan: {errormsg}")
         asset_id = self.asset_id(host)
         findings: list[Finding] = []
         for port in root.iter("port"):
@@ -117,4 +137,33 @@ class NmapAdapter(ScannerAdapter):
                 ),
                 request,
             )
+        # A trustworthy "no open ports" result is exit=success with the target
+        # host actually up and scanned. Anything else means completeness is not
+        # guaranteed, so the run is partial (exit 5) — never a silently clean
+        # target (TOOLS-4.4).
+        reasons: list[str] = []
+        if finished is None or finished.get("exit") != "success":
+            reasons.append("nmap did not report successful completion")
+        hosts = root.findall("host")
+        if not hosts:
+            reasons.append("nmap returned no host record for the target")
+        else:
+            for host_el in hosts:
+                status = host_el.find("status")
+                state = status.get("state") if status is not None else None
+                if state != "up":
+                    reasons.append(
+                        f"target host state is {state or 'unknown'}; its ports were not scanned"
+                    )
+                    break
+        self._coverage_reason = "; ".join(reasons) if reasons else None
         return findings
+
+    def coverage_loss(self, output: CommandOutput, request: ScanRequest) -> str | None:
+        """Report why a parsed-but-incomplete nmap run reads as partial, not clean.
+
+        nmap can exit 0 on a scan that did not finish or did not reach the target.
+        A clean run is exit=success with the target host up; anything else means
+        "no open ports" cannot be trusted, so the run is partial (TOOLS-4.4).
+        """
+        return self._coverage_reason
