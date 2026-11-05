@@ -67,16 +67,21 @@ def _validate_endpoint(destination: SiemDestination) -> None:
     raw = destination.endpoint
     if any(ord(char) <= 32 or ord(char) == 127 for char in raw):
         raise ExecutionPolicyError("SIEM endpoint contains forbidden characters")
-    url = urlsplit(raw)
+    try:
+        url = urlsplit(raw)
+        hostname = url.hostname
+        port = url.port
+    except ValueError as exc:
+        raise ExecutionPolicyError("SIEM endpoint has an invalid URL authority") from exc
     if (
         url.scheme != "https"
-        or not url.hostname
+        or not hostname
         or not url.netloc
         or url.username is not None
         or url.password is not None
         or url.fragment
         or url.query
-        or url.port == 0
+        or port == 0
     ):
         raise ExecutionPolicyError("SIEM endpoint must be an HTTPS URL without credentials, query or fragment")
     if destination.provider is SiemProvider.SPLUNK and url.path != "/services/collector/event":
