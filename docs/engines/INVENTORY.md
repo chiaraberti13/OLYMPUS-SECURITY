@@ -46,7 +46,7 @@ Nessun engine è `production-ready`. Nessuna riga del ledger è stata promossa d
 | `nuclei` | web | live-tested | sì | sì | https://github.com/projectdiscovery/nuclei | no | MIT | Go | go | `v3.11.1` | v3.11.1 (match) | sì |
 | `sqlmap` | web | live-tested | sì (timeout/profilo non rivisti) | - | https://github.com/sqlmapproject/sqlmap | no | GPL-2.0 | Python | pip | `1.10.11` | 1.10.8 (RECONFIRM) | sì |
 | `subfinder` | dns | catalog-only | no | - | https://github.com/projectdiscovery/subfinder | no | MIT | Go | go | `v2.16.0` | - (-) | sì |
-| `testssl` | tls | offline-tested | sì (timeout/profilo non rivisti) | - | https://github.com/drwetter/testssl.sh | no | GPL-2.0 | Bash | git | `v3.2.4` @ `97763a4` | 3.x (compatible) | sì |
+| `testssl` | tls | offline-tested | sì (timeout/profilo non rivisti) | - | https://github.com/testssl/testssl.sh | no | GPL-2.0 | Bash | git | `v3.2.4` @ `97763a4` | 3.x (compatible) | sì |
 | `theharvester` | dns | catalog-only | no | - | https://github.com/laramies/theHarvester | no | GPL-2.0 | Python | git | `4.11.1` @ `fd832de` | - (-) | no |
 | `wafw00f` | web | live-tested | sì (timeout/profilo non rivisti) | - | https://github.com/EnableSecurity/wafw00f | no | BSD-3-Clause | Python | pip | `2.4.2` | 2.x (compatible) | sì |
 | `wapiti` | web | offline-tested | sì (timeout/profilo non rivisti) | - | https://github.com/wapiti-scanner/wapiti | no | GPL-2.0 | Python | pip | `3.2.3` | - (-) | sì |

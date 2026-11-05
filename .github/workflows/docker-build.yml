@@ -6,7 +6,7 @@ name: scanner-image
 # engine is really there with its manifest probe and pinned commit.
 on:
   push:
-    paths: &image_paths
+    paths:
       - docker/**
       - src/olympus/engines/**
       - src/olympus/themis/**
@@ -14,7 +14,6 @@ on:
       - pyproject.toml
       - .github/workflows/docker-build.yml
   pull_request:
-    paths: *image_paths
   workflow_dispatch:
 
 permissions:
@@ -26,7 +25,39 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      required: ${{ steps.paths.outputs.required }}
+    steps:
+      - uses: actions/checkout@v7
+        if: github.event_name == 'pull_request'
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - id: paths
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          required=true
+          if [[ "$EVENT" == pull_request ]]; then
+            git diff --name-only --no-renames -z HEAD^1 HEAD > "$RUNNER_TEMP/scanner-paths"
+            required=false
+            while IFS= read -r -d '' path; do
+              case "$path" in
+                docker/*|src/olympus/engines/*|src/olympus/themis/*|scripts/smoke_scanner_image.py|pyproject.toml|.github/workflows/docker-build.yml)
+                  required=true
+                  break
+                  ;;
+              esac
+            done < "$RUNNER_TEMP/scanner-paths"
+          fi
+          echo "required=$required" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: changes
+    if: needs.changes.outputs.required == 'true'
     name: build · engine smoke test
     runs-on: ubuntu-latest
     timeout-minutes: 90   # nmap and the Go engines are compiled from source
@@ -43,3 +74,21 @@ jobs:
         run: docker build --progress=plain -f docker/Dockerfile.scanners -t olympus-scanners:ci .
       - name: Every shipped engine is present at its pinned version
         run: python scripts/smoke_scanner_image.py olympus-scanners:ci
+
+  gate:
+    name: scanner-image gate
+    if: always()
+    needs: [changes, build]
+    runs-on: ubuntu-latest
+    env:
+      DETECTION: ${{ needs.changes.result }}
+      REQUIRED: ${{ needs.changes.outputs.required }}
+      BUILD: ${{ needs.build.result }}
+    steps:
+      - name: Verify scanner image policy
+        run: |
+          [[ "$DETECTION" == success ]] || exit 1
+          case "$REQUIRED:$BUILD" in
+            true:success|false:skipped) exit 0 ;;
+            *) echo "Unexpected scanner build state: $REQUIRED:$BUILD"; exit 1 ;;
+          esac
