@@ -12,6 +12,20 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Fixed — TOOLS-4.4 (nuclei: nessun errore su stdout si legge come run pulito)
+
+- L'adapter nuclei (`themis.adapters.nuclei`) non ignora più in silenzio le righe
+  non-JSON su stdout. `nuclei` gira con `-jsonl -silent`, quindi stdout trasporta
+  solo record JSONL: una riga non vuota che non inizia con `{` è ora conteggiata
+  come **record scartato** (`_skipped_records`), esattamente come un record JSON
+  malformato. Di conseguenza un errore o un diagnostico stampato per errore su
+  stdout (es. `[ERR] rate limit exceeded`) rende il run **`partial`** (exit 5) con
+  motivo esplicito, invece di passare inosservato e lasciar leggere il target come
+  «pulito». I diagnostici legittimi restano attesi su stderr; il comportamento già
+  esistente per output senza alcun oggetto JSONL (`ParseError` → `failed`) è
+  invariato. Nessun cambiamento alla superficie CLI. ROADMAP `TOOLS-4.4` (slice
+  nuclei).
+
 ### Added — VAL-1 (finding lifecycle across the assessment history)
 
 - Motore di lifecycle dei finding `vulcan.lifecycle.classify_lifecycle` e CLI

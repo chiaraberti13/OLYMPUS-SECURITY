@@ -104,7 +104,15 @@ class NucleiAdapter(ScannerAdapter):
 
         for line in output.stdout.splitlines():
             line = line.strip()
-            if not line or not line.startswith("{"):
+            if not line:
+                continue
+            if not line.startswith("{"):
+                # nuclei runs with -jsonl -silent, so stdout carries JSONL records only. A
+                # non-JSON line is unexpected output — a diagnostic or an error — that must
+                # not be dropped silently, or an unknown error printed on stdout could read
+                # as a clean run. Count it as a discarded record so the result is partial,
+                # never silently clean (TOOLS-4.4); diagnostics proper belong on stderr.
+                skipped += 1
                 continue
             if len(line) > MAX_NUCLEI_JSONL_LINE_BYTES:
                 raise ParseError(
