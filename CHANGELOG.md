@@ -12,6 +12,16 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — BLUE-2 (SIEM transport boundary)
+
+- Porta Python di dispatch SIEM `apollo.dispatch.deliver_alerts` per Splunk HEC,
+  Elasticsearch `_bulk` e Azure Monitor/Sentinel: `SiemTransport` iniettato,
+  `ExecutionPolicy` autorizzata, approval reference, gate scope destinazione,
+  credenziali solo da env `OLYMPUS_SIEM_*`, limiti payload/response e controllo
+  degli esiti applicativi HEC/Elastic. Test offline via fake transport.
+  Nessun trasporto HTTP live o opzione CLI di invio attivata: serve prima
+  adapter e validazione in laboratorio autorizzato.
+
 ### Added
 
 - **BLUE-2 — Microsoft Sentinel / Azure Monitor export offline:** `apollo test` e
