@@ -51,6 +51,21 @@ list fields are JSON-encoded strings. A matching DCR must map them to columns
 with those exact names and string types (and `TimeGenerated` as datetime),
 prior to ingestion. This export creates neither Sentinel incidents nor DCRs.
 
+The BLUE-2 delivery boundary is also available as an **injected Python port**:
+`olympus.apollo.dispatch.deliver_alerts`. It accepts a `SiemTransport` object,
+an `ExecutionPolicy` with `authorized=True` and a non-empty
+`approval_reference`, and a mandatory destination-scope authorizer callback.
+The endpoint must be HTTPS with no credentials, query or fragment, and its path
+must match the chosen SIEM ingestion API. Tokens come exclusively from an
+environment variable named `OLYMPUS_SIEM_*`; they are never put in the URL.
+Batch size and response size are bounded, and Splunk HEC / Elasticsearch bulk
+responses are checked for application-level failure. Calls are single-attempt;
+redirect/retry handling is the responsibility of a future audited adapter.
+**No live HTTP transport is packaged and no CLI option sends network traffic.**
+The scope callback must be provided by the engagement's authorized egress
+checker, not a no-op; tests use no-op/failing callbacks only with fake transports.
+Live delivery requires a reviewed adapter and an authorized-lab validation.
+
 The first format is `access-log` — HTTP access logs in the Apache/nginx *Common*
 and *Combined* Log Formats and the Python `http.server` variant — mapped to
 `event_type="http.request"` with string attributes (`client_ip`, `method`,
