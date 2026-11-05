@@ -27,7 +27,7 @@ MAX_RESPONSE_BYTES = 65_536
 _ENV_NAME = re.compile(r"OLYMPUS_SIEM_[A-Z0-9_]{1,80}\Z")
 
 
-class SiemProvider(str, Enum):
+class SiemProvider(Enum):
     SPLUNK = "splunk"
     ELASTIC = "elastic"
     SENTINEL = "sentinel"
@@ -83,7 +83,9 @@ def _validate_endpoint(destination: SiemDestination) -> None:
         or url.query
         or port == 0
     ):
-        raise ExecutionPolicyError("SIEM endpoint must be an HTTPS URL without credentials, query or fragment")
+        raise ExecutionPolicyError(
+            "SIEM endpoint must be an HTTPS URL without credentials, query or fragment"
+        )
     if destination.provider is SiemProvider.SPLUNK and url.path != "/services/collector/event":
         raise ExecutionPolicyError("Splunk destination must use /services/collector/event")
     if destination.provider is SiemProvider.ELASTIC and url.path != "/_bulk":
@@ -155,7 +157,9 @@ def deliver_alerts(
             if not isinstance(parsed, dict) or parsed.get("errors") is not False:
                 raise ValueError("partial or malformed response")
         except (ValueError, UnicodeError) as exc:
-            raise ExecutionPolicyError("Elasticsearch bulk response is incomplete or contains errors") from exc
+            raise ExecutionPolicyError(
+                "Elasticsearch bulk response is incomplete or contains errors"
+            ) from exc
     elif destination.provider is SiemProvider.SPLUNK:
         try:
             parsed = json.loads(response.body)
@@ -163,4 +167,6 @@ def deliver_alerts(
                 raise ValueError("non-successful HEC response")
         except (ValueError, UnicodeError) as exc:
             raise ExecutionPolicyError("Splunk HEC response is incomplete or unsuccessful") from exc
-    return SiemDeliveryResult(destination.provider, response.status_code, len(alerts), len(body))
+    return SiemDeliveryResult(
+        destination.provider, response.status_code, len(alerts), len(body)
+    )
