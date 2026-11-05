@@ -61,7 +61,9 @@ def _policy(*, authorized: bool = True) -> ExecutionPolicy:
 
 
 @pytest.mark.parametrize(("provider", "url", "response"), DESTINATIONS)
-def test_delivery_uses_injected_port_and_env_only(provider: SiemProvider, url: str, response: SiemResponse) -> None:
+def test_delivery_uses_injected_port_and_env_only(
+    provider: SiemProvider, url: str, response: SiemResponse
+) -> None:
     transport = FakeTransport(response)
     seen: list[str] = []
     result = deliver_alerts(
@@ -92,7 +94,8 @@ def test_fail_closed_before_transport_without_authorization() -> None:
     transport = FakeTransport(SiemResponse(200, b'{"code":0}'))
     with pytest.raises(AuthorizationRequiredError):
         deliver_alerts(
-            [_alert()], SiemDestination(SiemProvider.SPLUNK, DESTINATIONS[0][1], "OLYMPUS_SIEM_TEST"),
+            [_alert()],
+            SiemDestination(SiemProvider.SPLUNK, DESTINATIONS[0][1], "OLYMPUS_SIEM_TEST"),
             policy=_policy(authorized=False), authorize_endpoint=lambda _: None,
             transport=transport, environ={"OLYMPUS_SIEM_TEST": "secret"},
         )
@@ -125,7 +128,8 @@ def test_scope_denial_prevents_delivery() -> None:
         raise AuthorizationRequiredError("out of scope")
     with pytest.raises(AuthorizationRequiredError):
         deliver_alerts(
-            [_alert()], SiemDestination(SiemProvider.SENTINEL, DESTINATIONS[2][1], "OLYMPUS_SIEM_TEST"),
+            [_alert()],
+            SiemDestination(SiemProvider.SENTINEL, DESTINATIONS[2][1], "OLYMPUS_SIEM_TEST"),
             policy=_policy(), authorize_endpoint=deny, transport=transport,
             environ={"OLYMPUS_SIEM_TEST": "secret"},
         )
@@ -139,9 +143,10 @@ def test_scope_denial_prevents_delivery() -> None:
 ])
 def test_elastic_failure_or_partial_bulk_cannot_be_reported_as_success(response: SiemResponse) -> None:
     transport = FakeTransport(response)
-    with pytest.raises(ExecutionPolicyError, match="SIEM destination|Elasticsearch bulk"):
+    with pytest.raises(ExecutionPolicyError, match=r"SIEM destination|Elasticsearch bulk"):
         deliver_alerts(
-            [_alert()], SiemDestination(SiemProvider.ELASTIC, DESTINATIONS[1][1], "OLYMPUS_SIEM_TEST"),
+            [_alert()],
+            SiemDestination(SiemProvider.ELASTIC, DESTINATIONS[1][1], "OLYMPUS_SIEM_TEST"),
             policy=_policy(), authorize_endpoint=lambda _: None, transport=transport,
             environ={"OLYMPUS_SIEM_TEST": "secret"},
         )
@@ -149,10 +154,14 @@ def test_elastic_failure_or_partial_bulk_cannot_be_reported_as_success(response:
 
 def test_missing_credential_and_empty_batch_fail_closed() -> None:
     transport = FakeTransport(SiemResponse(200, b'{"code":0}'))
-    base = dict(
-        destination=SiemDestination(SiemProvider.SPLUNK, DESTINATIONS[0][1], "OLYMPUS_SIEM_TEST"),
-        policy=_policy(), authorize_endpoint=lambda _: None, transport=transport,
-    )
+    base = {
+        "destination": SiemDestination(
+            SiemProvider.SPLUNK, DESTINATIONS[0][1], "OLYMPUS_SIEM_TEST"
+        ),
+        "policy": _policy(),
+        "authorize_endpoint": lambda _: None,
+        "transport": transport,
+    }
     with pytest.raises(ExecutionPolicyError, match="credential"):
         deliver_alerts([_alert()], environ={}, **base)
     with pytest.raises(ExecutionPolicyError, match="empty"):
