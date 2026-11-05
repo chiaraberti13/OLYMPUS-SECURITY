@@ -40,8 +40,16 @@ def test_sentinel_contract_is_flat_json_array_and_keeps_alert_identity() -> None
     assert json.loads(record["MitreAttackIds"]) == ["T1059.001"]
     assert json.loads(record["EvidenceIds"]) == ["EVD-1"]
     assert set(record) == {
-        "TimeGenerated", "AlertId", "EventId", "Title", "Source",
-        "Severity", "Status", "RuleId", "MitreAttackIds", "EvidenceIds",
+        "TimeGenerated",
+        "AlertId",
+        "EventId",
+        "Title",
+        "Source",
+        "Severity",
+        "Status",
+        "RuleId",
+        "MitreAttackIds",
+        "EvidenceIds",
     }
     assert json.loads(alerts_to_sentinel_json([alert, alert])) == [record, record]
 
@@ -76,9 +84,7 @@ def test_apollo_test_writes_owner_only_sentinel_json(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     event = Event(
-        event_type="process.start",
-        source=Source.APOLLO,
-        attributes={"image": "powershell.exe"},
+        event_type="process.start", source=Source.APOLLO, attributes={"image": "powershell.exe"}
     )
     event_path = tmp_path / "event.json"
     event_path.write_text(event.model_dump_json(), encoding="utf-8")
@@ -86,9 +92,14 @@ def test_apollo_test_writes_owner_only_sentinel_json(tmp_path: Path) -> None:
     result = runner.invoke(
         app,
         [
-            "apollo", "test", str(rule), str(event_path),
-            "--output", str(tmp_path / "alerts.json"),
-            "--sentinel", str(destination),
+            "apollo",
+            "test",
+            str(rule),
+            str(event_path),
+            "--output",
+            str(tmp_path / "alerts.json"),
+            "--sentinel",
+            str(destination),
         ],
     )
     assert result.exit_code == 0, result.output
