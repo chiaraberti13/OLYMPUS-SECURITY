@@ -1,0 +1,69 @@
+name: Nuclei live lab
+
+on:
+  workflow_dispatch:
+    inputs:
+      authorized:
+        description: Authorize the synthetic localhost lab
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  nuclei:
+    if: inputs.authorized && github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.10"
+          cache: false
+      - name: Install pinned engine and templates
+        run: |
+          set -euo pipefail
+          readarray -t pins < <(python - <<'PY'
+          import pathlib
+          import tomllib
+
+          root = pathlib.Path("src/olympus/engines")
+          with (root / "nuclei/engine.toml").open("rb") as stream:
+              engine = tomllib.load(stream)["engine"]
+          with (root / "_data/nuclei-templates.toml").open("rb") as stream:
+              source = tomllib.load(stream)["data"]["source"]
+          print(engine["source"]["module"] + "@" + engine["pinned_version"])
+          print(source["repo"])
+          print(source["commit"])
+          PY
+          )
+          install -d /tmp/olympus-lab-bin /tmp/olympus-lab-templates
+          GOBIN=/tmp/olympus-lab-bin go install "${pins[0]}"
+          git -C /tmp/olympus-lab-templates init -q
+          git -C /tmp/olympus-lab-templates fetch --depth 1 "${pins[1]}" "${pins[2]}"
+          git -C /tmp/olympus-lab-templates checkout --detach FETCH_HEAD
+          test "$(git -C /tmp/olympus-lab-templates rev-parse HEAD)" = "${pins[2]}"
+          python -m pip install -e ".[dev,api]"
+      - name: Run and verify the loopback lab
+        env:
+          OLYMPUS_RUN_LIVE_LAB_TESTS: "1"
+          OLYMPUS_LIVE_LAB_AUTHORIZATION: I_HAVE_AUTHORIZATION
+          THEMIS_NUCLEI_TEMPLATES: /tmp/olympus-lab-templates
+        run: |
+          export PATH="/tmp/olympus-lab-bin:$PATH"
+          python -m pytest -m live_lab tests/live_lab/test_nuclei_live.py --junitxml=live-lab.xml
+          python - <<'PY'
+          import xml.etree.ElementTree as ET
+
+          cases = ET.parse("live-lab.xml").findall(".//testcase")
+          if not cases or any(case.find("skipped") is not None for case in cases):
+              raise SystemExit("Live lab must run without skipped tests")
+          PY
