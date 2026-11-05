@@ -115,13 +115,33 @@ def test_malformed_records_make_the_run_partial_never_clean(
     assert result.state is ExecutionState.LIVE
     assert len(result.findings) == 5  # the five good records survive
     assert result.partial is True
-    # Only the truncated JSON record counts: a stray non-JSON stdout line is ignored as noise
-    # by design (the adapter only reads lines that start with '{').
+    # Both the truncated JSON record AND the stray "not json at all" line count: nuclei's
+    # silent stdout is JSONL only, so an unexpected non-JSON line is discarded output that
+    # makes the run partial — never silently clean — so an error on stdout cannot hide.
     assert result.partial_reason is not None
-    assert "1 nuclei output record(s)" in result.partial_reason
+    assert "2 nuclei output record(s)" in result.partial_reason
     assert _scan_exit_code(result) is ExitCode.PARTIAL  # 5, not 1 and not 0
     document = result.to_dict()
     assert document["schema_version"] == "1.3.0" and document["partial"] is True
+
+
+def test_an_error_line_on_stdout_makes_the_run_partial_not_clean(
+    installed: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A real finding plus an error-looking non-JSON line on stdout: the stray line must not
+    # be dropped as noise and let the run read as clean — it counts as a discarded record,
+    # so the run is partial and the unexpected output cannot hide (TOOLS-4.4).
+    stdout = (
+        '{"template-id":"demo","info":{"name":"Demo"}}\n'
+        "[ERR] rate limit exceeded; results truncated\n"
+    )
+    result = _run(_Runner(stdout), monkeypatch)
+    assert result.state is ExecutionState.LIVE
+    assert len(result.findings) == 1
+    assert result.partial is True
+    assert result.partial_reason is not None
+    assert "1 nuclei output record(s)" in result.partial_reason
+    assert _scan_exit_code(result) is ExitCode.PARTIAL
 
 
 def test_output_with_no_usable_record_is_a_failure_not_a_clean_empty(
