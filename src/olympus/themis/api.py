@@ -25,6 +25,7 @@ from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.middleware.base import RequestResponseEndpoint
+from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import Response
 
 from olympus import __version__
@@ -102,6 +103,36 @@ _BEARER_HEADER = HTTPBearer(auto_error=False)
 #: A caller-supplied trace identifier is echoed, so it must be inert text.
 _TRACE_ID = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 
+#: A browser Origin is exactly scheme://host[:port] — no path, query, fragment,
+#: userinfo or trailing slash. Hosts are DNS names or IP literals; the scheme is
+#: restricted to http/https so no exotic scheme is ever reflected back.
+_CORS_ORIGIN = re.compile(
+    r"^https?://"
+    r"(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)"
+    r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*"
+    r"(?::(?:6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}))?$"
+)
+
+
+def _validate_cors_origin(origin: object) -> None:
+    """Reject anything that is not an exact fail-closed browser Origin.
+
+    The wildcard ``*`` is refused outright: credentials are allowed only against
+    an explicit allowlist, never a reflected or blanket origin.
+    """
+    if not isinstance(origin, str):
+        raise ValueError("Themis API cors_allowed_origins entries must be strings")
+    if origin == "*":
+        raise ValueError(
+            "Themis API cors_allowed_origins must not contain the wildcard '*'; "
+            "list each exact origin instead"
+        )
+    if not _CORS_ORIGIN.match(origin):
+        raise ValueError(
+            f"Themis API cors_allowed_origins entry is not a valid scheme://host[:port] "
+            f"origin: {origin!r}"
+        )
+
 
 @dataclass(frozen=True)
 class ApiSettings:
@@ -166,6 +197,13 @@ class ApiSettings:
     #: must carry a signed manifest and is rejected unless it authorizes the
     #: exact engagement, scanner, target and current time.
     trusted_manifest_public_key_pem: str | None = None
+    #: Exact browser Origins allowed to call this API cross-origin (``API-4``).
+    #: Empty by default — fail-closed: no ``Access-Control-Allow-Origin`` is ever
+    #: emitted, so a browser on another domain cannot read a response. For a split
+    #: deployment (frontend on its own domain), list each full origin
+    #: (``https://app.example.com``); the wildcard ``*`` is rejected, and credentials
+    #: are allowed only against this explicit allowlist, never a reflected origin.
+    cors_allowed_origins: tuple[str, ...] = ()
     #: Bound in-flight ASGI requests across API/Web processes sharing this job
     #: database; excess work is rejected rather than queued without bounds.
     max_concurrent_requests: int = DEFAULT_MAX_CONCURRENT_REQUESTS
@@ -221,6 +259,10 @@ class ApiSettings:
             load_custody_ed25519_public_key(
                 env={CUSTODY_ED25519_PUBLIC_KEY_ENV: self.minerva_custody_public_key_hex}
             )
+        if not isinstance(self.cors_allowed_origins, tuple):
+            raise ValueError("Themis API cors_allowed_origins must be a tuple of origins")
+        for origin in self.cors_allowed_origins:
+            _validate_cors_origin(origin)
         if self.scope_directory.is_symlink():
             raise ValueError("Themis scope directory must be an existing non-symlink directory")
         root = self.scope_directory.resolve()
@@ -759,6 +801,20 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
         description="Authorized specialist-engine orchestration and evidence lifecycle.",
         lifespan=lifespan,
     )
+
+    if settings.cors_allowed_origins:
+        # Fail-closed cross-origin policy (API-4): a browser on another domain can
+        # read a response only from an exact, operator-listed origin. ``*`` is never
+        # emitted and the origin is never reflected, so credentialed requests from
+        # any other site are refused by the browser. Only safe methods are allowed
+        # and no response header is exposed beyond the browser's CORS-safelisted set.
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=list(settings.cors_allowed_origins),
+            allow_credentials=True,
+            allow_methods=["GET", "POST"],
+            allow_headers=["Authorization", "Content-Type", "X-Olympus-API-Key"],
+        )
 
     def authenticated(required_scope: str) -> Caller:
         """Return the caller if the credential is usable and carries the scope."""

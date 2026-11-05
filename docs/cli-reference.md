@@ -1200,6 +1200,7 @@ Serve the authenticated native Themis API.
 | `--apollo-rules` | option | no | — | Server-owned Apollo rule directory; enables versioned rule-list and offline evaluation API endpoints. |
 | `--manifest-public-key` | option | no | — | Pinned Ed25519 approver public key; requires --engagement-storage and signed manifests on API job submissions. |
 | `--minerva-custody-public-key` | option | no | — | File holding a hex-encoded Ed25519 custody verification public key (not a secret); enables Minerva ledger signature verification over the API. |
+| `--cors-allow-origin` | option | no | — | Exact browser Origin (scheme://host[:port]) allowed to call the API cross-origin; repeatable. Empty (default) emits no CORS headers; the wildcard '*' is rejected. |
 | `--ssl-certfile` | option | no | — | — |
 | `--ssl-keyfile` | option | no | — | — |
 

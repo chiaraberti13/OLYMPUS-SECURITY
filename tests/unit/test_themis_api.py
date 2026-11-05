@@ -766,6 +766,112 @@ def test_resubmitting_with_an_idempotency_key_returns_the_same_job(tmp_path: Pat
     assert client.post("/api/v1/jobs", headers=AUTH, json=conflicting).status_code == 409
 
 
+def _cors_client(tmp_path: Path, origins: tuple[str, ...]) -> TestClient:
+    scopes = tmp_path / "scopes"
+    _scope(scopes)
+    return TestClient(
+        create_app(
+            ApiSettings(
+                database=tmp_path / "jobs.sqlite3",
+                scope_directory=scopes,
+                api_key=API_KEY,
+                api_key_scopes=SCOPES,
+                cors_allowed_origins=origins,
+            )
+        )
+    )
+
+
+def test_cors_disabled_by_default_emits_no_header(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    response = client.get("/api/v1/jobs", headers={**AUTH, "Origin": "https://app.example.com"})
+    assert response.status_code == 200
+    assert "access-control-allow-origin" not in response.headers
+
+
+def test_cors_allows_only_the_listed_origin(tmp_path: Path) -> None:
+    allowed = "https://console.example.com"
+    client = _cors_client(tmp_path, (allowed,))
+
+    # A browser preflight from the listed origin is cleared with that exact origin.
+    preflight = client.options(
+        "/api/v1/jobs",
+        headers={
+            "Origin": allowed,
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+    assert preflight.headers.get("access-control-allow-origin") == allowed
+    assert preflight.headers["access-control-allow-origin"] != "*"
+
+    # An actual authenticated request echoes the same exact origin, never a wildcard.
+    actual = client.get("/api/v1/jobs", headers={**AUTH, "Origin": allowed})
+    assert actual.status_code == 200
+    assert actual.headers.get("access-control-allow-origin") == allowed
+
+
+def test_cors_never_reflects_an_unlisted_origin(tmp_path: Path) -> None:
+    client = _cors_client(tmp_path, ("https://console.example.com",))
+    hostile = "https://evil.example.net"
+
+    preflight = client.options(
+        "/api/v1/jobs",
+        headers={"Origin": hostile, "Access-Control-Request-Method": "POST"},
+    )
+    assert preflight.headers.get("access-control-allow-origin") != hostile
+    assert "access-control-allow-origin" not in preflight.headers
+
+    actual = client.get("/api/v1/jobs", headers={**AUTH, "Origin": hostile})
+    assert actual.status_code == 200
+    assert "access-control-allow-origin" not in actual.headers
+
+
+def test_cors_validation_rejects_wildcard_and_malformed_origins(tmp_path: Path) -> None:
+    scopes = tmp_path / "scopes"
+    _scope(scopes)
+    for invalid in (
+        "*",
+        "https://app.example.com/",
+        "https://app.example.com/path",
+        "ftp://app.example.com",
+        "https://",
+        "app.example.com",
+        "https://app.example.com:99999",
+        "https://user:pass@app.example.com",
+    ):
+        settings = ApiSettings(
+            database=tmp_path / "jobs.sqlite3",
+            scope_directory=scopes,
+            api_key=API_KEY,
+            api_key_scopes=SCOPES,
+            cors_allowed_origins=(invalid,),
+        )
+        with pytest.raises(ValueError, match="cors_allowed_origins"):
+            settings.validate()
+
+
+def test_cli_rejects_wildcard_cors_origin(tmp_path: Path) -> None:
+    runner = CliRunner()
+    scopes = tmp_path / "scopes"
+    _scope(scopes)
+    result = runner.invoke(
+        app,
+        [
+            "themis",
+            "api",
+            "--scope-directory",
+            str(scopes),
+            "--database",
+            str(tmp_path / "jobs.sqlite3"),
+            "--cors-allow-origin",
+            "*",
+        ],
+        env={"OLYMPUS_THEMIS_API_KEY": API_KEY},
+    )
+    assert result.exit_code == 2
+    assert "cors_allowed_origins" in result.output
+
+
 def test_submission_validates_the_attempt_budget(tmp_path: Path) -> None:
     client = _client(tmp_path)
     payload = {

@@ -12,6 +12,18 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — API-4 (fail-closed CORS/origin policy)
+
+- Policy CORS *fail-closed* sull'API Themis: `ApiSettings.cors_allowed_origins`
+  e il flag ripetibile `olympus themis api --cors-allow-origin`. Di default non
+  viene emesso alcun header `Access-Control-Allow-Origin`, così nessun sito
+  cross-origin può leggere una risposta. Gli origin sono una allowlist esatta
+  `scheme://host[:port]` (`http`/`https`, niente path/query/fragment/userinfo/
+  slash finale); il wildcard `*` è rifiutato in `validate()` all'avvio e l'origin
+  non è mai riflesso. Le credenziali sono ammesse solo contro l'allowlist
+  esplicita, con metodi (`GET`, `POST`) e header consentiti ristretti. ROADMAP
+  `API-4` → parziale.
+
 ### Added — BLUE-2 (SIEM transport boundary)
 
 - Porta Python di dispatch SIEM `apollo.dispatch.deliver_alerts` per Splunk HEC,
