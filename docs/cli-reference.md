@@ -1900,6 +1900,19 @@ Import findings or assets from portable NDJSON into a JSON bundle.
 | `--input`, `-i` | option | yes | — | Portable NDJSON file to read. |
 | `--output`, `-o` | option | yes | — | core.* JSON bundle to write. |
 
+### `olympus vulcan lifecycle`
+
+Classify the latest run's findings against the whole assessment history.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--snapshot` | option | yes | — | A core.Finding JSON bundle for one run, oldest first (repeatable, min 1). |
+| `--format` | option | no | `table` | Render as a table (human) or json (machine). |
+| `--max-files` | option | no | `100` | — |
+| `--max-input-bytes` | option | no | `50000000` | — |
+| `--max-items-per-file` | option | no | `100000` | — |
+| `--max-total-items` | option | no | `200000` | — |
+
 ### `olympus vulcan notify`
 
 Build redacted notifications from findings and optionally deliver them.

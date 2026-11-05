@@ -281,6 +281,36 @@ olympus vulcan trend \
 olympus vulcan trend --snapshot run-2026-08.json --snapshot run-2026-10.json --format json
 ```
 
+### Lifecycle across the history — reappeared findings (`VAL-1`)
+
+A two-run diff cannot tell a genuinely *new* finding from one that was fixed and
+has **come back**. `vulcan.lifecycle.classify_lifecycle` classifies the **latest**
+snapshot's logical findings against the whole ordered history:
+
+- **new** — never seen before this run;
+- **persistent** — also present in the immediately previous run (still open);
+- **reappeared** — present now, absent in the previous run, but seen in an earlier
+  run — i.e. resolved and returned (it carries how long it was `absent_for` and the
+  severity delta from when it was last seen);
+- **resolved** — in the previous run but not the latest.
+
+"Reappeared" is derived from history and the shared logical identity — it is **not**
+a new canonical lifecycle state on the finding (see the state machine above). The
+engine reuses the same identity, folding and risk ordering as the diff/trend, so
+every surface agrees. It is pure, offline and deterministic.
+
+```bash
+# Classify the latest run against the full history (snapshots oldest first). Exit
+# code 1 when the latest run introduced any new OR reappeared finding, 0 otherwise.
+olympus vulcan lifecycle \
+  --snapshot run-2026-08.json \
+  --snapshot run-2026-09.json \
+  --snapshot run-2026-10.json
+
+# --format json emits the full projection (new / persistent / reappeared / resolved).
+olympus vulcan lifecycle --snapshot run-2026-09.json --snapshot run-2026-10.json --format json
+```
+
 ## Portability — findings and assets as NDJSON (`WEB-J`)
 
 Findings and assets move between installations and line-oriented tools as
