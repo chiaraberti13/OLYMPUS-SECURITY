@@ -80,6 +80,7 @@ Evaluate a bounded rule set against a strict streaming NDJSON event source.
 | `--hec` | option | no | — | Also write alerts as newline-delimited Splunk HEC event envelopes. |
 | `--elastic-bulk` | option | no | — | Also write alerts as an Elasticsearch _bulk request body (ECS documents). |
 | `--elastic-index` | option | no | `olympus-apollo` | Index/data-stream for --elastic-bulk. |
+| `--sentinel` | option | no | — | Also write alerts as Azure Monitor DCR JSON array (offline). |
 | `--max-rules` | option | no | `1000` | — |
 | `--max-rule-bytes` | option | no | `1000000` | — |
 | `--max-event-bytes` | option | no | `1000000` | — |
@@ -114,6 +115,7 @@ Evaluate one rule against one strict, normalized Event fixture.
 | `--hec` | option | no | — | Also write alerts as newline-delimited Splunk HEC event envelopes. |
 | `--elastic-bulk` | option | no | — | Also write alerts as an Elasticsearch _bulk request body (ECS documents). |
 | `--elastic-index` | option | no | `olympus-apollo` | Index/data-stream for --elastic-bulk. |
+| `--sentinel` | option | no | — | Also write alerts as Azure Monitor DCR JSON array (offline). |
 | `--max-rule-bytes` | option | no | `1000000` | — |
 | `--max-event-bytes` | option | no | `1000000` | — |
 | `--deadline` | option | no | `60.0` | — |
