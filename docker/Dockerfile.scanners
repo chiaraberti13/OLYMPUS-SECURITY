@@ -111,7 +111,7 @@ RUN git_pin() { \
     git_pin https://github.com/urbanadventurer/WhatWeb d279d93042d034f3fd29d5a893d44ccc0595d3f8 /opt/whatweb; \
     gem install --no-document addressable -v 2.9.2; \
     launcher whatweb ruby /opt/whatweb/whatweb; \
-    git_pin https://github.com/drwetter/testssl.sh 97763a411c525720a5f9bd9d2cded416b10f210a /opt/testssl; \
+    git_pin https://github.com/testssl/testssl.sh 97763a411c525720a5f9bd9d2cded416b10f210a /opt/testssl; \
     ln -s /opt/testssl/testssl.sh /usr/local/bin/testssl.sh; \
     git_pin https://github.com/s0md3v/XSStrike 65dd68ae9051ce7cecf3be23fbda6e329d8580af /opt/xsstrike; \
     python -m venv /opt/venvs/xsstrike; \

@@ -1,7 +1,7 @@
 [engine]
 name = "testssl"
 category = "tls"
-upstream = "https://github.com/drwetter/testssl.sh"
+upstream = "https://github.com/testssl/testssl.sh"
 upstream_verified = false
 language = "Bash"
 license = "GPL-2.0"
@@ -14,7 +14,7 @@ presence_probe = ["testssl.sh", "--version"]
 capability = "tls.scan"
 
 [engine.source]
-repo = "https://github.com/drwetter/testssl.sh"
+repo = "https://github.com/testssl/testssl.sh"
 commit = "97763a411c525720a5f9bd9d2cded416b10f210a"
 checkout_path = "/opt/testssl"
 entry = "testssl.sh"
