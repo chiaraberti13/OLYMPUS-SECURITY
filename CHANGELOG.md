@@ -12,6 +12,15 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added
+
+- **BLUE-2 — Microsoft Sentinel / Azure Monitor export offline:** `apollo test` e
+  `apollo run` accettano `--sentinel PATH` e producono un array JSON di record
+  per la Logs Ingestion API, con campi stabili per DCR e tabella custom.
+  Scrittura atomica con permessi `0o600`, nessuna rete o credenziale.
+  Test di contratto, escaping, input vuoto e integrazione CLI. Il dispatch live
+  resta separato e subordinato a scope e autorizzazione.
+
 ### Security
 
 - **Supply chain: versione di gitleaks allineata tra pre-commit e CI.** Il hook

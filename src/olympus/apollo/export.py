@@ -11,6 +11,7 @@ from olympus.apollo.ecs import alerts_to_ndjson
 from olympus.apollo.elastic import DEFAULT_ELASTIC_INDEX, alerts_to_elastic_bulk
 from olympus.apollo.hec import alerts_to_hec
 from olympus.apollo.ocsf import alerts_to_ndjson as ocsf_alerts_to_ndjson
+from olympus.apollo.sentinel import alerts_to_sentinel_json
 from olympus.core.fileio import atomic_write_text
 from olympus.core.models import Alert
 
@@ -59,3 +60,8 @@ def export_alerts_elastic_bulk(
 ) -> None:
     """Write alerts as an owner-only Elasticsearch ``_bulk`` request body."""
     atomic_write_text(output, alerts_to_elastic_bulk(alerts, index=index), mode=0o600)
+
+
+def export_alerts_sentinel(alerts: Sequence[Alert], output: Path) -> None:
+    """Write an owner-only Azure Monitor Logs Ingestion API JSON array."""
+    atomic_write_text(output, alerts_to_sentinel_json(alerts), mode=0o600)
