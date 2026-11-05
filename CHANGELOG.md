@@ -12,6 +12,22 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Fixed — TOOLS-4.4 (nmap: una scansione fallita o incompleta non si legge come target pulito)
+
+- L'adapter nmap (`themis.adapters.nmap`) distingue ora gli stati canonici invece
+  di restituire «zero porte aperte» per qualunque output ben formato. nmap può
+  **uscire 0 e dichiarare il fallimento** nel suo trailer
+  (`<runstats><finished exit="error" errormsg="…">`): questo è un **errore noto**
+  e rende il run **`failed`** riportando l'`errormsg` di nmap. Un **XML valido ma
+  non-`<nmaprun>`** (strumento sbagliato sul `PATH`, documento d'errore) → `failed`,
+  mai letto come target pulito. Una scansione **senza trailer di successo**, con
+  l'host `state != "up"` (down/unknown) o **senza alcun record host** per il target
+  → **`partial`** (exit 5) tramite il nuovo `coverage_loss`, perché in quei casi
+  «nessuna porta aperta» non è un risultato affidabile. Una scansione pulita e
+  completa (exit `success`, host `up`) resta invariata (nessun falso parziale).
+  Regressioni in `tests/unit/test_nmap_output_grammar.py`. ROADMAP `TOOLS-4.4`
+  (migrati 2/3 adapter mandatory: nmap, nuclei).
+
 ### Fixed — TOOLS-4.4 (nuclei: nessun errore su stdout si legge come run pulito)
 
 - L'adapter nuclei (`themis.adapters.nuclei`) non ignora più in silenzio le righe
