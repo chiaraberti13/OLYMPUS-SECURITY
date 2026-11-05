@@ -105,6 +105,8 @@ def test_fail_closed_before_transport_without_authorization() -> None:
     "https://siem.example/_bulk?token=secret",
     "https://siem.example/other",
     "https://siem.example/_bulk#fragment",
+    "https://siem.example:invalid/_bulk",
+    "https://[broken/_bulk",
 ])
 def test_invalid_endpoints_do_not_reach_transport(url: str) -> None:
     transport = FakeTransport(SiemResponse(200, b'{"errors":false}'))
