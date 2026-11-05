@@ -12,6 +12,20 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — VAL-1 (finding lifecycle across the assessment history)
+
+- Motore di lifecycle dei finding `vulcan.lifecycle.classify_lifecycle` e CLI
+  `olympus vulcan lifecycle`: classifica i finding dell'ultimo snapshot contro
+  l'intera storia ordinata in **nuovi / persistenti / ricomparsi / risolti**.
+  «Ricomparso» (presente ora, assente nello snapshot precedente, visto in uno
+  precedente) è derivato dallo storico e dall'identità logica condivisa
+  (`finding_fingerprint`), **senza** introdurre un nuovo stato canonico sul
+  finding; porta `absent_for` e il delta di severità dall'ultima comparsa. Puro,
+  offline e deterministico, riusa identità, folding e ordinamento (`rank_key`,
+  ora pubblico) di `vulcan.compare`/`vulcan.trend`. Exit code `1` quando l'ultimo
+  run introduce finding nuovi o ricomparsi, `0` altrimenti. ROADMAP `VAL-1` →
+  parziale.
+
 ### Added — API-4 (fail-closed CORS/origin policy)
 
 - Policy CORS *fail-closed* sull'API Themis: `ApiSettings.cors_allowed_origins`

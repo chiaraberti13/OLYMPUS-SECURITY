@@ -90,6 +90,7 @@ from olympus.vulcan.evidence_view import (
 from olympus.vulcan.evidence_view import (
     build_finding_evidence_view,
 )
+from olympus.vulcan.lifecycle import FindingLifecycle, classify_lifecycle
 from olympus.vulcan.pdf import PdfUnavailableError
 from olympus.vulcan.portable import (
     PortabilityError,
@@ -846,6 +847,80 @@ def trend(
         ]
         typer.echo(render_table(columns, rows, title="Finding trend (oldest first)"))
     raise typer.Exit(code=ExitCode.FINDINGS if result.regressed else ExitCode.OK)
+
+
+@app.command("lifecycle")
+def lifecycle(
+    snapshot: list[Path] = typer.Option(
+        ...,
+        "--snapshot",
+        help="A core.Finding JSON bundle for one run, oldest first (repeatable, min 1).",
+    ),
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.TABLE, "--format", help="Render as a table (human) or json (machine)."
+    ),
+    max_files: int = typer.Option(DEFAULT_MAX_FILES, "--max-files"),
+    max_input_bytes: int = typer.Option(DEFAULT_MAX_INPUT_BYTES, "--max-input-bytes"),
+    max_items_per_file: int = typer.Option(DEFAULT_MAX_ITEMS_PER_FILE, "--max-items-per-file"),
+    max_total_items: int = typer.Option(DEFAULT_MAX_TOTAL_ITEMS, "--max-total-items"),
+) -> None:
+    """Classify the latest run's findings against the whole assessment history.
+
+    Each ``--snapshot`` is one run's finding bundle, given oldest first. Against
+    the full history, every logical finding in the most recent snapshot is
+    **new** (never seen before), **persistent** (also in the previous run) or
+    **reappeared** (resolved earlier and now open again); findings in the previous
+    run but not the latest are **resolved**. "Reappeared" is derived from history,
+    not a new finding state. The classification reuses
+    ``vulcan.lifecycle.classify_lifecycle`` so the CLI and any report agree. Exit
+    code ``1`` when the latest run introduced any new or reappeared finding (a
+    regression), ``0`` otherwise.
+    """
+    try:
+        snapshots = [
+            (
+                path.stem,
+                _load_for_view(
+                    [path],
+                    max_files=max_files,
+                    max_input_bytes=max_input_bytes,
+                    max_items_per_file=max_items_per_file,
+                    max_total_items=max_total_items,
+                ),
+            )
+            for path in snapshot
+        ]
+    except _APPLICATION_ERRORS as exc:
+        typer.echo(safe_terminal_text(f"vulcan: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+
+    result: FindingLifecycle = classify_lifecycle(snapshots)
+    if output_format is OutputFormat.JSON:
+        typer.echo(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    else:
+        columns = ["risk", "severity", "title", "asset", "cve"]
+        typer.echo(render_table(columns, [_diff_row(f) for f in result.new], title="New"))
+        typer.echo(
+            render_table(
+                [*columns, "absent for"],
+                [[*_diff_row(item.current), str(item.absent_for)] for item in result.reappeared],
+                title="Reappeared",
+            )
+        )
+        typer.echo(
+            render_table(
+                columns, [_diff_row(p.current) for p in result.persistent], title="Persistent"
+            )
+        )
+        typer.echo(render_table(columns, [_diff_row(f) for f in result.resolved], title="Resolved"))
+    summary = result.summary()
+    typer.echo(
+        "vulcan: {new} new, {reappeared} reappeared, {persistent} persistent, "
+        "{resolved} resolved ({worsened} worsened)".format(**summary),
+        err=True,
+    )
+    regression = bool(result.new) or result.has_reappearances
+    raise typer.Exit(code=ExitCode.FINDINGS if regression else ExitCode.OK)
 
 
 #: Bound the NDJSON import file so a hostile file cannot exhaust memory on read.

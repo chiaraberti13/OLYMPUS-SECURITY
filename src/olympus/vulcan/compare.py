@@ -107,8 +107,12 @@ def _fold(findings: Sequence[Finding]) -> dict[tuple[str, str], Finding]:
     return {finding_fingerprint(finding): finding for finding in merge_duplicate_findings(findings)}
 
 
-def _rank_key(finding: Finding) -> tuple[float, str]:
-    """Order by descending risk, then stable id, so the diff is deterministic."""
+def rank_key(finding: Finding) -> tuple[float, str]:
+    """Order by descending risk, then stable id, so a listing is deterministic.
+
+    Shared so every cross-run view (:mod:`~olympus.vulcan.compare`,
+    :mod:`~olympus.vulcan.lifecycle`) orders findings identically.
+    """
     return (-finding.risk_score(), finding.finding_id)
 
 
@@ -125,11 +129,11 @@ def diff_findings(baseline: Sequence[Finding], current: Sequence[Finding]) -> Sc
     current_map = _fold(current)
     new = sorted(
         (finding for key, finding in current_map.items() if key not in base_map),
-        key=_rank_key,
+        key=rank_key,
     )
     resolved = sorted(
         (finding for key, finding in base_map.items() if key not in current_map),
-        key=_rank_key,
+        key=rank_key,
     )
     persistent = sorted(
         (
@@ -137,6 +141,6 @@ def diff_findings(baseline: Sequence[Finding], current: Sequence[Finding]) -> Sc
             for key, finding in current_map.items()
             if key in base_map
         ),
-        key=lambda item: _rank_key(item.current),
+        key=lambda item: rank_key(item.current),
     )
     return ScanDiff(tuple(new), tuple(resolved), tuple(persistent))
