@@ -344,6 +344,35 @@ def test_whatweb_parser_rejects_output_without_a_fingerprint_line() -> None:
         WhatwebAdapter().parse(_out("whatweb: command not found\n"), "127.0.0.1", _req())
 
 
+def test_whatweb_parser_reads_every_fingerprint_line_after_a_redirect() -> None:
+    # whatweb prints one line per target; a redirect yields several. The final
+    # page's fingerprint (here nginx) must not be lost by reading only the first
+    # line, or a disclosing target could read as "no technology" (TOOLS-4.4).
+    redirected = (
+        "http://127.0.0.1:8000 [301 Moved Permanently] Country[RESERVED][ZZ], "
+        "IP[127.0.0.1], RedirectLocation[https://127.0.0.1:8443/]\n"
+        "https://127.0.0.1:8443 [200 OK] HTTPServer[nginx/1.25.3], nginx[1.25.3], "
+        "Title[Home]\n"
+    )
+    titles = " ".join(
+        f.title for f in WhatwebAdapter().parse(_out(redirected), "127.0.0.1", _req())
+    )
+    assert "HTTPServer (nginx/1.25.3)" in titles
+    assert "nginx (1.25.3)" in titles
+
+
+def test_whatweb_parser_deduplicates_a_plugin_repeated_across_lines() -> None:
+    # The same server banner appears on both the redirect and the final page; it
+    # must be reported once, not duplicated per line.
+    repeated = (
+        "http://127.0.0.1:8000 [301 Moved] Apache[2.4.29], IP[127.0.0.1]\n"
+        "http://127.0.0.1:8000/home [200 OK] Apache[2.4.29], Title[Home]\n"
+    )
+    findings = WhatwebAdapter().parse(_out(repeated), "127.0.0.1", _req())
+    apache = [f for f in findings if "Apache (2.4.29)" in f.title]
+    assert len(apache) == 1
+
+
 # --- base orchestration (explicit states) ---------------------------------- #
 class _FakeAdapter(ScannerAdapter):
     name = "fake"

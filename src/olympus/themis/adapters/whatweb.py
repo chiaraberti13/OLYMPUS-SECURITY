@@ -44,24 +44,34 @@ class WhatwebAdapter(ScannerAdapter):
         return [self.binary, "--color=never", "--quiet", url]
 
     def parse(self, output: CommandOutput, host: str, request: ScanRequest) -> list[Finding]:
-        line = next((ln for ln in output.stdout.splitlines() if "[" in ln), "")
-        if not line:
+        # whatweb prints one fingerprint line per target, and a redirect (301 -> 200)
+        # produces several. Reading only the first line would drop the fingerprint of
+        # the final page and could read as "no technology" when the target actually
+        # discloses plenty. Every fingerprint line is parsed, and identical
+        # disclosures are de-duplicated so a plugin repeated across lines (e.g. the
+        # server banner on both the redirect and the final page) is reported once
+        # (TOOLS-4.4: complete coverage, never a silently clean read).
+        lines = [ln for ln in output.stdout.splitlines() if "[" in ln]
+        if not lines:
             raise ParseError("whatweb produced no fingerprint line")
         asset_id = self.asset_id(host)
         findings: list[Finding] = []
-        for name, detail in _PLUGIN.findall(line):
-            if name not in _INTERESTING or not detail:
-                continue
-            self.add_finding(
-                findings,
-                Finding(
-                    asset_id=asset_id,
-                    source=Source.THEMIS,
-                    title=f"Technology disclosed: {name} ({detail})",
-                    description=f"whatweb fingerprinted {name} = {detail}.",
-                    severity=Severity.INFO,
-                    evidence=[f"{name}={detail}"],
-                ),
-                request,
-            )
+        seen: set[tuple[str, str]] = set()
+        for line in lines:
+            for name, detail in _PLUGIN.findall(line):
+                if name not in _INTERESTING or not detail or (name, detail) in seen:
+                    continue
+                seen.add((name, detail))
+                self.add_finding(
+                    findings,
+                    Finding(
+                        asset_id=asset_id,
+                        source=Source.THEMIS,
+                        title=f"Technology disclosed: {name} ({detail})",
+                        description=f"whatweb fingerprinted {name} = {detail}.",
+                        severity=Severity.INFO,
+                        evidence=[f"{name}={detail}"],
+                    ),
+                    request,
+                )
         return findings
