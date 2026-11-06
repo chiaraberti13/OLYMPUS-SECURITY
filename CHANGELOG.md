@@ -12,6 +12,19 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Fixed — TOOLS-4.4 (whatweb: la copertura multi-riga non va più persa in silenzio)
+
+- L'adapter whatweb (`themis.adapters.whatweb`) analizza ora **tutte** le righe di
+  fingerprint, non solo la prima. whatweb emette una riga per URL del target: su un
+  redirect (`301`→`200`) il parser leggeva solo la riga del redirect e scartava in
+  silenzio quella della pagina finale, così un target che divulga tecnologie poteva
+  leggersi come «nessuna tecnologia». Ora ogni riga con un fingerprint viene letta e
+  le divulgazioni identiche sono de-duplicate (lo stesso banner su redirect e pagina
+  finale è riportato una volta sola). Invariato: output senza alcuna riga di
+  fingerprint → `failed` (`ParseError`), mai letto come target pulito. Regressioni in
+  `tests/unit/test_themis_execution.py`. Con questo i **6/13 adapter non-mandatory**
+  seguono la grammatica TOOLS-4.4 (restano i 7 a exit-code).
+
 ### Fixed — TOOLS-4.4 (wapiti, wafw00f, testssl: output inatteso/incompleto non si legge come run pulito)
 
 - Tre adapter non-mandatory a report JSON (`themis.adapters.{wapiti,wafw00f,testssl}`)
