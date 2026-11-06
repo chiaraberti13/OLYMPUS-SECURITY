@@ -139,7 +139,7 @@ di sicurezza nel frontend.
 - **TECH-1** [x] Backend Python 3.11+ (Pydantic v2, Typer, FastAPI, Textual) confermato: adeguato e maturo.
 - **TECH-2** [ ] Frontend Web: valutare e selezionare uno stack moderno (SSR/SPA) integrato realmente all'API; decisione del team su basi tecniche (oggi la Web UI è Jinja2+SSE, adeguata ma limitata).
 - **TECH-3** [ ] Persistenza: SQLite come default locale; astrazione verso Postgres per deployment multiutente/concorrente.
-- **TECH-4** [ ] Coda/worker: valutare un broker esplicito per job long-running fuori Vercel.
+- **TECH-4** [x] Valutazione coda/worker fuori Vercel completata. SQLite e worker Themis su un host container sono la scelta attuale. Postgres o broker dedicato si rivalutano al verificarsi dei criteri documentati nel [runbook Themis](docs/themis-runtime.md#decisione-sulla-coda-dei-job).
 
 ## 5. Piano moduli Red / Blue / Purple
 
