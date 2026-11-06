@@ -273,6 +273,24 @@ la sua chiave API obbligatoria;
 Compose richiede `THEMIS_ZAP_API_KEY` durante l'interpolazione anche quando
 quel profilo non viene avviato.
 
+### Inventario operativo del deployment
+
+| Elemento | Configurazione | Controllo operativo |
+| --- | --- | --- |
+| API HTTPS | `https://localhost:8443`, override host con `THEMIS_API_PORT` | Bind su loopback. Usa il nome DNS presente nel certificato e la CA attendibile del deployment. |
+| Web HTTPS | `https://localhost:8600`, override host con `THEMIS_WEB_PORT` | Bind su loopback. Per accesso remoto usa un reverse proxy autorizzato con TLS verso il backend e verifica del certificato upstream. |
+| Identità API/Web | `.olympus/config/themis-api-identities.json` | Distribuisci il registro fuori da Git. Conserva i token in un secret manager e assegna solo gli scope necessari. |
+| Materiale TLS | `.olympus/tls/cert.pem` e `.olympus/tls/key.pem` | Proteggi la chiave con permessi `0600` e mantieni l'accesso per l'UID del servizio. Dopo la rotazione riavvia API e Web e verifica la nuova catena. |
+| Scope autorizzati | `.olympus/scopes/` | Montaggio in sola lettura. Gestisci i documenti separatamente dai token e abilita il live solo dopo la verifica delle protezioni del worker. |
+| Stato e audit | Volume `themis-data`, database `/data/themis-jobs.sqlite3` e audit `/data/themis-audit.ndjson` | Conserva il volume tra deploy. Proteggi database, audit e backup con accessi limitati. Per backup coerente e ripristino segui la sezione Migrazione e rollback. |
+
+Prima di aprire l'accesso remoto, verifica la configurazione Compose con
+`docker compose config --quiet`, la catena TLS dai client previsti e il rifiuto
+dell'accesso anonimo. Esegui lo smoke test nativo descritto sotto. L'API e il Web
+rimangono nel piano di controllo; il worker comunica tramite il volume condiviso
+e usa la rete separata `scan-egress`. Conserva anche una copia protetta della
+configurazione di deployment per poter ripristinare un'installazione completa.
+
 ### Evidenza ripetibile
 
 - `make check`: lint, format, Mypy strict, schemi, coverage e mutation gate.
