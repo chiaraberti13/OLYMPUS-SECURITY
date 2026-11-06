@@ -12,6 +12,23 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Fixed — TOOLS-4.4 (sqlmap e nikto: un errore di scansione non si legge come target pulito)
+
+- Due adapter a exit-code (`themis.adapters.{sqlmap,nikto}`) seguono ora la
+  grammatica rigorosa TOOLS-4.4, evitando che un errore di scansione produca zero
+  finding letti come «nessuna vulnerabilità».
+  - **sqlmap**: una riga `[CRITICAL]` di connessione/accesso (`unable to connect`,
+    `connection timed out`, `unable to resolve`, …) significa che il target non è
+    stato testato → **`failed`** se non ci sono finding, **`partial`** se qualche
+    finding è comunque presente. Il `[CRITICAL]` legittimo di sqlmap «all tested
+    parameters do not appear to be injectable» **resta un esito pulito** (nessun
+    falso fallimento).
+  - **nikto**: il run diventa **`partial`** quando il summary riporta `N error(s)`
+    con N>0 (alcune richieste non completate) o quando è stato interrotto
+    (`Scan terminated`, es. cutoff `-maxtime`); un summary con `0 error(s)` e scan
+    completo resta un esito pulito.
+  - Regressioni in `tests/unit/test_themis_execution.py`.
+
 ### Fixed — TOOLS-4.4 (whatweb: la copertura multi-riga non va più persa in silenzio)
 
 - L'adapter whatweb (`themis.adapters.whatweb`) analizza ora **tutte** le righe di
