@@ -27,6 +27,11 @@ class WapitiAdapter(ScannerAdapter):
     binary = "wapiti"
     version_expected = "3.x"
 
+    #: Report records the last :meth:`parse` call had to discard (a category whose
+    #: value is not a list, or a non-object finding). Per-run state, reset on every
+    #: parse; :meth:`coverage_loss` reports it as partial (TOOLS-4.4).
+    _skipped_records: int = 0
+
     def build_asset(self, host: str, request: ScanRequest) -> Asset:
         return Asset(
             asset_id=self.asset_id(host),
@@ -77,11 +82,17 @@ class WapitiAdapter(ScannerAdapter):
 
         asset_id = self.asset_id(host)
         findings: list[Finding] = []
+        skipped = 0
+        self._skipped_records = 0
         for category, items in vulnerabilities.items():
             if not isinstance(items, list):
+                # a category whose value is not a list of findings is unexpected
+                # grammar; count it rather than drop it silently (TOOLS-4.4)
+                skipped += 1
                 continue
             for item in items:
                 if not isinstance(item, dict):
+                    skipped += 1
                     continue
                 severity = _LEVEL.get(int(item.get("level", 1) or 1), Severity.INFO)
                 method = str(item.get("method", ""))
@@ -105,4 +116,14 @@ class WapitiAdapter(ScannerAdapter):
                     ),
                     request,
                 )
+        self._skipped_records = skipped
         return findings
+
+    def coverage_loss(self, output: CommandOutput, request: ScanRequest) -> str | None:
+        """Report discarded report records: part of the report could not be parsed."""
+        if self._skipped_records:
+            return (
+                f"{self._skipped_records} wapiti report record(s) could not be parsed and "
+                "were skipped; findings are not exhaustive"
+            )
+        return None

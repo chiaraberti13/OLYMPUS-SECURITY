@@ -12,6 +12,22 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Fixed — TOOLS-4.4 (wapiti, wafw00f, testssl: output inatteso/incompleto non si legge come run pulito)
+
+- Tre adapter non-mandatory a report JSON (`themis.adapters.{wapiti,wafw00f,testssl}`)
+  seguono ora la grammatica rigorosa TOOLS-4.4.
+  - **wapiti** (report JSON): una categoria il cui valore non è una lista di
+    finding, e un finding che non è un oggetto, sono conteggiati come **record
+    scartati** → run **`partial`** (exit 5) via `coverage_loss`.
+  - **wafw00f** (array JSON): un root JSON che non è un array ora è **`failed`**
+    (prima letto come «nessun WAF»); un elemento non-oggetto è conteggiato come
+    scartato → **`partial`**; `detected:false` resta un esito legittimo.
+  - **testssl** (array JSON): un root non-array è **`failed`**; le righe
+    informative `OK`/`INFO`/`DEBUG` (check superati) restano rumore atteso, mentre
+    una riga di errore o di livello sconosciuto (es. `FATAL`, errore di scansione)
+    è conteggiata come scartata → **`partial`**.
+  - Regressioni in `tests/unit/test_themis_output_grammar.py`.
+
 ### Fixed — TOOLS-4.4 (katana e dalfox: output inatteso non si legge come run pulito)
 
 - Gli adapter non-mandatory **katana** e **dalfox** (`themis.adapters.{katana,dalfox}`)
