@@ -67,6 +67,16 @@ class WpscanAdapter(ScannerAdapter):
         if not isinstance(report, dict):
             raise ParseError("wpscan output is not a JSON object")
 
+        # WPScan emits a valid JSON object carrying only `scan_aborted` (and its
+        # banner) when it could not actually assess the site: the target is not
+        # WordPress, or the scan was blocked, rate-limited or errored out. That
+        # produces no vulnerability containers, so it would otherwise read as a
+        # clean "no WordPress vulnerability" verdict on a site that was never
+        # assessed. Fail closed with WPScan's own reason instead (TOOLS-4.4).
+        aborted = self._text(report.get("scan_aborted"))
+        if aborted:
+            raise ParseError(f"wpscan aborted the scan: {aborted}")
+
         asset_id = self.asset_id(host)
         findings: list[Finding] = []
 

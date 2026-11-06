@@ -12,6 +12,17 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Fixed — TOOLS-4.4 (wpscan: una scansione abortita non si legge come WordPress pulito)
+
+- L'adapter wpscan (`themis.adapters.wpscan`) riconosce ora il campo `scan_aborted`.
+  WPScan emette un JSON valido contenente solo `scan_aborted` (e il banner) quando
+  non ha potuto valutare il sito — target non WordPress, accesso bloccato,
+  rate-limit, errore — senza alcun contenitore di vulnerabilità. Prima questo si
+  leggeva come «nessuna vulnerabilità WordPress» su un sito **mai valutato**; ora il
+  run **fallisce fail-closed** (`ParseError`) riportando il motivo di WPScan, invece
+  di apparire pulito. Un report normale (senza `scan_aborted`) resta invariato.
+  Regressioni in `tests/unit/test_wpscan_adapter.py`.
+
 ### Fixed — TOOLS-4.4 (sqlmap e nikto: un errore di scansione non si legge come target pulito)
 
 - Due adapter a exit-code (`themis.adapters.{sqlmap,nikto}`) seguono ora la

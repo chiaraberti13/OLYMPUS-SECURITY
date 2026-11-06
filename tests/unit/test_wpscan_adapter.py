@@ -105,6 +105,27 @@ def test_wpscan_parser_tolerates_unexpected_shape() -> None:
     assert _parse('{"unexpected": "shape"}') == []
 
 
+def test_wpscan_parser_aborted_scan_is_failed_not_clean() -> None:
+    # WPScan aborts (target not WordPress, blocked, rate-limited, ...) with a valid
+    # JSON object carrying scan_aborted and no vulnerability data. That is not a
+    # clean "no vulnerability" verdict — the site was never assessed — so it must
+    # fail closed with WPScan's own reason (TOOLS-4.4), never read as clean.
+    report = json.dumps(
+        {
+            "target_url": "http://demo.lab.invalid/",
+            "scan_aborted": "The remote website is up, but does not seem to be running WordPress.",
+        }
+    )
+    with pytest.raises(ParseError, match="aborted the scan"):
+        _parse(report)
+
+
+def test_wpscan_parser_a_normal_report_is_not_treated_as_aborted() -> None:
+    # The full synthetic report has no scan_aborted and must still parse cleanly,
+    # so a real scan is never mistaken for an aborted one.
+    assert _parse(_REPORT)
+
+
 def test_build_argv_is_shell_free_and_omits_token_by_default(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
