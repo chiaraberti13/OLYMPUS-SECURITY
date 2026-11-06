@@ -312,7 +312,7 @@ long-lived, stato durevole). Modello adottato:
 - **CICD-1** [x] CI 14 job (gate qualità, test multi-versione, coverage, mutation, sandbox, smoke, container, dependency-audit, secret-scan) + CodeQL + `scanner-image` (`docker-build.yml`: build dell'immagine scanner e smoke test degli engine, con filtro di percorso e `concurrency`). Verificato: 16 check verdi su `main` @ `783f2bb`. *Limiti dichiarati:* `live_lab` non gira in CI; l'obbligatorietà dei check non è dimostrata (→ `SEC-4.2`).
 - **CICD-2** [x] `docker/Dockerfile` + immagine scanner; wheel/sdist; SBOM CycloneDX. L'SBOM include gli engine e i template (`core sbom --engines`, verificato offline); mancano SBOM dell'immagine, transitive degli engine e pubblicazione come artefatto per l'immagine (→ `TOOLS-4.6`).
 - **CICD-3** [ ] Pipeline di release firmata e pubblicazione PyPI via Trusted Publishing; GitHub Action riutilizzabile passiva di default. Da collegare a `SEC-4.3` (tracciabilità e rollback) e `SEC-4.4` (nessuna pubblicazione di immagini non validate).
-- **CICD-4** [ ] Deploy backend containerizzato documentato e riproducibile.
+- **CICD-4** [x] Backend containerizzato documentato con [procedura Compose](docs/themis-runtime.md#avvio-riproducibile-con-compose), migrazione ripetuta in CI e smoke container nativo. La pubblicazione su un host remoto è separata.
 
 ## 17. Priorità, milestone e dipendenze
 

@@ -316,6 +316,35 @@ rimangono nel piano di controllo; il worker comunica tramite il volume condiviso
 e usa la rete separata `scan-egress`. Conserva anche una copia protetta della
 configurazione di deployment per poter ripristinare un'installazione completa.
 
+### Avvio riproducibile con Compose
+
+Usa un checkout allo SHA da distribuire e registra `docker version` e
+`docker compose version`. Prepara scope, identità e TLS come descritto sopra.
+Per il backend nativo con scanner live disattivati, dalla radice del checkout
+esegui:
+
+```bash
+export THEMIS_ENABLE_LIVE_SCANS=false
+# Solo per questa sessione e con il profilo ZAP inattivo. Compose interpola
+# comunque la variabile del servizio opzionale.
+export THEMIS_ZAP_API_KEY=unused-native-compose-placeholder
+docker compose config --quiet
+docker compose up --build -d themis-api themis-app themis-worker
+docker compose ps --all
+curl --fail --cacert /percorso/ca.pem https://localhost:8443/health
+```
+
+Sostituisci il percorso della CA e usa il nome coperto dal certificato e la
+porta configurata. Verifica che la migrazione sia terminata con codice 0,
+che API, Web e worker siano in esecuzione e che `GET /api/v1/jobs` senza
+credenziali restituisca HTTP 401. Per fermare il backend usa
+`docker compose down` mantenendo il volume dati. Se abiliti ZAP, configura
+una chiave reale prima di avviarlo.
+
+La CI ripete la migrazione Compose sullo stesso volume temporaneo per
+verificare sia il primo avvio sia il riuso dello stato. Lo smoke container
+esistente verifica API, Web e worker con dati sintetici.
+
 ### Evidenza ripetibile
 
 - `make check`: lint, format, Mypy strict, schemi, coverage e mutation gate.
