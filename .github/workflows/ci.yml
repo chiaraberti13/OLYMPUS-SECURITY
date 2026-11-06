@@ -233,6 +233,17 @@ jobs:
         run: |
           docker compose config --quiet
           docker compose -f docker-compose.yml -f docker-compose.apparmor.yml config --quiet
+      - name: Verify repeatable Compose migration on a fresh volume
+        env:
+          COMPOSE_PROJECT_NAME: olympus-ci-deploy
+          THEMIS_ENABLE_LIVE_SCANS: "false"
+          THEMIS_ZAP_API_KEY: ci-placeholder-for-unused-zap-profile
+        run: |
+          set -euo pipefail
+          trap 'docker compose down --volumes' EXIT
+          docker compose build themis-migrate
+          docker compose run --rm --no-deps -T themis-migrate
+          docker compose run --rm --no-deps -T themis-migrate
       - name: Load versioned AppArmor profile when the host supports it
         shell: bash
         run: |
