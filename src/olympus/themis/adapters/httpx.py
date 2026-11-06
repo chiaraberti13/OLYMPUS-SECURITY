@@ -35,6 +35,12 @@ class HttpxAdapter(ScannerAdapter):
     binary = "httpx"
     version_expected = "1.x (ProjectDiscovery)"
 
+    #: Records the last :meth:`parse` call had to discard (non-JSON lines on stdout,
+    #: or JSONL that is not a probe object). An adapter instance serves one run, so
+    #: this is per-run state, reset on every parse; :meth:`coverage_loss` reports it
+    #: as a partial result (TOOLS-4.4).
+    _skipped_records: int = 0
+
     def recognises(self, version_output: str) -> bool:
         """Only the ProjectDiscovery probe prints ``Current Version``; the Python client does not.
 
@@ -74,10 +80,21 @@ class HttpxAdapter(ScannerAdapter):
         asset_id = self.asset_id(host)
         findings: list[Finding] = []
         saw_probe = False
+        skipped = 0
+        self._skipped_records = 0
 
         for line in output.stdout.splitlines():
             line = line.strip()
-            if not line or not line.startswith("{"):
+            if not line:
+                continue
+            if not line.startswith("{"):
+                # httpx runs with -json -silent -no-color, so stdout carries probe
+                # JSONL only. A non-JSON line is unexpected output — a diagnostic or
+                # an error — that must not vanish silently, or an unknown error printed
+                # on stdout could read as a clean run. Count it as a discarded record
+                # so the result is partial, never silently clean (TOOLS-4.4);
+                # legitimate diagnostics belong on stderr.
+                skipped += 1
                 continue
             check_json_depth(line, scanner="httpx")
             try:
@@ -85,6 +102,9 @@ class HttpxAdapter(ScannerAdapter):
             except json.JSONDecodeError as exc:
                 raise ParseError(f"httpx emitted an unparseable JSONL line: {exc}") from exc
             if not isinstance(entry, dict) or "url" not in entry:
+                # Valid JSONL that is not a probe object (no 'url'): unrecognised
+                # grammar, counted as a discarded record rather than dropped silently.
+                skipped += 1
                 continue
             saw_probe = True
             if entry.get("failed"):
@@ -142,4 +162,19 @@ class HttpxAdapter(ScannerAdapter):
 
         if not saw_probe:
             raise ParseError(_WRONG_TOOL)
+        self._skipped_records = skipped
         return findings
+
+    def coverage_loss(self, output: CommandOutput, request: ScanRequest) -> str | None:
+        """Report discarded records: some probe output could not be parsed.
+
+        httpx exits 0 whether or not the target answered, so silence is a real
+        result; output that carried a probe *and* unparseable lines, however, is
+        an incomplete read and must read as partial, never silently clean.
+        """
+        if self._skipped_records:
+            return (
+                f"{self._skipped_records} httpx output record(s) could not be parsed and "
+                "were skipped; findings are not exhaustive"
+            )
+        return None
