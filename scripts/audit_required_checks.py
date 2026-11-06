@@ -24,8 +24,12 @@ EXPECTED = {
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("sha", help="Full PR head SHA")
-    parser.add_argument("rules", type=Path, help="JSON from GET /repos/{owner}/{repo}/rules/branches/main")
-    parser.add_argument("checks", type=Path, help="JSON from GET /repos/{owner}/{repo}/commits/{sha}/check-runs")
+    parser.add_argument(
+        "rules", type=Path, help="JSON from GET /repos/{owner}/{repo}/rules/branches/main"
+    )
+    parser.add_argument(
+        "checks", type=Path, help="JSON from GET /repos/{owner}/{repo}/commits/{sha}/check-runs"
+    )
     args = parser.parse_args()
     rules = json.loads(args.rules.read_text(encoding="utf-8"))
     checks = json.loads(args.checks.read_text(encoding="utf-8"))
@@ -44,7 +48,7 @@ def main() -> int:
     print(f"PR head: `{args.sha}`\n")
     print("| Check | Expected | Required | Successful on this SHA |")
     print("| --- | --- | --- | --- |")
-    success = strict and EXPECTED == required.keys()
+    success = strict and required.keys() == EXPECTED
     for name in sorted(EXPECTED | required.keys()):
         sources = required.get(name, set())
         passed = bool(sources) and all(
