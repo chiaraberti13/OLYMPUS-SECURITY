@@ -264,7 +264,7 @@ long-lived, stato durevole). Modello adottato:
 - **DEPLOY-1** [x] UI/anteprima statica pubblicabile su Vercel (`public/`, `vercel.json`).
 - **DEPLOY-2** [ ] Architettura split: frontend su Vercel ↔ **Execution backend** su host container (Render/Railway/Fly.io/Cloud Run/VPS; `docker/Dockerfile` presente), un'unica Web UI per l'utente.
 - **DEPLOY-3** [ ] Funzioni serverless solo come proxy/BFF verso il backend (nessuno scanner su Vercel).
-- **DEPLOY-4** [ ] Documentare segreti, endpoint backend, persistenza e sicurezza delle comunicazioni.
+- **DEPLOY-4** [x] Documentati segreti, endpoint backend, persistenza e sicurezza delle comunicazioni nel [runbook Themis](docs/themis-runtime.md#inventario-operativo-del-deployment).
 
 ## 11. Demo professionale su Vercel
 
