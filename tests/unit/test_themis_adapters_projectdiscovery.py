@@ -217,6 +217,35 @@ def test_katana_parser_rejects_output_that_carries_no_crawl_record() -> None:
         KatanaAdapter().parse(_out("katana: command not found\n"), "127.0.0.1", _req())
 
 
+def test_katana_parser_a_clean_crawl_is_not_partial() -> None:
+    # Crawl records that all parsed: trustworthy result, no coverage loss.
+    adapter = KatanaAdapter()
+    adapter.parse(_out(KATANA_JSONL), "127.0.0.1", _req())
+    assert adapter.coverage_loss(_out(KATANA_JSONL), _req()) is None
+
+
+def test_katana_parser_a_non_json_line_makes_the_run_partial_not_clean() -> None:
+    # -jsonl -silent -no-color => stdout is crawl JSONL only; a stray diagnostic on
+    # stdout must surface as partial, not vanish (TOOLS-4.4).
+    noisy = KATANA_JSONL + "[WRN] rate limited; crawl truncated\n"
+    adapter = KatanaAdapter()
+    assert adapter.parse(_out(noisy), "127.0.0.1", _req())
+    reason = adapter.coverage_loss(_out(noisy), _req())
+    assert reason is not None
+    assert "1 katana output record(s)" in reason
+
+
+def test_katana_parser_a_record_without_an_endpoint_makes_the_run_partial() -> None:
+    # Valid JSONL that is not a crawl record (no request.endpoint) is unrecognised
+    # grammar, counted as discarded rather than dropped silently.
+    noisy = KATANA_JSONL + '{"timestamp":"2026-09-05T08:25:19Z","response":{"status_code":200}}\n'
+    adapter = KatanaAdapter()
+    adapter.parse(_out(noisy), "127.0.0.1", _req())
+    reason = adapter.coverage_loss(_out(noisy), _req())
+    assert reason is not None
+    assert "1 katana output record(s)" in reason
+
+
 def test_katana_argv_keeps_bodies_out_of_evidence() -> None:
     """Response bodies carry cookies and PII; never collect them at all."""
     argv = KatanaAdapter().build_argv("127.0.0.1", _req())
@@ -359,6 +388,39 @@ def test_dalfox_parser_truncates_a_reflected_payload() -> None:
 def test_dalfox_parser_rejects_output_without_a_json_array() -> None:
     with pytest.raises(ParseError, match="no JSON array"):
         DalfoxAdapter().parse(_out("dalfox: fatal\n"), "127.0.0.1", _req())
+
+
+def test_dalfox_parser_clean_padding_is_not_a_coverage_loss() -> None:
+    # [{}] is expected clean-target padding, never a finding and never a discarded
+    # record: it must not inflate the run into a partial.
+    adapter = DalfoxAdapter()
+    assert adapter.parse(_out(DALFOX_CLEAN), "127.0.0.1", _req()) == []
+    assert adapter.coverage_loss(_out(DALFOX_CLEAN), _req()) is None
+
+
+def test_dalfox_parser_a_record_without_a_payload_makes_the_run_partial() -> None:
+    # A non-empty object with no payload is unrecognised grammar (not the [{}]
+    # padding): counted as discarded so the run reads as partial, not clean.
+    entry = (
+        '[{"type":"V","param":"q","payload":"<script>alert(1)</script>"},'
+        '{"message":"budget exhausted"}]'
+    )
+    adapter = DalfoxAdapter()
+    findings = adapter.parse(_out(entry), "127.0.0.1", _req())
+    assert len(findings) == 1
+    reason = adapter.coverage_loss(_out(entry), _req())
+    assert reason is not None
+    assert "1 dalfox output record(s)" in reason
+
+
+def test_dalfox_parser_a_non_object_array_element_makes_the_run_partial() -> None:
+    # A non-object element in the array is unexpected grammar, counted as discarded.
+    entry = '["unexpected string element"]'
+    adapter = DalfoxAdapter()
+    assert adapter.parse(_out(entry), "127.0.0.1", _req()) == []
+    reason = adapter.coverage_loss(_out(entry), _req())
+    assert reason is not None
+    assert "1 dalfox output record(s)" in reason
 
 
 def test_nuclei_argv_omits_templates_when_unconfigured(
