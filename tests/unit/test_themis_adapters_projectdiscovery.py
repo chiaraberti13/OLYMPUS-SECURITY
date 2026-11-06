@@ -128,6 +128,57 @@ def test_httpx_parser_names_the_binary_collision() -> None:
         HttpxAdapter().parse(_out(HTTPX_WRONG_TOOL), "127.0.0.1", _req())
 
 
+def test_httpx_parser_treats_a_clean_probe_as_complete() -> None:
+    # A probe that parsed fully is a trustworthy result: no coverage loss, so a
+    # genuine clean run is never turned into a false partial (TOOLS-4.4).
+    adapter = HttpxAdapter()
+    adapter.parse(_out(HTTPX_OK), "127.0.0.1", _req())
+    assert adapter.coverage_loss(_out(HTTPX_OK), _req()) is None
+
+
+def test_httpx_parser_a_failed_probe_is_not_a_coverage_loss() -> None:
+    # failed:true is a legitimate "host did not answer" outcome, not a discarded
+    # record: it must not inflate the run into a partial.
+    failed = '{"url":"http://127.0.0.1:8097","input":"127.0.0.1:8097","failed":true}\n'
+    adapter = HttpxAdapter()
+    assert adapter.parse(_out(failed), "127.0.0.1", _req()) == []
+    assert adapter.coverage_loss(_out(failed), _req()) is None
+
+
+def test_httpx_parser_a_non_json_stdout_line_makes_the_run_partial_not_clean() -> None:
+    # httpx runs with -json -silent -no-color; a non-JSON line on stdout is an
+    # unexpected diagnostic/error. It must be counted, so the probe still yields
+    # its findings but the run reads as partial, never silently clean.
+    noisy = HTTPX_OK + "[FTL] could not resolve all targets; results truncated\n"
+    adapter = HttpxAdapter()
+    findings = adapter.parse(_out(noisy), "127.0.0.1", _req())
+    assert findings, "the valid probe line must still produce findings"
+    reason = adapter.coverage_loss(_out(noisy), _req())
+    assert reason is not None
+    assert "1 httpx output record(s)" in reason
+
+
+def test_httpx_parser_an_unrecognised_jsonl_record_makes_the_run_partial() -> None:
+    # Valid JSONL that is not a probe object (no 'url') is unrecognised grammar:
+    # counted as discarded, not dropped silently.
+    noisy = HTTPX_OK + '{"note":"something else entirely"}\n'
+    adapter = HttpxAdapter()
+    adapter.parse(_out(noisy), "127.0.0.1", _req())
+    reason = adapter.coverage_loss(_out(noisy), _req())
+    assert reason is not None
+    assert "1 httpx output record(s)" in reason
+
+
+def test_httpx_parser_skipped_count_resets_between_runs() -> None:
+    # The adapter instance may be reused; a partial run must not leave its skipped
+    # count set for a later clean parse on the same instance.
+    adapter = HttpxAdapter()
+    adapter.parse(_out(HTTPX_OK + "[ERR] noise\n"), "127.0.0.1", _req())
+    assert adapter.coverage_loss(_out(""), _req()) is not None
+    adapter.parse(_out(HTTPX_OK), "127.0.0.1", _req())
+    assert adapter.coverage_loss(_out(""), _req()) is None
+
+
 def test_httpx_argv_asks_for_machine_readable_output() -> None:
     argv = HttpxAdapter().build_argv("127.0.0.1", _req())
     assert "-json" in argv and "-silent" in argv

@@ -12,6 +12,21 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Fixed — TOOLS-4.4 (httpx: un errore su stdout o un record non-probe non si legge come run pulito)
+
+- L'adapter httpx (`themis.adapters.httpx`) non scarta più in silenzio l'output
+  inatteso. httpx gira con `-json -silent -no-color`, quindi stdout trasporta solo
+  record JSONL del probe: una **riga non-JSON** su stdout (un diagnostico o un
+  errore) e un **record JSONL che non è un probe** (privo di `url`) sono ora
+  conteggiati come **record scartati** (`_skipped_records`) e riportati da
+  `coverage_loss` → il run diventa **`partial`** (exit 5) con motivo esplicito,
+  invece di passare inosservati e lasciar leggere il target come «pulito». Restano
+  invariati: un output **senza alcun probe** → `failed` (collisione con il binario
+  `httpx` della libreria Python, messaggio dedicato); un probe **`failed:true`** →
+  esito legittimo di host non raggiungibile, non uno scarto (nessun falso parziale).
+  Regressioni in `tests/unit/test_themis_adapters_projectdiscovery.py`. Con questo,
+  i **3/3 adapter mandatory** (nmap, nuclei, httpx) seguono la grammatica TOOLS-4.4.
+
 ### Fixed — TOOLS-4.4 (nmap: una scansione fallita o incompleta non si legge come target pulito)
 
 - L'adapter nmap (`themis.adapters.nmap`) distingue ora gli stati canonici invece
