@@ -16,6 +16,11 @@ class Wafw00fAdapter(ScannerAdapter):
     binary = "wafw00f"
     version_expected = "2.x"
 
+    #: Array elements the last :meth:`parse` call had to discard (not a detection
+    #: object). A ``detected: false`` row is a legitimate "no WAF" result and is
+    #: not counted. Per-run state; :meth:`coverage_loss` reports it as partial.
+    _skipped_records: int = 0
+
     def build_asset(self, host: str, request: ScanRequest) -> Asset:
         return Asset(
             asset_id=self.asset_id(host),
@@ -39,10 +44,21 @@ class Wafw00fAdapter(ScannerAdapter):
             entries = json.loads(text[start:])
         except json.JSONDecodeError as exc:
             raise ParseError(f"wafw00f JSON unparseable: {exc}") from exc
+        if not isinstance(entries, list):
+            # A JSON value that is not the expected array must not read as a clean
+            # "no WAF" result: fail closed, like a missing array (TOOLS-4.4).
+            raise ParseError("wafw00f JSON root is not an array")
         asset_id = self.asset_id(host)
         findings: list[Finding] = []
-        for entry in entries if isinstance(entries, list) else []:
-            if not isinstance(entry, dict) or not entry.get("detected"):
+        skipped = 0
+        self._skipped_records = 0
+        for entry in entries:
+            if not isinstance(entry, dict):
+                # not a detection record: unexpected grammar, counted not dropped
+                skipped += 1
+                continue
+            if not entry.get("detected"):
+                # a legitimate "no WAF detected" result, not a discarded record
                 continue
             firewall = str(entry.get("firewall", "unknown"))
             self.add_finding(
@@ -57,4 +73,14 @@ class Wafw00fAdapter(ScannerAdapter):
                 ),
                 request,
             )
+        self._skipped_records = skipped
         return findings
+
+    def coverage_loss(self, output: CommandOutput, request: ScanRequest) -> str | None:
+        """Report discarded array elements: part of the output was not a WAF record."""
+        if self._skipped_records:
+            return (
+                f"{self._skipped_records} wafw00f output record(s) could not be parsed and "
+                "were skipped; findings are not exhaustive"
+            )
+        return None
