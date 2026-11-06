@@ -146,6 +146,30 @@ def test_commix_parser_never_ships_the_exploit_payload() -> None:
     assert "echo" not in joined and ";" not in joined and "sleep" not in joined
 
 
+def test_commix_connection_error_with_no_finding_is_failed_not_clean() -> None:
+    # A CRITICAL connection error means commix never tested the target, so zero
+    # findings must not read as "no command injection" (TOOLS-4.4).
+    out = "[21:16:14] [critical] unable to connect to the target URL.\n"
+    with pytest.raises(ParseError, match=r"not conclusively tested|not a clean result"):
+        CommixAdapter().parse(_out(out), "127.0.0.1", _req())
+
+
+def test_commix_not_injectable_critical_stays_a_clean_result() -> None:
+    # commix logs the clean "not injectable" outcome at CRITICAL too; it must NOT
+    # be mistaken for a scan error (no false failure).
+    adapter = CommixAdapter()
+    assert adapter.parse(_out(COMMIX_CLEAN), "127.0.0.1", _req()) == []
+    assert adapter.coverage_loss(_out(COMMIX_CLEAN), _req()) is None
+
+
+def test_commix_connection_error_with_a_finding_is_partial() -> None:
+    out = COMMIX_STDOUT + "[21:17:00] [critical] unable to connect to the target URL.\n"
+    adapter = CommixAdapter()
+    findings = adapter.parse(_out(out), "127.0.0.1", _req())
+    assert len(findings) == 3
+    assert adapter.coverage_loss(_out(out), _req()) is not None
+
+
 def test_commix_argv_is_non_interactive_and_sessionless() -> None:
     """Interactive by default would block forever under the sandbox."""
     argv = CommixAdapter().build_argv("127.0.0.1", _req(target="http://127.0.0.1/?x=1"))
