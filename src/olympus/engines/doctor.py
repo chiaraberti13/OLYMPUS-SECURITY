@@ -18,8 +18,12 @@ import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict
 
 from olympus.core.exit_codes import ExitCode
+from olympus.core.models import OlympusModel
 from olympus.engines.loader import load_all, load_all_data
 from olympus.engines.schema import EngineManifest
 from olympus.integrations.scanners import by_name
@@ -123,6 +127,88 @@ class Verdict:
     exit_code: ExitCode
     blocking: tuple[str, ...]
     optional_missing: tuple[str, ...]
+
+
+# --- versioned machine-readable report (TOOLS-4.2) -------------------------- #
+# The JSON `engines doctor --format json` prints is a public, CI/CD-consumable
+# contract, so it is a versioned Olympus schema (olympus.engine-doctor) rather
+# than an ad-hoc dict: a consumer can pin schema_name/schema_version and reject an
+# incompatible report instead of guessing.
+
+
+class _ReportPart(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class DoctorDataStatus(_ReportPart):
+    name: str
+    ok: bool
+    expected_commit: str
+    found_commit: str | None
+    install_command: str
+
+
+class DoctorEngineStatus(_ReportPart):
+    name: str
+    state: str
+    ok: bool
+    mandatory: bool
+    pinned_version: str | None
+    detected_version: str | None
+    version_check: str | None
+    path: str | None
+    detail: str
+    install_command: str | None
+    configured: bool | None
+    in_scanner_image: bool
+    notes: list[str]
+    data: list[DoctorDataStatus]
+
+
+class EngineDoctorReport(OlympusModel):
+    schema_name: Literal["olympus.engine-doctor"] = "olympus.engine-doctor"
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    engines: list[DoctorEngineStatus]
+    blocking: list[str]
+    optional_missing: list[str]
+    exit_code: int
+
+
+def build_report(statuses: list[EngineStatus], result: Verdict) -> EngineDoctorReport:
+    """Assemble the versioned, machine-readable doctor report from the raw statuses."""
+    return EngineDoctorReport(
+        engines=[
+            DoctorEngineStatus(
+                name=status.name,
+                state=status.state.value,
+                ok=status.ok,
+                mandatory=status.mandatory,
+                pinned_version=status.pinned_version,
+                detected_version=status.detected_version,
+                version_check=status.version_check,
+                path=status.path,
+                detail=status.detail,
+                install_command=status.install_command,
+                configured=status.configured,
+                in_scanner_image=status.in_scanner_image,
+                notes=list(status.notes),
+                data=[
+                    DoctorDataStatus(
+                        name=item.name,
+                        ok=item.ok,
+                        expected_commit=item.expected_commit,
+                        found_commit=item.found_commit,
+                        install_command=item.install_command,
+                    )
+                    for item in status.data
+                ],
+            )
+            for status in statuses
+        ],
+        blocking=list(result.blocking),
+        optional_missing=list(result.optional_missing),
+        exit_code=int(result.exit_code),
+    )
 
 
 def adapter_for(manifest: EngineManifest) -> ScannerAdapter | None:

@@ -1,0 +1,222 @@
+{
+  "$defs": {
+    "DoctorDataStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_commit": {
+          "title": "Expected Commit",
+          "type": "string"
+        },
+        "found_commit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Found Commit"
+        },
+        "install_command": {
+          "title": "Install Command",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "ok": {
+          "title": "Ok",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "ok",
+        "expected_commit",
+        "found_commit",
+        "install_command"
+      ],
+      "title": "DoctorDataStatus",
+      "type": "object"
+    },
+    "DoctorEngineStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "configured": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Configured"
+        },
+        "data": {
+          "items": {
+            "$ref": "#/$defs/DoctorDataStatus"
+          },
+          "title": "Data",
+          "type": "array"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "detected_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Detected Version"
+        },
+        "in_scanner_image": {
+          "title": "In Scanner Image",
+          "type": "boolean"
+        },
+        "install_command": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Install Command"
+        },
+        "mandatory": {
+          "title": "Mandatory",
+          "type": "boolean"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Notes",
+          "type": "array"
+        },
+        "ok": {
+          "title": "Ok",
+          "type": "boolean"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Path"
+        },
+        "pinned_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Pinned Version"
+        },
+        "state": {
+          "title": "State",
+          "type": "string"
+        },
+        "version_check": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Version Check"
+        }
+      },
+      "required": [
+        "name",
+        "state",
+        "ok",
+        "mandatory",
+        "pinned_version",
+        "detected_version",
+        "version_check",
+        "path",
+        "detail",
+        "install_command",
+        "configured",
+        "in_scanner_image",
+        "notes",
+        "data"
+      ],
+      "title": "DoctorEngineStatus",
+      "type": "object"
+    }
+  },
+  "$id": "urn:olympus:schema:olympus.engine-doctor:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "blocking": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Blocking",
+      "type": "array"
+    },
+    "engines": {
+      "items": {
+        "$ref": "#/$defs/DoctorEngineStatus"
+      },
+      "title": "Engines",
+      "type": "array"
+    },
+    "exit_code": {
+      "title": "Exit Code",
+      "type": "integer"
+    },
+    "optional_missing": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Optional Missing",
+      "type": "array"
+    },
+    "schema_name": {
+      "const": "olympus.engine-doctor",
+      "default": "olympus.engine-doctor",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "engines",
+    "blocking",
+    "optional_missing",
+    "exit_code"
+  ],
+  "title": "EngineDoctorReport",
+  "type": "object"
+}

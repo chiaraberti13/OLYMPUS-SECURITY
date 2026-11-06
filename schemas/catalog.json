@@ -58,6 +58,13 @@
     },
     {
       "direction": "output",
+      "name": "olympus.engine-doctor",
+      "path": "contracts/olympus.engine-doctor/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "b8db09d7d36bd539a13f60f92f3d7e4f4015a45285c55d88e2119131365eb88e"
+    },
+    {
+      "direction": "output",
       "name": "olympus.engine-run-evidence",
       "path": "contracts/olympus.engine-run-evidence/1.0.0.schema.json",
       "schema_version": "1.0.0",
