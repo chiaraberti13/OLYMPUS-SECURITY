@@ -9,8 +9,8 @@ import typer
 from olympus.core.exit_codes import ExitCode
 from olympus.core.output import OutputFormat, render_table
 from olympus.engines.doctor import (
-    EngineStatus,
     Environment,
+    build_report,
     check_all,
     verdict,
 )
@@ -55,10 +55,6 @@ def system_environment() -> Environment:
     except (SandboxError, ValueError):
         memory = SandboxPolicy().memory_bytes
     return Environment(which=which, probe=probe, git_head=git_head, sandbox_memory_bytes=memory)
-
-
-def _records(statuses: list[EngineStatus]) -> list[dict[str, object]]:
-    return [status.to_dict() for status in statuses]
 
 
 @app.command("list")
@@ -135,18 +131,8 @@ def engines_doctor(
         raise typer.Exit(code=ExitCode.USAGE) from exc
     result = verdict(statuses, strict=strict)
     if output_format is OutputFormat.JSON:
-        typer.echo(
-            json.dumps(
-                {
-                    "engines": _records(statuses),
-                    "blocking": list(result.blocking),
-                    "optional_missing": list(result.optional_missing),
-                    "exit_code": int(result.exit_code),
-                },
-                indent=2,
-                sort_keys=True,
-            )
-        )
+        report = build_report(statuses, result)
+        typer.echo(json.dumps(report.model_dump(mode="json"), indent=2, sort_keys=True))
     else:
         rows = [
             [

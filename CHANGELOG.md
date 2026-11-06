@@ -12,6 +12,18 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — TOOLS-4.2 (engines doctor: output JSON come contratto versionato)
+
+- `olympus engines doctor --format json` emette ora un **contratto versionato**,
+  `olympus.engine-doctor` 1.0.0 (modello Pydantic `EngineDoctorReport` con
+  `schema_name`/`schema_version`), invece di un dizionario ad-hoc. Lo schema è
+  pubblicato nel catalogo (`schemas/contracts/olympus.engine-doctor/1.0.0.schema.json`,
+  26 contratti totali) con direzione `output`, così un consumatore CI/CD può pinnare
+  nome e versione e rifiutare un report incompatibile. I campi del report (engines,
+  blocking, optional_missing, exit_code) sono invariati; si aggiungono solo
+  `schema_name` e `schema_version`. Regressioni in `tests/unit/test_engine_doctor.py`;
+  gate `export_schema_catalog.py --check`.
+
 ### Added — TOOLS-4.2 (engines doctor: prerequisiti runtime di comando)
 
 - Nuovo campo opzionale del manifest engine `requires_commands`: i comandi di

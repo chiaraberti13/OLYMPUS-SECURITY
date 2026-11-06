@@ -12,6 +12,7 @@ from olympus.cli import app
 from olympus.core.exit_codes import ExitCode
 from olympus.engines import cli as engines_cli
 from olympus.engines.doctor import (
+    EngineDoctorReport,
     EngineState,
     EngineStatus,
     Environment,
@@ -224,6 +225,32 @@ def test_cli_doctor_exits_0_when_the_mandatory_engines_are_present(
     document = json.loads(result.stdout)
     assert document["blocking"] == [] and document["exit_code"] == 0
     assert {e["name"]: e["state"] for e in document["engines"]}["nuclei"] == "present"
+
+
+def test_cli_doctor_json_output_is_a_versioned_contract(
+    runner: CliRunner, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The machine-readable report is a versioned, CI/CD-consumable contract
+    # (olympus.engine-doctor), not an ad-hoc dict (TOOLS-4.2).
+    monkeypatch.setattr(engines_cli, "system_environment", _healthy)
+    result = runner.invoke(app, ["engines", "doctor", "--format", "json"])
+    assert result.exit_code == 0
+    document = json.loads(result.stdout)
+    assert document["schema_name"] == "olympus.engine-doctor"
+    assert document["schema_version"] == "1.0.0"
+    # the published JSON validates straight back into the versioned model
+    report = EngineDoctorReport.model_validate(document)
+    assert report.exit_code == 0
+    assert {engine.name for engine in report.engines} >= set(MANDATORY)
+
+
+def test_engine_doctor_is_a_published_output_contract() -> None:
+    from olympus.schema_catalog import catalog_files
+
+    catalog = json.loads(catalog_files()[Path("catalog.json")])
+    entry = next(c for c in catalog["contracts"] if c["name"] == "olympus.engine-doctor")
+    assert entry["direction"] == "output"
+    assert entry["schema_version"] == "1.0.0"
 
 
 def test_cli_doctor_strict_single_engine_and_usage(
