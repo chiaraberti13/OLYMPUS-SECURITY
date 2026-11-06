@@ -12,6 +12,20 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — TOOLS-4.2 (engines doctor: prerequisiti runtime di comando)
+
+- Nuovo campo opzionale del manifest engine `requires_commands`: i comandi di
+  sistema ausiliari che un engine invoca a runtime oltre al proprio eseguibile
+  (solo nomi, mai path o command line). `engines doctor` / `inspect_engine`
+  verifica ora che ogni comando dichiarato sia su `PATH` — dopo i controlli di
+  presenza, versione, commit e dati — e riporta il nuovo stato
+  **`prerequisite-missing`** quando ne manca uno. Lo stato è non-ok, quindi
+  **blocca sotto `--strict`** (e il preflight non considera «pronto» un engine
+  presente ma privo dei suoi prerequisiti): un engine installato ma inutilizzabile
+  non si legge più come pronto (fail-closed). Primo caso reale popolato: `testssl`
+  dichiara `hexdump`. I 23 manifest che non dichiarano il campo restano invariati.
+  Regressioni in `tests/unit/test_engine_doctor.py`.
+
 ### Fixed — TOOLS-4.4 (commix: un errore di connessione non si legge come assenza di command injection)
 
 - L'adapter commix (`themis.adapters.commix`), derivato da sqlmap, applica ora lo

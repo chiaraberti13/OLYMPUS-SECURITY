@@ -180,6 +180,13 @@ class Engine(_Frozen):
     requires_data: list[Annotated[str, StringConstraints(pattern=_NAME)]] = Field(
         default_factory=list, max_length=8
     )
+    #: Auxiliary system commands the engine shells out to at runtime, beyond its own
+    #: executable (e.g. testssl.sh needs ``hexdump``). Names only — never a path or a
+    #: command line; ``engines doctor`` checks each is on PATH and reports a missing
+    #: one as a prerequisite gap, so a present-but-unusable engine is not read as ready.
+    requires_commands: list[
+        Annotated[str, StringConstraints(pattern=r"^[a-z0-9][a-z0-9._-]{0,63}$")]
+    ] = Field(default_factory=list, max_length=16)
     capability: DottedId
     source: Source
 

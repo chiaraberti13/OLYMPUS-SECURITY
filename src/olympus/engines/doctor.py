@@ -43,6 +43,7 @@ class EngineState(StrEnum):
     VERSION_MISMATCH = "version-mismatch"
     COMMIT_MISMATCH = "commit-mismatch"
     DATA_PROBLEM = "data-problem"
+    PREREQUISITE_MISSING = "prerequisite-missing"
     REQUIRES_PRODUCT = "requires-product"
 
 
@@ -275,6 +276,21 @@ def inspect_engine(name: str, manifest: EngineManifest, env: Environment) -> Eng
                 f"data dependency {bad.name} is at {bad.found_commit}, pinned {bad.expected_commit}"
             ),
             install_command=bad.install_command,
+        )
+    missing_commands = [cmd for cmd in engine.requires_commands if env.which(cmd) is None]
+    if missing_commands:
+        # The engine itself is present and pinned, but it shells out to auxiliary
+        # commands at runtime (e.g. testssl.sh needs hexdump). Without them it is
+        # present-but-unusable, so it must not read as ready: a prerequisite gap is a
+        # non-ok state, blocking under --strict exactly like any other (TOOLS-4.2).
+        return EngineStatus(
+            **common,  # type: ignore[arg-type]
+            state=EngineState.PREREQUISITE_MISSING,
+            version_check=check,
+            detail=(
+                "engine is present but these runtime prerequisite command(s) are not on "
+                f"PATH: {', '.join(missing_commands)}"
+            ),
         )
     return EngineStatus(
         **common,  # type: ignore[arg-type]
