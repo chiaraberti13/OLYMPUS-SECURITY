@@ -12,6 +12,22 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Fixed — TOOLS-4.4 (katana e dalfox: output inatteso non si legge come run pulito)
+
+- Gli adapter non-mandatory **katana** e **dalfox** (`themis.adapters.{katana,dalfox}`)
+  seguono ora la grammatica rigorosa TOOLS-4.4.
+  - **katana** (crawler JSONL, `-jsonl -silent -no-color`): una riga non-JSON su
+    stdout e un record JSONL senza `endpoint` (non è un record di crawl) sono
+    conteggiati come **record scartati** (`_skipped_records`) → run **`partial`**
+    (exit 5) via `coverage_loss`. Resta `failed` l'output che non contiene alcun
+    crawl record (strumento sbagliato/errore); un crawl che non raggiunge nulla
+    resta un esito vuoto legittimo.
+  - **dalfox** (array JSON, `--format json`): il padding `[{}]` del target pulito
+    resta un esito pulito (mai conteggiato); ogni altro elemento dell'array privo
+    di `payload`, o non-oggetto, è conteggiato come scartato → run **`partial`**.
+    Resta `failed` l'output privo di array JSON.
+  - Regressioni in `tests/unit/test_themis_adapters_projectdiscovery.py`.
+
 ### Fixed — TOOLS-4.4 (httpx: un errore su stdout o un record non-probe non si legge come run pulito)
 
 - L'adapter httpx (`themis.adapters.httpx`) non scarta più in silenzio l'output

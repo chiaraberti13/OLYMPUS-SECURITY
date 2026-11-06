@@ -44,6 +44,11 @@ class DalfoxAdapter(ScannerAdapter):
     binary = "dalfox"
     version_expected = "2.x"
 
+    #: Array elements the last :meth:`parse` call had to discard (not the expected
+    #: ``[{}]`` clean-target padding, nor a payload-bearing PoC). Per-run state,
+    #: reset on every parse; :meth:`coverage_loss` reports it as partial (TOOLS-4.4).
+    _skipped_records: int = 0
+
     def build_asset(self, host: str, request: ScanRequest) -> Asset:
         return Asset(
             asset_id=self.asset_id(host),
@@ -83,10 +88,19 @@ class DalfoxAdapter(ScannerAdapter):
 
         asset_id = self.asset_id(host)
         findings: list[Finding] = []
+        skipped = 0
+        self._skipped_records = 0
         for entry in entries:
-            # The clean-target case: dalfox emits [{}], so an entry with no
-            # payload is padding and must never become a finding.
+            # The clean-target case: dalfox emits [{}], so an empty object is
+            # expected padding and must never become a finding — nor a discarded
+            # record. It is ignored without counting.
+            if isinstance(entry, dict) and not entry:
+                continue
+            # A non-empty record without a payload, or a non-object array element,
+            # is unrecognised grammar: counted as discarded so the run reads as
+            # partial rather than silently dropping output (TOOLS-4.4).
             if not isinstance(entry, dict) or not entry.get("payload"):
+                skipped += 1
                 continue
 
             poc_type = str(entry.get("type") or "").upper()
@@ -129,4 +143,19 @@ class DalfoxAdapter(ScannerAdapter):
                 ),
                 request,
             )
+        self._skipped_records = skipped
         return findings
+
+    def coverage_loss(self, output: CommandOutput, request: ScanRequest) -> str | None:
+        """Report discarded array elements: dalfox output that was not a usable PoC.
+
+        The clean-target padding (``[{}]``) is expected and never counted; any
+        other element that is not a payload-bearing record is discarded, so the
+        run reads as partial rather than silently clean (TOOLS-4.4).
+        """
+        if self._skipped_records:
+            return (
+                f"{self._skipped_records} dalfox output record(s) could not be parsed and "
+                "were skipped; findings are not exhaustive"
+            )
+        return None

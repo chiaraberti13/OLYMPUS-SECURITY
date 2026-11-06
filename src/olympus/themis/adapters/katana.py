@@ -50,6 +50,11 @@ class KatanaAdapter(ScannerAdapter):
     binary = "katana"
     version_expected = "1.x"
 
+    #: Records the last :meth:`parse` call had to discard (non-JSON lines on stdout,
+    #: or JSONL that is not a crawl record). Per-run state, reset on every parse;
+    #: :meth:`coverage_loss` reports it as a partial result (TOOLS-4.4).
+    _skipped_records: int = 0
+
     def build_asset(self, host: str, request: ScanRequest) -> Asset:
         return Asset(
             asset_id=self.asset_id(host),
@@ -82,10 +87,19 @@ class KatanaAdapter(ScannerAdapter):
         asset_id = self.asset_id(host)
         findings: list[Finding] = []
         saw_object = False
+        skipped = 0
+        self._skipped_records = 0
 
         for line in output.stdout.splitlines():
             line = line.strip()
-            if not line or not line.startswith("{"):
+            if not line:
+                continue
+            if not line.startswith("{"):
+                # katana runs with -jsonl -silent -no-color, so stdout carries crawl
+                # JSONL only. A non-JSON line is unexpected output (a diagnostic or an
+                # error) and is counted as a discarded record so the run reads as
+                # partial, never silently clean (TOOLS-4.4); diagnostics belong on stderr.
+                skipped += 1
                 continue
             check_json_depth(line, scanner="katana")
             try:
@@ -93,12 +107,16 @@ class KatanaAdapter(ScannerAdapter):
             except json.JSONDecodeError as exc:
                 raise ParseError(f"katana emitted an unparseable JSONL line: {exc}") from exc
             if not isinstance(entry, dict):
+                skipped += 1
                 continue
 
             crawl_request = entry.get("request")
             crawl_request = crawl_request if isinstance(crawl_request, dict) else {}
             endpoint = str(crawl_request.get("endpoint") or "").strip()
             if not endpoint:
+                # Valid JSONL that is not a crawl record (no endpoint): unrecognised
+                # grammar, counted as discarded rather than dropped silently.
+                skipped += 1
                 continue
             saw_object = True
 
@@ -146,4 +164,19 @@ class KatanaAdapter(ScannerAdapter):
         # that carried no crawl record at all is a different tool or a failure.
         if output.stdout.strip() and not saw_object:
             raise ParseError("katana produced output but no crawl record")
+        self._skipped_records = skipped
         return findings
+
+    def coverage_loss(self, output: CommandOutput, request: ScanRequest) -> str | None:
+        """Report discarded records: some crawl output could not be parsed.
+
+        A crawl that reached nothing is a legitimate empty result; output that
+        mixed crawl records with unparseable lines, however, is an incomplete read
+        and must read as partial, never silently clean (TOOLS-4.4).
+        """
+        if self._skipped_records:
+            return (
+                f"{self._skipped_records} katana output record(s) could not be parsed and "
+                "were skipped; findings are not exhaustive"
+            )
+        return None
