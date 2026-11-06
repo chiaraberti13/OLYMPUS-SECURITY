@@ -37,6 +37,7 @@ from olympus.core.notifications import Notification
 from olympus.engagements.manifest import EngagementManifest, SignedEngagementManifest
 from olympus.engines.doctor import EngineDoctorReport
 from olympus.engines.evidence import EngineRunEvidence
+from olympus.engines.preflight import EnginePreflightReport
 from olympus.metis.models import EngagementPlan, IntelCaseDocument
 from olympus.themis.legacy_vap import (
     LegacyVapConversionPlan,
@@ -89,6 +90,7 @@ PUBLISHED_CONTRACTS = (
     PublishedContract("olympus.security-report", "output", SecurityReport),
     PublishedContract("olympus.engine-run-evidence", "output", EngineRunEvidence),
     PublishedContract("olympus.engine-doctor", "output", EngineDoctorReport),
+    PublishedContract("olympus.engine-preflight", "output", EnginePreflightReport),
     PublishedContract("olympus.legacy-vap-snapshot", "output", LegacyVapSnapshot),
     PublishedContract("olympus.legacy-vap-conversion-plan", "output", LegacyVapConversionPlan),
     PublishedContract("olympus.legacy-vap-import-approval", "output", LegacyVapImportApproval),

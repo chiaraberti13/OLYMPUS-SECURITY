@@ -8,6 +8,9 @@ fail-closed guarantee proven with an injected environment whose probe raises if 
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 from typer.testing import CliRunner
 
@@ -16,6 +19,7 @@ from olympus.core.exit_codes import ExitCode
 from olympus.engines.doctor import EngineState, EngineStatus, Environment
 from olympus.engines.loader import load_all
 from olympus.engines.preflight import (
+    EnginePreflightReport,
     PreflightVerdict,
     UnknownEngineError,
     preflight,
@@ -136,6 +140,56 @@ def test_cli_preflight_exits_0_when_ready(monkeypatch: pytest.MonkeyPatch) -> No
     result = runner.invoke(app, ["engines", "preflight"])
     assert result.exit_code == 0
     assert "preflight OK" in result.output
+
+
+def test_cli_preflight_json_output_is_a_versioned_contract(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The preflight JSON gates CI/automation, so it is the versioned contract
+    # olympus.engine-preflight, not an ad-hoc dict (TOOLS-4.1).
+    monkeypatch.setattr(
+        "olympus.engines.cli.preflight",
+        lambda env, engines=(): PreflightVerdict(ExitCode.OK, ("httpx", "nmap", "nuclei"), ()),
+    )
+    result = runner.invoke(app, ["engines", "preflight", "--format", "json"])
+    assert result.exit_code == 0
+    document = json.loads(result.stdout)
+    assert document["schema_name"] == "olympus.engine-preflight"
+    assert document["schema_version"] == "1.0.0"
+    report = EnginePreflightReport.model_validate(document)
+    assert report.ready is True
+    assert report.required == ["httpx", "nmap", "nuclei"]
+    assert report.blocking == []
+
+
+def test_cli_preflight_json_reports_blocking_engines_with_install_commands(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    blocked = EngineStatus(
+        name="nmap",
+        state=EngineState.MISSING,
+        mandatory=True,
+        detail="'nmap' is not on PATH",
+        install_command="git -C /opt/nmap fetch ...",
+    )
+    monkeypatch.setattr(
+        "olympus.engines.cli.preflight",
+        lambda env, engines=(): PreflightVerdict(ExitCode.ENGINE_MISSING, ("nmap",), (blocked,)),
+    )
+    result = runner.invoke(app, ["engines", "preflight", "--format", "json"])
+    assert result.exit_code == int(ExitCode.ENGINE_MISSING)
+    report = EnginePreflightReport.model_validate(json.loads(result.stdout))
+    assert report.ready is False
+    assert report.blocking[0].name == "nmap"
+    assert report.blocking[0].state == "missing"
+    assert report.blocking[0].install_command == "git -C /opt/nmap fetch ..."
+
+
+def test_engine_preflight_is_a_published_output_contract() -> None:
+    from olympus.schema_catalog import catalog_files
+
+    catalog = json.loads(catalog_files()[Path("catalog.json")])
+    entry = next(c for c in catalog["contracts"] if c["name"] == "olympus.engine-preflight")
+    assert entry["direction"] == "output"
+    assert entry["schema_version"] == "1.0.0"
 
 
 def test_cli_preflight_rejects_an_unknown_engine() -> None:

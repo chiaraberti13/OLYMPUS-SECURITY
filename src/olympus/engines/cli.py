@@ -15,7 +15,7 @@ from olympus.engines.doctor import (
     verdict,
 )
 from olympus.engines.loader import ManifestError, load_all
-from olympus.engines.preflight import UnknownEngineError, preflight
+from olympus.engines.preflight import UnknownEngineError, build_preflight_report, preflight
 from olympus.integrations.maturity import record_for
 from olympus.integrations.scanners import by_name
 
@@ -177,18 +177,8 @@ def engines_preflight(
         typer.echo(f"olympus: unknown engine: {exc}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
     if output_format is OutputFormat.JSON:
-        typer.echo(
-            json.dumps(
-                {
-                    "required": list(verdict.required),
-                    "blocking": [status.name for status in verdict.blocking],
-                    "ready": verdict.ok,
-                    "exit_code": int(verdict.exit_code),
-                },
-                indent=2,
-                sort_keys=True,
-            )
-        )
+        report = build_preflight_report(verdict)
+        typer.echo(json.dumps(report.model_dump(mode="json"), indent=2, sort_keys=True))
     else:
         if verdict.ok:
             typer.echo(f"preflight OK: {len(verdict.required)} required engine(s) present.")

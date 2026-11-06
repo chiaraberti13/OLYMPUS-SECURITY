@@ -1,0 +1,87 @@
+{
+  "$defs": {
+    "PreflightBlockingEngine": {
+      "additionalProperties": false,
+      "properties": {
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "install_command": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Install Command"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "state": {
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "state",
+        "detail",
+        "install_command"
+      ],
+      "title": "PreflightBlockingEngine",
+      "type": "object"
+    }
+  },
+  "$id": "urn:olympus:schema:olympus.engine-preflight:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "blocking": {
+      "items": {
+        "$ref": "#/$defs/PreflightBlockingEngine"
+      },
+      "title": "Blocking",
+      "type": "array"
+    },
+    "exit_code": {
+      "title": "Exit Code",
+      "type": "integer"
+    },
+    "ready": {
+      "title": "Ready",
+      "type": "boolean"
+    },
+    "required": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Required",
+      "type": "array"
+    },
+    "schema_name": {
+      "const": "olympus.engine-preflight",
+      "default": "olympus.engine-preflight",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "required",
+    "blocking",
+    "ready",
+    "exit_code"
+  ],
+  "title": "EnginePreflightReport",
+  "type": "object"
+}

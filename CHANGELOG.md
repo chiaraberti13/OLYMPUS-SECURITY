@@ -12,6 +12,18 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — TOOLS-4.1 (engines preflight: output JSON come contratto versionato)
+
+- `olympus engines preflight --format json` emette ora il **contratto versionato**
+  `olympus.engine-preflight` 1.0.0 (`EnginePreflightReport` con `schema_name`/
+  `schema_version`) invece di un dizionario ad-hoc. Il report porta `required`,
+  `ready`, `exit_code` e `blocking` arricchito (per ogni engine bloccante:
+  `name`, `state`, `detail`, `install_command`), così un gate CI/automazione può
+  pinnare nome e versione e sapere esattamente cosa manca e come installarlo.
+  Pubblicato nel catalogo (`schemas/contracts/olympus.engine-preflight/1.0.0.schema.json`,
+  27 contratti totali) con direzione `output`. Regressioni in
+  `tests/unit/test_engine_preflight.py`; gate `export_schema_catalog.py --check`.
+
 ### Added — TOOLS-4.2 (engines doctor: output JSON come contratto versionato)
 
 - `olympus engines doctor --format json` emette ora un **contratto versionato**,

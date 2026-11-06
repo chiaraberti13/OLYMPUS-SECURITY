@@ -28,8 +28,12 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict
 
 from olympus.core.exit_codes import ExitCode
+from olympus.core.models import OlympusModel
 from olympus.engines.doctor import EngineState, EngineStatus, Environment, inspect_engine
 from olympus.engines.loader import ManifestError, load_all, manifest_for
 from olympus.engines.schema import EngineManifest
@@ -67,6 +71,51 @@ class PreflightVerdict:
                 for status in self.blocking
             ],
         }
+
+
+# --- versioned machine-readable report (TOOLS-4.1) -------------------------- #
+# The JSON `engines preflight --format json` prints gates CI/automation before a
+# scan launches, so it is a versioned Olympus contract (olympus.engine-preflight)
+# rather than an ad-hoc dict: automation can pin schema_name/schema_version and
+# reject an incompatible verdict instead of guessing.
+
+
+class _ReportPart(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class PreflightBlockingEngine(_ReportPart):
+    name: str
+    state: str
+    detail: str
+    install_command: str | None
+
+
+class EnginePreflightReport(OlympusModel):
+    schema_name: Literal["olympus.engine-preflight"] = "olympus.engine-preflight"
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    required: list[str]
+    blocking: list[PreflightBlockingEngine]
+    ready: bool
+    exit_code: int
+
+
+def build_preflight_report(verdict: PreflightVerdict) -> EnginePreflightReport:
+    """Assemble the versioned, machine-readable preflight report from the verdict."""
+    return EnginePreflightReport(
+        required=list(verdict.required),
+        blocking=[
+            PreflightBlockingEngine(
+                name=status.name,
+                state=status.state.value,
+                detail=status.detail,
+                install_command=status.install_command,
+            )
+            for status in verdict.blocking
+        ],
+        ready=verdict.ok,
+        exit_code=int(verdict.exit_code),
+    )
 
 
 def required_engines(manifests: dict[str, EngineManifest], named: Sequence[str]) -> tuple[str, ...]:
