@@ -29,7 +29,7 @@ import re
 
 from olympus.core.enums import AssetType, Severity, Source
 from olympus.core.models import Asset, Finding
-from olympus.themis.base import ScannerAdapter
+from olympus.themis.base import ParseError, ScannerAdapter
 from olympus.themis.model import ScanRequest
 from olympus.themis.runner import CommandOutput
 
@@ -40,11 +40,30 @@ _INJECTABLE = re.compile(
     re.IGNORECASE,
 )
 
+#: commix (sqlmap-derived) logs fatal connection/access problems at CRITICAL: the
+#: target was never actually tested, so zero findings must not read as "no command
+#: injection". commix's *other* CRITICAL line — "All tested parameters do not
+#: appear to be injectable" — is a legitimate clean outcome and is deliberately
+#: NOT matched here, so a safe target is never turned into a false failure
+#: (TOOLS-4.4), exactly as for the sqlmap adapter.
+_CONNECT_ERROR = re.compile(
+    r"\[critical\][^\n]*?("
+    r"unable to connect|connection timed out|unable to retrieve|unable to establish|"
+    r"does not exist|name or service not known|connection refused|unable to resolve"
+    r")",
+    re.IGNORECASE,
+)
+
 
 class CommixAdapter(ScannerAdapter):
     name = "commix"
     binary = "commix"
     version_expected = "3.x-4.x"
+
+    #: Why a parsed run may be incomplete (a CRITICAL connection error logged while
+    #: some findings were still produced). Per-run state, reset on every parse;
+    #: :meth:`coverage_loss` reports it as partial (TOOLS-4.4).
+    _coverage_reason: str | None = None
 
     def build_asset(self, host: str, request: ScanRequest) -> Asset:
         return Asset(
@@ -69,6 +88,7 @@ class CommixAdapter(ScannerAdapter):
         ]
 
     def parse(self, output: CommandOutput, host: str, request: ScanRequest) -> list[Finding]:
+        self._coverage_reason = None
         asset_id = self.asset_id(host)
         findings: list[Finding] = []
         # commix repeats the injectable line for every confirming request; one
@@ -106,4 +126,22 @@ class CommixAdapter(ScannerAdapter):
                 ),
                 request,
             )
+        # A fatal connection/access error means commix never actually tested the
+        # target, so zero findings is NOT "no command injection": with nothing
+        # found it is a failed scan, and with findings its coverage is not
+        # guaranteed (TOOLS-4.4). "Not injectable" without such an error stays a
+        # valid clean outcome.
+        if _CONNECT_ERROR.search(output.stdout):
+            if not findings:
+                raise ParseError(
+                    "commix logged a CRITICAL connection/access error and found nothing; "
+                    "the target was not conclusively tested, so this is not a clean result"
+                )
+            self._coverage_reason = (
+                "commix logged a CRITICAL connection/access error; scan coverage is not guaranteed"
+            )
         return findings
+
+    def coverage_loss(self, output: CommandOutput, request: ScanRequest) -> str | None:
+        """Report a CRITICAL connection error logged alongside findings (partial run)."""
+        return self._coverage_reason

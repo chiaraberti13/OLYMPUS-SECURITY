@@ -12,6 +12,17 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Fixed — TOOLS-4.4 (commix: un errore di connessione non si legge come assenza di command injection)
+
+- L'adapter commix (`themis.adapters.commix`), derivato da sqlmap, applica ora lo
+  stesso schema fail-closed dell'adapter sqlmap. Una riga `[critical]` di
+  connessione/accesso (`unable to connect`, `connection timed out`,
+  `unable to resolve`, …) significa che commix non ha testato il target → il run è
+  **`failed`** se non ci sono finding, **`partial`** se qualche finding è comunque
+  presente. Il `[critical]` legittimo di commix «All tested parameters do not
+  appear to be injectable» **resta un esito pulito** (nessun falso fallimento).
+  Regressioni in `tests/unit/test_themis_adapters_dirsearch_commix.py`.
+
 ### Fixed — TOOLS-4.4 (wpscan: una scansione abortita non si legge come WordPress pulito)
 
 - L'adapter wpscan (`themis.adapters.wpscan`) riconosce ora il campo `scan_aborted`.
