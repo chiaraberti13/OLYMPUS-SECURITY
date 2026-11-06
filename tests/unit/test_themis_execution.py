@@ -319,6 +319,63 @@ def test_sqlmap_parser_vuln_vs_safe() -> None:
     assert SqlmapAdapter().parse(_out(SQLMAP_SAFE), "x", _req()) == []
 
 
+def test_sqlmap_connection_error_with_no_finding_is_failed_not_clean() -> None:
+    # A CRITICAL connection error means sqlmap never tested the target, so zero
+    # findings must not read as "no SQL injection" (TOOLS-4.4).
+    out = "[12:00:00] [CRITICAL] unable to connect to the target URL\n"
+    with pytest.raises(ParseError, match=r"not conclusively tested|not a clean result"):
+        SqlmapAdapter().parse(_out(out), "x", _req())
+
+
+def test_sqlmap_not_injectable_critical_stays_a_clean_result() -> None:
+    # sqlmap logs the clean "not injectable" outcome at CRITICAL too; it must NOT
+    # be mistaken for a scan error (no false failure).
+    out = "[12:00:00] [CRITICAL] all tested parameters do not appear to be injectable\n"
+    adapter = SqlmapAdapter()
+    assert adapter.parse(_out(out), "x", _req()) == []
+    assert adapter.coverage_loss(_out(out), _req()) is None
+
+
+def test_sqlmap_connection_error_with_a_finding_is_partial() -> None:
+    out = (
+        "[INFO] GET parameter 'id' is vulnerable.\n"
+        "[12:00:05] [CRITICAL] connection timed out to the target URL\n"
+    )
+    adapter = SqlmapAdapter()
+    findings = adapter.parse(_out(out), "x", _req())
+    assert len(findings) == 1
+    assert adapter.coverage_loss(_out(out), _req()) is not None
+
+
+def test_nikto_clean_scan_is_not_partial() -> None:
+    # NIKTO_TXT ends with "0 error(s)" and no early termination: trustworthy.
+    adapter = NiktoAdapter()
+    adapter.parse(_out(NIKTO_TXT), "127.0.0.1", _req())
+    assert adapter.coverage_loss(_out(NIKTO_TXT), _req()) is None
+
+
+def test_nikto_request_errors_make_the_run_partial() -> None:
+    out = (
+        "+ The anti-clickjacking X-Frame-Options header is not present.\n"
+        "+ 6544 items checked: 3 error(s) and 1 item(s) reported on remote host\n"
+    )
+    adapter = NiktoAdapter()
+    adapter.parse(_out(out), "127.0.0.1", _req())
+    reason = adapter.coverage_loss(_out(out), _req())
+    assert reason is not None
+    assert "3 request error(s)" in reason
+
+
+def test_nikto_early_termination_makes_the_run_partial() -> None:
+    out = (
+        "+ /admin/: Admin login page found.\n"
+        "+ Scan terminated:  20 error(s) and 1 item(s) reported on remote host\n"
+    )
+    adapter = NiktoAdapter()
+    adapter.parse(_out(out), "127.0.0.1", _req())
+    assert adapter.coverage_loss(_out(out), _req()) is not None
+
+
 def test_testssl_parser() -> None:
     findings = TestsslAdapter().parse(_out(TESTSSL_JSON), "x", _req())
     assert findings and findings[0].severity == Severity.LOW
