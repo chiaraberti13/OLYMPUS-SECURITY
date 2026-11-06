@@ -112,6 +112,33 @@ def test_a_healthy_machine_passes_with_the_real_version_and_template_commit() ->
     assert verdict(statuses).exit_code is ExitCode.OK
 
 
+# --- runtime prerequisite commands (TOOLS-4.2) ------------------------------ #
+def _testssl_env(*, hexdump: bool) -> Environment:
+    # testssl is present and pinned; only the auxiliary command varies.
+    present = {"testssl.sh": "testssl 3.2.4 from https://testssl.sh/"}
+    if hexdump:
+        present["hexdump"] = "hexdump from util-linux"
+    return _env(present=present, heads={"/opt/testssl": _commit("testssl")})
+
+
+def test_a_present_engine_missing_a_runtime_prerequisite_is_not_ready() -> None:
+    # testssl.sh shells out to hexdump; without it the engine is present but
+    # unusable, which must never read as ready (TOOLS-4.2, fail-closed).
+    status = _status("testssl", _testssl_env(hexdump=False))
+    assert status.state is EngineState.PREREQUISITE_MISSING
+    assert not status.ok
+    assert "hexdump" in status.detail
+    if status.in_scanner_image:
+        # not ok -> blocking under --strict for an engine the image ships
+        assert "testssl" in verdict([status], strict=True).blocking
+
+
+def test_a_present_engine_with_its_prerequisites_is_ready() -> None:
+    status = _status("testssl", _testssl_env(hexdump=True))
+    assert status.state is EngineState.PRESENT
+    assert status.ok
+
+
 # --- every way an engine can be wrong --------------------------------------- #
 def test_a_different_version_than_the_pin_is_a_mismatch() -> None:
     status = _status("nuclei", _env(present={"nuclei": "[INF] Nuclei Engine Version: v3.9.0"}))
