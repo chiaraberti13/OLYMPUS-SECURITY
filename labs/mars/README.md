@@ -21,6 +21,32 @@ python labs/mars/target/app.py        # http://127.0.0.1:8081
 docker compose -f labs/mars/docker-compose.yml up
 ```
 
+## Profilo riproducibile Mars v1 / Reproducible profile
+
+Usa Python 3.11 e lo stesso commit di Olympus per target, scope e regole.
+Il seed è versionato nel repository. Include il target senza stato, lo scope
+`target/practice-scope.json`, la traccia `target/mars-post-exploitation.ndjson`
+e il pacchetto di regole `examples/input/apollo-redteam`. Non usa dati casuali
+né servizi esterni. Per ripetere una prova, registra il commit e `python --version`.
+
+Use Python 3.11 and the same Olympus commit for the target, scope and rules.
+The repository contains the complete seed. Record the commit and Python version
+to repeat the exercise.
+
+| Verifica / Check | Esito atteso / Expected result |
+| --- | --- |
+| Scope | `http://127.0.0.1:8081`, rete loopback `127.0.0.0/8` |
+| Fingerprint | `nginx/1.18.0`, `PHP/8.1.0` |
+| Discovery | Tre risorse sintetiche / Three synthetic resources |
+| Reflected XSS | Il target riflette il valore di `q` / The target reflects `q` |
+| Metabase | `v0.60.10` |
+| Telemetria Apollo | 10 eventi, 7 alert distinti, 3 eventi senza alert / 10 events, 7 distinct alerts, 3 events without alerts |
+
+Dalla radice, con le dipendenze di sviluppo installate, verifica il seed con
+`python -m pytest tests/integration/test_mars_purple_scenario.py`.
+Il test verifica il contratto del target e il replay Apollo.
+L'esecuzione di engine esterni con evidenza firmata resta in `QA-3`.
+
 ## Debolezze volute / Deliberate weaknesses
 Il target espone, in modo controllato e non dannoso:
 - `/app/search?q=…` — riflette il parametro **non-escapato** (XSS riflesso);
