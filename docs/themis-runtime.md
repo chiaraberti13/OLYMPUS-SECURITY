@@ -106,6 +106,31 @@ termina con codice `7`; `--once` restituisce il codice canonico del job
 (`0` coda vuota/nessun finding, `1` finding, `4` policy negata, `5` parziale,
 `6` fallito/timeout, `7` cancellato).
 
+### Decisione sulla coda dei job
+
+Per il deployment attuale manteniamo la coda persistente SQLite e i worker
+Themis su un host container, fuori da Vercel. API, Web e worker condividono
+lo stesso volume locale. Il claim atomico, le lease rinnovabili e il limite
+aggregato coprono il coordinamento richiesto su questo host.
+
+| Opzione | Quando serve | Costo operativo |
+| --- | --- | --- |
+| SQLite e worker Themis | Un host con volume locale e capacità verificata | Un solo archivio per stato e coda, con scritture serializzate |
+| Postgres e worker Themis | Worker su più host o contesa di scrittura misurabile | Migrazione dello store e verifica transazionale dei claim e delle lease |
+| Broker dedicato | Necessità dimostrata di accodamento indipendente dallo store o di routing tra più code | Servizio aggiuntivo e coordinamento tra messaggi e stato dei job |
+
+Riaprire la decisione se serve distribuire i worker su più host, oppure se
+sotto il carico previsto il tempo di attesa dei job supera l'obiettivo operativo
+o i log mostrano contesa SQLite persistente. Prima di cambiare architettura,
+registrare profondità della coda, tempo da enqueue a claim, errori di lock
+e recupero delle lease. Valutare Postgres con `DATA-2` per il coordinamento
+multi-host. Se occorre un broker, usare l'identità del job per deduplicare le
+consegne e verificare perdita del worker, retry e coerenza dello stato in
+`API-3` prima dell'adozione.
+
+I test di claim, concorrenza e recupero delle lease sono in
+[`tests/unit/test_themis_jobs.py`](../tests/unit/test_themis_jobs.py).
+
 ### Migrazione e rollback
 
 `migrate` crea o aggiorna **il database nativo dei job**, con DDL e versione in
