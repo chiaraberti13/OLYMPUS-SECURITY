@@ -167,7 +167,13 @@ def _scan_git_patch(
 ) -> list[SecretFinding]:
     """Map changed patch lines to their introducing commit/file without exposing values."""
     current_commit = "unknown"
-    current_path = "unknown"
+    # Track the old-file and new-file paths separately: a removed ('-') line
+    # belongs to the old file, an added ('+') line to the new file. Using only
+    # the '+++ b/' path misattributes a secret in a deleted file (whose header is
+    # '+++ /dev/null') to the previously-seen file, and the wrong path also
+    # poisons the fingerprint scope.
+    old_path = "unknown"
+    new_path = "unknown"
     old_line = 0
     new_line = 0
     findings: list[SecretFinding] = []
@@ -176,19 +182,22 @@ def _scan_git_patch(
         if line.startswith("commit:"):
             current_commit = line.removeprefix("commit:").strip()
             continue
+        if line.startswith("--- "):
+            candidate = line.removeprefix("--- ").strip()
+            old_path = "/dev/null" if candidate == "/dev/null" else candidate.removeprefix("a/")
+            continue
         if line.startswith("+++ "):
             candidate = line.removeprefix("+++ ").strip()
-            if candidate != "/dev/null":
-                current_path = candidate.removeprefix("b/")
+            new_path = "/dev/null" if candidate == "/dev/null" else candidate.removeprefix("b/")
             continue
         if match := HUNK_HEADER.match(line):
             old_line, new_line = int(match.group(1)), int(match.group(2))
             continue
         if line.startswith("+") and not line.startswith("+++"):
-            content, source_line = line[1:], new_line
+            content, source_line, source_path = line[1:], new_line, new_path
             new_line += 1
         elif line.startswith("-") and not line.startswith("---"):
-            content, source_line = line[1:], old_line
+            content, source_line, source_path = line[1:], old_line, old_path
             old_line += 1
         elif line.startswith(" "):
             old_line += 1
@@ -196,12 +205,12 @@ def _scan_git_patch(
             continue
         else:
             continue
-        location = f"git-history/{current_commit}/{current_path}"
+        location = f"git-history/{current_commit}/{source_path}"
         for finding in scan_text(
             content,
             location,
             entropy_threshold,
-            fingerprint_scope=f"git-history/{current_path}",
+            fingerprint_scope=f"git-history/{source_path}",
             allowlist=allowlist,
         ):
             if finding.fingerprint in seen:

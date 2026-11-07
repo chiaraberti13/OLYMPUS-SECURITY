@@ -195,6 +195,35 @@ def test_git_history_scan_finds_removed_synthetic_secret(tmp_path: Path) -> None
         scan_git_history(tmp_path, policy=_policy(), max_history_bytes=1)
 
 
+def test_git_patch_attributes_a_deleted_file_secret_to_its_own_path() -> None:
+    # A secret in a *deleted* file (whose '+++' header is '/dev/null') must be
+    # attributed to that file, read from its '--- a/<path>' header, not to the
+    # previously-seen file. Mislabelling also poisons the fingerprint scope.
+    from olympus.hermes.scanner import _scan_git_patch
+
+    patch = (
+        "commit:" + "a" * 40 + "\n"
+        "diff --git a/keep.txt b/keep.txt\n"
+        "--- a/keep.txt\n"
+        "+++ b/keep.txt\n"
+        "@@ -1,1 +1,1 @@\n"
+        "-old harmless\n"
+        "+new harmless\n"
+        "diff --git a/secrets.env b/secrets.env\n"
+        "deleted file mode 100644\n"
+        "--- a/secrets.env\n"
+        "+++ /dev/null\n"
+        "@@ -1,1 +0,0 @@\n"
+        f"-AWS_KEY={SYNTHETIC_KEY}\n"
+    )
+    findings = _scan_git_patch(patch, entropy_threshold=4.5)
+    hits = [f for f in findings if f.rule == "aws-access-key"]
+    assert len(hits) == 1
+    assert hits[0].path.endswith("/secrets.env")
+    assert "/keep.txt" not in hits[0].path
+    assert hits[0].line == 1
+
+
 def test_application_bounds_history_and_observes_cancellation(tmp_path: Path) -> None:
     source = tmp_path / "safe.txt"
     source.write_text("safe", encoding="utf-8")
