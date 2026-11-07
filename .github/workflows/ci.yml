@@ -33,6 +33,8 @@ jobs:
         run: ruff format --check .
       - name: Internal documentation links
         run: python scripts/check_doc_links.py
+      - name: Required merge-check definitions
+        run: python scripts/audit_required_checks.py --verify-workflows
       - name: Mypy
         run: mypy --strict src/olympus
 
