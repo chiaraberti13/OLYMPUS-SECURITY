@@ -12,6 +12,18 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Fixed — SEC-4.2 (audit required-check: valutare l'ultimo run, non «uno qualsiasi»)
+
+- `scripts/audit_required_checks.py` valuta ora ogni check richiesto in base al suo
+  **run più recente** (per `started_at`, tie-break `id`), come fa GitHub, invece di
+  considerarlo soddisfatto se *un qualsiasi* run era verde. Con la logica precedente
+  (`any(conclusion == "success")`) un check il cui ultimo run era **failure** ma con
+  un run precedente **success** veniva dichiarato PASS dall'audit post-merge, mentre
+  GitHub lo considera rosso: una perdita di fedeltà fail-closed del gate. Ora un
+  re-run fallito successivo prevale (→ non soddisfatto, `terminal_failure`), e un
+  re-run riuscito successivo soddisfa il check. Nessun caso a run singolo cambia
+  comportamento. Regressioni in `tests/unit/test_required_checks_audit.py`.
+
 ### Added — TOOLS-4.1 (engines preflight: output JSON come contratto versionato)
 
 - `olympus engines preflight --format json` emette ora il **contratto versionato**
