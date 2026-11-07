@@ -185,6 +185,25 @@ def _required_checks(document: object) -> tuple[bool, dict[str, set[int | None]]
     return strict, required
 
 
+def _latest_run(runs: list[Any], source_id: int | None) -> Any:
+    """Return the most recent run for a source (by started_at, then id), or None.
+
+    GitHub evaluates a required check by its *most recent* run: a check whose latest
+    run failed is red even if an earlier run was green. "Any run ever passed" would
+    let a later failing re-run read as green, which is not fail-closed for a merge
+    gate, so the audit mirrors GitHub and looks only at the latest run per source.
+    """
+    candidates = [
+        run
+        for run in runs
+        if source_id is None
+        or (isinstance(run.get("app"), dict) and run["app"].get("id") == source_id)
+    ]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda run: (str(run.get("started_at") or ""), run.get("id") or 0))
+
+
 def audit(
     *,
     sha: str,
@@ -210,30 +229,21 @@ def audit(
     for name in sorted(sources.keys() | required.keys()):
         matching = [run for run in sha_runs if run.get("name") == name]
         required_sources = required.get(name, set())
+        # Evaluate each required source by its most recent run, exactly as GitHub
+        # does, so a check whose latest run failed can never read as satisfied.
+        source_latest = {
+            source_id: _latest_run(matching, source_id) for source_id in required_sources
+        }
         source_success = {
-            source_id: any(
-                run.get("conclusion") == "success"
-                and (
-                    source_id is None
-                    or (isinstance(run.get("app"), dict) and run["app"].get("id") == source_id)
-                )
-                for run in matching
-            )
-            for source_id in required_sources
+            source_id: (run is not None and run.get("conclusion") == "success")
+            for source_id, run in source_latest.items()
         }
         successful = bool(required_sources) and all(source_success.values())
-        terminal_failure = any(
-            not source_success[source_id]
-            and any(
-                run.get("status") == "completed"
-                and run.get("conclusion") not in {None, "success"}
-                and (
-                    source_id is None
-                    or (isinstance(run.get("app"), dict) and run["app"].get("id") == source_id)
-                )
-                for run in matching
-            )
-            for source_id in required_sources
+        terminal_failure = bool(required_sources) and any(
+            run is not None
+            and run.get("status") == "completed"
+            and run.get("conclusion") not in {None, "success"}
+            for run in source_latest.values()
         )
         rows.append(
             CheckRow(

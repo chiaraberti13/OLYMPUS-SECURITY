@@ -156,3 +156,58 @@ def test_completed_required_check_failure_is_terminal() -> None:
     assert result.success is False
     assert result.terminal_failure is True
     assert "Terminal failure" in audit_checks.render_markdown(result)
+
+
+def test_a_later_failing_rerun_overrides_an_earlier_success() -> None:
+    # GitHub evaluates a check by its most recent run; an earlier green run must not
+    # let a later failing re-run read as satisfied (fail-closed fidelity).
+    checks = _checks()
+    runs = checks["check_runs"]
+    assert isinstance(runs, list)
+    target = runs[0]["name"]
+    runs[0].update({"started_at": "2026-11-07T10:00:00Z", "id": 1, "conclusion": "success"})
+    runs.append(
+        {
+            "name": target,
+            "head_sha": SHA,
+            "status": "completed",
+            "conclusion": "failure",
+            "app": {"id": GITHUB_ACTIONS_APP_ID},
+            "started_at": "2026-11-07T11:00:00Z",
+            "id": 2,
+        }
+    )
+    checks["total_count"] = len(runs)
+    result = audit_checks.audit(
+        sha=SHA, rules_document=_rules(), checks_document=checks, repository_root=ROOT
+    )
+    assert result.success is False
+    assert result.terminal_failure is True
+    failing = next(row for row in result.rows if row.name == target)
+    assert failing.executed and not failing.successful
+
+
+def test_a_later_successful_rerun_overrides_an_earlier_failure() -> None:
+    # The converse: a green re-run that is the latest run satisfies the check.
+    checks = _checks()
+    runs = checks["check_runs"]
+    assert isinstance(runs, list)
+    target = runs[0]["name"]
+    runs[0].update({"started_at": "2026-11-07T10:00:00Z", "id": 1, "conclusion": "failure"})
+    runs.append(
+        {
+            "name": target,
+            "head_sha": SHA,
+            "status": "completed",
+            "conclusion": "success",
+            "app": {"id": GITHUB_ACTIONS_APP_ID},
+            "started_at": "2026-11-07T11:00:00Z",
+            "id": 2,
+        }
+    )
+    checks["total_count"] = len(runs)
+    result = audit_checks.audit(
+        sha=SHA, rules_document=_rules(), checks_document=checks, repository_root=ROOT
+    )
+    assert result.success is True
+    assert result.terminal_failure is False
