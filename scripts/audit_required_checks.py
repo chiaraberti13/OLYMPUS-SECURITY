@@ -256,7 +256,7 @@ def render_markdown(result: AuditResult) -> str:
         f"Audited SHA: `{result.sha}`",
         "",
         "| Check | Workflow source | Defined | Executed on this SHA | "
-        "Successful | Required | Terminal failure |",
+        + "Successful | Required | Terminal failure |",
         "| --- | --- | --- | --- | --- | --- | --- |",
     ]
     for row in result.rows:
