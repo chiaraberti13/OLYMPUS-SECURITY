@@ -1,0 +1,101 @@
+{
+  "$defs": {
+    "EngineListEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter": {
+          "title": "Adapter",
+          "type": "boolean"
+        },
+        "category": {
+          "title": "Category",
+          "type": "string"
+        },
+        "commit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Commit"
+        },
+        "distribution": {
+          "title": "Distribution",
+          "type": "string"
+        },
+        "engine": {
+          "title": "Engine",
+          "type": "string"
+        },
+        "in_scanner_image": {
+          "title": "In Scanner Image",
+          "type": "boolean"
+        },
+        "mandatory": {
+          "title": "Mandatory",
+          "type": "boolean"
+        },
+        "maturity": {
+          "title": "Maturity",
+          "type": "string"
+        },
+        "pinned_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Pinned Version"
+        }
+      },
+      "required": [
+        "engine",
+        "category",
+        "maturity",
+        "mandatory",
+        "distribution",
+        "pinned_version",
+        "commit",
+        "adapter",
+        "in_scanner_image"
+      ],
+      "title": "EngineListEntry",
+      "type": "object"
+    }
+  },
+  "$id": "urn:olympus:schema:olympus.engine-list:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "engines": {
+      "items": {
+        "$ref": "#/$defs/EngineListEntry"
+      },
+      "title": "Engines",
+      "type": "array"
+    },
+    "schema_name": {
+      "const": "olympus.engine-list",
+      "default": "olympus.engine-list",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "engines"
+  ],
+  "title": "EngineListReport",
+  "type": "object"
+}

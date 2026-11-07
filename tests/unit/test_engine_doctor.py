@@ -265,11 +265,23 @@ def test_cli_doctor_strict_single_engine_and_usage(
 
 
 def test_cli_list_shows_all_24_engines_in_both_formats(runner: CliRunner) -> None:
-    rows = json.loads(runner.invoke(app, ["engines", "list", "--format", "json"]).stdout)
+    document = json.loads(runner.invoke(app, ["engines", "list", "--format", "json"]).stdout)
+    assert document["schema_name"] == "olympus.engine-list"
+    assert document["schema_version"] == "1.0.0"
+    rows = document["engines"]
     assert len(rows) == 24
     assert {row["engine"] for row in rows if row["mandatory"]} == set(MANDATORY)
     table = runner.invoke(app, ["engines", "list"])
     assert table.exit_code == 0 and "24 engines" in table.output
+
+
+def test_engine_list_is_a_published_output_contract() -> None:
+    from olympus.schema_catalog import catalog_files
+
+    catalog = json.loads(catalog_files()[Path("catalog.json")])
+    entry = next(c for c in catalog["contracts"] if c["name"] == "olympus.engine-list")
+    assert entry["direction"] == "output"
+    assert entry["schema_version"] == "1.0.0"
 
 
 def test_the_default_environment_uses_the_sandboxed_runner_and_a_safe_git_directory() -> None:
