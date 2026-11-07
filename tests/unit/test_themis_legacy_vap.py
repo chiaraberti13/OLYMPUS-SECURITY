@@ -195,6 +195,33 @@ def test_invalid_legacy_row_rolls_back_new_artifacts(tmp_path: Path) -> None:
     assert not manifest.exists()
 
 
+@pytest.mark.parametrize("id_sql", ["NULL", "'abc'", "x'00ff'", "1.5"])
+def test_hostile_legacy_scan_id_fails_closed_as_domain_error(tmp_path: Path, id_sql: str) -> None:
+    # SQLite is dynamically typed, so a crafted/corrupt legacy database can store
+    # a NULL/text/blob/float id even though the column is present. A bare int()
+    # on those raised TypeError/ValueError that escaped the LegacyVapSnapshotError
+    # contract and crashed the import; it must fail closed as a domain error, and
+    # no snapshot artifacts must be left behind.
+    source = tmp_path / "vap.db"
+    backup = tmp_path / "backup.db"
+    manifest = tmp_path / "manifest.json"
+    with sqlite3.connect(source) as db:
+        db.execute(
+            "CREATE TABLE scans (id, target TEXT, scan_type TEXT, status TEXT, created_at TEXT)"
+        )
+        # id_sql is a fixed literal from the parametrization, not external input;
+        # it is interpolated so the hostile id type (NULL/text/blob/float) reaches
+        # the column, which a bound parameter would coerce away.
+        db.execute(
+            f"INSERT INTO scans VALUES ({id_sql}, 't', 'nmap', 'completed', '2026-01-01')"  # noqa: S608
+        )
+
+    with pytest.raises(LegacyVapSnapshotError, match="legacy scan id is not an integer"):
+        create_legacy_vap_snapshot(source, backup=backup, manifest=manifest)
+    assert not backup.exists()
+    assert not manifest.exists()
+
+
 def test_cli_emits_only_minimized_counts_and_digests(tmp_path: Path) -> None:
     source = tmp_path / "vap.db"
     _legacy_database(source)

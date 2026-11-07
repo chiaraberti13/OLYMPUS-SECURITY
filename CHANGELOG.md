@@ -12,6 +12,21 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Fixed — SEC (legacy VAP import: un `id` ostile fallisce fail-closed, non crasha)
+
+- `olympus.themis.legacy_vap` importa uno **SQLite legacy esterno non fidato**.
+  `_scan_inventory` leggeva l'id con `int(row["id"])`; poiché SQLite è tipizzato
+  dinamicamente, un database ostile o corrotto può contenere un `id` NULL
+  (→ `TypeError`), testo/blob non numerico (→ `ValueError`) o float anche se la
+  colonna esiste. Quelle eccezioni **sfuggivano** al contratto d'errore del
+  modulo (`LegacyVapSnapshotError`, catturato dai chiamanti) — il `try` di import
+  cattura solo `sqlite3.DatabaseError` e per il resto rilancia grezzo — facendo
+  **crashare l'import** invece di fallire fail-closed con un errore di dominio
+  chiaro. Nuovo helper `_legacy_scan_id` che accetta solo un intero (o stringa
+  numerica) e altrimenti solleva `LegacyVapSnapshotError`. I nuovi artefatti di
+  snapshot sono ripuliti in rollback come per ogni altra riga invalida.
+  Regressione (NULL/testo/blob/float) in `tests/unit/test_themis_legacy_vap.py`.
+
 ### Fixed — TOOLS-4.4 (wapiti: un `level` malformato non fa più crashare il parse)
 
 - `olympus.themis.adapters.wapiti` calcolava la severità con

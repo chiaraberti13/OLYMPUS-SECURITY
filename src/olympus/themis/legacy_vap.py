@@ -244,6 +244,25 @@ def _optional_digest(value: object) -> str | None:
     return hashlib.sha256(str(value).encode("utf-8", errors="strict")).hexdigest()
 
 
+def _legacy_scan_id(raw: object) -> int:
+    """Return the integer legacy scan id, failing closed on a hostile/corrupt row.
+
+    SQLite is dynamically typed, so a crafted or corrupt legacy database can store
+    a NULL, text or blob ``id`` even though the column exists and passed the
+    presence check. A bare ``int()`` on those raises ``TypeError``/``ValueError``,
+    which would escape the ``LegacyVapSnapshotError`` contract this module
+    guarantees for an unreadable legacy database. ``bool`` is rejected even though
+    it subclasses ``int``: a ``True``/``False`` id is corruption, not 1/0.
+    """
+    if isinstance(raw, bool):
+        raise LegacyVapSnapshotError("legacy scan id is not an integer")
+    if isinstance(raw, int):
+        return raw
+    if isinstance(raw, str) and raw.strip().lstrip("-").isdigit():
+        return int(raw.strip())
+    raise LegacyVapSnapshotError("legacy scan id is not an integer")
+
+
 def _decision(state: str) -> tuple[NativeLegacyState | None, LegacyConversionDecision]:
     if state in _STATE_MAP:
         return _STATE_MAP[state], "convertible_terminal"
@@ -284,11 +303,12 @@ def _scan_inventory(db: sqlite3.Connection, source_sha256: str) -> list[LegacyVa
         raw_target = str(row["target"])
         raw_state = str(row["status"]).strip().lower()
         native_state, conversion = _decision(raw_state)
+        scan_id = _legacy_scan_id(row["id"])
         records.append(
             LegacyVapScan(
-                legacy_scan_id=int(row["id"]),
+                legacy_scan_id=scan_id,
                 migration_key=hashlib.sha256(
-                    f"{source_sha256}:scans:{int(row['id'])}".encode()
+                    f"{source_sha256}:scans:{scan_id}".encode()
                 ).hexdigest(),
                 target_sha256=hashlib.sha256(raw_target.encode()).hexdigest(),
                 scan_type=str(row["scan_type"]),
