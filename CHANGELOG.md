@@ -12,6 +12,20 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — TOOLS-4 (engines list: output JSON come contratto versionato)
+
+- `olympus engines list --format json` emette ora il **contratto versionato**
+  `olympus.engine-list` 1.0.0 (`EngineListReport` con `schema_name`/`schema_version`
+  e una lista `engines` di voci tipizzate: engine, category, maturity, mandatory,
+  distribution, pinned_version, commit, adapter, in_scanner_image) invece di una
+  lista JSON nuda. Pubblicato nel catalogo (`schemas/contracts/olympus.engine-list/
+  1.0.0.schema.json`, 28 contratti totali) con direzione `output`. Con questo i tre
+  comandi `engines list|doctor|preflight` espongono tutti output machine-readable
+  contrattuali per l'automazione CI/CD. La logica è in `engines/listing.py`
+  (`build_list_report`, puro); la tabella è invariata. **Breaking** (solo output
+  JSON di `list`): i consumatori leggono ora `engines` invece dell'array top-level.
+  Regressioni in `tests/unit/test_engine_doctor.py`.
+
 ### Fixed — SEC-4.2 (audit required-check: valutare l'ultimo run, non «uno qualsiasi»)
 
 - `scripts/audit_required_checks.py` valuta ora ogni check richiesto in base al suo

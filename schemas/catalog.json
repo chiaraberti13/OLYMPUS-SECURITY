@@ -65,6 +65,13 @@
     },
     {
       "direction": "output",
+      "name": "olympus.engine-list",
+      "path": "contracts/olympus.engine-list/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "b67246eff7bf3fffddf0a42a9f12e186941982fd7a9d424e053d353c4e0787b5"
+    },
+    {
+      "direction": "output",
       "name": "olympus.engine-preflight",
       "path": "contracts/olympus.engine-preflight/1.0.0.schema.json",
       "schema_version": "1.0.0",

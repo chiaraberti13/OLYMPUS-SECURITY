@@ -14,10 +14,9 @@ from olympus.engines.doctor import (
     check_all,
     verdict,
 )
-from olympus.engines.loader import ManifestError, load_all
+from olympus.engines.listing import build_list_report
+from olympus.engines.loader import ManifestError
 from olympus.engines.preflight import UnknownEngineError, build_preflight_report, preflight
-from olympus.integrations.maturity import record_for
-from olympus.integrations.scanners import by_name
 
 app = typer.Typer(
     help="External scanner engines: pins, presence and install commands (no network, no target).",
@@ -65,45 +64,27 @@ def engines_list(
 ) -> None:
     """List every engine Olympus knows: maturity, pin, whether it must be present."""
     try:
-        manifests = load_all()
+        report = build_list_report()
     except ManifestError as exc:
         typer.echo(f"olympus: {exc}", err=True)
         raise typer.Exit(code=ExitCode.FAILED) from exc
-    rows: list[dict[str, object]] = []
-    for name, manifest in sorted(manifests.items()):
-        engine = manifest.engine
-        spec = by_name(name)
-        rows.append(
-            {
-                "engine": name,
-                "category": engine.category,
-                "maturity": record_for(name).stage.value,
-                "mandatory": engine.mandatory,
-                "distribution": engine.distribution,
-                "pinned_version": engine.pinned_version,
-                "commit": engine.source.commit,
-                "adapter": manifest.adapter is not None,
-                "in_scanner_image": bool(spec and spec.in_scanner_image),
-            }
-        )
     if output_format is OutputFormat.JSON:
-        typer.echo(json.dumps(rows, indent=2, sort_keys=True))
+        typer.echo(json.dumps(report.model_dump(mode="json"), indent=2, sort_keys=True))
         return
     columns = ["engine", "category", "maturity", "mandatory", "distribution", "pin", "adapter"]
     table = [
         [
-            str(row["engine"]),
-            str(row["category"]),
-            str(row["maturity"]),
-            "yes" if row["mandatory"] else "-",
-            str(row["distribution"]),
-            f"{row['pinned_version'] or '-'}"
-            + (f" @ {str(row['commit'])[:7]}" if row["commit"] else ""),
-            "yes" if row["adapter"] else "no",
+            entry.engine,
+            entry.category,
+            entry.maturity,
+            "yes" if entry.mandatory else "-",
+            entry.distribution,
+            f"{entry.pinned_version or '-'}" + (f" @ {entry.commit[:7]}" if entry.commit else ""),
+            "yes" if entry.adapter else "no",
         ]
-        for row in rows
+        for entry in report.engines
     ]
-    typer.echo(render_table(columns, table, title=f"{len(rows)} engines"))
+    typer.echo(render_table(columns, table, title=f"{len(report.engines)} engines"))
 
 
 @app.command("doctor")
