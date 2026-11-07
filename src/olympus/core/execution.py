@@ -346,19 +346,25 @@ def redact_arguments(arguments: Sequence[str]) -> list[str]:
 
 
 def _redact_value(item: Any) -> Any:
-    """Redact one metadata value by shape: mapping, list, or URL-bearing string.
+    """Redact one metadata value by shape: mapping, list, or text.
 
     A URL query secret must be redacted wherever it sits — a direct value, an
     element of a list, or an element of a nested list — not only when it is the
-    immediate value of a key. A string that is not a URL and anything that is
-    not a mapping/list/string are returned unchanged.
+    immediate value of a key. String values go through :func:`redact_text`, not
+    :func:`redact_url`: a metadata value is often a free-text diagnostic line
+    ("scanner fetched https://api/?api_key=…") rather than a string that *is* a
+    URL, and ``redact_url`` only rewrites the latter, leaking a secret embedded
+    in the former. ``redact_text`` redacts every URL it finds inside the text
+    and is a superset of ``redact_url`` for a bare-URL string, so this never
+    under-redacts and leaves non-URL text untouched. Anything that is not a
+    mapping/list/string is returned unchanged.
     """
     if isinstance(item, Mapping):
         return redact_mapping(item)
     if isinstance(item, list):
         return [_redact_value(entry) for entry in item]
     if isinstance(item, str):
-        return redact_url(item)
+        return redact_text(item)
     return item
 
 
