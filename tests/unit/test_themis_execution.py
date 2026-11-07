@@ -598,6 +598,66 @@ def test_evidence_redacts_the_token_after_an_authorization_scheme() -> None:
     assert "GET / HTTP/1.1" in evidence
 
 
+def test_evidence_redacts_json_quoted_secret_values() -> None:
+    # Scanners (nuclei -jsonl, httpx -json) dump findings as JSON. A secret in a
+    # ``"name": "value"`` pair must not survive just because quotes and a colon
+    # sit between the name and the value.
+    output = _out(
+        stdout=(
+            '{"access_token":"ya29.SECRETgoogle","api_key": "sk-SECRETopenai",'
+            '"client_secret":"SECRETclient","expires_in":3600}'
+        )
+    )
+    evidence = _evidence(output)
+    for secret in ("ya29.SECRETgoogle", "sk-SECRETopenai", "SECRETclient"):
+        assert secret not in evidence
+    assert "[REDACTED]" in evidence
+    # a non-secret numeric field is preserved (no over-redaction of the record)
+    assert "3600" in evidence
+
+
+def test_evidence_redacts_compound_secret_names_like_the_audit_path() -> None:
+    # The free-text evidence redactor and the structured audit redactor must
+    # agree on what counts as a secret-bearing name. A compound name whose
+    # secret word is not at the start (``aws_secret_access_key``,
+    # ``refresh_token``) is sensitive to ``is_sensitive_key`` and so must be
+    # redacted here too — the earlier word-boundary regex leaked these.
+    output = _out(
+        stdout="aws_secret_access_key=wJalrXUtnFEMISECRET\nrefresh_token=rtSECRETvalue\n",
+        stderr="X-API-Key: AKIASECRETKEY123\n",
+    )
+    evidence = _evidence(output)
+    for secret in ("wJalrXUtnFEMISECRET", "rtSECRETvalue", "AKIASECRETKEY123"):
+        assert secret not in evidence
+    assert "[REDACTED]" in evidence
+
+
+def test_evidence_redacts_each_secret_named_cookie_crumb() -> None:
+    # A ``Cookie`` header carries several ``name=value`` crumbs. Redacting only
+    # the first leaves later secret-named crumbs in the clear.
+    output = _out(stdout="Cookie: SESSIONID=secretOne; csrf_token=secretTwo; theme=dark\n")
+    evidence = _evidence(output)
+    assert "secretOne" not in evidence
+    assert "secretTwo" not in evidence
+    # a non-secret crumb survives
+    assert "theme=dark" in evidence
+
+
+def test_evidence_redaction_is_linear_on_large_adversarial_output() -> None:
+    # The redactor scans the whole untrusted stdout/stderr before truncation, so
+    # the name pattern must stay linear: a pathological run of secret substrings
+    # with no assignment must not trigger catastrophic backtracking (ReDoS).
+    import time
+
+    adversarial = "a_secret_" * 200_000  # ~1.8 MB, ~200k 'secret' substrings
+    output = _out(stdout=adversarial)
+    start = time.perf_counter()
+    evidence = _evidence(output)
+    elapsed = time.perf_counter() - start
+    assert elapsed < 10.0, f"redaction took {elapsed:.1f}s (possible ReDoS)"
+    assert len(evidence) <= 200_000
+
+
 @pytest.mark.posix_only
 def test_state_failed_on_parse_error() -> None:
     class _Bad(_FakeAdapter):

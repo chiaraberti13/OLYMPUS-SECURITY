@@ -12,6 +12,29 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Fixed — SEC (redazione segreti nelle evidenze Themis: fughe e coerenza)
+
+- `olympus.themis.base._evidence` (la cattura redatta di stdout/stderr degli
+  scanner, salvata come `raw_evidence`) non perdeva più segreti che il percorso
+  di audit strutturato considera sensibili. La vecchia regex `_SECRET_ASSIGNMENT`
+  usava confini di parola (`\b`) e un'alternanza fissa di keyword, così **tre
+  classi di segreto sopravvivevano** nelle evidenze: (1) i valori JSON quotati
+  `"api_key": "…"` / `"access_token": "…"` (le virgolette e i due punti rompevano
+  il separatore); (2) i nomi composti il cui termine sensibile non è a inizio
+  identificatore (`aws_secret_access_key`, `refresh_token`, `client_secret`),
+  che `is_sensitive_key` — usato da `redact_mapping`/`redact_arguments` — redige
+  invece sempre; (3) i crumb successivi di un header `Cookie` multi-valore. Ora la
+  redazione delle evidenze decide la sensibilità del *nome* con lo **stesso
+  predicato** dell'audit (`is_sensitive_key`, promosso da `_sensitive_key` a API
+  pubblica e unica fonte di verità), così un nome redatto in un percorso non resta
+  mai in chiaro nell'altro.
+- La nuova regex del nome è **ancorata a inizio-segmento con look-behind** e resta
+  strettamente **lineare**: il redattore scandisce l'intero output non fidato
+  (fino a `max_output_bytes`, milioni di byte) *prima* del troncamento, quindi un
+  pattern con backtracking catastrofico sarebbe un ReDoS innescabile dal target.
+  Regressioni + guardia di linearità in `tests/unit/test_themis_execution.py`;
+  nessuna over-redazione dei campi non sensibili.
+
 ### Added — TOOLS-4 (engines list: output JSON come contratto versionato)
 
 - `olympus engines list --format json` emette ora il **contratto versionato**
