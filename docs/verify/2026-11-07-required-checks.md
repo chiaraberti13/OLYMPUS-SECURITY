@@ -56,6 +56,16 @@ Strict branch freshness: `true`
 
 Verdict: **PASS**
 
+## Prova del blocco reale
+
+La [PR #160](https://github.com/chiaraberti13/OLYMPUS-SECURITY/pull/160) è stata
+aperta con head `c9bf2d59418342b2e8347a54df8f0ab2e23d5be6`. Il tentativo di merge immediato,
+prima dell'esecuzione dei workflow, è stato respinto dall'API GitHub con HTTP 405
+e il messaggio `16 of 16 required status checks are expected`. Il test dimostra
+che un check solo definito, ma non ancora eseguito sullo SHA della PR, non può
+soddisfare la regola. La policy `strict_required_status_checks_policy=true`
+impedisce inoltre di unire un head non aggiornato rispetto a `main`.
+
 ## Interpretazione
 
 La tabella dimostra i tre livelli separatamente: il check esiste nel workflow,
