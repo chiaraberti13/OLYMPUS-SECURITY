@@ -93,11 +93,14 @@ def test_ci_builds_the_image_on_pushes_and_pull_requests_then_smoke_tests_it() -
     workflow = yaml.safe_load(text)
     triggers = workflow.get("on") or workflow[True]  # PyYAML reads the key `on` as True
     assert {"push", "pull_request", "workflow_dispatch"} <= set(triggers)
-    assert "docker/**" in triggers["push"]["paths"]
+    assert triggers["push"] == {"branches": ["main"]}
     assert triggers["pull_request"] is None
     assert workflow["jobs"]["gate"]["if"] == "always()"
     assert workflow["jobs"]["gate"]["needs"] == ["changes", "build"]
     assert workflow["jobs"]["build"]["needs"] == "changes"
+    detection_steps = [step.get("run", "") for step in workflow["jobs"]["changes"]["steps"]]
+    assert any('"$EVENT" == pull_request || "$EVENT" == push' in step for step in detection_steps)
+    assert any("docker/*" in step and "pyproject.toml" in step for step in detection_steps)
     steps = [step.get("run", "") for step in workflow["jobs"]["build"]["steps"]]
     assert any("docker build" in s and "docker/Dockerfile.scanners" in s for s in steps)
     assert any("scripts/smoke_scanner_image.py" in s for s in steps)
