@@ -12,6 +12,22 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Fixed — SEC (hermes secret-scanner: provenienza corretta dei segreti in file eliminati)
+
+- `olympus.hermes.scanner._scan_git_patch` (scansione dei segreti nella history
+  Git) ricavava il percorso del file solo dall'header `+++ b/<path>`. Per un file
+  **eliminato** quell'header è `+++ /dev/null`, quindi `current_path` restava
+  quello del file precedente del diff (o `"unknown"`): un segreto nelle righe
+  rimosse di un file eliminato veniva attribuito al **file sbagliato**, e il
+  percorso errato inquinava anche il `fingerprint_scope` (dedup/baseline). Il
+  segreto era comunque rilevato (nessun falso negativo), ma con provenienza
+  fuorviante per il triage/la remediation di una credenziale trapelata. Ora il
+  parser traccia `old_path` (da `--- a/<path>`) e `new_path` separatamente e
+  attribuisce ogni riga rimossa al vecchio file e ogni riga aggiunta al nuovo —
+  corretto anche per i rename. I finding su file modificati sono invariati; i
+  fingerprint cambiano solo per i casi prima mal-attribuiti (file eliminati e
+  rinominati). Regressione in `tests/unit/test_hermes.py`.
+
 ### Fixed — SEC (legacy VAP import: un `id` ostile fallisce fail-closed, non crasha)
 
 - `olympus.themis.legacy_vap` importa uno **SQLite legacy esterno non fidato**.
