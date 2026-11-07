@@ -12,6 +12,7 @@ from olympus.core.execution import (
     Cancellation,
     ExecutionPolicy,
     NeverCancelled,
+    is_sensitive_key,
     redact_arguments,
     redact_text,
     redact_url,
@@ -479,16 +480,29 @@ def _exit_error(scanner: str, output: CommandOutput, hint: str | None = None) ->
     return f"{message}. {hint}" if hint else message
 
 
-# The value is one non-space run, but an ``Authorization`` header carries the
-# secret *after* a scheme word (``Bearer <token>``, ``Basic <b64>``): allow one
-# optional known auth scheme before the credential so the token itself — not
-# just the scheme name — is what gets redacted. Only enumerated schemes are
-# consumed, so a secret followed by unrelated text is not over-redacted.
+# Scanner output echoes ``name: value`` / ``name=value`` / JSON ``"name": "value"``
+# assignments (request headers, config dumps, finding bodies). We redact the value
+# of any assignment whose *name* is secret-bearing, deciding sensitivity with the
+# very predicate the audit redactor uses (:func:`is_sensitive_key`), so a name
+# redacted in the structured path is never left in the clear here. The name is a
+# single identifier run anchored to a segment start with a look-behind — this keeps
+# matching strictly linear (no catastrophic backtracking) on the large, untrusted
+# output the regex scans before truncation. The value is one run up to the next
+# separator/quote; an ``Authorization`` header carries its secret *after* a scheme
+# word (``Bearer <token>``), so one optional known scheme is consumed and redacted
+# with it, while unrelated following text is left intact.
 _SECRET_ASSIGNMENT = re.compile(
-    r"(?i)\b(authorization|cookie|credential|password|secret|token|api[-_]?key|access[-_]?key)"
-    r"(\s*[:=]\s*)"
-    r"((?:(?:bearer|basic|digest|negotiate|ntlm|token|apikey)\s+)?[^\s,;]+)"
+    r"(?i)(?<![\w.\-])"
+    r"(['\"]?)([\w.\-]+)"
+    r"(['\"]?\s*[:=]\s*['\"]?)"
+    r"((?:(?:bearer|basic|digest|negotiate|ntlm|token|apikey)\s+)?[^\s,;'\"]+)"
 )
+
+
+def _redact_assignment(match: re.Match[str]) -> str:
+    if is_sensitive_key(match.group(2)):
+        return f"{match.group(1)}{match.group(2)}{match.group(3)}[REDACTED]"
+    return match.group(0)
 
 
 def _evidence(output: CommandOutput) -> str:
@@ -498,7 +512,7 @@ def _evidence(output: CommandOutput) -> str:
     if output.stderr.strip():
         parts.append("[stderr]\n" + output.stderr.strip())
     value = "\n".join(parts)
-    value = _SECRET_ASSIGNMENT.sub(r"\1\2[REDACTED]", value)
+    value = _SECRET_ASSIGNMENT.sub(_redact_assignment, value)
     return redact_text(value)[:MAX_RAW_EVIDENCE]
 
 

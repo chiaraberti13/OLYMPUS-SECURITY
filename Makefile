@@ -57,7 +57,7 @@ test-mutation:
 	$(PYTHON) -m mutmut run --max-children 4 \
 		"olympus.athena.scope.x__reject_out_of_scope*" \
 		"olympus.athena.scope.x_ensure_target_allowed*" \
-		"olympus.core.execution.x__sensitive_key*" \
+		"olympus.core.execution.x_is_sensitive_key*" \
 		"olympus.core.execution.x_redact_url*" \
 		"olympus.core.execution.x_redact_text*" \
 		"olympus.core.execution.x_safe_terminal_text*" \

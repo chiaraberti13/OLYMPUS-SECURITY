@@ -9,7 +9,7 @@ from pathlib import Path
 MUTATED_FUNCTIONS = {
     "src/olympus/athena/scope.py": ["x__reject_out_of_scope", "x_ensure_target_allowed"],
     "src/olympus/core/execution.py": [
-        "x__sensitive_key",
+        "x_is_sensitive_key",
         "x_redact_url",
         "x_redact_text",
         "x_safe_terminal_text",

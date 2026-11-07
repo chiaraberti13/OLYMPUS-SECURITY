@@ -254,7 +254,18 @@ def interruptible_sleep(
         time.sleep(min(left, CANCELLATION_POLL_SECONDS))
 
 
-def _sensitive_key(key: object) -> bool:
+def is_sensitive_key(key: object) -> bool:
+    """Return whether a field/option/header name names a secret.
+
+    This is the single sensitivity predicate for the whole platform boundary:
+    the structured audit redactor (:func:`redact_mapping`), the argv redactor
+    (:func:`redact_arguments`), and the free-text evidence redactor in Themis
+    all decide "is this a secret-bearing name?" through this one function, so a
+    name treated as sensitive in one path can never be treated as safe in
+    another. Matching is substring-based on a normalized name (lower-cased,
+    ``-`` folded to ``_``) so compound names such as ``aws_secret_access_key``,
+    ``access_token`` or ``X-API-Key`` are covered, not only bare keywords.
+    """
     normalized = str(key).strip().lower().replace("-", "_")
     return any(part in normalized for part in _SENSITIVE_KEY_PARTS)
 
@@ -269,7 +280,7 @@ def redact_url(value: str) -> str:
         return value
     query = urlencode(
         [
-            (key, "[REDACTED]" if _sensitive_key(key) else item)
+            (key, "[REDACTED]" if is_sensitive_key(key) else item)
             for key, item in parse_qsl(parsed.query)
         ],
         doseq=True,
@@ -325,11 +336,11 @@ def redact_arguments(arguments: Sequence[str]) -> list[str]:
             continue
         option, separator, _value = argument.partition("=")
         normalized_option = option.lstrip("-")
-        if argument.startswith("-") and separator and _sensitive_key(normalized_option):
+        if argument.startswith("-") and separator and is_sensitive_key(normalized_option):
             redacted.append(f"{safe_terminal_text(option)}=[REDACTED]")
         else:
             redacted.append(safe_terminal_text(argument))
-            if argument.startswith("-") and not separator and _sensitive_key(normalized_option):
+            if argument.startswith("-") and not separator and is_sensitive_key(normalized_option):
                 redact_next = True
     return redacted
 
@@ -355,7 +366,7 @@ def redact_mapping(value: Mapping[str, Any]) -> dict[str, Any]:
     """Recursively redact secret-bearing keys and URL query parameters."""
     redacted: dict[str, Any] = {}
     for key, item in value.items():
-        redacted[key] = "[REDACTED]" if _sensitive_key(key) else _redact_value(item)
+        redacted[key] = "[REDACTED]" if is_sensitive_key(key) else _redact_value(item)
     return redacted
 
 
