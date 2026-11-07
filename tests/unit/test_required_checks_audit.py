@@ -50,6 +50,7 @@ def _checks(*, names: set[str] = EXPECTED, sha: str = SHA) -> dict[str, object]:
         {
             "name": name,
             "head_sha": sha,
+            "status": "completed",
             "conclusion": "success",
             "app": {"id": GITHUB_ACTIONS_APP_ID},
         }
@@ -70,6 +71,7 @@ def test_complete_strict_ruleset_and_successful_sha_pass() -> None:
         repository_root=ROOT,
     )
     assert result.success is True
+    assert result.terminal_failure is False
     assert len(result.rows) == 16
     assert "Verdict: **PASS**" in audit_checks.render_markdown(result)
 
@@ -120,4 +122,37 @@ def test_wrong_github_app_cannot_satisfy_a_required_context() -> None:
         repository_root=ROOT,
     )
     assert result.success is False
+    assert result.terminal_failure is False
     assert any(row.executed and not row.successful for row in result.rows)
+
+
+def test_in_progress_required_check_is_retryable() -> None:
+    checks = _checks()
+    runs = checks["check_runs"]
+    assert isinstance(runs, list)
+    runs[0]["status"] = "in_progress"
+    runs[0]["conclusion"] = None
+    result = audit_checks.audit(
+        sha=SHA,
+        rules_document=_rules(),
+        checks_document=checks,
+        repository_root=ROOT,
+    )
+    assert result.success is False
+    assert result.terminal_failure is False
+
+
+def test_completed_required_check_failure_is_terminal() -> None:
+    checks = _checks()
+    runs = checks["check_runs"]
+    assert isinstance(runs, list)
+    runs[0]["conclusion"] = "failure"
+    result = audit_checks.audit(
+        sha=SHA,
+        rules_document=_rules(),
+        checks_document=checks,
+        repository_root=ROOT,
+    )
+    assert result.success is False
+    assert result.terminal_failure is True
+    assert "Terminal failure" in audit_checks.render_markdown(result)

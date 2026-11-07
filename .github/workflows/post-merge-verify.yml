@@ -1,0 +1,97 @@
+name: post-merge-verification
+
+# Start only after main CI reaches a terminal state, then wait for every
+# independently scheduled required check on exactly the same immutable SHA.
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Full main commit SHA to verify
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+  checks: read
+
+concurrency:
+  group: post-merge-${{ github.event.workflow_run.head_sha || inputs.sha }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main')
+    name: required checks · exact main SHA
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_SHA: ${{ github.event.workflow_run.head_sha || inputs.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate immutable main target
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git cat-file -e "$TARGET_SHA^{commit}"
+          api_sha="$(gh api "repos/$REPOSITORY/commits/$TARGET_SHA" --jq .sha)"
+          [[ "$api_sha" == "$TARGET_SHA" ]]
+          relation="$(gh api "repos/$REPOSITORY/compare/$TARGET_SHA...main" --jq .status)"
+          [[ "$relation" == ahead || "$relation" == identical ]]
+
+      - name: Audit effective rules and required checks
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$REPOSITORY/rules/branches/main" > "$RUNNER_TEMP/rules.json"
+          outcome=1
+          for attempt in $(seq 1 45); do
+            echo "Audit attempt $attempt/45 for $TARGET_SHA"
+            gh api --paginate --slurp \
+              -H "Accept: application/vnd.github+json" \
+              "repos/$REPOSITORY/commits/$TARGET_SHA/check-runs?per_page=100" \
+              | jq '{check_runs: [.[].check_runs[]], total_count: ([.[].check_runs[]] | length)}' \
+              > "$RUNNER_TEMP/checks.json"
+            set +e
+            python scripts/audit_required_checks.py \
+              "$TARGET_SHA" "$RUNNER_TEMP/rules.json" "$RUNNER_TEMP/checks.json" \
+              --output "$RUNNER_TEMP/post-merge-audit.md"
+            outcome=$?
+            set -e
+            case "$outcome" in
+              0) break ;;
+              3) echo "A required check reached a failing terminal state." >&2; break ;;
+              1) sleep 20 ;;
+              *) echo "The fail-closed audit rejected its inputs." >&2; break ;;
+            esac
+          done
+          cat "$RUNNER_TEMP/post-merge-audit.md" >> "$GITHUB_STEP_SUMMARY"
+          [[ "$outcome" -eq 0 ]]
+
+      - name: Preserve post-merge evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: post-merge-${{ env.TARGET_SHA }}
+          path: |
+            ${{ runner.temp }}/post-merge-audit.md
+            ${{ runner.temp }}/rules.json
+            ${{ runner.temp }}/checks.json
+          if-no-files-found: error
+          retention-days: 90

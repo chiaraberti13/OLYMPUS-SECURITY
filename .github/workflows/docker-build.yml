@@ -1,18 +1,12 @@
 name: scanner-image
 
 # The scanner image has pinned, fail-closed installs (docker/Dockerfile.scanners).
-# That only means something if it actually builds, so this job builds it on every
-# push and pull request that can change what goes into it, then proves each
-# engine is really there with its manifest probe and pinned commit.
+# That only means something if it actually builds, so this job builds it for every
+# change that can affect it, then proves each engine is really present. On main the
+# lightweight gate always runs, while the expensive build remains path-selective.
 on:
   push:
-    paths:
-      - docker/**
-      - src/olympus/engines/**
-      - src/olympus/themis/**
-      - scripts/smoke_scanner_image.py
-      - pyproject.toml
-      - .github/workflows/docker-build.yml
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -31,7 +25,6 @@ jobs:
       required: ${{ steps.paths.outputs.required }}
     steps:
       - uses: actions/checkout@v7
-        if: github.event_name == 'pull_request'
         with:
           fetch-depth: 2
           persist-credentials: false
@@ -41,7 +34,7 @@ jobs:
         run: |
           set -euo pipefail
           required=true
-          if [[ "$EVENT" == pull_request ]]; then
+          if [[ "$EVENT" == pull_request || "$EVENT" == push ]]; then
             git diff --name-only --no-renames -z HEAD^1 HEAD > "$RUNNER_TEMP/scanner-paths"
             required=false
             while IFS= read -r -d '' path; do

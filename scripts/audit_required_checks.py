@@ -45,6 +45,7 @@ class CheckRow:
     executed: bool
     successful: bool
     required: bool
+    terminal_failure: bool
 
 
 @dataclass(frozen=True)
@@ -60,6 +61,12 @@ class AuditResult:
         return self.strict and all(
             row.defined and row.executed and row.successful and row.required for row in self.rows
         )
+
+    @property
+    def terminal_failure(self) -> bool:
+        """Whether a required check has already reached a failing terminal state."""
+
+        return any(row.terminal_failure for row in self.rows)
 
 
 def _matrix_rows(matrix: object, *, source: str) -> list[dict[str, object]]:
@@ -203,9 +210,23 @@ def audit(
     for name in sorted(sources.keys() | required.keys()):
         matching = [run for run in sha_runs if run.get("name") == name]
         required_sources = required.get(name, set())
-        successful = bool(required_sources) and all(
-            any(
+        source_success = {
+            source_id: any(
                 run.get("conclusion") == "success"
+                and (
+                    source_id is None
+                    or (isinstance(run.get("app"), dict) and run["app"].get("id") == source_id)
+                )
+                for run in matching
+            )
+            for source_id in required_sources
+        }
+        successful = bool(required_sources) and all(source_success.values())
+        terminal_failure = any(
+            not source_success[source_id]
+            and any(
+                run.get("status") == "completed"
+                and run.get("conclusion") not in {None, "success"}
                 and (
                     source_id is None
                     or (isinstance(run.get("app"), dict) and run["app"].get("id") == source_id)
@@ -222,6 +243,7 @@ def audit(
                 executed=bool(matching),
                 successful=successful,
                 required=bool(required_sources),
+                terminal_failure=terminal_failure,
             )
         )
     return AuditResult(sha=sha, strict=strict, rows=tuple(rows))
@@ -231,15 +253,17 @@ def render_markdown(result: AuditResult) -> str:
     """Render the canonical present/executed/required evidence table."""
 
     lines = [
-        f"PR head: `{result.sha}`",
+        f"Audited SHA: `{result.sha}`",
         "",
-        "| Check | Workflow source | Defined | Executed on this SHA | Successful | Required |",
-        "| --- | --- | --- | --- | --- | --- |",
+        "| Check | Workflow source | Defined | Executed on this SHA | "
+        "Successful | Required | Terminal failure |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
     ]
     for row in result.rows:
         source = f"`{row.source}`" if row.source else "—"
         values = (row.defined, row.executed, row.successful, row.required)
         states = ["yes" if value else "**no**" for value in values]
+        states.append("**yes**" if row.terminal_failure else "no")
         lines.append(f"| {row.name} | {source} | {' | '.join(states)} |")
     verdict = "PASS" if result.success else "FAIL"
     lines.extend(
@@ -263,7 +287,7 @@ def _read_json(path: Path) -> object:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("sha", nargs="?", help="Full PR head SHA")
+    parser.add_argument("sha", nargs="?", help="Full commit SHA")
     parser.add_argument("rules", nargs="?", type=Path, help="Effective rules or ruleset JSON")
     parser.add_argument("checks", nargs="?", type=Path, help="Check-runs JSON for the SHA")
     parser.add_argument(
@@ -299,7 +323,9 @@ def main() -> int:
         print(rendered, end="")
         if args.output is not None:
             args.output.write_text(rendered, encoding="utf-8")
-        return 0 if result.success else 1
+        if result.success:
+            return 0
+        return 3 if result.terminal_failure else 1
     except AuditInputError as exc:
         parser.error(str(exc))
 
