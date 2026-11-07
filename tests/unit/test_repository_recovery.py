@@ -53,6 +53,7 @@ def test_known_good_registry_is_versioned_unique_and_evidence_backed() -> None:
     assert registry["repository"] == "chiaraberti13/OLYMPUS-SECURITY"
     entries = registry["entries"]
     assert isinstance(entries, list)
+    assert entries, "a green post-merge SHA must remain registered"
     shas: list[str] = []
     for entry in entries:
         assert FULL_SHA.fullmatch(entry["sha"])
