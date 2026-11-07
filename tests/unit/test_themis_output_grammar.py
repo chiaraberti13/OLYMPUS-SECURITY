@@ -62,6 +62,38 @@ def test_wapiti_a_non_object_finding_makes_the_run_partial() -> None:
     assert "1 wapiti report record(s)" in reason
 
 
+def test_wapiti_a_non_numeric_level_does_not_crash_the_parse() -> None:
+    # A malformed ``level`` (list/object/non-numeric string) must not escape as a
+    # TypeError/ValueError and crash the run: int() on a list raises TypeError,
+    # which is not caught at the adapter boundary. It falls through to INFO like
+    # any unrecognised level, and the otherwise-valid finding is still recorded.
+    from olympus.core.enums import Severity
+
+    for bad_level in ([1], {"a": 1}, "high", True, None):
+        report = json.dumps(
+            {"vulnerabilities": {"XSS": [{"level": bad_level, "method": "GET", "path": "/"}]}}
+        )
+        adapter = WapitiAdapter()
+        findings = adapter.parse(_out(report), "127.0.0.1", _req())
+        assert len(findings) == 1
+        assert findings[0].severity is Severity.INFO
+        # a soft per-field anomaly, not a discarded record
+        assert adapter.coverage_loss(_out(report), _req()) is None
+
+
+def test_wapiti_valid_levels_still_map_to_their_severities() -> None:
+    from olympus.core.enums import Severity
+
+    expected = {4: Severity.CRITICAL, 3: Severity.HIGH, 2: Severity.MEDIUM, 1: Severity.LOW}
+    for level, severity in expected.items():
+        report = json.dumps({"vulnerabilities": {"XSS": [{"level": level, "path": "/"}]}})
+        findings = WapitiAdapter().parse(_out(report), "127.0.0.1", _req())
+        assert findings[0].severity is severity
+    # a string integer is accepted too (tools vary in JSON typing)
+    report = json.dumps({"vulnerabilities": {"XSS": [{"level": "3", "path": "/"}]}})
+    assert WapitiAdapter().parse(_out(report), "127.0.0.1", _req())[0].severity is Severity.HIGH
+
+
 # --- wafw00f ---------------------------------------------------------------- #
 
 
