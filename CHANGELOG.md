@@ -12,6 +12,20 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Fixed — SEC (redazione audit strutturato: segreti URL nel testo libero)
+
+- `olympus.core.execution.redact_mapping` (il redattore dei record di audit
+  strutturati — `StructuredAuditRecord.metadata`, scritto da API/Web/jobs/CLI)
+  non perde più un segreto contenuto in un **URL annidato in un valore di testo
+  libero** sotto una chiave non sensibile (es. `{"detail": "scanner fetched
+  https://api/?api_key=…"}`). `_redact_value` rediggeva le stringhe con
+  `redact_url`, che riscrive solo una stringa che *è* un URL, lasciando in chiaro
+  un URL dentro una frase; ora usa `redact_text`, che redige ogni URL trovato nel
+  testo ed è un superset di `redact_url` per una stringa che è già un URL (nessuna
+  sotto-redazione, testo non-URL invariato). Allinea il percorso di audit al
+  redattore delle evidenze Themis. Regressione in
+  `tests/unit/test_core_execution.py`; mutation gate (`x_redact_mapping`) verde.
+
 ### Fixed — SEC (redazione segreti nelle evidenze Themis: fughe e coerenza)
 
 - `olympus.themis.base._evidence` (la cattura redatta di stdout/stderr degli

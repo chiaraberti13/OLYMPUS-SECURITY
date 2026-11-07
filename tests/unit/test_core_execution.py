@@ -149,6 +149,26 @@ def test_redaction_reaches_url_secrets_inside_lists_and_nested_lists() -> None:
     assert redacted["mixed"][1] == "plain"
 
 
+def test_redaction_reaches_url_secrets_embedded_in_free_text_values() -> None:
+    # A metadata value is often a free-text diagnostic line, not a string that
+    # *is* a URL. The old redact_url path only rewrote a value that was itself a
+    # URL, so a secret in an embedded URL under a non-sensitive key survived.
+    raw = {
+        "detail": "scanner fetched https://api.test/v1?api_key=SECRETxyz during probe",
+        "note": "see https://x.test/?token=LEAKtoken for context",
+        "count": 3,
+    }
+    redacted = redact_mapping(raw)
+    serialized = json.dumps(redacted)
+    assert "SECRETxyz" not in serialized
+    assert "LEAKtoken" not in serialized
+    assert "[REDACTED]" in redacted["detail"]
+    # surrounding free text and non-secret query params are preserved
+    assert redacted["detail"].startswith("scanner fetched ")
+    assert redacted["detail"].endswith(" during probe")
+    assert redacted["count"] == 3
+
+
 def test_structured_audit_append_writes_one_redacted_line(tmp_path: Path) -> None:
     path = tmp_path / "audit" / "events.ndjson"
     append_structured_audit(
