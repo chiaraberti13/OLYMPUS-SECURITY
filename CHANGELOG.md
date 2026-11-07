@@ -6,11 +6,23 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html): once a first
 tagged release exists, breaking changes bump MAJOR, backward-compatible features
 bump MINOR, and fixes bump PATCH.
 
-Signed release tags, database migrations and a documented rollback procedure are
-still open (see `ROADMAP.md`: `SEC-F`, `DEV-D`, `DEV-F`); until a release is tagged,
-everything below lives under **Unreleased**.
+Signed release tags and database migrations are still open (see `ROADMAP.md`:
+`SEC-4.5`, `CICD-3`, `DEV-D`, `DEV-F`); until a release is tagged, everything
+below lives under **Unreleased**.
 
 ## [Unreleased]
+
+### Added — SEC-4.3 (verifica post-merge e rollback)
+
+- Nuovo workflow in sola lettura `post-merge-verification`: dopo ogni `ci` su
+  `main` verifica tutti i 16 check obbligatori sullo stesso SHA, attende quelli
+  pendenti, fallisce subito sui risultati terminali rossi e conserva report,
+  ruleset e check-run per 90 giorni. Il gate `scanner-image` viene ora pianificato
+  su ogni push a `main`, mantenendo il build costoso filtrato per percorso.
+- Aggiunti registro versionato degli SHA noti-buoni, runbook bilingue e prova
+  riproducibile di revert con tree iniziale e finale identici. Il primo SHA
+  registrato è `5efe2c52469eca34311fba600a4550126a54dd39`, certificato 16/16 dal
+  run post-merge `42372721295`.
 
 ### Added — TOOLS-4.1 (engines preflight: output JSON come contratto versionato)
 
