@@ -61,6 +61,33 @@ def test_redact_arguments_hides_option_values_and_url_credentials_without_mutati
     assert arguments[1] == "synthetic-token-123"  # the execution argv stays intact
 
 
+def test_redact_arguments_hides_secrets_inside_header_bearing_values() -> None:
+    # Scanners/curl pass credentials inside a header value whose *option* name
+    # (-H / --header / --data) is not itself secret-bearing, so the value must
+    # still be scanned for secret-named assignments.
+    arguments = [
+        "-H",
+        "Authorization: Bearer synthetic-bearer",
+        "--header=Cookie: SESSIONID=synthetic-session; theme=dark",
+        "--data=user=admin&token=synthetic-form",
+        "-H",
+        "Accept: application/json",
+    ]
+
+    displayed = redact_arguments(arguments)
+    joined = " ".join(displayed)
+
+    assert "synthetic-bearer" not in joined
+    assert "synthetic-session" not in joined
+    assert "synthetic-form" not in joined
+    assert "[REDACTED]" in joined
+    # non-secret header crumbs and headers are preserved
+    assert "theme=dark" in joined
+    assert "Accept: application/json" in displayed
+    # the real execution argv is never mutated
+    assert arguments[1] == "Authorization: Bearer synthetic-bearer"
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     [

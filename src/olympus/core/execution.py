@@ -303,8 +303,49 @@ def redact_text(value: str) -> str:
     ``redact_url`` only rewrites a string that *is* a URL. Most secrets leak
     inside a sentence, so anything human-readable that is persisted or printed
     goes through this instead.
+
+    This deliberately redacts only URL-borne secrets, not ``name: value`` header
+    assignments: it is used to sanitise Olympus' own display/log prose, and an
+    assignment pass would mangle legitimate text such as ``password: see the
+    manual``. Operational text that is untrusted scanner/command output (engine
+    evidence, ``redact_arguments``) adds :func:`redact_assignments` on top.
     """
     return _URL_IN_TEXT.sub(lambda match: redact_url(match.group(0)), value)
+
+
+# ``name: value`` / ``name=value`` / JSON ``"name": "value"`` assignments whose
+# *name* is secret-bearing. The name is a single identifier run anchored to a
+# segment start with a look-behind, which keeps matching strictly linear (no
+# catastrophic backtracking) on the large, untrusted text this scans. The value
+# is one run up to the next separator/quote; an ``Authorization`` header carries
+# its secret *after* a scheme word (``Bearer <token>``), so one optional known
+# scheme is consumed and redacted with it, leaving unrelated text intact.
+_SECRET_ASSIGNMENT = re.compile(
+    r"(?i)(?<![\w.\-])"
+    r"(['\"]?)([\w.\-]+)"
+    r"(['\"]?\s*[:=]\s*['\"]?)"
+    r"((?:(?:bearer|basic|digest|negotiate|ntlm|token|apikey)\s+)?[^\s,;&'\"]+)"
+)
+
+
+def _redact_assignment(match: re.Match[str]) -> str:
+    if is_sensitive_key(match.group(2)):
+        return f"{match.group(1)}{match.group(2)}{match.group(3)}[REDACTED]"
+    return match.group(0)
+
+
+def redact_assignments(value: str) -> str:
+    """Redact the value of every secret-named ``name: value`` assignment in text.
+
+    Complements :func:`redact_text` for untrusted *operational* text — engine
+    stdout/stderr and command arguments — where a header or config assignment
+    such as ``Authorization: Bearer <tok>``, ``api_key=…`` or a JSON
+    ``"access_token": "…"`` carries a secret that no URL redaction would catch.
+    Sensitivity of the name is decided by :func:`is_sensitive_key`, the single
+    platform predicate, so this never diverges from the structured-audit
+    redactor. Matching is linear and safe to run on multi-megabyte input.
+    """
+    return _SECRET_ASSIGNMENT.sub(_redact_assignment, value)
 
 
 def safe_terminal_text(value: str) -> str:
@@ -325,7 +366,11 @@ def redact_arguments(arguments: Sequence[str]) -> list[str]:
 
     Secret-bearing option names redact either their following value or an
     inline ``--option=value`` value. Other arguments still pass through the
-    terminal and URL sanitizer so credentials in URL userinfo/query are hidden.
+    terminal and URL sanitizer so credentials in URL userinfo/query are hidden,
+    plus :func:`redact_assignments` so a secret carried inside a header-bearing
+    value — ``-H 'Authorization: Bearer <tok>'`` or ``--header=Cookie: …`` — is
+    redacted even though the option name (``-H``/``--header``) is not itself
+    secret-bearing.
     """
     redacted: list[str] = []
     redact_next = False
@@ -334,12 +379,19 @@ def redact_arguments(arguments: Sequence[str]) -> list[str]:
             redacted.append("[REDACTED]")
             redact_next = False
             continue
-        option, separator, _value = argument.partition("=")
+        option, separator, value = argument.partition("=")
         normalized_option = option.lstrip("-")
         if argument.startswith("-") and separator and is_sensitive_key(normalized_option):
             redacted.append(f"{safe_terminal_text(option)}=[REDACTED]")
+        elif argument.startswith("-") and separator:
+            # ``--option=value`` with a non-secret option name: the value itself
+            # may be a header carrying a secret (``--header=Authorization: Bearer
+            # <tok>``). Redact only the value so the first ``option=`` assignment
+            # does not swallow the header name as its own value.
+            safe_value = redact_assignments(safe_terminal_text(value))
+            redacted.append(f"{safe_terminal_text(option)}={safe_value}")
         else:
-            redacted.append(safe_terminal_text(argument))
+            redacted.append(redact_assignments(safe_terminal_text(argument)))
             if argument.startswith("-") and not separator and is_sensitive_key(normalized_option):
                 redact_next = True
     return redacted

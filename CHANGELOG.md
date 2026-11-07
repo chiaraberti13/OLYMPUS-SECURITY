@@ -12,6 +12,24 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Fixed — SEC (redazione argv: segreti dentro valori di header/form)
+
+- `olympus.core.execution.redact_arguments` (argv display-safe, salvato in
+  `ScanResult.command`) non lascia più in chiaro un segreto contenuto nel
+  **valore** di un header o di un body passato come argomento, quando il nome
+  dell'opzione non è esso stesso sensibile: `-H 'Authorization: Bearer <tok>'`,
+  `--header=Cookie: SESSIONID=…`, `--data=user=admin&token=…`. Prima il ramo
+  pass-through applicava solo `safe_terminal_text` (redazione dei soli URL), così
+  il segreto nell'header sopravviveva.
+- La logica di redazione delle assegnazioni header-style è stata **estratta in
+  `olympus.core.execution.redact_assignments`** (fonte unica, predicato
+  `is_sensitive_key`, regex lineare ReDoS-safe) e ora è condivisa tra
+  `redact_arguments` e le evidenze Themis (`themis/base._evidence`), che prima ne
+  avevano una copia locale (`_SECRET_ASSIGNMENT`). La classe-valore esclude ora
+  anche `&`, così i parametri form/query sono redatti singolarmente. `redact_text`
+  e `safe_terminal_text` restano invariati (solo URL), per non over-redigere la
+  prosa di display di Olympus. Regressione in `tests/unit/test_core_execution.py`.
+
 ### Fixed — SEC (redazione audit strutturato: segreti URL nel testo libero)
 
 - `olympus.core.execution.redact_mapping` (il redattore dei record di audit
