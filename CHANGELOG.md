@@ -12,6 +12,21 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Fixed — TOOLS-4.4 (wapiti: un `level` malformato non fa più crashare il parse)
+
+- `olympus.themis.adapters.wapiti` calcolava la severità con
+  `int(item.get("level", 1) or 1)`. Un report malformato con `level` di tipo
+  lista/oggetto fa sollevare a `int()` un **`TypeError`** (non un `ValueError`),
+  che **sfugge** al confine dell'adapter (`run()` cattura solo `ParseError`/
+  `ValueError`) e fa **crashare il run** invece di fallire fail-closed. L'output
+  dello scanner è input non fidato, quindi è una violazione del contratto di
+  stato canonico (TOOLS-4.4). Nuovo helper `_level_value` che coerce il livello a
+  int solo quando è numerico (int/float/stringa numerica, `bool` escluso) e
+  altrimenti ricade su `INFO`, come qualunque livello non riconosciuto: nessun
+  crash, nessun report valido annullato per un singolo campo errato. Regressione
+  in `tests/unit/test_themis_output_grammar.py`; i livelli validi 1–4 restano
+  mappati su LOW/MEDIUM/HIGH/CRITICAL.
+
 ### Fixed — SEC (redazione argv: segreti dentro valori di header/form)
 
 - `olympus.core.execution.redact_arguments` (argv display-safe, salvato in

@@ -22,6 +22,29 @@ from olympus.themis.runner import CommandOutput
 _LEVEL = {4: Severity.CRITICAL, 3: Severity.HIGH, 2: Severity.MEDIUM, 1: Severity.LOW}
 
 
+def _level_value(raw: object) -> int | None:
+    """Coerce a wapiti severity ``level`` to an int, or ``None`` when it is not one.
+
+    wapiti emits an integer 1..4, but a malformed report may carry the level as a
+    string, list or object. ``int()`` on a list/dict raises ``TypeError`` — which
+    is *not* a ``ValueError`` and would escape the adapter boundary and crash the
+    run instead of failing closed (TOOLS-4.4). A non-numeric level must instead
+    fall through to the INFO default, exactly like any unrecognised numeric level,
+    so one bad field never voids an otherwise valid report. ``bool`` is rejected
+    even though it subclasses ``int``: a JSON ``true``/``false`` level is garbage,
+    not level 1/0.
+    """
+    if isinstance(raw, bool):
+        return None
+    if isinstance(raw, int | float):
+        return int(raw)
+    if isinstance(raw, str):
+        stripped = raw.strip()
+        if stripped.lstrip("-").isdigit():
+            return int(stripped)
+    return None
+
+
 class WapitiAdapter(ScannerAdapter):
     name = "wapiti"
     binary = "wapiti"
@@ -94,7 +117,8 @@ class WapitiAdapter(ScannerAdapter):
                 if not isinstance(item, dict):
                     skipped += 1
                     continue
-                severity = _LEVEL.get(int(item.get("level", 1) or 1), Severity.INFO)
+                level = _level_value(item.get("level", 1))
+                severity = Severity.INFO if level is None else _LEVEL.get(level, Severity.INFO)
                 method = str(item.get("method", ""))
                 path = str(item.get("path", ""))
                 parameter = str(item.get("parameter", ""))
