@@ -12,6 +12,17 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Fixed — CLI (render_table: una cella non-stringa non fa più crashare il formatter)
+
+- `olympus.core.output.render_table` (il formatter tabellare condiviso da tutti i
+  comandi CLI) passava ogni cella direttamente a `safe_terminal_text`, che assume
+  una `str`: una cella non-stringa (un conteggio `int`, `None`) faceva sollevare
+  `AttributeError` e **crashare l'intero comando**. Ora le celle sono coercite con
+  `str()` prima della sanificazione, esattamente come già fa `render()`, così uno
+  scivolone di tipo di un chiamante degrada con grazia invece di interrompere
+  l'output. Nessun cambiamento per le celle già stringa. Regressione in
+  `tests/unit/test_core_output.py`.
+
 ### Fixed — SEC (hermes secret-scanner: righe `++`/`--` non più scartate — evasione/falso negativo)
 
 - `olympus.hermes.scanner._scan_git_patch` escludeva dal contenuto le righe che

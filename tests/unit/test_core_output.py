@@ -22,6 +22,15 @@ def test_render_table_direct() -> None:
     assert "1" in out and "2" in out
 
 
+def test_render_table_coerces_non_string_cells_without_crashing() -> None:
+    # A shared formatter must not crash with AttributeError when a caller passes
+    # a non-str cell (an int count, None); it coerces like render() does.
+    out = render_table(["engine", "count", "note"], [["nmap", 3, None]], title="t")
+    assert "nmap" in out
+    assert "3" in out
+    assert "None" in out
+
+
 def test_render_table_neutralizes_untrusted_terminal_and_rich_markup() -> None:
     hostile = (
         "[link=https://evil.invalid/?token=secret]open\x1b[2J\nforged"
