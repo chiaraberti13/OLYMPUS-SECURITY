@@ -12,6 +12,22 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Changed — QA (copertura di mutazione del confine di autorizzazione del manifest)
+
+- Rafforzata la copertura di mutazione delle due funzioni di **autorizzazione**
+  dell'engagement manifest — `EngagementManifest.authorizes` (38% → **73%**) e
+  `SignedEngagementManifest.authorize` (45% → **69%**) — il confine che decide se
+  una scansione è autorizzata (firma, scope, tempo, tecnica, revoca, classe di
+  rischio). Il test del gate copriva solo happy-path, target fuori-scope, tempo
+  scaduto e firma con chiave sbagliata; ora fissa anche: tecnica non autorizzata,
+  istante **prima** della finestra di validità, `now` senza timezone → `ValueError`,
+  **revoca** per digest/`manifest_id`/`engagement_id` e la validazione della lista
+  di revoca (niente stringa nuda, voci vuote o non-stringa), e il **tetto di
+  rischio** (`allowed_risk`: un'operazione oltre il tetto è rifiutata, entro è
+  consentita). I sopravvissuti residui sono mutanti equivalenti
+  (`astimezone(None)` = stesso istante) o sul solo testo dei messaggi d'errore.
+  Nessun cambiamento al codice di produzione.
+
 ### Changed — QA (copertura di mutazione al 100% per `safe_terminal_text`)
 
 - Rafforzata la copertura della funzione di sicurezza del terminale
