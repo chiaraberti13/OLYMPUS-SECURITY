@@ -252,6 +252,27 @@ def test_git_patch_scans_content_lines_whose_text_starts_with_plus_or_minus() ->
     assert all(f.path.endswith("/app.py") for f in findings)
 
 
+def test_git_patch_does_not_scan_unchanged_context_lines() -> None:
+    # The history scan reports secrets introduced ('+') or removed ('-') by a
+    # commit, not ones that merely sit on an unchanged context line (leading
+    # space): those were neither added nor removed here. Dropping the '+++'/'---'
+    # content guard must not start scanning context lines.
+    from olympus.hermes.scanner import _scan_git_patch
+
+    key = "AKIA" + "OLYMPUSDEMO00009"
+    patch = (
+        "commit:" + "e" * 40 + "\n"
+        "diff --git a/c.py b/c.py\n"
+        "--- a/c.py\n"
+        "+++ b/c.py\n"
+        "@@ -1,2 +1,2 @@\n"
+        f" context AWS={key}\n"
+        "-old harmless\n"
+        "+new harmless\n"
+    )
+    assert _scan_git_patch(patch, entropy_threshold=4.5) == []
+
+
 def test_application_bounds_history_and_observes_cancellation(tmp_path: Path) -> None:
     source = tmp_path / "safe.txt"
     source.write_text("safe", encoding="utf-8")
