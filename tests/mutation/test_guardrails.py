@@ -31,6 +31,7 @@ from olympus.core.signing import generate_keypair
 from olympus.engagements.manifest import (
     EngagementManifest,
     ManifestAuthorizationError,
+    ManifestRevocationError,
     ManifestVerificationError,
     SignedEngagementManifest,
 )
@@ -39,6 +40,7 @@ from olympus.findings.store import (
     FindingTransitionStoreError,
     SqliteFindingTransitionStore,
 )
+from olympus.integrations.activity import RiskClass
 from olympus.minerva.custody import (
     AcquisitionProvenance,
     CustodyAction,
@@ -634,6 +636,106 @@ def test_signed_manifest_gate_enforces_trusted_signature_and_scope() -> None:
             target="www.example.com",
             technique="nmap",
             now=valid_from,
+        )
+
+
+def test_signed_manifest_gate_rejects_wrong_technique_before_window_and_naive_time() -> None:
+    signed, public_key, valid_from = _signed_manifest()
+    # a technique outside the authorized set is refused
+    with pytest.raises(ManifestAuthorizationError):
+        signed.authorize(
+            trusted_public_key_pem=public_key,
+            target="www.example.com",
+            technique="nuclei",
+            now=valid_from,
+        )
+    # an instant before the validity window opens is refused (lower time bound)
+    with pytest.raises(ManifestAuthorizationError):
+        signed.authorize(
+            trusted_public_key_pem=public_key,
+            target="www.example.com",
+            technique="nmap",
+            now=valid_from - timedelta(seconds=1),
+        )
+    # a timezone-naive 'now' is refused outright, never silently treated as UTC
+    with pytest.raises(ValueError):
+        signed.manifest.authorizes(
+            target="www.example.com", technique="nmap", now=datetime(2026, 10, 19)
+        )
+
+
+def test_signed_manifest_gate_enforces_revocation_and_its_input_shape() -> None:
+    signed, public_key, valid_from = _signed_manifest()
+    # any of the three identity forms, once revoked, blocks authorization even
+    # inside the time window
+    for identifier in (
+        signed.manifest_sha256,
+        signed.manifest.manifest_id,
+        signed.manifest.engagement_id,
+    ):
+        with pytest.raises(ManifestRevocationError):
+            signed.authorize(
+                trusted_public_key_pem=public_key,
+                target="www.example.com",
+                technique="nmap",
+                now=valid_from,
+                revoked=(identifier,),
+            )
+    # an unrelated revocation entry does not block a valid authorization
+    authorized = signed.authorize(
+        trusted_public_key_pem=public_key,
+        target="www.example.com",
+        technique="nmap",
+        now=valid_from,
+        revoked=("ENG-2999-00001",),
+    )
+    assert authorized.engagement_id == "ENG-2026-00001"
+    # the revocation list must be a collection of non-empty strings: a bare
+    # string, a blank entry and a non-string entry are each rejected
+    for bad in ("ENG-2026-00001", (" ",), (123,)):
+        with pytest.raises(ManifestAuthorizationError):
+            signed.authorize(
+                trusted_public_key_pem=public_key,
+                target="www.example.com",
+                technique="nmap",
+                now=valid_from,
+                revoked=bad,  # type: ignore[arg-type]
+            )
+
+
+def test_signed_manifest_gate_enforces_the_risk_ceiling() -> None:
+    private_key, public_key = generate_keypair()
+    valid_from = datetime(2026, 10, 19, tzinfo=UTC)
+    manifest = EngagementManifest(
+        engagement_id="ENG-2026-00001",
+        client="Example Client",
+        owner="Security Owner",
+        approver="Authorized Approver",
+        contract_id="CONTRACT-2026-01",
+        scope=EngagementScope(included=("example.com",), excluded=()),
+        valid_from=valid_from,
+        expires_at=valid_from + timedelta(hours=8),
+        allowed_techniques=("nmap",),
+        allowed_risk=RiskClass.ACTIVE,
+    )
+    signed = SignedEngagementManifest.sign_manifest(manifest, private_key_pem=private_key)
+    # an operation within the declared ceiling authorizes
+    authorized = signed.authorize(
+        trusted_public_key_pem=public_key,
+        target="www.example.com",
+        technique="nmap",
+        now=valid_from,
+        risk=RiskClass.ACTIVE,
+    )
+    assert authorized.engagement_id == "ENG-2026-00001"
+    # an operation above the ceiling is refused even though technique/scope/time fit
+    with pytest.raises(ManifestAuthorizationError):
+        signed.authorize(
+            trusted_public_key_pem=public_key,
+            target="www.example.com",
+            technique="nmap",
+            now=valid_from,
+            risk=RiskClass.INTRUSIVE,
         )
 
 
