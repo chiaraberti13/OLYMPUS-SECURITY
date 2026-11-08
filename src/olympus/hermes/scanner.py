@@ -193,10 +193,16 @@ def _scan_git_patch(
         if match := HUNK_HEADER.match(line):
             old_line, new_line = int(match.group(1)), int(match.group(2))
             continue
-        if line.startswith("+") and not line.startswith("+++"):
+        # The '+++ '/'--- ' file headers (with their trailing space) are already
+        # consumed above, and no other diff metadata line starts with '+'/'-', so
+        # every remaining such line is hunk content. Do NOT re-exclude '+++'/'---'
+        # here: that dropped an added line whose own content starts with '++' (its
+        # patch line is '+++…') or a removed line starting with '--', silently
+        # missing a secret on it — an evasion in a secret scanner.
+        if line.startswith("+"):
             content, source_line, source_path = line[1:], new_line, new_path
             new_line += 1
-        elif line.startswith("-") and not line.startswith("---"):
+        elif line.startswith("-"):
             content, source_line, source_path = line[1:], old_line, old_path
             old_line += 1
         elif line.startswith(" "):

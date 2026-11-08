@@ -224,6 +224,34 @@ def test_git_patch_attributes_a_deleted_file_secret_to_its_own_path() -> None:
     assert hits[0].line == 1
 
 
+def test_git_patch_scans_content_lines_whose_text_starts_with_plus_or_minus() -> None:
+    # An added line whose own content starts with "++" has the patch line "+++…";
+    # a removed line starting with "--" has "---…". These must be scanned as
+    # content: dropping them as if they were file headers silently misses a
+    # secret (an evasion in a secret scanner). The real "+++ "/"--- " headers,
+    # which carry a trailing space, are still consumed and never scanned.
+    from olympus.hermes.scanner import _scan_git_patch
+
+    k_added_pp = "AKIA" + "OLYMPUSDEMO00001"
+    k_plain = "AKIA" + "OLYMPUSDEMO00002"
+    k_removed_mm = "AKIA" + "OLYMPUSDEMO00003"
+    patch = (
+        "commit:" + "c" * 40 + "\n"
+        "diff --git a/app.py b/app.py\n"
+        "--- a/app.py\n"
+        "+++ b/app.py\n"
+        "@@ -1,1 +1,2 @@\n"
+        f"+++AWS={k_added_pp}\n"
+        f"+plain={k_plain}\n"
+        f"---AWS={k_removed_mm}\n"
+    )
+    findings = _scan_git_patch(patch, entropy_threshold=4.5)
+    masks = {f.masked for f in findings}
+    assert masks == {"AKIA…0001", "AKIA…0002", "AKIA…0003"}
+    # the file header did not leak into a finding path
+    assert all(f.path.endswith("/app.py") for f in findings)
+
+
 def test_application_bounds_history_and_observes_cancellation(tmp_path: Path) -> None:
     source = tmp_path / "safe.txt"
     source.write_text("safe", encoding="utf-8")

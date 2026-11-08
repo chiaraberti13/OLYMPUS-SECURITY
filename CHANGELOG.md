@@ -12,6 +12,19 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Fixed — SEC (hermes secret-scanner: righe `++`/`--` non più scartate — evasione/falso negativo)
+
+- `olympus.hermes.scanner._scan_git_patch` escludeva dal contenuto le righe che
+  iniziano con `+++`/`---` (senza spazio) per distinguerle dagli header di file.
+  Ma gli header veri `+++ `/`--- ` (con **spazio finale**) sono già consumati a
+  monte: la guardia scartava quindi una **riga di contenuto** il cui testo inizia
+  con `++` (patch line `+++…`) o una riga rimossa che inizia con `--` (patch line
+  `---…`), **mancando silenziosamente un segreto** su quella riga — un falso
+  negativo/evasione in uno scanner di segreti. Rimossa la guardia ridondante:
+  ogni riga `+`/`-` residua è contenuto di hunk e viene scansionata; gli header
+  con spazio restano consumati e non scansionati. Regressione in
+  `tests/unit/test_hermes.py` (chiavi distinte su righe `++`, normale e `--`).
+
 ### Fixed — SEC (hermes secret-scanner: provenienza corretta dei segreti in file eliminati)
 
 - `olympus.hermes.scanner._scan_git_patch` (scansione dei segreti nella history
