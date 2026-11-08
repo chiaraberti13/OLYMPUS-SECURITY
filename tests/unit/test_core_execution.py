@@ -41,6 +41,19 @@ def test_safe_terminal_text_removes_inserted_controls_before_secret_redaction() 
     assert "[REDACTED]" in safe
 
 
+def test_safe_terminal_text_turns_line_separators_into_spaces_keeping_tokens_apart() -> None:
+    # CR/LF/TAB are line separators an attacker could use to forge a log/terminal
+    # line, so they become a single space *before* the control strip — tokens on
+    # either side stay separated rather than being merged. Runs of whitespace
+    # then collapse to one space. (Other C0/C1 controls like NUL are removed, so
+    # the tokens around them do merge — the deliberate contrast below.)
+    assert safe_terminal_text("a\rb\nc\td  e") == "a b c d e"
+    assert safe_terminal_text("left\rright") == "left right"
+    assert safe_terminal_text("a\t\tb") == "a b"
+    # a non-separator control is stripped, not spaced: its neighbours join
+    assert safe_terminal_text("x\x00y") == "xy"
+
+
 def test_redact_arguments_hides_option_values_and_url_credentials_without_mutation() -> None:
     arguments = [
         "--api-token",

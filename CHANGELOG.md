@@ -12,6 +12,18 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Changed — QA (copertura di mutazione al 100% per `safe_terminal_text`)
+
+- Rafforzata la copertura della funzione di sicurezza del terminale
+  `olympus.core.execution.safe_terminal_text` (confine del mutation gate): il test
+  del gate non fissava la sostituzione di CR/LF/TAB con uno **spazio** (né il join
+  a singolo spazio), lasciando sopravvivere 7 mutanti (score 71%). Aggiunta
+  un'asserzione di uguaglianza esatta (`"a\rb\nc\td  e"` → `"a b c d e"`) che pinna
+  la proprietà anti-forging (i separatori di riga diventano spazi *prima* dello
+  strip dei controlli, così i token restano separati e non fusi/cancellati): tutti
+  i 24 mutanti ora uccisi (**100%**). Nessun cambiamento al codice di produzione;
+  aggiunto anche un test unitario diretto in `tests/unit/test_core_execution.py`.
+
 ### Fixed — CLI (render_table: una cella non-stringa non fa più crashare il formatter)
 
 - `olympus.core.output.render_table` (il formatter tabellare condiviso da tutti i

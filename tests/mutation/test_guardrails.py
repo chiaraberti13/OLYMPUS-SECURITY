@@ -574,6 +574,11 @@ def test_terminal_text_removes_control_sequences_and_redacts_secrets() -> None:
 
     assert "\x1b" not in safe and "\n" not in safe
     assert "secret" not in safe and "[REDACTED]" in safe
+    # CR/LF/TAB are line separators turned into a single space *before* the
+    # control strip, so tokens on either side stay separated (not merged or
+    # deleted); runs of whitespace then collapse to one space. This pins the
+    # space substitution and the single-space join against mutation.
+    assert safe_terminal_text("a\rb\nc\td  e") == "a b c d e"
 
 
 def _signed_manifest() -> tuple[SignedEngagementManifest, str, datetime]:
