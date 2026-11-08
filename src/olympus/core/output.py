@@ -33,8 +33,11 @@ def render_table(columns: list[str], rows: list[list[str]], *, title: str | None
         table.add_column(column, overflow="fold")
     for row in rows:
         # Text renderables bypass Rich's markup parser; scanner-controlled values
-        # such as ``[link=...]`` must remain literal, inert table content.
-        table.add_row(*(Text(safe_terminal_text(value)) for value in row))
+        # such as ``[link=...]`` must remain literal, inert table content. Cells
+        # are coerced with str() first — like render() below — so a caller that
+        # passes a non-str cell (an int count, None) renders it instead of
+        # crashing this shared formatter with AttributeError.
+        table.add_row(*(Text(safe_terminal_text(str(value))) for value in row))
     buffer = io.StringIO()
     Console(file=buffer, force_terminal=False, no_color=True, width=100).print(table)
     return buffer.getvalue()
