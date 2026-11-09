@@ -12,22 +12,35 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — EXPL-1 (classi epistemiche e contratto versionato di spiegabilità)
+
+- Tassonomia epistemica condivisa `core.enums.EpistemicClass` (`observed_evidence`
+  · `deterministic_result` · `inference` · `suggested_correlation` ·
+  `unverified_hypothesis`), base comune per spiegabilità (`EXPL-1`) e correlazione
+  (`CORR-1`). La spiegazione del finding è ora un **contratto versionato**
+  (`olympus.finding-explanation` 1.0.0) in cui **ogni claim porta la sua classe
+  epistemica**: evidenza allegata/KEV/CVSS/EPSS e identificatori da campo
+  strutturato sono `observed_evidence`; un id CVE/CWE **derivato da testo libero**
+  scende a `inference`; il punteggio di rischio è `deterministic_result` e **mai**
+  un'osservazione. Nuovo test di contratto che un valore derivato non possa essere
+  presentato come osservazione (l'invariante centrale di `EXPL-1`/`CORR-1`). La CLI
+  `olympus vulcan explain` mostra ogni claim con la sua classe. ROADMAP `EXPL-1`
+  resta parziale (restano JSON Schema nel catalogo contratti, provenance/ATT&CK e
+  fixture per classe).
+
 ### Added — EXPL-1 (shared finding-explainability contract, first slice)
 
 - Core condiviso `vulcan.explain.explain_finding` → `FindingExplanation`: spiega,
   in modo identico per ogni superficie, perché un finding è segnalato, perché quel
   rischio e con quale affidabilità. Derivato **solo** dai campi del finding
-  (nessuna scansione, nessuna rete, nulla di inventato); separa **observed**
-  (evidenza allegata, KEV, CVSS, CVE/CWE, EPSS), **inferred** (punteggio di
-  rischio) e **limits** (caveat espliciti). Il razionale del rischio è ricostruito
-  dalle stesse costanti del punteggio — `SEVERITY_RISK_BASE`, `KEV_RISK_FLOOR`,
-  `CONFIDENCE_RISK_MODIFIER`, ora costanti pubbliche in `core.models` e unica fonte
-  anche per `Finding.risk_score` — così punteggio e spiegazione non possono
-  divergere; un solo fattore è `decisive`, e un'escalation KEV/EPSS lo è solo se ha
-  davvero alzato il punteggio. CLI `olympus vulcan explain` (blocchi testuali o
-  `--format json` col contratto completo), findings in ordine di rischio
-  decrescente. ROADMAP `EXPL-1` → parziale (restano il contratto versionato con
-  classe epistemica per campo e l'integrazione provenance/ATT&CK).
+  (nessuna scansione, nessuna rete, nulla di inventato). Il razionale del rischio è
+  ricostruito dalle stesse costanti del punteggio — `SEVERITY_RISK_BASE`,
+  `KEV_RISK_FLOOR`, `CONFIDENCE_RISK_MODIFIER`, ora costanti pubbliche in
+  `core.models` e unica fonte anche per `Finding.risk_score` — così punteggio e
+  spiegazione non possono divergere; un solo fattore è `decisive`, e un'escalation
+  KEV/EPSS lo è solo se ha davvero alzato il punteggio. CLI `olympus vulcan explain`
+  (blocchi testuali o `--format json` col contratto completo), findings in ordine
+  di rischio decrescente.
 
 ### Changed — QA (copertura di mutazione dello spacchettamento evidenze protette)
 
