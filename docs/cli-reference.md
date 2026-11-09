@@ -1795,6 +1795,19 @@ Overlay CVE risk (CISA KEV + FIRST EPSS) onto findings and rank by urgency.
 | `--max-total-items` | option | no | `200000` | — |
 | `--max-feed-bytes` | option | no | `50000000` | — |
 
+### `olympus vulcan explain`
+
+Explain why each finding is reported, how risky it is, and how sure we are.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--input`, `-i` | option | yes | — | core.Finding JSON bundle(s) to explain (repeatable). |
+| `--format` | option | no | `table` | Render as a text block (human) or json (machine). |
+| `--max-files` | option | no | `100` | — |
+| `--max-input-bytes` | option | no | `50000000` | — |
+| `--max-items-per-file` | option | no | `100000` | — |
+| `--max-total-items` | option | no | `200000` | — |
+
 ### `olympus vulcan export`
 
 Export findings or assets to portable, versioned NDJSON (one record per line).
