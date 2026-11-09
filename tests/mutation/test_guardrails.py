@@ -533,8 +533,7 @@ def test_scope_gate_normalizes_both_host_and_allowed_entries() -> None:
     # both as an exact host and as a parent domain — without widening scope.
     assert ensure_target_allowed("domain", "example.com", (" EXAMPLE.COM. ",)) == "example.com"
     assert (
-        ensure_target_allowed("domain", "api.example.com", (" EXAMPLE.COM. ",))
-        == "api.example.com"
+        ensure_target_allowed("domain", "api.example.com", (" EXAMPLE.COM. ",)) == "api.example.com"
     )
     # The host side is normalized too: a trailing-dot / upper-case host is in scope.
     # Exercised by calling the gate directly, since host_of() pre-normalizes the
