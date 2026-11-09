@@ -354,11 +354,24 @@ olympus vulcan explain --input findings.json
 olympus vulcan explain --input findings.json --format json
 ```
 
-The **same core** backs the API (`EXPL-2`): `POST /api/v1/vulcan/explain` (scope
-`findings:read`) takes one `olympus.finding` and returns the identical
-`olympus.finding-explanation` contract — a pure, offline transform that opens no
-network. A parity test pins CLI, API and `explain_finding` to the same output for
-the same finding, so no surface can drift.
+The **same core** backs every surface (`EXPL-2`):
+
+- **API** — `POST /api/v1/vulcan/explain` (scope `findings:read`) takes one
+  `olympus.finding` and returns the identical `olympus.finding-explanation`
+  contract; a pure, offline transform that opens no network.
+- **Report** — `olympus vulcan report --explanations PATH` writes a companion
+  `olympus.finding-explanations` document (versioned, one explanation per reported
+  finding, in the report's ranked order) alongside the JSON report, without
+  changing the report model.
+
+A parity test pins the CLI, the API, the report companion and `explain_finding` to
+the same output for the same finding, so no surface can drift.
+
+```bash
+# Build the report and the matching explanations companion in one run.
+olympus vulcan report --engagement Acme --findings findings.json \
+  --output report.json --explanations explanations.json
+```
 
 ## Portability — findings and assets as NDJSON (`WEB-J`)
 

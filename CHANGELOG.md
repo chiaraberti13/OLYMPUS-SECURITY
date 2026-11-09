@@ -12,7 +12,15 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
-### Added — EXPL-2 (spiegazione del finding sull'API, con parità CLI↔API)
+### Added — EXPL-2 (spiegazione del finding su API e report, con parità tra superfici)
+
+- Export nei **report Vulcan**: `olympus vulcan report --explanations PATH` scrive
+  un documento companion versionato `olympus.finding-explanations` accanto al
+  report JSON — una spiegazione per finding riportato, nell'ordine ranked del
+  report — senza modificare il modello `SecurityReport`. Helper puro
+  `vulcan.explain.explanations_document`. **Test di parità** esteso: CLI, API,
+  companion del report e core (`explain_finding`) producono la stessa spiegazione
+  per lo stesso finding. ROADMAP `EXPL-2`: resta solo la Web UI (via `WEB-8`).
 
 - Nuovo endpoint API `POST /api/v1/vulcan/explain` (scope `findings:read`):
   prende un `olympus.finding` e restituisce lo stesso contratto

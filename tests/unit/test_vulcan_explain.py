@@ -17,7 +17,14 @@ from olympus.cli import app
 from olympus.core.enums import Confidence, EpistemicClass, Severity, Source
 from olympus.core.exit_codes import ExitCode
 from olympus.core.models import Finding
-from olympus.vulcan.explain import SCHEMA_NAME, SCHEMA_VERSION, explain_finding
+from olympus.vulcan.explain import (
+    EXPLANATIONS_SCHEMA_NAME,
+    EXPLANATIONS_SCHEMA_VERSION,
+    SCHEMA_NAME,
+    SCHEMA_VERSION,
+    explain_finding,
+    explanations_document,
+)
 
 runner = CliRunner()
 
@@ -180,3 +187,67 @@ def test_cli_explain_reports_a_bad_bundle_as_usage_error(tmp_path: Path) -> None
     bad.write_text("{not json", encoding="utf-8")
     result = runner.invoke(app, ["vulcan", "explain", "-i", str(bad)])
     assert result.exit_code == ExitCode.USAGE
+
+
+# ---------------------------------------------------------------------------
+# Report companion document (EXPL-2)
+# ---------------------------------------------------------------------------
+
+
+def test_explanations_document_is_versioned_and_preserves_order() -> None:
+    findings = [_finding("First", cvss=9.0), _finding("Second", asset_id="AST-2")]
+    document = explanations_document(findings)
+    assert document["schema_name"] == EXPLANATIONS_SCHEMA_NAME
+    assert document["schema_version"] == EXPLANATIONS_SCHEMA_VERSION
+    assert document["count"] == 2
+    explanations = document["explanations"]
+    assert isinstance(explanations, list)
+    assert [e["title"] for e in explanations] == ["First", "Second"]
+
+
+def test_explanations_document_entries_match_the_shared_core() -> None:
+    findings = [_finding("A", cvss=9.8, kev=True), _finding("B", asset_id="AST-2")]
+    document = explanations_document(findings)
+    expected = [explain_finding(f).to_dict() for f in findings]
+    assert document["explanations"] == expected
+
+
+def test_cli_report_writes_an_explanations_companion_matching_the_core(tmp_path: Path) -> None:
+    # EXPL-2 parity on the report surface: the companion equals explain_finding,
+    # over the report's own ranked findings.
+    findings = [
+        _finding("Low thing", severity=Severity.LOW, asset_id="AST-low"),
+        _finding("Critical RCE", severity=Severity.CRITICAL, asset_id="AST-crit", cvss=9.8),
+    ]
+    bundle = _bundle(tmp_path / "findings.json", findings)
+    report_out = tmp_path / "report.json"
+    explanations_out = tmp_path / "explanations.json"
+    result = runner.invoke(
+        app,
+        [
+            "vulcan",
+            "report",
+            "--engagement",
+            "Acme",
+            "--findings",
+            str(bundle),
+            "--output",
+            str(report_out),
+            "--explanations",
+            str(explanations_out),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "wrote finding explanations" in result.stderr
+
+    document = json.loads(explanations_out.read_text(encoding="utf-8"))
+    assert document["schema_name"] == EXPLANATIONS_SCHEMA_NAME
+    report = json.loads(report_out.read_text(encoding="utf-8"))
+    report_ids = [f["finding_id"] for f in report["findings"]]
+    # Ranked: the critical finding comes before the low one.
+    assert document["explanations"][0]["severity"] == "critical"
+    # Same findings, same order, same explanation as the shared core.
+    assert [e["finding_id"] for e in document["explanations"]] == report_ids
+    by_id = {f.finding_id: f for f in findings}
+    for entry in document["explanations"]:
+        assert entry == explain_finding(by_id[entry["finding_id"]]).to_dict()
