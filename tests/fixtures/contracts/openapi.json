@@ -687,6 +687,16 @@
         "title": "AthenaProfileView",
         "type": "object"
       },
+      "Confidence": {
+        "description": "How confident Olympus is that a finding is a true positive.",
+        "enum": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "title": "Confidence",
+        "type": "string"
+      },
       "DetectionRule": {
         "additionalProperties": false,
         "description": "A minimal portable detection rule expressed as YAML-compatible JSON.",
@@ -1015,6 +1025,26 @@
         "title": "EngagementStatus",
         "type": "string"
       },
+      "EpistemicStatementView": {
+        "additionalProperties": false,
+        "description": "One explanation claim with the epistemic class saying how it is known.",
+        "properties": {
+          "epistemic_class": {
+            "title": "Epistemic Class",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "epistemic_class"
+        ],
+        "title": "EpistemicStatementView",
+        "type": "object"
+      },
       "Event": {
         "additionalProperties": false,
         "description": "A normalized observable consumed by detection rules.",
@@ -1084,6 +1114,183 @@
         ],
         "title": "Event",
         "type": "object"
+      },
+      "Finding": {
+        "additionalProperties": false,
+        "description": "A weakness, vulnerability or misconfiguration attached to an asset.",
+        "properties": {
+          "asset_id": {
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Confidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cve": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Cve",
+            "type": "array"
+          },
+          "cvss": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cvss"
+          },
+          "cwe": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Cwe",
+            "type": "array"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "engagement_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Engagement Id"
+          },
+          "epss": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Epss"
+          },
+          "epss_percentile": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Epss Percentile"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "finding_id": {
+            "title": "Finding Id",
+            "type": "string"
+          },
+          "first_seen": {
+            "format": "date-time",
+            "title": "First Seen",
+            "type": "string"
+          },
+          "kev": {
+            "default": false,
+            "title": "Kev",
+            "type": "boolean"
+          },
+          "last_seen": {
+            "format": "date-time",
+            "title": "Last Seen",
+            "type": "string"
+          },
+          "references": {
+            "items": {
+              "type": "string"
+            },
+            "title": "References",
+            "type": "array"
+          },
+          "remediation": {
+            "default": "",
+            "title": "Remediation",
+            "type": "string"
+          },
+          "schema_name": {
+            "const": "olympus.finding",
+            "default": "olympus.finding",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/Severity",
+            "default": "medium"
+          },
+          "source": {
+            "$ref": "#/components/schemas/Source"
+          },
+          "status": {
+            "$ref": "#/components/schemas/FindingStatus",
+            "default": "new"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "title": {
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_id",
+          "source",
+          "title"
+        ],
+        "title": "Finding",
+        "type": "object"
+      },
+      "FindingStatus": {
+        "description": "Lifecycle state of a finding inside the remediation workflow.",
+        "enum": [
+          "new",
+          "triaged",
+          "confirmed",
+          "false_positive",
+          "accepted",
+          "in_remediation",
+          "closed"
+        ],
+        "title": "FindingStatus",
+        "type": "string"
       },
       "HTTPValidationError": {
         "properties": {
@@ -1523,6 +1730,31 @@
         "title": "RiskClass",
         "type": "string"
       },
+      "RiskFactorView": {
+        "additionalProperties": false,
+        "description": "One contribution to the contextual risk score, in plain language.",
+        "properties": {
+          "decisive": {
+            "title": "Decisive",
+            "type": "boolean"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "factor": {
+            "title": "Factor",
+            "type": "string"
+          }
+        },
+        "required": [
+          "factor",
+          "detail",
+          "decisive"
+        ],
+        "title": "RiskFactorView",
+        "type": "object"
+      },
       "Severity": {
         "description": "Normalized severity scale shared by findings, alerts and reports.",
         "enum": [
@@ -1839,6 +2071,119 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "VulcanFindingExplanationResult": {
+        "additionalProperties": false,
+        "description": "Versioned finding explanation (``EXPL-1``) shared by CLI, API and reports.\n\nThe API projects the exact :class:`~olympus.vulcan.explain.FindingExplanation`\ncontract, so every surface answers *why this finding, why this risk, how sure*\nidentically (`EXPL-2` parity).",
+        "properties": {
+          "asset_id": {
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "cve": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Cve",
+            "type": "array"
+          },
+          "cwe": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Cwe",
+            "type": "array"
+          },
+          "finding_id": {
+            "title": "Finding Id",
+            "type": "string"
+          },
+          "limits": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limits",
+            "type": "array"
+          },
+          "remediation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remediation"
+          },
+          "risk_factors": {
+            "items": {
+              "$ref": "#/components/schemas/RiskFactorView"
+            },
+            "title": "Risk Factors",
+            "type": "array"
+          },
+          "risk_score": {
+            "title": "Risk Score",
+            "type": "number"
+          },
+          "schema_name": {
+            "const": "olympus.finding-explanation",
+            "default": "olympus.finding-explanation",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "statements": {
+            "items": {
+              "$ref": "#/components/schemas/EpistemicStatementView"
+            },
+            "title": "Statements",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "finding_id",
+          "title",
+          "asset_id",
+          "source",
+          "severity",
+          "status",
+          "risk_score",
+          "summary",
+          "risk_factors",
+          "statements",
+          "limits",
+          "cve",
+          "cwe"
+        ],
+        "title": "VulcanFindingExplanationResult",
         "type": "object"
       }
     },
@@ -2541,6 +2886,56 @@
         "summary": "Minerva Verify Ledger",
         "tags": [
           "minerva"
+        ]
+      }
+    },
+    "/api/v1/vulcan/explain": {
+      "post": {
+        "description": "Explain one finding with the shared ``EXPL-1`` contract, offline.\n\nThe caller supplies a ``olympus.finding`` and receives the same\n:class:`~olympus.vulcan.explain.FindingExplanation` the CLI and the reports\nrender \u2014 derived only from the finding's own fields, nothing fetched or\ninvented, with every claim tagged by its epistemic class. Pure and offline:\nno scanning and no network request is ever made from the server.",
+        "operationId": "vulcan_explain_api_v1_vulcan_explain_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Finding"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VulcanFindingExplanationResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Vulcan Explain",
+        "tags": [
+          "vulcan"
         ]
       }
     },

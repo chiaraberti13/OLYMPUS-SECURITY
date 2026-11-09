@@ -12,6 +12,37 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Fixed — compatibilità Typer (CLI forms / TUI)
+
+- Pin `typer<0.29` in `pyproject.toml`. Typer 0.29 ha sostituito i parametri Click
+  eager con una rappresentazione interna lazy (`type_descriptor` /
+  `AdapterRuntimeParam`) che non espone più `parameter.type`, rompendo
+  l'introspezione dell'albero comandi in `olympus.cli_forms` e nella TUI (21 test
+  rossi su `test_cli_forms.py`/`test_tui.py`). Il codice non modificato dipende da
+  quel contratto Click; il cap ripristina il verde su tutto il repo finché
+  l'introspezione non sarà portata alla nuova API. Deriva da dipendenza upstream,
+  non da una modifica del prodotto.
+
+### Added — EXPL-2 (spiegazione del finding su API e report, con parità tra superfici)
+
+- Export nei **report Vulcan**: `olympus vulcan report --explanations PATH` scrive
+  un documento companion versionato `olympus.finding-explanations` accanto al
+  report JSON — una spiegazione per finding riportato, nell'ordine ranked del
+  report — senza modificare il modello `SecurityReport`. Helper puro
+  `vulcan.explain.explanations_document`. **Test di parità** esteso: CLI, API,
+  companion del report e core (`explain_finding`) producono la stessa spiegazione
+  per lo stesso finding. ROADMAP `EXPL-2`: resta solo la Web UI (via `WEB-8`).
+
+- Nuovo endpoint API `POST /api/v1/vulcan/explain` (scope `findings:read`):
+  prende un `olympus.finding` e restituisce lo stesso contratto
+  `olympus.finding-explanation` reso dalla CLI `olympus vulcan explain`, tramite
+  l'unico core `vulcan.explain.explain_finding`. Trasformazione **pura e offline**
+  (nessuna scansione, nessuna richiesta di rete dal server). **Test di parità** che
+  API, CLI e core producono la medesima spiegazione per lo stesso finding, così
+  nessuna superficie può divergere; scope `findings:read` applicato (403 senza, 401
+  senza credenziale). `openapi.json` rigenerato. ROADMAP `EXPL-2` → parziale
+  (restano l'export nei report Vulcan e la Web UI via `WEB-8`).
+
 ### Added — EXPL-1 (classi epistemiche e contratto versionato di spiegabilità)
 
 - Tassonomia epistemica condivisa `core.enums.EpistemicClass` (`observed_evidence`

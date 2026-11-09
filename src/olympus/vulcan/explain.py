@@ -24,6 +24,7 @@ explicitly. It is pure and deterministic.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from olympus.core.enums import Confidence, EpistemicClass
@@ -38,6 +39,11 @@ from olympus.vulcan.view import FindingView
 #: Versioned contract identity, so a consumer can pin and evolve the shape.
 SCHEMA_NAME = "olympus.finding-explanation"
 SCHEMA_VERSION = "1.0.0"
+
+#: Versioned identity of a *collection* of explanations, e.g. the companion
+#: document a Vulcan report writes alongside its JSON (`EXPL-2`).
+EXPLANATIONS_SCHEMA_NAME = "olympus.finding-explanations"
+EXPLANATIONS_SCHEMA_VERSION = "1.0.0"
 
 
 @dataclass(frozen=True)
@@ -341,11 +347,30 @@ def explain_finding(finding: Finding) -> FindingExplanation:
     )
 
 
+def explanations_document(findings: Sequence[Finding]) -> dict[str, object]:
+    """Build a versioned document of one explanation per finding (``EXPL-2``).
+
+    This is the companion a Vulcan report writes beside its JSON, and it reuses the
+    exact same :func:`explain_finding` core as the CLI and the API, so the report,
+    the CLI and the API can never disagree about a finding's explanation. Order is
+    preserved from the input (reports pass their already-ranked findings).
+    """
+    return {
+        "schema_name": EXPLANATIONS_SCHEMA_NAME,
+        "schema_version": EXPLANATIONS_SCHEMA_VERSION,
+        "count": len(findings),
+        "explanations": [explain_finding(finding).to_dict() for finding in findings],
+    }
+
+
 __all__ = [
+    "EXPLANATIONS_SCHEMA_NAME",
+    "EXPLANATIONS_SCHEMA_VERSION",
     "SCHEMA_NAME",
     "SCHEMA_VERSION",
     "FindingExplanation",
     "RiskFactor",
     "Statement",
     "explain_finding",
+    "explanations_document",
 ]

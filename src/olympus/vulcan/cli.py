@@ -90,7 +90,7 @@ from olympus.vulcan.evidence_view import (
 from olympus.vulcan.evidence_view import (
     build_finding_evidence_view,
 )
-from olympus.vulcan.explain import FindingExplanation, explain_finding
+from olympus.vulcan.explain import FindingExplanation, explain_finding, explanations_document
 from olympus.vulcan.lifecycle import FindingLifecycle, classify_lifecycle
 from olympus.vulcan.pdf import PdfUnavailableError
 from olympus.vulcan.portable import (
@@ -231,6 +231,13 @@ def report(
         "--pdf",
         help="If set, also write a formatted PDF report (needs the 'report' extra).",
     ),
+    explanations_output: Path | None = typer.Option(
+        None,
+        "--explanations",
+        help="If set, also write a companion olympus.finding-explanations JSON with "
+        "the shared EXPL-1 explanation of each reported finding (same core as the "
+        "CLI and the API).",
+    ),
     kev: Path | None = typer.Option(
         None, "--kev", help="Local CISA KEV catalogue JSON: adds KEV flags to the PDF (offline)."
     ),
@@ -263,7 +270,9 @@ def report(
         typer.echo("vulcan: --section must be 'full' or 'executive'", err=True)
         raise typer.Exit(code=ExitCode.USAGE)
     outputs = tuple(
-        path for path in (output, markdown, html_output, csv_output, pdf_output) if path is not None
+        path
+        for path in (output, markdown, html_output, csv_output, pdf_output, explanations_output)
+        if path is not None
     )
     try:
         kev_catalog = (
@@ -326,6 +335,10 @@ def report(
             export_text(outcome.csv, csv_output)
         if pdf_output is not None and outcome.pdf is not None:
             atomic_write_bytes(pdf_output, outcome.pdf, mode=0o600)
+        if explanations_output is not None:
+            # Same shared core as the CLI `explain` and the API, over the report's
+            # own ranked/filtered findings, so every surface agrees (EXPL-2).
+            export_report(explanations_document(outcome.report.findings), explanations_output)
     except PdfUnavailableError as exc:
         typer.echo(safe_terminal_text(f"vulcan: {exc}"), err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
@@ -341,6 +354,8 @@ def report(
         typer.echo(f"vulcan: wrote HTML report to {html_output}", err=True)
     if pdf_output is not None:
         typer.echo(f"vulcan: wrote PDF report to {pdf_output}", err=True)
+    if explanations_output is not None:
+        typer.echo(f"vulcan: wrote finding explanations to {explanations_output}", err=True)
 
 
 @app.command()

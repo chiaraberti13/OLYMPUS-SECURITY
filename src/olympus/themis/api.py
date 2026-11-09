@@ -44,7 +44,7 @@ from olympus.athena.application.profiles import profiles as scan_profiles
 from olympus.athena.application.registry import active_adapters
 from olympus.athena.domain.contracts import AssessmentPlan, Target
 from olympus.core.execution import StructuredAuditRecord, append_structured_audit
-from olympus.core.models import Alert, Engagement, Event
+from olympus.core.models import Alert, Engagement, Event, Finding
 from olympus.core.observability import Correlation, Observability, observability_from_config
 from olympus.engagements.manifest import (
     ManifestAuthorizationError,
@@ -92,6 +92,7 @@ from olympus.themis.jobs import (
     ThemisJobStore,
 )
 from olympus.themis.oidc import OidcError, OidcVerifier
+from olympus.vulcan.explain import FindingExplanation, explain_finding
 
 MAX_REQUEST_BYTES = 64 * 1024
 DEFAULT_MAX_CONCURRENT_REQUESTS = 64
@@ -747,6 +748,53 @@ class ArtemisFingerprintResult(BaseModel):
     fingerprints: list[ArtemisFingerprintView]
 
 
+class EpistemicStatementView(BaseModel):
+    """One explanation claim with the epistemic class saying how it is known."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    text: str
+    epistemic_class: str
+
+
+class RiskFactorView(BaseModel):
+    """One contribution to the contextual risk score, in plain language."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    factor: str
+    detail: str
+    decisive: bool
+
+
+class VulcanFindingExplanationResult(BaseModel):
+    """Versioned finding explanation (``EXPL-1``) shared by CLI, API and reports.
+
+    The API projects the exact :class:`~olympus.vulcan.explain.FindingExplanation`
+    contract, so every surface answers *why this finding, why this risk, how sure*
+    identically (`EXPL-2` parity).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_name: Literal["olympus.finding-explanation"] = "olympus.finding-explanation"
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    finding_id: str
+    title: str
+    asset_id: str
+    source: str
+    severity: str
+    status: str
+    risk_score: float
+    summary: str
+    risk_factors: list[RiskFactorView]
+    statements: list[EpistemicStatementView]
+    limits: list[str]
+    cve: list[str]
+    cwe: list[str]
+    remediation: str | None = None
+
+
 def _fingerprint_view(fingerprint: Fingerprint) -> ArtemisFingerprintView:
     return ArtemisFingerprintView(
         product=fingerprint.product,
@@ -754,6 +802,32 @@ def _fingerprint_view(fingerprint: Fingerprint) -> ArtemisFingerprintView:
         version=fingerprint.version,
         evidence=fingerprint.evidence,
         references=list(fingerprint.references),
+    )
+
+
+def _finding_explanation_view(explanation: FindingExplanation) -> VulcanFindingExplanationResult:
+    """Project the shared explanation contract onto the API response, unchanged."""
+    return VulcanFindingExplanationResult(
+        finding_id=explanation.finding_id,
+        title=explanation.title,
+        asset_id=explanation.asset_id,
+        source=explanation.source,
+        severity=explanation.severity,
+        status=explanation.status,
+        risk_score=explanation.risk_score,
+        summary=explanation.summary,
+        risk_factors=[
+            RiskFactorView(factor=f.factor, detail=f.detail, decisive=f.decisive)
+            for f in explanation.risk_factors
+        ],
+        statements=[
+            EpistemicStatementView(text=s.text, epistemic_class=s.epistemic_class.value)
+            for s in explanation.statements
+        ],
+        limits=list(explanation.limits),
+        cve=list(explanation.cve),
+        cwe=list(explanation.cwe),
+        remediation=explanation.remediation,
     )
 
 
@@ -866,6 +940,7 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
     writes_jobs = authenticated("jobs:write")
     cancels_jobs = authenticated("jobs:cancel")
     reads_engagements = authenticated("engagements:read")
+    reads_findings = authenticated("findings:read")
     reads_apollo = authenticated("apollo:read")
     runs_apollo = authenticated("apollo:run")
     reads_metis = authenticated("metis:read")
@@ -1225,6 +1300,24 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
             fingerprint_count=len(fingerprints),
             fingerprints=[_fingerprint_view(item) for item in fingerprints],
         )
+
+    @app.post(
+        "/api/v1/vulcan/explain",
+        response_model=VulcanFindingExplanationResult,
+        tags=["vulcan"],
+    )
+    def vulcan_explain(
+        body: Finding, caller: Caller = reads_findings
+    ) -> VulcanFindingExplanationResult:
+        """Explain one finding with the shared ``EXPL-1`` contract, offline.
+
+        The caller supplies a ``olympus.finding`` and receives the same
+        :class:`~olympus.vulcan.explain.FindingExplanation` the CLI and the reports
+        render — derived only from the finding's own fields, nothing fetched or
+        invented, with every claim tagged by its epistemic class. Pure and offline:
+        no scanning and no network request is ever made from the server.
+        """
+        return _finding_explanation_view(explain_finding(body))
 
     @app.get(
         "/api/v1/engagements",

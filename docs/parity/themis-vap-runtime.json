@@ -405,6 +405,12 @@
     },
     {
       "surface": "api",
+      "method": "POST",
+      "path": "/api/v1/vulcan/explain",
+      "handler": "vulcan_explain"
+    },
+    {
+      "surface": "api",
       "method": "GET",
       "path": "/api/v1/engagements",
       "handler": "list_engagements"
