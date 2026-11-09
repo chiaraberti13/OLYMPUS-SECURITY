@@ -90,6 +90,7 @@ from olympus.vulcan.evidence_view import (
 from olympus.vulcan.evidence_view import (
     build_finding_evidence_view,
 )
+from olympus.vulcan.explain import FindingExplanation, explain_finding
 from olympus.vulcan.lifecycle import FindingLifecycle, classify_lifecycle
 from olympus.vulcan.pdf import PdfUnavailableError
 from olympus.vulcan.portable import (
@@ -921,6 +922,72 @@ def lifecycle(
     )
     regression = bool(result.new) or result.has_reappearances
     raise typer.Exit(code=ExitCode.FINDINGS if regression else ExitCode.OK)
+
+
+def _explanation_lines(explanation: FindingExplanation) -> list[str]:
+    """Render one explanation as an accessible, labelled text block."""
+    lines = [safe_terminal_text(explanation.summary_line()), ""]
+    lines.append("  Risk factors:")
+    for item in explanation.risk_factors:
+        marker = "*" if item.decisive else "-"
+        lines.append(safe_terminal_text(f"    {marker} {item.detail}"))
+    for label, entries in (
+        ("Observed", explanation.observed),
+        ("Inferred", explanation.inferred),
+        ("Limits", explanation.limits),
+    ):
+        lines.append(f"  {label}:")
+        lines.extend(safe_terminal_text(f"    - {entry}") for entry in entries)
+    if explanation.remediation:
+        lines.append("  Remediation:")
+        lines.append(safe_terminal_text(f"    {explanation.remediation}"))
+    return lines
+
+
+@app.command("explain")
+def explain(
+    input_files: list[Path] = typer.Option(
+        ..., "--input", "-i", help="core.Finding JSON bundle(s) to explain (repeatable)."
+    ),
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.TABLE, "--format", help="Render as a text block (human) or json (machine)."
+    ),
+    max_files: int = typer.Option(DEFAULT_MAX_FILES, "--max-files"),
+    max_input_bytes: int = typer.Option(DEFAULT_MAX_INPUT_BYTES, "--max-input-bytes"),
+    max_items_per_file: int = typer.Option(DEFAULT_MAX_ITEMS_PER_FILE, "--max-items-per-file"),
+    max_total_items: int = typer.Option(DEFAULT_MAX_TOTAL_ITEMS, "--max-total-items"),
+) -> None:
+    """Explain why each finding is reported, how risky it is, and how sure we are.
+
+    The explanation is derived **only** from each finding's own stored fields — no
+    scanning, no network, nothing invented — separating what was observed from what
+    was inferred and stating its limits. It reuses the shared
+    ``vulcan.explain.explain_finding`` contract, so the CLI, API and reports agree
+    (`EXPL-1`/`EXPL-2`). Findings are explained in descending risk order.
+    """
+    try:
+        findings = _load_for_view(
+            input_files,
+            max_files=max_files,
+            max_input_bytes=max_input_bytes,
+            max_items_per_file=max_items_per_file,
+            max_total_items=max_total_items,
+        )
+    except _APPLICATION_ERRORS as exc:
+        typer.echo(safe_terminal_text(f"vulcan: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+
+    ordered = sorted(findings, key=lambda f: (-f.risk_score(), f.finding_id))
+    explanations = [explain_finding(finding) for finding in ordered]
+    if output_format is OutputFormat.JSON:
+        typer.echo(json.dumps([item.to_dict() for item in explanations], indent=2, sort_keys=True))
+    else:
+        blocks: list[str] = []
+        for item in explanations:
+            blocks.append("\n".join(_explanation_lines(item)))
+        typer.echo("\n\n".join(blocks))
+    typer.echo(f"vulcan: explained {len(explanations)} finding(s)", err=True)
+    raise typer.Exit(code=ExitCode.OK)
 
 
 #: Bound the NDJSON import file so a hostile file cannot exhaust memory on read.

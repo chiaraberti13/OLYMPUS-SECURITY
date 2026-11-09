@@ -311,6 +311,37 @@ olympus vulcan lifecycle \
 olympus vulcan lifecycle --snapshot run-2026-09.json --snapshot run-2026-10.json --format json
 ```
 
+## Explainability — why a finding, why this risk (`EXPL-1`)
+
+`vulcan.explain.explain_finding` builds a **shared data contract**
+(`FindingExplanation`) that answers, the same way on every surface, *why is this a
+finding, why this severity, and how sure are we?* It is the single place that
+derives that answer, so the CLI, the API and the reports agree by construction
+(`EXPL-2` wires them to this one core — no explanation logic duplicated in a
+frontend).
+
+The explanation is derived **only from the finding's own stored fields**: it
+performs no scanning, opens no network and invents nothing. It separates:
+
+- **observed** — what the finding actually carries (attached evidence, confirmed
+  KEV exploitation, CVSS, CVE/CWE identifiers, EPSS);
+- **inferred** — the contextual risk score Olympus derived;
+- **risk factors** — how that score was reached, reproduced from the *same*
+  constants the score itself uses (`SEVERITY_RISK_BASE`, `KEV_RISK_FLOOR`,
+  `CONFIDENCE_RISK_MODIFIER` in `core.models`), so the score and its explanation
+  can never diverge. Exactly one factor is marked **decisive** — the base, or a
+  KEV/EPSS floor only when it truly rose above the base — so the text never claims
+  an escalation that did not change the number;
+- **limits** — explicit caveats (no CVSS, CVE/CWE parsed from free text, no
+  evidence attached, low or missing confidence).
+
+```bash
+# Explain each finding (descending risk). Human text blocks, or --format json for
+# the full contract that the API and reports also render.
+olympus vulcan explain --input findings.json
+olympus vulcan explain --input findings.json --format json
+```
+
 ## Portability — findings and assets as NDJSON (`WEB-J`)
 
 Findings and assets move between installations and line-oriented tools as

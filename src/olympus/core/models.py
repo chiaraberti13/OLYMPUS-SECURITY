@@ -35,6 +35,25 @@ from olympus.core.ids import new_id
 _CVE_RE = re.compile(r"CVE-\d{4}-\d{4,7}", re.IGNORECASE)
 _CWE_RE = re.compile(r"CWE-\d+", re.IGNORECASE)
 
+#: Risk-score base per severity band when no CVSS is present. The single source
+#: for both :meth:`Finding.risk_score` and the finding explainability model
+#: (:mod:`olympus.vulcan.explain`, ROADMAP ``EXPL-1``), so the score and the
+#: explanation of the score can never diverge.
+SEVERITY_RISK_BASE: dict[Severity, float] = {
+    Severity.INFO: 10.0,
+    Severity.LOW: 30.0,
+    Severity.MEDIUM: 50.0,
+    Severity.HIGH: 75.0,
+    Severity.CRITICAL: 90.0,
+}
+#: CISA KEV membership (confirmed in-the-wild exploitation) raises the risk score
+#: to at least this floor; the confidence modifiers only nudge it afterwards.
+KEV_RISK_FLOOR = 95.0
+CONFIDENCE_RISK_MODIFIER: dict[Confidence, float] = {
+    Confidence.HIGH: 5.0,
+    Confidence.LOW: -10.0,
+}
+
 #: A canonical engagement id, e.g. ``ENG-2026-00001`` (see :func:`new_id`).
 _ENGAGEMENT_ID_RE = re.compile(r"ENG-\d{4}-\d{5}", re.IGNORECASE)
 
@@ -225,22 +244,13 @@ class Finding(EngagementScopedModel):
         It is computed on demand from the current fields, so it is never stale and
         adds nothing to the stored contract.
         """
-        severity_base = {
-            Severity.INFO: 10.0,
-            Severity.LOW: 30.0,
-            Severity.MEDIUM: 50.0,
-            Severity.HIGH: 75.0,
-            Severity.CRITICAL: 90.0,
-        }
-        score = self.cvss * 10.0 if self.cvss is not None else severity_base[self.severity]
+        score = self.cvss * 10.0 if self.cvss is not None else SEVERITY_RISK_BASE[self.severity]
         if self.kev:
-            score = max(score, 95.0)
+            score = max(score, KEV_RISK_FLOOR)
         elif self.epss is not None:
             score = max(score, self.epss * 100.0)
-        if self.confidence is Confidence.HIGH:
-            score += 5.0
-        elif self.confidence is Confidence.LOW:
-            score -= 10.0
+        if self.confidence is not None:
+            score += CONFIDENCE_RISK_MODIFIER.get(self.confidence, 0.0)
         return round(min(100.0, max(0.0, score)), 1)
 
 

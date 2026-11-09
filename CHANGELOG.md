@@ -12,6 +12,23 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — EXPL-1 (shared finding-explainability contract, first slice)
+
+- Core condiviso `vulcan.explain.explain_finding` → `FindingExplanation`: spiega,
+  in modo identico per ogni superficie, perché un finding è segnalato, perché quel
+  rischio e con quale affidabilità. Derivato **solo** dai campi del finding
+  (nessuna scansione, nessuna rete, nulla di inventato); separa **observed**
+  (evidenza allegata, KEV, CVSS, CVE/CWE, EPSS), **inferred** (punteggio di
+  rischio) e **limits** (caveat espliciti). Il razionale del rischio è ricostruito
+  dalle stesse costanti del punteggio — `SEVERITY_RISK_BASE`, `KEV_RISK_FLOOR`,
+  `CONFIDENCE_RISK_MODIFIER`, ora costanti pubbliche in `core.models` e unica fonte
+  anche per `Finding.risk_score` — così punteggio e spiegazione non possono
+  divergere; un solo fattore è `decisive`, e un'escalation KEV/EPSS lo è solo se ha
+  davvero alzato il punteggio. CLI `olympus vulcan explain` (blocchi testuali o
+  `--format json` col contratto completo), findings in ordine di rischio
+  decrescente. ROADMAP `EXPL-1` → parziale (restano il contratto versionato con
+  classe epistemica per campo e l'integrazione provenance/ATT&CK).
+
 ### Changed — QA (copertura di mutazione dello spacchettamento evidenze protette)
 
 - Rafforzata la copertura di mutazione di `olympus.minerva.vault._unpack`
