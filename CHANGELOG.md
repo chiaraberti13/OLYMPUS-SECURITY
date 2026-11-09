@@ -12,6 +12,17 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Fixed — compatibilità Typer (CLI forms / TUI)
+
+- Pin `typer<0.29` in `pyproject.toml`. Typer 0.29 ha sostituito i parametri Click
+  eager con una rappresentazione interna lazy (`type_descriptor` /
+  `AdapterRuntimeParam`) che non espone più `parameter.type`, rompendo
+  l'introspezione dell'albero comandi in `olympus.cli_forms` e nella TUI (21 test
+  rossi su `test_cli_forms.py`/`test_tui.py`). Il codice non modificato dipende da
+  quel contratto Click; il cap ripristina il verde su tutto il repo finché
+  l'introspezione non sarà portata alla nuova API. Deriva da dipendenza upstream,
+  non da una modifica del prodotto.
+
 ### Added — EXPL-2 (spiegazione del finding su API e report, con parità tra superfici)
 
 - Export nei **report Vulcan**: `olympus vulcan report --explanations PATH` scrive

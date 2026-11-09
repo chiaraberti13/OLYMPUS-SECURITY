@@ -11,11 +11,16 @@ requires-python = ">=3.11"
 license = { text = "GPL-3.0-only" }
 authors = [{ name = "Olympus Security" }]
 dependencies = [
-    # The TUI traverses the Click command tree emitted by Typer; keep this
-    # runtime contract explicit instead of relying on Typer's dependency set.
+    # The TUI and the guided CLI forms traverse the Click command tree emitted by
+    # Typer and read each parameter's Click ``type`` directly; keep this runtime
+    # contract explicit instead of relying on Typer's dependency set. Typer 0.29
+    # replaced eager Click parameters with a lazy internal representation
+    # (``type_descriptor`` / ``AdapterRuntimeParam``) that no longer exposes
+    # ``parameter.type``, breaking ``olympus.cli_forms`` and the TUI; cap below it
+    # until that introspection is ported to the new API.
     "click>=8.1",
     "pydantic>=2.6",
-    "typer>=0.12",
+    "typer>=0.12,<0.29",
     "dnspython>=2.6",
     "phonenumbers>=8.13",
     "rich>=13.0",
