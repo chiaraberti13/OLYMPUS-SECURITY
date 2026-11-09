@@ -27,6 +27,7 @@ from olympus.athena.scope import (
     ensure_target_allowed,
 )
 from olympus.core.coverage import Coverage, RunStatus, exit_code_for
+from olympus.core.evidence import evidence_from_bytes
 from olympus.core.execution import redact_mapping, redact_text, safe_terminal_text
 from olympus.core.exit_codes import ExitCode
 from olympus.core.models import EngagementScope, Evidence, FindingTransition
@@ -54,8 +55,12 @@ from olympus.minerva.custody import (
 )
 from olympus.minerva.provenance import _validate_command_template, _validate_reason_status
 from olympus.minerva.vault import (
+    _MAGIC,
+    _MAX_HEADER_BYTES,
     EVIDENCE_ENCRYPTION_KEY_ENV,
     ProtectedEvidenceError,
+    _pack,
+    _ProtectedMetadata,
     _unpack,
     load_evidence_encryption_key,
     load_protected_evidence,
@@ -127,9 +132,44 @@ def test_protected_evidence_mutation_boundaries(tmp_path: Path) -> None:
             load_evidence_encryption_key(
                 provider=EnvSecretProvider(environ={EVIDENCE_ENCRYPTION_KEY_ENV: invalid})
             )
-    for payload in (b"", b"OLYMPUS-EVIDENCE\x00\x01", b"OLYMPUS-EVIDENCE\x00\x01\x00\x00\x00\x00"):
-        with pytest.raises(ProtectedEvidenceError):
+    # Each tampering must fail closed on *its own* invariant: the message is
+    # matched so a mutant that routes an input to the wrong branch (or blanks the
+    # diagnostic) is caught, not just one that still raises some error.
+    for payload in (b"", b"OLYMPUS-EVIDENCE\x00\x01"):
+        with pytest.raises(ProtectedEvidenceError, match="framing"):
             _unpack(payload)
+
+    # Well-framed but tampered payloads exercise the deep validation branches
+    # (header-length bounds, metadata parse, content-length, integrity digest).
+    content = b"bounded evidence"
+    evidence = evidence_from_bytes(content, evidence_type="pcap", uri="file:///x")
+    metadata = _ProtectedMetadata(evidence=evidence, content_length=len(content))
+    header = metadata.model_dump_json().encode("utf-8")
+    valid = _pack(metadata, content)
+    assert _unpack(valid) == (metadata, content)  # the untampered frame round-trips
+    # a declared header length of 0 is below the allowed minimum
+    with pytest.raises(ProtectedEvidenceError, match="metadata length"):
+        _unpack(_MAGIC + (0).to_bytes(4, "big") + header + content)
+    # a header that fits the bounds (1 byte) but is not the full metadata frame:
+    # the length check passes and the metadata parse is what rejects it
+    with pytest.raises(ProtectedEvidenceError, match=r"metadata$"):
+        _unpack(_MAGIC + (1).to_bytes(4, "big") + header[:1] + header[1:] + content)
+    # a header length above the maximum, with a payload long enough to reach the bound
+    oversize = _MAX_HEADER_BYTES + 1
+    with pytest.raises(ProtectedEvidenceError, match="metadata length"):
+        _unpack(_MAGIC + oversize.to_bytes(4, "big") + b"{}" * oversize)
+    # correct framing around non-JSON metadata
+    garbage = b"not json at all"
+    with pytest.raises(ProtectedEvidenceError, match=r"metadata$"):
+        _unpack(_MAGIC + len(garbage).to_bytes(4, "big") + garbage + content)
+    # declared content_length no longer matches the trailing bytes
+    with pytest.raises(ProtectedEvidenceError, match="content length mismatch"):
+        _unpack(valid + b"X")
+    # same length but different bytes: content_length matches, the digest does not
+    tampered_content = b"BOUNDED EVIDENCE"
+    assert len(tampered_content) == len(content)
+    with pytest.raises(ProtectedEvidenceError, match="digest mismatch"):
+        _unpack(_pack(metadata, tampered_content))
 
     source = tmp_path / "source"
     package = tmp_path / "package"

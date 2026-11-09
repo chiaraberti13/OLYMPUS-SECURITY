@@ -12,6 +12,23 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Changed — QA (copertura di mutazione dello spacchettamento evidenze protette)
+
+- Rafforzata la copertura di mutazione di `olympus.minerva.vault._unpack`
+  (47% → **80%**), il decoder che autentica una evidenza protetta prima di
+  restituirla: framing/`_MAGIC`, limiti della lunghezza header, parse dei
+  metadata, `content_length` e **digest SHA-256** di integrità. Il test del gate
+  colpiva solo i primi controlli di framing con payload corti; ora costruisce un
+  frame valido (via `_pack`) e lo manomette per ogni invariante — header length 0
+  e oltre il massimo, header da 1 byte che non è JSON valido, metadata non-JSON,
+  `content_length` non corrispondente, e **stesso contenuto-length ma digest
+  diverso** (manomissione dell'integrità) — asserendo il *messaggio* specifico di
+  ciascun ramo, così un mutante che instrada un input al ramo sbagliato o azzera
+  la diagnostica viene ucciso. I sopravvissuti residui sono mutanti equivalenti
+  (`int.from_bytes` senza `"big"` = default già big in 3.11+; confronti al limite
+  esatto non costruibili con payload validi) o wrapper di messaggio. Nessun
+  cambiamento al codice di produzione.
+
 ### Changed — QA (copertura di mutazione dell'enforcement dello scope)
 
 - Rafforzata la copertura di mutazione di `olympus.athena.scope._reject_out_of_scope`
