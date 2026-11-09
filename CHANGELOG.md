@@ -12,6 +12,20 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Changed — QA (copertura di mutazione dell'enforcement dello scope)
+
+- Rafforzata la copertura di mutazione di `olympus.athena.scope._reject_out_of_scope`
+  (50% → **80%**), il gate che rifiuta i bersagli fuori dall'ambito autorizzato. Il
+  test del gate usava un unico dominio già normalizzato, lasciando non testata la
+  **normalizzazione del lato `allowed`** (spazi/maiuscole/punto finale) e quella del
+  lato **host** (quest'ultima mai esercitata via `ensure_target_allowed` perché
+  `host_of` pre-normalizza). Aggiunto un test che chiama il gate direttamente con un
+  host non normalizzato (`Example.COM.` in ambito) e usa una entry di scope
+  loosely-written (`" EXAMPLE.COM. "`), verificando match esatto e di dominio padre
+  senza allargare l'ambito. I sopravvissuti residui sono mutanti equivalenti
+  (`rstrip(".")` ≡ `rstrip("X.")` su stringhe già minuscole) o sul solo testo del
+  messaggio. Nessun cambiamento al codice di produzione.
+
 ### Changed — QA (copertura di mutazione del confine di autorizzazione del manifest)
 
 - Rafforzata la copertura di mutazione delle due funzioni di **autorizzazione**

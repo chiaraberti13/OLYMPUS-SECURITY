@@ -21,7 +21,11 @@ from olympus.athena.domain.assessment import (
     advance_job,
     derive_terminal_state,
 )
-from olympus.athena.scope import TargetOutOfScopeError, ensure_target_allowed
+from olympus.athena.scope import (
+    TargetOutOfScopeError,
+    _reject_out_of_scope,
+    ensure_target_allowed,
+)
 from olympus.core.coverage import Coverage, RunStatus, exit_code_for
 from olympus.core.execution import redact_mapping, redact_text, safe_terminal_text
 from olympus.core.exit_codes import ExitCode
@@ -521,6 +525,23 @@ def test_scope_gate_accepts_domain_and_subdomain_but_rejects_suffix_spoof() -> N
         ensure_target_allowed("domain", "notexample.com", allowed)
     with pytest.raises(TargetOutOfScopeError):
         ensure_target_allowed("domain", "attacker.invalid", allowed)
+
+
+def test_scope_gate_normalizes_both_host_and_allowed_entries() -> None:
+    # Allowed scope entries are normalized (surrounding space, case, trailing dot)
+    # exactly like the host, so a loosely-written engagement entry still matches —
+    # both as an exact host and as a parent domain — without widening scope.
+    assert ensure_target_allowed("domain", "example.com", (" EXAMPLE.COM. ",)) == "example.com"
+    assert (
+        ensure_target_allowed("domain", "api.example.com", (" EXAMPLE.COM. ",))
+        == "api.example.com"
+    )
+    # The host side is normalized too: a trailing-dot / upper-case host is in scope.
+    # Exercised by calling the gate directly, since host_of() pre-normalizes the
+    # host before ensure_target_allowed() ever reaches this check.
+    _reject_out_of_scope("Example.COM.", ("example.com",))  # in scope: must not raise
+    with pytest.raises(TargetOutOfScopeError):
+        _reject_out_of_scope("notexample.com", ("example.com",))
 
 
 def test_themis_lab_scope_requires_intersection_for_every_resolved_address() -> None:
