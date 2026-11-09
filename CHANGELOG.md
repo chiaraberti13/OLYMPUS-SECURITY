@@ -12,6 +12,18 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — EXPL-2 (spiegazione del finding sull'API, con parità CLI↔API)
+
+- Nuovo endpoint API `POST /api/v1/vulcan/explain` (scope `findings:read`):
+  prende un `olympus.finding` e restituisce lo stesso contratto
+  `olympus.finding-explanation` reso dalla CLI `olympus vulcan explain`, tramite
+  l'unico core `vulcan.explain.explain_finding`. Trasformazione **pura e offline**
+  (nessuna scansione, nessuna richiesta di rete dal server). **Test di parità** che
+  API, CLI e core producono la medesima spiegazione per lo stesso finding, così
+  nessuna superficie può divergere; scope `findings:read` applicato (403 senza, 401
+  senza credenziale). `openapi.json` rigenerato. ROADMAP `EXPL-2` → parziale
+  (restano l'export nei report Vulcan e la Web UI via `WEB-8`).
+
 ### Added — EXPL-1 (classi epistemiche e contratto versionato di spiegabilità)
 
 - Tassonomia epistemica condivisa `core.enums.EpistemicClass` (`observed_evidence`

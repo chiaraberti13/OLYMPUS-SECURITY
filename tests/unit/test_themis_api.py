@@ -464,6 +464,73 @@ def test_artemis_fingerprint_is_offline_and_versioned(tmp_path: Path) -> None:
     assert body["fingerprint_count"] == len(body["fingerprints"])
 
 
+_EXPLAIN_FINDING = {
+    "finding_id": "FND-2026-00001",
+    "asset_id": "AST-1",
+    "source": "artemis",
+    "title": "RCE in widget",
+    "severity": "high",
+    "cvss": 9.8,
+    "kev": True,
+    "cve": ["CVE-2024-0001"],
+    "evidence": ["ev-1"],
+    "remediation": "Upgrade to 2.0",
+}
+
+
+def test_vulcan_explain_returns_the_versioned_contract(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    response = client.post("/api/v1/vulcan/explain", headers=AUTH, json=_EXPLAIN_FINDING)
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["schema_name"] == "olympus.finding-explanation"
+    assert body["schema_version"] == "1.0.0"
+    # CVSS 9.8 -> base 98, above the KEV floor (95), no confidence nudge.
+    assert body["risk_score"] == 98.0
+    # Every claim is epistemically classified; the score is a deterministic result.
+    classes = {s["epistemic_class"] for s in body["statements"]}
+    assert "observed_evidence" in classes
+    score_claim = next(s for s in body["statements"] if "risk score" in s["text"])
+    assert score_claim["epistemic_class"] == "deterministic_result"
+
+
+def test_vulcan_explain_requires_the_findings_read_scope(tmp_path: Path) -> None:
+    scopes = tmp_path / "scopes"
+    _scope(scopes)
+    client = TestClient(
+        create_app(
+            ApiSettings(
+                database=tmp_path / "jobs.sqlite3",
+                scope_directory=scopes,
+                api_key=API_KEY,
+                api_key_scopes=("capabilities:read",),
+            )
+        )
+    )
+    response = client.post("/api/v1/vulcan/explain", headers=AUTH, json=_EXPLAIN_FINDING)
+    assert response.status_code == 403
+
+
+def test_vulcan_explain_api_matches_the_shared_core_and_cli(tmp_path: Path) -> None:
+    # EXPL-2 parity: the API, the CLI and the core all render the same explanation.
+    from olympus.core.models import Finding
+    from olympus.vulcan.explain import explain_finding
+
+    finding = Finding(**_EXPLAIN_FINDING)  # type: ignore[arg-type]
+    expected = explain_finding(finding).to_dict()
+
+    api = (
+        _client(tmp_path).post("/api/v1/vulcan/explain", headers=AUTH, json=_EXPLAIN_FINDING).json()
+    )
+    assert api == expected
+
+    bundle = tmp_path / "f.json"
+    bundle.write_text(json.dumps([json.loads(finding.model_dump_json())]), encoding="utf-8")
+    cli = CliRunner().invoke(app, ["vulcan", "explain", "-i", str(bundle), "--format", "json"])
+    assert cli.exit_code == 0, cli.output
+    assert json.loads(cli.stdout) == [expected]
+
+
 def test_artemis_fingerprint_rejects_an_invalid_status(tmp_path: Path) -> None:
     client = _client(tmp_path)
     response = client.post(

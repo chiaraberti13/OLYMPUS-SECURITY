@@ -354,6 +354,12 @@ olympus vulcan explain --input findings.json
 olympus vulcan explain --input findings.json --format json
 ```
 
+The **same core** backs the API (`EXPL-2`): `POST /api/v1/vulcan/explain` (scope
+`findings:read`) takes one `olympus.finding` and returns the identical
+`olympus.finding-explanation` contract — a pure, offline transform that opens no
+network. A parity test pins CLI, API and `explain_finding` to the same output for
+the same finding, so no surface can drift.
+
 ## Portability — findings and assets as NDJSON (`WEB-J`)
 
 Findings and assets move between installations and line-oriented tools as
