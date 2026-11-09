@@ -63,6 +63,28 @@ class Confidence(StrEnum):
     HIGH = "high"
 
 
+class EpistemicClass(StrEnum):
+    """What kind of knowledge a statement is (ROADMAP ``EXPL-1``/``CORR-1``).
+
+    Shared across explainability (`EXPL-1`) and correlation (`CORR-1`) so every
+    surface labels a claim by how it is known. The ordering is from strongest to
+    weakest epistemic standing; a weaker class must never be presented as a
+    stronger one (an inference is not an observation, a hypothesis is not a
+    demonstrated compromise).
+    """
+
+    #: Directly recorded by a tool/scanner or attached as evidence.
+    OBSERVED_EVIDENCE = "observed_evidence"
+    #: Produced by a deterministic rule/computation over observed inputs.
+    DETERMINISTIC_RESULT = "deterministic_result"
+    #: Derived by reasoning over observed inputs (may be wrong).
+    INFERENCE = "inference"
+    #: A relationship proposed between items, still to be confirmed.
+    SUGGESTED_CORRELATION = "suggested_correlation"
+    #: An unproven possibility; never a demonstrated fact.
+    UNVERIFIED_HYPOTHESIS = "unverified_hypothesis"
+
+
 class Criticality(StrEnum):
     """Business criticality of an asset."""
 

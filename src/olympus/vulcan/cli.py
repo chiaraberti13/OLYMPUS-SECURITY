@@ -931,13 +931,15 @@ def _explanation_lines(explanation: FindingExplanation) -> list[str]:
     for item in explanation.risk_factors:
         marker = "*" if item.decisive else "-"
         lines.append(safe_terminal_text(f"    {marker} {item.detail}"))
-    for label, entries in (
-        ("Observed", explanation.observed),
-        ("Inferred", explanation.inferred),
-        ("Limits", explanation.limits),
-    ):
+    # Each claim is shown with its epistemic class so a reader never mistakes a
+    # derived value for an observation.
+    for label, entries in (("Observed", explanation.observed), ("Derived", explanation.derived)):
         lines.append(f"  {label}:")
-        lines.extend(safe_terminal_text(f"    - {entry}") for entry in entries)
+        lines.extend(
+            safe_terminal_text(f"    - [{s.epistemic_class.value}] {s.text}") for s in entries
+        )
+    lines.append("  Limits:")
+    lines.extend(safe_terminal_text(f"    - {entry}") for entry in explanation.limits)
     if explanation.remediation:
         lines.append("  Remediation:")
         lines.append(safe_terminal_text(f"    {explanation.remediation}"))

@@ -321,12 +321,24 @@ derives that answer, so the CLI, the API and the reports agree by construction
 frontend).
 
 The explanation is derived **only from the finding's own stored fields**: it
-performs no scanning, opens no network and invents nothing. It separates:
+performs no scanning, opens no network and invents nothing. It is a **versioned
+contract** (`olympus.finding-explanation` 1.0.0), and every claim carries an
+**epistemic class** (`core.enums.EpistemicClass`, shared with correlation
+`CORR-1`) so a weaker claim is never shown as a stronger one:
 
-- **observed** — what the finding actually carries (attached evidence, confirmed
-  KEV exploitation, CVSS, CVE/CWE identifiers, EPSS);
-- **inferred** — the contextual risk score Olympus derived;
-- **risk factors** — how that score was reached, reproduced from the *same*
+- **observed_evidence** — what the finding actually carries (attached evidence,
+  confirmed KEV exploitation, CVSS, EPSS, and CVE/CWE ids from a *structured*
+  field);
+- **inference** — a claim derived by reasoning, e.g. a CVE/CWE id *parsed from
+  free text* (weaker than a structured identifier, so labelled as such);
+- **deterministic_result** — the contextual risk score, a pure computation over
+  the fields above (never presented as an observation);
+- `suggested_correlation` and `unverified_hypothesis` complete the taxonomy for
+  `CORR-1` / future classes.
+
+Alongside the classified `statements` it carries:
+
+- **risk factors** — how the score was reached, reproduced from the *same*
   constants the score itself uses (`SEVERITY_RISK_BASE`, `KEV_RISK_FLOOR`,
   `CONFIDENCE_RISK_MODIFIER` in `core.models`), so the score and its explanation
   can never diverge. Exactly one factor is marked **decisive** — the base, or a

@@ -14,10 +14,10 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from olympus.cli import app
-from olympus.core.enums import Confidence, Severity, Source
+from olympus.core.enums import Confidence, EpistemicClass, Severity, Source
 from olympus.core.exit_codes import ExitCode
 from olympus.core.models import Finding
-from olympus.vulcan.explain import explain_finding
+from olympus.vulcan.explain import SCHEMA_NAME, SCHEMA_VERSION, explain_finding
 
 runner = CliRunner()
 
@@ -87,14 +87,39 @@ def test_confidence_is_a_nudge_never_decisive() -> None:
     assert confidence.decisive is False
 
 
-def test_observed_separates_evidence_and_intelligence() -> None:
+def test_observed_statements_are_classified_as_observed_evidence() -> None:
     explanation = explain_finding(
         _finding(cvss=7.5, kev=True, cve=["CVE-2024-0001"], evidence=["e1", "e2"])
     )
-    observed = " ".join(explanation.observed)
+    observed = " ".join(s.text for s in explanation.observed)
     assert "2 evidence" in observed
     assert "KEV" in observed
     assert "CVE-2024-0001" in observed
+    assert all(s.epistemic_class is EpistemicClass.OBSERVED_EVIDENCE for s in explanation.observed)
+
+
+def test_risk_score_is_a_deterministic_result_never_an_observation() -> None:
+    # The core EXPL-1 guard: a derived value must never be labelled observed.
+    explanation = explain_finding(_finding(cvss=9.8, kev=True))
+    score_claims = [s for s in explanation.statements if "risk score" in s.text]
+    assert len(score_claims) == 1
+    assert score_claims[0].epistemic_class is EpistemicClass.DETERMINISTIC_RESULT
+    assert all(
+        s.epistemic_class is not EpistemicClass.OBSERVED_EVIDENCE
+        for s in explanation.statements
+        if "risk score" in s.text
+    )
+
+
+def test_structured_identifier_is_observed_but_text_derived_is_only_inference() -> None:
+    structured = explain_finding(_finding(cve=["CVE-2024-0001"]))
+    cve_claim = next(s for s in structured.statements if "CVE-2024-0001" in s.text)
+    assert cve_claim.epistemic_class is EpistemicClass.OBSERVED_EVIDENCE
+
+    text_derived = explain_finding(_finding(title="RCE per CVE-2024-0002 nel modulo"))
+    assert text_derived.cve == ("CVE-2024-0002",)
+    derived_claim = next(s for s in text_derived.statements if "CVE-2024-0002" in s.text)
+    assert derived_claim.epistemic_class is EpistemicClass.INFERENCE
 
 
 def test_limits_flag_text_derived_identifiers_and_missing_data() -> None:
@@ -112,13 +137,18 @@ def test_low_confidence_is_called_out_as_a_lead() -> None:
     assert any("lead to verify" in limit for limit in explanation.limits)
 
 
-def test_to_dict_is_json_serialisable_and_complete() -> None:
+def test_to_dict_is_versioned_json_serialisable_and_complete() -> None:
     explanation = explain_finding(_finding(cvss=9.8, kev=True, remediation="Upgrade"))
     payload = json.loads(json.dumps(explanation.to_dict()))
+    assert payload["schema_name"] == SCHEMA_NAME
+    assert payload["schema_version"] == SCHEMA_VERSION
     assert payload["risk_score"] == explanation.risk_score
     assert payload["remediation"] == "Upgrade"
     assert payload["risk_factors"][0]["factor"] == "cvss-base"
-    assert isinstance(payload["observed"], list)
+    # Every statement carries a valid epistemic class.
+    classes = {EpistemicClass(s["epistemic_class"]) for s in payload["statements"]}
+    assert classes  # non-empty
+    assert all(isinstance(s["text"], str) for s in payload["statements"])
 
 
 # ---------------------------------------------------------------------------
