@@ -26,6 +26,9 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict
 
 from olympus.core.enums import Confidence, EpistemicClass
 from olympus.core.models import (
@@ -45,6 +48,77 @@ SCHEMA_VERSION = "1.0.0"
 #: document a Vulcan report writes alongside its JSON (`EXPL-2`).
 EXPLANATIONS_SCHEMA_NAME = "olympus.finding-explanations"
 EXPLANATIONS_SCHEMA_VERSION = "1.0.0"
+
+
+# ---------------------------------------------------------------------------
+# Published contract models (JSON Schema catalog, EXPL-1)
+#
+# These Pydantic models are the machine-readable boundary for the explanation
+# contract. The pure core below (:class:`FindingExplanation`) is the ergonomic
+# in-process type; its ``to_dict`` output validates against these models, pinned
+# by a round-trip test, so the published schema and the core can never diverge.
+# ---------------------------------------------------------------------------
+
+
+class _StatementModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    text: str
+    epistemic_class: EpistemicClass
+
+
+class _RiskFactorModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    factor: str
+    detail: str
+    decisive: bool
+
+
+class _AttackRefModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    technique: str
+    name: str
+    tactic: str
+    confidence: Confidence
+    rationale: str
+    source: str
+
+
+class FindingExplanationDocument(BaseModel):
+    """The versioned, published shape of one finding explanation (``EXPL-1``)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_name: Literal["olympus.finding-explanation"] = "olympus.finding-explanation"
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    finding_id: str
+    title: str
+    asset_id: str
+    source: str
+    severity: str
+    status: str
+    risk_score: float
+    summary: str
+    risk_factors: list[_RiskFactorModel]
+    statements: list[_StatementModel]
+    limits: list[str]
+    cve: list[str]
+    cwe: list[str]
+    attack: list[_AttackRefModel]
+    remediation: str | None = None
+
+
+class FindingExplanationsDocument(BaseModel):
+    """The versioned, published shape of a collection of explanations (``EXPL-2``)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_name: Literal["olympus.finding-explanations"] = "olympus.finding-explanations"
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    count: int
+    explanations: list[FindingExplanationDocument]
 
 
 @dataclass(frozen=True)
@@ -393,6 +467,8 @@ __all__ = [
     "SCHEMA_NAME",
     "SCHEMA_VERSION",
     "FindingExplanation",
+    "FindingExplanationDocument",
+    "FindingExplanationsDocument",
     "RiskFactor",
     "Statement",
     "explain_finding",

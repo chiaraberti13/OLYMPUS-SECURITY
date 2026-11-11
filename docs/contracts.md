@@ -24,6 +24,7 @@ reject newer versions. Themis job storage maintains its own physical version.
 | Incident | `olympus.incident` | `1.0.0` | Minerva triage producer; report consumers |
 | Custody ledger | `olympus.custody` | `2.0.0` | Minerva record/verify/timeline; evidence digest anchors |
 | Security report | `olympus.security-report` | `1.1.0` | Vulcan and Athena report adapter; CLI/API/report readers |
+| Finding explanation | `olympus.finding-explanation` | `1.0.0` | `vulcan.explain` core; CLI `vulcan explain`, API `/api/v1/vulcan/explain`, report `--explanations` companion (`olympus.finding-explanations`) |
 
 Apollo alerts carry the source `rule_id` and validated `mitre_attack` techniques;
 their optional introduction is compatible within `1.0.0`. Athena job results are

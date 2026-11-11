@@ -1,0 +1,263 @@
+{
+  "$defs": {
+    "Confidence": {
+      "description": "How confident Olympus is that a finding is a true positive.",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "title": "Confidence",
+      "type": "string"
+    },
+    "EpistemicClass": {
+      "description": "What kind of knowledge a statement is (ROADMAP ``EXPL-1``/``CORR-1``).\n\nShared across explainability (`EXPL-1`) and correlation (`CORR-1`) so every\nsurface labels a claim by how it is known. The ordering is from strongest to\nweakest epistemic standing; a weaker class must never be presented as a\nstronger one (an inference is not an observation, a hypothesis is not a\ndemonstrated compromise).",
+      "enum": [
+        "observed_evidence",
+        "deterministic_result",
+        "inference",
+        "suggested_correlation",
+        "unverified_hypothesis"
+      ],
+      "title": "EpistemicClass",
+      "type": "string"
+    },
+    "FindingExplanationDocument": {
+      "additionalProperties": false,
+      "description": "The versioned, published shape of one finding explanation (``EXPL-1``).",
+      "properties": {
+        "asset_id": {
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "attack": {
+          "items": {
+            "$ref": "#/$defs/_AttackRefModel"
+          },
+          "title": "Attack",
+          "type": "array"
+        },
+        "cve": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Cve",
+          "type": "array"
+        },
+        "cwe": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Cwe",
+          "type": "array"
+        },
+        "finding_id": {
+          "title": "Finding Id",
+          "type": "string"
+        },
+        "limits": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limits",
+          "type": "array"
+        },
+        "remediation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Remediation"
+        },
+        "risk_factors": {
+          "items": {
+            "$ref": "#/$defs/_RiskFactorModel"
+          },
+          "title": "Risk Factors",
+          "type": "array"
+        },
+        "risk_score": {
+          "title": "Risk Score",
+          "type": "number"
+        },
+        "schema_name": {
+          "const": "olympus.finding-explanation",
+          "default": "olympus.finding-explanation",
+          "title": "Schema Name",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "severity": {
+          "title": "Severity",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "statements": {
+          "items": {
+            "$ref": "#/$defs/_StatementModel"
+          },
+          "title": "Statements",
+          "type": "array"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "finding_id",
+        "title",
+        "asset_id",
+        "source",
+        "severity",
+        "status",
+        "risk_score",
+        "summary",
+        "risk_factors",
+        "statements",
+        "limits",
+        "cve",
+        "cwe",
+        "attack"
+      ],
+      "title": "FindingExplanationDocument",
+      "type": "object"
+    },
+    "_AttackRefModel": {
+      "additionalProperties": false,
+      "properties": {
+        "confidence": {
+          "$ref": "#/$defs/Confidence"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "rationale": {
+          "title": "Rationale",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "tactic": {
+          "title": "Tactic",
+          "type": "string"
+        },
+        "technique": {
+          "title": "Technique",
+          "type": "string"
+        }
+      },
+      "required": [
+        "technique",
+        "name",
+        "tactic",
+        "confidence",
+        "rationale",
+        "source"
+      ],
+      "title": "_AttackRefModel",
+      "type": "object"
+    },
+    "_RiskFactorModel": {
+      "additionalProperties": false,
+      "properties": {
+        "decisive": {
+          "title": "Decisive",
+          "type": "boolean"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "factor": {
+          "title": "Factor",
+          "type": "string"
+        }
+      },
+      "required": [
+        "factor",
+        "detail",
+        "decisive"
+      ],
+      "title": "_RiskFactorModel",
+      "type": "object"
+    },
+    "_StatementModel": {
+      "additionalProperties": false,
+      "properties": {
+        "epistemic_class": {
+          "$ref": "#/$defs/EpistemicClass"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "epistemic_class"
+      ],
+      "title": "_StatementModel",
+      "type": "object"
+    }
+  },
+  "$id": "urn:olympus:schema:olympus.finding-explanations:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "The versioned, published shape of a collection of explanations (``EXPL-2``).",
+  "properties": {
+    "count": {
+      "title": "Count",
+      "type": "integer"
+    },
+    "explanations": {
+      "items": {
+        "$ref": "#/$defs/FindingExplanationDocument"
+      },
+      "title": "Explanations",
+      "type": "array"
+    },
+    "schema_name": {
+      "const": "olympus.finding-explanations",
+      "default": "olympus.finding-explanations",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "count",
+    "explanations"
+  ],
+  "title": "FindingExplanationsDocument",
+  "type": "object"
+}

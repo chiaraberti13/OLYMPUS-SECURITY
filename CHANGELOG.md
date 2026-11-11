@@ -12,6 +12,18 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — EXPL-1 (JSON Schema della spiegazione nel catalogo contratti)
+
+- Pubblicati nel catalogo contratti (`schema_catalog`, golden in `schemas/`) i due
+  contratti versionati della spiegabilità: `olympus.finding-explanation` 1.0.0 e
+  `olympus.finding-explanations` 1.0.0, tramite i modelli Pydantic canonici
+  `FindingExplanationDocument` / `FindingExplanationsDocument` (JSON Schema
+  draft 2020-12, `extra="forbid"`). Un test di **round-trip** assicura che
+  l'output `to_dict` del core puro valida e ri-serializza identico contro lo schema
+  pubblicato — schema e core non possono divergere — e che un campo sconosciuto è
+  rifiutato. Chiude il punto "JSON Schema versionato nel catalogo contratti"
+  di `EXPL-1`.
+
 ### Added — EXPL-1 (riferimenti ATT&CK nella spiegazione del finding)
 
 - La spiegazione del finding ora include i **riferimenti ATT&CK** derivati dal CWE

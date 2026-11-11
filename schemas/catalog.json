@@ -106,6 +106,20 @@
       "sha256": "f2bb7ceac01764c5cf4e51ee56408f66634f82fe91b703dd52b5e2f6cf4d9f23"
     },
     {
+      "direction": "output",
+      "name": "olympus.finding-explanation",
+      "path": "contracts/olympus.finding-explanation/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "5948d679985278533fe3de8876b4290af4e1060b7234254ea82fe9e78546c5aa"
+    },
+    {
+      "direction": "output",
+      "name": "olympus.finding-explanations",
+      "path": "contracts/olympus.finding-explanations/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "6d98ac3f8030b1ac33d846bdd5f713d6c05abb1fea35a5194bd2514ee97b61f6"
+    },
+    {
       "direction": "shared",
       "name": "olympus.finding-transition",
       "path": "contracts/olympus.finding-transition/1.0.0.schema.json",
