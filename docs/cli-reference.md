@@ -1745,6 +1745,19 @@ Map offensive findings to MITRE ATT&CK techniques (OPS-RED).
 | `--max-items-per-file` | option | no | `100000` | — |
 | `--max-total-items` | option | no | `200000` | — |
 
+### `olympus vulcan correlate`
+
+Correlate findings across the shared contract (`CORR-1`): what relates to what.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--findings` | option | yes | — | core.Finding JSON file(s) to correlate (repeatable). |
+| `--format` | option | no | `table` | Render as a table (human) or json (machine). |
+| `--max-files` | option | no | `100` | — |
+| `--max-input-bytes` | option | no | `50000000` | — |
+| `--max-items-per-file` | option | no | `100000` | — |
+| `--max-total-items` | option | no | `200000` | — |
+
 ### `olympus vulcan decrypt-bundle`
 
 Decrypt a bundle envelope produced by ``encrypt-bundle`` (SEC-E).

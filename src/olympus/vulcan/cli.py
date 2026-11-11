@@ -70,6 +70,7 @@ from olympus.vulcan.attack import (
     technique_counts,
 )
 from olympus.vulcan.compare import ScanDiff, diff_findings
+from olympus.vulcan.correlate import correlations_document
 from olympus.vulcan.enrichment import (
     DEFAULT_MAX_FEED_BYTES,
     CatalogProvenance,
@@ -1004,6 +1005,68 @@ def explain(
             blocks.append("\n".join(_explanation_lines(item)))
         typer.echo("\n\n".join(blocks))
     typer.echo(f"vulcan: explained {len(explanations)} finding(s)", err=True)
+    raise typer.Exit(code=ExitCode.OK)
+
+
+@app.command("correlate")
+def correlate(
+    findings: list[Path] = typer.Option(
+        ..., "--findings", help="core.Finding JSON file(s) to correlate (repeatable)."
+    ),
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.TABLE, "--format", help="Render as a table (human) or json (machine)."
+    ),
+    max_files: int = typer.Option(DEFAULT_MAX_FILES, "--max-files"),
+    max_input_bytes: int = typer.Option(DEFAULT_MAX_INPUT_BYTES, "--max-input-bytes"),
+    max_items_per_file: int = typer.Option(DEFAULT_MAX_ITEMS_PER_FILE, "--max-items-per-file"),
+    max_total_items: int = typer.Option(DEFAULT_MAX_TOTAL_ITEMS, "--max-total-items"),
+) -> None:
+    """Correlate findings across the shared contract (`CORR-1`): what relates to what.
+
+    Derives deterministic relationships — the same asset reported by two or more
+    tool sources (**asset-overlap**), and the same CVE across two or more assets
+    (**shared-cve**) — from the shared ``olympus.finding`` contract. Each
+    correlation is traceable (its members and sources), motivated (a reason) and
+    graded with a confidence and an epistemic class; these are joins on identity,
+    never a claim of compromise. Reuses ``vulcan.correlate.correlations_document``
+    so every surface agrees. Pure and offline.
+    """
+    try:
+        loaded = _load_for_view(
+            findings,
+            max_files=max_files,
+            max_input_bytes=max_input_bytes,
+            max_items_per_file=max_items_per_file,
+            max_total_items=max_total_items,
+        )
+    except _APPLICATION_ERRORS as exc:
+        typer.echo(safe_terminal_text(f"vulcan: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+
+    document = correlations_document(loaded)
+    correlations = document["correlations"]
+    assert isinstance(correlations, list)  # noqa: S101 - shape from the versioned builder
+    if output_format is OutputFormat.JSON:
+        typer.echo(json.dumps(document, indent=2, sort_keys=True))
+    else:
+        rows = [
+            [
+                str(item["kind"]),
+                safe_terminal_text(str(item["key"])),
+                str(len(item["members"])),
+                safe_terminal_text(", ".join(item["sources"])),
+                str(item["epistemic_class"]),
+            ]
+            for item in correlations
+        ]
+        typer.echo(
+            render_table(
+                ["kind", "key", "members", "sources", "epistemic class"],
+                rows,
+                title="Correlations",
+            )
+        )
+    typer.echo(f"vulcan: {len(correlations)} correlation(s)", err=True)
     raise typer.Exit(code=ExitCode.OK)
 
 

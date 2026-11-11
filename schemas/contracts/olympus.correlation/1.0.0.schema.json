@@ -1,0 +1,87 @@
+{
+  "$defs": {
+    "Confidence": {
+      "description": "How confident Olympus is that a finding is a true positive.",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "title": "Confidence",
+      "type": "string"
+    },
+    "EpistemicClass": {
+      "description": "What kind of knowledge a statement is (ROADMAP ``EXPL-1``/``CORR-1``).\n\nShared across explainability (`EXPL-1`) and correlation (`CORR-1`) so every\nsurface labels a claim by how it is known. The ordering is from strongest to\nweakest epistemic standing; a weaker class must never be presented as a\nstronger one (an inference is not an observation, a hypothesis is not a\ndemonstrated compromise).",
+      "enum": [
+        "observed_evidence",
+        "deterministic_result",
+        "inference",
+        "suggested_correlation",
+        "unverified_hypothesis"
+      ],
+      "title": "EpistemicClass",
+      "type": "string"
+    }
+  },
+  "$id": "urn:olympus:schema:olympus.correlation:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "The versioned, published shape of one correlation (``CORR-1``).",
+  "properties": {
+    "confidence": {
+      "$ref": "#/$defs/Confidence"
+    },
+    "epistemic_class": {
+      "$ref": "#/$defs/EpistemicClass"
+    },
+    "key": {
+      "title": "Key",
+      "type": "string"
+    },
+    "kind": {
+      "title": "Kind",
+      "type": "string"
+    },
+    "members": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Members",
+      "type": "array"
+    },
+    "reason": {
+      "title": "Reason",
+      "type": "string"
+    },
+    "schema_name": {
+      "const": "olympus.correlation",
+      "default": "olympus.correlation",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "sources": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Sources",
+      "type": "array"
+    }
+  },
+  "required": [
+    "kind",
+    "key",
+    "members",
+    "sources",
+    "reason",
+    "confidence",
+    "epistemic_class"
+  ],
+  "title": "CorrelationModel",
+  "type": "object"
+}
