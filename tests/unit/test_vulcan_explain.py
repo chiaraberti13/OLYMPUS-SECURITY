@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from olympus.cli import app
@@ -22,6 +23,8 @@ from olympus.vulcan.explain import (
     EXPLANATIONS_SCHEMA_VERSION,
     SCHEMA_NAME,
     SCHEMA_VERSION,
+    FindingExplanationDocument,
+    FindingExplanationsDocument,
     explain_finding,
     explanations_document,
 )
@@ -228,6 +231,30 @@ def test_one_finding_exercises_the_core_epistemic_classes() -> None:
     assert EpistemicClass.DETERMINISTIC_RESULT in classes
     assert EpistemicClass.SUGGESTED_CORRELATION in classes
     assert EpistemicClass.INFERENCE in classes  # the free-text CVE id
+
+
+def test_to_dict_validates_and_round_trips_the_published_contract() -> None:
+    # EXPL-1 JSON Schema catalog: the pure core's output IS the published contract,
+    # so the schema and the core can never drift.
+    explanation = explain_finding(
+        _finding("Injection via CVE-2024-9999", cwe=["CWE-89"], cvss=9.0, kev=True, evidence=["e"])
+    )
+    document = explanation.to_dict()
+    assert FindingExplanationDocument.model_validate(document).model_dump(mode="json") == document
+
+
+def test_explanations_document_validates_the_published_collection_contract() -> None:
+    collection = explanations_document([_finding("A", cwe=["CWE-89"]), _finding("B", asset_id="X")])
+    assert (
+        FindingExplanationsDocument.model_validate(collection).model_dump(mode="json") == collection
+    )
+
+
+def test_published_contract_rejects_an_unknown_field() -> None:
+    document = explain_finding(_finding("X")).to_dict()
+    document["sneaky"] = "nope"
+    with pytest.raises(ValueError, match="not permitted"):
+        FindingExplanationDocument.model_validate(document)
 
 
 def test_cli_explain_reports_a_bad_bundle_as_usage_error(tmp_path: Path) -> None:
