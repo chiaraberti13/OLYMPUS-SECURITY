@@ -14,14 +14,17 @@ Every correlation is, per ``CORR-1``:
 - **graded** — it carries a ``confidence`` and an
   :class:`~olympus.core.enums.EpistemicClass` (the same taxonomy as ``EXPL-1``).
 
-The correlations here are **deterministic joins on identity** (a shared asset id,
+Most correlations here are **deterministic joins on identity** (a shared asset id,
 a shared CVE id, a shared Minerva evidence artifact), so they are
 ``deterministic_result`` facts, never a hypothesis and **never a claim of
 compromise** — a correlation is a relationship, not proof that an attacker used
-it. Weaker, inferred relationships (suggested exposure paths) will carry
-``suggested_correlation``/``unverified_hypothesis`` when later slices add them.
-The computation is pure and offline: it reads already-loaded findings and talks
-to no network, so it is fully deterministic.
+it. One kind is deliberately weaker: an **IOC↔event** match (a Metis indicator
+value observed in an Apollo event) is a CTI *lead*, not proof the event is the
+entity the intel meant, so it carries ``suggested_correlation`` — honouring the
+rule that a hypothesis is never presented as a fact. ``unverified_hypothesis``
+remains reserved for still weaker, inferred relationships added by later slices.
+The computation is pure and offline: it reads already-loaded findings, indicators
+and events and talks to no network, so it is fully deterministic.
 """
 
 from __future__ import annotations
@@ -33,7 +36,8 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict
 
 from olympus.core.enums import Confidence, EpistemicClass
-from olympus.core.models import Finding
+from olympus.core.models import Event, Finding
+from olympus.metis.models import Indicator
 from olympus.vulcan.aggregate import merge_duplicate_findings
 
 #: Versioned identity of one correlation record.
@@ -43,8 +47,9 @@ SCHEMA_VERSION = "1.0.0"
 CORRELATIONS_SCHEMA_NAME = "olympus.correlations"
 CORRELATIONS_SCHEMA_VERSION = "1.0.0"
 
-#: The relationship kinds this first slice derives. All are deterministic joins.
-CorrelationKind = Literal["asset-overlap", "shared-cve", "shared-evidence"]
+#: The relationship kinds this slice derives. The first three are deterministic
+#: joins on identity; ``ioc-event`` is a weaker, ``suggested_correlation`` lead.
+CorrelationKind = Literal["asset-overlap", "shared-cve", "shared-evidence", "ioc-event"]
 
 
 @dataclass(frozen=True)
@@ -103,6 +108,18 @@ class CorrelationsDocument(BaseModel):
 
 def _sort_key(correlation: Correlation) -> tuple[str, str]:
     return (correlation.kind, correlation.key)
+
+
+def _normalize_observable(value: object) -> str:
+    """Normalise an indicator value or event observable for exact matching.
+
+    A single, symmetric rule applied to both sides: strip surrounding whitespace
+    and lower-case. This makes the match case-insensitive for domains, URLs,
+    e-mail addresses, hashes and CVE ids (where case is not significant) without
+    affecting IPv4/IPv6 literals. Matching is exact, never substring, so a value
+    only correlates when an event genuinely observed that same value.
+    """
+    return str(value).strip().lower()
 
 
 def correlate_findings(findings: Sequence[Finding]) -> tuple[Correlation, ...]:
@@ -210,9 +227,104 @@ def correlate_findings(findings: Sequence[Finding]) -> tuple[Correlation, ...]:
     return tuple(sorted(correlations, key=_sort_key))
 
 
-def correlations_document(findings: Sequence[Finding]) -> dict[str, object]:
-    """Build the versioned ``olympus.correlations`` document for a finding set."""
-    correlations = correlate_findings(findings)
+def correlate_indicators_with_events(
+    indicators: Sequence[Indicator],
+    events: Sequence[Event],
+) -> tuple[Correlation, ...]:
+    """Correlate Metis threat-intel indicators with Apollo events (``ioc-event``).
+
+    A cross-module relationship: a Metis :class:`~olympus.metis.models.Indicator`
+    value that is **observed** in an Apollo :class:`~olympus.core.models.Event`
+    (in any attribute value or the event's ``asset_id``) links the intel to the
+    telemetry. This is a CTI *lead*, not proof — an indicator value matching an
+    observable does not establish that the event is the entity the intel meant
+    (addresses and domains are reused, shared, and reassigned), so every match is
+    graded ``suggested_correlation`` with ``medium`` confidence and **never**
+    asserts compromise. Matching is exact on a normalised value (see
+    :func:`_normalize_observable`), so the computation is pure and deterministic.
+
+    Indicators sharing the same ``indicator_type``/value are folded into one
+    correlation; the output is ordered deterministically by ``(kind, key)``.
+    """
+    # Inverted index: normalised observable -> ordered event ids / sources.
+    events_by_observable: dict[str, dict[str, None]] = {}
+    sources_by_observable: dict[str, dict[str, None]] = {}
+    for event in events:
+        observables: dict[str, None] = {}
+        for raw in (event.asset_id, *event.attributes.values()):
+            normalized = _normalize_observable(raw)
+            if normalized:
+                observables[normalized] = None
+        for normalized in observables:
+            events_by_observable.setdefault(normalized, {})[event.event_id] = None
+            sources_by_observable.setdefault(normalized, {})[event.source.value] = None
+
+    # Fold indicators that share a logical identity (type + normalised value).
+    folded: dict[tuple[str, str], dict[str, object]] = {}
+    for indicator in indicators:
+        normalized = _normalize_observable(indicator.value)
+        if not normalized:
+            continue
+        identity = (indicator.indicator_type.value, normalized)
+        entry = folded.setdefault(
+            identity,
+            {"value": indicator.value, "cti_sources": {}},
+        )
+        cti_sources = entry["cti_sources"]
+        assert isinstance(cti_sources, dict)  # noqa: S101 - local accumulator shape
+        cti_sources[indicator.source] = None
+
+    correlations: list[Correlation] = []
+    for (indicator_type, normalized), entry in folded.items():
+        matched_events = events_by_observable.get(normalized)
+        if not matched_events:
+            continue
+        member_list = tuple(sorted(matched_events))
+        source_list = tuple(sorted(sources_by_observable[normalized]))
+        cti_sources = entry["cti_sources"]
+        assert isinstance(cti_sources, dict)  # noqa: S101 - local accumulator shape
+        cti_source_list = ", ".join(sorted(cti_sources))
+        value = entry["value"]
+        correlations.append(
+            Correlation(
+                kind="ioc-event",
+                key=f"{indicator_type}:{value}",
+                members=member_list,
+                sources=source_list,
+                reason=(
+                    f"Indicator {value} ({indicator_type}) from CTI source(s) "
+                    f"[{cti_source_list}] was observed in {len(member_list)} Apollo "
+                    f"event(s) from source(s) ({', '.join(source_list)}); a lead to "
+                    f"verify, not a proven compromise."
+                ),
+                confidence=Confidence.MEDIUM,
+                epistemic_class=EpistemicClass.SUGGESTED_CORRELATION,
+            )
+        )
+
+    return tuple(sorted(correlations, key=_sort_key))
+
+
+def correlations_document(
+    findings: Sequence[Finding],
+    *,
+    indicators: Sequence[Indicator] = (),
+    events: Sequence[Event] = (),
+) -> dict[str, object]:
+    """Build the versioned ``olympus.correlations`` document.
+
+    Correlates the finding set (``asset-overlap`` / ``shared-cve`` /
+    ``shared-evidence``) and, when both ``indicators`` and ``events`` are given,
+    the cross-module ``ioc-event`` leads. All kinds share one deterministically
+    ordered document.
+    """
+    correlations = sorted(
+        (
+            *correlate_findings(findings),
+            *correlate_indicators_with_events(indicators, events),
+        ),
+        key=_sort_key,
+    )
     return {
         "schema_name": CORRELATIONS_SCHEMA_NAME,
         "schema_version": CORRELATIONS_SCHEMA_VERSION,
@@ -231,5 +343,6 @@ __all__ = [
     "CorrelationModel",
     "CorrelationsDocument",
     "correlate_findings",
+    "correlate_indicators_with_events",
     "correlations_document",
 ]

@@ -20,19 +20,21 @@ Every correlation is a **versioned record** (`olympus.correlation` 1.0.0) and, p
 
 **A correlation is a relationship, never a claim of compromise.** The engine does
 not assert that an attacker used a relationship; it states the relationship and how
-it is known. The kinds below are deterministic joins on identity, so they are
-`deterministic_result` facts — not inferences and not hypotheses. Weaker, inferred
-relationships (suggested exposure paths) will carry `suggested_correlation` or
-`unverified_hypothesis` when later slices add them, so a hypothesis can never be
-presented as a fact.
+it is known. Most kinds below are deterministic joins on identity, so they are
+`deterministic_result` facts — not inferences and not hypotheses. One kind,
+`ioc-event`, is a weaker threat-intel **lead** and carries `suggested_correlation`;
+still weaker, inferred relationships (suggested exposure paths) will carry
+`unverified_hypothesis` when later slices add them. A hypothesis is never presented
+as a fact, and no match is ever presented as a compromise.
 
-## Relationship kinds (first slice)
+## Relationship kinds
 
 | Kind | Fires when | `key` | `sources` | Class |
 | --- | --- | --- | --- | --- |
 | `asset-overlap` | one asset carries findings from **≥2 distinct tool sources** | the asset id | the tool sources | `deterministic_result` |
 | `shared-cve` | one CVE appears on findings against **≥2 distinct assets** | the CVE id | the asset ids | `deterministic_result` |
 | `shared-evidence` | one Minerva evidence artifact is cited by **≥2 distinct findings** | the evidence reference | the citing findings' tool sources | `deterministic_result` |
+| `ioc-event` | a Metis indicator value is **observed in** an Apollo event | `type:value` of the indicator | the observing events' sources | `suggested_correlation` |
 
 `shared-evidence` joins findings through a common custody artifact: the reference
 carried in `Finding.evidence` points at an [`olympus.evidence`](contracts.md) id or
@@ -40,14 +42,29 @@ digest, so two findings citing the same artifact are corroborated by it. The joi
 is on the citation itself (a deterministic fact about the findings); blank
 references link nothing. It is **not** a claim that the artifact proves compromise.
 
+`ioc-event` is the first **cross-module** and the first **non-deterministic** kind:
+a Metis [`Indicator`](contracts.md) value that appears in an Apollo
+[`olympus.event`](contracts.md) (any attribute value, or the event's `asset_id`)
+links threat intel to telemetry. Matching is exact on a normalised value
+(whitespace-stripped, lower-cased — case-insensitive for domains, URLs, e-mails,
+hashes and CVE ids; IP literals unaffected), so the *match* is deterministic — but
+an IOC hit is a **lead**, not proof the event is the entity the intel meant
+(addresses and domains are reused, shared and reassigned). It therefore carries
+`suggested_correlation` with `medium` confidence and says so in its reason: a
+hypothesis is never presented as a fact, and never as a compromise.
+
 Findings are folded by logical identity first (one issue seen twice counts once),
-and the output is ordered deterministically by `(kind, key)`.
+indicators sharing a `type:value` are folded too, and the output is ordered
+deterministically by `(kind, key)`.
 
 ```bash
 # Correlate a set of findings; human table or --format json (the versioned
 # olympus.correlations document).
 olympus vulcan correlate --findings findings.json
 olympus vulcan correlate --findings a.json --findings b.json --format json
+
+# Cross-module IOC↔event: a Metis case's indicators observed in Apollo events.
+olympus vulcan correlate --case case.json --events events.json --format json
 ```
 
 ## Decision: no dedicated Security Knowledge Graph (yet)
@@ -74,7 +91,9 @@ the shared contracts.
 
 ## Remaining `CORR-1` work
 
-- A further cross-module relationship kind: IOC (Metis) ↔ event/detection
-  (Apollo), with its epistemic class. (Minerva evidence ↔ finding is covered by
-  `shared-evidence` above.)
-- Surfaces (API/Web) and report integration land in `CORR-2`.
+- The relationship-kind corpus is complete: deterministic `asset-overlap`,
+  `shared-cve` and `shared-evidence`, plus the cross-module
+  `suggested_correlation` lead `ioc-event`. `unverified_hypothesis` is reserved
+  for still weaker, inferred relationships.
+- Deeper **surfaces** (API and Web) and report integration land in `CORR-2`; the
+  CLI already exposes every kind through `olympus vulcan correlate`.
