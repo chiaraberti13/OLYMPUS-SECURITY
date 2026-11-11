@@ -333,8 +333,12 @@ contract** (`olympus.finding-explanation` 1.0.0), and every claim carries an
   free text* (weaker than a structured identifier, so labelled as such);
 - **deterministic_result** — the contextual risk score, a pure computation over
   the fields above (never presented as an observation);
-- `suggested_correlation` and `unverified_hypothesis` complete the taxonomy for
-  `CORR-1` / future classes.
+- **suggested_correlation** — an **ATT&CK** technique mapped from the finding's CWE
+  via the reviewed `vulcan.attack` CWE→ATT&CK table (the technique an attacker
+  *would* use against this weakness class, not observed exploitation); carried both
+  as a classified statement and in a structured `attack` list with provenance
+  (`automatic`/`reviewed`), confidence and rationale;
+- `unverified_hypothesis` completes the taxonomy for `CORR-1` / future classes.
 
 Alongside the classified `statements` it carries:
 

@@ -473,6 +473,7 @@ _EXPLAIN_FINDING = {
     "cvss": 9.8,
     "kev": True,
     "cve": ["CVE-2024-0001"],
+    "cwe": ["CWE-89"],
     "evidence": ["ev-1"],
     "remediation": "Upgrade to 2.0",
 }
@@ -492,6 +493,13 @@ def test_vulcan_explain_returns_the_versioned_contract(tmp_path: Path) -> None:
     assert "observed_evidence" in classes
     score_claim = next(s for s in body["statements"] if "risk score" in s["text"])
     assert score_claim["epistemic_class"] == "deterministic_result"
+    # CWE-89 -> T1190 ATT&CK association, carried as a suggested correlation.
+    assert body["attack"] and body["attack"][0]["technique"] == "T1190"
+    assert all(
+        s["epistemic_class"] != "observed_evidence"
+        for s in body["statements"]
+        if "ATT&CK" in s["text"]
+    )
 
 
 def test_vulcan_explain_requires_the_findings_read_scope(tmp_path: Path) -> None:

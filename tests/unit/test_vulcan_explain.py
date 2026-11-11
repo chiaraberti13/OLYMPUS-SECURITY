@@ -182,6 +182,54 @@ def test_cli_explain_orders_by_descending_risk(tmp_path: Path) -> None:
     assert [item["title"] for item in payload] == ["Critical issue", "Low issue"]
 
 
+def test_attack_techniques_are_suggested_correlations_not_observations() -> None:
+    # CWE-89 maps to T1190 via the reviewed CWE->ATT&CK table.
+    explanation = explain_finding(_finding("SQL injection", cwe=["CWE-89"]))
+    assert explanation.attack, "expected a CWE->ATT&CK association"
+    assert explanation.attack[0].technique == "T1190"
+    attack_claims = [
+        s
+        for s in explanation.statements
+        if s.epistemic_class is EpistemicClass.SUGGESTED_CORRELATION
+    ]
+    assert attack_claims and "T1190" in attack_claims[0].text
+    # Never presented as observed exploitation.
+    assert all(
+        s.epistemic_class is not EpistemicClass.OBSERVED_EVIDENCE
+        for s in explanation.statements
+        if "ATT&CK" in s.text
+    )
+    assert any("ATT&CK techniques are suggested" in limit for limit in explanation.limits)
+
+
+def test_a_finding_without_a_mappable_cwe_has_no_attack() -> None:
+    explanation = explain_finding(_finding("Generic info", asset_id="AST-2"))
+    assert explanation.attack == ()
+    assert not [
+        s
+        for s in explanation.statements
+        if s.epistemic_class is EpistemicClass.SUGGESTED_CORRELATION
+    ]
+
+
+def test_one_finding_exercises_the_core_epistemic_classes() -> None:
+    # EXPL-1 fixture: a single finding spanning observed / inference / deterministic
+    # / suggested_correlation (a text-derived CVE is the inference).
+    explanation = explain_finding(
+        _finding(
+            "Injection via CVE-2024-9999 in handler",
+            cwe=["CWE-89"],
+            cvss=9.0,
+            evidence=["ev-1"],
+        )
+    )
+    classes = {s.epistemic_class for s in explanation.statements}
+    assert EpistemicClass.OBSERVED_EVIDENCE in classes
+    assert EpistemicClass.DETERMINISTIC_RESULT in classes
+    assert EpistemicClass.SUGGESTED_CORRELATION in classes
+    assert EpistemicClass.INFERENCE in classes  # the free-text CVE id
+
+
 def test_cli_explain_reports_a_bad_bundle_as_usage_error(tmp_path: Path) -> None:
     bad = tmp_path / "bad.json"
     bad.write_text("{not json", encoding="utf-8")

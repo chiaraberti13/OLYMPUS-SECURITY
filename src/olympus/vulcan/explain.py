@@ -34,6 +34,7 @@ from olympus.core.models import (
     SEVERITY_RISK_BASE,
     Finding,
 )
+from olympus.vulcan.attack import AttackAssociation, associate_attack
 from olympus.vulcan.view import FindingView
 
 #: Versioned contract identity, so a consumer can pin and evolve the shape.
@@ -102,6 +103,7 @@ class FindingExplanation:
     limits: tuple[str, ...]
     cve: tuple[str, ...] = field(default_factory=tuple)
     cwe: tuple[str, ...] = field(default_factory=tuple)
+    attack: tuple[AttackAssociation, ...] = field(default_factory=tuple)
     remediation: str | None = None
 
     def statements_of(self, *classes: EpistemicClass) -> tuple[Statement, ...]:
@@ -146,6 +148,7 @@ class FindingExplanation:
             "limits": list(self.limits),
             "cve": list(self.cve),
             "cwe": list(self.cwe),
+            "attack": [item.to_dict() for item in self.attack],
             "remediation": self.remediation,
         }
 
@@ -233,13 +236,18 @@ def _summary(finding: Finding, cwes: tuple[str, ...]) -> str:
 
 
 def _statements(
-    finding: Finding, cves: tuple[str, ...], cwes: tuple[str, ...]
+    finding: Finding,
+    cves: tuple[str, ...],
+    cwes: tuple[str, ...],
+    attack: tuple[AttackAssociation, ...],
 ) -> tuple[Statement, ...]:
     """Build the classified claims, each tagged with how it is known.
 
     Observed facts (attached evidence, KEV, CVSS, EPSS, structured identifiers) are
     ``observed_evidence``; an identifier parsed from free text is only an
-    ``inference``; the risk score is a ``deterministic_result`` of the fields.
+    ``inference``; the risk score is a ``deterministic_result`` of the fields; an
+    ATT&CK technique mapped from a CWE is a ``suggested_correlation`` (the technique
+    an attacker *would* use against this weakness class, not observed exploitation).
     """
     items: list[Statement] = []
     if finding.evidence:
@@ -296,6 +304,15 @@ def _statements(
             EpistemicClass.DETERMINISTIC_RESULT,
         )
     )
+    for association in attack:
+        items.append(
+            Statement(
+                f"ATT&CK {association.technique} ({association.name}, {association.tactic}) "
+                f"— {association.source.value} CWE mapping, {association.confidence.value} "
+                "confidence; the technique an attacker would use, not observed exploitation.",
+                EpistemicClass.SUGGESTED_CORRELATION,
+            )
+        )
     return tuple(items)
 
 
@@ -311,11 +328,17 @@ def explain_finding(finding: Finding) -> FindingExplanation:
     view = FindingView(finding)
     cves = tuple(view.cves)
     cwes = tuple(view.cwes)
+    attack = associate_attack(finding).associations
 
     limits: list[str] = [
         "Derived only from the finding's stored fields — no new scanning or "
         "network lookup was performed.",
     ]
+    if attack:
+        limits.append(
+            "ATT&CK techniques are suggested from the CWE→ATT&CK map, not evidence "
+            "of exploitation; confirm against telemetry before treating them as fact."
+        )
     if finding.cvss is None:
         limits.append("No CVSS recorded; the base comes from the severity band alone.")
     if not finding.cve and cves:
@@ -339,10 +362,11 @@ def explain_finding(finding: Finding) -> FindingExplanation:
         risk_score=finding.risk_score(),
         summary=_summary(finding, cwes),
         risk_factors=_risk_factors(finding),
-        statements=_statements(finding, cves, cwes),
+        statements=_statements(finding, cves, cwes, attack),
         limits=tuple(limits),
         cve=cves,
         cwe=cwes,
+        attack=attack,
         remediation=finding.remediation or None,
     )
 

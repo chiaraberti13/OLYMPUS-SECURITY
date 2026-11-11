@@ -12,6 +12,21 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — EXPL-1 (riferimenti ATT&CK nella spiegazione del finding)
+
+- La spiegazione del finding ora include i **riferimenti ATT&CK** derivati dal CWE
+  tramite la tabella rivista `vulcan.attack` (CWE→ATT&CK), come classe epistemica
+  **`suggested_correlation`** — la tecnica che un attaccante *userebbe* contro
+  quella classe di debolezza, **mai** osservazione di sfruttamento. Esposti come
+  statement classificato e come campo strutturato `attack` nel contratto
+  `olympus.finding-explanation` (con provenienza `automatic`/`reviewed`, confidence
+  e rationale), con caveat esplicito. Propagato identico a CLI, API
+  (`POST /api/v1/vulcan/explain`, `openapi.json` rigenerato) e companion del report
+  (parità invariata). Dà un produttore reale alla classe `suggested_correlation` e
+  una fixture che un singolo finding copre `observed_evidence` +
+  `deterministic_result` + `inference` + `suggested_correlation`. ROADMAP `EXPL-1`:
+  resta il JSON Schema nel catalogo contratti e provenance/engine-run evidence.
+
 ### Fixed — compatibilità Typer (CLI forms / TUI)
 
 - Pin `typer<0.29` in `pyproject.toml`. Typer 0.29 ha sostituito i parametri Click
