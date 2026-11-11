@@ -155,6 +155,41 @@ def test_cli_correlate_json(tmp_path: Path) -> None:
     assert {c["kind"] for c in payload["correlations"]} == {"asset-overlap", "shared-cve"}
 
 
+def test_cli_correlate_table_renders_each_relationship(tmp_path: Path) -> None:
+    bundle = _bundle(
+        tmp_path / "f.json",
+        [
+            _finding("F1", asset_id="AST-1", source=Source.ARGUS),
+            _finding("F2", asset_id="AST-1", source=Source.THEMIS, cve=["CVE-2024-0001"]),
+            _finding("F3", asset_id="AST-2", source=Source.ARTEMIS, cve=["CVE-2024-0001"]),
+        ],
+    )
+    # Default (no --format) renders the human-readable table surface.
+    result = runner.invoke(app, ["vulcan", "correlate", "--findings", str(bundle)])
+    assert result.exit_code == ExitCode.OK, result.output
+    assert "Correlations" in result.output
+    # Both deterministic joins appear, keyed by asset id and CVE id.
+    assert "asset-overlap" in result.output and "AST-1" in result.output
+    assert "shared-cve" in result.output and "CVE-2024-0001" in result.output
+    # The count is surfaced so an operator knows how many relationships were found.
+    assert "2 correlation(s)" in result.output
+
+
+def test_cli_correlate_no_overlap_is_an_empty_versioned_document(tmp_path: Path) -> None:
+    # A singleton bundle cannot overlap: the CLI must still emit a valid,
+    # zero-count olympus.correlations document rather than fail or omit the header.
+    bundle = _bundle(tmp_path / "f.json", [_finding("F1", asset_id="AST-1", source=Source.ARGUS)])
+    result = runner.invoke(
+        app, ["vulcan", "correlate", "--findings", str(bundle), "--format", "json"]
+    )
+    assert result.exit_code == ExitCode.OK, result.output
+    payload = json.loads(result.stdout)
+    assert payload["schema_name"] == "olympus.correlations"
+    assert payload["count"] == 0 and payload["correlations"] == []
+    # The emitted document still validates against the published contract.
+    assert CorrelationsDocument.model_validate(payload).model_dump(mode="json") == payload
+
+
 def test_cli_correlate_reports_a_bad_bundle_as_usage_error(tmp_path: Path) -> None:
     bad = tmp_path / "bad.json"
     bad.write_text("{not json", encoding="utf-8")
