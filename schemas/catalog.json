@@ -47,14 +47,14 @@
       "name": "olympus.correlation",
       "path": "contracts/olympus.correlation/1.0.0.schema.json",
       "schema_version": "1.0.0",
-      "sha256": "eb9365e3139a99f876b6c81717cd92b09563f1866d3b260a6325ccc37e619dd4"
+      "sha256": "afb2543aff154fca7bf631bd0ad4725ea8efbd50dc844a0e60f4728891ea7972"
     },
     {
       "direction": "output",
       "name": "olympus.correlations",
       "path": "contracts/olympus.correlations/1.0.0.schema.json",
       "schema_version": "1.0.0",
-      "sha256": "f5a4e17875497dc83f0dc721881d455c26e05de3de8cb4b85d01d520bb351010"
+      "sha256": "82e8ebe97fdd3ca3b7929a671126a917bf9cdcb1e3c2cd68bc8926ee955825b6"
     },
     {
       "direction": "shared",

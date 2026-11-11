@@ -1316,6 +1316,10 @@
         "type": "string"
       },
       "kind": {
+        "enum": [
+          "asset-overlap",
+          "shared-cve"
+        ],
         "title": "Kind",
         "type": "string"
       },
@@ -1389,6 +1393,10 @@
             "type": "string"
           },
           "kind": {
+            "enum": [
+              "asset-overlap",
+              "shared-cve"
+            ],
             "title": "Kind",
             "type": "string"
           },

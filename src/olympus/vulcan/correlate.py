@@ -50,7 +50,7 @@ CorrelationKind = Literal["asset-overlap", "shared-cve"]
 class Correlation:
     """One relationship between findings, with provenance and epistemic class."""
 
-    kind: str
+    kind: CorrelationKind
     key: str
     members: tuple[str, ...]
     sources: tuple[str, ...]
@@ -80,7 +80,7 @@ class CorrelationModel(BaseModel):
 
     schema_name: Literal["olympus.correlation"] = "olympus.correlation"
     schema_version: Literal["1.0.0"] = "1.0.0"
-    kind: str
+    kind: CorrelationKind
     key: str
     members: list[str]
     sources: list[str]
@@ -194,6 +194,7 @@ __all__ = [
     "SCHEMA_NAME",
     "SCHEMA_VERSION",
     "Correlation",
+    "CorrelationKind",
     "CorrelationModel",
     "CorrelationsDocument",
     "correlate_findings",
