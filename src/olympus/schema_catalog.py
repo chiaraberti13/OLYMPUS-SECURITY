@@ -46,6 +46,7 @@ from olympus.themis.legacy_vap import (
     LegacyVapImportReceipt,
     LegacyVapSnapshot,
 )
+from olympus.vulcan.correlate import CorrelationModel, CorrelationsDocument
 from olympus.vulcan.explain import FindingExplanationDocument, FindingExplanationsDocument
 
 CATALOG_SCHEMA_NAME = "olympus.schema-catalog"
@@ -92,6 +93,8 @@ PUBLISHED_CONTRACTS = (
     PublishedContract("olympus.security-report", "output", SecurityReport),
     PublishedContract("olympus.finding-explanation", "output", FindingExplanationDocument),
     PublishedContract("olympus.finding-explanations", "output", FindingExplanationsDocument),
+    PublishedContract("olympus.correlation", "output", CorrelationModel),
+    PublishedContract("olympus.correlations", "output", CorrelationsDocument),
     PublishedContract("olympus.engine-run-evidence", "output", EngineRunEvidence),
     PublishedContract("olympus.engine-doctor", "output", EngineDoctorReport),
     PublishedContract("olympus.engine-preflight", "output", EnginePreflightReport),

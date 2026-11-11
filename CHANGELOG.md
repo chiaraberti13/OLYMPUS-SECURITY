@@ -12,6 +12,21 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — CORR-1 (motore di correlazione sui contratti condivisi, primo slice)
+
+- Nuovo motore puro e offline `vulcan.correlate.correlate_findings` sul contratto
+  condiviso `olympus.finding`: deriva due relazioni deterministiche —
+  **asset-overlap** (stesso asset riportato da ≥2 tool source distinti) e
+  **shared-cve** (stessa CVE su ≥2 asset distinti). Ogni correlazione è tracciabile
+  (`members`, `sources`), motivata (`reason`), graduata (`confidence`) e con classe
+  epistemica condivisa con `EXPL-1`: join su identità → `deterministic_result`,
+  **mai** ipotesi né affermazione di compromissione. Contratti versionati
+  `olympus.correlation` / `olympus.correlations` 1.0.0 pubblicati nel catalogo JSON
+  Schema (golden) con test di round-trip; CLI `olympus vulcan correlate`
+  (tabella / `--format json`). Decisione Knowledge Graph documentata in
+  `docs/correlation.md` (no graph DB dedicato ora, con motivazioni). ROADMAP
+  `CORR-1` → parziale.
+
 ### Added — EXPL-1 (JSON Schema della spiegazione nel catalogo contratti)
 
 - Pubblicati nel catalogo contratti (`schema_catalog`, golden in `schemas/`) i due
