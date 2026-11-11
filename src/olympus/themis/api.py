@@ -767,6 +767,19 @@ class RiskFactorView(BaseModel):
     decisive: bool
 
 
+class AttackAssociationView(BaseModel):
+    """One suggested CWE→ATT&CK association attached to a finding explanation."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    technique: str
+    name: str
+    tactic: str
+    confidence: str
+    rationale: str
+    source: str
+
+
 class VulcanFindingExplanationResult(BaseModel):
     """Versioned finding explanation (``EXPL-1``) shared by CLI, API and reports.
 
@@ -792,6 +805,7 @@ class VulcanFindingExplanationResult(BaseModel):
     limits: list[str]
     cve: list[str]
     cwe: list[str]
+    attack: list[AttackAssociationView]
     remediation: str | None = None
 
 
@@ -827,6 +841,17 @@ def _finding_explanation_view(explanation: FindingExplanation) -> VulcanFindingE
         limits=list(explanation.limits),
         cve=list(explanation.cve),
         cwe=list(explanation.cwe),
+        attack=[
+            AttackAssociationView(
+                technique=a.technique,
+                name=a.name,
+                tactic=a.tactic,
+                confidence=a.confidence.value,
+                rationale=a.rationale,
+                source=a.source.value,
+            )
+            for a in explanation.attack
+        ],
         remediation=explanation.remediation,
     )
 

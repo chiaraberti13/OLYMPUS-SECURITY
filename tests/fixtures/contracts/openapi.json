@@ -687,6 +687,46 @@
         "title": "AthenaProfileView",
         "type": "object"
       },
+      "AttackAssociationView": {
+        "additionalProperties": false,
+        "description": "One suggested CWE\u2192ATT&CK association attached to a finding explanation.",
+        "properties": {
+          "confidence": {
+            "title": "Confidence",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "rationale": {
+            "title": "Rationale",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "tactic": {
+            "title": "Tactic",
+            "type": "string"
+          },
+          "technique": {
+            "title": "Technique",
+            "type": "string"
+          }
+        },
+        "required": [
+          "technique",
+          "name",
+          "tactic",
+          "confidence",
+          "rationale",
+          "source"
+        ],
+        "title": "AttackAssociationView",
+        "type": "object"
+      },
       "Confidence": {
         "description": "How confident Olympus is that a finding is a true positive.",
         "enum": [
@@ -2081,6 +2121,13 @@
             "title": "Asset Id",
             "type": "string"
           },
+          "attack": {
+            "items": {
+              "$ref": "#/components/schemas/AttackAssociationView"
+            },
+            "title": "Attack",
+            "type": "array"
+          },
           "cve": {
             "items": {
               "type": "string"
@@ -2181,7 +2228,8 @@
           "statements",
           "limits",
           "cve",
-          "cwe"
+          "cwe",
+          "attack"
         ],
         "title": "VulcanFindingExplanationResult",
         "type": "object"
