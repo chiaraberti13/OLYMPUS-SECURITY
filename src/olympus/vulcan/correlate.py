@@ -15,12 +15,13 @@ Every correlation is, per ``CORR-1``:
   :class:`~olympus.core.enums.EpistemicClass` (the same taxonomy as ``EXPL-1``).
 
 The correlations here are **deterministic joins on identity** (a shared asset id,
-a shared CVE id), so they are ``deterministic_result`` facts, never a hypothesis
-and **never a claim of compromise** — a correlation is a relationship, not proof
-that an attacker used it. Weaker, inferred relationships (suggested exposure
-paths) will carry ``suggested_correlation``/``unverified_hypothesis`` when later
-slices add them. The computation is pure and offline: it reads already-loaded
-findings and talks to no network, so it is fully deterministic.
+a shared CVE id, a shared Minerva evidence artifact), so they are
+``deterministic_result`` facts, never a hypothesis and **never a claim of
+compromise** — a correlation is a relationship, not proof that an attacker used
+it. Weaker, inferred relationships (suggested exposure paths) will carry
+``suggested_correlation``/``unverified_hypothesis`` when later slices add them.
+The computation is pure and offline: it reads already-loaded findings and talks
+to no network, so it is fully deterministic.
 """
 
 from __future__ import annotations
@@ -42,8 +43,8 @@ SCHEMA_VERSION = "1.0.0"
 CORRELATIONS_SCHEMA_NAME = "olympus.correlations"
 CORRELATIONS_SCHEMA_VERSION = "1.0.0"
 
-#: The relationship kinds this first slice derives. Both are deterministic joins.
-CorrelationKind = Literal["asset-overlap", "shared-cve"]
+#: The relationship kinds this first slice derives. All are deterministic joins.
+CorrelationKind = Literal["asset-overlap", "shared-cve", "shared-evidence"]
 
 
 @dataclass(frozen=True)
@@ -107,13 +108,17 @@ def _sort_key(correlation: Correlation) -> tuple[str, str]:
 def correlate_findings(findings: Sequence[Finding]) -> tuple[Correlation, ...]:
     """Derive deterministic correlations from a set of findings.
 
-    Two relationship kinds are produced, each a pure join on logical identity:
+    Three relationship kinds are produced, each a pure join on logical identity:
 
     * **asset-overlap** — one asset carries findings from **two or more distinct
       tool sources** (e.g. the same host reported by Argus and Themis); evidence
       that several tools converge on the same asset.
     * **shared-cve** — one CVE appears on findings against **two or more distinct
       assets**; the same vulnerability spread across the estate.
+    * **shared-evidence** — one Minerva evidence artifact (a reference carried in
+      ``Finding.evidence``, pointing at an ``olympus.evidence`` custody id or
+      digest) is cited by **two or more distinct findings**; the findings are
+      corroborated by a common artifact.
 
     Each correlation is a ``deterministic_result`` with ``high`` confidence — it is
     a provable join, not a hypothesis and not a claim of compromise. Findings are
@@ -126,6 +131,8 @@ def correlate_findings(findings: Sequence[Finding]) -> tuple[Correlation, ...]:
     members_by_asset: dict[str, dict[str, None]] = {}
     assets_by_cve: dict[str, dict[str, None]] = {}
     members_by_cve: dict[str, dict[str, None]] = {}
+    members_by_evidence: dict[str, dict[str, None]] = {}
+    sources_by_evidence: dict[str, dict[str, None]] = {}
 
     for finding in folded:
         asset = finding.asset_id
@@ -134,6 +141,12 @@ def correlate_findings(findings: Sequence[Finding]) -> tuple[Correlation, ...]:
         for cve in finding.cves():
             assets_by_cve.setdefault(cve, {})[asset] = None
             members_by_cve.setdefault(cve, {})[finding.finding_id] = None
+        for reference in finding.evidence:
+            evidence_ref = reference.strip()
+            if not evidence_ref:
+                continue  # a blank citation links nothing
+            members_by_evidence.setdefault(evidence_ref, {})[finding.finding_id] = None
+            sources_by_evidence.setdefault(evidence_ref, {})[finding.source.value] = None
 
     correlations: list[Correlation] = []
 
@@ -168,6 +181,26 @@ def correlate_findings(findings: Sequence[Finding]) -> tuple[Correlation, ...]:
                 sources=asset_list,
                 reason=(
                     f"{cve} affects {len(asset_list)} distinct assets ({', '.join(asset_list)})."
+                ),
+                confidence=Confidence.HIGH,
+                epistemic_class=EpistemicClass.DETERMINISTIC_RESULT,
+            )
+        )
+
+    for evidence_ref, members in members_by_evidence.items():
+        if len(members) < 2:
+            continue
+        member_list = tuple(sorted(members))
+        source_list = tuple(sorted(sources_by_evidence[evidence_ref]))
+        correlations.append(
+            Correlation(
+                kind="shared-evidence",
+                key=evidence_ref,
+                members=member_list,
+                sources=source_list,
+                reason=(
+                    f"Evidence {evidence_ref} corroborates {len(member_list)} distinct "
+                    f"findings from {len(source_list)} source(s) ({', '.join(source_list)})."
                 ),
                 confidence=Confidence.HIGH,
                 epistemic_class=EpistemicClass.DETERMINISTIC_RESULT,

@@ -12,6 +12,21 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — CORR-1 (relazione cross-modulo: evidenza Minerva ↔ finding)
+
+- Terza relazione deterministica in `vulcan.correlate.correlate_findings`:
+  **shared-evidence** — un artefatto di evidenza Minerva (il riferimento in
+  `Finding.evidence`, che punta a un id/digest `olympus.evidence`) citato da **≥2
+  finding distinti**: i finding sono corroborati da un artefatto comune. Il join è
+  sulla citazione stessa (fatto deterministico sui finding), i riferimenti vuoti
+  non collegano nulla, e **non** è un'affermazione che l'artefatto dimostri una
+  compromissione → `deterministic_result`, come gli altri due casi. Nessun nuovo
+  input o superficie CLI: la chiave di join vive già sul finding. Contratto
+  `olympus.correlation` 1.0.0 esteso in posa (l'enum `kind` guadagna
+  `shared-evidence`; contratto non ancora rilasciato, golden JSON Schema
+  rigenerati). Completa il **corpus dei tre casi tipo** di `CORR-1`; resta il kind
+  IOC (Metis) ↔ evento (Apollo) e le superfici (`CORR-2`).
+
 ### Added — CORR-1 (motore di correlazione sui contratti condivisi, primo slice)
 
 - Nuovo motore puro e offline `vulcan.correlate.correlate_findings` sul contratto
