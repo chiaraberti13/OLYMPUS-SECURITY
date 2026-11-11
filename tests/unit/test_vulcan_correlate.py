@@ -34,6 +34,7 @@ def _finding(
     asset_id: str = "AST-1",
     source: Source = Source.ARTEMIS,
     cve: list[str] | None = None,
+    evidence: list[str] | None = None,
 ) -> Finding:
     return Finding(
         finding_id=finding_id,
@@ -42,6 +43,7 @@ def _finding(
         title=f"issue {finding_id}",
         severity=Severity.MEDIUM,
         cve=cve or [],
+        evidence=evidence or [],
     )
 
 
@@ -89,6 +91,27 @@ def test_shared_cve_needs_two_distinct_assets() -> None:
     assert shared[0].sources == ("AST-1", "AST-2")
 
 
+def test_shared_evidence_needs_two_distinct_findings() -> None:
+    findings = [
+        _finding("F1", asset_id="AST-1", source=Source.ARGUS, evidence=["EV-abc", "  "]),
+        _finding("F2", asset_id="AST-2", source=Source.THEMIS, evidence=["EV-abc"]),
+        _finding("F3", asset_id="AST-3", source=Source.ARTEMIS, evidence=["EV-solo"]),
+    ]
+    shared = [c for c in correlate_findings(findings) if c.kind == "shared-evidence"]
+    # Only EV-abc is cited by >=2 distinct findings; EV-solo and the blank are not.
+    assert [c.key for c in shared] == ["EV-abc"]
+    assert set(shared[0].members) == {"F1", "F2"}
+    assert shared[0].sources == ("argus", "themis")
+
+
+def test_shared_evidence_ignores_a_lone_citation_and_blanks() -> None:
+    findings = [
+        _finding("F1", asset_id="AST-1", source=Source.ARGUS, evidence=["EV-1", ""]),
+        _finding("F2", asset_id="AST-2", source=Source.THEMIS, evidence=["  "]),
+    ]
+    assert [c for c in correlate_findings(findings) if c.kind == "shared-evidence"] == []
+
+
 def test_correlations_are_deterministic_facts_never_hypotheses_or_compromise() -> None:
     findings = [
         _finding("F1", asset_id="AST-1", source=Source.ARGUS),
@@ -105,6 +128,23 @@ def test_correlations_are_deterministic_facts_never_hypotheses_or_compromise() -
         # Never asserts exploitation or compromise.
         lowered = correlation.reason.lower()
         assert "compromis" not in lowered and "exploited" not in lowered
+
+
+def test_all_three_deterministic_kinds_from_one_corpus() -> None:
+    # One realistic corpus that exercises every first-slice relationship kind.
+    findings = [
+        _finding("F1", asset_id="AST-1", source=Source.ARGUS, evidence=["EV-pcap"]),
+        _finding(
+            "F2",
+            asset_id="AST-1",
+            source=Source.THEMIS,
+            cve=["CVE-2024-0001"],
+            evidence=["EV-pcap"],
+        ),
+        _finding("F3", asset_id="AST-2", source=Source.ARTEMIS, cve=["CVE-2024-0001"]),
+    ]
+    kinds = {c.kind for c in correlate_findings(findings)}
+    assert kinds == {"asset-overlap", "shared-cve", "shared-evidence"}
 
 
 def test_no_correlation_without_overlap() -> None:

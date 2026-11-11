@@ -27,7 +27,8 @@
         "kind": {
           "enum": [
             "asset-overlap",
-            "shared-cve"
+            "shared-cve",
+            "shared-evidence"
           ],
           "title": "Kind",
           "type": "string"

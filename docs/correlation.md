@@ -32,6 +32,13 @@ presented as a fact.
 | --- | --- | --- | --- | --- |
 | `asset-overlap` | one asset carries findings from **≥2 distinct tool sources** | the asset id | the tool sources | `deterministic_result` |
 | `shared-cve` | one CVE appears on findings against **≥2 distinct assets** | the CVE id | the asset ids | `deterministic_result` |
+| `shared-evidence` | one Minerva evidence artifact is cited by **≥2 distinct findings** | the evidence reference | the citing findings' tool sources | `deterministic_result` |
+
+`shared-evidence` joins findings through a common custody artifact: the reference
+carried in `Finding.evidence` points at an [`olympus.evidence`](contracts.md) id or
+digest, so two findings citing the same artifact are corroborated by it. The join
+is on the citation itself (a deterministic fact about the findings); blank
+references link nothing. It is **not** a claim that the artifact proves compromise.
 
 Findings are folded by logical identity first (one issue seen twice counts once),
 and the output is ordered deterministically by `(kind, key)`.
@@ -67,6 +74,7 @@ the shared contracts.
 
 ## Remaining `CORR-1` work
 
-- Further relationship kinds across modules: IOC (Metis) ↔ event/detection
-  (Apollo), and Minerva evidence ↔ finding — each with its epistemic class.
+- A further cross-module relationship kind: IOC (Metis) ↔ event/detection
+  (Apollo), with its epistemic class. (Minerva evidence ↔ finding is covered by
+  `shared-evidence` above.)
 - Surfaces (API/Web) and report integration land in `CORR-2`.
