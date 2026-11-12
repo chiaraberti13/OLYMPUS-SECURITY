@@ -326,3 +326,46 @@ def test_cli_report_writes_an_explanations_companion_matching_the_core(tmp_path:
     by_id = {f.finding_id: f for f in findings}
     for entry in document["explanations"]:
         assert entry == explain_finding(by_id[entry["finding_id"]]).to_dict()
+
+
+def test_cli_report_writes_a_correlations_companion_matching_the_core(tmp_path: Path) -> None:
+    # CORR-2 parity on the report surface: the companion equals
+    # correlations_document over the report's own ranked findings.
+    from olympus.vulcan.correlate import correlations_document
+
+    findings = [
+        _finding("One tool", asset_id="AST-1", source=Source.ARGUS),
+        _finding("Another tool", asset_id="AST-1", source=Source.THEMIS),
+    ]
+    bundle = _bundle(tmp_path / "findings.json", findings)
+    report_out = tmp_path / "report.json"
+    correlations_out = tmp_path / "correlations.json"
+    result = runner.invoke(
+        app,
+        [
+            "vulcan",
+            "report",
+            "--engagement",
+            "Acme",
+            "--findings",
+            str(bundle),
+            "--output",
+            str(report_out),
+            "--correlations",
+            str(correlations_out),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "wrote correlations" in result.stderr
+
+    document = json.loads(correlations_out.read_text(encoding="utf-8"))
+    assert document["schema_name"] == "olympus.correlations"
+    # One asset reported by two tool sources -> a single deterministic asset-overlap.
+    assert document["count"] == 1
+    only = document["correlations"][0]
+    assert only["kind"] == "asset-overlap" and only["key"] == "AST-1"
+    assert only["epistemic_class"] == "deterministic_result"
+    # Byte-identical to the shared core over the report's ranked findings.
+    report = json.loads(report_out.read_text(encoding="utf-8"))
+    report_findings = [Finding.model_validate(f) for f in report["findings"]]
+    assert document == correlations_document(report_findings)

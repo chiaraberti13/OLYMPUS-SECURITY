@@ -12,6 +12,15 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — CORR-2 (companion delle correlazioni nel report)
+
+- `olympus vulcan report --correlations PATH` scrive un documento companion
+  versionato `olympus.correlations` sulle stesse finding ranked/filtrate del
+  report, dall'unico core offline `vulcan.correlate.correlations_document` (stessa
+  logica di `--explanations` per `EXPL-2`): il report porta con sé le relazioni
+  tra finding senza una chiamata separata, byte-identico a CLI e API. Resta per
+  `CORR-2` solo la vista Web (via `WEB-8`).
+
 ### Added — CORR-2 (superficie API per le correlazioni)
 
 - Nuovo endpoint `POST /api/v1/vulcan/correlate` (scope `findings:read`) che
