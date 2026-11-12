@@ -132,23 +132,45 @@ def test_shared_cve_needs_two_distinct_assets() -> None:
 
 def test_shared_evidence_needs_two_distinct_findings() -> None:
     findings = [
-        _finding("F1", asset_id="AST-1", source=Source.ARGUS, evidence=["EV-abc", "  "]),
-        _finding("F2", asset_id="AST-2", source=Source.THEMIS, evidence=["EV-abc"]),
-        _finding("F3", asset_id="AST-3", source=Source.ARTEMIS, evidence=["EV-solo"]),
+        _finding("F1", asset_id="AST-1", source=Source.ARGUS, evidence=["EVD-2026-00001", "  "]),
+        _finding("F2", asset_id="AST-2", source=Source.THEMIS, evidence=["EVD-2026-00001"]),
+        _finding("F3", asset_id="AST-3", source=Source.ARTEMIS, evidence=["EVD-2026-00002"]),
     ]
     shared = [c for c in correlate_findings(findings) if c.kind == "shared-evidence"]
-    # Only EV-abc is cited by >=2 distinct findings; EV-solo and the blank are not.
-    assert [c.key for c in shared] == ["EV-abc"]
+    # Only EVD-2026-00001 is cited by >=2 distinct findings; the lone id and blank are not.
+    assert [c.key for c in shared] == ["EVD-2026-00001"]
     assert set(shared[0].members) == {"F1", "F2"}
     assert shared[0].sources == ("argus", "themis")
 
 
 def test_shared_evidence_ignores_a_lone_citation_and_blanks() -> None:
     findings = [
-        _finding("F1", asset_id="AST-1", source=Source.ARGUS, evidence=["EV-1", ""]),
+        _finding("F1", asset_id="AST-1", source=Source.ARGUS, evidence=["EVD-2026-00009", ""]),
         _finding("F2", asset_id="AST-2", source=Source.THEMIS, evidence=["  "]),
     ]
     assert [c for c in correlate_findings(findings) if c.kind == "shared-evidence"] == []
+
+
+def test_shared_evidence_ignores_free_text_scanner_evidence() -> None:
+    # Finding.evidence is mostly free-text scanner diagnostics ("tool=sqlmap",
+    # "service=http"), not custody artifacts. Two unrelated findings that merely
+    # share such a string must NOT be presented as corroborated by a common
+    # artifact; only a real custody id / SHA-256 digest correlates.
+    free_text = [
+        _finding("F1", asset_id="AST-1", source=Source.THEMIS, evidence=["tool=sqlmap"]),
+        _finding("F2", asset_id="AST-2", source=Source.THEMIS, evidence=["tool=sqlmap"]),
+    ]
+    assert [c for c in correlate_findings(free_text) if c.kind == "shared-evidence"] == []
+
+    digest = "a" * 64
+    real_refs = [
+        _finding("G1", asset_id="AST-1", source=Source.ARGUS, evidence=[digest.upper()]),
+        _finding("G2", asset_id="AST-2", source=Source.THEMIS, evidence=[digest]),
+    ]
+    shared = [c for c in correlate_findings(real_refs) if c.kind == "shared-evidence"]
+    # a SHA-256 digest correlates and is matched case-insensitively (folded to lower)
+    assert [c.key for c in shared] == [digest]
+    assert set(shared[0].members) == {"G1", "G2"}
 
 
 def test_correlations_are_deterministic_facts_never_hypotheses_or_compromise() -> None:
@@ -172,13 +194,13 @@ def test_correlations_are_deterministic_facts_never_hypotheses_or_compromise() -
 def test_all_three_deterministic_kinds_from_one_corpus() -> None:
     # One realistic corpus that exercises every first-slice relationship kind.
     findings = [
-        _finding("F1", asset_id="AST-1", source=Source.ARGUS, evidence=["EV-pcap"]),
+        _finding("F1", asset_id="AST-1", source=Source.ARGUS, evidence=["EVD-2026-00007"]),
         _finding(
             "F2",
             asset_id="AST-1",
             source=Source.THEMIS,
             cve=["CVE-2024-0001"],
-            evidence=["EV-pcap"],
+            evidence=["EVD-2026-00007"],
         ),
         _finding("F3", asset_id="AST-2", source=Source.ARTEMIS, cve=["CVE-2024-0001"]),
     ]

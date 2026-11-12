@@ -12,6 +12,24 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Fixed — CORR-1 (shared-evidence: niente false correlazioni da evidenze testuali)
+
+- `olympus.vulcan.correlate.correlate_findings` produceva una correlazione
+  **shared-evidence** (`deterministic_result`, confidenza `high`) per qualsiasi
+  stringa condivisa in `Finding.evidence`. Ma `Finding.evidence` è quasi sempre
+  testo libero diagnostico degli scanner (`tool=sqlmap`, `service=http`,
+  `parameter=q`), non un riferimento a un artefatto di custody. Due finding non
+  correlati (asset e sorgenti diversi, nessun CVE comune) che condividevano
+  incidentalmente una di quelle stringhe venivano quindi presentati come
+  «corroborati da un artefatto comune» — un falso positivo che spaccia testo
+  incidentale per corroborazione provata, in contrasto col principio del progetto
+  (una correlazione non deve mai presentare un'ipotesi come fatto dimostrato) e
+  con la docstring stessa (che parla di «custody id o digest»). Ora la
+  correlazione shared-evidence usa **solo** le voci di `Finding.evidence` che sono
+  riferimenti reali — un id di custody `EVD-YYYY-NNNNN` o un digest SHA-256
+  (confrontato case-insensitive) — e ignora il testo libero. Regressione in
+  `tests/unit/test_vulcan_correlate.py`.
+
 ### Added — SEC-4.3 (verifica post-merge e rollback)
 
 - Il workflow in sola lettura `post-merge-verification` verifica dopo ogni merge
