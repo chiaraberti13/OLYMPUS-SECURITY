@@ -29,6 +29,7 @@ and events and talks to no network, so it is fully deterministic.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Literal
@@ -50,6 +51,28 @@ CORRELATIONS_SCHEMA_VERSION = "1.0.0"
 #: The relationship kinds this slice derives. The first three are deterministic
 #: joins on identity; ``ioc-event`` is a weaker, ``suggested_correlation`` lead.
 CorrelationKind = Literal["asset-overlap", "shared-cve", "shared-evidence", "ioc-event"]
+
+#: A ``Finding.evidence`` entry only names a shared *artifact* when it is an
+#: ``olympus.evidence`` custody id (``EVD-YYYY-NNNNN``) or a SHA-256 digest. Most
+#: entries are free-text scanner diagnostics ("tool=sqlmap", "service=http"):
+#: those are NOT artifact references and must never correlate two findings, or the
+#: engine would present incidental shared text as a proven corroboration.
+_EVIDENCE_ID_RE = re.compile(r"EVD-[0-9]{4}-[0-9]{5}")
+_SHA256_RE = re.compile(r"[0-9a-fA-F]{64}")
+
+
+def _evidence_reference_key(value: str) -> str | None:
+    """Return the shared-evidence key for a custody id / digest, else ``None``.
+
+    SHA-256 digests are compared case-insensitively (folded to lower-case); a
+    custody id is already in a fixed canonical case.
+    """
+    candidate = value.strip()
+    if _EVIDENCE_ID_RE.fullmatch(candidate):
+        return candidate
+    if _SHA256_RE.fullmatch(candidate):
+        return candidate.lower()
+    return None
 
 
 @dataclass(frozen=True)
@@ -159,9 +182,9 @@ def correlate_findings(findings: Sequence[Finding]) -> tuple[Correlation, ...]:
             assets_by_cve.setdefault(cve, {})[asset] = None
             members_by_cve.setdefault(cve, {})[finding.finding_id] = None
         for reference in finding.evidence:
-            evidence_ref = reference.strip()
-            if not evidence_ref:
-                continue  # a blank citation links nothing
+            evidence_ref = _evidence_reference_key(reference)
+            if evidence_ref is None:
+                continue  # free-text scanner evidence is not a shared-artifact reference
             members_by_evidence.setdefault(evidence_ref, {})[finding.finding_id] = None
             sources_by_evidence.setdefault(evidence_ref, {})[finding.source.value] = None
 
