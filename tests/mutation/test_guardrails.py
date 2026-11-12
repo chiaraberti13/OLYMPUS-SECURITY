@@ -821,10 +821,18 @@ def test_correlation_gate_joins_only_on_proven_identity() -> None:
     ]
     overlap = [c for c in correlate_findings(overlap_in) if c.kind == "asset-overlap"]
     assert [c.key for c in overlap] == ["AST-1"]
+    assert set(overlap[0].members) == {"F1", "F2"}  # both findings are named members
+    assert overlap[0].sources == ("argus", "themis")  # the distinct, sorted sources
     assert overlap[0].confidence is Confidence.HIGH
     assert overlap[0].epistemic_class is EpistemicClass.DETERMINISTIC_RESULT
-    # one source alone is not an overlap
+    # one source alone is not an overlap, and a below-threshold group does not stop a
+    # later valid one from being emitted (the skip is a continue, never a break)
     assert not [c for c in correlate_findings(overlap_in[:1]) if c.kind == "asset-overlap"]
+    mixed = [
+        _corr("S1", asset_id="AST-lonely", source=Source.ARGUS),
+        *overlap_in,
+    ]
+    assert [c.key for c in correlate_findings(mixed) if c.kind == "asset-overlap"] == ["AST-1"]
 
     # shared-cve needs the same CVE across >= 2 DISTINCT assets
     cve_in = [
@@ -833,6 +841,8 @@ def test_correlation_gate_joins_only_on_proven_identity() -> None:
     ]
     shared_cve = [c for c in correlate_findings(cve_in) if c.kind == "shared-cve"]
     assert [c.key for c in shared_cve] == ["CVE-2024-0001"]
+    assert set(shared_cve[0].members) == {"F3", "F4"}
+    assert shared_cve[0].sources == ("AST-1", "AST-2")  # the distinct, sorted assets
     same_asset = [
         _corr("F3", asset_id="AST-1", source=Source.ARGUS, cve=["CVE-2024-0001"]),
         _corr("F3b", asset_id="AST-1", source=Source.ARGUS, cve=["CVE-2024-0001"]),
@@ -845,12 +855,17 @@ def test_correlation_gate_joins_only_on_proven_identity() -> None:
         _corr("F6", asset_id="AST-2", source=Source.THEMIS, evidence=["tool=sqlmap"]),
     ]
     assert not [c for c in correlate_findings(free_text) if c.kind == "shared-evidence"]
+    # a real reference is honoured even when a free-text entry precedes it on the same
+    # finding (every entry is scanned — the free-text skip is a continue, not a break)
     real_refs = [
-        _corr("F7", asset_id="AST-1", source=Source.ARGUS, evidence=["EVD-2026-00001"]),
+        _corr(
+            "F7", asset_id="AST-1", source=Source.ARGUS, evidence=["tool=sqlmap", "EVD-2026-00001"]
+        ),
         _corr("F8", asset_id="AST-2", source=Source.THEMIS, evidence=["EVD-2026-00001"]),
     ]
     shared = [c for c in correlate_findings(real_refs) if c.kind == "shared-evidence"]
     assert [c.key for c in shared] == ["EVD-2026-00001"]
+    assert set(shared[0].members) == {"F7", "F8"}
     assert shared[0].epistemic_class is EpistemicClass.DETERMINISTIC_RESULT
 
 
