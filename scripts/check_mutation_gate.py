@@ -57,6 +57,7 @@ MUTATED_FUNCTIONS = {
         "x_advance_job",
         "x_derive_terminal_state",
     ],
+    "src/olympus/vulcan/correlate.py": ["x_correlate_findings"],
 }
 
 

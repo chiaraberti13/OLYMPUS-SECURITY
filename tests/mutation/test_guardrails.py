@@ -27,10 +27,11 @@ from olympus.athena.scope import (
     ensure_target_allowed,
 )
 from olympus.core.coverage import Coverage, RunStatus, exit_code_for
+from olympus.core.enums import Confidence, EpistemicClass, Severity, Source
 from olympus.core.evidence import evidence_from_bytes
 from olympus.core.execution import redact_mapping, redact_text, safe_terminal_text
 from olympus.core.exit_codes import ExitCode
-from olympus.core.models import EngagementScope, Evidence, FindingTransition
+from olympus.core.models import EngagementScope, Evidence, Finding, FindingTransition
 from olympus.core.secrets import EnvSecretProvider
 from olympus.core.signing import generate_keypair
 from olympus.engagements.manifest import (
@@ -100,6 +101,7 @@ from olympus.themis.sandbox import (
     inspect_scanner_isolation,
 )
 from olympus.themis.scope import SsrfBlockedError, resolve_and_validate
+from olympus.vulcan.correlate import correlate_findings
 
 
 def test_encrypted_finding_store_mutation_boundaries(tmp_path: Path) -> None:
@@ -797,6 +799,59 @@ def test_signed_manifest_gate_enforces_the_risk_ceiling() -> None:
             now=valid_from,
             risk=RiskClass.INTRUSIVE,
         )
+
+
+def _corr(finding_id: str, *, asset_id: str, source: Source, **kw: object) -> Finding:
+    return Finding(
+        finding_id=finding_id,
+        asset_id=asset_id,
+        source=source,
+        title=f"issue {finding_id}",
+        severity=Severity.HIGH,
+        **kw,  # type: ignore[arg-type]
+    )
+
+
+def test_correlation_gate_joins_only_on_proven_identity() -> None:
+    # asset-overlap needs >= 2 DISTINCT sources on one asset; it is a deterministic
+    # high-confidence join, never a hypothesis.
+    overlap_in = [
+        _corr("F1", asset_id="AST-1", source=Source.ARGUS),
+        _corr("F2", asset_id="AST-1", source=Source.THEMIS),
+    ]
+    overlap = [c for c in correlate_findings(overlap_in) if c.kind == "asset-overlap"]
+    assert [c.key for c in overlap] == ["AST-1"]
+    assert overlap[0].confidence is Confidence.HIGH
+    assert overlap[0].epistemic_class is EpistemicClass.DETERMINISTIC_RESULT
+    # one source alone is not an overlap
+    assert not [c for c in correlate_findings(overlap_in[:1]) if c.kind == "asset-overlap"]
+
+    # shared-cve needs the same CVE across >= 2 DISTINCT assets
+    cve_in = [
+        _corr("F3", asset_id="AST-1", source=Source.ARGUS, cve=["CVE-2024-0001"]),
+        _corr("F4", asset_id="AST-2", source=Source.THEMIS, cve=["CVE-2024-0001"]),
+    ]
+    shared_cve = [c for c in correlate_findings(cve_in) if c.kind == "shared-cve"]
+    assert [c.key for c in shared_cve] == ["CVE-2024-0001"]
+    same_asset = [
+        _corr("F3", asset_id="AST-1", source=Source.ARGUS, cve=["CVE-2024-0001"]),
+        _corr("F3b", asset_id="AST-1", source=Source.ARGUS, cve=["CVE-2024-0001"]),
+    ]
+    assert not [c for c in correlate_findings(same_asset) if c.kind == "shared-cve"]
+
+    # shared-evidence keys ONLY on a real custody id / digest, never free text (CORR-1)
+    free_text = [
+        _corr("F5", asset_id="AST-1", source=Source.THEMIS, evidence=["tool=sqlmap"]),
+        _corr("F6", asset_id="AST-2", source=Source.THEMIS, evidence=["tool=sqlmap"]),
+    ]
+    assert not [c for c in correlate_findings(free_text) if c.kind == "shared-evidence"]
+    real_refs = [
+        _corr("F7", asset_id="AST-1", source=Source.ARGUS, evidence=["EVD-2026-00001"]),
+        _corr("F8", asset_id="AST-2", source=Source.THEMIS, evidence=["EVD-2026-00001"]),
+    ]
+    shared = [c for c in correlate_findings(real_refs) if c.kind == "shared-evidence"]
+    assert [c.key for c in shared] == ["EVD-2026-00001"]
+    assert shared[0].epistemic_class is EpistemicClass.DETERMINISTIC_RESULT
 
 
 def test_nmap_parser_emits_only_open_ports_and_flags_high_risk_port() -> None:
