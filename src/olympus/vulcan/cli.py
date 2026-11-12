@@ -14,7 +14,7 @@ from olympus.core.execution import CancellationRequested, ExecutionPolicyError, 
 from olympus.core.exit_codes import ExitCode
 from olympus.core.fileio import atomic_write_bytes, atomic_write_text, read_regular_text
 from olympus.core.finding_lifecycle import SUPPRESSED_STATUSES, record_transition
-from olympus.core.models import Asset, Finding
+from olympus.core.models import Asset, Event, Finding
 from olympus.core.notifications import (
     EmailChannel,
     NotificationChannel,
@@ -34,6 +34,7 @@ from olympus.findings.encryption import (
     looks_encrypted,
 )
 from olympus.findings.store import FindingTransitionBackupInfo, SqliteFindingTransitionStore
+from olympus.metis.models import Indicator, IntelCaseDocument
 from olympus.minerva.application import (
     MinervaApplicationService,
     MinervaLedgerRequest,
@@ -53,6 +54,7 @@ from olympus.vulcan.aggregate import (
     AggregationError,
     filter_min_severity,
     load_assets,
+    load_events,
     load_findings,
 )
 from olympus.vulcan.application import (
@@ -1011,7 +1013,16 @@ def explain(
 @app.command("correlate")
 def correlate(
     findings: list[Path] = typer.Option(
-        ..., "--findings", help="core.Finding JSON file(s) to correlate (repeatable)."
+        [], "--findings", help="core.Finding JSON file(s) to correlate (repeatable)."
+    ),
+    case: Path | None = typer.Option(
+        None,
+        "--case",
+        help="Metis olympus.metis-case document; its indicators are correlated "
+        "against --events (ioc-event). Requires --events.",
+    ),
+    events: list[Path] = typer.Option(
+        [], "--events", help="Apollo core.Event JSON bundle(s) for ioc-event (repeatable)."
     ),
     output_format: OutputFormat = typer.Option(
         OutputFormat.TABLE, "--format", help="Render as a table (human) or json (machine)."
@@ -1021,16 +1032,33 @@ def correlate(
     max_items_per_file: int = typer.Option(DEFAULT_MAX_ITEMS_PER_FILE, "--max-items-per-file"),
     max_total_items: int = typer.Option(DEFAULT_MAX_TOTAL_ITEMS, "--max-total-items"),
 ) -> None:
-    """Correlate findings across the shared contract (`CORR-1`): what relates to what.
+    """Correlate across the shared contracts (`CORR-1`): what relates to what.
 
-    Derives deterministic relationships — the same asset reported by two or more
-    tool sources (**asset-overlap**), and the same CVE across two or more assets
-    (**shared-cve**) — from the shared ``olympus.finding`` contract. Each
-    correlation is traceable (its members and sources), motivated (a reason) and
-    graded with a confidence and an epistemic class; these are joins on identity,
-    never a claim of compromise. Reuses ``vulcan.correlate.correlations_document``
-    so every surface agrees. Pure and offline.
+    Derives deterministic relationships from the shared ``olympus.finding``
+    contract — the same asset reported by two or more tool sources
+    (**asset-overlap**), the same CVE across two or more assets (**shared-cve**),
+    and the same Minerva evidence artifact cited by two or more findings
+    (**shared-evidence**) — and, when a Metis ``--case`` and Apollo ``--events``
+    are given, the cross-module **ioc-event** leads (a threat-intel indicator value
+    observed in an event). The finding joins are facts (``deterministic_result``);
+    an ioc-event match is a CTI lead (``suggested_correlation``), never a claim of
+    compromise. Each correlation is traceable, motivated and graded. Reuses
+    ``vulcan.correlate.correlations_document`` so every surface agrees. Pure and
+    offline.
     """
+    if bool(case) != bool(events):
+        typer.echo(
+            safe_terminal_text("vulcan: ioc-event correlation needs both --case and --events."),
+            err=True,
+        )
+        raise typer.Exit(code=ExitCode.USAGE)
+    if not findings and not (case and events):
+        typer.echo(
+            safe_terminal_text("vulcan: provide --findings, and/or --case together with --events."),
+            err=True,
+        )
+        raise typer.Exit(code=ExitCode.USAGE)
+
     try:
         loaded = _load_for_view(
             findings,
@@ -1039,11 +1067,25 @@ def correlate(
             max_items_per_file=max_items_per_file,
             max_total_items=max_total_items,
         )
+        indicators: tuple[Indicator, ...] = ()
+        loaded_events: list[Event] = []
+        if case and events:
+            intel_case = IntelCaseDocument.model_validate_json(
+                read_regular_text(case, max_bytes=max_input_bytes, label="Metis case")
+            )
+            indicators = intel_case.indicators
+            loaded_events = load_events(
+                events,
+                max_files=max_files,
+                max_bytes=max_input_bytes,
+                max_items_per_file=max_items_per_file,
+                max_total_items=max_total_items,
+            )
     except _APPLICATION_ERRORS as exc:
         typer.echo(safe_terminal_text(f"vulcan: {exc}"), err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
 
-    document = correlations_document(loaded)
+    document = correlations_document(loaded, indicators=indicators, events=loaded_events)
     correlations = document["correlations"]
     assert isinstance(correlations, list)  # noqa: S101 - shape from the versioned builder
     if output_format is OutputFormat.JSON:

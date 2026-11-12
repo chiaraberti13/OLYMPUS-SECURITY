@@ -1747,11 +1747,13 @@ Map offensive findings to MITRE ATT&CK techniques (OPS-RED).
 
 ### `olympus vulcan correlate`
 
-Correlate findings across the shared contract (`CORR-1`): what relates to what.
+Correlate across the shared contracts (`CORR-1`): what relates to what.
 
 | Name | Kind | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `--findings` | option | yes | — | core.Finding JSON file(s) to correlate (repeatable). |
+| `--findings` | option | no | — | core.Finding JSON file(s) to correlate (repeatable). |
+| `--case` | option | no | — | Metis olympus.metis-case document; its indicators are correlated against --events (ioc-event). Requires --events. |
+| `--events` | option | no | — | Apollo core.Event JSON bundle(s) for ioc-event (repeatable). |
 | `--format` | option | no | `table` | Render as a table (human) or json (machine). |
 | `--max-files` | option | no | `100` | — |
 | `--max-input-bytes` | option | no | `50000000` | — |

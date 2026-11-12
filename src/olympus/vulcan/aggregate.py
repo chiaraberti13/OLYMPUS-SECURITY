@@ -13,7 +13,15 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from olympus.core.contracts import ContractCompatibilityError, validate_contract_header
 from olympus.core.enums import Confidence, Severity
 from olympus.core.fileio import read_regular_text
-from olympus.core.models import Alert, Asset, Finding, Observation, ScanJob, SecurityReport
+from olympus.core.models import (
+    Alert,
+    Asset,
+    Event,
+    Finding,
+    Observation,
+    ScanJob,
+    SecurityReport,
+)
 from olympus.core.secrets import SecretProvider
 from olympus.findings.encryption import (
     FindingsEncryptionError,
@@ -290,6 +298,29 @@ def load_alerts(
     return _load_many(
         paths,
         Alert,
+        max_files=max_files,
+        max_bytes=max_bytes,
+        max_items_per_file=max_items_per_file,
+        max_total_items=max_total_items,
+        progress_check=progress_check,
+        secrets=secrets,
+    )
+
+
+def load_events(
+    paths: Sequence[Path],
+    *,
+    max_files: int = DEFAULT_MAX_FILES,
+    max_bytes: int = DEFAULT_MAX_INPUT_BYTES,
+    max_items_per_file: int = DEFAULT_MAX_ITEMS_PER_FILE,
+    max_total_items: int = DEFAULT_MAX_TOTAL_ITEMS,
+    progress_check: Callable[[], None] | None = None,
+    secrets: SecretProvider | None = None,
+) -> list[Event]:
+    """Load bounded shared ``olympus.event`` records from supported envelopes."""
+    return _load_many(
+        paths,
+        Event,
         max_files=max_files,
         max_bytes=max_bytes,
         max_items_per_file=max_items_per_file,

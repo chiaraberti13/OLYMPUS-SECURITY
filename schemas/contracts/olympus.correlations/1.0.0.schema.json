@@ -28,7 +28,8 @@
           "enum": [
             "asset-overlap",
             "shared-cve",
-            "shared-evidence"
+            "shared-evidence",
+            "ioc-event"
           ],
           "title": "Kind",
           "type": "string"

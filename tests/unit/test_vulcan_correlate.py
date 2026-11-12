@@ -11,6 +11,7 @@ never promoted to a stronger epistemic class than a deterministic join warrants.
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -18,14 +19,52 @@ from typer.testing import CliRunner
 from olympus.cli import app
 from olympus.core.enums import EpistemicClass, Severity, Source
 from olympus.core.exit_codes import ExitCode
-from olympus.core.models import Finding
+from olympus.core.models import Event, Finding
+from olympus.metis.models import Indicator, IndicatorType
 from olympus.vulcan.correlate import (
     CorrelationsDocument,
     correlate_findings,
+    correlate_indicators_with_events,
     correlations_document,
 )
 
 runner = CliRunner()
+
+_WHEN = datetime(2026, 1, 1, tzinfo=UTC)
+
+
+def _indicator(
+    value: str,
+    *,
+    indicator_type: IndicatorType = IndicatorType.DOMAIN,
+    source: str = "misp",
+    suffix: str = "a" * 24,
+) -> Indicator:
+    return Indicator(
+        indicator_id=f"ioc-{suffix}",
+        indicator_type=indicator_type,
+        value=value,
+        source=source,
+        confidence=80,
+        first_seen=_WHEN,
+    )
+
+
+def _event(
+    event_id: str,
+    *,
+    asset_id: str = "AST-1",
+    source: Source = Source.APOLLO,
+    attributes: dict[str, str] | None = None,
+) -> Event:
+    return Event(
+        event_id=event_id,
+        event_type="dns",
+        source=source,
+        observed_at=_WHEN,
+        asset_id=asset_id,
+        attributes=attributes or {},
+    )
 
 
 def _finding(
@@ -173,6 +212,90 @@ def test_document_validates_the_published_contract() -> None:
 
 
 # ---------------------------------------------------------------------------
+# IOC ↔ event (cross-module, suggested_correlation)
+# ---------------------------------------------------------------------------
+
+
+def test_ioc_event_matches_value_observed_in_event() -> None:
+    indicators = [
+        _indicator("Bad.Example", indicator_type=IndicatorType.DOMAIN),
+        _indicator("203.0.113.9", indicator_type=IndicatorType.IPV4, suffix="b" * 24),
+        _indicator("unseen.example", indicator_type=IndicatorType.DOMAIN, suffix="c" * 24),
+    ]
+    events = [
+        _event("E1", attributes={"query": "bad.example"}),  # case-insensitive match
+        _event("E2", asset_id="203.0.113.9"),  # indicator value is the asset id
+    ]
+    correlations = correlate_indicators_with_events(indicators, events)
+    by_key = {c.key: c for c in correlations}
+    assert set(by_key) == {"domain:Bad.Example", "ipv4:203.0.113.9"}
+    assert by_key["domain:Bad.Example"].members == ("E1",)
+    assert by_key["ipv4:203.0.113.9"].members == ("E2",)
+
+
+def test_ioc_event_hash_match_is_case_insensitive() -> None:
+    # A SHA-256 indicator in upper-case must match a lower-case observable (and
+    # vice versa): the documented normalisation is case-insensitive for hashes.
+    digest = "A" * 64
+    indicators = [_indicator(digest, indicator_type=IndicatorType.SHA256)]
+    events = [_event("E1", attributes={"file_hash": digest.lower()})]
+    correlations = correlate_indicators_with_events(indicators, events)
+    assert [c.key for c in correlations] == [f"sha256:{digest}"]
+    assert correlations[0].members == ("E1",)
+
+
+def test_ioc_event_is_a_suggested_lead_never_a_fact_or_compromise() -> None:
+    correlations = correlate_indicators_with_events(
+        [_indicator("bad.example")], [_event("E1", attributes={"query": "bad.example"})]
+    )
+    assert len(correlations) == 1
+    only = correlations[0]
+    # An IOC hit is weaker than an identity join: suggested, not deterministic.
+    assert only.epistemic_class is EpistemicClass.SUGGESTED_CORRELATION
+    # The reason frames the match as a lead to verify, explicitly not a compromise.
+    assert "lead" in only.reason.lower()
+    assert "not a proven compromise" in only.reason.lower()
+
+
+def test_ioc_event_folds_indicators_sharing_an_identity() -> None:
+    # Same type+value from two CTI feeds collapses into one correlation.
+    indicators = [
+        _indicator("bad.example", source="misp", suffix="a" * 24),
+        _indicator("bad.example", source="otx", suffix="d" * 24),
+    ]
+    correlations = correlate_indicators_with_events(
+        indicators, [_event("E1", attributes={"query": "bad.example"})]
+    )
+    assert [c.key for c in correlations] == ["domain:bad.example"]
+    assert "misp" in correlations[0].reason and "otx" in correlations[0].reason
+
+
+def test_ioc_event_absent_value_yields_nothing() -> None:
+    assert (
+        correlate_indicators_with_events(
+            [_indicator("nowhere.example")], [_event("E1", attributes={"query": "other.example"})]
+        )
+        == ()
+    )
+
+
+def test_document_merges_finding_and_ioc_event_correlations() -> None:
+    findings = [
+        _finding("F1", asset_id="AST-1", source=Source.ARGUS),
+        _finding("F2", asset_id="AST-1", source=Source.THEMIS),
+    ]
+    document = correlations_document(
+        findings,
+        indicators=[_indicator("bad.example")],
+        events=[_event("E1", attributes={"query": "bad.example"})],
+    )
+    kinds = {c["kind"] for c in document["correlations"]}
+    assert kinds == {"asset-overlap", "ioc-event"}
+    # The merged document still validates against the published contract.
+    assert CorrelationsDocument.model_validate(document).model_dump(mode="json") == document
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -228,6 +351,57 @@ def test_cli_correlate_no_overlap_is_an_empty_versioned_document(tmp_path: Path)
     assert payload["count"] == 0 and payload["correlations"] == []
     # The emitted document still validates against the published contract.
     assert CorrelationsDocument.model_validate(payload).model_dump(mode="json") == payload
+
+
+def _case_bundle(path: Path, indicators: list[Indicator]) -> Path:
+    document = {
+        "schema_name": "olympus.metis-case",
+        "schema_version": "1.0.0",
+        "case_id": "case-" + "0" * 23 + "1",
+        "title": "demo",
+        "status": "open",
+        "created_at": "2026-01-01T00:00:00Z",
+        "updated_at": "2026-01-01T00:00:00Z",
+        "indicators": [json.loads(i.model_dump_json()) for i in indicators],
+        "findings": [],
+        "correlations": [],
+    }
+    path.write_text(json.dumps(document), encoding="utf-8")
+    return path
+
+
+def _event_bundle(path: Path, events: list[Event]) -> Path:
+    path.write_text(json.dumps([json.loads(e.model_dump_json()) for e in events]), encoding="utf-8")
+    return path
+
+
+def test_cli_correlate_ioc_event_from_case_and_events(tmp_path: Path) -> None:
+    case = _case_bundle(tmp_path / "case.json", [_indicator("bad.example")])
+    events = _event_bundle(
+        tmp_path / "events.json", [_event("E1", attributes={"query": "bad.example"})]
+    )
+    result = runner.invoke(
+        app,
+        ["vulcan", "correlate", "--case", str(case), "--events", str(events), "--format", "json"],
+    )
+    assert result.exit_code == ExitCode.OK, result.output
+    payload = json.loads(result.stdout)
+    assert payload["count"] == 1
+    only = payload["correlations"][0]
+    assert only["kind"] == "ioc-event"
+    assert only["epistemic_class"] == "suggested_correlation"
+
+
+def test_cli_correlate_requires_both_case_and_events(tmp_path: Path) -> None:
+    case = _case_bundle(tmp_path / "case.json", [_indicator("bad.example")])
+    result = runner.invoke(app, ["vulcan", "correlate", "--case", str(case)])
+    assert result.exit_code == ExitCode.USAGE
+    assert "both --case and --events" in result.output
+
+
+def test_cli_correlate_with_no_inputs_is_a_usage_error() -> None:
+    result = runner.invoke(app, ["vulcan", "correlate"])
+    assert result.exit_code == ExitCode.USAGE
 
 
 def test_cli_correlate_reports_a_bad_bundle_as_usage_error(tmp_path: Path) -> None:

@@ -12,6 +12,25 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — CORR-1 (relazione cross-modulo: IOC Metis ↔ evento Apollo)
+
+- Quarta relazione in `vulcan.correlate`: **ioc-event** — un valore di indicatore
+  Metis (`olympus.metis-case`) **osservato** in un evento Apollo (`olympus.event`,
+  in un qualunque valore di attributo o nell'`asset_id`) collega la threat intel
+  alla telemetria. Nuova `correlate_indicators_with_events` + estensione di
+  `correlations_document(findings, *, indicators, events)`. **Prima relazione non
+  deterministica:** il match è esatto su valore normalizzato (strip + lower, quindi
+  case-insensitive per domini, URL, email, hash e CVE; letterali IP invariati), ma
+  un hit IOC è un **lead** da verificare, non la prova che l'evento sia l'entità a
+  cui l'intel si riferiva (indirizzi e domini sono riusati/condivisi) → classe
+  **`suggested_correlation`**, confidence `medium`, e la `reason` lo dichiara: una
+  correlazione ipotetica non è mai presentata come fatto né come compromissione.
+  CLI: `olympus vulcan correlate --case case.json --events events.json` (più nuovo
+  `vulcan.aggregate.load_events`). Contratto `olympus.correlation` 1.0.0 esteso in
+  posa (enum `kind` +`ioc-event`), golden JSON Schema rigenerati (32 contratti).
+  **Completa il corpus dei kind di `CORR-1`;** restano le superfici profonde API/Web
+  e il report in `CORR-2`.
+
 ### Added — CORR-1 (relazione cross-modulo: evidenza Minerva ↔ finding)
 
 - Terza relazione deterministica in `vulcan.correlate.correlate_findings`:
