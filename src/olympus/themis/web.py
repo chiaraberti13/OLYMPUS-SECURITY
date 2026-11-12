@@ -74,6 +74,7 @@ from olympus.core.finding_lifecycle import (
     SUPPRESSED_STATUSES,
     FindingTransitionError,
     allowed_transitions,
+    close_after_retest,
     record_transition,
 )
 from olympus.core.models import Alert, Engagement, Event, Finding, Incident
@@ -2537,6 +2538,9 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 "to": _FINDING_STATUS_LABELS.get(record.to_status, record.to_status.value),
                 "actor": _safe(record.actor),
                 "reason": _safe(record.reason) if record.reason else None,
+                "retest_evidence": (
+                    _safe(record.retest_evidence) if record.retest_evidence else None
+                ),
                 "occurred_at": record.occurred_at.isoformat(),
             }
             for record in history
@@ -2572,6 +2576,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         target: Annotated[str, Form()],
         csrf_token: Annotated[str, Form()],
         reason: Annotated[str, Form()] = "",
+        retest_evidence: Annotated[str, Form()] = "",
         session: WebSession = writes_findings,
     ) -> Response:
         """Record a lifecycle transition for one finding, with audit.
@@ -2581,6 +2586,10 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
         appended to the append-only store — the immutable bundle is never
         rewritten. Suppressing a finding (accepted-risk / false-positive) requires
         a non-empty reason, mirroring :func:`olympus.core.finding_lifecycle.suppress`.
+        Closing a finding requires ``retest_evidence`` (a real ``olympus.evidence``
+        custody id or SHA-256 digest) and goes through
+        :func:`olympus.core.finding_lifecycle.close_after_retest`: a finding is
+        never recorded as resolved without the proof of a retest (``VAL-2``).
         """
         _check_csrf(session, csrf_token)
         _rate_limit(session)
@@ -2606,18 +2615,34 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 status_code=422,
                 detail="a reason is required to accept or dismiss a finding",
             )
+        if target_status is FindingStatus.CLOSED and not retest_evidence.strip():
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "closing a finding requires retest evidence: an olympus.evidence "
+                    "custody id (EVD-YYYY-NNNNN) or a SHA-256 digest"
+                ),
+            )
 
         store = _open_transition_store()
         assert store is not None  # noqa: S101 - guarded by the findings_database check above
         try:
             finding = _effective_finding(base, store)
             try:
-                _, built = record_transition(
-                    finding,
-                    target_status,
-                    actor=session.identity_id,
-                    reason=reason.strip(),
-                )
+                if target_status is FindingStatus.CLOSED:
+                    _, built = close_after_retest(
+                        finding,
+                        actor=session.identity_id,
+                        retest_evidence=retest_evidence.strip(),
+                        reason=reason.strip(),
+                    )
+                else:
+                    _, built = record_transition(
+                        finding,
+                        target_status,
+                        actor=session.identity_id,
+                        reason=reason.strip(),
+                    )
             except (FindingTransitionError, ValidationError) as exc:
                 raise HTTPException(status_code=422, detail=_safe(str(exc))) from exc
             # ``new_id`` restarts its counter per process, so a restarted worker

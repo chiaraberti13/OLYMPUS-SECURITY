@@ -1795,6 +1795,38 @@ def test_suppressing_a_finding_requires_a_reason(tmp_path: Path) -> None:
     assert "reason is required" in response.text
 
 
+def test_closing_a_finding_requires_retest_evidence(tmp_path: Path) -> None:
+    """The Web close path is retest-gated, in parity with the CLI (VAL-2)."""
+    client = _findings_client(tmp_path)
+    _login(client)
+    csrf = _findings_csrf(client)
+    # new -> closed is a legal edge, but closing now needs retest evidence.
+    without = client.post(
+        "/findings/FND-2026-00001/transition",
+        data={"target": "closed", "csrf_token": csrf},
+    )
+    assert without.status_code == 422
+    assert "retest evidence" in without.text
+    # Free text is not a reference.
+    prose = client.post(
+        "/findings/FND-2026-00001/transition",
+        data={"target": "closed", "retest_evidence": "we retested it", "csrf_token": csrf},
+    )
+    assert prose.status_code == 422
+    # Nothing was recorded: the finding is still New.
+    assert "New" in client.get("/findings/FND-2026-00001").text
+    # A real custody id closes it; the effective status and evidence are recorded.
+    ok = client.post(
+        "/findings/FND-2026-00001/transition",
+        data={"target": "closed", "retest_evidence": "EVD-2026-00321", "csrf_token": csrf},
+        follow_redirects=False,
+    )
+    assert ok.status_code == 303, ok.text
+    page = client.get("/findings/FND-2026-00001")
+    assert "Closed" in page.text
+    assert "EVD-2026-00321" in page.text
+
+
 def test_transition_without_a_lifecycle_store_is_refused(tmp_path: Path) -> None:
     client = _client(
         tmp_path,

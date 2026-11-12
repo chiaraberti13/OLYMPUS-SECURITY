@@ -441,6 +441,55 @@ def test_cli_transition_records_an_audited_lifecycle_move(tmp_path: Path) -> Non
     assert suppress.exit_code != 0
 
 
+def test_cli_transition_close_requires_retest_evidence(tmp_path: Path) -> None:
+    """A finding is never closed from the CLI without retest evidence (VAL-2)."""
+    from olympus.findings.store import SqliteFindingTransitionStore
+
+    findings_path = _write(tmp_path / "f.json", [_finding("SQLi", Severity.CRITICAL)])
+    db = tmp_path / "transitions.sqlite3"
+    finding_id = json.loads(findings_path.read_text())[0]["finding_id"]
+
+    def run(to_status: str, *extra: str) -> object:
+        return runner.invoke(
+            app,
+            [
+                "vulcan",
+                "transition",
+                "--finding-id",
+                finding_id,
+                "--to-status",
+                to_status,
+                "--findings",
+                str(findings_path),
+                "--database",
+                str(db),
+                "--format",
+                "json",
+                *extra,
+            ],
+        )
+
+    assert run("confirmed").exit_code == 0
+    # Closing without --retest-evidence is refused and appends nothing.
+    without = run("closed")
+    assert without.exit_code != 0
+    assert "retest-evidence" in without.output
+    # Free text is not a reference.
+    prose = run("closed", "--retest-evidence", "we retested it")
+    assert prose.exit_code != 0
+    # A real custody id closes it and the evidence is recorded.
+    ok = run("closed", "--retest-evidence", "EVD-2026-00123")
+    assert ok.exit_code == 0, ok.output
+    assert "EVD-2026-00123" in ok.output
+    store = SqliteFindingTransitionStore(db)
+    try:
+        history = store.history(finding_id)
+    finally:
+        store.close()
+    assert history[-1].to_status.value == "closed"
+    assert history[-1].retest_evidence == "EVD-2026-00123"
+
+
 def test_cli_rank(tmp_path: Path) -> None:
     findings_path = _write(
         tmp_path / "f.json", [_finding("low", Severity.LOW), _finding("crit", Severity.CRITICAL)]

@@ -27,10 +27,16 @@ from olympus.athena.scope import (
     ensure_target_allowed,
 )
 from olympus.core.coverage import Coverage, RunStatus, exit_code_for
-from olympus.core.enums import Confidence, EpistemicClass, Severity, Source
+from olympus.core.enums import Confidence, EpistemicClass, FindingStatus, Severity, Source
 from olympus.core.evidence import evidence_from_bytes
 from olympus.core.execution import redact_mapping, redact_text, safe_terminal_text
 from olympus.core.exit_codes import ExitCode
+from olympus.core.finding_lifecycle import (
+    FindingTransitionError,
+    close_after_retest,
+    record_transition,
+    transition,
+)
 from olympus.core.models import EngagementScope, Evidence, Finding, FindingTransition
 from olympus.core.secrets import EnvSecretProvider
 from olympus.core.signing import generate_keypair
@@ -1185,3 +1191,78 @@ def test_legacy_vap_approval_requires_current_signed_scope_and_creates_no_jobs(
             revoked=(signed.manifest_sha256,),
             now=now,
         )
+
+
+def _retest_finding(status: FindingStatus = FindingStatus.IN_REMEDIATION) -> Finding:
+    return Finding(
+        finding_id="FND-2026-00001",
+        asset_id="AST-1",
+        source=Source.THEMIS,
+        title="issue",
+        severity=Severity.HIGH,
+        status=status,
+    )
+
+
+def test_close_gate_requires_real_retest_evidence() -> None:
+    # VAL-2 fail-closed boundary: a finding is never recorded as resolved without
+    # the evidence of a retest. The generic path must refuse every close...
+    with pytest.raises(FindingTransitionError):
+        transition(_retest_finding(), FindingStatus.CLOSED)
+    with pytest.raises(FindingTransitionError):
+        record_transition(_retest_finding(), FindingStatus.CLOSED, actor="a")
+    # ...and only a REAL reference (custody id / SHA-256) passes close_after_retest.
+    for bogus in ("", "   ", "we retested it", "EVD-1", "z" * 64):
+        with pytest.raises(FindingTransitionError):
+            close_after_retest(_retest_finding(), actor="qa", retest_evidence=bogus)
+
+    moved, record = close_after_retest(
+        _retest_finding(), actor="qa", retest_evidence="EVD-2026-00009"
+    )
+    assert moved.status is FindingStatus.CLOSED
+    assert record.to_status is FindingStatus.CLOSED
+    assert record.from_status is FindingStatus.IN_REMEDIATION
+    assert record.retest_evidence == "EVD-2026-00009"
+
+    # A SHA-256 digest is accepted and folded to lower-case.
+    _, digest_record = close_after_retest(
+        _retest_finding(FindingStatus.CONFIRMED), actor="qa", retest_evidence="B" * 64
+    )
+    assert digest_record.retest_evidence == "b" * 64
+
+    # A structurally illegal source state is rejected even with valid evidence.
+    with pytest.raises(FindingTransitionError):
+        close_after_retest(
+            _retest_finding(FindingStatus.FALSE_POSITIVE),
+            actor="qa",
+            retest_evidence="EVD-2026-00009",
+        )
+
+
+def test_generic_transition_enforces_the_legality_map() -> None:
+    # The generic transition is itself a boundary: it applies ONLY legal moves,
+    # refuses illegal ones and no-ops, and returns a fresh validated copy.
+    before = _retest_finding(FindingStatus.NEW)
+    moved = transition(before, FindingStatus.CONFIRMED)
+    assert moved.status is FindingStatus.CONFIRMED  # the legal move is applied...
+    assert before.status is FindingStatus.NEW  # ...on a copy, never in place
+    assert moved.last_seen >= before.last_seen  # the step is timestamped
+
+    # An illegal edge (new -> in_remediation) is refused and nothing is produced.
+    with pytest.raises(FindingTransitionError):
+        transition(_retest_finding(FindingStatus.NEW), FindingStatus.IN_REMEDIATION)
+    # A no-op to the same status is not a transition.
+    with pytest.raises(FindingTransitionError):
+        transition(_retest_finding(FindingStatus.CONFIRMED), FindingStatus.CONFIRMED)
+    # record_transition applies the same legal move and carries the audit fields.
+    audited, record = record_transition(
+        _retest_finding(FindingStatus.CONFIRMED),
+        FindingStatus.IN_REMEDIATION,
+        actor="analyst",
+        reason="fix scheduled",
+    )
+    assert audited.status is FindingStatus.IN_REMEDIATION
+    assert record.from_status is FindingStatus.CONFIRMED
+    assert record.to_status is FindingStatus.IN_REMEDIATION
+    assert record.actor == "analyst"
+    assert record.retest_evidence is None  # only a retest-gated close carries it

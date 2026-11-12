@@ -29,6 +29,7 @@ from olympus.core.enums import (
     Source,
 )
 from olympus.core.ids import new_id
+from olympus.core.references import evidence_reference
 
 #: CVE and CWE identifier patterns, used to validate structured finding fields and
 #: to extract identifiers from free-text when the structured fields are unset.
@@ -271,6 +272,11 @@ class FindingTransition(EngagementScopedModel):
     to_status: FindingStatus
     actor: str = Field(min_length=1, max_length=200)
     reason: str = Field(default="", max_length=2_000)
+    #: Reference to the retest evidence that justifies a move to ``closed`` — an
+    #: ``olympus.evidence`` custody id (``EVD-YYYY-NNNNN``) or a SHA-256 digest.
+    #: ``None`` for every other transition. A finding is never recorded as
+    #: resolved on the word of the mover alone (ROADMAP ``VAL-2``).
+    retest_evidence: str | None = Field(default=None, max_length=200)
     occurred_at: datetime = Field(default_factory=_utcnow)
 
     @field_validator("actor")
@@ -280,6 +286,25 @@ class FindingTransition(EngagementScopedModel):
         if value != value.strip() or any(ch in value for ch in "\r\n\x00"):
             raise ValueError("actor must be trimmed single-line text without control characters")
         return value
+
+    @field_validator("retest_evidence")
+    @classmethod
+    def _real_retest_reference(cls, value: str | None) -> str | None:
+        """When present, it must be a real evidence reference, never free text.
+
+        A retest reference that is not a custody id or SHA-256 digest is rejected
+        at the contract boundary (defense in depth), so the audit ledger cannot
+        record a close "proven" by prose.
+        """
+        if value is None:
+            return None
+        normalised = evidence_reference(value)
+        if normalised is None:
+            raise ValueError(
+                "retest_evidence must be an olympus.evidence custody id "
+                "(EVD-YYYY-NNNNN) or a SHA-256 digest"
+            )
+        return normalised
 
 
 class Event(EngagementScopedModel):

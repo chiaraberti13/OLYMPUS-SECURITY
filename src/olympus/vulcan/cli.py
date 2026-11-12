@@ -13,7 +13,11 @@ from olympus.core.enums import Confidence, FindingStatus, Severity, Source
 from olympus.core.execution import CancellationRequested, ExecutionPolicyError, safe_terminal_text
 from olympus.core.exit_codes import ExitCode
 from olympus.core.fileio import atomic_write_bytes, atomic_write_text, read_regular_text
-from olympus.core.finding_lifecycle import SUPPRESSED_STATUSES, record_transition
+from olympus.core.finding_lifecycle import (
+    SUPPRESSED_STATUSES,
+    close_after_retest,
+    record_transition,
+)
 from olympus.core.models import Asset, Event, Finding
 from olympus.core.notifications import (
     EmailChannel,
@@ -1892,6 +1896,13 @@ def transition(
         "--reason",
         help="Why the finding is moved; required for an accepted-risk or false-positive move.",
     ),
+    retest_evidence: str = typer.Option(
+        "",
+        "--retest-evidence",
+        help="Required to move a finding to 'closed': the retest evidence reference "
+        "(an olympus.evidence custody id EVD-YYYY-NNNNN or a SHA-256 digest). A "
+        "finding is never closed without proof a retest no longer reproduces it.",
+    ),
     actor: str = typer.Option(
         "cli", "--actor", help="Who is recording the transition (captured in the audit record)."
     ),
@@ -1911,7 +1922,10 @@ def transition(
     appended to the same append-only store the API and Web UI use, so a triage
     decision taken from the terminal is identical to one taken in the browser. An
     accepted-risk or false-positive move requires a non-empty ``--reason``.
-    History is never rewritten.
+    Moving a finding to ``closed`` requires ``--retest-evidence`` (a real
+    ``olympus.evidence`` custody id or SHA-256 digest): a finding is never recorded
+    as resolved without the proof of a retest (ROADMAP ``VAL-2``). History is never
+    rewritten.
     """
     store: SqliteFindingTransitionStore | None = None
     try:
@@ -1935,14 +1949,30 @@ def transition(
                 err=True,
             )
             raise typer.Exit(code=ExitCode.USAGE)
+        if to_status is FindingStatus.CLOSED and not retest_evidence.strip():
+            typer.echo(
+                "vulcan: closing a finding requires --retest-evidence "
+                "(an olympus.evidence custody id EVD-YYYY-NNNNN or a SHA-256 digest)",
+                err=True,
+            )
+            raise typer.Exit(code=ExitCode.USAGE)
         store = SqliteFindingTransitionStore(database)
         history = store.history(finding_id)
         effective = (
             finding.model_copy(update={"status": history[-1].to_status}) if history else finding
         )
-        _, built = record_transition(
-            effective, to_status, actor=actor.strip() or "cli", reason=reason.strip()
-        )
+        actor_name = actor.strip() or "cli"
+        if to_status is FindingStatus.CLOSED:
+            _, built = close_after_retest(
+                effective,
+                actor=actor_name,
+                retest_evidence=retest_evidence.strip(),
+                reason=reason.strip(),
+            )
+        else:
+            _, built = record_transition(
+                effective, to_status, actor=actor_name, reason=reason.strip()
+            )
         # Allocate the id and append atomically: new_id restarts per process, and
         # append_next() keeps the id read and the insert in one transaction (with a
         # bounded retry on the primary key) so concurrent writers keep the
@@ -1961,8 +1991,9 @@ def transition(
             "from": record.from_status.value,
             "to": record.to_status.value,
             "actor": safe_terminal_text(record.actor),
+            "retest_evidence": record.retest_evidence or "—",
             "transition_id": record.transition_id,
         }
     ]
-    columns = ["finding_id", "from", "to", "actor", "transition_id"]
+    columns = ["finding_id", "from", "to", "actor", "retest_evidence", "transition_id"]
     typer.echo(render(records, columns, output_format, title="Finding transition recorded"))

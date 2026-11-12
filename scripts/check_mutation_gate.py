@@ -58,6 +58,7 @@ MUTATED_FUNCTIONS = {
         "x_derive_terminal_state",
     ],
     "src/olympus/vulcan/correlate.py": ["x_correlate_findings"],
+    "src/olympus/core/finding_lifecycle.py": ["x_transition", "x_close_after_retest"],
 }
 
 

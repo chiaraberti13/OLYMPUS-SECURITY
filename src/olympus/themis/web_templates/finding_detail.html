@@ -47,6 +47,9 @@
     <label for="reason">Reason <span class="muted">(required to accept a risk or mark a false positive)</span></label>
     <input id="reason" name="reason" type="text" maxlength="2000"
            placeholder="why this decision was made">
+    <label for="retest_evidence">Retest evidence <span class="muted">(required to close: an olympus.evidence custody id or SHA-256 digest)</span></label>
+    <input id="retest_evidence" name="retest_evidence" type="text" maxlength="200"
+           placeholder="EVD-2026-00001 or a SHA-256 digest">
     <button type="submit">Record transition</button>
   </form>
   {% else %}
@@ -56,7 +59,7 @@
   {% if history %}
   <h3>History</h3>
   <table>
-    <thead><tr><th scope="col">When</th><th scope="col">From</th><th scope="col">To</th><th scope="col">By</th><th scope="col">Reason</th></tr></thead>
+    <thead><tr><th scope="col">When</th><th scope="col">From</th><th scope="col">To</th><th scope="col">By</th><th scope="col">Reason</th><th scope="col">Retest evidence</th></tr></thead>
     <tbody>
       {% for record in history %}
       <tr>
@@ -65,6 +68,7 @@
         <td>{{ record.to }}</td>
         <td>{{ record.actor }}</td>
         <td>{{ record.reason if record.reason else "—" }}</td>
+        <td class="target">{{ record.retest_evidence if record.retest_evidence else "—" }}</td>
       </tr>
       {% endfor %}
     </tbody>

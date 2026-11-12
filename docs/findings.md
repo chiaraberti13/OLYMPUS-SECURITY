@@ -108,8 +108,8 @@ new states, so no schema change):
 | `confirmed` | `in_remediation`, `accepted`, `false_positive`, `closed` |
 | `false_positive` | `confirmed` (only, if it turns out real) |
 | `accepted` | `confirmed`, `closed` |
-| `in_remediation` | `closed`, `confirmed` (retest failed), `accepted` |
-| `closed` | `confirmed` (recurrence / retest required) |
+| `in_remediation` | `closed` (retest-gated, see below), `confirmed` (retest failed), `accepted` |
+| `closed` | `confirmed` (recurrence) |
 
 A transition to the **same** status is rejected, so a no-op never masquerades as
 a workflow step.
@@ -125,6 +125,37 @@ if can_transition(finding.status, FindingStatus.CONFIRMED):
 `transition(finding, target)` returns a **copy** with the new status and a
 refreshed `last_seen` (the original is untouched); an illegal move raises
 `FindingTransitionError` naming both states.
+
+### Closing requires the evidence of a retest (`VAL-2`)
+
+`closed` means *resolved* — the one honest basis for that claim is a retest that
+could no longer reproduce the issue. So closing is **not** done through the
+generic path: `transition` and `record_transition` **refuse** any move to
+`closed` and point the caller at `close_after_retest`. `can_transition` still
+lists `closed` as structurally reachable (the re-open-on-recurrence semantics
+stay honest); the evidence gate lives in the application functions, enforced
+identically by the CLI and the Web UI.
+
+```python
+from olympus.core.finding_lifecycle import close_after_retest
+
+# retest_evidence must be a REAL reference: an olympus.evidence custody id
+# (EVD-YYYY-NNNNN) or a SHA-256 digest — never free text, or the close is
+# refused (fail-closed) and nothing changes.
+finding, record = close_after_retest(
+    finding, actor="qa", retest_evidence="EVD-2026-00009", reason="retest could not reproduce it"
+)
+# record.retest_evidence is stored in the immutable audit ledger, so a report can
+# answer "closed on the strength of which evidence?". A *failed* retest is not a
+# close: move the finding back to `confirmed` via record_transition (no gate).
+```
+
+From the terminal, `olympus vulcan transition --to-status closed` requires
+`--retest-evidence`; in the Web UI the finding detail page asks for the retest
+evidence before it will record a close. The authorized *simulations* that can
+produce such retest evidence (and the reproducible lab behind them) are tracked
+under `VAL-2`/`PURPLE-1`/`PURPLE-2`; this gate is the lifecycle half that refuses
+an unproven close.
 
 ### Audit trail
 

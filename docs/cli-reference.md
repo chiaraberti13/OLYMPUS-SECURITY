@@ -2083,6 +2083,7 @@ Record an audited finding lifecycle transition (CLI parity with the Web UI).
 | `--findings` | option | yes | — | core.Finding JSON bundle(s) that contain the finding (repeatable). |
 | `--database` | option | yes | — | Append-only finding-lifecycle SQLite store to record into. |
 | `--reason` | option | no | — | Why the finding is moved; required for an accepted-risk or false-positive move. |
+| `--retest-evidence` | option | no | — | Required to move a finding to 'closed': the retest evidence reference (an olympus.evidence custody id EVD-YYYY-NNNNN or a SHA-256 digest). A finding is never closed without proof a retest no longer reproduces it. |
 | `--actor` | option | no | `cli` | Who is recording the transition (captured in the audit record). |
 | `--format` | option | no | `table` | Render as a table (human) or json (machine). |
 | `--max-files` | option | no | `100` | — |
