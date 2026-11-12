@@ -78,8 +78,12 @@ the API return byte-identical documents (`CORR-2`):
   `indicators` and `events`, required), response the versioned
   `olympus.correlations` document. Pure and offline — the server never scans or
   reaches the network.
+- **Report** — `olympus vulcan report --correlations PATH` writes a companion
+  `olympus.correlations` document over the report's own ranked/filtered findings
+  (the finding-join kinds), so the report ships its relationships alongside the
+  findings without a separate call.
 
-A Web view and report integration are the remaining `CORR-2` work.
+A Web view is the remaining `CORR-2` work (only via `WEB-8`).
 
 ## Decision: no dedicated Security Knowledge Graph (yet)
 

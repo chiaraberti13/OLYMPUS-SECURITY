@@ -2004,6 +2004,7 @@ Aggregate strict inputs into consistent JSON, Markdown, HTML and PDF views.
 | `--csv` | option | no | — | If set, also write a spreadsheet-safe CSV of the ranked findings to this path (cells neutralised against formula injection). |
 | `--pdf` | option | no | — | If set, also write a formatted PDF report (needs the 'report' extra). |
 | `--explanations` | option | no | — | If set, also write a companion olympus.finding-explanations JSON with the shared EXPL-1 explanation of each reported finding (same core as the CLI and the API). |
+| `--correlations` | option | no | — | If set, also write a companion olympus.correlations JSON with the CORR-1 relationships between the reported findings (same core as the CLI and the API). |
 | `--kev` | option | no | — | Local CISA KEV catalogue JSON: adds KEV flags to the PDF (offline). |
 | `--epss` | option | no | — | Local FIRST EPSS response JSON: adds EPSS scores to the PDF (offline). |
 | `--min-severity` | option | no | — | Only include findings at or above this severity. |

@@ -241,6 +241,13 @@ def report(
         "the shared EXPL-1 explanation of each reported finding (same core as the "
         "CLI and the API).",
     ),
+    correlations_output: Path | None = typer.Option(
+        None,
+        "--correlations",
+        help="If set, also write a companion olympus.correlations JSON with the "
+        "CORR-1 relationships between the reported findings (same core as the CLI "
+        "and the API).",
+    ),
     kev: Path | None = typer.Option(
         None, "--kev", help="Local CISA KEV catalogue JSON: adds KEV flags to the PDF (offline)."
     ),
@@ -274,7 +281,15 @@ def report(
         raise typer.Exit(code=ExitCode.USAGE)
     outputs = tuple(
         path
-        for path in (output, markdown, html_output, csv_output, pdf_output, explanations_output)
+        for path in (
+            output,
+            markdown,
+            html_output,
+            csv_output,
+            pdf_output,
+            explanations_output,
+            correlations_output,
+        )
         if path is not None
     )
     try:
@@ -342,6 +357,10 @@ def report(
             # Same shared core as the CLI `explain` and the API, over the report's
             # own ranked/filtered findings, so every surface agrees (EXPL-2).
             export_report(explanations_document(outcome.report.findings), explanations_output)
+        if correlations_output is not None:
+            # Same shared core as the CLI `correlate` and the API, over the report's
+            # own ranked/filtered findings, so every surface agrees (CORR-2).
+            export_report(correlations_document(outcome.report.findings), correlations_output)
     except PdfUnavailableError as exc:
         typer.echo(safe_terminal_text(f"vulcan: {exc}"), err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
@@ -359,6 +378,8 @@ def report(
         typer.echo(f"vulcan: wrote PDF report to {pdf_output}", err=True)
     if explanations_output is not None:
         typer.echo(f"vulcan: wrote finding explanations to {explanations_output}", err=True)
+    if correlations_output is not None:
+        typer.echo(f"vulcan: wrote correlations to {correlations_output}", err=True)
 
 
 @app.command()
