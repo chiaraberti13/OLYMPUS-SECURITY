@@ -1729,6 +1729,20 @@ Open the keyboard-first interface for every Olympus tool.
 
 Print the Olympus version.
 
+### `olympus vulcan asset-diff`
+
+Compare two asset snapshots: how the attack surface changed (`VAL-1`).
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--baseline` | option | yes | — | Earlier-snapshot core.Asset JSON file(s) (repeatable). |
+| `--current` | option | yes | — | Later-snapshot core.Asset JSON file(s) (repeatable). |
+| `--format` | option | no | `table` | Render as a table (human) or json (machine). |
+| `--max-files` | option | no | `100` | — |
+| `--max-input-bytes` | option | no | `50000000` | — |
+| `--max-items-per-file` | option | no | `100000` | — |
+| `--max-total-items` | option | no | `200000` | — |
+
 ### `olympus vulcan attack`
 
 Map offensive findings to MITRE ATT&CK techniques (OPS-RED).

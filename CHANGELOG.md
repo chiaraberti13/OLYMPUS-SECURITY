@@ -12,6 +12,19 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — VAL-1 (diff della superficie d'attacco sugli asset)
+
+- Nuovo motore `vulcan.compare.diff_assets` → `AssetSurfaceDiff`, controparte del
+  diff dei finding: classifica ogni `olympus.asset` tra due snapshot in **nuovi**
+  (la superficie è cresciuta), **rimossi** e **persistenti**, per identità logica
+  (`asset_id`, folding con `dedupe_assets`). Gli asset persistenti portano entrambi
+  i rappresentanti ed espongono `criticality_changed` e `attack_surface_changed`
+  (type/hostname/IP ordinati differenti). Puro, offline, deterministico
+  (ordinamento per `asset_id`). CLI `olympus vulcan asset-diff --baseline … --current …`
+  (tabella/`--format json`), exit code `1` quando la superficie si espande (nuovi
+  asset), `0` altrimenti. Avanza `VAL-1` (resta: report comparativi e ricorrenza
+  via Execution Engine).
+
 ### Added — CORR-2 (companion delle correlazioni nel report)
 
 - `olympus vulcan report --correlations PATH` scrive un documento companion
