@@ -26,9 +26,22 @@ an auditable record.
 
 ## Closure evidence
 
-This section is completed only after the implementation PR is merged and the
-post-merge verifier reports all 16 required checks green on that exact merge
-SHA. Until then, `docs/verify/known-good.json` intentionally remains empty.
+The implementation from PR
+[#161](https://github.com/chiaraberti13/OLYMPUS-SECURITY/pull/161) remains active.
+The latest verified `main` commit is
+`0aef49b4a3c1fd262352cede3b15a1f708d0645c` (PR #187):
+
+| Verification | Result |
+| --- | --- |
+| `ci` push run [43225425486](https://github.com/chiaraberti13/OLYMPUS-SECURITY/actions/runs/43225425486) | success |
+| `codeql` push run [43225425551](https://github.com/chiaraberti13/OLYMPUS-SECURITY/actions/runs/43225425551) | success |
+| `scanner-image` push run [43225425662](https://github.com/chiaraberti13/OLYMPUS-SECURITY/actions/runs/43225425662) | gate success |
+| post-merge run [43226142363](https://github.com/chiaraberti13/OLYMPUS-SECURITY/actions/runs/43226142363) | 16/16 required checks on the exact SHA, success |
+| retained artifact | `post-merge-0aef49b4a3c1fd262352cede3b15a1f708d0645c` (ID `13947497995`, 90 days) |
+
+The SHA is recorded in `docs/verify/known-good.json`. Its `tag` and `release`
+references are intentionally `null`: no signed release exists yet, and only
+`CICD-3` may add those immutable references.
 
 ---
 
@@ -52,7 +65,19 @@ conserva entrambi i commit e rende la prova verificabile.
 
 ## Evidenza di chiusura
 
-Questa sezione viene completata solo dopo il merge della PR e il risultato
-verde del verificatore post-merge su tutti i 16 check dello stesso SHA. Fino
-ad allora il registro `docs/verify/known-good.json` resta intenzionalmente
-vuoto.
+L'implementazione della PR
+[#161](https://github.com/chiaraberti13/OLYMPUS-SECURITY/pull/161) è tuttora
+operativa. L'ultimo commit verificato di `main` è
+`0aef49b4a3c1fd262352cede3b15a1f708d0645c` (PR #187): i run `ci`
+[43225425486](https://github.com/chiaraberti13/OLYMPUS-SECURITY/actions/runs/43225425486),
+CodeQL [43225425551](https://github.com/chiaraberti13/OLYMPUS-SECURITY/actions/runs/43225425551)
+e `scanner-image`
+[43225425662](https://github.com/chiaraberti13/OLYMPUS-SECURITY/actions/runs/43225425662)
+sono verdi sullo stesso SHA. Il verificatore post-merge
+[43226142363](https://github.com/chiaraberti13/OLYMPUS-SECURITY/actions/runs/43226142363)
+ha certificato 16/16 check e conservato per 90 giorni l'artefatto
+`post-merge-0aef49b4a3c1fd262352cede3b15a1f708d0645c` (ID `13947497995`).
+
+Lo SHA è registrato in `docs/verify/known-good.json`. `tag` e `release` restano
+intenzionalmente `null`: non esiste ancora una release firmata e soltanto
+`CICD-3` potrà aggiungere tali riferimenti immutabili.
