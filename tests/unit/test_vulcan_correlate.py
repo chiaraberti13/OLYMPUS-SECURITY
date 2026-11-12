@@ -233,6 +233,17 @@ def test_ioc_event_matches_value_observed_in_event() -> None:
     assert by_key["ipv4:203.0.113.9"].members == ("E2",)
 
 
+def test_ioc_event_hash_match_is_case_insensitive() -> None:
+    # A SHA-256 indicator in upper-case must match a lower-case observable (and
+    # vice versa): the documented normalisation is case-insensitive for hashes.
+    digest = "A" * 64
+    indicators = [_indicator(digest, indicator_type=IndicatorType.SHA256)]
+    events = [_event("E1", attributes={"file_hash": digest.lower()})]
+    correlations = correlate_indicators_with_events(indicators, events)
+    assert [c.key for c in correlations] == [f"sha256:{digest}"]
+    assert correlations[0].members == ("E1",)
+
+
 def test_ioc_event_is_a_suggested_lead_never_a_fact_or_compromise() -> None:
     correlations = correlate_indicators_with_events(
         [_indicator("bad.example")], [_event("E1", attributes={"query": "bad.example"})]
