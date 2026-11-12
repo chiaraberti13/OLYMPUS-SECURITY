@@ -90,7 +90,8 @@ test-mutation:
 		"olympus.core.coverage.xǁCoverageǁstatus*" \
 		"olympus.athena.cli.x__exit_code_for*" \
 		"olympus.athena.domain.assessment.x_advance_job*" \
-		"olympus.athena.domain.assessment.x_derive_terminal_state*"
+		"olympus.athena.domain.assessment.x_derive_terminal_state*" \
+		"olympus.vulcan.correlate.x_correlate_findings*"
 	$(PYTHON) scripts/check_mutation_gate.py
 
 # --------------------------------------------------------------------------- #

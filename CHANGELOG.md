@@ -12,6 +12,19 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Changed — QA (il motore di correlazione entra nel mutation gate)
+
+- `olympus.vulcan.correlate.correlate_findings` — il confine di correttezza di
+  sicurezza che deriva le correlazioni deterministiche (asset-overlap, shared-cve,
+  shared-evidence) — è ora protetto dal **mutation gate** (prima non lo era, a
+  differenza degli altri confini). Aggiunto il file a `only_mutate`, il selettore
+  al target `test-mutation` e la voce in `check_mutation_gate.py`; un test nella
+  suite di mutazione fissa le soglie di join (≥2 sorgenti/asset distinti), i tipi
+  di relazione, `confidence=high`/`deterministic_result`, e — blindando il fix
+  CORR-1 — la regola che shared-evidence correla solo su riferimenti reali
+  (custody id / digest), mai sul testo libero. Score misurato: **80%** (105/132),
+  ben sopra il floor del 35%. Nessun cambiamento al codice di produzione.
+
 ### Fixed — CORR-1 (shared-evidence: niente false correlazioni da evidenze testuali)
 
 - `olympus.vulcan.correlate.correlate_findings` produceva una correlazione
