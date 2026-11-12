@@ -539,6 +539,112 @@ def test_vulcan_explain_api_matches_the_shared_core_and_cli(tmp_path: Path) -> N
     assert json.loads(cli.stdout) == [expected]
 
 
+def _correlate_finding(finding_id: str, source: str, asset_id: str = "AST-1") -> dict[str, object]:
+    return {
+        "finding_id": finding_id,
+        "asset_id": asset_id,
+        "source": source,
+        "title": f"issue {finding_id}",
+        "severity": "medium",
+    }
+
+
+def _correlate_indicator(value: str) -> dict[str, object]:
+    return {
+        "indicator_id": "ioc-" + "a" * 24,
+        "indicator_type": "domain",
+        "value": value,
+        "source": "misp",
+        "confidence": 80,
+        "first_seen": "2026-01-01T00:00:00Z",
+    }
+
+
+def test_vulcan_correlate_returns_the_versioned_document(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    response = client.post(
+        "/api/v1/vulcan/correlate",
+        headers=AUTH,
+        json={
+            "findings": [
+                _correlate_finding("F1", "argus"),
+                _correlate_finding("F2", "themis"),
+            ]
+        },
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["schema_name"] == "olympus.correlations"
+    assert body["schema_version"] == "1.0.0"
+    assert body["count"] == 1
+    only = body["correlations"][0]
+    assert only["kind"] == "asset-overlap"
+    assert only["epistemic_class"] == "deterministic_result"
+
+
+def test_vulcan_correlate_ioc_event_from_indicators_and_events(tmp_path: Path) -> None:
+    event = {
+        "schema_name": "olympus.event",
+        "schema_version": "1.0.0",
+        "event_id": "EVT-2026-00009",
+        "event_type": "dns.query",
+        "source": "apollo",
+        "observed_at": "2026-11-01T09:00:00Z",
+        "asset_id": "AST-1",
+        "attributes": {"query": "bad.example"},
+    }
+    client = _client(tmp_path)
+    response = client.post(
+        "/api/v1/vulcan/correlate",
+        headers=AUTH,
+        json={"indicators": [_correlate_indicator("bad.example")], "events": [event]},
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["count"] == 1
+    only = body["correlations"][0]
+    assert only["kind"] == "ioc-event"
+    # A CTI lead is a suggested correlation, never a deterministic fact.
+    assert only["epistemic_class"] == "suggested_correlation"
+
+
+def test_vulcan_correlate_rejects_an_empty_request(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    response = client.post("/api/v1/vulcan/correlate", headers=AUTH, json={})
+    assert response.status_code == 422
+
+
+def test_vulcan_correlate_requires_both_indicators_and_events(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    response = client.post(
+        "/api/v1/vulcan/correlate",
+        headers=AUTH,
+        json={"indicators": [_correlate_indicator("bad.example")]},
+    )
+    assert response.status_code == 422
+
+
+def test_vulcan_correlate_requires_the_findings_read_scope(tmp_path: Path) -> None:
+    scopes = tmp_path / "scopes"
+    _scope(scopes)
+    client = TestClient(
+        create_app(
+            ApiSettings(
+                database=tmp_path / "jobs.sqlite3",
+                scope_directory=scopes,
+                api_key=API_KEY,
+                api_key_scopes=("capabilities:read",),
+            )
+        )
+    )
+    response = client.post(
+        "/api/v1/vulcan/correlate",
+        headers=AUTH,
+        json={"findings": [_correlate_finding("F1", "argus")]},
+    )
+    assert response.status_code == 403
+
+
 def test_artemis_fingerprint_rejects_an_invalid_status(tmp_path: Path) -> None:
     client = _client(tmp_path)
     response = client.post(

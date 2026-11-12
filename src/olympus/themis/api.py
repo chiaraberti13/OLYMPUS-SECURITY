@@ -23,7 +23,7 @@ from uuid import uuid4
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import Response
@@ -64,7 +64,7 @@ from olympus.metis.extraction import (
     ExtractionResult,
     extract_from_source,
 )
-from olympus.metis.models import IndicatorType
+from olympus.metis.models import Indicator, IndicatorType
 from olympus.minerva.custody import (
     CUSTODY_ED25519_PUBLIC_KEY_ENV,
     DEFAULT_MAX_ENTRIES,
@@ -92,6 +92,7 @@ from olympus.themis.jobs import (
     ThemisJobStore,
 )
 from olympus.themis.oidc import OidcError, OidcVerifier
+from olympus.vulcan.correlate import CorrelationsDocument, correlations_document
 from olympus.vulcan.explain import FindingExplanation, explain_finding
 
 MAX_REQUEST_BYTES = 64 * 1024
@@ -780,6 +781,38 @@ class AttackAssociationView(BaseModel):
     source: str
 
 
+#: Bounds for the offline correlation endpoint (the 64 KiB request-size limit is
+#: the primary guard; these cap list length so a single list cannot be abused).
+MAX_CORRELATE_FINDINGS = 2_000
+MAX_CORRELATE_INDICATORS = 2_000
+MAX_CORRELATE_EVENTS = 2_000
+
+
+class VulcanCorrelateRequest(BaseModel):
+    """Bounded inputs for offline correlation (``CORR-2`` API surface).
+
+    Correlates a set of findings (``asset-overlap`` / ``shared-cve`` /
+    ``shared-evidence``) and, when both ``indicators`` and ``events`` are given,
+    the cross-module ``ioc-event`` leads. At least ``findings``, or both
+    ``indicators`` and ``events`` together, must be supplied — the same rule the
+    CLI enforces, so an empty request cannot masquerade as a zero-result answer.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    findings: list[Finding] = Field(default_factory=list, max_length=MAX_CORRELATE_FINDINGS)
+    indicators: list[Indicator] = Field(default_factory=list, max_length=MAX_CORRELATE_INDICATORS)
+    events: list[Event] = Field(default_factory=list, max_length=MAX_CORRELATE_EVENTS)
+
+    @model_validator(mode="after")
+    def _require_a_correlatable_input(self) -> VulcanCorrelateRequest:
+        if not self.findings and not (self.indicators and self.events):
+            raise ValueError("provide findings, and/or indicators together with events")
+        if bool(self.indicators) != bool(self.events):
+            raise ValueError("ioc-event correlation needs both indicators and events")
+        return self
+
+
 class VulcanFindingExplanationResult(BaseModel):
     """Versioned finding explanation (``EXPL-1``) shared by CLI, API and reports.
 
@@ -1343,6 +1376,29 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
         no scanning and no network request is ever made from the server.
         """
         return _finding_explanation_view(explain_finding(body))
+
+    @app.post(
+        "/api/v1/vulcan/correlate",
+        response_model=CorrelationsDocument,
+        tags=["vulcan"],
+    )
+    def vulcan_correlate(
+        body: VulcanCorrelateRequest, caller: Caller = reads_findings
+    ) -> CorrelationsDocument:
+        """Correlate findings — and optionally Metis IOCs against Apollo events — offline.
+
+        Projects the same versioned ``olympus.correlations`` document the CLI
+        renders, from the single shared ``vulcan.correlate.correlations_document``
+        core: deterministic identity joins (``asset-overlap`` / ``shared-cve`` /
+        ``shared-evidence``) plus, when indicators and events are supplied, the
+        ``ioc-event`` threat-intel leads (``suggested_correlation`` — never
+        presented as a fact or a compromise). Pure and offline: no scan, no
+        network request is ever made from the server.
+        """
+        document = correlations_document(
+            body.findings, indicators=body.indicators, events=body.events
+        )
+        return CorrelationsDocument.model_validate(document)
 
     @app.get(
         "/api/v1/engagements",

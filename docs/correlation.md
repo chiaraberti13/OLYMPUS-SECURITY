@@ -67,6 +67,20 @@ olympus vulcan correlate --findings a.json --findings b.json --format json
 olympus vulcan correlate --case case.json --events events.json --format json
 ```
 
+## Surfaces
+
+The same offline `correlations_document` core backs every surface, so the CLI and
+the API return byte-identical documents (`CORR-2`):
+
+- **CLI** — `olympus vulcan correlate` (table or `--format json`), above.
+- **API** — `POST /api/v1/vulcan/correlate` (scope `findings:read`), body
+  `{findings, indicators, events}` (bounded lists; at least `findings`, or both
+  `indicators` and `events`, required), response the versioned
+  `olympus.correlations` document. Pure and offline — the server never scans or
+  reaches the network.
+
+A Web view and report integration are the remaining `CORR-2` work.
+
 ## Decision: no dedicated Security Knowledge Graph (yet)
 
 `CORR-1` asks whether a Security Knowledge Graph (a graph database/engine) is
@@ -95,5 +109,5 @@ the shared contracts.
   `shared-cve` and `shared-evidence`, plus the cross-module
   `suggested_correlation` lead `ioc-event`. `unverified_hypothesis` is reserved
   for still weaker, inferred relationships.
-- Deeper **surfaces** (API and Web) and report integration land in `CORR-2`; the
-  CLI already exposes every kind through `olympus vulcan correlate`.
+- The CLI and the API (`POST /api/v1/vulcan/correlate`) expose every kind; a Web
+  view and report integration are the remaining `CORR-2` work.
