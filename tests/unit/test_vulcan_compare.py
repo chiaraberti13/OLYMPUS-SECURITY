@@ -9,18 +9,46 @@ determinism, and the CLI's canonical exit codes.
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 from typer.testing import CliRunner
 
 from olympus.cli import app
-from olympus.core.enums import Severity, Source
+from olympus.core.enums import AssetType, Criticality, Severity, Source
 from olympus.core.exit_codes import ExitCode
-from olympus.core.models import Finding
-from olympus.vulcan.compare import diff_findings
+from olympus.core.models import Asset, Finding
+from olympus.vulcan.compare import diff_assets, diff_findings
 from olympus.vulcan.trend import build_finding_trend
 
 runner = CliRunner()
+
+_WHEN = datetime(2026, 1, 1, tzinfo=UTC)
+
+
+def _asset(
+    asset_id: str,
+    *,
+    ips: list[str] | None = None,
+    criticality: Criticality = Criticality.MEDIUM,
+    hostname: str | None = None,
+    asset_type: AssetType = AssetType.HOST,
+) -> Asset:
+    return Asset(
+        asset_id=asset_id,
+        asset_type=asset_type,
+        hostname=hostname,
+        ip_addresses=ips or [],
+        criticality=criticality,
+        source=Source.ARGUS,
+        first_seen=_WHEN,
+        last_seen=_WHEN,
+    )
+
+
+def _asset_bundle(path: Path, assets: list[Asset]) -> Path:
+    path.write_text(json.dumps([json.loads(a.model_dump_json()) for a in assets]), encoding="utf-8")
+    return path
 
 
 def _finding(
@@ -216,3 +244,88 @@ def test_cli_trend_exit_codes_and_json(tmp_path: Path) -> None:
     data = json.loads(payload.stdout)
     assert [p["label"] for p in data["points"]] == ["base", "now"]
     assert data["points"][1]["new"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Attack-surface (asset) diff — VAL-1
+# ---------------------------------------------------------------------------
+
+
+def test_diff_assets_classifies_new_removed_and_persistent() -> None:
+    baseline = [_asset("AST-1", ips=["10.0.0.1"]), _asset("AST-9", ips=["10.0.0.9"])]
+    current = [
+        _asset("AST-1", ips=["10.0.0.1", "10.0.0.2"]),  # reachable surface grew
+        _asset("AST-2", ips=["10.0.0.3"]),  # brand-new asset
+    ]
+    diff = diff_assets(baseline, current)
+    assert [a.asset_id for a in diff.new] == ["AST-2"]
+    assert [a.asset_id for a in diff.removed] == ["AST-9"]
+    assert [p.current.asset_id for p in diff.persistent] == ["AST-1"]
+    assert diff.persistent[0].attack_surface_changed is True
+    assert diff.persistent[0].criticality_changed is False
+    assert diff.surface_expanded is True
+    assert diff.summary() == {"new": 1, "removed": 1, "persistent": 1, "surface_changed": 1}
+
+
+def test_diff_assets_detects_a_criticality_change_without_surface_change() -> None:
+    diff = diff_assets(
+        [_asset("AST-1", ips=["10.0.0.1"], criticality=Criticality.LOW)],
+        [_asset("AST-1", ips=["10.0.0.1"], criticality=Criticality.HIGH)],
+    )
+    assert diff.new == () and diff.removed == ()
+    only = diff.persistent[0]
+    assert only.criticality_changed is True
+    assert only.attack_surface_changed is False
+    assert diff.surface_expanded is False
+
+
+def test_diff_assets_is_deterministic_and_matches_on_identity() -> None:
+    # Same asset id seen twice (duplicate) counts once; order is stable by id.
+    baseline = [_asset("AST-2"), _asset("AST-1")]
+    current = [_asset("AST-1"), _asset("AST-1"), _asset("AST-2")]
+    diff = diff_assets(baseline, current)
+    assert diff.new == () and diff.removed == ()
+    assert [p.current.asset_id for p in diff.persistent] == ["AST-1", "AST-2"]
+
+
+def test_cli_asset_diff_exits_1_when_the_surface_expands(tmp_path: Path) -> None:
+    base = _asset_bundle(tmp_path / "base.json", [_asset("AST-1", ips=["10.0.0.1"])])
+    grown = _asset_bundle(
+        tmp_path / "now.json",
+        [_asset("AST-1", ips=["10.0.0.1"]), _asset("AST-2", ips=["10.0.0.2"])],
+    )
+    result = runner.invoke(
+        app, ["vulcan", "asset-diff", "--baseline", str(base), "--current", str(grown)]
+    )
+    assert result.exit_code == ExitCode.FINDINGS
+    assert "1 new" in result.stderr
+
+
+def test_cli_asset_diff_json_and_zero_exit_when_stable(tmp_path: Path) -> None:
+    snapshot = _asset_bundle(tmp_path / "s.json", [_asset("AST-1", ips=["10.0.0.1"])])
+    result = runner.invoke(
+        app,
+        [
+            "vulcan",
+            "asset-diff",
+            "--baseline",
+            str(snapshot),
+            "--current",
+            str(snapshot),
+            "--format",
+            "json",
+        ],
+    )
+    assert result.exit_code == ExitCode.OK, result.output
+    payload = json.loads(result.stdout)
+    assert payload["summary"] == {"new": 0, "removed": 0, "persistent": 1, "surface_changed": 0}
+
+
+def test_cli_asset_diff_reports_a_bad_bundle_as_usage_error(tmp_path: Path) -> None:
+    bad = tmp_path / "bad.json"
+    bad.write_text("{not json", encoding="utf-8")
+    good = _asset_bundle(tmp_path / "g.json", [_asset("AST-1")])
+    result = runner.invoke(
+        app, ["vulcan", "asset-diff", "--baseline", str(bad), "--current", str(good)]
+    )
+    assert result.exit_code == ExitCode.USAGE

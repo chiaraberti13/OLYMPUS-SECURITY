@@ -24,8 +24,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from olympus.core.enums import Severity
-from olympus.core.models import Finding
-from olympus.vulcan.aggregate import finding_fingerprint, merge_duplicate_findings
+from olympus.core.models import Asset, Finding
+from olympus.vulcan.aggregate import dedupe_assets, finding_fingerprint, merge_duplicate_findings
 from olympus.vulcan.view import FindingView
 
 #: Severity ordering (critical first) to tell a worsened issue from an eased one.
@@ -144,3 +144,119 @@ def diff_findings(baseline: Sequence[Finding], current: Sequence[Finding]) -> Sc
         key=lambda item: rank_key(item.current),
     )
     return ScanDiff(tuple(new), tuple(resolved), tuple(persistent))
+
+
+# --------------------------------------------------------------------------- #
+# Attack-surface (asset) diff — VAL-1
+# --------------------------------------------------------------------------- #
+
+
+def _asset_surface(asset: Asset) -> tuple[str, str | None, tuple[str, ...]]:
+    """The reachable-surface fingerprint of an asset: type, hostname, sorted IPs."""
+    return (asset.asset_type.value, asset.hostname, tuple(sorted(asset.ip_addresses)))
+
+
+@dataclass(frozen=True)
+class PersistentAsset:
+    """One asset present in both the baseline and the current snapshot."""
+
+    current: Asset
+    baseline: Asset
+
+    @property
+    def criticality_changed(self) -> bool:
+        """Whether the asset's criticality classification differs between runs."""
+        return self.current.criticality is not self.baseline.criticality
+
+    @property
+    def attack_surface_changed(self) -> bool:
+        """Whether the asset's reachable surface (type/hostname/IPs) differs."""
+        return _asset_surface(self.current) != _asset_surface(self.baseline)
+
+
+@dataclass(frozen=True)
+class AssetSurfaceDiff:
+    """The classified difference between a baseline and a current asset set."""
+
+    new: tuple[Asset, ...]
+    removed: tuple[Asset, ...]
+    persistent: tuple[PersistentAsset, ...]
+
+    @property
+    def surface_expanded(self) -> bool:
+        """Whether the current snapshot introduced any asset absent from the baseline."""
+        return bool(self.new)
+
+    def summary(self) -> dict[str, int]:
+        """Counts an operator reads first: new, removed, persistent, surface-changed."""
+        return {
+            "new": len(self.new),
+            "removed": len(self.removed),
+            "persistent": len(self.persistent),
+            "surface_changed": sum(1 for item in self.persistent if item.attack_surface_changed),
+        }
+
+    @staticmethod
+    def _asset_view(asset: Asset) -> dict[str, object]:
+        return {
+            "asset_id": asset.asset_id,
+            "asset_type": asset.asset_type.value,
+            "hostname": asset.hostname,
+            "ip_addresses": sorted(asset.ip_addresses),
+            "criticality": asset.criticality.value,
+        }
+
+    def to_dict(self) -> dict[str, object]:
+        """Full, JSON-serialisable projection of the attack-surface change."""
+        return {
+            "summary": self.summary(),
+            "new": [self._asset_view(asset) for asset in self.new],
+            "removed": [self._asset_view(asset) for asset in self.removed],
+            "persistent": [
+                {
+                    "current": self._asset_view(item.current),
+                    "baseline": self._asset_view(item.baseline),
+                    "criticality_changed": item.criticality_changed,
+                    "attack_surface_changed": item.attack_surface_changed,
+                }
+                for item in self.persistent
+            ],
+        }
+
+
+def _fold_assets(assets: Sequence[Asset]) -> dict[str, Asset]:
+    """Collapse an asset set to one representative per logical identity (asset id)."""
+    return {asset.asset_id: asset for asset in dedupe_assets(list(assets))}
+
+
+def diff_assets(baseline: Sequence[Asset], current: Sequence[Asset]) -> AssetSurfaceDiff:
+    """Classify every asset as new, removed or persistent across two snapshots.
+
+    ``baseline`` is the earlier snapshot and ``current`` the later one. Assets are
+    matched by their logical identity (``asset_id``), not per-run position, so the
+    same asset seen twice is recognised as one. An asset in ``current`` but not
+    ``baseline`` is **new** (the attack surface grew); one in ``baseline`` but not
+    ``current`` is **removed**; one in both is **persistent**, carrying both
+    representatives so a consumer can show a criticality or reachable-surface
+    change. Each list is ordered deterministically by ``asset_id``; the operation
+    is pure and offline.
+    """
+    base_map = _fold_assets(baseline)
+    current_map = _fold_assets(current)
+    new = sorted(
+        (asset for key, asset in current_map.items() if key not in base_map),
+        key=lambda asset: asset.asset_id,
+    )
+    removed = sorted(
+        (asset for key, asset in base_map.items() if key not in current_map),
+        key=lambda asset: asset.asset_id,
+    )
+    persistent = sorted(
+        (
+            PersistentAsset(current=asset, baseline=base_map[key])
+            for key, asset in current_map.items()
+            if key in base_map
+        ),
+        key=lambda item: item.current.asset_id,
+    )
+    return AssetSurfaceDiff(tuple(new), tuple(removed), tuple(persistent))

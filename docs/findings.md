@@ -261,6 +261,25 @@ The browser exposes the same engine at `GET /findings/diff` when the control
 plane is started with a `--baseline-directory` alongside `--findings-directory`;
 see [`web.md`](web.md).
 
+### Attack-surface (asset) diff — `VAL-1`
+
+`diff_assets(baseline, current)` is the asset counterpart of the finding diff: it
+classifies every `olympus.asset` across two snapshots as `new` (the attack surface
+grew), `removed`, or `persistent`, matched by logical identity (`asset_id`) and
+folded with `dedupe_assets` so a duplicate counts once. Persistent assets carry
+both representatives, exposing `criticality_changed` and `attack_surface_changed`
+(the reachable surface — type, hostname, sorted IPs — differs). Pure, offline and
+deterministic (ordered by `asset_id`).
+
+```bash
+# Compare two asset snapshots of the same scope. Exit code 1 when the current
+# snapshot expanded the attack surface (introduced any new asset), 0 otherwise.
+olympus vulcan asset-diff --baseline assets-2026-09.json --current assets-2026-10.json
+
+# --format json emits the full summary + new/removed/persistent projection.
+olympus vulcan asset-diff --baseline a.json --current b.json --format json
+```
+
 ### Trend across several runs
 
 `vulcan.trend.build_finding_trend` generalises the two-run diff to an ordered

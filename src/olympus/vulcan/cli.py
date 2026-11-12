@@ -71,7 +71,7 @@ from olympus.vulcan.attack import (
     associate_all,
     technique_counts,
 )
-from olympus.vulcan.compare import ScanDiff, diff_findings
+from olympus.vulcan.compare import AssetSurfaceDiff, ScanDiff, diff_assets, diff_findings
 from olympus.vulcan.correlate import correlations_document
 from olympus.vulcan.enrichment import (
     DEFAULT_MAX_FEED_BYTES,
@@ -820,6 +820,101 @@ def diff(
         err=True,
     )
     raise typer.Exit(code=ExitCode.FINDINGS if result.has_regressions else ExitCode.OK)
+
+
+def _asset_diff_row(asset: Asset) -> list[str]:
+    return [
+        safe_terminal_text(asset.asset_id),
+        asset.asset_type.value,
+        asset.criticality.value,
+        safe_terminal_text(asset.hostname or "—"),
+        safe_terminal_text(", ".join(sorted(asset.ip_addresses)) or "—"),
+    ]
+
+
+@app.command("asset-diff")
+def asset_diff(
+    baseline: list[Path] = typer.Option(
+        ..., "--baseline", help="Earlier-snapshot core.Asset JSON file(s) (repeatable)."
+    ),
+    current: list[Path] = typer.Option(
+        ..., "--current", help="Later-snapshot core.Asset JSON file(s) (repeatable)."
+    ),
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.TABLE, "--format", help="Render as a table (human) or json (machine)."
+    ),
+    max_files: int = typer.Option(DEFAULT_MAX_FILES, "--max-files"),
+    max_input_bytes: int = typer.Option(DEFAULT_MAX_INPUT_BYTES, "--max-input-bytes"),
+    max_items_per_file: int = typer.Option(DEFAULT_MAX_ITEMS_PER_FILE, "--max-items-per-file"),
+    max_total_items: int = typer.Option(DEFAULT_MAX_TOTAL_ITEMS, "--max-total-items"),
+) -> None:
+    """Compare two asset snapshots: how the attack surface changed (`VAL-1`).
+
+    Assets are matched by logical identity (``asset_id``), not per-run position, so
+    the same asset seen twice is recognised as one. The classification reuses
+    ``vulcan.compare.diff_assets`` — the single place that decides
+    new/removed/persistent — so every surface agrees. Exit code ``1`` when the
+    current snapshot expanded the attack surface (introduced any new asset), ``0``
+    when it did not. Pure and offline.
+    """
+    try:
+        base_assets = load_assets(
+            baseline,
+            max_files=max_files,
+            max_bytes=max_input_bytes,
+            max_items_per_file=max_items_per_file,
+            max_total_items=max_total_items,
+        )
+        current_assets = load_assets(
+            current,
+            max_files=max_files,
+            max_bytes=max_input_bytes,
+            max_items_per_file=max_items_per_file,
+            max_total_items=max_total_items,
+        )
+    except _APPLICATION_ERRORS as exc:
+        typer.echo(safe_terminal_text(f"vulcan: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+
+    result: AssetSurfaceDiff = diff_assets(base_assets, current_assets)
+    if output_format is OutputFormat.JSON:
+        typer.echo(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    else:
+        columns = ["asset", "type", "criticality", "hostname", "ips"]
+        typer.echo(
+            render_table(columns, [_asset_diff_row(a) for a in result.new], title="New (surface)")
+        )
+        typer.echo(
+            render_table(columns, [_asset_diff_row(a) for a in result.removed], title="Removed")
+        )
+        typer.echo(
+            render_table(
+                [*columns, "change"],
+                [
+                    [
+                        *_asset_diff_row(item.current),
+                        ", ".join(
+                            change
+                            for change, active in (
+                                ("criticality", item.criticality_changed),
+                                ("surface", item.attack_surface_changed),
+                            )
+                            if active
+                        )
+                        or "—",
+                    ]
+                    for item in result.persistent
+                ],
+                title="Persistent",
+            )
+        )
+    summary = result.summary()
+    typer.echo(
+        "vulcan: {new} new, {removed} removed, {persistent} persistent "
+        "({surface_changed} surface-changed)".format(**summary),
+        err=True,
+    )
+    raise typer.Exit(code=ExitCode.FINDINGS if result.surface_expanded else ExitCode.OK)
 
 
 @app.command("trend")
