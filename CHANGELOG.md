@@ -6,11 +6,20 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html): once a first
 tagged release exists, breaking changes bump MAJOR, backward-compatible features
 bump MINOR, and fixes bump PATCH.
 
-Signed release tags, database migrations and a documented rollback procedure are
-still open (see `ROADMAP.md`: `SEC-F`, `DEV-D`, `DEV-F`); until a release is tagged,
-everything below lives under **Unreleased**.
+Signed release tags and database migrations are still open (see `ROADMAP.md`:
+`SEC-4.5`, `CICD-3`, `DEV-D`, `DEV-F`); until a release is tagged, everything
+below lives under **Unreleased**.
 
 ## [Unreleased]
+
+### Added — SEC-4.3 (verifica post-merge e rollback)
+
+- Il workflow in sola lettura `post-merge-verification` verifica dopo ogni merge
+  tutti i 16 check obbligatori sullo stesso SHA e conserva report, ruleset e
+  check-run per 90 giorni. Il registro versionato degli SHA noti-buoni contiene
+  ora `0aef49b4a3c1fd262352cede3b15a1f708d0645c`, certificato dal run post-merge
+  `43226142363`; il runbook bilingue include la prova riproducibile di revert con
+  tree iniziale e finale identici.
 
 ### Added — VAL-1 (diff della superficie d'attacco sugli asset)
 

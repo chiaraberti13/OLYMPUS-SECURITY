@@ -2,5 +2,18 @@
   "schema_name": "olympus.known-good-commits",
   "schema_version": "1.0.0",
   "repository": "chiaraberti13/OLYMPUS-SECURITY",
-  "entries": []
+  "entries": [
+    {
+      "sha": "0aef49b4a3c1fd262352cede3b15a1f708d0645c",
+      "verified_at": "2026-11-12T13:19:18Z",
+      "source_pr": 187,
+      "required_checks": 16,
+      "verdict": "pass",
+      "workflow_url": "https://github.com/chiaraberti13/OLYMPUS-SECURITY/actions/runs/43226142363",
+      "artifact": "post-merge-0aef49b4a3c1fd262352cede3b15a1f708d0645c",
+      "evidence": "docs/verify/2026-11-07-post-merge.md",
+      "tag": null,
+      "release": null
+    }
+  ]
 }
