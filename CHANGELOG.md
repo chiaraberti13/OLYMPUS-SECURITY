@@ -12,6 +12,34 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — VAL-1 (report comparativo Vulcan)
+
+- Nuovo motore `vulcan.comparative.build_comparative_report` → `ComparativeReport`
+  che, su una storia ordinata di assessment, assembla in **un unico documento
+  leggibile** il lifecycle dei finding sull'intera storia (nuovi/persistenti/
+  ricomparsi/risolti) e, opzionalmente, l'asset-diff della superficie d'attacco
+  (baseline→current). **Riusa** i due motori esistenti
+  (`vulcan.lifecycle.classify_lifecycle` e `vulcan.compare.diff_assets`) verbatim
+  invece di derivarne uno parallelo: è una proiezione come `trend`/`lifecycle`,
+  non un nuovo contratto condiviso. Puro, offline, deterministico.
+- CLI `olympus vulcan comparative-report --snapshot … [--asset-baseline …
+  --asset-current …]`: Markdown di default (un report è fatto per essere letto),
+  `--format json` per il documento versionato `olympus.comparative-report` 1.0.0
+  che incorpora le proiezioni `lifecycle`/`asset-diff` **campo per campo**,
+  `--output` con scrittura atomica. L'asset-diff è incluso solo se si passano
+  **sia** baseline **sia** current (altrimenti errore d'uso). Exit code `1`
+  quando lo stato peggiora — un finding **nuovo** o **ricomparso**, o la
+  superficie d'attacco **cresciuta** — `0` altrimenti.
+- Il testo controllato dal bersaglio (titoli, hostname) è neutralizzato dallo
+  stesso escaper Markdown testato del report a run singolo
+  (`vulcan.report.markdown_text`, promosso da privato ad alias pubblico per
+  single-source): un titolo di finding non può forgiare la struttura del report
+  né un link cliccabile. Regressioni in `tests/unit/test_vulcan_comparative.py`
+  (storia a tre assessment, regressione da sola espansione di superficie, parità
+  con le proiezioni condivise, sicurezza dell'escaping, exit code canonici) e
+  `docs/cli-reference.md` rigenerato. Avanza `VAL-1` (resta: la sola ricorrenza
+  via Execution Engine, `API-3`).
+
 ### Changed — QA (il motore di correlazione entra nel mutation gate)
 
 - `olympus.vulcan.correlate.correlate_findings` — il confine di correttezza di

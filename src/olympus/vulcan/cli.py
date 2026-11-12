@@ -71,6 +71,7 @@ from olympus.vulcan.attack import (
     associate_all,
     technique_counts,
 )
+from olympus.vulcan.comparative import ComparativeReport, build_comparative_report
 from olympus.vulcan.compare import AssetSurfaceDiff, ScanDiff, diff_assets, diff_findings
 from olympus.vulcan.correlate import correlations_document
 from olympus.vulcan.enrichment import (
@@ -1056,6 +1057,129 @@ def lifecycle(
     )
     regression = bool(result.new) or result.has_reappearances
     raise typer.Exit(code=ExitCode.FINDINGS if regression else ExitCode.OK)
+
+
+@app.command("comparative-report")
+def comparative_report(
+    snapshot: list[Path] = typer.Option(
+        ...,
+        "--snapshot",
+        help="A core.Finding JSON bundle for one run, oldest first (repeatable, min 2).",
+    ),
+    asset_baseline: list[Path] = typer.Option(
+        [],
+        "--asset-baseline",
+        help="Earlier-snapshot core.Asset JSON file(s) for the attack-surface diff "
+        "(repeatable); pair with --asset-current.",
+    ),
+    asset_current: list[Path] = typer.Option(
+        [],
+        "--asset-current",
+        help="Later-snapshot core.Asset JSON file(s) for the attack-surface diff "
+        "(repeatable); pair with --asset-baseline.",
+    ),
+    engagement: str | None = typer.Option(
+        None, "--engagement", help="Engagement name shown in the report header."
+    ),
+    report_format: str = typer.Option(
+        "markdown",
+        "--format",
+        help="Render as 'markdown' (human report) or 'json' (machine document).",
+    ),
+    output: Path | None = typer.Option(
+        None, "--output", help="If set, write the report to this path instead of stdout."
+    ),
+    max_files: int = typer.Option(DEFAULT_MAX_FILES, "--max-files"),
+    max_input_bytes: int = typer.Option(DEFAULT_MAX_INPUT_BYTES, "--max-input-bytes"),
+    max_items_per_file: int = typer.Option(DEFAULT_MAX_ITEMS_PER_FILE, "--max-items-per-file"),
+    max_total_items: int = typer.Option(DEFAULT_MAX_TOTAL_ITEMS, "--max-total-items"),
+) -> None:
+    """Build a comparative report across an ordered assessment history (`VAL-1`).
+
+    Combines the finding lifecycle over the whole history (new/persistent/
+    reappeared/resolved, reusing ``vulcan lifecycle``) with the optional
+    attack-surface diff between a baseline and current asset snapshot (reusing
+    ``vulcan asset-diff``) into one human-readable, offline, deterministic report.
+    Give ``--snapshot`` oldest first (at least two). The asset diff is included
+    only when **both** ``--asset-baseline`` and ``--asset-current`` are supplied.
+    Exit code ``1`` when the latest state regressed (a new or reappeared finding,
+    or the attack surface grew), ``0`` otherwise.
+    """
+    if report_format not in ("markdown", "json"):
+        typer.echo("vulcan: --format must be 'markdown' or 'json'", err=True)
+        raise typer.Exit(code=ExitCode.USAGE)
+    if len(snapshot) < 2:
+        typer.echo("vulcan: comparative-report needs at least two --snapshot bundles", err=True)
+        raise typer.Exit(code=ExitCode.USAGE)
+    if bool(asset_baseline) != bool(asset_current):
+        typer.echo(
+            "vulcan: the attack-surface diff needs both --asset-baseline and --asset-current",
+            err=True,
+        )
+        raise typer.Exit(code=ExitCode.USAGE)
+    try:
+        snapshots = [
+            (
+                path.stem,
+                _load_for_view(
+                    [path],
+                    max_files=max_files,
+                    max_input_bytes=max_input_bytes,
+                    max_items_per_file=max_items_per_file,
+                    max_total_items=max_total_items,
+                ),
+            )
+            for path in snapshot
+        ]
+        base_assets = (
+            load_assets(
+                asset_baseline,
+                max_files=max_files,
+                max_bytes=max_input_bytes,
+                max_items_per_file=max_items_per_file,
+                max_total_items=max_total_items,
+            )
+            if asset_baseline
+            else None
+        )
+        current_assets = (
+            load_assets(
+                asset_current,
+                max_files=max_files,
+                max_bytes=max_input_bytes,
+                max_items_per_file=max_items_per_file,
+                max_total_items=max_total_items,
+            )
+            if asset_current
+            else None
+        )
+        result: ComparativeReport = build_comparative_report(
+            snapshots=snapshots,
+            asset_baseline=base_assets,
+            asset_current=current_assets,
+            engagement=engagement,
+        )
+    except _APPLICATION_ERRORS as exc:
+        typer.echo(safe_terminal_text(f"vulcan: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+
+    rendered = (
+        json.dumps(result.to_dict(), indent=2, sort_keys=True)
+        if report_format == "json"
+        else result.render_markdown()
+    )
+    if output is not None:
+        atomic_write_text(output, rendered if rendered.endswith("\n") else rendered + "\n")
+        typer.echo(safe_terminal_text(f"vulcan: comparative report written to {output}"), err=True)
+    else:
+        typer.echo(rendered)
+    summary = result.lifecycle.summary()
+    typer.echo(
+        "vulcan: {new} new, {reappeared} reappeared, {persistent} persistent, "
+        "{resolved} resolved".format(**summary),
+        err=True,
+    )
+    raise typer.Exit(code=ExitCode.FINDINGS if result.has_regression else ExitCode.OK)
 
 
 def _explanation_lines(explanation: FindingExplanation) -> list[str]:

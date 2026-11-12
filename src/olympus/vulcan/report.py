@@ -548,3 +548,9 @@ def _markdown_text(value: str) -> str:
         r"(?i)\bhttps?://", lambda match: match.group(0).replace("://", "&#58;//"), escaped
     )
     return escaped
+
+
+#: Public alias for the report Markdown escaper, so sibling report projections
+#: (e.g. :mod:`olympus.vulcan.comparative`) reuse the single, tested place that
+#: neutralises target-controlled text instead of re-deriving the escaping.
+markdown_text = _markdown_text

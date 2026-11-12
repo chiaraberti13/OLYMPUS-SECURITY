@@ -1759,6 +1759,23 @@ Map offensive findings to MITRE ATT&CK techniques (OPS-RED).
 | `--max-items-per-file` | option | no | `100000` | — |
 | `--max-total-items` | option | no | `200000` | — |
 
+### `olympus vulcan comparative-report`
+
+Build a comparative report across an ordered assessment history (`VAL-1`).
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--snapshot` | option | yes | — | A core.Finding JSON bundle for one run, oldest first (repeatable, min 2). |
+| `--asset-baseline` | option | no | — | Earlier-snapshot core.Asset JSON file(s) for the attack-surface diff (repeatable); pair with --asset-current. |
+| `--asset-current` | option | no | — | Later-snapshot core.Asset JSON file(s) for the attack-surface diff (repeatable); pair with --asset-baseline. |
+| `--engagement` | option | no | — | Engagement name shown in the report header. |
+| `--format` | option | no | `markdown` | Render as 'markdown' (human report) or 'json' (machine document). |
+| `--output` | option | no | — | If set, write the report to this path instead of stdout. |
+| `--max-files` | option | no | `100` | — |
+| `--max-input-bytes` | option | no | `50000000` | — |
+| `--max-items-per-file` | option | no | `100000` | — |
+| `--max-total-items` | option | no | `200000` | — |
+
 ### `olympus vulcan correlate`
 
 Correlate across the shared contracts (`CORR-1`): what relates to what.
