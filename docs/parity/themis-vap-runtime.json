@@ -411,6 +411,12 @@
     },
     {
       "surface": "api",
+      "method": "POST",
+      "path": "/api/v1/vulcan/correlate",
+      "handler": "vulcan_correlate"
+    },
+    {
+      "surface": "api",
       "method": "GET",
       "path": "/api/v1/engagements",
       "handler": "list_engagements"

@@ -12,6 +12,18 @@ everything below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — CORR-2 (superficie API per le correlazioni)
+
+- Nuovo endpoint `POST /api/v1/vulcan/correlate` (scope `findings:read`) che
+  proietta lo **stesso** documento versionato `olympus.correlations` reso dalla
+  CLI, dall'unico core offline `vulcan.correlate.correlations_document`: body
+  `{findings, indicators, events}` (liste con tetti; serve almeno `findings`,
+  oppure `indicators` ed `events` insieme — stessa regola della CLI), risposta
+  `CorrelationsDocument`. Puro e offline: il server non esegue scansioni né
+  richieste di rete. Nuovo modello `VulcanCorrelateRequest` (`extra="forbid"`,
+  validazione cross-campo), manifesto di parità e golden OpenAPI aggiornati. Resta
+  per `CORR-2`: la vista Web e l'integrazione nel report.
+
 ### Added — CORR-1 (relazione cross-modulo: IOC Metis ↔ evento Apollo)
 
 - Quarta relazione in `vulcan.correlate`: **ioc-event** — un valore di indicatore

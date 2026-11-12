@@ -737,6 +737,108 @@
         "title": "Confidence",
         "type": "string"
       },
+      "CorrelationModel": {
+        "additionalProperties": false,
+        "description": "The versioned, published shape of one correlation (``CORR-1``).",
+        "properties": {
+          "confidence": {
+            "$ref": "#/components/schemas/Confidence"
+          },
+          "epistemic_class": {
+            "$ref": "#/components/schemas/EpistemicClass"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "asset-overlap",
+              "shared-cve",
+              "shared-evidence",
+              "ioc-event"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "members": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Members",
+            "type": "array"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "schema_name": {
+            "const": "olympus.correlation",
+            "default": "olympus.correlation",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "key",
+          "members",
+          "sources",
+          "reason",
+          "confidence",
+          "epistemic_class"
+        ],
+        "title": "CorrelationModel",
+        "type": "object"
+      },
+      "CorrelationsDocument": {
+        "additionalProperties": false,
+        "description": "The versioned, published shape of a set of correlations (``CORR-1``).",
+        "properties": {
+          "correlations": {
+            "items": {
+              "$ref": "#/components/schemas/CorrelationModel"
+            },
+            "title": "Correlations",
+            "type": "array"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "schema_name": {
+            "const": "olympus.correlations",
+            "default": "olympus.correlations",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "count",
+          "correlations"
+        ],
+        "title": "CorrelationsDocument",
+        "type": "object"
+      },
       "DetectionRule": {
         "additionalProperties": false,
         "description": "A minimal portable detection rule expressed as YAML-compatible JSON.",
@@ -1065,6 +1167,18 @@
         "title": "EngagementStatus",
         "type": "string"
       },
+      "EpistemicClass": {
+        "description": "What kind of knowledge a statement is (ROADMAP ``EXPL-1``/``CORR-1``).\n\nShared across explainability (`EXPL-1`) and correlation (`CORR-1`) so every\nsurface labels a claim by how it is known. The ordering is from strongest to\nweakest epistemic standing; a weaker class must never be presented as a\nstronger one (an inference is not an observation, a hypothesis is not a\ndemonstrated compromise).",
+        "enum": [
+          "observed_evidence",
+          "deterministic_result",
+          "inference",
+          "suggested_correlation",
+          "unverified_hypothesis"
+        ],
+        "title": "EpistemicClass",
+        "type": "string"
+      },
       "EpistemicStatementView": {
         "additionalProperties": false,
         "description": "One explanation claim with the epistemic class saying how it is known.",
@@ -1343,6 +1457,53 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "Indicator": {
+        "additionalProperties": false,
+        "description": "One normalized case indicator with provenance and confidence.",
+        "properties": {
+          "confidence": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "integer"
+          },
+          "first_seen": {
+            "format": "date-time",
+            "title": "First Seen",
+            "type": "string"
+          },
+          "indicator_id": {
+            "pattern": "^ioc-[a-f0-9]{24}$",
+            "title": "Indicator Id",
+            "type": "string"
+          },
+          "indicator_type": {
+            "$ref": "#/components/schemas/IndicatorType"
+          },
+          "source": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Source",
+            "type": "string"
+          },
+          "value": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indicator_id",
+          "indicator_type",
+          "value",
+          "source",
+          "confidence",
+          "first_seen"
+        ],
+        "title": "Indicator",
         "type": "object"
       },
       "IndicatorType": {
@@ -2111,6 +2272,38 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "VulcanCorrelateRequest": {
+        "additionalProperties": false,
+        "description": "Bounded inputs for offline correlation (``CORR-2`` API surface).\n\nCorrelates a set of findings (``asset-overlap`` / ``shared-cve`` /\n``shared-evidence``) and, when both ``indicators`` and ``events`` are given,\nthe cross-module ``ioc-event`` leads. At least ``findings``, or both\n``indicators`` and ``events`` together, must be supplied \u2014 the same rule the\nCLI enforces, so an empty request cannot masquerade as a zero-result answer.",
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/Event"
+            },
+            "maxItems": 2000,
+            "title": "Events",
+            "type": "array"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            },
+            "maxItems": 2000,
+            "title": "Findings",
+            "type": "array"
+          },
+          "indicators": {
+            "items": {
+              "$ref": "#/components/schemas/Indicator"
+            },
+            "maxItems": 2000,
+            "title": "Indicators",
+            "type": "array"
+          }
+        },
+        "title": "VulcanCorrelateRequest",
         "type": "object"
       },
       "VulcanFindingExplanationResult": {
@@ -2934,6 +3127,56 @@
         "summary": "Minerva Verify Ledger",
         "tags": [
           "minerva"
+        ]
+      }
+    },
+    "/api/v1/vulcan/correlate": {
+      "post": {
+        "description": "Correlate findings \u2014 and optionally Metis IOCs against Apollo events \u2014 offline.\n\nProjects the same versioned ``olympus.correlations`` document the CLI\nrenders, from the single shared ``vulcan.correlate.correlations_document``\ncore: deterministic identity joins (``asset-overlap`` / ``shared-cve`` /\n``shared-evidence``) plus, when indicators and events are supplied, the\n``ioc-event`` threat-intel leads (``suggested_correlation`` \u2014 never\npresented as a fact or a compromise). Pure and offline: no scan, no\nnetwork request is ever made from the server.",
+        "operationId": "vulcan_correlate_api_v1_vulcan_correlate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VulcanCorrelateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorrelationsDocument"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Vulcan Correlate",
+        "tags": [
+          "vulcan"
         ]
       }
     },
