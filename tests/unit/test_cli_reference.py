@@ -48,4 +48,9 @@ def test_real_commands_and_options_are_documented() -> None:
 
 def test_commands_are_sorted_for_stability() -> None:
     headings = [line for line in render_cli_reference().splitlines() if line.startswith("### ")]
-    assert headings == sorted(headings)
+    # The generator orders commands by name, depth-first, so the heading list is
+    # the lexicographic order of the command *paths*. Compare on the path with the
+    # surrounding backticks removed: a raw string sort would otherwise disagree
+    # for a command whose name is a prefix of a sibling's (e.g. `coverage` and
+    # `coverage-trend`), because the trailing "`" (0x60) sorts after "-" (0x2d).
+    assert headings == sorted(headings, key=lambda line: line.replace("`", ""))
