@@ -55,3 +55,43 @@ def test_target_matches_mars_v1_profile() -> None:
     assert response("/app/unknown", "")[0] == 404
     assert b"<em>mars</em>" in response("/app/search", "q=%3Cem%3Emars%3C%2Fem%3E")[2]
     assert json.loads(response("/api/session/properties", "")[2])["version"]["tag"] == "v0.60.10"
+
+
+def test_purple_exercise_detects_every_planned_technique_on_the_lab() -> None:
+    # PURPLE-1 end-to-end on the reproducible lab (PURPLE-2): replay the attack
+    # telemetry through the red-team pack and score the plan's techniques. All
+    # seven are detected, so the exercise reports no gap.
+    from olympus.athena.purple import evaluate_detection_exercise
+
+    rules = load_rules(REDTEAM_RULES)
+    alerts = evaluate_stream(rules, _load_events())
+    planned = sorted({technique for alert in alerts for technique in alert.mitre_attack})
+    assert planned == [
+        "T1021.002",
+        "T1056.001",
+        "T1071.004",
+        "T1125",
+        "T1482",
+        "T1486",
+        "T1567.002",
+    ]
+    report = evaluate_detection_exercise(alerts, planned, events_total=len(_load_events()))
+    assert report.has_gaps is False
+    assert report.detection_rate == 1.0
+    assert {o.result.value for o in report.outcomes} == {"detected"}
+
+
+def test_purple_exercise_reports_an_uncovered_technique_as_a_gap() -> None:
+    # A technique the pack does not cover (no rule fires on the lab telemetry for it)
+    # is an honest detection gap, never counted as detected.
+    from olympus.athena.purple import DetectionResult, evaluate_detection_exercise
+
+    rules = load_rules(REDTEAM_RULES)
+    alerts = evaluate_stream(rules, _load_events())
+    report = evaluate_detection_exercise(
+        alerts, ["T1071.004", "T1059"], events_total=len(_load_events())
+    )
+    by_tech = {o.technique: o.result for o in report.outcomes}
+    assert by_tech["T1071.004"] is DetectionResult.DETECTED  # C2 over DNS is caught
+    assert by_tech["T1059"] is DetectionResult.MISSED  # not exercised / no rule -> gap
+    assert report.has_gaps is True

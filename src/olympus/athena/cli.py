@@ -39,7 +39,9 @@ from olympus.athena.application.registry import (
 from olympus.athena.domain.assessment import AssessmentState
 from olympus.athena.domain.contracts import AssessmentPlan, PlanValidationError, Target
 from olympus.athena.scope import ensure_web_target_allowed, scoped_address_policy
+from olympus.core.contracts import ContractCompatibilityError
 from olympus.core.coverage import RunStatus, classify_run_status, exit_code_for
+from olympus.core.execution import safe_terminal_text
 from olympus.core.exit_codes import ExitCode
 from olympus.core.fileio import read_regular_text
 from olympus.core.http import UrllibHttpClient
@@ -50,6 +52,7 @@ from olympus.core.observability import (
     ObservabilityConfigurationError,
     observability_from_config,
 )
+from olympus.core.output import OutputFormat, render
 from olympus.vulcan.enrichment import (
     EnrichmentError,
     FindingEnrichment,
@@ -548,3 +551,84 @@ def list_profiles() -> None:
             sort_keys=True,
         )
     )
+
+
+@app.command()
+def purple(
+    events: Path = typer.Option(
+        ...,
+        "--events",
+        help="Attack telemetry NDJSON to replay (olympus.event records). Scope-safe: "
+        "it is replayed through the detections, nothing is executed against a target.",
+    ),
+    technique: list[str] = typer.Option(
+        ...,
+        "--technique",
+        help="An ATT&CK technique the attack exercised (repeatable, min 1) — the red-team "
+        "plan the detection outcome is scored against, e.g. T1059 or T1562.001.",
+    ),
+    rules: Path = typer.Option(
+        Path("examples/input/apollo-ad"), "--rules", help="Directory of YAML detection rules."
+    ),
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.TABLE, "--format", help="Render as a table (human) or json (machine)."
+    ),
+    strict: bool = typer.Option(
+        False, "--strict", help="Exit non-zero when any planned technique was missed (a gap)."
+    ),
+    deadline: float = typer.Option(600.0, "--deadline"),
+) -> None:
+    """Purple-team detection exercise: did the detections catch the attack (`PURPLE-1`)?
+
+    Replays the attack telemetry through the Apollo detection set (the same engine
+    as ``apollo run`` — never a parallel one) and scores each planned ATT&CK
+    technique as **detected** (a rule fired carrying it) or **missed** (a real
+    detection gap). It is an honest replay, not exploitation: no network activity,
+    nothing attacked. A missed technique is never counted as detected because a
+    rule exists on paper. Exit code ``1`` under ``--strict`` when any technique was
+    missed. Demonstrating detection against a live authorized attack still needs
+    the reproducible lab (`PURPLE-2`).
+    """
+    from olympus.apollo.application import ApolloApplicationService, ApolloRunRequest
+    from olympus.athena.purple import PurpleExerciseReport, evaluate_detection_exercise
+
+    try:
+        outcome = ApolloApplicationService().run(
+            ApolloRunRequest(rules_path=rules, events_path=events, deadline_seconds=deadline)
+        )
+        report: PurpleExerciseReport = evaluate_detection_exercise(
+            outcome.alerts, technique, events_total=outcome.events
+        )
+    except (ContractCompatibilityError, OSError, TimeoutError, ValueError) as exc:
+        typer.echo(safe_terminal_text(f"athena: purple exercise error: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+
+    if output_format is OutputFormat.JSON:
+        typer.echo(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+    else:
+        records: list[dict[str, object]] = [
+            {
+                "technique": outcome_item.technique,
+                "result": outcome_item.result.value,
+                "fired_rules": ", ".join(outcome_item.fired_rules) or "—",
+            }
+            for outcome_item in report.outcomes
+        ]
+        typer.echo(
+            render(
+                records,
+                ["technique", "result", "fired_rules"],
+                output_format,
+                title="Purple-team detection outcome (replay; not a live attack)",
+            )
+        )
+    summary = report.summary()
+    typer.echo(
+        safe_terminal_text(
+            "athena: {detected}/{planned} technique(s) detected "
+            "({missed} missed), {alerts} alert(s) over {events} event(s)".format(**summary)
+        ),
+        err=True,
+    )
+    if strict and report.has_gaps:
+        raise typer.Exit(code=int(ExitCode.FINDINGS))

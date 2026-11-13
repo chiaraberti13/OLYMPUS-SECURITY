@@ -455,6 +455,19 @@ Validate a plan file against the Athena contract and adapter registry.
 
 List the named scan profiles and the adapters each one runs.
 
+### `olympus athena purple`
+
+Purple-team detection exercise: did the detections catch the attack (`PURPLE-1`)?
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--events` | option | yes | — | Attack telemetry NDJSON to replay (olympus.event records). Scope-safe: it is replayed through the detections, nothing is executed against a target. |
+| `--technique` | option | yes | — | An ATT&CK technique the attack exercised (repeatable, min 1) — the red-team plan the detection outcome is scored against, e.g. T1059 or T1562.001. |
+| `--rules` | option | no | — | Directory of YAML detection rules. |
+| `--format` | option | no | `table` | Render as a table (human) or json (machine). |
+| `--strict` | option | no | `False` | Exit non-zero when any planned technique was missed (a gap). |
+| `--deadline` | option | no | `600.0` | — |
+
 ### `olympus athena recover`
 
 Settle assessments left running after a crash (interrupted jobs fail closed).
