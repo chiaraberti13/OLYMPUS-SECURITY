@@ -12,6 +12,31 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — PURPLE-1 (esercizio purple: replay di detection, offline e scope-safe)
+
+- Nuovo core puro `athena.purple.evaluate_detection_exercise` → `PurpleExerciseReport`
+  e CLI `olympus athena purple`: rigioca una traccia di telemetria d'attacco attraverso
+  il rule set **tramite la valutazione Apollo** (`ApolloApplicationService.run`, lo
+  **stesso** motore di `apollo run`, nessun motore parallelo) e assegna a ogni tecnica
+  ATT&CK del piano l'esito **detected** (una regola è scattata portando quella tecnica)
+  o **missed** (gap di detection). È il quarto anello che mancava a `VAL-3`
+  (ATT&CK↔regola↔telemetria↔**esito**).
+- Onesto e fail-closed: un gap non è mai contato come detection perché una regola esiste
+  «sulla carta»; le tecniche rilevate **fuori dal piano** sono riportate a parte
+  (`unexpected_detections`), non nel punteggio; piano vuoto o id ATT&CK malformato →
+  `ValueError` (nessun punteggio su input non valido). Deterministico, offline: nessuna
+  rete, nulla viene attaccato — è un **replay**, non exploitation. Il documento JSON porta
+  un `limit` esplicito (dimostrare la detection contro un attacco live autorizzato richiede
+  il lab `PURPLE-2`).
+- CLI `olympus athena purple --rules DIR --events ATTACK.ndjson --technique T#### ...`
+  (tabella/json, `--strict` → exit 1 su gap). `docs/apollo.md`, `labs/mars/README.md` (passo
+  5b) e `docs/cli-reference.md` aggiornati.
+- Dimostrato **end-to-end sul lab riproducibile `PURPLE-2`**: test d'integrazione in
+  `tests/integration/test_mars_purple_scenario.py` (7/7 tecniche rilevate sul trace mars,
+  e una tecnica non coperta segnalata come gap). Unit+CLI in `tests/unit/test_athena_purple.py`;
+  copertura branch 100% del nuovo modulo. Avanza `PURPLE-1` (resta: la generazione di un
+  attacco simulato live e l'evidenza firmata del retest per `VAL-2`, in lab autorizzato).
+
 ### Added — VAL-3 (serie temporale della copertura difensiva, offline)
 
 - Nuovo motore `apollo.coverage_trend.build_coverage_trend` → `CoverageTrend` che

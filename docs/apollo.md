@@ -164,6 +164,28 @@ affected technique is surfaced as `newly_blind` and the trend reports a
 regression, even when the first and last snapshots show identical coverage.
 `--strict` exits non-zero on any such regression.
 
+### Purple exercise: did the detections catch the attack? (`PURPLE-1`)
+
+Structural coverage says a rule *could* fire; a purple exercise says whether it
+*did*. `olympus athena purple` replays a bundle of attack telemetry through the
+detection set (the same Apollo engine as `apollo run`) and scores each planned
+ATT&CK technique as **detected** (a rule fired carrying it) or **missed** (a real
+detection gap). It is an honest replay — no network activity, nothing is
+attacked:
+
+```bash
+olympus athena purple --rules examples/input/apollo-redteam \
+  --events labs/mars/target/mars-post-exploitation.ndjson \
+  --technique T1021.002 --technique T1056.001 --technique T1071.004 \
+  --technique T1125 --technique T1482 --technique T1486 --technique T1567.002 --strict
+```
+
+A missed technique is never counted as detected because a rule exists on paper;
+techniques detected outside the plan are reported separately, not folded into the
+score. `--strict` exits non-zero on any gap. This is the detection-**outcome**
+link that `VAL-3`'s structural trend cannot provide; demonstrating detection
+against a *live* authorized attack still needs the reproducible lab (`PURPLE-2`).
+
 ## Streaming and limits
 
 `apollo run` reads NDJSON incrementally from a non-symlink regular file. Rules,

@@ -82,6 +82,13 @@ olympus apollo run --rules examples/input/apollo-redteam \
   --events labs/mars/target/mars-post-exploitation.ndjson
 #   -> 7 alert: discovery, lateral movement, keylogging, webcam nascosta, C2 su DNS,
 #      exfiltration, impact — le stesse tecniche di KLogger/symbiote, solo *rilevate*
+
+# 5b) Punteggio purple: ogni tecnica del piano rilevata o mancata (PURPLE-1)
+olympus athena purple --rules examples/input/apollo-redteam \
+  --events labs/mars/target/mars-post-exploitation.ndjson \
+  --technique T1021.002 --technique T1056.001 --technique T1071.004 \
+  --technique T1125 --technique T1482 --technique T1486 --technique T1567.002 --strict
+#   -> 7/7 tecniche rilevate, nessun gap (exit 0). Un replay onesto, non un attacco reale.
 ```
 
 Il passo 5 chiude il ciclo purple: il red side (1-4) ottiene un foothold sul target;
