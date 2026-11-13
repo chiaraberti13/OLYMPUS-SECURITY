@@ -306,7 +306,7 @@ long-lived, stato durevole). Modello adottato:
 ## 15. Documentazione e localizzazione
 
 - **DOCS-1** [x] README IT/EN, docs per modulo, CLI reference generata, disclaimer d'uso.
-- **DOCS-2** [ ] Guide Web UI per ogni tool; documentazione API completa; guida deploy split + Vercel.
+- **DOCS-2** [~] Guide Web UI per ogni tool; documentazione API completa; guida deploy split + Vercel. **Fatto (riferimento API generato, anti-drift):** `docs/api-reference.md` è **generato dallo schema OpenAPI live** dell'app Themis (`olympus.api_reference.render_document`, script `scripts/generate_api_reference.py` con `--check`), unica fonte di verità: ogni operazione elenca metodo+path, lo scopo (dalla docstring) e il **contratto versionato** di request e response (risolto dai costanti `schema_name`/`schema_version`). Puro/offline/deterministico (ordinato per path poi metodo); gate anti-drift come per il CLI reference tramite il test `tests/unit/test_api_reference.py::test_committed_reference_is_current` (la pagina non può divergere dall'API reale). **Resta:** guide d'uso Web UI per singolo tool e la guida al deploy split + Vercel.
 - **DOCS-3** [ ] Sito doc statico bilingue (Pages/Vercel) dalla stessa fonte `docs/`.
 
 ## 16. Packaging, deployment e CI/CD
