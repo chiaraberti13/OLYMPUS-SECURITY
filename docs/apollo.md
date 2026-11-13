@@ -140,6 +140,30 @@ a `no-telemetry` blind spot, so a CI or Purple exercise fails on a real gap. The
 matrix measures the detection set against available telemetry — it does not
 invent techniques for which no rule exists.
 
+### Coverage trend over time (`VAL-3`)
+
+`olympus apollo coverage-trend` runs that same matrix across an ordered series of
+telemetry snapshots — the rule set is held fixed and measured against each
+`--snapshot` NDJSON file in turn (oldest first) — and reports how defensive
+coverage evolved: per snapshot the structural coverage, the techniques **newly
+covered** or **newly blind** since the previous one, and the coverage delta.
+
+```bash
+olympus apollo coverage-trend --rules ./rules \
+  --snapshot 2026-08.ndjson --snapshot 2026-09.ndjson --snapshot 2026-10.ndjson --strict
+```
+
+Each metric is self-describing — the JSON document carries `metric_definitions`
+and an explicit `limit`. That limit matters: these are measures of **structural**
+coverage (a rule exists *and* its telemetry is present), **not** proven
+detection. A technique counted as `covered` is detectable on paper; demonstrating
+its rule actually fires on a real attack needs an authorized simulation
+(`PURPLE-1`), whose outcome is out of scope here. Crucially, a reopened blind spot
+is **never averaged away**: if a log source stops between two snapshots the
+affected technique is surfaced as `newly_blind` and the trend reports a
+regression, even when the first and last snapshots show identical coverage.
+`--strict` exits non-zero on any such regression.
+
 ## Streaming and limits
 
 `apollo run` reads NDJSON incrementally from a non-symlink regular file. Rules,

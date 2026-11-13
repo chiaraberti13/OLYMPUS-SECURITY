@@ -487,3 +487,100 @@ def coverage(
         raise typer.Exit(code=int(ExitCode.FINDINGS))
     if strict and not report.telemetry_input.complete:
         raise typer.Exit(code=int(ExitCode.FINDINGS))
+
+
+@app.command("coverage-trend")
+def coverage_trend(
+    directory: Path = typer.Option(
+        DEFAULT_RULES_DIR, "--rules", help="Directory of YAML rules (held fixed across snapshots)."
+    ),
+    snapshot: list[Path] = typer.Option(
+        ...,
+        "--snapshot",
+        help="NDJSON telemetry file for one run, oldest first (repeatable, min 2). Each "
+        "snapshot's available event types are measured against the same rule set.",
+    ),
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.TABLE, "--format", help="Render as table (human) or json (machine)."
+    ),
+    strict: bool = typer.Option(
+        False,
+        "--strict",
+        help="Exit non-zero when coverage regressed (a reopened blind spot or a drop).",
+    ),
+    max_rules: int = typer.Option(DEFAULT_MAX_RULES, "--max-rules"),
+    max_rule_bytes: int = typer.Option(DEFAULT_MAX_RULE_BYTES, "--max-rule-bytes"),
+    max_stream_bytes: int = typer.Option(DEFAULT_MAX_STREAM_BYTES, "--max-stream-bytes"),
+    deadline: float = typer.Option(60.0, "--deadline"),
+) -> None:
+    """Show ATT&CK detection coverage across an ordered series of telemetry snapshots (`VAL-3`).
+
+    Reuses ``apollo coverage`` for each snapshot — the rule set is held fixed and
+    measured against each telemetry file in turn (oldest first) — then reports the
+    trend: per snapshot the structural coverage, the techniques newly covered or
+    newly blind since the previous one, and the coverage delta. These are
+    **structural** coverage metrics (a rule exists and its telemetry is present),
+    **not** proven detection: demonstrating a rule fires on a real attack needs an
+    authorized simulation (`PURPLE-1`). A reopened blind spot is surfaced, never
+    averaged away. Exit code ``1`` under ``--strict`` when coverage regressed.
+    Pure and offline; nothing is executed against a target.
+    """
+    from olympus.apollo.coverage import CoverageReport, assess_coverage, parse_telemetry_ndjson
+    from olympus.apollo.coverage_trend import build_coverage_trend
+
+    if len(snapshot) < 2:
+        _echo_terminal(
+            "apollo: coverage-trend needs at least two --snapshot telemetry files", err=True
+        )
+        raise typer.Exit(code=ExitCode.USAGE)
+    try:
+        rule_set = ApolloApplicationService().list_rules(
+            directory,
+            max_rules=max_rules,
+            max_rule_bytes=max_rule_bytes,
+            deadline_seconds=deadline,
+        )
+        snapshots: list[tuple[str, CoverageReport]] = []
+        for path in snapshot:
+            event_types, telemetry_summary = parse_telemetry_ndjson(
+                read_regular_text(path, max_bytes=max_stream_bytes, label="telemetry events")
+            )
+            report = assess_coverage(rule_set, event_types, telemetry_input=telemetry_summary)
+            snapshots.append((path.stem, report))
+        trend = build_coverage_trend(snapshots)
+    except (ContractCompatibilityError, OSError, TimeoutError, ValueError) as exc:
+        _echo_terminal(f"apollo: coverage-trend error: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+
+    if output_format is OutputFormat.JSON:
+        typer.echo(json.dumps(trend.to_dict(), indent=2, sort_keys=True))
+    else:
+        records: list[dict[str, object]] = [
+            {
+                "snapshot": point.label,
+                "coverage": f"{point.metrics.structural_detection_coverage:.0%}",
+                "covered": point.metrics.covered,
+                "partial": point.metrics.partial,
+                "blind": point.metrics.no_telemetry,
+                "delta": "—" if point.is_baseline else f"{point.coverage_delta:+.0%}",
+                "newly_blind": ", ".join(point.newly_blind) or "—",
+            }
+            for point in trend.points
+        ]
+        typer.echo(
+            render(
+                records,
+                ["snapshot", "coverage", "covered", "partial", "blind", "delta", "newly_blind"],
+                output_format,
+                title="ATT&CK detection coverage trend (structural; not proven detection)",
+            )
+        )
+    first = trend.points[0].metrics.structural_detection_coverage
+    last = trend.points[-1].metrics.structural_detection_coverage
+    latest_blind = trend.points[-1].metrics.no_telemetry
+    _echo_terminal(
+        f"apollo: coverage {first:.0%} -> {last:.0%} "
+        f"(net {last - first:+.0%}), {latest_blind} blind spot(s) now"
+    )
+    if strict and trend.regressed:
+        raise typer.Exit(code=int(ExitCode.FINDINGS))

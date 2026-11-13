@@ -39,6 +39,21 @@ Report ATT&CK detection coverage against the telemetry actually available.
 | `--max-stream-bytes` | option | no | `100000000` | — |
 | `--deadline` | option | no | `60.0` | — |
 
+### `olympus apollo coverage-trend`
+
+Show ATT&CK detection coverage across an ordered series of telemetry snapshots (`VAL-3`).
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--rules` | option | no | — | Directory of YAML rules (held fixed across snapshots). |
+| `--snapshot` | option | yes | — | NDJSON telemetry file for one run, oldest first (repeatable, min 2). Each snapshot's available event types are measured against the same rule set. |
+| `--format` | option | no | `table` | Render as table (human) or json (machine). |
+| `--strict` | option | no | `False` | Exit non-zero when coverage regressed (a reopened blind spot or a drop). |
+| `--max-rules` | option | no | `1000` | — |
+| `--max-rule-bytes` | option | no | `1000000` | — |
+| `--max-stream-bytes` | option | no | `100000000` | — |
+| `--deadline` | option | no | `60.0` | — |
+
 ### `olympus apollo ingest`
 
 Normalize real telemetry into ``core.Event`` NDJSON for the detection engine.

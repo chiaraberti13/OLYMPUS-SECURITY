@@ -12,6 +12,33 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — VAL-3 (serie temporale della copertura difensiva, offline)
+
+- Nuovo motore `apollo.coverage_trend.build_coverage_trend` → `CoverageTrend` che
+  **riusa** la matrice di copertura ATT&CK (`apollo.coverage.assess_coverage`) su una
+  serie ordinata di snapshot di telemetria (rule set tenuto fisso, oldest-first) e
+  riporta l'evoluzione della copertura: per ogni snapshot le metriche strutturali, le
+  tecniche **newly_covered**/**newly_blind** rispetto al precedente e il delta di
+  copertura. Nessun motore parallelo (estende la linea `PURPLE-1`). Puro, offline,
+  deterministico.
+- Metriche **auto-descrittive**: il documento JSON porta `metric_definitions`
+  (`structural_detection_coverage = covered/total`, `partial_ratio`, `blind_spot_ratio`)
+  e un `limit` esplicito — sono misure di copertura **strutturale** (una regola esiste e
+  la sua telemetria è presente), **non** detection provata: dimostrare che una regola
+  scatti su un attacco reale richiede una simulazione autorizzata (`PURPLE-1`).
+- **Onestà sui gap:** una tecnica che torna cieca (log source perso tra due snapshot) è
+  segnalata come `newly_blind` e il trend riporta una regressione **anche quando primo e
+  ultimo snapshot mostrano la stessa copertura** — un gap non è mai mediato via.
+- CLI `olympus apollo coverage-trend --rules DIR --snapshot FILE ...` (tabella/json,
+  `--strict` → exit 1 su regressione; `--snapshot` NDJSON di telemetria, oldest-first,
+  min 2). `docs/apollo.md` e `docs/cli-reference.md` aggiornati.
+- Test `tests/unit/test_apollo_coverage_trend.py` (engine + CLI): regressione intermedia
+  non nascosta, metriche con definizioni e limite, formule documentate, determinismo,
+  rule set vuoto senza divisione per zero, exit code canonici; copertura branch 100% del
+  nuovo modulo. Corretto anche `test_cli_reference.py` (ordinamento robusto per nomi di
+  comando con prefisso condiviso, es. `coverage`/`coverage-trend`). Avanza `VAL-3`
+  (resta: l'anello dell'esito della simulazione e la validazione in lab, `PURPLE-1/2`).
+
 ### Changed — VAL-2 (chiusura di un finding solo con evidenza di retest, fail-closed)
 
 - Un finding non può più essere marcato `closed` sulla parola di chi lo muove: il
