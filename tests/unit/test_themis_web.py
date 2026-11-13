@@ -2502,3 +2502,129 @@ def test_apollo_web_sysmon_ingest_drives_real_detection(tmp_path: Path) -> None:
     assert result.status_code == 200, result.text
     assert "T1071.004" in result.text
     assert "0 alert(s)" not in result.text
+
+
+# --------------------------------------------------------------------------- #
+# WEB-3: workbench pages for Helios, Hermes and Proteus (API-2 Web parity)
+# --------------------------------------------------------------------------- #
+
+
+def _page_csrf(client: TestClient, path: str) -> str:
+    page = client.get(path)
+    assert page.status_code == 200, page.text
+    match = re.search(r'name="csrf_token" value="([0-9a-f]+)"', page.text)
+    assert match is not None
+    return match.group(1)
+
+
+def test_helios_web_identifies_a_service_from_a_banner(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    csrf = _page_csrf(client, "/helios")
+    result = client.post(
+        "/helios/identify",
+        data={"csrf_token": csrf, "banner": "SSH-2.0-OpenSSH_9.6", "port": "22"},
+    )
+    assert result.status_code == 200, result.text
+    assert "<code>ssh</code>" in result.text
+    assert "<code>OpenSSH_9.6</code>" in result.text
+    assert "<code>banner</code>" in result.text  # identified_from: the banner, not the port
+
+
+def test_helios_web_empty_request_is_rejected(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    csrf = _page_csrf(client, "/helios")
+    result = client.post("/helios/identify", data={"csrf_token": csrf, "banner": "", "port": ""})
+    assert result.status_code == 422
+    assert "Provide a banner, a port, or both." in result.text
+
+
+def test_helios_web_requires_the_helios_read_scope(tmp_path: Path) -> None:
+    client = _client(tmp_path, api_key_scopes=("capabilities:read",))
+    _login(client)
+    assert client.get("/helios").status_code == 403
+    assert client.post("/helios/identify", data={"csrf_token": "x"}).status_code == 403
+
+
+def test_helios_web_rejects_a_forged_csrf_token(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    result = client.post("/helios/identify", data={"csrf_token": "forged", "port": "22"})
+    assert result.status_code == 403
+
+
+def test_hermes_web_scan_returns_masked_secrets(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    csrf = _page_csrf(client, "/hermes")
+    secret = "AKIA" + "Z" * 16
+    result = client.post(
+        "/hermes/scan",
+        data={"csrf_token": csrf, "text": f"aws_key = {secret}", "path": "config.env"},
+    )
+    assert result.status_code == 200, result.text
+    # The server never renders the raw secret AS A FINDING: it is masked
+    # (first4…last4). The full secret appears only once — echoed in the input
+    # textarea (the operator's own submission), exactly like the Argus workbench.
+    assert "AKIA…ZZZZ" in result.text  # the masked finding value
+    assert result.text.count(secret) == 1  # only the echoed input, not the findings table
+    assert "potential secret(s)" in result.text
+
+
+def test_hermes_web_empty_text_is_rejected(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    csrf = _page_csrf(client, "/hermes")
+    result = client.post("/hermes/scan", data={"csrf_token": csrf, "text": "", "path": "p"})
+    assert result.status_code == 422
+    assert "Provide text to scan." in result.text
+
+
+def test_hermes_web_requires_the_hermes_read_scope(tmp_path: Path) -> None:
+    client = _client(tmp_path, api_key_scopes=("capabilities:read",))
+    _login(client)
+    assert client.get("/hermes").status_code == 403
+    assert client.post("/hermes/scan", data={"csrf_token": "x"}).status_code == 403
+
+
+def test_proteus_web_validates_and_normalizes_metadata(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    csrf = _page_csrf(client, "/proteus")
+    result = client.post(
+        "/proteus/validate",
+        data={
+            "csrf_token": csrf,
+            "engagement": "ACME Q4",
+            "subject": "Security awareness check",
+            "sender": "Training@Acme.TEST",
+            "landing_url": "https://training.acme.test/learn",
+        },
+    )
+    assert result.status_code == 200, result.text
+    assert "<code>Training@acme.test</code>" in result.text  # domain normalized
+
+
+def test_proteus_web_rejects_malformed_metadata(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    csrf = _page_csrf(client, "/proteus")
+    result = client.post(
+        "/proteus/validate",
+        data={
+            "csrf_token": csrf,
+            "engagement": "ACME",
+            "subject": "hi",
+            "sender": "not-an-email",
+            "landing_url": "https://training.acme.test/learn",
+        },
+    )
+    assert result.status_code == 422
+
+
+def test_proteus_web_requires_the_proteus_read_scope(tmp_path: Path) -> None:
+    client = _client(tmp_path, api_key_scopes=("capabilities:read",))
+    _login(client)
+    assert client.get("/proteus").status_code == 403
+    assert client.post("/proteus/validate", data={"csrf_token": "x"}).status_code == 403

@@ -90,6 +90,8 @@ from olympus.findings.store import (
     FindingTransitionStoreError,
     SqliteFindingTransitionStore,
 )
+from olympus.helios.scanner import identify_banner, is_risky, sanitize_banner, service_for
+from olympus.hermes.scanner import scan_text
 from olympus.integrations.activity import (
     ACTIVITY_CATALOGUE,
     RISK_EXPLANATION,
@@ -118,6 +120,7 @@ from olympus.minerva.custody import (
     load_custody_ed25519_public_key,
 )
 from olympus.minerva.triage import incident_status_breakdown, load_incidents
+from olympus.proteus.campaign import validate_campaign_metadata
 from olympus.themis.api import (
     MAX_REQUEST_BYTES,
     ApiSettings,
@@ -628,6 +631,9 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
     reads_athena = requires("athena:read")
     reads_argus = requires("argus:read")
     reads_artemis = requires("artemis:read")
+    reads_helios = requires("helios:read")
+    reads_hermes = requires("hermes:read")
+    reads_proteus = requires("proteus:read")
     reads_minerva = requires("minerva:read")
     minerva_public_key = (
         load_custody_ed25519_public_key(
@@ -1732,6 +1738,198 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 fingerprints=fingerprints,
                 analyzed=True,
             ),
+        )
+
+    def _helios_context(
+        session: WebSession,
+        *,
+        banner: str = "",
+        port: str = "",
+        result: dict[str, object] | None = None,
+        error: str | None = None,
+    ) -> dict[str, object]:
+        return {
+            "banner": banner,
+            "port": port,
+            "result": result,
+            "error": error,
+            "csrf_token": _csrf_token(session.nonce),
+        }
+
+    @app.get("/helios", response_class=HTMLResponse, include_in_schema=False)
+    def helios_page(request: Request, session: WebSession = reads_helios) -> Response:
+        return _page(request, "helios.html", _helios_context(session))
+
+    @app.post("/helios/identify", response_class=HTMLResponse, include_in_schema=False)
+    def helios_identify(
+        request: Request,
+        csrf_token: Annotated[str, Form()],
+        banner: Annotated[str, Form()] = "",
+        port: Annotated[str, Form()] = "",
+        session: WebSession = reads_helios,
+    ) -> Response:
+        _check_csrf(session, csrf_token)
+        _rate_limit(session)
+
+        def _error(message: str) -> Response:
+            return _page(
+                request,
+                "helios.html",
+                _helios_context(session, banner=banner, port=port, error=message),
+                code=422,
+            )
+
+        port_number: int | None = None
+        if port.strip():
+            try:
+                port_number = int(port)
+            except ValueError:
+                return _error("The port must be an integer between 1 and 65535.")
+            if not 1 <= port_number <= 65535:
+                return _error("The port must be an integer between 1 and 65535.")
+        if not banner.strip() and port_number is None:
+            return _error("Provide a banner, a port, or both.")
+
+        sanitized = sanitize_banner(banner.encode("utf-8", errors="replace"))
+        banner_service, product = identify_banner(sanitized)
+        if banner_service is not None:
+            service, identified_from = banner_service, "banner"
+        elif port_number is not None and service_for(port_number) != "unknown":
+            service, identified_from = service_for(port_number), "port"
+        else:
+            service, identified_from = "unknown", "none"
+        result: dict[str, object] = {
+            "port": port_number,
+            "service": service,
+            "product": product,
+            "risky": is_risky(service),
+            "identified_from": identified_from,
+        }
+        return _page(
+            request,
+            "helios.html",
+            _helios_context(session, banner=banner, port=port, result=result),
+        )
+
+    def _hermes_context(
+        session: WebSession,
+        *,
+        text: str = "",
+        path: str = "submitted",
+        result: dict[str, object] | None = None,
+        error: str | None = None,
+    ) -> dict[str, object]:
+        return {
+            "text": text,
+            "path": path,
+            "result": result,
+            "error": error,
+            "csrf_token": _csrf_token(session.nonce),
+        }
+
+    @app.get("/hermes", response_class=HTMLResponse, include_in_schema=False)
+    def hermes_page(request: Request, session: WebSession = reads_hermes) -> Response:
+        return _page(request, "hermes.html", _hermes_context(session))
+
+    @app.post("/hermes/scan", response_class=HTMLResponse, include_in_schema=False)
+    def hermes_scan(
+        request: Request,
+        csrf_token: Annotated[str, Form()],
+        text: Annotated[str, Form()] = "",
+        path: Annotated[str, Form()] = "submitted",
+        session: WebSession = reads_hermes,
+    ) -> Response:
+        _check_csrf(session, csrf_token)
+        _rate_limit(session)
+        label = path.strip() or "submitted"
+        if not text:
+            return _page(
+                request,
+                "hermes.html",
+                _hermes_context(session, text=text, path=label, error="Provide text to scan."),
+                code=422,
+            )
+        # The core masks every value before it is returned: a raw secret is never
+        # rendered back into the page, only a masked rendering and a fingerprint.
+        findings = scan_text(text, label)
+        result = {
+            "finding_count": len(findings),
+            "findings": [
+                {
+                    "rule": item.rule,
+                    "path": item.path,
+                    "line": item.line,
+                    "masked": item.masked,
+                    "fingerprint": item.fingerprint,
+                }
+                for item in findings
+            ],
+        }
+        return _page(
+            request,
+            "hermes.html",
+            _hermes_context(session, text=text, path=label, result=result),
+        )
+
+    def _proteus_context(
+        session: WebSession,
+        *,
+        form: dict[str, str] | None = None,
+        result: dict[str, object] | None = None,
+        error: str | None = None,
+    ) -> dict[str, object]:
+        return {
+            "form": form or {"engagement": "", "subject": "", "sender": "", "landing_url": ""},
+            "result": result,
+            "error": error,
+            "csrf_token": _csrf_token(session.nonce),
+        }
+
+    @app.get("/proteus", response_class=HTMLResponse, include_in_schema=False)
+    def proteus_page(request: Request, session: WebSession = reads_proteus) -> Response:
+        return _page(request, "proteus.html", _proteus_context(session))
+
+    @app.post("/proteus/validate", response_class=HTMLResponse, include_in_schema=False)
+    def proteus_validate(
+        request: Request,
+        csrf_token: Annotated[str, Form()],
+        engagement: Annotated[str, Form()],
+        subject: Annotated[str, Form()],
+        sender: Annotated[str, Form()],
+        landing_url: Annotated[str, Form()],
+        session: WebSession = reads_proteus,
+    ) -> Response:
+        _check_csrf(session, csrf_token)
+        _rate_limit(session)
+        form = {
+            "engagement": engagement,
+            "subject": subject,
+            "sender": sender,
+            "landing_url": landing_url,
+        }
+        try:
+            valid_engagement, valid_subject, valid_sender, valid_landing = (
+                validate_campaign_metadata(engagement, subject, sender, landing_url)
+            )
+        except ValueError as exc:
+            # ProteusScopeError is a ValueError; the message is a static validation
+            # reason from the shared core, not an echo of the submitted content.
+            return _page(
+                request,
+                "proteus.html",
+                _proteus_context(session, form=form, error=str(exc)),
+                code=422,
+            )
+        result: dict[str, object] = {
+            "engagement": valid_engagement,
+            "subject": valid_subject,
+            "sender": valid_sender,
+            "landing_url": valid_landing,
+        }
+        return _page(
+            request,
+            "proteus.html",
+            _proteus_context(session, form=form, result=result),
         )
 
     def _assessment_context(

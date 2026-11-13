@@ -12,6 +12,33 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — WEB-3 (workbench Web per Helios, Hermes e Proteus)
+
+- Gli ultimi tre moduli senza pagina Web dedicata ne hanno ora una, che guida dal
+  browser lo stesso core offline della slice API (`API-2`), scope-gated e
+  CSRF-protetta — nessuna rete/scan/invio dal server:
+  - **Helios** `/helios` (+ `POST /helios/identify`, scope `helios:read`):
+    identificazione **passiva** del servizio da un banner acquisito e/o una porta
+    (`sanitize_banner`/`identify_banner`/`service_for`/`is_risky`); il banner è
+    l'unica evidenza, la porta è solo fallback dichiarato (`identified_from`), un
+    banner sconosciuto è riportato onestamente, mai promosso a claim. Richiesta
+    vuota (né banner né porta) → 422.
+  - **Hermes** `/hermes` (+ `POST /hermes/scan`, scope `hermes:read`): scansione
+    offline del testo incollato con lo stesso core `scan_text` della CLI; i valori
+    dei finding sono **mascherati** — il server non rende mai il segreto grezzo
+    come finding (solo l'eco dell'input dell'operatore nella textarea, come fa già
+    `/argus`). Testo vuoto → 422.
+  - **Proteus** `/proteus` (+ `POST /proteus/validate`, scope `proteus:read`):
+    validazione/normalizzazione offline dei metadati non-target della campagna con
+    lo stesso core del campaign builder, **prima** di autorizzazione/scope; nessuna
+    email inviata, metadati malformati → 422.
+- Nuovi template `helios.html`/`hermes.html`/`proteus.html`, link in `base.html`,
+  manifesto di parità delle route aggiornato (`docs/parity/themis-vap-runtime.json`,
+  6 route Web), `docs/web.md` aggiornato. Test Web in `tests/unit/test_themis_web.py`
+  (GET, POST felice, **scope-denied 403**, CSRF forgiato, Hermes non rende il segreto
+  grezzo come finding). **Ogni tool dell'ecosistema ha ora sia una slice API sia una
+  pagina Web** — avanza `WEB-3`.
+
 ### Added — API-2 (slice API passive e offline per Helios, Hermes e Proteus)
 
 - Gli ultimi tre moduli dell'ecosistema senza slice API dedicata ne hanno ora una,

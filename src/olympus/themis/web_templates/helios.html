@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Helios service identification · Olympus{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Helios passive service identification</h1>
+  <p class="muted">
+    Identify a service from a banner you already captured and/or a port, offline.
+    The banner is sanitised and matched locally with the same core as
+    <code>olympus helios</code>. No probe is ever sent from here: a volunteered
+    banner is the only evidence; a port is a convention, used only as a fallback,
+    and the result says which was used. An unknown banner is reported honestly,
+    never upgraded into a claim.
+  </p>
+  <p class="risk-banner risk-passive">
+    Educational, training and research use only, on systems you own or are
+    explicitly authorized to assess. Passive match of data you provide; no network
+    access.
+  </p>
+</section>
+
+<section class="card">
+  <h2>Identify a service</h2>
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+  <form method="post" action="/helios/identify">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="banner">Captured banner <span class="muted">(optional)</span></label>
+    <input id="banner" name="banner" value="{{ banner }}" placeholder="SSH-2.0-OpenSSH_9.6">
+    <label for="port">Port <span class="muted">(optional, 1–65535)</span></label>
+    <input id="port" name="port" value="{{ port }}" placeholder="22">
+    <button type="submit">Identify</button>
+  </form>
+</section>
+
+{% if result is not none %}
+<section class="card">
+  <h2>Result</h2>
+  <div class="table-wrap"><table>
+    <tbody>
+      <tr><th>Service</th><td><code>{{ result.service }}</code></td></tr>
+      <tr><th>Product</th><td>{% if result.product %}<code>{{ result.product }}</code>{% else %}<span class="muted">—</span>{% endif %}</td></tr>
+      <tr><th>Port</th><td>{% if result.port is not none %}{{ result.port }}{% else %}<span class="muted">—</span>{% endif %}</td></tr>
+      <tr><th>Risky to expose</th><td>{{ "yes" if result.risky else "no" }}</td></tr>
+      <tr><th>Identified from</th><td><code>{{ result.identified_from }}</code></td></tr>
+    </tbody>
+  </table></div>
+  {% if result.identified_from == "none" %}
+  <p class="muted">The banner matched nothing known and no port resolved a service — reported as unknown, not guessed.</p>
+  {% elif result.identified_from == "port" %}
+  <p class="muted">Identified from the port number only (a convention, not evidence); no banner was recognised.</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

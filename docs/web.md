@@ -308,8 +308,10 @@ out-of-range status code or a malformed header line is rejected with `422`.
 These three ecosystem tools now expose a typed, versioned, **passive and offline**
 API slice, so every module is reachable over the same contract surface as the
 others. Each matches a captured artefact or validates submitted metadata locally;
-**no network request, scan or email is ever made from the server.** (The dedicated
-Web pages for them remain `WEB-3`.)
+**no network request, scan or email is ever made from the server.** Each also has
+a dedicated Web workbench (`/helios`, `/hermes`, `/proteus`) that drives the same
+offline core from the browser, scope-gated and CSRF-protected (`WEB-3`), so every
+ecosystem tool now has both an API slice and a Web page.
 
 - **Helios** — `POST /api/v1/helios/identify-service` (scope `helios:read`,
   contract `olympus.helios-service-identification` `1.0.0`). The caller supplies a
