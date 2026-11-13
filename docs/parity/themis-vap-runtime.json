@@ -406,6 +406,24 @@
     {
       "surface": "api",
       "method": "POST",
+      "path": "/api/v1/helios/identify-service",
+      "handler": "helios_identify_service"
+    },
+    {
+      "surface": "api",
+      "method": "POST",
+      "path": "/api/v1/hermes/scan-text",
+      "handler": "hermes_scan_text"
+    },
+    {
+      "surface": "api",
+      "method": "POST",
+      "path": "/api/v1/proteus/validate-campaign",
+      "handler": "proteus_validate_campaign"
+    },
+    {
+      "surface": "api",
+      "method": "POST",
       "path": "/api/v1/vulcan/explain",
       "handler": "vulcan_explain"
     },

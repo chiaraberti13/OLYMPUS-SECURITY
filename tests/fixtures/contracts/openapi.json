@@ -1459,6 +1459,205 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "HeliosIdentifyRequest": {
+        "additionalProperties": false,
+        "description": "A captured service banner and/or port submitted for passive identification.\n\nThe caller supplies what they already observed; the server sends no probe. A\nbanner, a port, or both must be given \u2014 an empty request cannot be answered.",
+        "properties": {
+          "banner": {
+            "default": "",
+            "maxLength": 8192,
+            "title": "Banner",
+            "type": "string"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          }
+        },
+        "title": "HeliosIdentifyRequest",
+        "type": "object"
+      },
+      "HeliosServiceIdentification": {
+        "additionalProperties": false,
+        "description": "Versioned passive service identification shared by API clients and the Web UI.",
+        "properties": {
+          "identified_from": {
+            "enum": [
+              "banner",
+              "port",
+              "none"
+            ],
+            "title": "Identified From",
+            "type": "string"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "product": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product"
+          },
+          "risky": {
+            "title": "Risky",
+            "type": "boolean"
+          },
+          "schema_name": {
+            "const": "olympus.helios-service-identification",
+            "default": "olympus.helios-service-identification",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "service": {
+            "title": "Service",
+            "type": "string"
+          }
+        },
+        "required": [
+          "port",
+          "service",
+          "product",
+          "risky",
+          "identified_from"
+        ],
+        "title": "HeliosServiceIdentification",
+        "type": "object"
+      },
+      "HermesScanRequest": {
+        "additionalProperties": false,
+        "description": "Bounded text submitted for offline secret detection (no filesystem walk).",
+        "properties": {
+          "entropy_threshold": {
+            "default": 4.5,
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Entropy Threshold",
+            "type": "number"
+          },
+          "path": {
+            "default": "submitted",
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 2000000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "HermesScanRequest",
+        "type": "object"
+      },
+      "HermesScanResult": {
+        "additionalProperties": false,
+        "description": "Versioned Hermes secret-scan result shared by API clients and the Web UI.",
+        "properties": {
+          "finding_count": {
+            "title": "Finding Count",
+            "type": "integer"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/HermesSecretFindingView"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "schema_name": {
+            "const": "olympus.hermes-secret-scan",
+            "default": "olympus.hermes-secret-scan",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "finding_count",
+          "findings"
+        ],
+        "title": "HermesScanResult",
+        "type": "object"
+      },
+      "HermesSecretFindingView": {
+        "additionalProperties": false,
+        "description": "One potential secret location. The value is **masked** \u2014 never returned raw.",
+        "properties": {
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "line": {
+            "title": "Line",
+            "type": "integer"
+          },
+          "masked": {
+            "title": "Masked",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "rule": {
+            "title": "Rule",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule",
+          "path",
+          "line",
+          "masked",
+          "fingerprint"
+        ],
+        "title": "HermesSecretFindingView",
+        "type": "object"
+      },
       "Indicator": {
         "additionalProperties": false,
         "description": "One normalized case indicator with provenance and confidence.",
@@ -1918,6 +2117,91 @@
           "ledger"
         ],
         "title": "MinervaLedgerVerificationRequest",
+        "type": "object"
+      },
+      "ProteusCampaignValidationRequest": {
+        "additionalProperties": false,
+        "description": "Non-target awareness-campaign metadata submitted for offline validation.",
+        "properties": {
+          "engagement": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Engagement",
+            "type": "string"
+          },
+          "landing_url": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Landing Url",
+            "type": "string"
+          },
+          "sender": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Sender",
+            "type": "string"
+          },
+          "subject": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "engagement",
+          "subject",
+          "sender",
+          "landing_url"
+        ],
+        "title": "ProteusCampaignValidationRequest",
+        "type": "object"
+      },
+      "ProteusCampaignValidationResult": {
+        "additionalProperties": false,
+        "description": "Versioned, normalized campaign metadata (no email is ever sent).",
+        "properties": {
+          "engagement": {
+            "title": "Engagement",
+            "type": "string"
+          },
+          "landing_url": {
+            "title": "Landing Url",
+            "type": "string"
+          },
+          "schema_name": {
+            "const": "olympus.proteus-campaign-validation",
+            "default": "olympus.proteus-campaign-validation",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sender": {
+            "title": "Sender",
+            "type": "string"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          },
+          "valid": {
+            "default": true,
+            "title": "Valid",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "engagement",
+          "subject",
+          "sender",
+          "landing_url"
+        ],
+        "title": "ProteusCampaignValidationResult",
         "type": "object"
       },
       "RiskClass": {
@@ -2815,6 +3099,106 @@
         ]
       }
     },
+    "/api/v1/helios/identify-service": {
+      "post": {
+        "description": "Identify a service passively from a captured banner and/or port, offline.\n\nThe caller supplies what they already observed; no probe is ever sent from\nthe server. A volunteered banner is the only evidence: it is sanitised and\nmatched locally. A port number is a convention, not proof \u2014 it is used only\nas a fallback and the result says so (``identified_from``). An unknown\nbanner is reported honestly, never upgraded into a claim.",
+        "operationId": "helios_identify_service_api_v1_helios_identify_service_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HeliosIdentifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeliosServiceIdentification"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Helios Identify Service",
+        "tags": [
+          "helios"
+        ]
+      }
+    },
+    "/api/v1/hermes/scan-text": {
+      "post": {
+        "description": "Scan submitted text for secrets offline, returning only masked findings.\n\nThe caller submits text (never a path to walk); detection is local and\ndeterministic, using the same core as the Hermes scanner. Every finding's\nvalue is **masked** before it leaves the server \u2014 a raw secret is never\nechoed back \u2014 and each carries a stable fingerprint for de-duplication.",
+        "operationId": "hermes_scan_text_api_v1_hermes_scan_text_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HermesScanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HermesScanResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Hermes Scan Text",
+        "tags": [
+          "hermes"
+        ]
+      }
+    },
     "/api/v1/jobs": {
       "get": {
         "operationId": "list_jobs_api_v1_jobs_get",
@@ -3127,6 +3511,56 @@
         "summary": "Minerva Verify Ledger",
         "tags": [
           "minerva"
+        ]
+      }
+    },
+    "/api/v1/proteus/validate-campaign": {
+      "post": {
+        "description": "Validate and normalize awareness-campaign metadata, offline.\n\nChecks the non-target campaign fields with the same core as the Proteus\ncampaign builder (header hygiene, a normalized sender address and a bounded\nlanding URL) **before** any authorization or scope access. No email is ever\nsent and no target is contacted; invalid input is a 422 with the reason.",
+        "operationId": "proteus_validate_campaign_api_v1_proteus_validate_campaign_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProteusCampaignValidationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProteusCampaignValidationResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Proteus Validate Campaign",
+        "tags": [
+          "proteus"
         ]
       }
     },
