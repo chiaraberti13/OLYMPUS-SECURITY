@@ -544,6 +544,42 @@
     {
       "surface": "web",
       "method": "GET",
+      "path": "/helios",
+      "handler": "helios_page"
+    },
+    {
+      "surface": "web",
+      "method": "POST",
+      "path": "/helios/identify",
+      "handler": "helios_identify"
+    },
+    {
+      "surface": "web",
+      "method": "GET",
+      "path": "/hermes",
+      "handler": "hermes_page"
+    },
+    {
+      "surface": "web",
+      "method": "POST",
+      "path": "/hermes/scan",
+      "handler": "hermes_scan"
+    },
+    {
+      "surface": "web",
+      "method": "GET",
+      "path": "/proteus",
+      "handler": "proteus_page"
+    },
+    {
+      "surface": "web",
+      "method": "POST",
+      "path": "/proteus/validate",
+      "handler": "proteus_validate"
+    },
+    {
+      "surface": "web",
+      "method": "GET",
       "path": "/assessments/new",
       "handler": "new_assessment"
     },

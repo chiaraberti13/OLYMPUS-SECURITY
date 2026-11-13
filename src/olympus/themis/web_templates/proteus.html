@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Proteus campaign validation · Olympus{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Proteus campaign validation workbench</h1>
+  <p class="muted">
+    Validate and normalise awareness-campaign metadata, offline, with the same
+    core as the Proteus campaign builder. It checks header hygiene, normalises the
+    sender address and bounds the landing URL <strong>before</strong> any
+    authorization or scope access. No email is ever sent and no target is
+    contacted.
+  </p>
+  <p class="risk-banner risk-passive">
+    Educational, training and research use only, within an authorized engagement.
+    Offline validation of metadata you provide; nothing is sent.
+  </p>
+</section>
+
+<section class="card">
+  <h2>Validate campaign metadata</h2>
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+  <form method="post" action="/proteus/validate">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="engagement">Engagement</label>
+    <input id="engagement" name="engagement" value="{{ form.engagement }}" required placeholder="ACME Q4">
+    <label for="subject">Subject</label>
+    <input id="subject" name="subject" value="{{ form.subject }}" required placeholder="Security awareness check">
+    <label for="sender">Sender</label>
+    <input id="sender" name="sender" value="{{ form.sender }}" required placeholder="training@acme.test">
+    <label for="landing_url">Landing URL</label>
+    <input id="landing_url" name="landing_url" value="{{ form.landing_url }}" required placeholder="https://training.acme.test/learn">
+    <button type="submit">Validate</button>
+  </form>
+</section>
+
+{% if result is not none %}
+<section class="card">
+  <h2>Normalized metadata</h2>
+  <div class="table-wrap"><table>
+    <tbody>
+      <tr><th>Engagement</th><td><code>{{ result.engagement }}</code></td></tr>
+      <tr><th>Subject</th><td><code>{{ result.subject }}</code></td></tr>
+      <tr><th>Sender</th><td><code>{{ result.sender }}</code></td></tr>
+      <tr><th>Landing URL</th><td><code>{{ result.landing_url }}</code></td></tr>
+    </tbody>
+  </table></div>
+  <p class="muted">Valid: the metadata passed the shared campaign-builder checks. No email was sent.</p>
+</section>
+{% endif %}
+{% endblock %}
