@@ -12,6 +12,33 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — API-2 (slice API passive e offline per Helios, Hermes e Proteus)
+
+- Gli ultimi tre moduli dell'ecosistema senza slice API dedicata ne hanno ora una,
+  tipizzata, versionata, **passiva e offline** (nessuna rete/scan/invio dal server):
+  - **Helios** — `POST /api/v1/helios/identify-service` (scope `helios:read`, contratto
+    `olympus.helios-service-identification` 1.0.0): identifica un servizio da un banner
+    acquisito e/o una porta, con lo stesso core `olympus.helios.scanner` (banner sanificato
+    e matchato; la porta è solo fallback, `identified_from` dichiara la fonte; banner
+    sconosciuto riportato onestamente, mai promosso a claim).
+  - **Hermes** — `POST /api/v1/hermes/scan-text` (scope `hermes:read`, contratto
+    `olympus.hermes-secret-scan` 1.0.0): scansione offline di testo fornito con lo stesso
+    core `scan_text` della CLI; i valori dei finding sono **mascherati** prima di lasciare
+    il server (nessun segreto grezzo restituito), con fingerprint per de-dup.
+  - **Proteus** — `POST /api/v1/proteus/validate-campaign` (scope `proteus:read`, contratto
+    `olympus.proteus-campaign-validation` 1.0.0): valida e normalizza i metadati non-target
+    della campagna (igiene header, email mittente normalizzata, landing URL bounded) con lo
+    stesso core del campaign builder, **prima** di autorizzazione/scope; nessuna email
+    inviata, input invalido → 422.
+- Nuovi scope `helios:read`/`hermes:read`/`proteus:read` in `themis.identity.SCOPES`.
+  Golden OpenAPI (`tests/fixtures/contracts/openapi.json`) e manifesto di parità delle route
+  (`docs/parity/themis-vap-runtime.json`) rigenerati/aggiornati; `docs/web.md` documenta le
+  tre slice. Test di contratto e **scope-denied (403)** per ciascuna in
+  `tests/unit/test_themis_api.py` (incluso: Hermes non restituisce mai il segreto grezzo;
+  Helios non promuove un banner sconosciuto; Proteus rifiuta i metadati malformati). **Ogni
+  tool dell'ecosistema espone ora una slice API** — avanza `API-2` (resta: parità Web in
+  `WEB-3` e multiutente avanzato in `API-4`).
+
 ### Added — PURPLE-1 (esercizio purple: replay di detection, offline e scope-safe)
 
 - Nuovo core puro `athena.purple.evaluate_detection_exercise` → `PurpleExerciseReport`

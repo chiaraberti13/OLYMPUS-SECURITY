@@ -75,6 +75,9 @@ SCOPES: tuple[str, ...] = (
     "athena:read",
     "argus:read",
     "artemis:read",
+    "helios:read",
+    "hermes:read",
+    "proteus:read",
 )
 
 

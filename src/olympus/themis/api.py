@@ -58,6 +58,8 @@ from olympus.engagements.resolve import (
     require_engagement,
 )
 from olympus.engagements.store import SqliteEngagementStore
+from olympus.helios.scanner import identify_banner, is_risky, sanitize_banner, service_for
+from olympus.hermes.scanner import scan_text
 from olympus.integrations.capabilities import inventory_document
 from olympus.metis.extraction import (
     MAX_EXTRACTION_BYTES,
@@ -74,6 +76,7 @@ from olympus.minerva.custody import (
     inspect_ledger_text,
     load_custody_ed25519_public_key,
 )
+from olympus.proteus.campaign import validate_campaign_metadata
 from olympus.themis.concurrency import RequestConcurrencyGate, RequestLease
 from olympus.themis.identity import (
     SCOPES,
@@ -813,6 +816,115 @@ class VulcanCorrelateRequest(BaseModel):
         return self
 
 
+# --------------------------------------------------------------------------- #
+# Passive, offline slices for the remaining ecosystem tools (``API-2``):
+# Helios service identification, Hermes secret scan, Proteus campaign validation.
+# Each matches a captured artefact or validates submitted metadata locally — no
+# network request, scan or send is ever made from the server.
+# --------------------------------------------------------------------------- #
+
+MAX_HELIOS_BANNER_BYTES = 8_192
+MAX_HERMES_TEXT_BYTES = 2_000_000
+
+
+class HeliosIdentifyRequest(BaseModel):
+    """A captured service banner and/or port submitted for passive identification.
+
+    The caller supplies what they already observed; the server sends no probe. A
+    banner, a port, or both must be given — an empty request cannot be answered.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    banner: str = Field(default="", max_length=MAX_HELIOS_BANNER_BYTES)
+    port: int | None = Field(default=None, ge=1, le=65535)
+
+    @model_validator(mode="after")
+    def _require_banner_or_port(self) -> HeliosIdentifyRequest:
+        if not self.banner.strip() and self.port is None:
+            raise ValueError("provide a banner, a port, or both")
+        return self
+
+
+class HeliosServiceIdentification(BaseModel):
+    """Versioned passive service identification shared by API clients and the Web UI."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_name: Literal["olympus.helios-service-identification"] = (
+        "olympus.helios-service-identification"
+    )
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    port: int | None
+    service: str
+    product: str | None
+    risky: bool
+    #: How the service was determined: ``banner`` (volunteered), ``port`` (a
+    #: convention, not evidence) or ``none`` (unknown — never guessed).
+    identified_from: Literal["banner", "port", "none"]
+
+
+class HermesScanRequest(BaseModel):
+    """Bounded text submitted for offline secret detection (no filesystem walk)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    text: str = Field(min_length=1, max_length=MAX_HERMES_TEXT_BYTES)
+    path: str = Field(default="submitted", min_length=1, max_length=1024)
+    entropy_threshold: float = Field(default=4.5, ge=0.0, le=8.0)
+
+
+class HermesSecretFindingView(BaseModel):
+    """One potential secret location. The value is **masked** — never returned raw."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rule: str
+    path: str
+    line: int
+    masked: str
+    fingerprint: str
+
+
+class HermesScanResult(BaseModel):
+    """Versioned Hermes secret-scan result shared by API clients and the Web UI."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_name: Literal["olympus.hermes-secret-scan"] = "olympus.hermes-secret-scan"
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    path: str
+    finding_count: int
+    findings: list[HermesSecretFindingView]
+
+
+class ProteusCampaignValidationRequest(BaseModel):
+    """Non-target awareness-campaign metadata submitted for offline validation."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    engagement: str = Field(min_length=1, max_length=512)
+    subject: str = Field(min_length=1, max_length=512)
+    sender: str = Field(min_length=1, max_length=512)
+    landing_url: str = Field(min_length=1, max_length=2048)
+
+
+class ProteusCampaignValidationResult(BaseModel):
+    """Versioned, normalized campaign metadata (no email is ever sent)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_name: Literal["olympus.proteus-campaign-validation"] = (
+        "olympus.proteus-campaign-validation"
+    )
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    engagement: str
+    subject: str
+    sender: str
+    landing_url: str
+    valid: bool = True
+
+
 class VulcanFindingExplanationResult(BaseModel):
     """Versioned finding explanation (``EXPL-1``) shared by CLI, API and reports.
 
@@ -1005,6 +1117,9 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
     reads_athena = authenticated("athena:read")
     reads_argus = authenticated("argus:read")
     reads_artemis = authenticated("artemis:read")
+    reads_helios = authenticated("helios:read")
+    reads_hermes = authenticated("hermes:read")
+    reads_proteus = authenticated("proteus:read")
     reads_minerva = authenticated("minerva:read")
     minerva_public_key = (
         load_custody_ed25519_public_key(
@@ -1357,6 +1472,98 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
             status=body.status,
             fingerprint_count=len(fingerprints),
             fingerprints=[_fingerprint_view(item) for item in fingerprints],
+        )
+
+    @app.post(
+        "/api/v1/helios/identify-service",
+        response_model=HeliosServiceIdentification,
+        tags=["helios"],
+    )
+    def helios_identify_service(
+        body: HeliosIdentifyRequest, caller: Caller = reads_helios
+    ) -> HeliosServiceIdentification:
+        """Identify a service passively from a captured banner and/or port, offline.
+
+        The caller supplies what they already observed; no probe is ever sent from
+        the server. A volunteered banner is the only evidence: it is sanitised and
+        matched locally. A port number is a convention, not proof — it is used only
+        as a fallback and the result says so (``identified_from``). An unknown
+        banner is reported honestly, never upgraded into a claim.
+        """
+        sanitized = sanitize_banner(body.banner.encode("utf-8", errors="replace"))
+        banner_service, product = identify_banner(sanitized)
+        identified_from: Literal["banner", "port", "none"]
+        if banner_service is not None:
+            service, identified_from = banner_service, "banner"
+        elif body.port is not None and service_for(body.port) != "unknown":
+            service, identified_from = service_for(body.port), "port"
+        else:
+            service, identified_from = "unknown", "none"
+        return HeliosServiceIdentification(
+            port=body.port,
+            service=service,
+            product=product,
+            risky=is_risky(service),
+            identified_from=identified_from,
+        )
+
+    @app.post(
+        "/api/v1/hermes/scan-text",
+        response_model=HermesScanResult,
+        tags=["hermes"],
+    )
+    def hermes_scan_text(
+        body: HermesScanRequest, caller: Caller = reads_hermes
+    ) -> HermesScanResult:
+        """Scan submitted text for secrets offline, returning only masked findings.
+
+        The caller submits text (never a path to walk); detection is local and
+        deterministic, using the same core as the Hermes scanner. Every finding's
+        value is **masked** before it leaves the server — a raw secret is never
+        echoed back — and each carries a stable fingerprint for de-duplication.
+        """
+        findings = scan_text(body.text, body.path, body.entropy_threshold)
+        return HermesScanResult(
+            path=body.path,
+            finding_count=len(findings),
+            findings=[
+                HermesSecretFindingView(
+                    rule=item.rule,
+                    path=item.path,
+                    line=item.line,
+                    masked=item.masked,
+                    fingerprint=item.fingerprint,
+                )
+                for item in findings
+            ],
+        )
+
+    @app.post(
+        "/api/v1/proteus/validate-campaign",
+        response_model=ProteusCampaignValidationResult,
+        tags=["proteus"],
+    )
+    def proteus_validate_campaign(
+        body: ProteusCampaignValidationRequest, caller: Caller = reads_proteus
+    ) -> ProteusCampaignValidationResult:
+        """Validate and normalize awareness-campaign metadata, offline.
+
+        Checks the non-target campaign fields with the same core as the Proteus
+        campaign builder (header hygiene, a normalized sender address and a bounded
+        landing URL) **before** any authorization or scope access. No email is ever
+        sent and no target is contacted; invalid input is a 422 with the reason.
+        """
+        try:
+            engagement, subject, sender, landing_url = validate_campaign_metadata(
+                body.engagement, body.subject, body.sender, body.landing_url
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return ProteusCampaignValidationResult(
+            engagement=engagement,
+            subject=subject,
+            sender=sender,
+            landing_url=landing_url,
         )
 
     @app.post(

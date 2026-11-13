@@ -1288,3 +1288,158 @@ def test_api_rejects_manifest_when_no_trusted_key_is_configured(tmp_path: Path) 
         },
     )
     assert response.status_code == 400
+
+
+# --------------------------------------------------------------------------- #
+# API-2: passive offline slices for Helios, Hermes and Proteus
+# --------------------------------------------------------------------------- #
+
+
+def _restricted_client(tmp_path: Path) -> TestClient:
+    scopes = tmp_path / "scopes"
+    _scope(scopes)
+    return TestClient(
+        create_app(
+            ApiSettings(
+                database=tmp_path / "jobs.sqlite3",
+                scope_directory=scopes,
+                api_key=API_KEY,
+                api_key_scopes=("capabilities:read",),
+            )
+        )
+    )
+
+
+def test_helios_identifies_a_service_from_a_banner_offline(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    response = client.post(
+        "/api/v1/helios/identify-service",
+        headers=AUTH,
+        json={"banner": "SSH-2.0-OpenSSH_9.6", "port": 22},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["schema_name"] == "olympus.helios-service-identification"
+    assert body["service"] == "ssh"
+    assert body["product"] == "OpenSSH_9.6"  # product read from the volunteered banner
+    assert body["identified_from"] == "banner"  # the banner is evidence, not the port
+    assert body["risky"] is False  # ssh is not in the risky-exposure set
+
+
+def test_helios_falls_back_to_the_port_and_says_so(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    # No banner: the port is a convention, reported honestly as the weaker source.
+    response = client.post("/api/v1/helios/identify-service", headers=AUTH, json={"port": 22})
+    body = response.json()
+    assert body["service"] == "ssh"
+    assert body["identified_from"] == "port"
+    assert body["product"] is None  # a port never fabricates a product claim
+
+
+def test_helios_unknown_banner_is_not_upgraded_into_a_claim(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    response = client.post(
+        "/api/v1/helios/identify-service",
+        headers=AUTH,
+        json={"banner": "something entirely unrecognised"},
+    )
+    body = response.json()
+    assert body["service"] == "unknown"
+    assert body["identified_from"] == "none"
+
+
+def test_helios_empty_request_is_rejected(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    response = client.post("/api/v1/helios/identify-service", headers=AUTH, json={})
+    assert response.status_code == 422
+
+
+def test_helios_requires_the_helios_read_scope(tmp_path: Path) -> None:
+    client = _restricted_client(tmp_path)
+    response = client.post("/api/v1/helios/identify-service", headers=AUTH, json={"port": 22})
+    assert response.status_code == 403
+
+
+def test_hermes_scan_returns_masked_secrets_offline(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    secret = "AKIA" + "Z" * 16  # an AWS-key-shaped token
+    response = client.post(
+        "/api/v1/hermes/scan-text",
+        headers=AUTH,
+        json={"text": f"aws_key = {secret}", "path": "config.env"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["schema_name"] == "olympus.hermes-secret-scan"
+    assert body["finding_count"] >= 1
+    # The raw secret is never echoed back — only a masked rendering leaves the server.
+    assert secret not in response.text
+    assert all("…" in f["masked"] or "*" in f["masked"] for f in body["findings"])
+
+
+def test_hermes_clean_text_reports_no_findings(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    response = client.post(
+        "/api/v1/hermes/scan-text",
+        headers=AUTH,
+        json={"text": "just an ordinary line of prose", "path": "notes.txt"},
+    )
+    assert response.status_code == 200
+    assert response.json()["finding_count"] == 0
+
+
+def test_hermes_requires_the_hermes_read_scope(tmp_path: Path) -> None:
+    client = _restricted_client(tmp_path)
+    response = client.post(
+        "/api/v1/hermes/scan-text", headers=AUTH, json={"text": "x", "path": "p"}
+    )
+    assert response.status_code == 403
+
+
+def test_proteus_validates_and_normalizes_campaign_metadata(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    response = client.post(
+        "/api/v1/proteus/validate-campaign",
+        headers=AUTH,
+        json={
+            "engagement": "ACME Q4",
+            "subject": "Security awareness check",
+            "sender": "Training@Acme.TEST",
+            "landing_url": "https://training.acme.test/learn",
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["schema_name"] == "olympus.proteus-campaign-validation"
+    assert body["valid"] is True
+    assert body["sender"] == "Training@acme.test"  # domain normalized (lower-cased)
+
+
+def test_proteus_rejects_malformed_campaign_metadata(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    response = client.post(
+        "/api/v1/proteus/validate-campaign",
+        headers=AUTH,
+        json={
+            "engagement": "ACME",
+            "subject": "hi",
+            "sender": "not-an-email",
+            "landing_url": "https://training.acme.test/learn",
+        },
+    )
+    assert response.status_code == 422
+
+
+def test_proteus_requires_the_proteus_read_scope(tmp_path: Path) -> None:
+    client = _restricted_client(tmp_path)
+    response = client.post(
+        "/api/v1/proteus/validate-campaign",
+        headers=AUTH,
+        json={
+            "engagement": "ACME",
+            "subject": "hi",
+            "sender": "training@acme.test",
+            "landing_url": "https://training.acme.test/learn",
+        },
+    )
+    assert response.status_code == 403

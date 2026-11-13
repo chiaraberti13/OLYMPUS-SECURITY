@@ -303,6 +303,34 @@ headers and body. Both surfaces require the `artemis:read` scope, are
 CSRF-protected on the Web and bounded in header count and body size. An
 out-of-range status code or a malformed header line is rejected with `422`.
 
+## Helios, Hermes and Proteus API slices (`API-2`)
+
+These three ecosystem tools now expose a typed, versioned, **passive and offline**
+API slice, so every module is reachable over the same contract surface as the
+others. Each matches a captured artefact or validates submitted metadata locally;
+**no network request, scan or email is ever made from the server.** (The dedicated
+Web pages for them remain `WEB-3`.)
+
+- **Helios** — `POST /api/v1/helios/identify-service` (scope `helios:read`,
+  contract `olympus.helios-service-identification` `1.0.0`). The caller supplies a
+  captured service banner and/or a port; the server sanitises the banner and
+  matches it with the same `olympus.helios.scanner` core as the scanner. A
+  volunteered banner is the only evidence; a port is a convention, used only as a
+  fallback, and the result says which was used (`identified_from`: `banner` /
+  `port` / `none`). An unknown banner is reported honestly, never upgraded into a
+  claim. An empty request (no banner and no port) is `422`.
+- **Hermes** — `POST /api/v1/hermes/scan-text` (scope `hermes:read`, contract
+  `olympus.hermes-secret-scan` `1.0.0`). Scans submitted text for secrets with the
+  same `scan_text` core as the CLI; every finding's value is **masked** before it
+  leaves the server — a raw secret is never echoed back — and carries a stable
+  fingerprint for de-duplication.
+- **Proteus** — `POST /api/v1/proteus/validate-campaign` (scope `proteus:read`,
+  contract `olympus.proteus-campaign-validation` `1.0.0`). Validates and normalises
+  non-target awareness-campaign metadata (header hygiene, a normalised sender
+  address, a bounded landing URL) with the same core as the campaign builder,
+  **before** any authorization or scope access. No email is sent; invalid input is
+  `422` with the reason.
+
 ### Report export (`WEB-I`)
 
 The findings view offers a one-click **Vulcan report** of exactly what is on
