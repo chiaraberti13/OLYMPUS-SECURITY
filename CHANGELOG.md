@@ -12,6 +12,70 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Changed — VAL-2 (chiusura di un finding solo con evidenza di retest, fail-closed)
+
+- Un finding non può più essere marcato `closed` sulla parola di chi lo muove: il
+  percorso generico del lifecycle (`transition`/`record_transition`) ora **rifiuta**
+  ogni transizione `→ closed` e rimanda al nuovo
+  `core.finding_lifecycle.close_after_retest(finding, *, actor, retest_evidence,
+  reason="")`. Questa è l'**unica** via per chiudere, e accetta soltanto un
+  **riferimento reale** all'evidenza del retest — un custody id `olympus.evidence`
+  (`EVD-YYYY-NNNNN`) o un digest SHA-256 — mai testo libero: un riferimento assente
+  o non valido è rifiutato (`FindingTransitionError`) e non cambia nulla
+  (fail-closed). Un retest **fallito** non è una chiusura (il finding resta aperto o
+  torna a `confirmed`, senza gate).
+- `can_transition`/`FINDING_TRANSITIONS` restano invariati (il gate vive nelle
+  funzioni applicative, non nella mappa strutturale), così la semantica di
+  riapertura su recidiva e «closed è raggiungibile» restano oneste.
+- Contratto `olympus.finding-transition`: nuovo campo **additivo** `retest_evidence`
+  (opzionale, default `null`), validato a livello di modello (accetta solo un
+  riferimento reale, normalizza il digest in minuscolo) — defense in depth — così il
+  ledger di audit immutabile non può registrare una chiusura «provata» da prosa.
+  Golden e catalogo schemi rigenerati (32 contratti); backward-compatible (i record
+  esistenti senza il campo restano validi).
+- Nuovo helper canonico condiviso `core.references.evidence_reference` /
+  `is_evidence_reference`: l'unico posto che riconosce un riferimento di evidenza
+  reale (custody id o SHA-256), riusato dal modello e dal lifecycle.
+- **Parità di superfici:** CLI `olympus vulcan transition --to-status closed`
+  richiede `--retest-evidence`; la pagina di dettaglio Web (`/findings/{id}`) chiede
+  l'evidenza del retest prima di registrare una chiusura e la mostra in una colonna
+  dedicata della cronologia. `docs/cli-reference.md` rigenerato;
+  `docs/findings.md` aggiornato.
+- Test: `tests/unit/test_core_references.py` (nuovo), `test_finding_lifecycle.py`,
+  `test_finding_transitions.py`, `test_vulcan.py` (CLI) e `test_themis_web.py` (Web)
+  — rifiuto senza evidenza e da testo libero, custody id e SHA-256 normalizzato,
+  stato sorgente illegale, parità CLI/Web, validazione di contratto; copertura branch
+  100% dei moduli core toccati. Avanza `VAL-2` (resta: evidenza firmata da simulazione
+  autorizzata `PURPLE-1`/`TOOLS-4.5` e lab riproducibile `PURPLE-2`).
+
+### Added — VAL-1 (report comparativo Vulcan)
+
+- Nuovo motore `vulcan.comparative.build_comparative_report` → `ComparativeReport`
+  che, su una storia ordinata di assessment, assembla in **un unico documento
+  leggibile** il lifecycle dei finding sull'intera storia (nuovi/persistenti/
+  ricomparsi/risolti) e, opzionalmente, l'asset-diff della superficie d'attacco
+  (baseline→current). **Riusa** i due motori esistenti
+  (`vulcan.lifecycle.classify_lifecycle` e `vulcan.compare.diff_assets`) verbatim
+  invece di derivarne uno parallelo: è una proiezione come `trend`/`lifecycle`,
+  non un nuovo contratto condiviso. Puro, offline, deterministico.
+- CLI `olympus vulcan comparative-report --snapshot … [--asset-baseline …
+  --asset-current …]`: Markdown di default (un report è fatto per essere letto),
+  `--format json` per il documento versionato `olympus.comparative-report` 1.0.0
+  che incorpora le proiezioni `lifecycle`/`asset-diff` **campo per campo**,
+  `--output` con scrittura atomica. L'asset-diff è incluso solo se si passano
+  **sia** baseline **sia** current (altrimenti errore d'uso). Exit code `1`
+  quando lo stato peggiora — un finding **nuovo** o **ricomparso**, o la
+  superficie d'attacco **cresciuta** — `0` altrimenti.
+- Il testo controllato dal bersaglio (titoli, hostname) è neutralizzato dallo
+  stesso escaper Markdown testato del report a run singolo
+  (`vulcan.report.markdown_text`, promosso da privato ad alias pubblico per
+  single-source): un titolo di finding non può forgiare la struttura del report
+  né un link cliccabile. Regressioni in `tests/unit/test_vulcan_comparative.py`
+  (storia a tre assessment, regressione da sola espansione di superficie, parità
+  con le proiezioni condivise, sicurezza dell'escaping, exit code canonici) e
+  `docs/cli-reference.md` rigenerato. Avanza `VAL-1` (resta: la sola ricorrenza
+  via Execution Engine, `API-3`).
+
 ### Changed — QA (il motore di correlazione entra nel mutation gate)
 
 - `olympus.vulcan.correlate.correlate_findings` — il confine di correttezza di

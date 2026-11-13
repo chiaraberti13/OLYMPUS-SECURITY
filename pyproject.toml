@@ -176,6 +176,7 @@ only_mutate = [
     "src/olympus/athena/cli.py",
     "src/olympus/athena/domain/assessment.py",
     "src/olympus/vulcan/correlate.py",
+    "src/olympus/core/finding_lifecycle.py",
 ]
 pytest_add_cli_args_test_selection = ["tests/mutation/"]
 process_isolation = "forkserver"

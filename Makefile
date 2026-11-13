@@ -91,7 +91,9 @@ test-mutation:
 		"olympus.athena.cli.x__exit_code_for*" \
 		"olympus.athena.domain.assessment.x_advance_job*" \
 		"olympus.athena.domain.assessment.x_derive_terminal_state*" \
-		"olympus.vulcan.correlate.x_correlate_findings*"
+		"olympus.vulcan.correlate.x_correlate_findings*" \
+		"olympus.core.finding_lifecycle.x_transition*" \
+		"olympus.core.finding_lifecycle.x_close_after_retest*"
 	$(PYTHON) scripts/check_mutation_gate.py
 
 # --------------------------------------------------------------------------- #

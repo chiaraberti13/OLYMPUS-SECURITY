@@ -10,6 +10,8 @@ from olympus.core.finding_lifecycle import (
     FindingTransitionError,
     allowed_transitions,
     can_transition,
+    close_after_retest,
+    record_transition,
     transition,
 )
 from olympus.core.models import Finding
@@ -116,14 +118,92 @@ def test_unsuppress_rejects_a_finding_that_is_not_suppressed() -> None:
 
 def test_full_happy_path_lifecycle() -> None:
     finding = _finding(FindingStatus.NEW)
+    # Up to in_remediation is the generic workflow...
     for target in (
         FindingStatus.TRIAGED,
         FindingStatus.CONFIRMED,
         FindingStatus.IN_REMEDIATION,
-        FindingStatus.CLOSED,
     ):
         finding = transition(finding, target)
+    # ...but closing is retest-gated: it needs the evidence of a passing retest.
+    from olympus.core.finding_lifecycle import close_after_retest
+
+    finding, _ = close_after_retest(finding, actor="qa", retest_evidence="EVD-2026-00007")
     assert finding.status is FindingStatus.CLOSED
     # a recurrence re-opens it
     reopened = transition(finding, FindingStatus.CONFIRMED)
     assert reopened.status is FindingStatus.CONFIRMED
+
+
+# ---------------------------------------------------------------------------
+# Retest-gated close (VAL-2)
+# ---------------------------------------------------------------------------
+
+
+def test_generic_transition_refuses_to_close_a_finding() -> None:
+    # A fix is never asserted on the mover's word: the generic path cannot close.
+    with pytest.raises(FindingTransitionError, match="requires the evidence of a retest"):
+        transition(_finding(FindingStatus.IN_REMEDIATION), FindingStatus.CLOSED)
+
+
+def test_record_transition_also_refuses_to_close() -> None:
+    # record_transition is transition + audit; the gate holds there too.
+    with pytest.raises(FindingTransitionError, match="requires the evidence of a retest"):
+        record_transition(_finding(FindingStatus.CONFIRMED), FindingStatus.CLOSED, actor="a")
+
+
+def test_close_after_retest_requires_a_real_evidence_reference() -> None:
+    for bogus in ("", "   ", "we retested it", "EVD-123", "not-a-digest"):
+        with pytest.raises(FindingTransitionError, match="requires retest evidence"):
+            close_after_retest(
+                _finding(FindingStatus.IN_REMEDIATION), actor="qa", retest_evidence=bogus
+            )
+
+
+def test_close_after_retest_accepts_a_custody_id_and_records_it() -> None:
+    moved, record = close_after_retest(
+        _finding(FindingStatus.IN_REMEDIATION),
+        actor="qa",
+        retest_evidence="EVD-2026-00009",
+        reason="retest could not reproduce it",
+    )
+    assert moved.status is FindingStatus.CLOSED
+    assert record.to_status is FindingStatus.CLOSED
+    assert record.from_status is FindingStatus.IN_REMEDIATION
+    assert record.retest_evidence == "EVD-2026-00009"
+    assert record.reason == "retest could not reproduce it"
+
+
+def test_close_after_retest_normalises_a_sha256_digest() -> None:
+    digest = "A" * 64
+    _, record = close_after_retest(
+        _finding(FindingStatus.CONFIRMED), actor="qa", retest_evidence=digest
+    )
+    assert record.retest_evidence == "a" * 64  # folded to lower-case
+
+
+def test_close_after_retest_rejects_an_illegal_source_status() -> None:
+    # A false_positive cannot jump straight to closed, retest or not.
+    with pytest.raises(FindingTransitionError, match="illegal finding transition"):
+        close_after_retest(
+            _finding(FindingStatus.FALSE_POSITIVE), actor="qa", retest_evidence="EVD-2026-00001"
+        )
+
+
+def test_a_failed_retest_returns_to_confirmed_without_evidence() -> None:
+    # A failed retest is not a close: the ordinary workflow handles it, no gate.
+    moved, record = record_transition(
+        _finding(FindingStatus.IN_REMEDIATION),
+        FindingStatus.CONFIRMED,
+        actor="qa",
+        reason="retest failed",
+    )
+    assert moved.status is FindingStatus.CONFIRMED
+    assert record.retest_evidence is None
+
+
+def test_structural_legality_still_lists_closed_as_reachable() -> None:
+    # The gate lives in the application functions, not the legality map, so the
+    # re-open semantics and "closed is reachable" stay honest.
+    assert can_transition(FindingStatus.IN_REMEDIATION, FindingStatus.CLOSED)
+    assert can_transition(FindingStatus.CLOSED, FindingStatus.CONFIRMED)

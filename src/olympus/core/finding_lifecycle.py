@@ -24,10 +24,11 @@ canonical states as follows:
   turns out to be real after all.
 * ``accepted`` — a known, accepted risk; may be re-opened to ``confirmed`` or
   closed.
-* ``in_remediation`` — a fix is in progress; closes when done, or returns to
-  ``confirmed`` if a retest fails.
-* ``closed`` — resolved; re-opens to ``confirmed`` on recurrence (retest
-  required).
+* ``in_remediation`` — a fix is in progress; closes when a retest proves it
+  fixed (see :func:`close_after_retest`), or returns to ``confirmed`` if the
+  retest fails.
+* ``closed`` — resolved, on the evidence of a retest; re-opens to ``confirmed``
+  on recurrence.
 
 A transition to the *same* status is not a transition and is rejected, so a
 no-op never masquerades as a workflow step.
@@ -39,6 +40,7 @@ from datetime import UTC, datetime
 
 from olympus.core.enums import FindingStatus
 from olympus.core.models import Finding, FindingTransition
+from olympus.core.references import evidence_reference
 
 #: Allowed ``from -> {to, ...}`` status transitions. Every key is present so the
 #: map is exhaustive over :class:`FindingStatus`; a status with no outgoing edges
@@ -100,12 +102,77 @@ def transition(finding: Finding, target: FindingStatus) -> Finding:
     illegal transition — including a no-op to the same status — raises
     :class:`FindingTransitionError` naming both states, so the caller fails
     loudly instead of silently corrupting the workflow.
+
+    Moving a finding to ``closed`` is **refused here**: a finding is only resolved
+    with the evidence of a retest, so closing goes through
+    :func:`close_after_retest` (ROADMAP ``VAL-2``). This keeps the structural
+    legality map (:func:`can_transition`) honest about ``closed`` being reachable
+    while ensuring no interface can mark a finding resolved on the mover's word
+    alone.
     """
+    if target is FindingStatus.CLOSED:
+        raise FindingTransitionError(
+            "closing a finding requires the evidence of a retest; "
+            "use close_after_retest() with an olympus.evidence custody id "
+            "(EVD-YYYY-NNNNN) or a SHA-256 digest"
+        )
     if not can_transition(finding.status, target):
         raise FindingTransitionError(
             f"illegal finding transition {finding.status.value!r} -> {target.value!r}"
         )
     return finding.model_copy(update={"status": target, "last_seen": datetime.now(UTC)})
+
+
+def close_after_retest(
+    finding: Finding,
+    *,
+    actor: str,
+    retest_evidence: str,
+    reason: str = "",
+) -> tuple[Finding, FindingTransition]:
+    """Close a finding as resolved, **only** with the evidence of a passing retest.
+
+    A ``closed`` finding asserts the issue is gone; the one honest basis for that
+    is a retest that could no longer reproduce it. This is the sole sanctioned way
+    to reach ``closed`` (the generic :func:`transition`/:func:`record_transition`
+    refuse it): ``retest_evidence`` must be a real artifact reference — an
+    ``olympus.evidence`` custody id (``EVD-YYYY-NNNNN``) or a SHA-256 digest — not
+    free text, or the close is refused with :class:`FindingTransitionError` and
+    nothing changes (fail-closed). The move itself is still validated against the
+    structural state machine, so closing from a state that cannot reach ``closed``
+    is rejected too.
+
+    A *failed* retest is not a close: the finding simply stays open (or returns to
+    ``confirmed`` via :func:`record_transition`), which needs no evidence gate.
+
+    Returns the finding moved to ``closed`` together with an immutable
+    :class:`FindingTransition` that records the retest reference, so the audit
+    ledger answers "closed on the strength of which evidence?".
+    """
+    if not can_transition(finding.status, FindingStatus.CLOSED):
+        raise FindingTransitionError(
+            f"illegal finding transition {finding.status.value!r} -> 'closed'"
+        )
+    normalised = evidence_reference(retest_evidence)
+    if normalised is None:
+        raise FindingTransitionError(
+            "closing a finding requires retest evidence: an olympus.evidence custody id "
+            "(EVD-YYYY-NNNNN) or a SHA-256 digest"
+        )
+    moved = finding.model_copy(
+        update={"status": FindingStatus.CLOSED, "last_seen": datetime.now(UTC)}
+    )
+    record = FindingTransition(
+        finding_id=finding.finding_id,
+        from_status=finding.status,
+        to_status=FindingStatus.CLOSED,
+        actor=actor,
+        reason=reason,
+        retest_evidence=normalised,
+        occurred_at=moved.last_seen,
+        engagement_id=finding.engagement_id,
+    )
+    return moved, record
 
 
 def record_transition(

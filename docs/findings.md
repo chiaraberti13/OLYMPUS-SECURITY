@@ -108,8 +108,8 @@ new states, so no schema change):
 | `confirmed` | `in_remediation`, `accepted`, `false_positive`, `closed` |
 | `false_positive` | `confirmed` (only, if it turns out real) |
 | `accepted` | `confirmed`, `closed` |
-| `in_remediation` | `closed`, `confirmed` (retest failed), `accepted` |
-| `closed` | `confirmed` (recurrence / retest required) |
+| `in_remediation` | `closed` (retest-gated, see below), `confirmed` (retest failed), `accepted` |
+| `closed` | `confirmed` (recurrence) |
 
 A transition to the **same** status is rejected, so a no-op never masquerades as
 a workflow step.
@@ -125,6 +125,37 @@ if can_transition(finding.status, FindingStatus.CONFIRMED):
 `transition(finding, target)` returns a **copy** with the new status and a
 refreshed `last_seen` (the original is untouched); an illegal move raises
 `FindingTransitionError` naming both states.
+
+### Closing requires the evidence of a retest (`VAL-2`)
+
+`closed` means *resolved* — the one honest basis for that claim is a retest that
+could no longer reproduce the issue. So closing is **not** done through the
+generic path: `transition` and `record_transition` **refuse** any move to
+`closed` and point the caller at `close_after_retest`. `can_transition` still
+lists `closed` as structurally reachable (the re-open-on-recurrence semantics
+stay honest); the evidence gate lives in the application functions, enforced
+identically by the CLI and the Web UI.
+
+```python
+from olympus.core.finding_lifecycle import close_after_retest
+
+# retest_evidence must be a REAL reference: an olympus.evidence custody id
+# (EVD-YYYY-NNNNN) or a SHA-256 digest — never free text, or the close is
+# refused (fail-closed) and nothing changes.
+finding, record = close_after_retest(
+    finding, actor="qa", retest_evidence="EVD-2026-00009", reason="retest could not reproduce it"
+)
+# record.retest_evidence is stored in the immutable audit ledger, so a report can
+# answer "closed on the strength of which evidence?". A *failed* retest is not a
+# close: move the finding back to `confirmed` via record_transition (no gate).
+```
+
+From the terminal, `olympus vulcan transition --to-status closed` requires
+`--retest-evidence`; in the Web UI the finding detail page asks for the retest
+evidence before it will record a close. The authorized *simulations* that can
+produce such retest evidence (and the reproducible lab behind them) are tracked
+under `VAL-2`/`PURPLE-1`/`PURPLE-2`; this gate is the lifecycle half that refuses
+an unproven close.
 
 ### Audit trail
 
@@ -329,6 +360,48 @@ olympus vulcan lifecycle \
 # --format json emits the full projection (new / persistent / reappeared / resolved).
 olympus vulcan lifecycle --snapshot run-2026-09.json --snapshot run-2026-10.json --format json
 ```
+
+### Comparative report across the history (`VAL-1`)
+
+For a recurring programme the lifecycle and the attack-surface diff are usually
+read together: *since the last assessments, what got worse, what was fixed, and
+did the reachable surface grow?* `vulcan.comparative.build_comparative_report`
+assembles both into one human-readable document, **reusing** the two engines
+verbatim rather than deriving a parallel one — the finding lifecycle over the
+whole history, plus the optional asset-surface diff between a baseline and a
+current snapshot. It is pure, offline and deterministic; target-controlled text
+(titles, hostnames) is escaped through the same tested Markdown neutraliser the
+single-run report uses, so a finding title cannot forge report structure or a
+clickable link.
+
+The report regresses — exit code `1` — when the latest state is worse: a **new**
+or **reappeared** finding, or a **grown** attack surface. The Markdown form is the
+default (a report is made to be read); `--format json` emits a versioned
+`olympus.comparative-report` document that embeds the `vulcan lifecycle` and
+`vulcan asset-diff` projections field-for-field, so a consumer can pin the shape.
+
+```bash
+# Markdown report (default) to stdout; add --output PATH to write a file.
+olympus vulcan comparative-report \
+  --snapshot run-2026-08.json \
+  --snapshot run-2026-09.json \
+  --snapshot run-2026-10.json \
+  --engagement "ACME Q4"
+
+# Include the attack-surface diff (pass both baseline and current asset snapshots).
+olympus vulcan comparative-report \
+  --snapshot run-2026-09.json --snapshot run-2026-10.json \
+  --asset-baseline assets-2026-09.json --asset-current assets-2026-10.json
+
+# Machine-readable, versioned document.
+olympus vulcan comparative-report \
+  --snapshot run-2026-09.json --snapshot run-2026-10.json --format json
+```
+
+The recurring *execution* of these assessments — scheduled, with preflight and
+signed evidence — belongs to the Execution Engine (`API-3`) and is tracked
+separately; this command is the offline comparison over snapshots already
+produced.
 
 ## Explainability — why a finding, why this risk (`EXPL-1`)
 

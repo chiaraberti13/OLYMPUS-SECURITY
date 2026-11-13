@@ -281,3 +281,37 @@ def test_encrypted_store_keeps_legacy_plaintext_rows_readable(tmp_path: Path) ->
         assert encrypted.history(finding.finding_id) == [legacy]
     finally:
         encrypted.close()
+
+
+def test_transition_record_rejects_free_text_retest_evidence() -> None:
+    # The audit ledger cannot record a close "proven" by prose: the contract
+    # itself refuses a retest_evidence that is not a real reference (VAL-2).
+    with pytest.raises(ValidationError, match="custody id"):
+        FindingTransition(
+            finding_id="FND-2026-00001",
+            from_status=FindingStatus.IN_REMEDIATION,
+            to_status=FindingStatus.CLOSED,
+            actor="qa",
+            retest_evidence="we retested it",
+        )
+
+
+def test_transition_record_normalises_a_valid_retest_reference() -> None:
+    record = FindingTransition(
+        finding_id="FND-2026-00001",
+        from_status=FindingStatus.IN_REMEDIATION,
+        to_status=FindingStatus.CLOSED,
+        actor="qa",
+        retest_evidence="B" * 64,
+    )
+    assert record.retest_evidence == "b" * 64  # SHA-256 folded to lower-case
+
+
+def test_transition_record_defaults_retest_evidence_to_none() -> None:
+    record = FindingTransition(
+        finding_id="FND-2026-00001",
+        from_status=FindingStatus.NEW,
+        to_status=FindingStatus.CONFIRMED,
+        actor="analyst",
+    )
+    assert record.retest_evidence is None

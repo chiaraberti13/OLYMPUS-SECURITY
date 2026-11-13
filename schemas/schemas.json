@@ -3464,6 +3464,19 @@
         "title": "Reason",
         "type": "string"
       },
+      "retest_evidence": {
+        "anyOf": [
+          {
+            "maxLength": 200,
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Retest Evidence"
+      },
       "schema_name": {
         "const": "olympus.finding-transition",
         "default": "olympus.finding-transition",
