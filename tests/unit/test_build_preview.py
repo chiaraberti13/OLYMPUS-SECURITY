@@ -216,3 +216,41 @@ def test_vercel_headers_allow_script_only_on_the_demo_route() -> None:
     assert re.fullmatch(default, "/demo") is None
     assert re.fullmatch(default, "/demo.html") is None
     assert re.fullmatch(default, "/tools") is not None
+
+
+def test_dashboard_renders_accessible_svg_bar_charts() -> None:
+    # DEMO-2: the dashboard shows the severity and ATT&CK-tactic counts as inline
+    # SVG bar charts, alongside the data tables that remain the accessible table
+    # view. Colour is a secondary encoding: every bar's identity and value are
+    # also text, so the chart reads without colour.
+    text = (PUBLIC / "dashboard.html").read_text(encoding="utf-8")
+    assert text.count("<svg class='chart'") == 2
+    assert "aria-label='Findings per severità: critical 1, high 1" in text
+    # Severity bars use the reserved status classes; a zero count draws no bar.
+    assert "<rect class='sev-critical'" in text
+    assert "<rect class='sev-medium'" not in text  # medium count is 0 -> no bar
+    # The ATT&CK-tactic chart uses the single magnitude hue.
+    assert "<rect class='bar-mag'" in text
+    # Identity is never colour-alone: the data tables remain as the table view.
+    assert "<th>Severità</th><th>Conteggio</th>" in text
+    assert "<th>Tattica</th><th>Tecniche</th>" in text
+    # Still a static, script-free document under the strict preview CSP.
+    assert "<script" not in text
+    assert "\x1b" not in text
+
+
+def test_chart_svg_is_deterministic_for_fixed_rows() -> None:
+    # Importing the generator directly keeps the chart pure and reproducible: the
+    # same rows always yield byte-identical SVG, so the preview drift gate is stable.
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("_build_preview", SCRIPT)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    rows = [("critical", 2, "sev-critical"), ("low", 0, "sev-low")]
+    first = module._bar_chart(rows, aria="x")
+    assert first == module._bar_chart(rows, aria="x")
+    assert "<svg class='chart'" in first
+    assert "<rect class='sev-critical'" in first
+    assert "<rect class='sev-low'" not in first  # a zero value draws no bar
