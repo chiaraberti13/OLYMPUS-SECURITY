@@ -12,6 +12,23 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — DOCS-2 (riferimento API generato dallo schema OpenAPI, anti-drift)
+
+- Nuovo `docs/api-reference.md` **generato dallo schema OpenAPI live** dell'app Themis
+  (`olympus.api_reference.render_document`), unica fonte di verità, con
+  `scripts/generate_api_reference.py` (`--check` come gate anti-drift). Ogni operazione
+  HTTP elenca metodo+path, lo scopo (dalla docstring dell'endpoint) e il **contratto
+  versionato** di request e response, risolto dai costanti `schema_name`/`schema_version`
+  del modello (es. `olympus.hermes-secret-scan` `1.0.0`). Puro, offline, deterministico
+  (operazioni ordinate per path poi metodo); l'autenticazione e lo scope per-endpoint
+  restano documentati in `docs/web.md`.
+- Gate anti-drift con lo stesso meccanismo del CLI reference: il test
+  `tests/unit/test_api_reference.py::test_committed_reference_is_current` fallisce se la
+  pagina committata non combacia con lo schema generato, così la documentazione non può
+  divergere dall'API reale (più test di determinismo, blocco delimitato e presenza degli
+  endpoint/contratti reali). Avanza `DOCS-2` (restano: guide Web UI per tool e guida deploy
+  split).
+
 ### Added — WEB-3 (workbench Web per Helios, Hermes e Proteus)
 
 - Gli ultimi tre moduli senza pagina Web dedicata ne hanno ora una, che guida dal
