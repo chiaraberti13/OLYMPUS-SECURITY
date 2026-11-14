@@ -64,7 +64,10 @@ class ExampleScannerAdapter(ScannerAdapter):
         return [self.binary, "--json", "--target", target]
 
     def parse(self, output, host, request):
-        ...  # see examples/plugins/example_scanner_adapter.py for the full skeleton
+        # Turn output into core.Finding objects; fail closed on a corrupt record.
+        # See examples/plugins/example_scanner_adapter.py for the full skeleton.
+        findings = []
+        return findings
 ```
 
 ## Packaging
