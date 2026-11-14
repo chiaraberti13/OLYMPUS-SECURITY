@@ -12,6 +12,27 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — DEMO-2 (grafici SVG deterministici nella dashboard demo)
+
+- La dashboard demo statica (`public/dashboard.html`, generata da
+  `scripts/build_preview.py`) ora mostra i **conteggi per severità** e la
+  **copertura ATT&CK per tattica** come **grafici a barre SVG inline**, accanto
+  alle tabelle dati che restano la table-view accessibile. I grafici sono
+  deterministici (geometria intera), senza script e renderizzati sotto la CSP
+  statica stretta della preview.
+- Accessibilità e onestà: il colore è una codifica **secondaria** — ogni barra
+  porta etichetta e valore come testo e ha un `aria-label` riepilogativo sul
+  grafico; la severità usa la palette **status riservata** (critical→info, con
+  override per il tema scuro), un conteggio **0 non disegna barra** (empty onesto),
+  e la tattica usa un'unica tinta di magnitudine. Nessun dato reale: i conteggi
+  restano sintetici ed etichettati come demo.
+- Nuovo helper puro `_bar_chart` nel generatore; `_STYLE` esteso con le classi dei
+  grafici e gli override dark-mode. Test in `tests/unit/test_build_preview.py`
+  (presenza dei due grafici, classi status, barra assente per valore 0, table-view
+  conservata, determinismo del generatore); il gate anti-drift
+  `test_committed_preview_is_current` resta verde. Avanza `DEMO-2` (restano:
+  identità visiva completa e flussi rappresentativi aggiuntivi).
+
 ### Added — DOCS-2 (riferimento API generato dallo schema OpenAPI, anti-drift)
 
 - Nuovo `docs/api-reference.md` **generato dallo schema OpenAPI live** dell'app Themis

@@ -82,9 +82,19 @@ _STYLE = (
     "font-size:.8rem}"
     ".present{background:#3f6212}.simulated{background:#a16207}.missing{background:#6b7280}"
     "footer{margin-top:3rem;color:#666;font-size:.85rem;border-top:1px solid #eee;padding-top:1rem}"
+    # Inline SVG bar charts for the demo dashboard: colour is a secondary encoding —
+    # every bar carries its label and value as text, and the data table beside it is
+    # the accessible table view, so identity is never colour-alone.
+    ".chart{display:block;width:100%;max-width:34rem;height:auto;margin:.6rem 0}"
+    ".chart text{font-size:12px;fill:#111}.chart .chart-value{font-weight:600}"
+    ".sev-critical{fill:#b91c1c}.sev-high{fill:#c2410c}.sev-medium{fill:#a16207}"
+    ".sev-low{fill:#1d4ed8}.sev-info{fill:#6b7280}.bar-mag{fill:#1d4ed8}"
     "@media (prefers-color-scheme:dark){body{background:#0b0f19;color:#e5e7eb}"
     "th{background:#1f2937}td,th{border-color:#374151}.banner{background:#422006;border-color:#a16207}"
-    "a{color:#93c5fd}}"
+    "a{color:#93c5fd}"
+    ".chart text{fill:#e5e7eb}"
+    ".sev-critical{fill:#f87171}.sev-high{fill:#fb923c}.sev-medium{fill:#fbbf24}"
+    ".sev-low{fill:#60a5fa}.sev-info{fill:#9ca3af}.bar-mag{fill:#60a5fa}}"
 )
 
 # Restrictive CSP: self-contained pages, inline style only, no scripts, no remote
@@ -636,6 +646,51 @@ def _artemis_html() -> str:
     )
 
 
+def _bar_chart(rows: list[tuple[str, int, str]], *, aria: str) -> str:
+    """Render a deterministic, self-contained horizontal-bar SVG for the demo.
+
+    ``rows`` are ``(label, value, bar_css_class)`` tuples. Colour is a secondary
+    encoding: every bar carries its label and value as text, so the chart is
+    legible without colour and the data table beside it is the accessible table
+    view. Pure and deterministic (integer geometry) — the same rows always yield
+    byte-identical SVG, so the preview drift gate stays stable. No script, no
+    remote asset: it renders under the page's strict CSP.
+    """
+    row_h, bar_h, pad, label_w, bar_x, bar_max = 26, 16, 8, 150, 158, 320
+    values = [value for _label, value, _cls in rows]
+    scale = max(values) if values else 0
+    height = pad * 2 + row_h * len(rows)
+    parts = [
+        f"<svg class='chart' viewBox='0 0 520 {height}' width='100%' height='{height}' "
+        f"role='img' aria-label='{html.escape(aria)}'>"
+    ]
+    for index, (label, value, css_class) in enumerate(rows):
+        top = pad + index * row_h
+        mid = top + bar_h // 2 + 4  # text baseline roughly centred on the bar
+        # Zero is drawn as no bar (an honest empty), a positive value as a bar at
+        # least 3px wide so a small count is still visible; width is integer.
+        width = 0 if value <= 0 else max(3, round(value / scale * bar_max)) if scale else 0
+        safe_label = html.escape(label)
+        parts.append(f"<text x='{label_w - 4}' y='{mid}' text-anchor='end'>{safe_label}</text>")
+        if width:
+            parts.append(
+                f"<rect class='{css_class}' x='{bar_x}' y='{top}' width='{width}' "
+                f"height='{bar_h}' rx='4'><title>{safe_label}: {value}</title></rect>"
+            )
+        parts.append(f"<text class='chart-value' x='{bar_x + width + 6}' y='{mid}'>{value}</text>")
+    parts.append("</svg>")
+    return "".join(parts)
+
+
+_SEVERITY_BAR_CLASS = {
+    "critical": "sev-critical",
+    "high": "sev-high",
+    "medium": "sev-medium",
+    "low": "sev-low",
+    "info": "sev-info",
+}
+
+
 def _dashboard_findings() -> list[Finding]:
     """Synthetic, fictitious findings with mappable CWEs for the demo dashboard."""
     return [
@@ -682,9 +737,20 @@ def _dashboard_html() -> str:
         f"<tr><td>{level}</td><td>{severities[level]}</td></tr>"
         for level in ("critical", "high", "medium", "low", "info")
     )
+    tactic_order = sorted(tactics.items(), key=lambda item: (-item[1], item[0]))
     tactic_rows = "".join(
-        f"<tr><td>{html.escape(tactic)}</td><td>{count}</td></tr>"
-        for tactic, count in sorted(tactics.items(), key=lambda item: (-item[1], item[0]))
+        f"<tr><td>{html.escape(tactic)}</td><td>{count}</td></tr>" for tactic, count in tactic_order
+    )
+    severity_levels = ("critical", "high", "medium", "low", "info")
+    severity_chart = _bar_chart(
+        [(level, severities[level], _SEVERITY_BAR_CLASS[level]) for level in severity_levels],
+        aria="Findings per severità: "
+        + ", ".join(f"{level} {severities[level]}" for level in severity_levels),
+    )
+    tactic_chart = _bar_chart(
+        [(tactic, count, "bar-mag") for tactic, count in tactic_order],
+        aria="Copertura ATT&CK per tattica: "
+        + (", ".join(f"{tactic} {count}" for tactic, count in tactic_order) or "nessuna"),
     )
     # Fictitious job-state summary, clearly labelled: the static demo runs no jobs.
     job_rows = "".join(
@@ -708,9 +774,11 @@ def _dashboard_html() -> str:
         "<table><caption>Conteggi job sintetici — nessuna esecuzione reale</caption>"
         f"<tr><th>Stato</th><th>Conteggio</th></tr>{job_rows}</table>"
         "<h3>Findings per severità</h3>"
+        f"{severity_chart}"
         f"<table><caption>{len(findings)} findings sintetici aggregati dal motore reale"
         f"</caption><tr><th>Severità</th><th>Conteggio</th></tr>{sev_rows}</table>"
         "<h3>Copertura ATT&amp;CK per tattica</h3>"
+        f"{tactic_chart}"
         "<table><caption>Tecniche distinte per tattica dal motore ATT&amp;CK reale</caption>"
         f"<tr><th>Tattica</th><th>Tecniche</th></tr>{tactic_rows}</table>"
         "<p class='banner'>Associazioni automatiche CWE→ATT&amp;CK, non attacchi "
