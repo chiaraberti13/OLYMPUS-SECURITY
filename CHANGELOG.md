@@ -12,6 +12,28 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — INT-2 (SDK plugin documentato + template per adapter esterni)
+
+- Nuova guida `docs/plugins.md`: l'SDK stabile per scrivere un adapter scanner
+  di terze parti come pacchetto separato — il contratto dell'adapter (subclass
+  concreta di `ScannerAdapter`, `name`/`binary`, `build_argv` a vettore fisso,
+  `parse` fail-closed, nessun override del confine scope-safe `run`/`resolve`), il
+  modello di sicurezza **default-deny** (discovery via entry-point
+  `olympus.scanner_adapters`, caricato solo se sul'allowlist
+  `OLYMPUS_SCANNER_PLUGIN_ALLOWLIST`, altrimenti *skipped*/*rejected* con motivo), e
+  il packaging via `pyproject.toml`.
+- Nuovo template copy-me `examples/plugins/example_scanner_adapter.py`: un adapter
+  concreto e commentato (argv fisso, parsing JSONL con de-dup, `ParseError`
+  fail-closed su riga di risultato corrotta, empty onesto) più
+  `examples/plugins/README.md`.
+- Verifica offline end-to-end in `tests/unit/test_example_plugin_template.py`: il
+  template viene fatto passare nel **motore di discovery reale**
+  (`olympus.themis.plugins.discover_adapters`) — approvato con allowlist, *skipped*
+  senza, non sovrascrive `run`/`resolve`, parsa e de-duplica, fallisce chiuso su
+  output corrotto. Il motore di discovery era già presente (`DEV-B`); questa
+  change ne consegna l'SDK documentato e il template verificato, chiudendo
+  `INT-2` (la firma crittografica dei plugin resta separata, `SEC-4.5`).
+
 ### Added — DEMO-2 (grafici SVG deterministici nella dashboard demo)
 
 - La dashboard demo statica (`public/dashboard.html`, generata da
