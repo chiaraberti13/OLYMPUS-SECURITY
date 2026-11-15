@@ -35,6 +35,7 @@ as a fact, and no match is ever presented as a compromise.
 | `shared-cve` | one CVE appears on findings against **≥2 distinct assets** | the CVE id | the asset ids | `deterministic_result` |
 | `shared-evidence` | one Minerva evidence artifact is cited by **≥2 distinct findings** | the evidence reference | the citing findings' tool sources | `deterministic_result` |
 | `ioc-event` | a Metis indicator value is **observed in** an Apollo event | `type:value` of the indicator | the observing events' sources | `suggested_correlation` |
+| `shared-weakness` | one CWE (a weakness *class*) appears on findings against **≥2 distinct assets** | the CWE id | the asset ids | `unverified_hypothesis` |
 
 `shared-evidence` joins findings through a common custody artifact: the reference
 carried in `Finding.evidence` points at an [`olympus.evidence`](contracts.md) id or
@@ -52,6 +53,15 @@ an IOC hit is a **lead**, not proof the event is the entity the intel meant
 (addresses and domains are reused, shared and reassigned). It therefore carries
 `suggested_correlation` with `medium` confidence and says so in its reason: a
 hypothesis is never presented as a fact, and never as a compromise.
+
+`shared-weakness` is the **weakest** kind. A CWE is a weakness *category*, not a
+concrete flaw, so the same CWE on two distinct assets is only an
+`unverified_hypothesis` at `low` confidence: a lead that the estate may carry a
+*systemic* weakness worth reviewing — **not** proof the assets share the same
+vulnerability (a shared **CVE** is the stronger `shared-cve` companion, emitted
+alongside when a concrete CVE is shared) and never a claim that anything was
+exploited. It is the first relationship to use `unverified_hypothesis`, keeping the
+honest ladder: `deterministic_result` → `suggested_correlation` → `unverified_hypothesis`.
 
 Findings are folded by logical identity first (one issue seen twice counts once),
 indicators sharing a `type:value` are folded too, and the output is ordered
@@ -109,9 +119,10 @@ the shared contracts.
 
 ## Remaining `CORR-1` work
 
-- The relationship-kind corpus is complete: deterministic `asset-overlap`,
-  `shared-cve` and `shared-evidence`, plus the cross-module
-  `suggested_correlation` lead `ioc-event`. `unverified_hypothesis` is reserved
-  for still weaker, inferred relationships.
+- The relationship-kind corpus spans the full epistemic ladder: deterministic
+  `asset-overlap`, `shared-cve` and `shared-evidence`, the cross-module
+  `suggested_correlation` lead `ioc-event`, and the weakest
+  `unverified_hypothesis` kind `shared-weakness` (a shared CWE across assets — a
+  systemic-weakness lead, never a proven link or a compromise).
 - The CLI and the API (`POST /api/v1/vulcan/correlate`) expose every kind; a Web
   view and report integration are the remaining `CORR-2` work.

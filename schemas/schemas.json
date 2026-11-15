@@ -1319,6 +1319,7 @@
         "enum": [
           "asset-overlap",
           "shared-cve",
+          "shared-weakness",
           "shared-evidence",
           "ioc-event"
         ],
@@ -1398,6 +1399,7 @@
             "enum": [
               "asset-overlap",
               "shared-cve",
+              "shared-weakness",
               "shared-evidence",
               "ioc-event"
             ],
