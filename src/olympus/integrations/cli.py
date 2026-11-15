@@ -190,6 +190,56 @@ def _authorize_direct_live_run(
     return job_id, digest
 
 
+def _enforce_engine_preflight(scanner: str, *, target: str, audit_path: Path | None) -> None:
+    """Fail-closed engine preflight before a direct live scan touches the network (TOOLS-4.1).
+
+    Runs the shared, offline verdict (``olympus.engines.preflight``) for the mandatory
+    engines (``nmap``/``nuclei``/``httpx``) plus the named scanner when Olympus governs it.
+    If any required engine is missing, the wrong tool, a version/commit mismatch or a broken
+    data pin, it writes a redacted audit record and exits with
+    :data:`~olympus.core.exit_codes.ExitCode.ENGINE_MISSING` (8): the scan never launches and
+    no target resolution or network I/O happens. Host inspection is injected through
+    :func:`~olympus.engines.cli.system_environment`, so the check performs no target I/O; an
+    ungoverned scanner name adds nothing beyond the mandatory baseline rather than failing.
+    """
+    from datetime import UTC, datetime
+
+    from olympus.core.execution import StructuredAuditRecord, append_structured_audit
+    from olympus.engines.cli import system_environment
+    from olympus.engines.preflight import preflight_for_scanner
+
+    verdict = preflight_for_scanner(system_environment(), scanner)
+    if verdict.ok:
+        return
+    if audit_path is not None:
+        append_structured_audit(
+            audit_path,
+            StructuredAuditRecord(
+                timestamp=datetime.now(UTC).isoformat(),
+                execution_id=f"preflight-{scanner}",
+                action="themis.engine-preflight",
+                outcome="refused",
+                target=target,
+                metadata=verdict.audit_metadata(),
+            ),
+        )
+    blocking = ", ".join(f"{status.name} ({status.state.value})" for status in verdict.blocking)
+    typer.echo(
+        safe_terminal_text(
+            "olympus: engine preflight failed, scan not launched — "
+            f"required engine not ready: {blocking}"
+        ),
+        err=True,
+    )
+    for status in verdict.blocking:
+        if status.install_command:
+            typer.echo(
+                safe_terminal_text(f"  install {status.name}: {status.install_command}"),
+                err=True,
+            )
+    raise typer.Exit(code=int(ExitCode.ENGINE_MISSING))
+
+
 def _emit_report(report: Report) -> None:
     typer.echo(json.dumps(report.to_dict(), indent=2, sort_keys=True))
 
@@ -2802,6 +2852,10 @@ def themis_run(
                 err=True,
             )
             raise typer.Exit(code=ExitCode.NOT_AUTHORIZED) from exc
+        # Fail-closed engine preflight (TOOLS-4.1): a direct live scan must not reach the
+        # target when a required engine is missing/unusable. Runs after authorization and
+        # before any resolution or network I/O, so an unauthorized caller learns nothing.
+        _enforce_engine_preflight(scanner, target=target, audit_path=Path(audit) if audit else None)
     try:
         result = ThemisApplicationService().run(
             ThemisRunRequest(

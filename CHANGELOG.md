@@ -12,6 +12,26 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — TOOLS-4.1 (preflight fail-closed automatico in `themis run`)
+
+- Il percorso di **esecuzione diretta live** di `olympus themis run` (`THEMIS_ENABLE_LIVE_SCANS`
+  attivo e senza `--simulate`) invoca ora **automaticamente** il preflight condiviso degli
+  engine (`olympus.engines.preflight.preflight_for_scanner`), subito **dopo** l'autorizzazione
+  (manifest firmato o lab-policy) e **prima di qualsiasi risoluzione DNS o attività di rete sul
+  target**:
+  - controlla gli engine `mandatory` (`nmap`, `nuclei`, `httpx`) più lo scanner nominato quando
+    Olympus lo governa con un manifest;
+  - un engine mancante, l'engine sbagliato, una versione/commit diversa dal pin o un dato pin
+    rotto → **exit 8 `ENGINE_MISSING`** con messaggio che riporta l'engine non pronto e il
+    comando di installazione **pinnato** (mai `@latest`/apt), e un record di audit redatto
+    (`themis.engine-preflight`, `outcome=refused`, nessun segreto né dato del target);
+  - **il service di scansione non viene mai raggiunto** quando il preflight fallisce (zero
+    I/O sul target), e `--simulate` non avvia engine quindi non attiva il preflight.
+- Decisione di sicurezza (AppSec): il preflight gira **dopo** i gate di autorizzazione, così un
+  chiamante non autorizzato non apprende nulla sugli engine. Offline, deterministico, verificato
+  con una lab-policy sintetica e un service doppio che fallisce-se-invocato. Restano il
+  cablaggio automatico in API/Web/worker e la parità cross-interfaccia (`ROADMAP.md` `TOOLS-4.1`).
+
 ### Added — BLUE-1 (ingest Apollo Windows/Sysmon: più event ID ad alto valore di detection)
 
 - Il parser `windows-json` di Apollo copre ora sette nuovi `EventID` Windows, con
