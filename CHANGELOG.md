@@ -12,6 +12,33 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — BLUE-1 (ingest Apollo Windows/Sysmon: più event ID ad alto valore di detection)
+
+- Il parser `windows-json` di Apollo copre ora sette nuovi `EventID` Windows, con
+  campi documentati e stabili, mantenendo il contratto *skip-never-guess* e il
+  gating per provider/famiglia (`windows.sysmon`/`windows.security`):
+  - **Sysmon 7** (image/DLL load → DLL sideloading), **8** (CreateRemoteThread →
+    process injection), **10** (ProcessAccess → credential dumping/LSASS), **23**
+    (FileDelete → indicator removal).
+  - **Security 4688** (process creation nativa, equivalente di Sysmon 1), **4697**
+    (servizio installato → persistenza/privesc), **4720** (account utente creato).
+- Per rendere robuste le regole (match per **uguaglianza esatta**), oltre a
+  `process_name` il parser deriva ora `target_process_name` dal target degli
+  eventi cross-process (Sysmon 8/10) e `loaded_module_name` dal modulo caricato
+  (Sysmon 7): una regola può così matchare `lsass.exe` o il nome di una DLL senza
+  dipendere da un path completo fragile.
+- Tre nuove regole di detection d'esempio in `examples/input/apollo-sysmon`,
+  guidate end-to-end dall'ingest: accesso a LSASS (`APL-SYSMON-LSASS-ACCESS`,
+  T1003.001), remote-thread injection (`APL-SYSMON-REMOTE-THREAD-INJECTION`,
+  T1055), installazione di servizio (`APL-SECURITY-SERVICE-INSTALL`, T1543.003).
+- Fixture format-fedele (`tests/fixtures/apollo/ingest/windows.jsonl`) ampliata ai
+  nuovi eventi (dati sintetici, IP riservati/documentazione) con un id non mappato
+  (4634) a presidio del ramo *skip*; test d'integrazione aggiornati (15 eventi
+  ingeriti, sei regole scatenate) e anteprima statica `public/apollo.html`
+  rigenerata (nuovo rule pack). **Offline, deterministico, nessuna rete.** Resta la
+  validazione contro telemetria Windows reale in lab autorizzato (`ROADMAP.md`
+  `BLUE-1`).
+
 ### Added — WEB-8 (viste Web di correlazioni e spiegabilità) — chiude il "resta Web" di CORR-2/EXPL-2
 
 - Due nuove pagine Web espongono i contratti di conoscenza nel browser, ciascuna

@@ -97,13 +97,19 @@ become `windows.sysmon` events and Security-auditing records become
 attribute (so a rule matches `event_type: windows.sysmon` + `event_id: "1"`,
 exactly like the shipped rules). The provider/channel must match the expected
 family, so a different provider that reuses a low id is skipped, not guessed.
-Documented ids are Sysmon `1` (process create), `3` (network connection), `11`
-(file create), `13` (registry set), `22` (DNS query) and Security `4624`/`4625`
-(logon / failed logon); fields are read from the `EventData` object first, then
-the flat record, and the executable basename is exposed as `process_name`
-alongside the full `image`. A line that is not a JSON object, has an unknown or
-provider-mismatched id, or carries no mappable field is skipped, never guessed;
-the ISO-8601 `TimeCreated` is anchored to UTC.
+Documented ids are Sysmon `1` (process create), `3` (network connection), `7`
+(image/DLL load), `8` (create remote thread), `10` (process access), `11` (file
+create), `13` (registry set), `22` (DNS query), `23` (file delete) and Security
+`4624`/`4625` (logon / failed logon), `4688` (process create), `4697` (service
+installed) and `4720` (user account created); fields are read from the
+`EventData` object first, then the flat record, and the executable basename is
+exposed as `process_name` alongside the full `image`. For cross-process events
+(Sysmon `8`/`10`) the target basename is exposed as `target_process_name`, and
+for a loaded module (Sysmon `7`) the module basename as `loaded_module_name`, so
+a rule can match `lsass.exe` or a DLL name exactly instead of a brittle full
+path. A line that is not a JSON object, has an unknown or provider-mismatched id,
+or carries no mappable field is skipped, never guessed; the ISO-8601
+`TimeCreated` is anchored to UTC.
 
 ```bash
 olympus apollo ingest --format windows-json --input sysmon.jsonl --output events.ndjson
@@ -112,7 +118,8 @@ olympus apollo run --rules examples/input/apollo-sysmon --events events.ndjson -
 
 Ingested Windows telemetry drives the shipped Sysmon/Security detection rules in
 `examples/input/apollo-sysmon` (C2 DNS query, Run-key persistence, failed
-privileged logon) end to end. The parser is proven offline against a
+privileged logon, LSASS credential access, remote-thread injection, service
+installation) end to end. The parser is proven offline against a
 format-faithful synthetic fixture (`tests/fixtures/apollo/ingest/windows.jsonl`);
 validation against **real** Windows telemetry in an authorized lab stays tracked
 in [`ROADMAP.md`](../ROADMAP.md) as `BLUE-1`.
