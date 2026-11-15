@@ -12,6 +12,28 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — CORR-1 (correlazione `shared-weakness`, classe `unverified_hypothesis`)
+
+- Nuovo kind di correlazione **`shared-weakness`** in `vulcan.correlate.correlate_findings`:
+  uno stesso **CWE** (classe di debolezza, non una vulnerabilità concreta) presente su
+  **≥2 asset distinti** diventa una correlazione graduata `unverified_hypothesis` /
+  confidence `low` — un *lead* che la debolezza possa essere **sistemica**, da rivedere,
+  **mai** prova che gli asset condividano la stessa vulnerabilità né affermazione di
+  compromissione. È la relazione più debole e la prima a usare `unverified_hypothesis`,
+  completando la scala epistemica `deterministic_result` → `suggested_correlation` →
+  `unverified_hypothesis`. Lo `shared-cve` deterministico resta il compagno forte, emesso
+  in parallelo quando c'è un CVE concreto condiviso.
+- Contratto versionato `olympus.correlation` / `olympus.correlations` 1.0.0: l'enum `kind`
+  guadagna `shared-weakness` (cambiamento **additivo**, come fu per `ioc-event`); golden,
+  catalogo JSON Schema e golden OpenAPI (`/api/v1/vulcan/correlate`) rigenerati. Puro,
+  offline, deterministico (ordinamento `(kind, key)`).
+- Test unit in `tests/unit/test_vulcan_correlate.py` (soglia ≥2 asset distinti, nessuna
+  correlazione su singolo asset, non-promozione a classe più forte, coesistenza con
+  `shared-cve`, round-trip del documento versionato con il nuovo kind) e **mutation gate**
+  esteso in `tests/mutation/test_guardrails.py` (`correlate_findings`, 84% di mutanti
+  uccisi). `docs/correlation.md` aggiornato. Chiude il pezzo `unverified_hypothesis` di
+  `CORR-1` (restano le superfici profonde Web/report in `CORR-2`).
+
 ### Added — INT-2 (SDK plugin documentato + template per adapter esterni)
 
 - Nuova guida `docs/plugins.md`: l'SDK stabile per scrivere un adapter scanner

@@ -874,6 +874,27 @@ def test_correlation_gate_joins_only_on_proven_identity() -> None:
     assert set(shared[0].members) == {"F7", "F8"}
     assert shared[0].epistemic_class is EpistemicClass.DETERMINISTIC_RESULT
 
+    # shared-weakness: the same CWE across >= 2 DISTINCT assets is the WEAKEST kind —
+    # an unverified hypothesis of a systemic weakness, never a proven link or a
+    # compromise, so it is graded low / unverified_hypothesis (not promoted).
+    cwe_in = [
+        _corr("F9", asset_id="AST-1", source=Source.ARGUS, cwe=["CWE-89"]),
+        _corr("F10", asset_id="AST-2", source=Source.THEMIS, cwe=["CWE-89"]),
+    ]
+    weakness = [c for c in correlate_findings(cwe_in) if c.kind == "shared-weakness"]
+    assert [c.key for c in weakness] == ["CWE-89"]
+    assert set(weakness[0].members) == {"F9", "F10"}
+    assert weakness[0].sources == ("AST-1", "AST-2")  # the distinct, sorted assets
+    assert weakness[0].confidence is Confidence.LOW
+    assert weakness[0].epistemic_class is EpistemicClass.UNVERIFIED_HYPOTHESIS
+    # the same CWE on ONE asset is not a cross-asset weakness, and a below-threshold
+    # group does not stop a later valid one (the skip is a continue, never a break)
+    one_asset = [
+        _corr("F9", asset_id="AST-1", source=Source.ARGUS, cwe=["CWE-89"]),
+        _corr("F9b", asset_id="AST-1", source=Source.ARGUS, cwe=["CWE-89"]),
+    ]
+    assert not [c for c in correlate_findings(one_asset) if c.kind == "shared-weakness"]
+
 
 def test_nmap_parser_emits_only_open_ports_and_flags_high_risk_port() -> None:
     xml = (

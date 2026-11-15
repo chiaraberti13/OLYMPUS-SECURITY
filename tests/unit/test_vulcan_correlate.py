@@ -17,7 +17,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from olympus.cli import app
-from olympus.core.enums import EpistemicClass, Severity, Source
+from olympus.core.enums import Confidence, EpistemicClass, Severity, Source
 from olympus.core.exit_codes import ExitCode
 from olympus.core.models import Event, Finding
 from olympus.metis.models import Indicator, IndicatorType
@@ -73,6 +73,7 @@ def _finding(
     asset_id: str = "AST-1",
     source: Source = Source.ARTEMIS,
     cve: list[str] | None = None,
+    cwe: list[str] | None = None,
     evidence: list[str] | None = None,
 ) -> Finding:
     return Finding(
@@ -82,6 +83,7 @@ def _finding(
         title=f"issue {finding_id}",
         severity=Severity.MEDIUM,
         cve=cve or [],
+        cwe=cwe or [],
         evidence=evidence or [],
     )
 
@@ -206,6 +208,68 @@ def test_all_three_deterministic_kinds_from_one_corpus() -> None:
     ]
     kinds = {c.kind for c in correlate_findings(findings)}
     assert kinds == {"asset-overlap", "shared-cve", "shared-evidence"}
+
+
+def test_shared_weakness_needs_the_same_cwe_on_two_distinct_assets() -> None:
+    findings = [
+        _finding("F1", asset_id="AST-1", source=Source.ARGUS, cwe=["CWE-89"]),
+        _finding("F2", asset_id="AST-2", source=Source.THEMIS, cwe=["CWE-89"]),
+    ]
+    weakness = [c for c in correlate_findings(findings) if c.kind == "shared-weakness"]
+    assert [c.key for c in weakness] == ["CWE-89"]
+    assert set(weakness[0].members) == {"F1", "F2"}
+    assert weakness[0].sources == ("AST-1", "AST-2")  # the distinct, sorted assets
+
+
+def test_shared_weakness_on_one_asset_is_not_a_cross_asset_lead() -> None:
+    findings = [
+        _finding("F1", asset_id="AST-1", source=Source.ARGUS, cwe=["CWE-89"]),
+        _finding("F2", asset_id="AST-1", source=Source.THEMIS, cwe=["CWE-89"]),
+    ]
+    assert not [c for c in correlate_findings(findings) if c.kind == "shared-weakness"]
+
+
+def test_shared_weakness_is_the_weakest_class_never_a_fact_or_compromise() -> None:
+    findings = [
+        _finding("F1", asset_id="AST-1", source=Source.ARGUS, cwe=["CWE-79"]),
+        _finding("F2", asset_id="AST-2", source=Source.THEMIS, cwe=["CWE-79"]),
+    ]
+    (only,) = [c for c in correlate_findings(findings) if c.kind == "shared-weakness"]
+    # An unverified hypothesis at low confidence — never promoted to a stronger class.
+    assert only.epistemic_class is EpistemicClass.UNVERIFIED_HYPOTHESIS
+    assert only.confidence is Confidence.LOW
+    lowered = only.reason.lower()
+    assert "compromis" not in lowered and "exploited" not in lowered
+    # It is weaker than the deterministic shared-cve companion.
+    assert only.epistemic_class is not EpistemicClass.DETERMINISTIC_RESULT
+
+
+def test_shared_weakness_coexists_with_the_stronger_shared_cve() -> None:
+    # Two assets that share both a concrete CVE (deterministic) and its weakness
+    # class (hypothesis): both relations are emitted, each honestly graded.
+    findings = [
+        _finding(
+            "F1", asset_id="AST-1", source=Source.ARGUS, cve=["CVE-2024-0001"], cwe=["CWE-89"]
+        ),
+        _finding(
+            "F2", asset_id="AST-2", source=Source.THEMIS, cve=["CVE-2024-0001"], cwe=["CWE-89"]
+        ),
+    ]
+    by_kind = {c.kind: c for c in correlate_findings(findings)}
+    assert by_kind["shared-cve"].epistemic_class is EpistemicClass.DETERMINISTIC_RESULT
+    assert by_kind["shared-weakness"].epistemic_class is EpistemicClass.UNVERIFIED_HYPOTHESIS
+
+
+def test_document_with_a_weak_correlation_validates_the_published_contract() -> None:
+    findings = [
+        _finding("F1", asset_id="AST-1", source=Source.ARGUS, cwe=["CWE-89"]),
+        _finding("F2", asset_id="AST-2", source=Source.THEMIS, cwe=["CWE-89"]),
+    ]
+    document = correlations_document(findings)
+    # The new kind round-trips through the versioned contract unchanged.
+    assert CorrelationsDocument.model_validate(document).model_dump(mode="json") == document
+    kinds = {c["kind"] for c in document["correlations"]}
+    assert "shared-weakness" in kinds
 
 
 def test_no_correlation_without_overlap() -> None:

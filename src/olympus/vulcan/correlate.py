@@ -49,8 +49,12 @@ CORRELATIONS_SCHEMA_NAME = "olympus.correlations"
 CORRELATIONS_SCHEMA_VERSION = "1.0.0"
 
 #: The relationship kinds this slice derives. The first three are deterministic
-#: joins on identity; ``ioc-event`` is a weaker, ``suggested_correlation`` lead.
-CorrelationKind = Literal["asset-overlap", "shared-cve", "shared-evidence", "ioc-event"]
+#: joins on identity; ``ioc-event`` is a weaker, ``suggested_correlation`` lead;
+#: ``shared-weakness`` is the weakest — an ``unverified_hypothesis`` that a
+#: weakness *class* (a shared CWE) recurs across assets, never a proven link.
+CorrelationKind = Literal[
+    "asset-overlap", "shared-cve", "shared-weakness", "shared-evidence", "ioc-event"
+]
 
 #: A ``Finding.evidence`` entry only names a shared *artifact* when it is an
 #: ``olympus.evidence`` custody id (``EVD-YYYY-NNNNN``) or a SHA-256 digest. Most
@@ -160,10 +164,19 @@ def correlate_findings(findings: Sequence[Finding]) -> tuple[Correlation, ...]:
       digest) is cited by **two or more distinct findings**; the findings are
       corroborated by a common artifact.
 
-    Each correlation is a ``deterministic_result`` with ``high`` confidence — it is
-    a provable join, not a hypothesis and not a claim of compromise. Findings are
-    folded by logical identity first (so one issue seen twice counts once), and the
-    result is ordered deterministically by ``(kind, key)``.
+    The first four are ``deterministic_result`` joins with ``high`` confidence —
+    provable, not a hypothesis and not a claim of compromise. One weaker kind is
+    also derived:
+
+    * **shared-weakness** — one CWE (a weakness *class*, not a concrete flaw)
+      appears on findings against **two or more distinct assets**. This is an
+      ``unverified_hypothesis`` at ``low`` confidence: a lead that the estate may
+      carry a *systemic* weakness worth reviewing, **not** proof the assets share
+      the same vulnerability (a shared **CVE** is the stronger ``shared-cve``
+      companion) and never a claim that anything was exploited.
+
+    Findings are folded by logical identity first (so one issue seen twice counts
+    once), and the result is ordered deterministically by ``(kind, key)``.
     """
     folded = merge_duplicate_findings(list(findings))
 
@@ -171,6 +184,8 @@ def correlate_findings(findings: Sequence[Finding]) -> tuple[Correlation, ...]:
     members_by_asset: dict[str, dict[str, None]] = {}
     assets_by_cve: dict[str, dict[str, None]] = {}
     members_by_cve: dict[str, dict[str, None]] = {}
+    assets_by_cwe: dict[str, dict[str, None]] = {}
+    members_by_cwe: dict[str, dict[str, None]] = {}
     members_by_evidence: dict[str, dict[str, None]] = {}
     sources_by_evidence: dict[str, dict[str, None]] = {}
 
@@ -181,6 +196,9 @@ def correlate_findings(findings: Sequence[Finding]) -> tuple[Correlation, ...]:
         for cve in finding.cves():
             assets_by_cve.setdefault(cve, {})[asset] = None
             members_by_cve.setdefault(cve, {})[finding.finding_id] = None
+        for cwe in finding.cwes():
+            assets_by_cwe.setdefault(cwe, {})[asset] = None
+            members_by_cwe.setdefault(cwe, {})[finding.finding_id] = None
         for reference in finding.evidence:
             evidence_ref = _evidence_reference_key(reference)
             if evidence_ref is None:
@@ -224,6 +242,26 @@ def correlate_findings(findings: Sequence[Finding]) -> tuple[Correlation, ...]:
                 ),
                 confidence=Confidence.HIGH,
                 epistemic_class=EpistemicClass.DETERMINISTIC_RESULT,
+            )
+        )
+
+    for cwe, cwe_assets in assets_by_cwe.items():
+        if len(cwe_assets) < 2:
+            continue
+        asset_list = tuple(sorted(cwe_assets))
+        correlations.append(
+            Correlation(
+                kind="shared-weakness",
+                key=cwe,
+                members=tuple(sorted(members_by_cwe[cwe])),
+                sources=asset_list,
+                reason=(
+                    f"Weakness class {cwe} appears on {len(asset_list)} distinct assets "
+                    f"({', '.join(asset_list)}) — a lead that this weakness may be systemic, "
+                    "to review; not proof the assets share the same vulnerability."
+                ),
+                confidence=Confidence.LOW,
+                epistemic_class=EpistemicClass.UNVERIFIED_HYPOTHESIS,
             )
         )
 
