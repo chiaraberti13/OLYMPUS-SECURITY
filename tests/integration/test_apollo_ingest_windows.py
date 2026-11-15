@@ -2,11 +2,12 @@
 
 The fixture ``tests/fixtures/apollo/ingest/windows.jsonl`` is a small, **synthetic
 but format-faithful** NDJSON export (no real data, reserved/documentation IPs): it
-carries Sysmon records (process create, network connection, DNS query, file
-create, registry set) and Security logon records (4624/4625), plus a
-provider-mismatched id, an unmapped id, a non-JSON line, a non-object line and a
-record with an invalid timestamp — so it also proves the parser skips what it
-cannot faithfully normalize instead of guessing.
+carries Sysmon records (process create, network connection, image/DLL load, create
+remote thread, process access, file create, registry set, file delete) and Security
+records (4624/4625 logon, 4688 process create, 4697 service install, 4720 account
+create), plus a provider-mismatched id, an unmapped id (4634), a non-JSON line, a
+non-object line and a record with an invalid timestamp — so it also proves the
+parser skips what it cannot faithfully normalize instead of guessing.
 
 Events use the established rule taxonomy (``windows.sysmon`` / ``windows.security``
 with an ``event_id`` attribute), so ingested telemetry feeds the shipped Sysmon
@@ -56,11 +57,36 @@ def test_parse_maps_to_the_sysmon_and_security_taxonomy() -> None:
     assert logon_failed.attributes["ip_address"] == "10.20.0.9"
 
 
+def test_parse_derives_target_and_module_basenames() -> None:
+    result = parse_windows_json(_FIXTURE.read_text(encoding="utf-8"), source=Source.MARS)
+    by_id = {e.attributes["event_id"]: e for e in result.events}
+
+    # Sysmon 10 (process access) exposes the target basename for exact rule matching.
+    access = by_id["10"]
+    assert access.event_type == "windows.sysmon"
+    assert access.attributes["target_process_name"] == "lsass.exe"
+    assert access.attributes["granted_access"] == "0x1410"
+
+    # Sysmon 8 (create remote thread) exposes the injected target's basename.
+    assert by_id["8"].attributes["target_process_name"] == "explorer.exe"
+
+    # Sysmon 7 (image/DLL load) exposes the loaded module basename.
+    assert by_id["7"].attributes["loaded_module_name"] == "evil.dll"
+
+    # Security 4688 maps NewProcessName to image, so process_name is derived too.
+    assert by_id["4688"].attributes["process_name"] == "cmd.exe"
+    assert by_id["4688"].attributes["parent_image"] == "C:\\Windows\\explorer.exe"
+
+    # Security 4697 (service install) and 4720 (account create) carry their fields.
+    assert by_id["4697"].attributes["service_name"] == "EvilSvc"
+    assert by_id["4720"].attributes["account"] == "backdoor"
+
+
 def test_parse_skips_provider_mismatch_unknown_and_malformed() -> None:
     result = parse_windows_json(_FIXTURE.read_text(encoding="utf-8"))
     reasons = {item.reason for item in result.skipped}
     assert "provider does not match EventID 1" in reasons
-    assert "unknown or missing Windows EventID" in reasons  # EventID 4688 is not mapped
+    assert "unknown or missing Windows EventID" in reasons  # EventID 4634 is not mapped
     assert "not valid JSON" in reasons
     assert "not a JSON object" in reasons
     # The network record with an invalid timestamp is still ingested from its
@@ -125,7 +151,7 @@ def test_ingest_cli_then_shipped_rules_detect_sysmon_and_security(tmp_path: Path
         ],
     )
     assert ingest.exit_code == 0, ingest.output
-    assert "ingested 8 event(s)" in ingest.output
+    assert "ingested 15 event(s)" in ingest.output
 
     alerts_path = tmp_path / "alerts.json"
     run = runner.invoke(
@@ -143,9 +169,12 @@ def test_ingest_cli_then_shipped_rules_detect_sysmon_and_security(tmp_path: Path
     )
     assert run.exit_code == 1, run.output  # alerts present
     fired = {a["rule_id"] for a in json.loads(alerts_path.read_text(encoding="utf-8"))["alerts"]}
-    # The ingested Windows telemetry drives all three shipped detection rules.
+    # The ingested Windows telemetry drives all shipped detection rules end to end.
     assert fired == {
         "APL-SYSMON-C2-DNS",
         "APL-SYSMON-RUNKEY-PERSISTENCE",
         "APL-SECURITY-FAILED-ADMIN-LOGON",
+        "APL-SYSMON-LSASS-ACCESS",
+        "APL-SYSMON-REMOTE-THREAD-INJECTION",
+        "APL-SECURITY-SERVICE-INSTALL",
     }

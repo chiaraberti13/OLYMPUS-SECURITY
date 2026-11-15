@@ -1,0 +1,11 @@
+schema_name: olympus.apollo-rule
+schema_version: 1.0.0
+rule_id: APL-SYSMON-REMOTE-THREAD-INJECTION
+title: CreateRemoteThread into a user-session process (process injection)
+event_type: windows.sysmon
+conditions:
+  event_id: "8"
+  target_process_name: explorer.exe
+severity: high
+mitre_attack:
+  - T1055

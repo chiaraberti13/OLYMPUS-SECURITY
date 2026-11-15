@@ -365,6 +365,36 @@ _WINDOWS_MAP: dict[int, tuple[str, str, dict[str, str]]] = {
             "Protocol": "protocol",
         },
     ),
+    7: (
+        "sysmon",
+        "windows.sysmon",
+        {
+            "Image": "image",
+            "ImageLoaded": "image_loaded",
+            "Signed": "signed",
+            "SignatureStatus": "signature_status",
+        },
+    ),
+    8: (
+        "sysmon",
+        "windows.sysmon",
+        {
+            "SourceImage": "image",
+            "TargetImage": "target_image",
+            "StartModule": "start_module",
+            "StartFunction": "start_function",
+        },
+    ),
+    10: (
+        "sysmon",
+        "windows.sysmon",
+        {
+            "SourceImage": "image",
+            "TargetImage": "target_image",
+            "GrantedAccess": "granted_access",
+            "CallTrace": "call_trace",
+        },
+    ),
     11: ("sysmon", "windows.sysmon", {"Image": "image", "TargetFilename": "target_filename"}),
     13: (
         "sysmon",
@@ -375,6 +405,11 @@ _WINDOWS_MAP: dict[int, tuple[str, str, dict[str, str]]] = {
         "sysmon",
         "windows.sysmon",
         {"Image": "image", "QueryName": "query", "QueryResults": "query_results"},
+    ),
+    23: (
+        "sysmon",
+        "windows.sysmon",
+        {"Image": "image", "TargetFilename": "target_filename", "Hashes": "hashes"},
     ),
     4624: (
         "security",
@@ -395,6 +430,33 @@ _WINDOWS_MAP: dict[int, tuple[str, str, dict[str, str]]] = {
             "IpAddress": "ip_address",
             "WorkstationName": "workstation",
         },
+    ),
+    4688: (
+        "security",
+        "windows.security",
+        {
+            "NewProcessName": "image",
+            "CommandLine": "command_line",
+            "ParentProcessName": "parent_image",
+            "SubjectUserName": "user",
+            "TokenElevationType": "token_elevation_type",
+        },
+    ),
+    4697: (
+        "security",
+        "windows.security",
+        {
+            "SubjectUserName": "user",
+            "ServiceName": "service_name",
+            "ServiceFileName": "service_file_name",
+            "ServiceType": "service_type",
+            "ServiceStartType": "service_start_type",
+        },
+    ),
+    4720: (
+        "security",
+        "windows.security",
+        {"TargetUserName": "account", "SubjectUserName": "user"},
     ),
 }
 
@@ -457,10 +519,11 @@ def iter_windows_json(
     Each line is one Windows event record (NDJSON), as produced by
     ``Get-WinEvent | ConvertTo-Json`` or an EVTX-to-JSON exporter: an ``EventID``,
     a provider/channel and, for Sysmon, an ``EventData`` object of named fields.
-    Only documented Sysmon (1/3/11/13/22) and Security (4624/4625) IDs whose
-    provider matches the expected family are mapped; anything else — invalid JSON,
-    a non-object, an unknown or provider-mismatched id, or a record with no
-    mappable field — is recorded as skipped, never coerced into an invented event.
+    Only documented Sysmon (1/3/7/8/10/11/13/22/23) and Security
+    (4624/4625/4688/4697/4720) IDs whose provider matches the expected family are
+    mapped; anything else — invalid JSON, a non-object, an unknown or
+    provider-mismatched id, or a record with no mappable field — is recorded as
+    skipped, never coerced into an invented event.
     """
     if not 1 <= max_lines <= 10_000_000:
         raise ValueError("max_lines must be between 1 and 10000000")
@@ -504,8 +567,15 @@ def iter_windows_json(
         attributes["event_id"] = str(event_id)
         # Detection rules commonly match the executable basename, so expose it
         # alongside the full image path rather than forcing every rule to parse it.
+        # The same holds for the target of cross-process events (Sysmon 8/10) and
+        # the loaded module (Sysmon 7): a rule can then match ``lsass.exe`` or a
+        # DLL name exactly instead of a brittle full path.
         if "image" in attributes:
             attributes["process_name"] = _process_name(attributes["image"])
+        if "target_image" in attributes:
+            attributes["target_process_name"] = _process_name(attributes["target_image"])
+        if "image_loaded" in attributes:
+            attributes["loaded_module_name"] = _process_name(attributes["image_loaded"])
         fields: dict[str, object] = {
             "event_type": event_type,
             "source": source,
