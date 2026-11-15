@@ -580,6 +580,30 @@
     {
       "surface": "web",
       "method": "GET",
+      "path": "/correlations",
+      "handler": "correlations_page"
+    },
+    {
+      "surface": "web",
+      "method": "POST",
+      "path": "/correlations",
+      "handler": "correlations_run"
+    },
+    {
+      "surface": "web",
+      "method": "GET",
+      "path": "/explain",
+      "handler": "explain_page"
+    },
+    {
+      "surface": "web",
+      "method": "POST",
+      "path": "/explain",
+      "handler": "explain_run"
+    },
+    {
+      "surface": "web",
+      "method": "GET",
       "path": "/assessments/new",
       "handler": "new_assessment"
     },

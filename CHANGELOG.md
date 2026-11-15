@@ -12,6 +12,33 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — WEB-8 (viste Web di correlazioni e spiegabilità) — chiude il "resta Web" di CORR-2/EXPL-2
+
+- Due nuove pagine Web espongono i contratti di conoscenza nel browser, ciascuna
+  sullo **stesso core offline** del comando CLI e dell'endpoint API (nessuna
+  scansione, nessuna rete):
+  - **`/correlations`** (`GET` form + `POST`, scope `findings:read`, CSRF): correla
+    un array JSON di `olympus.finding` incollato con
+    `vulcan.correlate.correlations_document` — lo stesso documento
+    `olympus.correlations` di `olympus vulcan correlate` e di
+    `POST /api/v1/vulcan/correlate`. Ogni correlazione è mostrata **con la sua
+    classe epistemica** (`deterministic_result`/`suggested_correlation`/
+    `unverified_hypothesis`) e un banner chiarisce che una correlazione è una
+    relazione, non una prova di compromissione — **invariante `WEB-8`: nessuna vista
+    presenta un'ipotesi come fatto dimostrato**. Input malformato/oltre-limite → 422.
+  - **`/explain`** (`GET` form + `POST`, scope `findings:read`, CSRF): rende la
+    spiegazione `EXPL-1` di un `olympus.finding` incollato con
+    `vulcan.explain.explain_finding` — fattori di rischio, ogni claim con la sua
+    classe epistemica (un'inferenza non è mai mostrata come osservazione) e i limiti;
+    derivata solo dai campi del finding, nulla di recuperato o inventato.
+- Nuovi template `correlations.html`/`explain.html`, link in `base.html`, bound sugli
+  input (`MAX_KNOWLEDGE_INPUT_BYTES`, `MAX_CORRELATION_FINDINGS`), parser JSON
+  fail-closed. Manifesto di parità delle route aggiornato (4 route Web), `docs/web.md`
+  aggiornato. Test Web in `tests/unit/test_themis_web.py` (classe epistemica mostrata,
+  `shared-weakness`/`unverified_hypothesis` visibili, scope-denied 403, CSRF forgiato,
+  input malformato). Avanza `WEB-8` e chiude la vista Web residua di `CORR-2` ed
+  `EXPL-2` (resta la UX trasversale più ampia di `WEB-8`).
+
 ### Added — CORR-1 (correlazione `shared-weakness`, classe `unverified_hypothesis`)
 
 - Nuovo kind di correlazione **`shared-weakness`** in `vulcan.correlate.correlate_findings`:

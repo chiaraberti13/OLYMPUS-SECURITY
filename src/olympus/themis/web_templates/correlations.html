@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Correlazioni · Olympus{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Correlation workbench</h1>
+  <p class="muted">
+    Correlate a set of findings offline with the same core as
+    <code>olympus vulcan correlate</code> and the API. Paste a JSON array of
+    <code>olympus.finding</code> objects; this page derives the relationships
+    between them — no scan and no network access.
+  </p>
+  <p class="risk-banner risk-passive">
+    A correlation is a <strong>relationship, not proof of compromise</strong>. Each
+    one shows its <strong>epistemic class</strong>, so its strength is explicit:
+    <code>deterministic_result</code> (a provable join on identity),
+    <code>suggested_correlation</code> (a lead), <code>unverified_hypothesis</code>
+    (an inference to review). A hypothesis is never presented as a fact.
+  </p>
+</section>
+
+<section class="card">
+  <h2>Correlate findings</h2>
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+  <form method="post" action="/correlations">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="findings">Findings (JSON array of olympus.finding)</label>
+    <textarea id="findings" name="findings" rows="14" required placeholder='[{"asset_id":"AST-1","source":"themis","title":"SQLi","severity":"high","cwe":["CWE-89"]}]'>{{ findings_text }}</textarea>
+    <button type="submit">Correlate</button>
+  </form>
+</section>
+
+{% if result is not none %}
+<section class="card">
+  <h2>Correlations</h2>
+  <p>{{ result.count }} correlation(s) · contract <code>{{ result.schema_name }}</code> <code>{{ result.schema_version }}</code></p>
+  {% if result.correlations %}
+  <div class="table-wrap"><table>
+    <thead><tr><th scope="col">Kind</th><th scope="col">Key</th><th scope="col">Class</th><th scope="col">Confidence</th><th scope="col">Members</th><th scope="col">Sources</th><th scope="col">Reason</th></tr></thead>
+    <tbody>{% for c in result.correlations %}<tr>
+      <td><code>{{ c.kind }}</code></td>
+      <td class="target">{{ c.key }}</td>
+      <td><code>{{ c.epistemic_class }}</code></td>
+      <td>{{ c.confidence }}</td>
+      <td class="target">{{ c.members | join(", ") }}</td>
+      <td class="target">{{ c.sources | join(", ") }}</td>
+      <td>{{ c.reason }}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}
+  <p class="muted">No correlations were found among the submitted findings.</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

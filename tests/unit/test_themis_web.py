@@ -2628,3 +2628,99 @@ def test_proteus_web_requires_the_proteus_read_scope(tmp_path: Path) -> None:
     _login(client)
     assert client.get("/proteus").status_code == 403
     assert client.post("/proteus/validate", data={"csrf_token": "x"}).status_code == 403
+
+
+# --------------------------------------------------------------------------- #
+# WEB-8: knowledge views — correlations (CORR-2) and explain (EXPL-2)
+# --------------------------------------------------------------------------- #
+
+_WEB8_FINDINGS = json.dumps(
+    [
+        {
+            "asset_id": "AST-1",
+            "source": "themis",
+            "title": "SQLi A",
+            "severity": "high",
+            "cwe": ["CWE-89"],
+        },
+        {
+            "asset_id": "AST-2",
+            "source": "artemis",
+            "title": "SQLi B",
+            "severity": "high",
+            "cwe": ["CWE-89"],
+        },
+    ]
+)
+_WEB8_FINDING = json.dumps(
+    {
+        "asset_id": "AST-1",
+        "source": "themis",
+        "title": "SQLi in search",
+        "severity": "high",
+        "cve": ["CVE-2024-0001"],
+        "cwe": ["CWE-89"],
+    }
+)
+
+
+def test_correlations_view_shows_the_epistemic_class(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    csrf = _page_csrf(client, "/correlations")
+    result = client.post("/correlations", data={"findings": _WEB8_FINDINGS, "csrf_token": csrf})
+    assert result.status_code == 200, result.text
+    # The same CWE across two assets is the weakest kind, shown with its class so a
+    # hypothesis is never presented as a proven fact (WEB-8 invariant).
+    assert "shared-weakness" in result.text
+    assert "unverified_hypothesis" in result.text
+    assert "relationship, not proof of compromise" in result.text
+
+
+def test_correlations_view_rejects_malformed_input(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    csrf = _page_csrf(client, "/correlations")
+    result = client.post("/correlations", data={"findings": "{not json", "csrf_token": csrf})
+    assert result.status_code == 422
+    assert "malformed" in result.text
+
+
+def test_correlations_view_requires_the_findings_read_scope(tmp_path: Path) -> None:
+    client = _client(tmp_path, api_key_scopes=("capabilities:read",))
+    _login(client)
+    assert client.get("/correlations").status_code == 403
+    assert client.post("/correlations", data={"csrf_token": "x"}).status_code == 403
+
+
+def test_correlations_view_rejects_a_forged_csrf_token(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    result = client.post("/correlations", data={"findings": _WEB8_FINDINGS, "csrf_token": "forged"})
+    assert result.status_code == 403
+
+
+def test_explain_view_renders_the_shared_explanation(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    csrf = _page_csrf(client, "/explain")
+    result = client.post("/explain", data={"finding": _WEB8_FINDING, "csrf_token": csrf})
+    assert result.status_code == 200, result.text
+    assert "SQLi in search" in result.text
+    assert "epistemic class" in result.text.lower()
+    assert "CVE-2024-0001" in result.text
+
+
+def test_explain_view_rejects_malformed_input(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    csrf = _page_csrf(client, "/explain")
+    result = client.post("/explain", data={"finding": "[]", "csrf_token": csrf})
+    assert result.status_code == 422
+
+
+def test_explain_view_requires_the_findings_read_scope(tmp_path: Path) -> None:
+    client = _client(tmp_path, api_key_scopes=("capabilities:read",))
+    _login(client)
+    assert client.get("/explain").status_code == 403
+    assert client.post("/explain", data={"csrf_token": "x"}).status_code == 403

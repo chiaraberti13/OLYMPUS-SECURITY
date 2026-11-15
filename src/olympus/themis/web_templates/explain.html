@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Spiegazione finding · Olympus{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Finding explanation workbench</h1>
+  <p class="muted">
+    Explain one finding offline with the same core as
+    <code>olympus vulcan explain</code> and the API. Paste a single
+    <code>olympus.finding</code> JSON object; the explanation is derived
+    <strong>only</strong> from the finding's own fields — nothing is fetched or
+    invented — and every claim carries its epistemic class.
+  </p>
+  <p class="risk-banner risk-passive">
+    Observed evidence, deterministic results, inferences and suggested
+    correlations are labelled distinctly: an inference is never shown as an
+    observation, and the explanation states its own limits.
+  </p>
+</section>
+
+<section class="card">
+  <h2>Explain a finding</h2>
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+  <form method="post" action="/explain">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="finding">Finding (one olympus.finding JSON object)</label>
+    <textarea id="finding" name="finding" rows="12" required placeholder='{"asset_id":"AST-1","source":"themis","title":"SQLi in search","severity":"high","cve":["CVE-2024-0001"],"cwe":["CWE-89"]}'>{{ finding_text }}</textarea>
+    <button type="submit">Explain</button>
+  </form>
+</section>
+
+{% if explanation is not none %}
+<section class="card">
+  <h2>Explanation</h2>
+  <p><strong>{{ explanation.title }}</strong> — <code>{{ explanation.asset_id }}</code> · {{ explanation.severity }} · risk {{ "%.0f"|format(explanation.risk_score) }}</p>
+  <p>{{ explanation.summary }}</p>
+
+  <h3>Risk factors</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th scope="col">Factor</th><th scope="col">Detail</th><th scope="col">Decisive</th></tr></thead>
+    <tbody>{% for f in explanation.risk_factors %}<tr>
+      <td>{{ f.factor }}</td><td>{{ f.detail }}</td><td>{{ "yes" if f.decisive else "—" }}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+
+  <h3>Claims</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th scope="col">Statement</th><th scope="col">Epistemic class</th></tr></thead>
+    <tbody>{% for s in explanation.statements %}<tr>
+      <td>{{ s.text }}</td><td><code>{{ s.epistemic_class }}</code></td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+
+  {% if explanation.limits %}
+  <h3>Limits</h3>
+  <ul>{% for limit in explanation.limits %}<li>{{ limit }}</li>{% endfor %}</ul>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

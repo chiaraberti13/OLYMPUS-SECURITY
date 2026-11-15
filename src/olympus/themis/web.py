@@ -154,7 +154,9 @@ from olympus.vulcan.attack import (
     technique_counts,
 )
 from olympus.vulcan.compare import diff_findings
+from olympus.vulcan.correlate import correlations_document
 from olympus.vulcan.evidence_view import build_finding_evidence_view
+from olympus.vulcan.explain import explain_finding
 from olympus.vulcan.report import (
     ReportSection,
     build_report_model,
@@ -174,6 +176,10 @@ STATIC_DIR = _PACKAGE_ROOT / "web_static"
 SESSION_COOKIE = "olympus_session"
 #: A browser session is deliberately short-lived; it is re-minted on login.
 SESSION_TTL_SECONDS = 8 * 60 * 60
+#: Upper bound on the pasted JSON for the correlations/explain knowledge views.
+MAX_KNOWLEDGE_INPUT_BYTES = 2_000_000
+#: Upper bound on findings correlated in one request (mirrors the API limit).
+MAX_CORRELATION_FINDINGS = 2_000
 #: Human labels for the job lifecycle. Sub-phases the store does not record
 #: (parsing/normalising) are not invented here: an honest state never implies
 #: coverage the worker has not reported.
@@ -1930,6 +1936,140 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             request,
             "proteus.html",
             _proteus_context(session, form=form, result=result),
+        )
+
+    # ----------------------------------------------------------------------- #
+    # Knowledge views: correlations (CORR-2) and explainability (EXPL-2), on the
+    # same offline cores as the CLI/API (WEB-8). A correlation's epistemic class
+    # is always shown, so a hypothesis is never presented as a proven fact.
+    # ----------------------------------------------------------------------- #
+
+    def _parse_findings_json(text: str, *, max_items: int) -> list[Finding]:
+        """Parse a pasted JSON array of ``olympus.finding`` objects, bounded.
+
+        A single finding object is also accepted (wrapped into a one-item list).
+        Raises :class:`ValueError` on anything else — malformed JSON, the wrong
+        shape, or more than ``max_items`` — so the page fails closed with a static
+        message rather than silently showing fewer findings than were submitted.
+        """
+        if len(text.encode("utf-8")) > MAX_KNOWLEDGE_INPUT_BYTES:
+            raise ValueError("input exceeds the accepted size")
+        try:
+            raw = json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise ValueError("input is not valid JSON") from exc
+        items = raw if isinstance(raw, list) else [raw]
+        if not items:
+            raise ValueError("no findings were provided")
+        if len(items) > max_items:
+            raise ValueError(f"more than {max_items} findings were provided")
+        try:
+            return [Finding.model_validate(item) for item in items]
+        except ValidationError as exc:
+            raise ValueError("a finding does not match the olympus.finding contract") from exc
+
+    def _correlations_context(
+        session: WebSession,
+        *,
+        findings_text: str = "",
+        result: dict[str, object] | None = None,
+        error: str | None = None,
+    ) -> dict[str, object]:
+        return {
+            "findings_text": findings_text,
+            "result": result,
+            "error": error,
+            "csrf_token": _csrf_token(session.nonce),
+        }
+
+    @app.get("/correlations", response_class=HTMLResponse, include_in_schema=False)
+    def correlations_page(request: Request, session: WebSession = reads_findings) -> Response:
+        return _page(request, "correlations.html", _correlations_context(session))
+
+    @app.post("/correlations", response_class=HTMLResponse, include_in_schema=False)
+    def correlations_run(
+        request: Request,
+        findings: Annotated[str, Form()],
+        csrf_token: Annotated[str, Form()],
+        session: WebSession = reads_findings,
+    ) -> Response:
+        _check_csrf(session, csrf_token)
+        _rate_limit(session)
+        try:
+            parsed = _parse_findings_json(findings, max_items=MAX_CORRELATION_FINDINGS)
+        except ValueError:
+            return _page(
+                request,
+                "correlations.html",
+                _correlations_context(
+                    session,
+                    findings_text=findings,
+                    error=(
+                        "Paste a JSON array of olympus.finding objects (or one object). "
+                        "The input was malformed, the wrong shape, or over the limit."
+                    ),
+                ),
+                code=422,
+            )
+        # The same offline core as `olympus vulcan correlate` and the API; it
+        # performs no scan and no network access.
+        result = correlations_document(parsed)
+        return _page(
+            request,
+            "correlations.html",
+            _correlations_context(session, findings_text=findings, result=result),
+        )
+
+    def _explain_context(
+        session: WebSession,
+        *,
+        finding_text: str = "",
+        explanation: dict[str, object] | None = None,
+        error: str | None = None,
+    ) -> dict[str, object]:
+        return {
+            "finding_text": finding_text,
+            "explanation": explanation,
+            "error": error,
+            "csrf_token": _csrf_token(session.nonce),
+        }
+
+    @app.get("/explain", response_class=HTMLResponse, include_in_schema=False)
+    def explain_page(request: Request, session: WebSession = reads_findings) -> Response:
+        return _page(request, "explain.html", _explain_context(session))
+
+    @app.post("/explain", response_class=HTMLResponse, include_in_schema=False)
+    def explain_run(
+        request: Request,
+        finding: Annotated[str, Form()],
+        csrf_token: Annotated[str, Form()],
+        session: WebSession = reads_findings,
+    ) -> Response:
+        _check_csrf(session, csrf_token)
+        _rate_limit(session)
+        try:
+            parsed = _parse_findings_json(finding, max_items=1)
+        except ValueError:
+            return _page(
+                request,
+                "explain.html",
+                _explain_context(
+                    session,
+                    finding_text=finding,
+                    error=(
+                        "Paste a single olympus.finding JSON object. The input was "
+                        "malformed or did not match the contract."
+                    ),
+                ),
+                code=422,
+            )
+        # The same offline core as `olympus vulcan explain` and the API: derived
+        # only from the finding's own fields, nothing fetched or invented.
+        explanation = explain_finding(parsed[0]).to_dict()
+        return _page(
+            request,
+            "explain.html",
+            _explain_context(session, finding_text=finding, explanation=explanation),
         )
 
     def _assessment_context(
