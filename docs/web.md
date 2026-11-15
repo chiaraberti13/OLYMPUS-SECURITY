@@ -333,6 +333,35 @@ ecosystem tool now has both an API slice and a Web page.
   **before** any authorization or scope access. No email is sent; invalid input is
   `422` with the reason.
 
+## Knowledge views: correlations and explainability (`WEB-8` / `CORR-2` / `EXPL-2`)
+
+Two pages surface the knowledge contracts in the browser, each on the **same
+offline core** as its CLI command and API endpoint — no scan and no network
+access, so the Web can never diverge from the CLI/API.
+
+- **Correlations** — `GET /correlations` renders the form; `POST /correlations`
+  (scope `findings:read`, CSRF-protected) takes a pasted JSON array of
+  `olympus.finding` objects and derives the relationships between them with
+  `vulcan.correlate.correlations_document` (the same `olympus.correlations`
+  document as `olympus vulcan correlate` and `POST /api/v1/vulcan/correlate`).
+  Every correlation is shown **with its epistemic class** — `deterministic_result`
+  (a provable join), `suggested_correlation` (a lead), `unverified_hypothesis`
+  (an inference to review) — and a banner states a correlation is a relationship,
+  not proof of compromise. This is the `WEB-8` honesty invariant: **no view shows
+  a hypothetical correlation as a proven fact.** Malformed, wrong-shaped or
+  over-limit input is `422`.
+- **Explain** — `GET /explain` renders the form; `POST /explain` (scope
+  `findings:read`, CSRF-protected) takes a single `olympus.finding` object and
+  renders `vulcan.explain.explain_finding` (the same `olympus.finding-explanation`
+  contract as `olympus vulcan explain` and `POST /api/v1/vulcan/explain`): the
+  risk factors, each claim tagged by its epistemic class (an inference is never
+  shown as an observation), and the explanation's own limits. Derived only from
+  the finding's fields — nothing fetched or invented.
+
+These close the "Web view" remaining work of `CORR-2` and `EXPL-2`. The broader
+cross-module UX of `WEB-8` (contextual dashboards, shared visual language) builds
+on the same views.
+
 ### Report export (`WEB-I`)
 
 The findings view offers a one-click **Vulcan report** of exactly what is on
