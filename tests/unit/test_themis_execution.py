@@ -1130,6 +1130,9 @@ def test_direct_live_run_verifies_manifest_and_binds_provenance(
         "olympus.themis.application.ThemisApplicationService",
         _CaptureApplication,
     )
+    # This test exercises manifest provenance, not the engine preflight; the shared
+    # preflight (TOOLS-4.1) is covered by its own tests, so neutralize it here.
+    monkeypatch.setattr("olympus.integrations.cli._enforce_engine_preflight", lambda *a, **k: None)
 
     result = runner.invoke(
         app,
@@ -1214,6 +1217,8 @@ def test_direct_live_lab_profile_is_explicit_signed_bounded_and_manifest_free(
             )
 
     monkeypatch.setattr("olympus.themis.application.ThemisApplicationService", _CaptureApplication)
+    # Lab-profile provenance is under test, not the engine preflight (TOOLS-4.1); neutralize it.
+    monkeypatch.setattr("olympus.integrations.cli._enforce_engine_preflight", lambda *a, **k: None)
     result = runner.invoke(
         app,
         [
@@ -1236,6 +1241,143 @@ def test_direct_live_lab_profile_is_explicit_signed_bounded_and_manifest_free(
     assert captured[0].lab_allowed_cidrs == ("10.20.1.0/24",)
     assert re.fullmatch(r"[a-f0-9]{64}", captured[0].lab_policy_sha256 or "")
     assert re.fullmatch(r"[a-f0-9]{64}", captured[0].lab_activation_signature or "")
+
+
+def _live_lab_scope(path: Path) -> Path:
+    path.write_text(
+        json.dumps(
+            {
+                "schema_name": "olympus.themis-scope",
+                "schema_version": "1.0.0",
+                "allowed_hosts": [],
+                "allowed_domains": [],
+                "allowed_cidrs": ["10.20.0.0/16"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_direct_live_run_preflight_blocks_when_a_required_engine_is_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # nmap (a mandatory engine and the named scanner) is not installed in the test
+    # sandbox, so the fail-closed preflight (TOOLS-4.1) must refuse the live scan with
+    # ENGINE_MISSING (8) *before* the application service is ever reached — proving no
+    # target resolution or network I/O happens when a required engine is absent.
+    scope = _live_lab_scope(tmp_path / "scope.json")
+    audit = tmp_path / "audit.ndjson"
+    monkeypatch.setenv("THEMIS_ENABLE_LIVE_SCANS", "true")
+    monkeypatch.setenv("OLYMPUS_POLICY_LAB_KEY", "synthetic-test-key-at-least-32-bytes")
+    monkeypatch.delenv("AEGIS_ENABLE_LIVE_SCANS", raising=False)
+    monkeypatch.delenv("VAP_ENABLE_LIVE_SCANS", raising=False)
+
+    class _NeverRuns:
+        def run(self, request: ThemisRunRequest) -> ScanResult:
+            raise AssertionError("the scan must not launch when preflight fails")
+
+    monkeypatch.setattr("olympus.themis.application.ThemisApplicationService", _NeverRuns)
+    result = runner.invoke(
+        app,
+        [
+            "themis",
+            "run",
+            "nmap",
+            "--target",
+            "10.20.1.7",
+            "--scope",
+            str(scope),
+            "--i-am-authorized",
+            "--lab-policy",
+            str(_lab_policy(tmp_path)),
+            "--audit",
+            str(audit),
+        ],
+    )
+    assert result.exit_code == 8  # ExitCode.ENGINE_MISSING
+    assert "engine preflight failed" in result.output
+    # The pinned install command is surfaced (git clone of the manifest pin), never @latest/apt.
+    assert "nmap" in result.output and "git" in result.output
+    records = [json.loads(line) for line in audit.read_text(encoding="utf-8").splitlines()]
+    refusal = [r for r in records if r["action"] == "themis.engine-preflight"]
+    assert refusal and refusal[0]["outcome"] == "refused"
+    assert "nmap" in refusal[0]["metadata"]["required_engines"]
+
+
+def test_direct_simulation_skips_the_engine_preflight(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # --simulate never launches an engine, so an absent binary must not block it: the
+    # preflight only guards the live path.
+    scope = _live_lab_scope(tmp_path / "scope.json")
+    monkeypatch.setenv("THEMIS_ENABLE_LIVE_SCANS", "true")
+    monkeypatch.delenv("AEGIS_ENABLE_LIVE_SCANS", raising=False)
+    monkeypatch.delenv("VAP_ENABLE_LIVE_SCANS", raising=False)
+    result = runner.invoke(
+        app,
+        [
+            "themis",
+            "run",
+            "nmap",
+            "--target",
+            "10.20.1.7",
+            "--scope",
+            str(scope),
+            "--simulate",
+            "--audit",
+            "",
+        ],
+    )
+    assert result.exit_code != 8  # never ENGINE_MISSING on the simulation path
+
+
+def test_enforce_engine_preflight_returns_when_every_required_engine_is_ready(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # When the shared verdict is OK the gate returns quietly (the ready path the sandbox,
+    # lacking the engines, cannot otherwise exercise). The seam imports the verdict function
+    # from its source module, so the double is installed there.
+    from olympus.core.exit_codes import ExitCode
+    from olympus.engines.preflight import PreflightVerdict
+    from olympus.integrations import cli as themis_cli
+
+    monkeypatch.setattr(
+        "olympus.engines.preflight.preflight_for_scanner",
+        lambda env, scanner: PreflightVerdict(
+            exit_code=ExitCode.OK, required=(scanner,), blocking=()
+        ),
+    )
+    # Returns None without raising; no audit file is touched when the run may proceed.
+    assert themis_cli._enforce_engine_preflight("nmap", target="10.0.0.1", audit_path=None) is None
+
+
+def test_enforce_engine_preflight_blocks_without_an_audit_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A blocking verdict still exits ENGINE_MISSING even when no audit log is configured.
+    from types import SimpleNamespace
+
+    import typer
+
+    from olympus.core.exit_codes import ExitCode
+    from olympus.engines.preflight import PreflightVerdict
+    from olympus.integrations import cli as themis_cli
+
+    status = SimpleNamespace(
+        name="nmap",
+        state=SimpleNamespace(value="missing"),
+        install_command="git clone … (pinned)",
+    )
+    monkeypatch.setattr(
+        "olympus.engines.preflight.preflight_for_scanner",
+        lambda env, scanner: PreflightVerdict(
+            exit_code=ExitCode.ENGINE_MISSING, required=("nmap",), blocking=(status,)
+        ),
+    )
+    with pytest.raises(typer.Exit) as excinfo:
+        themis_cli._enforce_engine_preflight("nmap", target="10.0.0.1", audit_path=None)
+    assert excinfo.value.exit_code == int(ExitCode.ENGINE_MISSING)
 
 
 def test_direct_live_lab_profile_requires_signature_and_cannot_mix_manifest_options(
