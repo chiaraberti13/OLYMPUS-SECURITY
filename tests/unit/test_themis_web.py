@@ -2765,3 +2765,73 @@ def test_explain_view_requires_the_findings_read_scope(tmp_path: Path) -> None:
     _login(client)
     assert client.get("/explain").status_code == 403
     assert client.post("/explain", data={"csrf_token": "x"}).status_code == 403
+
+
+def _complete_job(tmp_path: Path, job_id: str, *, state, result=None, error=None) -> None:  # type: ignore[no-untyped-def]
+    from olympus.themis.jobs import ThemisJobStore
+
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    claimed = store.claim_next("worker-test")
+    assert claimed is not None and claimed.job_id == job_id
+    store.complete(job_id, worker_id="worker-test", state=state, result=result, error=error)
+
+
+def test_job_detail_shows_a_guided_partial_outcome_that_is_not_read_as_clean(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from olympus.themis.jobs import JobState
+
+    monkeypatch.setattr("olympus.themis.web._ready_scanner_names", lambda: {"nmap"})
+    client = _client(tmp_path)
+    _login(client)
+    csrf = _csrf(client)
+    job_id = _submit(client, csrf, scanner="nmap", target="127.0.0.1")
+    _complete_job(
+        tmp_path,
+        job_id,
+        state=JobState.PARTIAL,
+        result={
+            "schema_name": "olympus.themis-result",
+            "partial": True,
+            "partial_reason": "host appeared down; coverage incomplete",
+            "finding_count": 0,
+        },
+    )
+    page = client.get(f"/jobs/{job_id}")
+    assert page.status_code == 200, page.text
+    assert "Complete, with partial coverage" in page.text
+    assert "Partial coverage" in page.text
+    assert "host appeared down" in page.text
+    assert "Do not read it as a clean result" in page.text  # zero findings must not read as clean
+    assert "badge-warn" in page.text
+
+
+def test_job_detail_shows_a_failed_outcome_with_the_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from olympus.themis.jobs import JobState
+
+    monkeypatch.setattr("olympus.themis.web._ready_scanner_names", lambda: {"nmap"})
+    client = _client(tmp_path)
+    _login(client)
+    csrf = _csrf(client)
+    job_id = _submit(client, csrf, scanner="nmap", target="127.0.0.1")
+    _complete_job(tmp_path, job_id, state=JobState.FAILED, error="scanner isolation refused")
+    page = client.get(f"/jobs/{job_id}")
+    assert page.status_code == 200, page.text
+    assert "Assessment failed" in page.text
+    assert "badge-bad" in page.text
+    assert "scanner isolation refused" in page.text
+
+
+def test_job_detail_has_no_outcome_block_while_the_job_is_active(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("olympus.themis.web._ready_scanner_names", lambda: {"nmap"})
+    client = _client(tmp_path)
+    _login(client)
+    csrf = _csrf(client)
+    job_id = _submit(client, csrf, scanner="nmap", target="127.0.0.1")
+    page = client.get(f"/jobs/{job_id}")
+    assert page.status_code == 200, page.text
+    assert 'id="outcome-heading"' not in page.text  # queued: no outcome interpretation yet

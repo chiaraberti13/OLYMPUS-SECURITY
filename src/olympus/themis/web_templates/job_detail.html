@@ -29,6 +29,29 @@
   </form>
   {% endif %}
 </section>
+
+{% if outcome %}
+<section class="card" aria-labelledby="outcome-heading">
+  <h2 id="outcome-heading">Outcome</h2>
+  <p class="badge badge-{{ outcome.tone }}">{{ outcome.headline }}</p>
+  <p>{{ outcome.explanation }}</p>
+  {% if outcome.partial %}
+  <p class="alert" role="alert">
+    Partial coverage: this result is not exhaustive{% if outcome.reason %} — {{ outcome.reason }}{% endif %}.
+    Do not read it as a clean result.
+  </p>
+  {% elif outcome.reason %}
+  <p class="muted">Reason: {{ outcome.reason }}</p>
+  {% endif %}
+  {% if outcome.finding_count is not none %}
+  <p>{{ outcome.finding_count }} finding(s) reported.</p>
+  {% endif %}
+  <div class="actions">
+    <a class="button-link" href="/assessments/new">Start another assessment</a>
+    <a class="button-link" href="/jobs">All jobs</a>
+  </div>
+</section>
+{% endif %}
 {% endblock %}
 {% block scripts %}
 <script src="/static/app.js" defer></script>
