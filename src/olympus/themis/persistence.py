@@ -58,7 +58,8 @@ class JobStore(Protocol):
     held to a verifiable, minimal contract rather than every SQLite-specific detail.
     """
 
-    def initialize(self) -> None: ...
+    def initialize(self) -> None:
+        """Create or migrate the schema; safe to call before every operation."""
 
     def submit(
         self,
@@ -71,23 +72,32 @@ class JobStore(Protocol):
         manifest_sha256: str | None = ...,
         idempotency_key: str | None = ...,
         max_attempts: int = ...,
-    ) -> ThemisJob: ...
+    ) -> ThemisJob:
+        """Queue a new job and return it."""
 
-    def get(self, job_id: str) -> ThemisJob: ...
+    def get(self, job_id: str) -> ThemisJob:
+        """Return the job with this id."""
 
-    def execution_record(self, job_id: str) -> JobExecution: ...
+    def execution_record(self, job_id: str) -> JobExecution:
+        """Return the execution record (scanner, target, scope, provenance) for a job."""
 
-    def list(self, *, limit: int = ..., state: JobState | None = ...) -> JobRecords: ...
+    def list(self, *, limit: int = ..., state: JobState | None = ...) -> JobRecords:
+        """Return jobs, most recent first, optionally filtered by state."""
 
-    def counts_by_state(self) -> dict[str, int]: ...
+    def counts_by_state(self) -> dict[str, int]:
+        """Return the number of jobs in each state."""
 
-    def claim_next(self, worker_id: str, *, max_concurrent_jobs: int = ...) -> ThemisJob | None: ...
+    def claim_next(self, worker_id: str, *, max_concurrent_jobs: int = ...) -> ThemisJob | None:
+        """Atomically claim the next queued job under a renewed lease, or None."""
 
-    def heartbeat(self, job_id: str, worker_id: str) -> ThemisJob: ...
+    def heartbeat(self, job_id: str, worker_id: str) -> ThemisJob:
+        """Renew the lease on a running job owned by this worker."""
 
-    def cancel(self, job_id: str) -> ThemisJob: ...
+    def cancel(self, job_id: str) -> ThemisJob:
+        """Request cancellation of a job."""
 
-    def cancellation_requested(self, job_id: str) -> bool: ...
+    def cancellation_requested(self, job_id: str) -> bool:
+        """Return whether cancellation was requested for a job."""
 
     def complete(
         self,
@@ -97,7 +107,8 @@ class JobStore(Protocol):
         state: JobState,
         result: dict[str, object] | None = ...,
         error: str | None = ...,
-    ) -> ThemisJob: ...
+    ) -> ThemisJob:
+        """Record a terminal outcome for a job owned by this worker."""
 
 
 def _sqlite_path(location: str | Path) -> Path:
