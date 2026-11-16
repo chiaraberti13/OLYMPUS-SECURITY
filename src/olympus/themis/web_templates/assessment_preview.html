@@ -32,6 +32,23 @@
       <span class="muted">No native command (remote-API or unimplemented scanner).</span>
       {% endif %}
     </dd>
+    <dt>Engine readiness</dt>
+    <dd>
+      {% if engine_preflight is none %}
+      <span class="muted">Engine readiness could not be checked on this node.</span>
+      {% elif engine_preflight.ready %}
+      <span class="badge badge-ok">All required engines are installed and pinned.</span>
+      <br><span class="muted">Checked offline: the mandatory engines{% if scanner %} and <code>{{ scanner }}</code>{% endif %} are present at the pinned version.</span>
+      {% else %}
+      <span class="badge badge-warn">A required engine is not ready on this node.</span>
+      <ul class="muted">
+        {% for item in engine_preflight.blocking %}
+        <li><code>{{ item.name }}</code> ({{ item.state }}){% if item.install_command %} — install: <code>{{ item.install_command }}</code>{% endif %}</li>
+        {% endfor %}
+      </ul>
+      <span class="muted">The worker runs this check again and refuses the job (fail-closed) if a required engine is still missing, so it will not produce a clean or partial result.</span>
+      {% endif %}
+    </dd>
     <dt>Registered scope</dt>
     <dd><code>{{ scope_id }}</code></dd>
     {% if engagement_id %}
