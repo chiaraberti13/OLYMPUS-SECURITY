@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} · Olympus Themis{% endblock %}
+{% block content %}
+<section class="card narrow" role="alert" aria-labelledby="error-heading">
+  <h1 id="error-heading">{{ title }}</h1>
+  <p class="badge badge-bad">Error {{ status_code }}</p>
+  <p>{{ message }}</p>
+  <div class="actions">
+    <a class="button-link" href="/">Back to dashboard</a>
+  </div>
+</section>
+{% endblock %}

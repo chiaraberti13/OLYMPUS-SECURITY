@@ -2835,3 +2835,41 @@ def test_job_detail_has_no_outcome_block_while_the_job_is_active(
     page = client.get(f"/jobs/{job_id}")
     assert page.status_code == 200, page.text
     assert 'id="outcome-heading"' not in page.text  # queued: no outcome interpretation yet
+
+
+def test_error_pages_are_coherent_html_for_a_browser(tmp_path: Path) -> None:
+    # WEB-6: a browser gets a coherent HTML error page, not a raw JSON body.
+    client = _client(tmp_path)
+    page = client.get("/does-not-exist", headers={"accept": "text/html"})
+    assert page.status_code == 404
+    assert page.headers["content-type"].startswith("text/html")
+    assert "Not found" in page.text and "Error 404" in page.text
+
+
+def test_error_responses_stay_json_for_an_api_client(tmp_path: Path) -> None:
+    # A programmatic client (Accept: application/json) keeps the {detail} shape.
+    client = _client(tmp_path)
+    response = client.get("/does-not-exist", headers={"accept": "application/json"})
+    assert response.status_code == 404
+    assert response.headers["content-type"].startswith("application/json")
+    assert "detail" in response.json()
+
+
+def test_unhandled_errors_fail_closed_without_leaking_details(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # WEB-6 + fail-closed: an unexpected exception renders a generic 500 page; the operator
+    # never sees the exception text or a stack trace.
+    def _boom() -> set[str]:
+        raise RuntimeError("secret internal detail that must not be shown")
+
+    monkeypatch.setattr("olympus.themis.web._ready_scanner_names", _boom)
+    client = TestClient(
+        create_web_app(_settings(tmp_path)), base_url=BASE, raise_server_exceptions=False
+    )
+    _login(client)
+    page = client.get("/assessments/new", headers={"accept": "text/html"})
+    assert page.status_code == 500
+    assert "Something went wrong" in page.text
+    assert "unexpected error" in page.text
+    assert "secret internal detail" not in page.text  # no leak of the exception message

@@ -12,6 +12,18 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — WEB-6 (gestione uniforme degli errori nella web app)
+
+- Exception handler condivisi nella web app Themis: ogni `HTTPException` e ogni eccezione non
+  gestita rende ora, per un browser, una **pagina HTML coerente** (`error.html`: stato, titolo
+  per categoria, messaggio, ritorno alla dashboard) invece di un corpo JSON grezzo o di un
+  errore generico. Un client programmatico (`Accept: application/json`, es. l'export Navigator)
+  mantiene la forma `{ "detail": ... }` (content negotiation).
+- **Fail-closed e opaco** (AppSec): un errore 500 mostra un messaggio generico e **non espone
+  mai** `str(exc)` né uno stack trace all'operatore. Pagina d'errore accessibile
+  (`role="alert"`, badge con stato in testo). Verificato offline in
+  `tests/unit/test_themis_web.py` (errore HTML per browser; JSON per client API; 500 senza leak).
+
 ### Added — WEB-5 (interpretazione guidata dell'esito dell'assessment)
 
 - La pagina di dettaglio del job (passo finale del wizard «New Assessment») mostra ora un

@@ -49,6 +49,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import JSONResponse, Response
 
@@ -234,6 +235,19 @@ def _present_job(job: ThemisJob) -> dict[str, object]:
         "error": _safe(job.error) if job.error else None,
         "finding_count": finding_count if isinstance(finding_count, int) else None,
     }
+
+
+#: Human, non-alarming titles for the uniform HTML error page (WEB-6), by HTTP status.
+_ERROR_TITLES: dict[int, str] = {
+    400: "Invalid request",
+    401: "Sign in required",
+    403: "Not allowed",
+    404: "Not found",
+    413: "Request too large",
+    422: "Invalid request",
+    429: "Too many requests",
+    503: "Service unavailable",
+}
 
 
 #: Guided interpretation of each terminal job state (WEB-5): a plain-language headline, what
@@ -1108,6 +1122,41 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
     def _page(request: Request, name: str, context: dict[str, object], code: int = 200) -> Response:
         payload: dict[str, object] = {"version": __version__, **context}
         return templates.TemplateResponse(request, name, payload, status_code=code)
+
+    # -- Uniform error model (WEB-6) --------------------------------------- #
+    # A browser gets a coherent HTML error page with an actionable, human message;
+    # a programmatic client (Accept: application/json, e.g. the Navigator export)
+    # keeps the JSON { "detail": ... } shape. Internal errors never leak a stack
+    # trace or exception text to the operator.
+    def _wants_html(request: Request) -> bool:
+        return "text/html" in request.headers.get("accept", "")
+
+    @app.exception_handler(StarletteHTTPException)
+    async def _http_error(request: Request, exc: StarletteHTTPException) -> Response:
+        detail = exc.detail if isinstance(exc.detail, str) and exc.detail else "Request refused."
+        if not _wants_html(request):
+            return JSONResponse({"detail": detail}, status_code=exc.status_code)
+        title = _ERROR_TITLES.get(exc.status_code, "Something went wrong")
+        return _page(
+            request,
+            "error.html",
+            {"status_code": exc.status_code, "title": title, "message": _safe(detail)},
+            code=exc.status_code,
+        )
+
+    @app.exception_handler(Exception)
+    async def _unhandled_error(request: Request, exc: Exception) -> Response:
+        # Fail closed and opaque: the operator sees a generic message, never ``str(exc)``.
+        del exc
+        message = "An unexpected error occurred. The request was not completed."
+        if not _wants_html(request):
+            return JSONResponse({"detail": "internal server error"}, status_code=500)
+        return _page(
+            request,
+            "error.html",
+            {"status_code": 500, "title": "Something went wrong", "message": message},
+            code=500,
+        )
 
     @app.get("/health", include_in_schema=False)
     def health() -> dict[str, str]:
