@@ -1168,6 +1168,53 @@
         "title": "EngagementStatus",
         "type": "string"
       },
+      "EnginePreflightReport": {
+        "additionalProperties": false,
+        "properties": {
+          "blocking": {
+            "items": {
+              "$ref": "#/components/schemas/PreflightBlockingEngine"
+            },
+            "title": "Blocking",
+            "type": "array"
+          },
+          "exit_code": {
+            "title": "Exit Code",
+            "type": "integer"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "required": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Required",
+            "type": "array"
+          },
+          "schema_name": {
+            "const": "olympus.engine-preflight",
+            "default": "olympus.engine-preflight",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "required",
+          "blocking",
+          "ready",
+          "exit_code"
+        ],
+        "title": "EnginePreflightReport",
+        "type": "object"
+      },
       "EpistemicClass": {
         "description": "What kind of knowledge a statement is (ROADMAP ``EXPL-1``/``CORR-1``).\n\nShared across explainability (`EXPL-1`) and correlation (`CORR-1`) so every\nsurface labels a claim by how it is known. The ordering is from strongest to\nweakest epistemic standing; a weaker class must never be presented as a\nstronger one (an inference is not an observation, a hypothesis is not a\ndemonstrated compromise).",
         "enum": [
@@ -2118,6 +2165,42 @@
           "ledger"
         ],
         "title": "MinervaLedgerVerificationRequest",
+        "type": "object"
+      },
+      "PreflightBlockingEngine": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "install_command": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Install Command"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "state",
+          "detail",
+          "install_command"
+        ],
+        "title": "PreflightBlockingEngine",
         "type": "object"
       },
       "ProteusCampaignValidationRequest": {
@@ -3097,6 +3180,65 @@
         "summary": "Get Engagement",
         "tags": [
           "engagements"
+        ]
+      }
+    },
+    "/api/v1/engines/preflight": {
+      "get": {
+        "description": "Report engine readiness for a prospective live scan, offline (TOOLS-4.1).\n\nRead-only: inspects the host through the shared fail-closed preflight \u2014 the mandatory\nengines (``nmap``/``nuclei``/``httpx``) plus the named ``scanner`` when Olympus governs\nit \u2014 and returns the versioned ``olympus.engine-preflight`` verdict, so a client can\ncheck readiness **before** queueing a job rather than discovering the gap only when the\nworker fails it. It runs no scan and performs no target I/O. The API enqueues work and a\nworker executes it, so this reflects the node that answers; in a split deployment the\nengines actually used are the worker's, which enforces the same preflight at run time.",
+        "operationId": "engines_preflight_api_v1_engines_preflight_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "scanner",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Scanner"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnginePreflightReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Engines Preflight",
+        "tags": [
+          "capabilities"
         ]
       }
     },

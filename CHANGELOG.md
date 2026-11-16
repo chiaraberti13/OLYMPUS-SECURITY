@@ -12,6 +12,22 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — TOOLS-4.1 (endpoint API di prontezza engine)
+
+- Nuovo endpoint read-only `GET /api/v1/engines/preflight` (scope `capabilities:read`), con il
+  parametro opzionale `?scanner=<nome>`: espone il contratto versionato
+  **`olympus.engine-preflight` 1.0.0** (`required`, `blocking`, `ready`, `exit_code`) tramite
+  lo stesso core condiviso del preflight. Un client può così controllare la prontezza degli
+  engine (i `mandatory` più lo scanner governato nominato) **prima** di accodare un job,
+  invece di scoprire la mancanza solo quando il worker fa fallire il job. L'endpoint **non
+  esegue alcuna scansione** e non fa I/O sul target; un nome scanner malformato → `422`.
+- Decisione architetturale (Tech Lead/AppSec): l'API **accoda** e il worker **esegue**, quindi
+  il preflight *bloccante* vive nel worker (già fatto), non al submit sul nodo API — che in un
+  deployment split potrebbe non avere gli engine installati. L'endpoint read-only riflette il
+  nodo che risponde ed è il modo corretto di esporre `ENGINE_MISSING` via HTTP senza
+  falso-blocco del submit. Golden OpenAPI, manifesto di parità e `api-reference.md` aggiornati;
+  test di contratto/scope offline. Resta la superficie Web equivalente (`ROADMAP.md` `TOOLS-4.1`).
+
 ### Added — TOOLS-4.1 (preflight fail-closed automatico nel worker dei job persistenti)
 
 - Il **worker** Themis (`ThemisWorker.run_next`) invoca ora **automaticamente** il preflight

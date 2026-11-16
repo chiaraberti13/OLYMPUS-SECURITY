@@ -58,6 +58,7 @@ from olympus.engagements.resolve import (
     require_engagement,
 )
 from olympus.engagements.store import SqliteEngagementStore
+from olympus.engines.preflight import EnginePreflightReport
 from olympus.helios.scanner import identify_banner, is_risky, sanitize_banner, service_for
 from olympus.hermes.scanner import scan_text
 from olympus.integrations.capabilities import inventory_document
@@ -1295,6 +1296,31 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
     @app.get("/api/v1/capabilities", tags=["capabilities"])
     def capabilities(caller: Caller = reads_capabilities) -> dict[str, object]:
         return inventory_document()
+
+    @app.get(
+        "/api/v1/engines/preflight",
+        response_model=EnginePreflightReport,
+        tags=["capabilities"],
+    )
+    def engines_preflight(
+        scanner: Annotated[str | None, Query(pattern=r"^[a-z0-9][a-z0-9-]{0,63}$")] = None,
+        caller: Caller = reads_capabilities,
+    ) -> EnginePreflightReport:
+        """Report engine readiness for a prospective live scan, offline (TOOLS-4.1).
+
+        Read-only: inspects the host through the shared fail-closed preflight — the mandatory
+        engines (``nmap``/``nuclei``/``httpx``) plus the named ``scanner`` when Olympus governs
+        it — and returns the versioned ``olympus.engine-preflight`` verdict, so a client can
+        check readiness **before** queueing a job rather than discovering the gap only when the
+        worker fails it. It runs no scan and performs no target I/O. The API enqueues work and a
+        worker executes it, so this reflects the node that answers; in a split deployment the
+        engines actually used are the worker's, which enforces the same preflight at run time.
+        """
+        from olympus.engines.cli import system_environment
+        from olympus.engines.preflight import build_preflight_report, preflight_for_scanner
+
+        verdict = preflight_for_scanner(system_environment(), scanner)
+        return build_preflight_report(verdict)
 
     @app.get(
         "/api/v1/apollo/rules",

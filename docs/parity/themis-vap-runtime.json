@@ -357,6 +357,12 @@
     },
     {
       "surface": "api",
+      "method": "GET",
+      "path": "/api/v1/engines/preflight",
+      "handler": "engines_preflight"
+    },
+    {
+      "surface": "api",
       "method": "POST",
       "path": "/api/v1/apollo/evaluate",
       "handler": "apollo_evaluate"

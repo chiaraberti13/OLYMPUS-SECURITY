@@ -1443,3 +1443,50 @@ def test_proteus_requires_the_proteus_read_scope(tmp_path: Path) -> None:
         },
     )
     assert response.status_code == 403
+
+
+def test_engines_preflight_reports_readiness_without_running_a_scan(tmp_path: Path) -> None:
+    # Read-only engine readiness (TOOLS-4.1): the mandatory engines are always required and the
+    # test sandbox lacks them, so the verdict is "not ready" with exit_code 8 — and no scan runs.
+    client = _client(tmp_path)
+    response = client.get("/api/v1/engines/preflight", headers=AUTH)
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["schema_name"] == "olympus.engine-preflight"
+    assert set(body["required"]) >= {"nmap", "nuclei", "httpx"}
+    assert body["ready"] is False
+    assert body["exit_code"] == 8
+    assert body["blocking"]
+
+
+def test_engines_preflight_adds_a_named_governed_scanner(tmp_path: Path) -> None:
+    # A governed, non-mandatory scanner named by the caller is required for that run too.
+    client = _client(tmp_path)
+    response = client.get("/api/v1/engines/preflight", headers=AUTH, params={"scanner": "nikto"})
+    assert response.status_code == 200, response.text
+    assert "nikto" in response.json()["required"]
+
+
+def test_engines_preflight_rejects_a_malformed_scanner_name(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    response = client.get(
+        "/api/v1/engines/preflight", headers=AUTH, params={"scanner": "Invalid Name"}
+    )
+    assert response.status_code == 422
+
+
+def test_engines_preflight_requires_the_capabilities_read_scope(tmp_path: Path) -> None:
+    scopes = tmp_path / "scopes"
+    _scope(scopes)
+    client = TestClient(
+        create_app(
+            ApiSettings(
+                database=tmp_path / "jobs.sqlite3",
+                scope_directory=scopes,
+                api_key=API_KEY,
+                api_key_scopes=("jobs:read",),
+            )
+        )
+    )
+    response = client.get("/api/v1/engines/preflight", headers=AUTH)
+    assert response.status_code == 403

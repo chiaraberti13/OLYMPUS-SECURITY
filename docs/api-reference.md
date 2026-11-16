@@ -71,6 +71,14 @@ List the named, target-free scan profiles Athena can build plans from.
 | --- | --- | --- |
 | engagements | — | `olympus.engagement` `1.0.0` |
 
+### `GET /api/v1/engines/preflight`
+
+Report engine readiness for a prospective live scan, offline (TOOLS-4.1).
+
+| Tags | Request contract | Response contract |
+| --- | --- | --- |
+| capabilities | — | `olympus.engine-preflight` `1.0.0` |
+
 ### `POST /api/v1/helios/identify-service`
 
 Identify a service passively from a captured banner and/or port, offline.
