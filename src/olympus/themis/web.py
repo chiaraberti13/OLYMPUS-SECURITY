@@ -237,6 +237,63 @@ def _present_job(job: ThemisJob) -> dict[str, object]:
     }
 
 
+#: Advanced-mode tool catalogue (WEB-7): grouped entry points for expert operators, each a
+#: link to an endpoint that is *already* scope-gated server-side. The page only reads the
+#: session's scopes to show what the identity may reach; it enforces nothing itself and adds
+#: no security logic to the frontend. Tuple shape: (label, href, required_scope, description).
+_ADVANCED_TOOLS: tuple[tuple[str, tuple[tuple[str, str, str, str], ...]], ...] = (
+    (
+        "Analysis",
+        (
+            (
+                "Correlations",
+                "/correlations",
+                "findings:read",
+                "Correlate findings and leads, each with its epistemic class.",
+            ),
+            (
+                "Explain a finding",
+                "/explain",
+                "findings:read",
+                "Shared risk explanation for a single finding.",
+            ),
+            (
+                "ATT&CK coverage",
+                "/findings/attack",
+                "findings:read",
+                "CWE→ATT&CK mapping with Navigator export.",
+            ),
+            (
+                "Scan diff",
+                "/findings/diff",
+                "findings:read",
+                "Compare two scans to see what changed.",
+            ),
+        ),
+    ),
+    (
+        "Execution",
+        (
+            (
+                "New assessment",
+                "/assessments/new",
+                "jobs:write",
+                "Launch a guided assessment on the shared engine.",
+            ),
+            ("Jobs", "/jobs", "jobs:read", "Monitor, interpret and cancel jobs."),
+        ),
+    ),
+    (
+        "Detection & CTI",
+        (
+            ("Apollo", "/apollo", "apollo:read", "Offline detection evaluation."),
+            ("Metis", "/metis", "metis:read", "Extract and normalize IOCs offline."),
+            ("Minerva", "/minerva", "minerva:read", "Verify custody-ledger integrity offline."),
+        ),
+    ),
+)
+
+
 #: Human, non-alarming titles for the uniform HTML error page (WEB-6), by HTTP status.
 _ERROR_TITLES: dict[int, str] = {
     400: "Invalid request",
@@ -1485,6 +1542,33 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             "tools.html",
             {"capabilities": capabilities, "summary": summary},
         )
+
+    @app.get("/advanced", response_class=HTMLResponse, include_in_schema=False)
+    def advanced_page(request: Request, session: WebSession = reads_capabilities) -> Response:
+        """Advanced mode (WEB-7): a dense hub of expert tools on the same gated backend.
+
+        Each entry links to an endpoint that is already scope-gated server-side; this page
+        only reflects which ones the current identity may reach (so an operator sees what is
+        available and what scope a locked tool needs). It holds no security logic of its own —
+        following a link to a tool the identity lacks still returns 403 from that endpoint.
+        """
+        groups = [
+            {
+                "name": name,
+                "tools": [
+                    {
+                        "label": label,
+                        "href": href,
+                        "scope": scope,
+                        "description": description,
+                        "accessible": scope in session.scopes,
+                    }
+                    for (label, href, scope, description) in tools
+                ],
+            }
+            for (name, tools) in _ADVANCED_TOOLS
+        ]
+        return _page(request, "advanced.html", {"groups": groups})
 
     @app.get("/apollo", response_class=HTMLResponse, include_in_schema=False)
     def apollo_page(request: Request, session: WebSession = reads_apollo) -> Response:

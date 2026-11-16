@@ -12,6 +12,17 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — WEB-7 (modalità avanzata: hub degli strumenti esperti)
+
+- Nuova pagina `/advanced` (scope `capabilities:read`): un hub denso che raccoglie gli
+  strumenti per operatori esperti già presenti — analisi (correlazioni, explain, ATT&CK, scan
+  diff), esecuzione (nuovo assessment, job), detection & CTI (Apollo, Metis, Minerva) —
+  ciascuno un link a un endpoint **già autorizzato server-side**.
+- **Nessuna logica di sicurezza nel frontend**: la pagina legge solo gli scope della sessione
+  per mostrare cosa l'identità può raggiungere; un tool non accessibile è elencato ma **non
+  linkato**, con lo scope che richiederebbe. Seguire comunque un link a un tool non autorizzato
+  resta un 403 dall'endpoint. Verificato offline in `tests/unit/test_themis_web.py`.
+
 ### Added — WEB-6 (gestione uniforme degli errori nella web app)
 
 - Exception handler condivisi nella web app Themis: ogni `HTTPException` e ogni eccezione non

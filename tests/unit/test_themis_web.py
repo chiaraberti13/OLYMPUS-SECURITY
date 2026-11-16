@@ -2873,3 +2873,34 @@ def test_unhandled_errors_fail_closed_without_leaking_details(
     assert "Something went wrong" in page.text
     assert "unexpected error" in page.text
     assert "secret internal detail" not in page.text  # no leak of the exception message
+
+
+def test_advanced_page_links_tools_the_identity_can_reach(tmp_path: Path) -> None:
+    # WEB-7: with full scopes every advanced tool is reachable, so nothing is locked.
+    client = _client(tmp_path)
+    _login(client)
+    page = client.get("/advanced")
+    assert page.status_code == 200, page.text
+    assert "Advanced mode" in page.text
+    assert "requires <code>" not in page.text  # full scopes -> no locked tool
+
+
+def test_advanced_page_locks_tools_without_the_required_scope(tmp_path: Path) -> None:
+    # A narrow identity sees the tool listed but locked, with the scope it would need.
+    # The page adds no security logic; it only reflects the session's scopes.
+    client = _client(tmp_path, api_key_scopes=("capabilities:read",))
+    _login(client)
+    page = client.get("/advanced")
+    assert page.status_code == 200, page.text
+    assert "Advanced mode" in page.text
+    # Tools the identity cannot reach are marked with the scope they require (unique to this page).
+    assert "requires <code>findings:read</code>" in page.text
+    assert "requires <code>apollo:read</code>" in page.text
+    # And the locked tool is rendered as inert text, not an advanced-mode link.
+    assert '<span class="muted">Correlations</span>' in page.text
+
+
+def test_advanced_page_requires_a_session(tmp_path: Path) -> None:
+    client = _client(tmp_path, api_key_scopes=("jobs:read",))  # no capabilities:read
+    _login(client)
+    assert client.get("/advanced", follow_redirects=False).status_code == 403
