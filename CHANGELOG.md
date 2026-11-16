@@ -12,6 +12,22 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — TOOLS-4.1 (preflight fail-closed automatico nel worker dei job persistenti)
+
+- Il **worker** Themis (`ThemisWorker.run_next`) invoca ora **automaticamente** il preflight
+  condiviso degli engine sul ramo di esecuzione live, **dopo** la ri-autorizzazione del
+  manifest firmato bound al job e **prima di qualsiasi risoluzione o attività di rete sul
+  target**:
+  - controlla i `mandatory` (`nmap`/`nuclei`/`httpx`) più lo scanner nominato quando governato;
+  - un engine mancante/inutilizzabile → audit record redatto (`themis.engine-preflight`,
+    `outcome=refused`) e job in stato **`failed`** (fail-closed, mai `succeeded`/`partial`),
+    con il service di scansione **mai raggiunto** (zero I/O sul target).
+- Il preflight è una **porta iniettabile** (`ThemisWorker.engine_preflight`, come `clock` e
+  `manifest_authorizer`): default = host reale, i test iniettano un verdetto deterministico.
+  Verificato offline con un service doppio che fallisce-se-invocato e un verdetto bloccante
+  iniettato. Restano il cablaggio in API/Web e la parità cross-interfaccia (`ROADMAP.md`
+  `TOOLS-4.1`).
+
 ### Added — TOOLS-4.1 (preflight fail-closed automatico in `themis run`)
 
 - Il percorso di **esecuzione diretta live** di `olympus themis run` (`THEMIS_ENABLE_LIVE_SCANS`
