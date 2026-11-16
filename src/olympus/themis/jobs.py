@@ -53,6 +53,7 @@ from olympus.core.execution import (
 )
 from olympus.core.migrations import migrate_document
 from olympus.core.observability import Correlation, Observability
+from olympus.engines.preflight import PreflightVerdict
 from olympus.integrations.activity import RiskClass
 from olympus.integrations.activity import profile as activity_profile
 from olympus.themis.application import ThemisApplicationService, ThemisRunRequest
@@ -136,6 +137,19 @@ class SchemaVersionError(JobStoreError):
 
 class IdempotencyConflict(ValueError):
     """Raised when an idempotency key is reused for a different request."""
+
+
+class EnginePreflightError(RuntimeError):
+    """A required engine is missing/unusable, so a live job must not launch (TOOLS-4.1).
+
+    Not a policy refusal: it means the host cannot run the scan, so ``classify_exception``
+    maps it to :data:`JobState.FAILED` (a failed run, never a clean or partial result).
+    """
+
+
+#: Injected engine preflight (TOOLS-4.1): map a scanner name to a fail-closed verdict.
+#: The default inspects the real host; tests inject a double for determinism.
+EnginePreflight = Callable[[str], PreflightVerdict]
 
 
 class ThemisJob(BaseModel):
@@ -1287,6 +1301,8 @@ class ThemisWorker:
     manifest_authorizer: ManifestAuthorizer | None = None
     max_concurrent_jobs: int = 1
     clock: Callable[[], datetime] = field(default=_utcnow, repr=False)
+    #: Fail-closed engine preflight (TOOLS-4.1); None uses the real host inspection.
+    engine_preflight: EnginePreflight | None = None
 
     def __post_init__(self) -> None:
         _validated_worker_id(self.worker_id)
@@ -1360,6 +1376,11 @@ class ThemisWorker:
                         audit_path,
                         outcome="authorized",
                     )
+                if execute_live:
+                    # Fail-closed engine preflight (TOOLS-4.1): a live job must not reach the
+                    # target when a required engine is missing/unusable. Runs after manifest
+                    # authorization and before any resolution or network I/O.
+                    self._enforce_engine_preflight(record, audit_path)
                 with _Heartbeat(
                     self.store, job.job_id, self.worker_id, job_cancellation, self.heartbeat_seconds
                 ):
@@ -1390,6 +1411,36 @@ class ThemisWorker:
             state, error = classify_result(result)
             settled = self._settle(job.job_id, state, result=result.to_dict(), error=error)
             return self._observed(job.scanner, settled, started_at)
+
+    def _engine_preflight_verdict(self, scanner: str) -> PreflightVerdict:
+        """Resolve the fail-closed engine verdict, via the injected port or the real host."""
+        if self.engine_preflight is not None:
+            return self.engine_preflight(scanner)
+        from olympus.engines.cli import system_environment
+        from olympus.engines.preflight import preflight_for_scanner
+
+        return preflight_for_scanner(system_environment(), scanner)
+
+    def _enforce_engine_preflight(self, record: JobExecution, audit_path: Path | None) -> None:
+        """Refuse a live job (FAILED) when a required engine is missing/unusable (TOOLS-4.1)."""
+        verdict = self._engine_preflight_verdict(record.scanner)
+        if verdict.ok:
+            return
+        if audit_path is not None:
+            metadata = {"job_id": record.job_id, **verdict.audit_metadata()}
+            append_structured_audit(
+                audit_path,
+                StructuredAuditRecord(
+                    timestamp=datetime.now(UTC).isoformat(),
+                    execution_id=record.job_id,
+                    action="themis.engine-preflight",
+                    outcome="refused",
+                    target=record.target,
+                    metadata=metadata,
+                ),
+            )
+        blocking = ", ".join(f"{status.name} ({status.state.value})" for status in verdict.blocking)
+        raise EnginePreflightError(f"required engine not ready: {blocking}")
 
     @staticmethod
     def _audit_manifest_authorization(

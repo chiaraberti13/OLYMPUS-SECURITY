@@ -16,10 +16,12 @@ from typer.testing import CliRunner
 
 from olympus.cli import app
 from olympus.core.execution import CancellationRequested
+from olympus.core.exit_codes import ExitCode
 from olympus.core.models import EngagementScope
 from olympus.core.signing import generate_keypair
 from olympus.engagements.manifest import EngagementManifest, SignedEngagementManifest
 from olympus.engagements.store import SqliteEngagementStore, StoredManifestAuthorizer
+from olympus.engines.preflight import PreflightVerdict
 from olympus.integrations.activity import RiskClass
 from olympus.themis.application import ThemisApplicationService
 from olympus.themis.base import ScannerAdapter
@@ -43,6 +45,16 @@ from olympus.themis.states import ExecutionState
 
 runner = CliRunner()
 _TEST_MANIFEST_SHA256 = "a" * 64
+
+
+def _ready_preflight(scanner: str) -> PreflightVerdict:
+    """Injected engine preflight that reports every required engine ready (TOOLS-4.1).
+
+    The test sandbox has no scanner binaries, so the live worker's automatic preflight would
+    otherwise refuse every live job; these tests exercise behavior *past* the preflight, so
+    they inject a ready verdict. The preflight's own refusal path has dedicated tests.
+    """
+    return PreflightVerdict(exit_code=ExitCode.OK, required=(scanner,), blocking=())
 
 
 class _AcceptingManifestAuthorizer:
@@ -128,6 +140,7 @@ def test_durable_job_lifecycle(tmp_path: Path) -> None:
         store,
         _service(_Adapter()),
         live_scans=True,
+        engine_preflight=_ready_preflight,
         manifest_authorizer=_AcceptingManifestAuthorizer(),
     )
     completed = worker.run_next(audit_path=tmp_path / "audit.ndjson")
@@ -135,6 +148,55 @@ def test_durable_job_lifecycle(tmp_path: Path) -> None:
     assert completed.result is not None and completed.result["state"] == "live"
     assert store.get(job.job_id) == completed
     assert stat.S_IMODE(store.path.stat().st_mode) == 0o600
+
+
+@pytest.mark.posix_only
+def test_live_job_preflight_blocks_and_fails_when_a_required_engine_is_missing(
+    tmp_path: Path,
+) -> None:
+    # A live worker must refuse (FAILED) a job whose required engine is missing, *before*
+    # the scan is ever executed — proving no target I/O happens (TOOLS-4.1).
+    from types import SimpleNamespace
+
+    store = ThemisJobStore(tmp_path / "state" / "jobs.sqlite3")
+    store.submit(
+        scanner="test-engine",
+        target="127.0.0.1",
+        target_kind="host",
+        scope_path=_scope(tmp_path / "scope.json"),
+        authorized=True,
+        manifest_sha256=_TEST_MANIFEST_SHA256,
+    )
+
+    class _NeverRuns:
+        def run(self, request: object) -> ScanResult:
+            raise AssertionError("the scan must not launch when preflight fails")
+
+    status = SimpleNamespace(
+        name="nmap",
+        state=SimpleNamespace(value="missing"),
+        detail="not on PATH",
+        install_command="git clone … (pinned)",
+    )
+    blocking = PreflightVerdict(
+        exit_code=ExitCode.ENGINE_MISSING, required=("nmap",), blocking=(status,)
+    )
+    audit = tmp_path / "audit.ndjson"
+    worker = ThemisWorker(
+        store,
+        _NeverRuns(),
+        live_scans=True,
+        engine_preflight=lambda scanner: blocking,
+        manifest_authorizer=_AcceptingManifestAuthorizer(),
+    )
+    completed = worker.run_next(audit_path=audit)
+
+    assert completed is not None and completed.state is JobState.FAILED
+    assert "required engine not ready" in (completed.error or "")
+    records = [json.loads(line) for line in audit.read_text(encoding="utf-8").splitlines()]
+    refusal = [r for r in records if r["action"] == "themis.engine-preflight"]
+    assert refusal and refusal[0]["outcome"] == "refused"
+    assert "nmap" in refusal[0]["metadata"]["required_engines"]
 
 
 @pytest.mark.posix_only
@@ -231,6 +293,7 @@ def test_worker_denies_manifest_revoked_or_expired_after_queueing(
         store,
         _service(_Adapter()),
         live_scans=True,
+        engine_preflight=_ready_preflight,
         manifest_authorizer=StoredManifestAuthorizer(
             engagement_database, trusted_public_key_pem=public_key
         ),
@@ -277,6 +340,7 @@ def test_worker_denies_bound_manifest_when_revalidation_is_not_configured(
         store,
         _service(_Adapter()),
         live_scans=True,
+        engine_preflight=_ready_preflight,
     ).run_next(audit_path=audit_path)
 
     assert denied is not None and denied.state is JobState.POLICY_DENIED
@@ -312,6 +376,7 @@ def test_live_worker_denies_unbound_job_before_application_and_audits(
         store,
         _service(_MustNotRun()),
         live_scans=True,
+        engine_preflight=_ready_preflight,
         manifest_authorizer=_AcceptingManifestAuthorizer(),
     ).run_next(audit_path=audit_path)
 
@@ -385,6 +450,7 @@ def test_failure_is_persisted_without_secret_fields(tmp_path: Path) -> None:
         store,
         _service(_Broken()),
         live_scans=True,
+        engine_preflight=_ready_preflight,
         manifest_authorizer=_AcceptingManifestAuthorizer(),
     ).run_next()
     assert result is not None and result.state is JobState.FAILED
@@ -773,6 +839,7 @@ def test_worker_renews_its_lease_while_a_scan_runs(tmp_path: Path) -> None:
         store,
         _service(_Slow()),
         live_scans=True,
+        engine_preflight=_ready_preflight,
         manifest_authorizer=_AcceptingManifestAuthorizer(),
         heartbeat_seconds=0.05,
     ).run_next()
@@ -818,6 +885,7 @@ def test_a_worker_that_loses_its_lease_stops_and_reports_the_new_owner(
         store,
         _service(_Blocking()),
         live_scans=True,
+        engine_preflight=_ready_preflight,
         manifest_authorizer=_AcceptingManifestAuthorizer(),
         worker_id="worker-a",
         heartbeat_seconds=0.05,
@@ -1067,6 +1135,7 @@ def test_out_of_scope_work_is_denied_not_failed(tmp_path: Path) -> None:
         store,
         _service(_Adapter()),
         live_scans=True,
+        engine_preflight=_ready_preflight,
         manifest_authorizer=_AcceptingManifestAuthorizer(),
     ).run_next()
     assert outcome is not None and outcome.state is JobState.POLICY_DENIED
@@ -1083,6 +1152,7 @@ def test_a_missing_scanner_is_partial_not_failed(tmp_path: Path) -> None:
         store,
         _service(_Missing()),
         live_scans=True,
+        engine_preflight=_ready_preflight,
         manifest_authorizer=_AcceptingManifestAuthorizer(),
     ).run_next()
     assert outcome is not None and outcome.state is JobState.PARTIAL
@@ -1107,6 +1177,7 @@ def test_cancelled_running_work_is_cancelled_not_failed(tmp_path: Path) -> None:
         store,
         _service(_Cancelling()),
         live_scans=True,
+        engine_preflight=_ready_preflight,
         manifest_authorizer=_AcceptingManifestAuthorizer(),
     ).run_next()
     assert outcome is not None and outcome.state is JobState.CANCELLED
