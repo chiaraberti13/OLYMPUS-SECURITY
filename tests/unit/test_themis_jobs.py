@@ -1354,3 +1354,17 @@ def test_prune_cli_reports_what_it_removed(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     assert payload["pruned"] == 1 and payload["job_ids"] == [old.job_id]
+
+
+def test_worker_refuses_a_postgres_dsn_with_a_clear_usage_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # DATA-2: the Postgres backend is planned, not present. Pointing the worker at a
+    # Postgres DSN must fail closed with a readable USAGE error — and must NOT create a
+    # stray SQLite file named after the DSN before refusing (the backend is resolved first).
+    monkeypatch.chdir(tmp_path)
+    result = CliRunner().invoke(app, ["themis", "workers", "--once", "-d", "postgresql://u:p@h/db"])
+    assert result.exit_code == int(ExitCode.USAGE)
+    assert "not available yet" in result.output
+    assert "DATA-2" in result.output
+    assert not list(tmp_path.glob("postgres*")), "a DSN must not create a stray file"

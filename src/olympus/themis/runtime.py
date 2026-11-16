@@ -29,9 +29,9 @@ from olympus.themis.jobs import (
     TERMINAL_STATES,
     SchemaVersionError,
     ThemisJob,
-    ThemisJobStore,
     redact_error,
 )
+from olympus.themis.persistence import resolve_job_store
 
 #: Ascending severity rank, so a per-finding notification floor can be applied
 #: without importing the reporting layer (vulcan) into the engine.
@@ -60,17 +60,23 @@ class MigrationResult:
         }
 
 
-def migrate_jobs(database: Path) -> MigrationResult:
+def migrate_jobs(database: str | Path) -> MigrationResult:
     """Migrate only the native job database; never adopt a VAP/foreign database.
 
     Inspection is read-only. The store applies DDL and the version bump in one
     serialized transaction, retaining jobs and refusing newer/unknown versions.
+
+    The backend is resolved first (DATA-2), so a Postgres DSN or an unknown scheme is
+    refused *before* any filesystem access — it never creates a stray file named after
+    the DSN.
     """
-    if database.is_symlink():
+    store = resolve_job_store(database)
+    path = store.path
+    if path.is_symlink():
         raise ValueError("Themis job database must not be a symlink")
     previous: int | None = None
-    if database.exists():
-        with sqlite3.connect(f"{database.resolve().as_uri()}?mode=ro", uri=True) as db:
+    if path.exists():
+        with sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True) as db:
             previous = int(db.execute("PRAGMA user_version").fetchone()[0])
             tables = {
                 str(row[0])
@@ -81,7 +87,7 @@ def migrate_jobs(database: Path) -> MigrationResult:
             raise SchemaVersionError(
                 "not a native Themis job database; keep the legacy database and use a new file"
             )
-    ThemisJobStore(database).initialize()
+    store.initialize()
     return MigrationResult(previous, SCHEMA_VERSION)
 
 

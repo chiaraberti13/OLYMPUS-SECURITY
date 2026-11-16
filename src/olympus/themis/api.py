@@ -96,6 +96,7 @@ from olympus.themis.jobs import (
     ThemisJobStore,
 )
 from olympus.themis.oidc import OidcError, OidcVerifier
+from olympus.themis.persistence import resolve_job_store
 from olympus.vulcan.correlate import CorrelationsDocument, correlations_document
 from olympus.vulcan.explain import FindingExplanation, explain_finding
 
@@ -1015,7 +1016,7 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
     settings.validate()
     owns_telemetry = observability is None
     telemetry = observability or observability_from_config()
-    store = ThemisJobStore(settings.database)
+    store = resolve_job_store(settings.database)
     store.initialize()
     scope_root = settings.scope_directory.resolve()
     registers = _RegisterSource(settings)

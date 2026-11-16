@@ -601,7 +601,7 @@ def themis_migrate(
     from olympus.themis.runtime import migrate_jobs
 
     try:
-        result = migrate_jobs(Path(database))
+        result = migrate_jobs(database)
     except (OSError, sqlite3.Error, ValueError, JobStoreError) as exc:
         typer.echo(f"olympus: native migration refused: {exc}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
@@ -920,7 +920,8 @@ def themis_workers(
     from olympus.core.observability import observability_from_config
     from olympus.engagements.store import ENGAGEMENTS_DB_NAME, StoredManifestAuthorizer
     from olympus.themis.config import live_enabled
-    from olympus.themis.jobs import JobStoreError, ThemisJobStore, ThemisWorker, generate_worker_id
+    from olympus.themis.jobs import JobStoreError, ThemisWorker, generate_worker_id
+    from olympus.themis.persistence import resolve_job_store
     from olympus.themis.runtime import (
         WorkerStop,
         job_notifier,
@@ -931,7 +932,7 @@ def themis_workers(
     from olympus.themis.sandbox import SandboxError, require_scanner_isolation
 
     try:
-        migrate_jobs(Path(database))
+        migrate_jobs(database)
         live = live_enabled()
         if live and (not engagement_storage or not manifest_public_key):
             raise ValueError("live workers require --engagement-storage and --manifest-public-key")
@@ -986,7 +987,7 @@ def themis_workers(
 
     try:
         worker = ThemisWorker(
-            ThemisJobStore(Path(database)),
+            resolve_job_store(database),
             live_scans=live,
             observability=telemetry,
             worker_id=generate_worker_id() if worker_id is None else worker_id,

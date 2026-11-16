@@ -12,6 +12,24 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — DATA-2 / TECH-3 (astrazione della persistenza, backend selezionabile da DSN)
+
+- Nuovo modulo `olympus.themis.persistence`: una **porta** `JobStore` (Protocol
+  `runtime_checkable`) che fissa il contratto dello store dei job usato da worker e
+  interfacce, e una **factory** `resolve_job_store(location)` come unico punto di selezione
+  del backend da una location/DSN:
+  - un path o un URL `sqlite://` / `file:` → store **SQLite** locale (default);
+  - un DSN `postgres(ql)://` o uno schema sconosciuto → `UnsupportedBackendError`
+    (fail-closed; è un `ValueError`, quindi i comandi lo rendono come exit `USAGE` con un
+    messaggio chiaro, **nessuno stub** che finge di essere Postgres).
+- I servizi a lunga vita — worker (`themis workers`), API (`create_app`), Web
+  (`create_web_app`) e il setup del DB (`runtime.migrate`) — risolvono ora lo store tramite
+  la factory, così il backend si sceglie in un solo posto. `describe_backend` riporta solo lo
+  schema, mai le credenziali del DSN.
+- Verificato offline (`tests/unit/test_persistence.py`, più una regressione CLI in
+  `tests/unit/test_themis_jobs.py`: il worker rifiuta un DSN Postgres con un errore USAGE
+  leggibile). L'adapter PostgreSQL concreto (richiede un server) resta pianificato.
+
 ### Added — SEC-4.5 / CICD-3 (pipeline di release firmata, keyless e passiva di default)
 
 - Nuovo workflow `.github/workflows/release.yml`: su un tag `vX.Y.Z` builda wheel+sdist
