@@ -138,7 +138,7 @@ di sicurezza nel frontend.
 
 - **TECH-1** [x] Backend Python 3.11+ (Pydantic v2, Typer, FastAPI, Textual) confermato: adeguato e maturo.
 - **TECH-2** [ ] Frontend Web: valutare e selezionare uno stack moderno (SSR/SPA) integrato realmente all'API; decisione del team su basi tecniche (oggi la Web UI è Jinja2+SSE, adeguata ma limitata).
-- **TECH-3** [ ] Persistenza: SQLite come default locale; astrazione verso Postgres per deployment multiutente/concorrente.
+- **TECH-3** [~] Persistenza: SQLite come default locale; astrazione verso Postgres per deployment multiutente/concorrente. **Fatto (2026-11-16):** porta `JobStore` (Protocol) + factory di selezione backend `resolve_job_store` (vedi `DATA-2`); SQLite resta il default, l'adapter Postgres è pianificato. **Resta:** l'adapter Postgres reale (richiede un server) e l'esposizione del DSN nelle interfacce di servizio.
 - **TECH-4** [x] Valutazione coda/worker fuori Vercel completata. SQLite e worker Themis su un host container sono la scelta attuale. Postgres o broker dedicato si rivalutano al verificarsi dei criteri documentati nel [runbook Themis](docs/themis-runtime.md#decisione-sulla-coda-dei-job).
 
 ## 5. Piano moduli Red / Blue / Purple
@@ -280,7 +280,7 @@ long-lived, stato durevole). Modello adottato:
 ## 12. Database, persistenza ed evidenze
 
 - **DATA-1** [x] SQLite transazionale per job/engagement/finding/audit; export portabile NDJSON/SARIF; backup/restore coordinato.
-- **DATA-2** [ ] Astrazione repository/persistenza con **Postgres** opzionale per multiutente/concorrenza.
+- **DATA-2** [~] Astrazione repository/persistenza con **Postgres** opzionale per multiutente/concorrenza. **Fatto (2026-11-16):** nuovo modulo `olympus.themis.persistence` con (a) la **porta** `JobStore` (Protocol `runtime_checkable`) che definisce il contratto dello store dei job che worker e interfacce consumano, soddisfatta oggi dal backend SQLite; (b) la **factory** `resolve_job_store(location)` come **unico punto di selezione del backend** da una location/DSN: un path o un URL `sqlite://`/`file:` → store SQLite locale; un DSN `postgres(ql)://` o uno schema sconosciuto → `UnsupportedBackendError` (fail-closed, è un `ValueError` → exit `USAGE` nei comandi, nessun crash né stub che finge); (c) `describe_backend` che riporta solo lo schema (mai credenziali). I servizi a lunga vita — **worker** (`themis workers`), **API** (`create_app`), **Web** (`create_web_app`) e il setup del DB (`runtime.migrate`) — risolvono ora lo store tramite la factory. Test offline in `tests/unit/test_persistence.py` e regressione CLI in `tests/unit/test_themis_jobs.py` (il worker rifiuta un DSN Postgres con un errore USAGE leggibile). **Resta:** l'adapter PostgreSQL concreto (richiede un server, quindi fuori dal perimetro offline — `QA-3`/lab) e il cablaggio del DSN nei comandi `jobs` one-shot e nei settings di API/Web.
 - **DATA-3** [ ] Retention/privacy di sistema e storicizzazione evidenze con catena di custodia verificabile. Le evidenze di esecuzione degli engine (`TOOLS-4.5`) e la storia dei finding (`VAL-1`, `EXPL-1`) devono rientrare in questa politica di retention.
 
 ## 13. Sicurezza e affidabilità del prodotto

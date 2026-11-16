@@ -138,8 +138,8 @@ from olympus.themis.jobs import (
     IdempotencyConflict,
     JobState,
     ThemisJob,
-    ThemisJobStore,
 )
+from olympus.themis.persistence import resolve_job_store
 from olympus.vulcan.aggregate import (
     AggregationError,
     asset_breakdown,
@@ -554,7 +554,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
 
     owns_telemetry = observability is None
     telemetry = observability or observability_from_config()
-    store = ThemisJobStore(settings.database)
+    store = resolve_job_store(settings.database)
     store.initialize()
     scope_root = settings.scope_directory.resolve()
     registers = _RegisterSource(settings)
