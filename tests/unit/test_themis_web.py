@@ -1113,9 +1113,7 @@ def test_preview_warns_when_a_governed_engine_is_not_ready(
     # The adapter is catalogued-ready, but the governed engine binary (nmap) is absent in the
     # test sandbox: the launch preview surfaces that with the pinned install command (TOOLS-4.1),
     # and still lets the operator proceed — the worker is the fail-closed authority.
-    import olympus.themis.web as web
-
-    monkeypatch.setattr(web, "_ready_scanner_names", lambda: {"nmap"})
+    monkeypatch.setattr("olympus.themis.web._ready_scanner_names", lambda: {"nmap"})
     client = _client(tmp_path)
     _login(client)
     csrf = _csrf(client)
@@ -1131,11 +1129,10 @@ def test_preview_warns_when_a_governed_engine_is_not_ready(
 def test_preview_reports_engines_ready_when_the_preflight_passes(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import olympus.themis.web as web
     from olympus.core.exit_codes import ExitCode
     from olympus.engines.preflight import PreflightVerdict
 
-    monkeypatch.setattr(web, "_ready_scanner_names", lambda: {"nmap"})
+    monkeypatch.setattr("olympus.themis.web._ready_scanner_names", lambda: {"nmap"})
     # The seam imports the verdict function from its source module, so patch it there.
     monkeypatch.setattr(
         "olympus.engines.preflight.preflight_for_scanner",
