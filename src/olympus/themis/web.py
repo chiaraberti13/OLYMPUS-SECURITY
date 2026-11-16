@@ -359,6 +359,33 @@ def _ready_scanner_names() -> set[str]:
     return {item.name for item in inventory() if item.ready}
 
 
+def _engine_preflight_summary(scanner: str) -> dict[str, object] | None:
+    """Governed-engine readiness for ``scanner`` via the shared offline preflight (TOOLS-4.1).
+
+    Read-only and advisory: reports whether the mandatory engines (``nmap``/``nuclei``/``httpx``)
+    plus the named scanner are installed and pinned on this node, so the launch preview can warn
+    *before* a job is queued. It is distinct from the capability inventory's "ready" (which tells
+    whether the adapter exists): here a binary can be missing or at the wrong pin. The worker is
+    the authority and refuses a live job fail-closed when a required engine is absent; this only
+    informs. Returns ``None`` when the check cannot run, degrading to an honest note.
+    """
+    try:
+        from olympus.engines.cli import system_environment
+        from olympus.engines.preflight import build_preflight_report, preflight_for_scanner
+
+        report = build_preflight_report(preflight_for_scanner(system_environment(), scanner))
+    except (OSError, ValueError):
+        return None
+    return {
+        "ready": report.ready,
+        "required": list(report.required),
+        "blocking": [
+            {"name": item.name, "state": item.state, "install_command": item.install_command}
+            for item in report.blocking
+        ],
+    }
+
+
 #: Human labels for each severity, for a badge in the findings view.
 _SEVERITY_LABELS: dict[Severity, str] = {
     Severity.CRITICAL: "Critical",
@@ -2231,6 +2258,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
                 "risk_label": _RISK_LABELS[scanner_profile.risk],
                 "risk_explanation": RISK_EXPLANATION[scanner_profile.risk],
                 "planned_command": planned_command_tokens,
+                "engine_preflight": _engine_preflight_summary(resolved),
                 "needs_confirmation": needs_confirmation,
                 # The raw target is what the launch form must resubmit (and what
                 # /jobs re-validates); the safe copy is only ever displayed.

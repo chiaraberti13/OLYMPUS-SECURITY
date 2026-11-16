@@ -1107,6 +1107,50 @@ def test_preview_shows_risk_and_does_not_queue_until_launch(
     assert client.get(f"/jobs/{job_id}").status_code == 200
 
 
+def test_preview_warns_when_a_governed_engine_is_not_ready(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The adapter is catalogued-ready, but the governed engine binary (nmap) is absent in the
+    # test sandbox: the launch preview surfaces that with the pinned install command (TOOLS-4.1),
+    # and still lets the operator proceed — the worker is the fail-closed authority.
+    import olympus.themis.web as web
+
+    monkeypatch.setattr(web, "_ready_scanner_names", lambda: {"nmap"})
+    client = _client(tmp_path)
+    _login(client)
+    csrf = _csrf(client)
+    preview = _preview(client, csrf, activity="network", scanner="nmap")
+    assert preview.status_code == 200, preview.text
+    assert "Engine readiness" in preview.text
+    assert "A required engine is not ready" in preview.text
+    assert "nmap" in preview.text and "git" in preview.text  # pinned install, not @latest/apt
+    # Advisory only: the launch form is still present.
+    assert 'action="/jobs"' in preview.text
+
+
+def test_preview_reports_engines_ready_when_the_preflight_passes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import olympus.themis.web as web
+    from olympus.core.exit_codes import ExitCode
+    from olympus.engines.preflight import PreflightVerdict
+
+    monkeypatch.setattr(web, "_ready_scanner_names", lambda: {"nmap"})
+    # The seam imports the verdict function from its source module, so patch it there.
+    monkeypatch.setattr(
+        "olympus.engines.preflight.preflight_for_scanner",
+        lambda env, scanner: PreflightVerdict(
+            exit_code=ExitCode.OK, required=(scanner,), blocking=()
+        ),
+    )
+    client = _client(tmp_path)
+    _login(client)
+    csrf = _csrf(client)
+    preview = _preview(client, csrf, activity="network", scanner="nmap")
+    assert preview.status_code == 200, preview.text
+    assert "All required engines are installed and pinned" in preview.text
+
+
 def test_passive_activity_completes_end_to_end(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

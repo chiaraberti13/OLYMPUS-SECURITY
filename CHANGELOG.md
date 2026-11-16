@@ -12,6 +12,20 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — TOOLS-4.1 (prontezza engine nella Web, pagina di preview del lancio)
+
+- La pagina di preview del lancio guidato (`/assessments/preview`, «Olympus is about to run»)
+  mostra ora un blocco **Engine readiness** derivato dallo stesso preflight **governato**
+  condiviso (`preflight_for_scanner`) per lo scanner risolto. È distinto dalla prontezza
+  *adapter* del catalogo capability: qui un **binario** di engine assente o al pin sbagliato
+  viene segnalato — con il comando di installazione **pinnato** — **prima** di accodare il job,
+  invece di scoprirlo solo quando il worker lo fa fallire.
+- È **advisory** e read-only (nessuna scansione, nessun I/O sul target): il worker resta
+  l'autorità fail-closed e rifiuta il job se un engine richiesto manca. Badge accessibile
+  (colore come codifica **secondaria**, lo stato è sempre scritto in testo — WCAG 1.4.1).
+  Verificato offline in `tests/unit/test_themis_web.py` (engine mancante → avviso con install
+  pinnato; preflight ok → «All required engines are installed and pinned»).
+
 ### Added — TOOLS-4.1 (endpoint API di prontezza engine)
 
 - Nuovo endpoint read-only `GET /api/v1/engines/preflight` (scope `capabilities:read`), con il
