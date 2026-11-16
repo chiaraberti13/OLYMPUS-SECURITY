@@ -1,0 +1,118 @@
+# Signed, keyless release pipeline (ROADMAP SEC-4.5 / CICD-3).
+#
+# Passive by default: it only runs for a `vX.Y.Z` tag (or an explicit manual
+# dispatch), and it publishes to PyPI *only* when the repository variable
+# PYPI_PUBLISH is set to "true" AND the protected `release` environment approves.
+# Until the owner configures those (see docs/release.md), tagging builds and
+# signs artifacts and attaches them to the GitHub Release, but publishes nothing
+# to any external index. No secrets are stored: signing and publishing use OIDC
+# (Sigstore keyless, PyPI Trusted Publishing).
+name: release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why this manual build is being run (audit note)."
+        required: false
+        default: "manual dry-run build"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build · wheel · sdist · SBOM
+    runs-on: ubuntu-latest
+    outputs:
+      hashes: ${{ steps.hash.outputs.hashes }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: Build wheel and sdist
+        run: |
+          python -m pip install --upgrade build
+          python -m build --outdir dist
+      - name: Generate a reproducible CycloneDX SBOM
+        run: |
+          python -m pip install .
+          olympus core sbom --reproducible --engines \
+            --output dist/olympus-security-sbom.cyclonedx.json
+      - name: Record SHA-256 subjects for provenance
+        id: hash
+        run: |
+          cd dist
+          echo "hashes=$(sha256sum olympus_security-*.whl olympus_security-*.tar.gz | base64 -w0)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  # SLSA build provenance for the artifacts (keyless, OIDC). On a tag it attaches
+  # the provenance to the GitHub Release.
+  provenance:
+    needs: [build]
+    permissions:
+      actions: read
+      id-token: write
+      contents: write
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    with:
+      base64-subjects: ${{ needs.build.outputs.hashes }}
+      upload-assets: ${{ startsWith(github.ref, 'refs/tags/') }}
+
+  sign:
+    name: sign · keyless · attach to release
+    needs: [build]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - uses: sigstore/cosign-installer@v3
+      - name: Sign artifacts keyless (Sigstore bundles)
+        run: |
+          cd dist
+          for file in olympus_security-*.whl olympus_security-*.tar.gz olympus-security-sbom.cyclonedx.json; do
+            cosign sign-blob --yes --bundle "${file}.sigstore.json" "${file}"
+          done
+      - name: Attach artifacts, SBOM and signatures to the GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          fail_on_unmatched_files: true
+
+  # Publish to PyPI via Trusted Publishing (OIDC, no token). Gated three ways:
+  # a tag build, the owner-set repository variable PYPI_PUBLISH == "true", and an
+  # approval on the protected `release` environment. Any one missing => no publish.
+  publish-pypi:
+    name: publish · PyPI Trusted Publishing
+    needs: [build, provenance, sign]
+    if: ${{ startsWith(github.ref, 'refs/tags/') && vars.PYPI_PUBLISH == 'true' }}
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - name: Keep only the distributions PyPI accepts
+        run: rm -f dist/*.sigstore.json dist/*.cyclonedx.json
+      - uses: pypa/gh-action-pypi-publish@release/v1

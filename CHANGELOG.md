@@ -12,6 +12,21 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — SEC-4.5 / CICD-3 (pipeline di release firmata, keyless e passiva di default)
+
+- Nuovo workflow `.github/workflows/release.yml`: su un tag `vX.Y.Z` builda wheel+sdist
+  (Hatchling) e un **SBOM CycloneDX riproducibile**, genera **provenance SLSA** e firma gli
+  artefatti e l'SBOM con **Cosign keyless** (bundle Sigstore), allegando tutto alla GitHub
+  Release. **Nessun segreto nel repository**: firma e pubblicazione usano OIDC (Sigstore
+  keyless, PyPI Trusted Publishing).
+- **Passiva di default**: la pubblicazione su PyPI avviene **solo** se il build è su tag, la
+  variabile di repository `PYPI_PUBLISH` è `true` **e** l'environment protetto `release` è
+  approvato dall'owner — altrimenti il workflow si ferma a build-and-sign e non pubblica nulla.
+- Guida e checklist owner (nessun segreto condiviso) in `docs/release.md`; proprietà di
+  sicurezza verificate offline in `tests/unit/test_release_workflow.py` (trigger solo su tag e
+  mai su PR, permessi minimi `contents: read`, publish gated tre volte, assenza di `secrets.`).
+  Resta la verifica end-to-end su un tag reale dopo l'attivazione owner.
+
 ### Added — TOOLS-4.1 (prontezza engine nella Web, pagina di preview del lancio)
 
 - La pagina di preview del lancio guidato (`/assessments/preview`, «Olympus is about to run»)
