@@ -236,6 +236,77 @@ def _present_job(job: ThemisJob) -> dict[str, object]:
     }
 
 
+#: Guided interpretation of each terminal job state (WEB-5): a plain-language headline, what
+#: it means for trust, and a tone. The canonical states and their meaning are owned by
+#: ``JobState``/``docs/run-status.md``; this only renders them for the operator and never
+#: upgrades a partial or failed run into a clean one.
+_OUTCOME_GUIDANCE: dict[str, tuple[str, str, str]] = {
+    "succeeded": (
+        "Assessment complete",
+        "The scan finished with complete coverage. Review the findings below; no findings here "
+        "means nothing was reported, not that the target is guaranteed safe.",
+        "ok",
+    ),
+    "partial": (
+        "Complete, with partial coverage",
+        "The scan ran but could not cover everything, so the result is not exhaustive. Treat a "
+        "low or zero finding count with caution and re-run once the gap is resolved.",
+        "warn",
+    ),
+    "timed_out": (
+        "Assessment timed out",
+        "The scan was stopped at its deadline, so coverage is incomplete. Raise the timeout or "
+        "narrow the scope and run it again.",
+        "warn",
+    ),
+    "failed": (
+        "Assessment failed",
+        "The scan did not complete, so there is no reliable result. Fix the cause shown below "
+        "before relying on any output.",
+        "bad",
+    ),
+    "cancelled": (
+        "Assessment cancelled",
+        "The scan was cancelled before it finished; no complete result was produced.",
+        "bad",
+    ),
+    "policy_denied": (
+        "Blocked by policy",
+        "The run was refused by an authorization or scope gate. Nothing was scanned.",
+        "bad",
+    ),
+}
+
+
+def _assessment_outcome(job: ThemisJob) -> dict[str, object] | None:
+    """Interpret a terminal job for the guided wizard (WEB-5), or None while it is active.
+
+    Renders the canonical state as guidance and makes partial coverage explicit (TOOLS-4.4):
+    a partial run never reads as clean, and the partial reason or error is surfaced, not hidden.
+    """
+    if job.state not in TERMINAL_STATES:
+        return None
+    headline, explanation, tone = _OUTCOME_GUIDANCE.get(
+        job.state.value, (job.state.value, "", "warn")
+    )
+    result = job.result if isinstance(job.result, dict) else None
+    partial = bool(result.get("partial")) if result else job.state.value == "partial"
+    reason = None
+    if result and isinstance(result.get("partial_reason"), str):
+        reason = _safe(str(result["partial_reason"]))
+    elif job.error:
+        reason = _safe(job.error)
+    finding_count = result.get("finding_count") if result else None
+    return {
+        "headline": headline,
+        "explanation": explanation,
+        "tone": tone,
+        "partial": partial,
+        "reason": reason,
+        "finding_count": finding_count if isinstance(finding_count, int) else None,
+    }
+
+
 def _present_engagement(engagement: Engagement) -> dict[str, object]:
     """Project one engagement into a redacted, interface-agnostic view.
 
@@ -2524,6 +2595,7 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             "job_detail.html",
             {
                 "job": _present_job(job),
+                "outcome": _assessment_outcome(job),
                 "can_cancel": "jobs:cancel" in session.scopes,
                 "csrf_token": _csrf_token(session.nonce),
             },

@@ -12,6 +12,19 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — WEB-5 (interpretazione guidata dell'esito dell'assessment)
+
+- La pagina di dettaglio del job (passo finale del wizard «New Assessment») mostra ora un
+  blocco **Outcome** che interpreta lo stato terminale in linguaggio guidato, dallo stesso
+  vocabolario canonico di CLI/API (`JobState` / `docs/run-status.md`): un titolo e una
+  spiegazione per `succeeded` / `partial` / `failed` / `timed_out` / `cancelled` /
+  `policy_denied`, con i **prossimi passi** (nuovo assessment, elenco job).
+- **Copertura parziale esplicita** (`TOOLS-4.4`): un run `partial` — o con zero finding — non
+  si legge mai come «pulito»; il blocco avvisa che il risultato non è esaustivo e mostra il
+  `partial_reason` o l'errore. Badge accessibile (colore come codifica secondaria, stato
+  sempre in testo). Verificato offline in `tests/unit/test_themis_web.py`. Restano l'esecuzione
+  guidata coesa, i test E2E in browser (`QA-2`) e la revisione WCAG/docs (`ROADMAP.md` `WEB-5`).
+
 ### Added — DATA-2 / TECH-3 (astrazione della persistenza, backend selezionabile da DSN)
 
 - Nuovo modulo `olympus.themis.persistence`: una **porta** `JobStore` (Protocol
