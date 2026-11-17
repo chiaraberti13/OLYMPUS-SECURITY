@@ -1368,3 +1368,43 @@ def test_worker_refuses_a_postgres_dsn_with_a_clear_usage_error(
     assert "not available yet" in result.output
     assert "DATA-2" in result.output
     assert not list(tmp_path.glob("postgres*")), "a DSN must not create a stray file"
+
+
+def test_engine_health_reports_states_and_is_healthy_by_default(tmp_path: Path) -> None:
+    # ARCH-3: the engine is observable as a service — counts by state, active, no orphans.
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    _submit(store, tmp_path)
+    store.claim_next("worker-a")  # one running
+    _submit(store, tmp_path)  # one queued
+    report = store.health()
+    assert report.by_state["running"] == 1
+    assert report.by_state["queued"] == 1
+    assert report.active == 2
+    assert report.expired_leases == 0
+    assert report.degraded is False
+
+
+def test_engine_health_flags_degraded_on_an_expired_lease(tmp_path: Path) -> None:
+    # A running job whose worker stopped renewing its lease is orphaned: the engine is degraded,
+    # and the read-only count must NOT recover it (that is `recover`'s job).
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    claimed = _submit(store, tmp_path)
+    store.claim_next("worker-a")
+    _expire_lease(store, claimed.job_id)
+    assert store.expired_lease_count() == 1
+    report = store.health()
+    assert report.expired_leases == 1
+    assert report.degraded is True
+    # Read-only: the job is still RUNNING (not requeued) after a health check.
+    assert store.get(claimed.job_id).state is JobState.RUNNING
+
+
+def test_jobs_health_cli_exits_partial_when_degraded(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    claimed = _submit(store, tmp_path)
+    store.claim_next("worker-a")
+    _expire_lease(store, claimed.job_id)
+    result = CliRunner().invoke(app, ["themis", "jobs", "health", "-d", str(store.path)])
+    assert result.exit_code == 5  # ExitCode.PARTIAL (lost coverage / degraded)
+    assert '"degraded": true' in result.output
+    assert '"expired_leases": 1' in result.output

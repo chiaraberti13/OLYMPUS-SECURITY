@@ -232,6 +232,33 @@ class ThemisBackupInfo:
     sha256: str
 
 
+@dataclass(frozen=True)
+class EngineHealth:
+    """A read-only snapshot of the durable execution engine's operational health (ARCH-3).
+
+    It makes the engine observable as an explicit service: how many jobs sit in each canonical
+    state, how many are active (queued or running), and how many running jobs hold an **expired
+    lease** — i.e. a worker stopped reporting and the job is orphaned until recovery. A non-zero
+    expired-lease count means the engine is ``degraded`` and ``themis jobs recover`` should run.
+    """
+
+    by_state: dict[str, int]
+    active: int
+    expired_leases: int
+
+    @property
+    def degraded(self) -> bool:
+        return self.expired_leases > 0
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "by_state": dict(self.by_state),
+            "active": self.active,
+            "expired_leases": self.expired_leases,
+            "degraded": self.degraded,
+        }
+
+
 class ManifestAuthorizer(Protocol):
     """Port used to revalidate a queued signed manifest immediately before execution."""
 
@@ -761,6 +788,30 @@ class ThemisJobStore:
         for row in rows:
             counts[str(row["state"])] = int(row["total"])
         return counts
+
+    def expired_lease_count(self) -> int:
+        """Count running jobs whose lease has expired, **without** recovering them (read-only).
+
+        The read-only complement of :meth:`recover_expired_leases`: it reports how many jobs are
+        orphaned (a worker stopped renewing the lease) so a health view can surface the condition
+        before anyone decides to requeue them.
+        """
+        self.initialize()
+        with self._reading() as db:
+            row = db.execute(
+                """SELECT COUNT(*) AS total FROM themis_jobs
+                WHERE state = ? AND lease_expires_at IS NOT NULL AND lease_expires_at < ?""",
+                (JobState.RUNNING.value, _now()),
+            ).fetchone()
+        return int(row["total"])
+
+    def health(self) -> EngineHealth:
+        """Return a read-only operational snapshot of the execution engine (ARCH-3/API-3)."""
+        counts = self.counts_by_state()
+        active = counts.get(JobState.QUEUED.value, 0) + counts.get(JobState.RUNNING.value, 0)
+        return EngineHealth(
+            by_state=counts, active=active, expired_leases=self.expired_lease_count()
+        )
 
     # -- leases ------------------------------------------------------------- #
     def claim_next(
