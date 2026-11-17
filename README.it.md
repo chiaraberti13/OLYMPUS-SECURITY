@@ -405,3 +405,11 @@ per le operazioni attive, un manifest firmato); un disclaimer non sostituisce il
 permesso. L'uso improprio è responsabilità esclusivamente tua.
 
 Le sequenze audit di Athena sono assegnate da SQLite in transazione anche dopo riavvii della CLI e con scrittori concorrenti. I duplicati espliciti sono rifiutati senza sovrascrivere lo storico. [ADR-008](docs/architecture/adr-008-durable-athena-audit.md) descrive aggiornamento e limite residuo di atomicità tra stato e audit.
+
+## Comunità e collaborazione
+
+- [Come contribuire](CONTRIBUTING.md)
+- [Codice di condotta](CODE_OF_CONDUCT.md)
+- [Segnalazioni di sicurezza](SECURITY.md)
+- [Accessibilità](ACCESSIBILITY.md)
+- [Licenza](LICENSE)
