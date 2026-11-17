@@ -12,6 +12,20 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Fixed — ARCH-4 (contratto UI↔API stabile e versionato)
+
+- Nuovo gate `tests/contract/test_ui_api_contract_surface.py`: pinna l'invariante **una
+  identità di contratto versionata (`schema_name`@`schema_version`) ⇒ uno schema** su tutta
+  la superficie API viva e il catalogo pubblicato — nessuna identità servita con due schemi
+  diversi, e ogni identità condivisa col catalogo è **byte-identica** al contratto pubblicato.
+- Corretta la divergenza che il gate ha scoperto: `POST /api/v1/vulcan/explain` advertising
+  `epistemic_class`/`confidence` come `str` libere mentre il catalogo pubblica
+  `olympus.finding-explanation` 1.0.0 con enum vincolati (stessa identità, schema diverso tra
+  superfici). L'API ritorna ora il contratto pubblicato `FindingExplanationDocument` dalla
+  stessa proiezione `FindingExplanation.to_dict()` di CLI e report (**riuso**, nessun modello
+  parallelo); payload sul filo invariato, schema allineato al catalogo. Rimossi i modelli
+  paralleli `VulcanFindingExplanationResult`/`*View`; golden OpenAPI rigenerato.
+
 ### Added — TOOLS-4.5 / API-3 (evidenze firmate emesse dal worker)
 
 - Il **motore** emette ora l'evidenza di run firmata (`olympus.engine-run-evidence`) anche per
