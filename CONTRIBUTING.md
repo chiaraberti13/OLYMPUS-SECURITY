@@ -14,12 +14,15 @@ This repository covers a scope-safe Python security platform spanning recon, ass
 
 ### Setup
 ```bash
-python -m pip install -e ".[dev]"\nmake install
+python -m pip install -e ".[dev]"
+make install
 ```
 
 ### Required checks
 ```bash
-make lint\nmake typecheck\nmake test
+make lint
+make typecheck
+make test
 ```
 Network-active changes must preserve explicit authorized-scope enforcement, canonical exit semantics, audit records and deterministic offline tests through injected I/O.
 
@@ -41,12 +44,15 @@ Questo repository riguarda a scope-safe Python security platform spanning recon,
 
 ### Setup
 ```bash
-python -m pip install -e ".[dev]"\nmake install
+python -m pip install -e ".[dev]"
+make install
 ```
 
 ### Controlli richiesti
 ```bash
-make lint\nmake typecheck\nmake test
+make lint
+make typecheck
+make test
 ```
 Network-active changes must preserve explicit authorized-scope enforcement, canonical exit semantics, audit records and deterministic offline tests through injected I/O.
 
@@ -55,3 +61,13 @@ Mantieni i controlli di scope/autorizzazione, valida gli input, usa comportament
 
 ### Pull request
 Descrivi cosa cambia, perché, test eseguiti, confini di sicurezza interessati, compatibilità e note di rollback/migrazione. Si applica `CODE_OF_CONDUCT.md`.
+
+## Segnalazioni e verifica dei contributi
+
+Piattaforma Python per attività di sicurezza autorizzate, OSINT, raccolta evidenze e report.
+
+Usa i [modelli di segnalazione](https://github.com/chiaraberti13/OLYMPUS-SECURITY/issues/new/choose) per bug, miglioramenti e barriere di accessibilità. Prima di aprire una nuova segnalazione verifica se ne esiste già una equivalente. Contesto utile: Versione Python, modulo, comando, scope di laboratorio e fixture sintetica.
+
+Per le modifiche, compila il modello di pull request e indica verifiche eseguite, esito e verifiche non eseguite con il motivo. Mantieni le istruzioni specifiche di questo progetto e la parità delle lingue già disponibili. Non allegare dati di produzione, credenziali o dati personali; usa esempi sintetici.
+
+Consulta [il codice di condotta](CODE_OF_CONDUCT.md), [la policy di sicurezza](SECURITY.md) e [le indicazioni di accessibilità](ACCESSIBILITY.md). Le vulnerabilità seguono esclusivamente il percorso descritto nella policy di sicurezza.
