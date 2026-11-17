@@ -15,7 +15,11 @@ from olympus.core.execution import (
     CancellationToken,
     ExecutionPolicy,
 )
-from olympus.proteus.application import CampaignApplicationService, CampaignBuildRequest
+from olympus.proteus.application import (
+    CampaignApplicationService,
+    CampaignBuildRequest,
+    CampaignTokenNotFoundError,
+)
 from olympus.proteus.campaign import (
     Campaign,
     build_campaign,
@@ -326,3 +330,21 @@ def test_cli_campaign_requires_authorization(tmp_path: Path) -> None:
     )
     assert result.exit_code == 4
     assert "AUTHORIZED USE ONLY" in result.output
+
+
+def test_render_campaign_email_rejects_an_unknown_token(tmp_path: Path) -> None:
+    # The lure email can only be rendered for a token that the campaign actually
+    # minted; an unknown token must fail closed, never render a blank or wrong email.
+    campaign = _build(tmp_path, ["alice@example.com"])
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(campaign.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    service = CampaignApplicationService()
+
+    # A token the campaign really minted renders fine.
+    minted = campaign.targets[0].token
+    assert service.render_campaign_email(campaign_path, minted)
+
+    with pytest.raises(CampaignTokenNotFoundError):
+        service.render_campaign_email(campaign_path, "token-that-was-never-minted")
