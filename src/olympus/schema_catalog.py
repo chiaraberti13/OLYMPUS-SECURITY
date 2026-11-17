@@ -16,6 +16,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
+from olympus.apollo.rules import DetectionRule
 from olympus.argus.pipeline import PipelineDocument, PipelinePreset
 from olympus.athena.domain.contracts import AssessmentPlan, AssessmentResult
 from olympus.core.contracts import ContractVersion
@@ -86,6 +87,7 @@ PUBLISHED_CONTRACTS = (
     PublishedContract("olympus.event", "shared", Event),
     PublishedContract("olympus.evidence", "shared", Evidence),
     PublishedContract("olympus.alert", "shared", Alert),
+    PublishedContract("olympus.apollo-rule", "shared", DetectionRule),
     PublishedContract("olympus.incident", "shared", Incident),
     PublishedContract("olympus.observation", "shared", Observation),
     PublishedContract("olympus.scan-job", "shared", ScanJob),

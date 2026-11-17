@@ -12,6 +12,13 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Fixed — catalogo schemi (coerenza doc↔catalogo)
+
+- Pubblicato nel catalogo versionato il contratto `olympus.apollo-rule` 1.0.0 (`DetectionRule`):
+  `docs/contracts.md` lo dichiarava già **canonico** ma non era tra i contratti pubblicati da
+  `olympus core export-schemas` — ora il catalogo (33 contratti) rispecchia la policy documentata.
+  Nessun cambiamento di modello: solo pubblicazione del JSON Schema già esistente.
+
 ### Fixed — ARCH-4 (contratto UI↔API stabile e versionato)
 
 - Nuovo gate `tests/contract/test_ui_api_contract_surface.py`: pinna l'invariante **una
