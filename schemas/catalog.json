@@ -8,6 +8,13 @@
       "sha256": "46c028e0abd0567252db2ac54692b3558a08a7b9ada797cf865946e242745817"
     },
     {
+      "direction": "shared",
+      "name": "olympus.apollo-rule",
+      "path": "contracts/olympus.apollo-rule/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "2a86f47635257c791b18ae0674b116508d095c2dd9300580027529bfef2d0051"
+    },
+    {
       "direction": "output",
       "name": "olympus.argus-pipeline",
       "path": "contracts/olympus.argus-pipeline/1.0.0.schema.json",
