@@ -863,6 +863,13 @@ def themis_legacy_import(
 def themis_workers(
     database: str = typer.Option(".olympus/themis-jobs.sqlite3", "--database", "-d"),
     audit: str = typer.Option(DEFAULT_THEMIS_AUDIT_LOG, "--audit"),
+    evidence_dir: str = typer.Option(
+        "",
+        "--evidence-dir",
+        help="Write a signed run-evidence manifest per executed job here "
+        "(one <job_id>.json + .sig). Needs OLYMPUS_EVIDENCE_SIGNING_KEY_FILE to name an "
+        "Ed25519 private key; without it the worker refuses to start.",
+    ),
     engagement_storage: str = typer.Option(
         "",
         "--engagement-storage",
@@ -985,6 +992,19 @@ def themis_workers(
             finding_min_severity=notify_finding_severity,
         )
 
+    evidence_directory: Path | None = None
+    evidence_signer = None
+    if evidence_dir:
+        from olympus.engines.evidence import EvidenceError, signer_from_environment
+
+        try:
+            evidence_signer = signer_from_environment()
+        except EvidenceError as exc:
+            telemetry.shutdown()
+            typer.echo(safe_terminal_text(f"olympus: {exc}"), err=True)
+            raise typer.Exit(code=ExitCode.USAGE) from exc
+        evidence_directory = Path(evidence_dir)
+
     try:
         worker = ThemisWorker(
             resolve_job_store(database),
@@ -993,6 +1013,8 @@ def themis_workers(
             worker_id=generate_worker_id() if worker_id is None else worker_id,
             manifest_authorizer=manifest_authorizer,
             max_concurrent_jobs=max_concurrent_jobs,
+            evidence_dir=evidence_directory,
+            evidence_signer=evidence_signer,
         )
     except ValueError as exc:
         telemetry.shutdown()

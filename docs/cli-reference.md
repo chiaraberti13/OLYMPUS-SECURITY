@@ -1740,6 +1740,7 @@ Run the native worker; SIGINT/SIGTERM cancel the active scan and stop.
 | --- | --- | --- | --- | --- |
 | `--database`, `-d` | option | no | — | — |
 | `--audit` | option | no | — | — |
+| `--evidence-dir` | option | no | — | Write a signed run-evidence manifest per executed job here (one <job_id>.json + .sig). Needs OLYMPUS_EVIDENCE_SIGNING_KEY_FILE to name an Ed25519 private key; without it the worker refuses to start. |
 | `--engagement-storage` | option | no | — | Directory holding signed manifests and their revocation register. |
 | `--manifest-public-key` | option | no | — | Pinned Ed25519 approver public key used to revalidate bound manifests. |
 | `--worker-id` | option | no | — | Stable lease owner. |

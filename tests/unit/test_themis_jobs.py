@@ -23,7 +23,7 @@ from olympus.engagements.manifest import EngagementManifest, SignedEngagementMan
 from olympus.engagements.store import SqliteEngagementStore, StoredManifestAuthorizer
 from olympus.engines.preflight import PreflightVerdict
 from olympus.integrations.activity import RiskClass
-from olympus.themis.application import ThemisApplicationService
+from olympus.themis.application import ThemisApplicationService, ThemisRunRequest
 from olympus.themis.base import ScannerAdapter
 from olympus.themis.jobs import (
     ACTIVE_STATES,
@@ -1408,3 +1408,103 @@ def test_jobs_health_cli_exits_partial_when_degraded(tmp_path: Path) -> None:
     assert result.exit_code == 5  # ExitCode.PARTIAL (lost coverage / degraded)
     assert '"degraded": true' in result.output
     assert '"expired_leases": 1' in result.output
+
+
+def test_worker_passes_signed_evidence_path_per_job(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # TOOLS-4.5 / API-3: a job executed by the worker must produce signed run evidence, exactly
+    # like `themis run --evidence`. The worker configures evidence_dir/<job_id>.json + the signer
+    # on the request; the application writes and signs it (covered by test_engine_evidence).
+    from olympus.core.signing import generate_keypair
+    from olympus.engines.evidence import signer_from_environment
+
+    private_pem, _public = generate_keypair()
+    key = tmp_path / "evidence-key.pem"
+    key.write_text(private_pem, encoding="utf-8")
+    monkeypatch.setenv("OLYMPUS_EVIDENCE_SIGNING_KEY_FILE", str(key))
+    signer = signer_from_environment()
+    evidence_dir = tmp_path / "evidence"
+
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    job = store.submit(
+        scanner="test-engine",
+        target="127.0.0.1",
+        target_kind="host",
+        scope_path=_scope(tmp_path / "scope.json"),
+        authorized=True,
+        manifest_sha256=_TEST_MANIFEST_SHA256,
+    )
+    captured: list[ThemisRunRequest] = []
+
+    class _Capture:
+        def run(self, request: ThemisRunRequest) -> ScanResult:
+            captured.append(request)
+            return ScanResult(
+                scanner=request.scanner, state=ExecutionState.LIVE, target=request.target
+            )
+
+    worker = ThemisWorker(
+        store,
+        _Capture(),
+        live_scans=True,
+        engine_preflight=_ready_preflight,
+        manifest_authorizer=_AcceptingManifestAuthorizer(),
+        evidence_dir=evidence_dir,
+        evidence_signer=signer,
+    )
+    worker.run_next()
+    assert captured[0].evidence_path == evidence_dir / f"{job.job_id}.json"
+    assert captured[0].evidence_signer is signer
+
+
+def test_worker_without_evidence_config_sets_no_evidence(tmp_path: Path) -> None:
+    # Default: no evidence directory/signer -> the request carries no evidence path (unchanged).
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    store.submit(
+        scanner="test-engine",
+        target="127.0.0.1",
+        target_kind="host",
+        scope_path=_scope(tmp_path / "scope.json"),
+        authorized=True,
+        manifest_sha256=_TEST_MANIFEST_SHA256,
+    )
+    captured: list[ThemisRunRequest] = []
+
+    class _Capture:
+        def run(self, request: ThemisRunRequest) -> ScanResult:
+            captured.append(request)
+            return ScanResult(
+                scanner=request.scanner, state=ExecutionState.LIVE, target=request.target
+            )
+
+    ThemisWorker(
+        store,
+        _Capture(),
+        live_scans=True,
+        engine_preflight=_ready_preflight,
+        manifest_authorizer=_AcceptingManifestAuthorizer(),
+    ).run_next()
+    assert captured[0].evidence_path is None
+    assert captured[0].evidence_signer is None
+
+
+def test_workers_cli_evidence_dir_without_key_refuses_to_start(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Fail-closed: asking for signed evidence without the signing key must refuse, not run unsigned.
+    monkeypatch.delenv("OLYMPUS_EVIDENCE_SIGNING_KEY_FILE", raising=False)
+    result = CliRunner().invoke(
+        app,
+        [
+            "themis",
+            "workers",
+            "--once",
+            "-d",
+            str(tmp_path / "jobs.sqlite3"),
+            "--evidence-dir",
+            str(tmp_path / "evidence"),
+        ],
+    )
+    assert result.exit_code == int(ExitCode.USAGE)
+    assert "OLYMPUS_EVIDENCE_SIGNING_KEY_FILE" in result.output

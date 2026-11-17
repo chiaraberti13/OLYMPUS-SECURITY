@@ -12,6 +12,18 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — TOOLS-4.5 / API-3 (evidenze firmate emesse dal worker)
+
+- Il **motore** emette ora l'evidenza di run firmata (`olympus.engine-run-evidence`) anche per
+  i job persistenti eseguiti dal worker, non solo da `themis run --evidence`. `ThemisWorker`
+  accetta `evidence_dir` + `evidence_signer` (porte iniettabili) e passa
+  `evidence_path=<evidence_dir>/<job_id>.json` + signer alla stessa
+  `ThemisApplicationService.run` — **nessuna implementazione parallela** di firma.
+- Nuova opzione `olympus themis workers --evidence-dir`: carica la chiave di firma da
+  `OLYMPUS_EVIDENCE_SIGNING_KEY_FILE` (un percorso, mai la chiave). **Fail-closed**: senza la
+  chiave il worker **si rifiuta di partire** (USAGE), così non produce mai evidenza non firmata.
+  Verificato offline in `tests/unit/test_themis_jobs.py`. Restano i percorsi API/Web/Athena.
+
 ### Added — ARCH-3 / API-3 (Execution Engine esplicito e osservabile)
 
 - Il motore di esecuzione durevole di Themis (store SQLite con coda/lease/heartbeat, worker con
