@@ -14,9 +14,12 @@ from collections.abc import Iterable
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from olympus.themis.base import ScannerAdapter
 from olympus.themis.plugins import (
     PLUGIN_ALLOWLIST_ENV,
+    PluginError,
     available_adapters,
     discover_adapters,
     load_plugin_allowlist,
@@ -258,3 +261,22 @@ def test_approved_plugin_runs_through_preview_runtime_and_capabilities(tmp_path:
 def test_available_adapters_defaults_to_no_plugins() -> None:
     # With no allowlist and no entry points, the view equals the first-party set.
     assert available_adapters(frozenset(), loader=_loader()) == adapter_classes()
+
+
+class _AdapterThatFailsToConstruct(_GoodAdapter):
+    """An approved, structurally valid adapter whose construction raises."""
+
+    def __init__(self) -> None:
+        raise RuntimeError("adapter blew up in __init__")
+
+
+def test_approved_adapter_that_cannot_be_constructed_raises_plugin_error() -> None:
+    # The class passes every discovery check (concrete ScannerAdapter, simple binary,
+    # scope-safe boundary intact), so the failure surfaces only at instantiation —
+    # and must become a PluginError, never a raw third-party exception.
+    with pytest.raises(PluginError, match="could not be constructed"):
+        resolve_adapter(
+            "demo-plugin",
+            allowlist=frozenset({"demo-plugin"}),
+            loader=_loader(_FakeEntryPoint("demo-plugin", _AdapterThatFailsToConstruct)),
+        )
