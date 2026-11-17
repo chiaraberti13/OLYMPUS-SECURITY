@@ -490,6 +490,21 @@ The engine is the interface-agnostic `olympus.integrations.smartscan`
 the web and the command line propose identically. Progressive enhancement only: a
 same-origin `smart_scan.js` mirrors the chosen objective's summary into a hint.
 
+## Advanced mode (`WEB-7`)
+
+`GET /advanced` (scope `capabilities:read`) is a dense hub for expert operators
+— pentesters, analysts, Red/Blue Team — on the **same backend and the same
+controls** as the guided flow. It groups the expert entry points that already
+exist: analysis (correlations, explain, ATT&CK coverage, scan diff), execution
+(new assessment, jobs) and detection & CTI (Apollo, Metis, Minerva).
+
+The page holds **no security logic of its own**: every entry links to an
+endpoint that is already scope-gated server-side, and the page only reads the
+session's scopes to show what the current identity may reach. A tool the
+identity lacks the scope for is listed but **not linked**, annotated with the
+scope it would require; following such a link anyway still returns `403` from
+that endpoint. The CLI remains complete and independent of this view.
+
 ## Tools (`WEB-D`)
 
 `GET /tools` renders one card per catalogued engine **straight from the real
