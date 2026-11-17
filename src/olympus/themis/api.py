@@ -98,7 +98,7 @@ from olympus.themis.jobs import (
 from olympus.themis.oidc import OidcError, OidcVerifier
 from olympus.themis.persistence import resolve_job_store
 from olympus.vulcan.correlate import CorrelationsDocument, correlations_document
-from olympus.vulcan.explain import FindingExplanation, explain_finding
+from olympus.vulcan.explain import FindingExplanationDocument, explain_finding
 
 MAX_REQUEST_BYTES = 64 * 1024
 DEFAULT_MAX_CONCURRENT_REQUESTS = 64
@@ -754,38 +754,6 @@ class ArtemisFingerprintResult(BaseModel):
     fingerprints: list[ArtemisFingerprintView]
 
 
-class EpistemicStatementView(BaseModel):
-    """One explanation claim with the epistemic class saying how it is known."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    text: str
-    epistemic_class: str
-
-
-class RiskFactorView(BaseModel):
-    """One contribution to the contextual risk score, in plain language."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    factor: str
-    detail: str
-    decisive: bool
-
-
-class AttackAssociationView(BaseModel):
-    """One suggested CWE→ATT&CK association attached to a finding explanation."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    technique: str
-    name: str
-    tactic: str
-    confidence: str
-    rationale: str
-    source: str
-
-
 #: Bounds for the offline correlation endpoint (the 64 KiB request-size limit is
 #: the primary guard; these cap list length so a single list cannot be abused).
 MAX_CORRELATE_FINDINGS = 2_000
@@ -927,35 +895,6 @@ class ProteusCampaignValidationResult(BaseModel):
     valid: bool = True
 
 
-class VulcanFindingExplanationResult(BaseModel):
-    """Versioned finding explanation (``EXPL-1``) shared by CLI, API and reports.
-
-    The API projects the exact :class:`~olympus.vulcan.explain.FindingExplanation`
-    contract, so every surface answers *why this finding, why this risk, how sure*
-    identically (`EXPL-2` parity).
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    schema_name: Literal["olympus.finding-explanation"] = "olympus.finding-explanation"
-    schema_version: Literal["1.0.0"] = "1.0.0"
-    finding_id: str
-    title: str
-    asset_id: str
-    source: str
-    severity: str
-    status: str
-    risk_score: float
-    summary: str
-    risk_factors: list[RiskFactorView]
-    statements: list[EpistemicStatementView]
-    limits: list[str]
-    cve: list[str]
-    cwe: list[str]
-    attack: list[AttackAssociationView]
-    remediation: str | None = None
-
-
 def _fingerprint_view(fingerprint: Fingerprint) -> ArtemisFingerprintView:
     return ArtemisFingerprintView(
         product=fingerprint.product,
@@ -963,43 +902,6 @@ def _fingerprint_view(fingerprint: Fingerprint) -> ArtemisFingerprintView:
         version=fingerprint.version,
         evidence=fingerprint.evidence,
         references=list(fingerprint.references),
-    )
-
-
-def _finding_explanation_view(explanation: FindingExplanation) -> VulcanFindingExplanationResult:
-    """Project the shared explanation contract onto the API response, unchanged."""
-    return VulcanFindingExplanationResult(
-        finding_id=explanation.finding_id,
-        title=explanation.title,
-        asset_id=explanation.asset_id,
-        source=explanation.source,
-        severity=explanation.severity,
-        status=explanation.status,
-        risk_score=explanation.risk_score,
-        summary=explanation.summary,
-        risk_factors=[
-            RiskFactorView(factor=f.factor, detail=f.detail, decisive=f.decisive)
-            for f in explanation.risk_factors
-        ],
-        statements=[
-            EpistemicStatementView(text=s.text, epistemic_class=s.epistemic_class.value)
-            for s in explanation.statements
-        ],
-        limits=list(explanation.limits),
-        cve=list(explanation.cve),
-        cwe=list(explanation.cwe),
-        attack=[
-            AttackAssociationView(
-                technique=a.technique,
-                name=a.name,
-                tactic=a.tactic,
-                confidence=a.confidence.value,
-                rationale=a.rationale,
-                source=a.source.value,
-            )
-            for a in explanation.attack
-        ],
-        remediation=explanation.remediation,
     )
 
 
@@ -1595,21 +1497,25 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
 
     @app.post(
         "/api/v1/vulcan/explain",
-        response_model=VulcanFindingExplanationResult,
+        response_model=FindingExplanationDocument,
         tags=["vulcan"],
     )
     def vulcan_explain(
         body: Finding, caller: Caller = reads_findings
-    ) -> VulcanFindingExplanationResult:
+    ) -> FindingExplanationDocument:
         """Explain one finding with the shared ``EXPL-1`` contract, offline.
 
-        The caller supplies a ``olympus.finding`` and receives the same
-        :class:`~olympus.vulcan.explain.FindingExplanation` the CLI and the reports
-        render — derived only from the finding's own fields, nothing fetched or
-        invented, with every claim tagged by its epistemic class. Pure and offline:
-        no scanning and no network request is ever made from the server.
+        The caller supplies a ``olympus.finding`` and receives the **exact**
+        published ``olympus.finding-explanation`` contract
+        (:class:`~olympus.vulcan.explain.FindingExplanationDocument`) — the same
+        bytes the CLI and the reports render, built from the shared
+        ``FindingExplanation.to_dict()`` projection (``ARCH-4`` cross-surface
+        identity: one versioned contract, one schema). Derived only from the
+        finding's own fields, nothing fetched or invented, with every claim tagged
+        by its epistemic class. Pure and offline: no scanning and no network
+        request is ever made from the server.
         """
-        return _finding_explanation_view(explain_finding(body))
+        return FindingExplanationDocument.model_validate(explain_finding(body).to_dict())
 
     @app.post(
         "/api/v1/vulcan/correlate",
