@@ -479,3 +479,11 @@ signed manifest); a disclaimer does not replace permission. Misuse is your
 responsibility alone.
 
 Athena audit sequences are assigned transactionally by SQLite across CLI restarts and concurrent writers. Explicit duplicate sequences are rejected without overwriting history. See [ADR-008](docs/architecture/adr-008-durable-athena-audit.md) for upgrade guidance and the remaining state/audit crash-consistency limit.
+
+## Community and collaboration
+
+- [Contributing](CONTRIBUTING.md)
+- [Code of conduct](CODE_OF_CONDUCT.md)
+- [Security reports](SECURITY.md)
+- [Accessibility](ACCESSIBILITY.md)
+- [License](LICENSE)
