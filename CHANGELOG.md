@@ -12,6 +12,19 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — ARCH-3 / API-3 (Execution Engine esplicito e osservabile)
+
+- Il motore di esecuzione durevole di Themis (store SQLite con coda/lease/heartbeat, worker con
+  preflight fail-closed e stati canonici, recupero dei lease scaduti, retry/backoff,
+  cancellazione cooperativa) è ora documentato come **servizio separabile** in
+  [ADR-009](docs/architecture/adr-009-execution-engine.md).
+- Reso **osservabile**: `ThemisJobStore.health()` restituisce `EngineHealth` (conteggi per
+  stato canonico, job attivi, e job **orfani** con lease scaduto) e il nuovo comando
+  `olympus themis jobs health` lo espone (exit `0` sano, `5`/partial se degradato, così un
+  monitor può agire sull'exit code). `expired_lease_count()` è il complemento **read-only** di
+  `recover_expired_leases()` e non muta mai lo stato. Verificato offline in
+  `tests/unit/test_themis_jobs.py`. Resta l'emissione di evidenze firmate dal motore (`API-3`).
+
 ### Added — WEB-7 (modalità avanzata: hub degli strumenti esperti)
 
 - Nuova pagina `/advanced` (scope `capabilities:read`): un hub denso che raccoglie gli

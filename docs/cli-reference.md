@@ -1353,6 +1353,14 @@ Cancel queued work or request cooperative cancellation of running work.
 | `job_id` | argument | yes | — | — |
 | `--database`, `-d` | option | no | — | — |
 
+### `olympus themis jobs health`
+
+Read-only operational health of the execution engine (ARCH-3).
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--database`, `-d` | option | no | — | — |
+
 ### `olympus themis jobs init`
 
 Initialize the private native job database.

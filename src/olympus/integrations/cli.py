@@ -1970,6 +1970,33 @@ def themis_jobs_recover(
     )
 
 
+@jobs_app.command("health")
+def themis_jobs_health(
+    database: str = typer.Option(".olympus/themis-jobs.sqlite3", "--database", "-d"),
+) -> None:
+    """Read-only operational health of the execution engine (ARCH-3).
+
+    Reports job counts by canonical state, how many are active, and how many running jobs hold
+    an expired lease (orphaned). Exit 0 when healthy, 5 (partial) when degraded — so a monitor
+    can act on the process exit code — and the full snapshot is printed as JSON.
+    """
+    import sqlite3
+
+    from olympus.themis.persistence import resolve_job_store
+
+    try:
+        report = resolve_job_store(database).health()
+    except ValueError as exc:  # unsupported backend / bad location (DATA-2)
+        typer.echo(f"olympus: engine status unavailable: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    except (OSError, sqlite3.Error) as exc:
+        typer.echo(f"olympus: engine status unavailable: {exc}", err=True)
+        raise typer.Exit(code=exit_code_for(RunStatus.FAILED)) from exc
+    typer.echo(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+    if report.degraded:
+        raise typer.Exit(code=exit_code_for(RunStatus.PARTIAL))
+
+
 def _identity_register(path: str, *, create: bool = False) -> IdentityRegister:
     from pathlib import Path
 
