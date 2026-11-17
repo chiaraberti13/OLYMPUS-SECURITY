@@ -53,6 +53,7 @@ from olympus.core.execution import (
 )
 from olympus.core.migrations import migrate_document
 from olympus.core.observability import Correlation, Observability
+from olympus.engines.evidence import Signer
 from olympus.engines.preflight import PreflightVerdict
 from olympus.integrations.activity import RiskClass
 from olympus.integrations.activity import profile as activity_profile
@@ -1354,6 +1355,10 @@ class ThemisWorker:
     clock: Callable[[], datetime] = field(default=_utcnow, repr=False)
     #: Fail-closed engine preflight (TOOLS-4.1); None uses the real host inspection.
     engine_preflight: EnginePreflight | None = None
+    #: Signed run evidence (TOOLS-4.5): when both are set, every executed job writes a signed
+    #: ``olympus.engine-run-evidence`` manifest at ``evidence_dir/<job_id>.json`` (plus ``.sig``).
+    evidence_dir: Path | None = None
+    evidence_signer: Signer | None = None
 
     def __post_init__(self) -> None:
         _validated_worker_id(self.worker_id)
@@ -1432,6 +1437,13 @@ class ThemisWorker:
                     # target when a required engine is missing/unusable. Runs after manifest
                     # authorization and before any resolution or network I/O.
                     self._enforce_engine_preflight(record, audit_path)
+                # Signed run evidence (TOOLS-4.5): the engine emits it, not the interface, so a
+                # job executed by the worker is as provable as one from ``themis run --evidence``.
+                evidence_path = (
+                    self.evidence_dir / f"{record.job_id}.json"
+                    if self.evidence_dir is not None and self.evidence_signer is not None
+                    else None
+                )
                 with _Heartbeat(
                     self.store, job.job_id, self.worker_id, job_cancellation, self.heartbeat_seconds
                 ):
@@ -1447,6 +1459,8 @@ class ThemisWorker:
                             manifest_sha256=record.manifest_sha256,
                             audit_path=audit_path,
                             cancellation=job_cancellation,
+                            evidence_path=evidence_path,
+                            evidence_signer=self.evidence_signer if evidence_path else None,
                         )
                     )
             except BaseException as exc:
