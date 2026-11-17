@@ -756,6 +756,12 @@
       "method": "GET",
       "path": "/tools",
       "handler": "tools_page"
+    },
+    {
+      "surface": "web",
+      "method": "GET",
+      "path": "/advanced",
+      "handler": "advanced_page"
     }
   ],
   "data_contracts": {

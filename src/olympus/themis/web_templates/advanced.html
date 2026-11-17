@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Advanced · Olympus Themis{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Advanced mode</h1>
+  <p class="muted">
+    Expert entry points on the <strong>same backend and the same controls</strong> as the
+    guided flow. Every tool here is authorized server-side; this page only shows which ones
+    your identity may reach. A tool you lack the scope for is listed but not linked — opening
+    it would still be refused by that endpoint.
+  </p>
+  {% for group in groups %}
+  <h2>{{ group.name }}</h2>
+  <ul class="advanced-tools">
+    {% for tool in group.tools %}
+    <li>
+      {% if tool.accessible %}
+      <a href="{{ tool.href }}">{{ tool.label }}</a>
+      {% else %}
+      <span class="muted">{{ tool.label }}</span>
+      <span class="badge badge-warn">requires <code>{{ tool.scope }}</code></span>
+      {% endif %}
+      <br><span class="muted">{{ tool.description }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endfor %}
+</section>
+{% endblock %}
