@@ -28,13 +28,13 @@
   {% for row in rows %}
   <h3><a href="/findings/{{ row.finding_id }}">{{ row.finding_id }}</a> · {{ row.title }}</h3>
   {% if row.associations %}
-  <table>
+  <div class="table-wrap" tabindex="0" role="region" aria-label="Associations for {{ row.finding_id }}"><table>
     <caption>Automatic associations for {{ row.finding_id }}</caption>
     <thead><tr><th scope="col">Technique</th><th scope="col">Tactic</th><th scope="col">Confidence</th><th scope="col">Provenance</th></tr></thead>
     <tbody>{% for item in row.associations %}
       <tr><td>{{ item.technique }} · {{ item.name }}</td><td>{{ item.tactic }}</td><td>{{ item.confidence }}</td><td>{{ item.source }} · {{ item.rationale }}</td></tr>
     {% endfor %}</tbody>
-  </table>
+  </table></div>
   {% else %}<p class="muted">No association in the current mapping.</p>{% endif %}
   {% else %}<p class="muted">No findings in the configured store.</p>{% endfor %}
 </section>

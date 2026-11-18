@@ -30,9 +30,9 @@
 </section>
 
 <section class="card">
-  <h2>New <span class="muted">— present now, absent in the baseline</span></h2>
+  <h2 id="diff-new">New <span class="muted">— present now, absent in the baseline</span></h2>
   {% if new %}
-  <table>
+  <div class="table-wrap" tabindex="0" role="region" aria-labelledby="diff-new"><table>
     <thead><tr><th scope="col">Risk</th><th scope="col">Severity</th><th scope="col">Title</th><th scope="col">Asset</th><th scope="col">CVE</th></tr></thead>
     <tbody>
       {% for finding in new %}
@@ -45,14 +45,14 @@
       </tr>
       {% endfor %}
     </tbody>
-  </table>
+  </table></div>
   {% else %}<p class="muted">No new findings since the baseline.</p>{% endif %}
 </section>
 
 <section class="card">
-  <h2>Resolved <span class="muted">— in the baseline, gone now</span></h2>
+  <h2 id="diff-resolved">Resolved <span class="muted">— in the baseline, gone now</span></h2>
   {% if resolved %}
-  <table>
+  <div class="table-wrap" tabindex="0" role="region" aria-labelledby="diff-resolved"><table>
     <thead><tr><th scope="col">Risk</th><th scope="col">Severity</th><th scope="col">Title</th><th scope="col">Asset</th><th scope="col">CVE</th></tr></thead>
     <tbody>
       {% for finding in resolved %}
@@ -65,14 +65,14 @@
       </tr>
       {% endfor %}
     </tbody>
-  </table>
+  </table></div>
   {% else %}<p class="muted">Nothing from the baseline was resolved.</p>{% endif %}
 </section>
 
 <section class="card">
-  <h2>Persistent <span class="muted">— present in both runs</span></h2>
+  <h2 id="diff-persistent">Persistent <span class="muted">— present in both runs</span></h2>
   {% if persistent %}
-  <table>
+  <div class="table-wrap" tabindex="0" role="region" aria-labelledby="diff-persistent"><table>
     <thead><tr><th scope="col">Risk</th><th scope="col">Severity</th><th scope="col">Title</th><th scope="col">Asset</th><th scope="col">Change</th></tr></thead>
     <tbody>
       {% for finding in persistent %}
@@ -90,7 +90,7 @@
       </tr>
       {% endfor %}
     </tbody>
-  </table>
+  </table></div>
   {% else %}<p class="muted">No findings persist across both runs.</p>{% endif %}
 </section>
 {% endif %}

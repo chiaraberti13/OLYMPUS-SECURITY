@@ -195,6 +195,14 @@ def test_keyboard_sign_in_and_skip_navigation(
         ("/jobs", "Jobs"),
         ("/findings", "Findings"),
         ("/engagements", "Engagements"),
+        ("/incidents", "Incidents"),
+        ("/findings/diff", "Scan diff"),
+        ("/findings/attack", "ATT&CK finding associations"),
+        ("/correlations", "Correlation workbench"),
+        ("/explain", "Finding explanation workbench"),
+        ("/apollo", "Apollo detection workbench"),
+        ("/minerva", "Minerva custody-ledger verification"),
+        ("/metis", "Metis CTI extraction workbench"),
     ],
 )
 def test_wcag_a_aa_and_page_reflow(
@@ -213,14 +221,34 @@ def test_wcag_a_aa_and_page_reflow(
     (findings / "bundle.json").write_bytes(bundle.read_bytes())
     engagements = tmp_path / "engagements.db"
     SqliteEngagementStore(engagements).close()
-    settings = _settings(tmp_path, findings_directory=findings, engagements_database=engagements)
+    incidents = tmp_path / "incidents"
+    incidents.mkdir()
+    incident = root / "examples/output/minerva-incident.json"
+    (incidents / "incident.json").write_bytes(incident.read_bytes())
+    rules = tmp_path / "rules"
+    rules.mkdir()
+    (rules / "rule.yaml").write_bytes((root / "examples/input/apollo-rule.yaml").read_bytes())
+    baseline = tmp_path / "baseline"
+    baseline.mkdir()
+    settings = _settings(
+        tmp_path,
+        findings_directory=findings,
+        engagements_database=engagements,
+        incidents_directory=incidents,
+        baseline_findings_directory=baseline,
+        apollo_rules_directory=rules,
+    )
     with _Server(settings) as server:
         if route != "/login":
             _login(browser_page, server.url)
         response = browser_page.goto(f"{server.url}{route}")
         assert response and response.status == 200
         sync_api.expect(browser_page.get_by_role("heading", name=heading, level=1)).to_be_visible()
-        if route == "/findings":
+        if route == "/incidents":
+            sync_api.expect(browser_page.get_by_text("INC-2026-00004", exact=True)).to_be_visible()
+        if route == "/apollo":
+            sync_api.expect(browser_page.get_by_text("APL-DEMO-PWSH", exact=True)).to_be_visible()
+        if route in {"/findings", "/findings/diff"}:
             sync_api.expect(
                 browser_page.get_by_role("link", name="TCP port 443 exposed")
             ).to_be_visible()
