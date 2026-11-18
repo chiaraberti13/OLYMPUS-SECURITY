@@ -37,7 +37,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from pathlib import Path
-from typing import Literal, Protocol
+from typing import ClassVar, Literal, Protocol
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -325,6 +325,10 @@ class ThemisJobStore:
     lease_seconds: float = DEFAULT_LEASE_SECONDS
     backoff_seconds: float = 5.0
     max_backoff_seconds: float = 300.0
+
+    #: Bounded budget (seconds) for switching a cold database to WAL under
+    #: concurrent opens; not a dataclass field.
+    _WAL_SWITCH_BUDGET_SECONDS: ClassVar[float] = 10.0
 
     def __post_init__(self) -> None:
         if not 1.0 <= self.lease_seconds <= 86_400.0:
@@ -1076,12 +1080,41 @@ class ThemisJobStore:
         # WAL lets a reader (status, list) run while a worker holds a write
         # transaction; FULL keeps a committed transition on disk before the
         # caller is told it happened.
-        db.execute("PRAGMA journal_mode = WAL")
+        self._enter_wal_mode(db)
         db.execute("PRAGMA synchronous = FULL")
         # Deleted rows carry targets, errors and results. secure_delete zeroes
         # the freed pages instead of leaving that content in the file.
         db.execute("PRAGMA secure_delete = ON")
         return db
+
+    def _enter_wal_mode(self, db: sqlite3.Connection) -> None:
+        """Switch to WAL, waiting out the cold-start lock storm instead of failing.
+
+        ``PRAGMA journal_mode = WAL`` takes a brief exclusive lock to change the
+        mode and does **not** honour ``busy_timeout``. When several fresh
+        processes open a brand-new database at once (the ``QA-4`` cold-start case)
+        one can get ``SQLITE_BUSY`` and lose its write. Retry within a bounded
+        budget with jittered backoff: the first opener switches the file — a
+        persistent change — after which the pragma is an immediate no-op for every
+        other connection, so the retries converge quickly. Only genuine, sustained
+        contention past the budget still raises, never a wrong journal mode.
+        """
+        deadline = time.monotonic() + self._WAL_SWITCH_BUDGET_SECONDS
+        delay = 0.005
+        while True:
+            try:
+                row = db.execute("PRAGMA journal_mode = WAL").fetchone()
+            except sqlite3.OperationalError:
+                row = None
+            if row is not None and str(row[0]).lower() == "wal":
+                return
+            if time.monotonic() >= deadline:
+                raise sqlite3.OperationalError(
+                    "could not switch the Themis job database to WAL journal mode "
+                    "under concurrent cold-start access"
+                )
+            time.sleep(delay + secrets.randbelow(5) / 1000.0)
+            delay = min(delay * 2, 0.1)
 
     @contextmanager
     def _reading(self) -> Iterator[sqlite3.Connection]:
