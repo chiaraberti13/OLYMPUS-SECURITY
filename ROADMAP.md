@@ -301,12 +301,20 @@ long-lived, stato durevole). Modello adottato:
 
 ## 14. Quality Assurance e test
 
-- **QA-1** [x] Suite unit/integration/contract (~2663 test) verde in CI; coverage gate ≥75%; mutation mirato; fuzzing parser.
-- **QA-2** [~] Test end-to-end Web (browser reali), accessibilità WCAG, responsive. Chromium controlla anche reflow e regole WCAG A/AA su cinque viste a 320 e 1280 px. Risultati per vista e viewport nell’artefatto CI `browser-accessibility`. Rimane aperta la verifica dei criteri non decidibili automaticamente e degli altri percorsi.
+Evidenze del 18 novembre 2026 su `main` al commit `ea509aa`: [run CI con log e artefatti](https://github.com/chiaraberti13/OLYMPUS-SECURITY/actions/runs/44282879093) e [verifica dei controlli obbligatori sullo stesso commit](https://github.com/chiaraberti13/OLYMPUS-SECURITY/actions/runs/44283551692).
+
+- **QA-1** [x] Suite unit, contract e integration verdi su Ubuntu con Python 3.11–3.14. Sul job Python 3.11 sono passati rispettivamente 3.120, 224 e 91 test. Verificati anche il gate di branch coverage ≥75% e i mutation test mirati.
+- **QA-2** [~] Test end-to-end Web (browser reali), accessibilità WCAG, responsive.
+  - [x] Quattro test Chromium verificano gli stati degli archivi e la navigazione da tastiera su mobile e desktop.
+  - [x] Dieci audit su login, dashboard, job, finding ed engagement verificano le regole WCAG A/AA automatizzate e il reflow a 320 e 1280 px. L’artefatto `browser-accessibility` conserva i risultati per vista e viewport.
+  - [ ] Restano da verificare gli altri percorsi Web e i criteri di accessibilità che richiedono valutazione umana.
 - **QA-3** [ ] Test degli adapter contro output reale in lab autorizzato (promozione live-tested). Requisiti aggiunti dalla revisione 2026-11-03: harness **riproducibile** (bersaglio di laboratorio versionato — `PURPLE-2`/`labs/mars` —, versioni di engine e dati pinnate, esito atteso), esecuzione dei test `live_lab` fuori dalla CI ordinaria ma con procedura documentata, ed **evidenza committata** (firmata, `TOOLS-4.5`) per ogni promozione; i risultati ottenuti solo in locale e senza evidenza non promuovono nulla. Fornisce il livello L3 di `TOOLS-4.2`.
   - **Esecuzione Nuclei su GitHub Actions (PR #142).** Dopo il merge del workflow sul branch predefinito, aprire **Actions → Nuclei live lab → Run workflow** su `main` e selezionare `authorized`. Il runner temporaneo installa Nuclei e il commit dei template dai manifest e il test avvia un bersaglio HTTP sintetico vincolato a `127.0.0.1`. Il percorso è disponibile anche per chi riprende il lavoro senza un laboratorio locale o senza il binario sul proprio PC. Non occorre fornire un target esterno. L'avvio resta esplicito e il job fallisce se i test vengono saltati.
   - **Criterio di chiusura per Nuclei.** Registrare il link al run verde e lo SHA effettivamente testato, con le versioni e l'evidenza firmata prevista da `TOOLS-4.5` prima della promozione a *live-tested*. La disponibilità del workflow non certifica un'esecuzione. Per gli altri adapter e per le integrazioni live restano necessari scenari autorizzati e verifiche dedicate.
-- **QA-4** [~] Matrice OS/Python oltre a quella CI; performance/concorrenza sotto carico. In CI: contratti portabili su macOS e Windows per ogni Python 3.11–3.14, benchmark standard e tre prove di persistenza concorrente da 2.000 job.
+- **QA-4** [~] Matrice OS/Python e performance/concorrenza sotto carico.
+  - [x] Contratti portabili superati in tutti gli otto ambienti macOS e Windows con Python 3.11–3.14.
+  - [x] Profilo prestazionale standard completato su Ubuntu. Nelle tre prove con database migrato e otto processi sono stati persistiti 2.000 job su 2.000 per prova. L’artefatto `offline-benchmarks` del run su `ea509aa` contiene tempi e conteggi.
+  - [ ] Avvio concorrente su database vuoto. Con quattro processi la prova su `ea509aa` ha persistito 200/200 job; nella [ripetizione su una modifica esclusivamente documentale](https://github.com/chiaraberti13/OLYMPUS-SECURITY/actions/runs/44285996059/job/134738716686) cinque invii hanno restituito `OperationalError`. Con otto processi una prova separata ha persistito 1.999/2.000 job durante l’inizializzazione del journal SQLite. Il deployment Compose esegue prima la migrazione. La chiusura richiede una correzione e una verifica ripetibile su database vuoto. [Dettagli delle condizioni di prova](docs/testing.md#automated-development-environments).
 
 ## 15. Documentazione e localizzazione
 
