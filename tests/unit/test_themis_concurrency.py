@@ -4,6 +4,7 @@ import sqlite3
 import stat
 import subprocess
 import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -11,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from olympus.themis.concurrency import RequestConcurrencyGate
+from olympus.themis.jobs import ThemisJobStore
 
 
 @pytest.mark.parametrize("invalid", (0, 4_097, True))
@@ -174,3 +176,67 @@ def test_try_acquire_waits_out_a_transient_lock_instead_of_reporting_overload(
 
     assert lease is not None  # capacity was free; the lock was only transient
     gate.release(lease)
+
+
+def test_enter_wal_mode_switches_a_fresh_database(tmp_path: Path) -> None:
+    database = tmp_path / "jobs.sqlite3"
+    store = ThemisJobStore(database)
+    connection = sqlite3.connect(database)
+    try:
+        store._enter_wal_mode(connection)
+        mode = connection.execute("PRAGMA journal_mode").fetchone()[0]
+    finally:
+        connection.close()
+    assert str(mode).lower() == "wal"
+
+
+def test_enter_wal_mode_gives_up_with_a_clear_error_under_a_held_lock(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # QA-4 core: switching journal mode is impossible while another connection is
+    # open, and the switch does not honour busy_timeout. A sustained contender
+    # must make the bounded retry give up with an explicit error, never leave the
+    # connection silently in a rollback (non-WAL) journal mode.
+    database = tmp_path / "jobs.sqlite3"
+    holder = sqlite3.connect(database, isolation_level=None)
+    holder.execute("CREATE TABLE t(x)")
+    holder.execute("BEGIN EXCLUSIVE")
+    monkeypatch.setattr(ThemisJobStore, "_WAL_SWITCH_BUDGET_SECONDS", 0.1)
+    store = ThemisJobStore(database)
+    victim = sqlite3.connect(database)
+    victim.execute("PRAGMA busy_timeout = 0")
+    try:
+        with pytest.raises(sqlite3.OperationalError, match="WAL journal mode"):
+            store._enter_wal_mode(victim)
+    finally:
+        victim.close()
+        holder.close()
+
+
+def test_enter_wal_mode_recovers_when_a_transient_contender_clears(tmp_path: Path) -> None:
+    # The cold-start storm is transient: once the first opener switches the file
+    # (or every contender closes), the retry must converge and switch to WAL.
+    database = tmp_path / "jobs.sqlite3"
+    holder = sqlite3.connect(database, isolation_level=None, check_same_thread=False)
+    holder.execute("CREATE TABLE t(x)")
+    holder.execute("BEGIN EXCLUSIVE")
+    released = threading.Event()
+
+    def _release_soon() -> None:
+        time.sleep(0.1)
+        holder.execute("COMMIT")
+        holder.close()
+        released.set()
+
+    worker = threading.Thread(target=_release_soon)
+    worker.start()
+    store = ThemisJobStore(database)
+    victim = sqlite3.connect(database)
+    try:
+        store._enter_wal_mode(victim)  # retries while contended, succeeds once clear
+        mode = victim.execute("PRAGMA journal_mode").fetchone()[0]
+    finally:
+        worker.join()
+        victim.close()
+    assert released.is_set()
+    assert str(mode).lower() == "wal"

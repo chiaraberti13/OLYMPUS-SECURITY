@@ -12,6 +12,22 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Fixed — contesa SQLite all'avvio a freddo (QA-4)
+
+- `ThemisJobStore._connect` eseguiva `PRAGMA journal_mode = WAL` a ogni apertura; il passaggio
+  a WAL richiede un breve lock esclusivo che non onora `busy_timeout` ed è impossibile mentre
+  altre connessioni sono aperte, quindi all'avvio concorrente su un database vuoto un processo
+  poteva ricevere `SQLITE_BUSY` e **perdere la scrittura**. Introdotto `_enter_wal_mode`: riprova
+  il passaggio a WAL entro un budget limitato con backoff jitterato (il primo processo converte il
+  file, poi il pragma è un no-op immediato per tutti), sollevando solo su contesa sostenuta oltre
+  il budget — mai un journal mode errato. Test deterministici in `tests/unit/test_themis_concurrency.py`;
+  verifica ripetibile 40/40 cold-start (4 e 8 processi) dopo il fix.
+- Diagnostica del benchmark offline di concorrenza (`scripts/benchmark_themis_concurrency.py`): ogni
+  invio fallito registra id richiesta, processo mittente e `sqlite_errorcode`/`sqlite_errorname`
+  (conteggio aggregato per classe mantenuto per la CI); riconciliazione id inviati↔presenti con
+  mancanti/duplicate/inattese; fallisce su qualsiasi discrepanza producendo comunque il report JSON.
+  È la diagnostica che ha individuato il difetto sopra. Test in `tests/unit/test_benchmark_themis_concurrency.py`.
+
 ### Fixed — catalogo schemi (coerenza doc↔catalogo)
 
 - Pubblicato nel catalogo versionato il contratto `olympus.apollo-rule` 1.0.0 (`DetectionRule`):
