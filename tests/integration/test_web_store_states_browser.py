@@ -1,7 +1,8 @@
-"""Real-browser check of WEB-B-01: a failed store is not shown as an empty one.
+"""Real-browser checks for store status and keyboard access to the control plane.
 
 Opt-in by dependency: skipped unless the optional ``playwright`` package and a
 Chromium binary are available (set ``OLYMPUS_CHROMIUM`` to override the path).
+Set ``OLYMPUS_REQUIRE_BROWSER=1`` to require both dependencies and a working browser.
 The server binds to loopback only, on an ephemeral port, with synthetic data.
 """
 
@@ -17,13 +18,17 @@ from pathlib import Path
 
 import pytest
 
-sync_api = pytest.importorskip("playwright.sync_api")
-uvicorn = pytest.importorskip("uvicorn")
+if os.environ.get("OLYMPUS_REQUIRE_BROWSER") == "1":
+    import playwright.sync_api as sync_api
+    import uvicorn
+else:
+    sync_api = pytest.importorskip("playwright.sync_api")
+    uvicorn = pytest.importorskip("uvicorn")
 
-from olympus.engagements.store import SqliteEngagementStore  # noqa: E402
-from olympus.themis.api import ApiSettings  # noqa: E402
-from olympus.themis.identity import SCOPES  # noqa: E402
-from olympus.themis.web import create_web_app  # noqa: E402
+from olympus.engagements.store import SqliteEngagementStore
+from olympus.themis.api import ApiSettings
+from olympus.themis.identity import SCOPES
+from olympus.themis.web import create_web_app
 
 pytestmark = pytest.mark.integration
 
@@ -103,7 +108,9 @@ def browser_page() -> Iterator[object]:
             browser = playwright.chromium.launch(
                 executable_path=_chromium_path(), args=_launch_args()
             )
-        except Exception as exc:  # no browser binary in this environment
+        except sync_api.Error as exc:
+            if os.environ.get("OLYMPUS_REQUIRE_BROWSER") == "1":
+                raise
             pytest.skip(f"Chromium unavailable: {type(exc).__name__}")
         context = browser.new_context()
         yield context.new_page()
@@ -149,3 +156,31 @@ def test_healthy_empty_store_is_not_reported_unavailable_in_a_real_browser(
         listing = browser_page.inner_text("body")  # type: ignore[attr-defined]
         assert "No engagements yet" in listing
         assert "store is unavailable" not in listing
+
+
+@pytest.mark.parametrize("width", [360, 1280], ids=["mobile", "desktop"])
+def test_keyboard_sign_in_and_skip_navigation(
+    tmp_path: Path, browser_page: sync_api.Page, width: int
+) -> None:
+    browser_page.set_viewport_size({"width": width, "height": 800})
+    with _Server(_settings(tmp_path)) as server:
+        browser_page.goto(f"{server.url}/login")
+        assert browser_page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+        credential = browser_page.get_by_label("API credential", exact=True)
+        sync_api.expect(credential).to_be_focused()
+        browser_page.keyboard.type(API_KEY)
+        browser_page.keyboard.press("Tab")
+        sync_api.expect(browser_page.get_by_role("button", name="Sign in")).to_be_focused()
+        browser_page.keyboard.press("Enter")
+
+        browser_page.wait_for_url(f"{server.url}/")
+        main = browser_page.get_by_role("main")
+        sync_api.expect(main.get_by_role("heading", level=1, name="Dashboard")).to_be_visible()
+        browser_page.keyboard.press("Tab")
+        skip_link = browser_page.get_by_role("link", name="Skip to content")
+        sync_api.expect(skip_link).to_be_focused()
+        sync_api.expect(skip_link).to_be_in_viewport()
+        browser_page.keyboard.press("Enter")
+        browser_page.wait_for_url(f"{server.url}/#main")
+        browser_page.keyboard.press("Tab")
+        sync_api.expect(main.locator(":focus")).to_have_count(1)

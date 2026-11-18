@@ -18,6 +18,8 @@ python -m pip install -e ".[dev]"\nmake install
 ```bash
 make lint\nmake typecheck\nmake test
 ```
+The development team owns the test environments, execution and evidence for each task. Record the tested commit, results and any blocked checks in the PR. The owner’s local trial follows development and is optional.
+
 Network-active changes must preserve explicit authorized-scope enforcement, canonical exit semantics, audit records and deterministic offline tests through injected I/O.
 
 ## Engineering expectations
