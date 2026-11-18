@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import builtins
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -92,7 +93,23 @@ def test_export_writes_restricted_pdf_file(tmp_path: Path) -> None:
     target = tmp_path / "report.pdf"
     export_pdf(_report(), target)
     assert target.read_bytes().startswith(b"%PDF-")
-    assert (target.stat().st_mode & 0o777) == 0o600
+    if sys.platform == "win32":
+        import win32security
+
+        sd = win32security.GetNamedSecurityInfo(
+            str(target),
+            win32security.SE_FILE_OBJECT,
+            win32security.OWNER_SECURITY_INFORMATION | win32security.DACL_SECURITY_INFORMATION,
+        )
+        control, _ = sd.GetSecurityDescriptorControl()
+        assert control & win32security.SE_DACL_PROTECTED
+        acl = sd.GetSecurityDescriptorDacl()
+        assert acl.GetAceCount() == 1
+        (ace_type, flags), _, trustee = acl.GetAce(0)
+        assert (ace_type, flags) == (win32security.ACCESS_ALLOWED_ACE_TYPE, 0)
+        assert trustee == sd.GetSecurityDescriptorOwner()
+    else:
+        assert (target.stat().st_mode & 0o777) == 0o600
 
 
 def test_missing_reportlab_raises_actionable_error(monkeypatch: pytest.MonkeyPatch) -> None:

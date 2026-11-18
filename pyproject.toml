@@ -32,9 +32,11 @@ dependencies = [
     # Scanner output is untrusted XML; defusedxml disables entity expansion
     # and external references at the parser boundary.
     "defusedxml>=0.7.1",
+    "pywin32>=311; sys_platform == 'win32'",
 ]
 
 [project.optional-dependencies]
+browser-test = ["playwright>=1.49,<2"]
 dev = [
     "pytest>=8.0",
     "pytest-cov>=5.0",

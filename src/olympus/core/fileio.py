@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import stat
+import sys
 import tempfile
 from collections.abc import Iterator
 from contextlib import contextmanager, suppress
@@ -144,6 +145,67 @@ def iter_regular_utf8_lines(
             os.close(descriptor)
 
 
+def _temporary_file(path: Path, mode: int | None) -> tuple[int, str]:
+    """Create a private Windows file with its final DACL before opening it for I/O."""
+    if sys.platform == "win32" and mode == 0o600:
+        import msvcrt
+        from uuid import uuid4
+
+        import pywintypes
+        import win32api
+        import win32con
+        import win32file
+        import win32security
+
+        token = win32security.OpenProcessToken(win32api.GetCurrentProcess(), win32con.TOKEN_QUERY)
+        try:
+            user, _ = win32security.GetTokenInformation(token, win32security.TokenUser)
+        finally:
+            token.Close()
+        sid = win32security.ConvertSidToStringSid(user)
+        attributes = pywintypes.SECURITY_ATTRIBUTES()
+        attributes.bInheritHandle = False
+        attributes.SECURITY_DESCRIPTOR = (
+            win32security.ConvertStringSecurityDescriptorToSecurityDescriptor(
+                f"O:{sid}D:P(A;;FA;;;{sid})", win32security.SDDL_REVISION_1
+            )
+        )
+        temporary = path.with_name(f".{path.name}.{uuid4().hex}")
+        handle = win32file.CreateFile(
+            str(temporary),
+            win32con.GENERIC_WRITE | win32con.READ_CONTROL,
+            0,
+            attributes,
+            win32con.CREATE_NEW,
+            win32con.FILE_ATTRIBUTE_NORMAL,
+            None,
+        )
+        try:
+            # Some volumes do not implement persistent file ACLs. Fail closed
+            # before writing even one byte unless the effective DACL is private.
+            sd = win32security.GetSecurityInfo(
+                handle, win32security.SE_FILE_OBJECT, win32security.DACL_SECURITY_INFORMATION
+            )
+            acl = sd.GetSecurityDescriptorDacl()
+            control, _ = sd.GetSecurityDescriptorControl()
+            if (
+                not control & win32security.SE_DACL_PROTECTED
+                or acl is None
+                or acl.GetAceCount() != 1
+                or acl.GetAce(0)[0][0] != win32security.ACCESS_ALLOWED_ACE_TYPE
+                or acl.GetAce(0)[2] != user
+            ):
+                raise PermissionError("The filesystem did not apply the private file ACL")
+            descriptor = msvcrt.open_osfhandle(int(handle), os.O_WRONLY | os.O_BINARY)
+        except BaseException:
+            handle.Close()
+            temporary.unlink(missing_ok=True)
+            raise
+        handle.Detach()  # The CRT descriptor now owns the Win32 handle.
+        return descriptor, str(temporary)
+    return tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+
+
 def atomic_write_bytes(
     path: Path, content: bytes, *, mode: int | None = None, overwrite: bool = True
 ) -> None:
@@ -156,10 +218,10 @@ def atomic_write_bytes(
     create-only artifact can never clobber an existing file.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    descriptor, temporary_name = _temporary_file(path, mode)
     temporary = Path(temporary_name)
     try:
-        if mode is not None:
+        if mode is not None and not (sys.platform == "win32" and mode == 0o600):
             os.fchmod(descriptor, mode)
         with os.fdopen(descriptor, "wb") as handle:
             descriptor = -1
@@ -212,10 +274,10 @@ def atomic_text_writer(
 ) -> Iterator[TextIO]:
     """Yield a streaming text writer and publish it atomically on success."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    descriptor, temporary_name = _temporary_file(path, mode)
     temporary = Path(temporary_name)
     try:
-        if mode is not None:
+        if mode is not None and not (sys.platform == "win32" and mode == 0o600):
             os.fchmod(descriptor, mode)
         with os.fdopen(descriptor, "w", encoding=encoding, newline="") as handle:
             descriptor = -1

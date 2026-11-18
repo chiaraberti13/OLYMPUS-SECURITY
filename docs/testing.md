@@ -46,3 +46,18 @@ Textual pilot tests are offline integration checks, not real browser or screen
 reader validation. See [verification status](verification-status.md) for actual
 commands, outcomes and environment limitations. Never infer a passed suite from
 its presence or from an older run on a different commit.
+
+## Automated development environments
+
+The Ubuntu Python 3.11 job installs the `browser-test` extra and Chromium and
+runs the real-browser module against a loopback web server with temporary stores.
+To reproduce it, install `.[dev,api,browser-test]`, run
+`python -m playwright install --with-deps chromium`, then run
+`OLYMPUS_REQUIRE_BROWSER=1 python -m pytest tests/integration/test_web_store_states_browser.py`.
+An existing Chromium binary can be selected with `OLYMPUS_CHROMIUM`.
+
+The same job records quick-profile timings and verifies that four concurrent
+writers persist all 200 synthetic jobs. Download the `offline-benchmarks`
+artifact from the run for the measurements. Timing values are descriptive on
+shared runners. The macOS and Windows jobs additionally exercise the schema
+catalog and PDF output on Python 3.14 after their Python 3.11 wheel checks.
