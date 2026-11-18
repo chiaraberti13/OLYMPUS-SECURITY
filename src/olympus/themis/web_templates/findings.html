@@ -92,7 +92,7 @@
   </nav>
 
   {% if findings %}
-  <table>
+  <div class="table-wrap" role="region" aria-label="Findings table" tabindex="0"><table>
     <thead>
       <tr><th scope="col">Risk</th><th scope="col">Severity</th><th scope="col">Status</th><th scope="col">Title</th><th scope="col">Asset</th><th scope="col">Source</th><th scope="col">CVE</th><th scope="col">KEV</th></tr>
     </thead>
@@ -110,7 +110,7 @@
       </tr>
       {% endfor %}
     </tbody>
-  </table>
+  </table></div>
   {% else %}
   <p class="muted">No findings match. {% if total %}Adjust the filters above.{% else %}No bundles were found in the configured directory.{% endif %}</p>
   {% endif %}

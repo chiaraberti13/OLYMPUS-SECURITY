@@ -6,6 +6,8 @@ CLI, TUI and reports. Check text feedback, operation without colour and navigati
 
 Accessibility is an ongoing objective. Automated checks do not replace manual assessment with assistive technology. This statement does not certify WCAG conformance. Lack of reported issues does not establish the absence of barriers.
 
+The Chromium job audits the login, dashboard, jobs, findings and engagements pages at 320 and 1280 CSS pixels with axe-core. It checks page reflow and fails on detected WCAG A/AA violations. The `browser-accessibility` artifact on each CI run records the rules passed, violations and checks with inconclusive results for each page and viewport. Keyboard tests also cover sign-in and the skip link.
+
 ## Environments and limitations
 
 See the [README](README.md) for runtime requirements. Runtime support does not imply compatibility with every assistive technology. Record browser, operating system, screen reader or terminal versions when testing. Third-party components and exported documents require separate assessment.

@@ -56,7 +56,7 @@ def _percentile(values: list[float], percentile: float) -> float:
     return ordered[index]
 
 
-def run(processes: int, jobs_per_process: int) -> dict[str, Any]:
+def run(processes: int, jobs_per_process: int, *, migrate_first: bool = False) -> dict[str, Any]:
     with tempfile.TemporaryDirectory(prefix="olympus-themis-load-") as directory:
         root = Path(directory)
         database = root / "jobs.sqlite3"
@@ -72,6 +72,9 @@ def run(processes: int, jobs_per_process: int) -> dict[str, Any]:
             ),
             encoding="utf-8",
         )
+        if migrate_first:
+            # The deployed services start only after the migration job completes.
+            ThemisJobStore(database).initialize()
         started = time.perf_counter()
         latencies: list[float] = []
         errors: dict[str, int] = {}
@@ -96,6 +99,7 @@ def run(processes: int, jobs_per_process: int) -> dict[str, Any]:
             "python": platform.python_version(),
             "processes": processes,
             "jobs_per_process": jobs_per_process,
+            "migrated_before_writers": migrate_first,
             "jobs_requested": total,
             "jobs_persisted": persisted,
             "elapsed_seconds": round(elapsed, 6),
@@ -122,11 +126,16 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--processes", type=int, default=4)
     parser.add_argument("--jobs-per-process", type=int, default=50)
+    parser.add_argument(
+        "--migrate-first",
+        action="store_true",
+        help="Prepare the database before measuring writes, as in the Compose deployment.",
+    )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     if not 1 <= args.processes <= 16 or not 1 <= args.jobs_per_process <= 2_000:
         parser.error("processes must be 1..16 and jobs-per-process must be 1..2000")
-    report = run(args.processes, args.jobs_per_process)
+    report = run(args.processes, args.jobs_per_process, migrate_first=args.migrate_first)
     rendered = json.dumps(report, indent=2, sort_keys=True) + "\n"
     if args.output:
         args.output.write_text(rendered, encoding="utf-8")

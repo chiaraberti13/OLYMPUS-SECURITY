@@ -22,7 +22,7 @@
     ATT&CK map <code>{{ system_status.attack_map_version }}</code> ·
     {{ system_status.configured }} of {{ system_status.subsystems | length }} optional subsystems configured
   </p>
-  <div class="table-wrap"><table>
+  <div class="table-wrap" role="region" aria-label="System status table" tabindex="0"><table>
     <thead><tr><th>Subsystem</th><th>Source</th><th>Status</th></tr></thead>
     <tbody>{% for item in system_status.subsystems %}<tr>
       <td>{{ item.name }}</td>

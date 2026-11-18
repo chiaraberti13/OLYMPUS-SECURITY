@@ -184,3 +184,73 @@ def test_keyboard_sign_in_and_skip_navigation(
         browser_page.wait_for_url(f"{server.url}/#main")
         browser_page.keyboard.press("Tab")
         sync_api.expect(main.locator(":focus")).to_have_count(1)
+
+
+@pytest.mark.parametrize("width", [320, 1280], ids=["mobile", "desktop"])
+@pytest.mark.parametrize(
+    ("route", "heading"),
+    [
+        ("/login", "Sign in"),
+        ("/", "Dashboard"),
+        ("/jobs", "Jobs"),
+        ("/findings", "Findings"),
+        ("/engagements", "Engagements"),
+    ],
+)
+def test_wcag_a_aa_and_page_reflow(
+    tmp_path: Path, browser_page: sync_api.Page, route: str, heading: str, width: int
+) -> None:
+    root = Path(__file__).resolve().parents[2]
+    script = root / "tests/browser/node_modules/axe-core/axe.min.js"
+    if not script.is_file() and os.environ.get("OLYMPUS_REQUIRE_BROWSER") != "1":
+        pytest.skip("Install the locked audit engine with npm ci --prefix tests/browser")
+
+    browser_page.add_init_script(path=script)
+    browser_page.set_viewport_size({"width": width, "height": 800})
+    findings = tmp_path / "findings"
+    findings.mkdir()
+    bundle = root / "examples/output/helios-findings.json"
+    (findings / "bundle.json").write_bytes(bundle.read_bytes())
+    engagements = tmp_path / "engagements.db"
+    SqliteEngagementStore(engagements).close()
+    settings = _settings(tmp_path, findings_directory=findings, engagements_database=engagements)
+    with _Server(settings) as server:
+        if route != "/login":
+            _login(browser_page, server.url)
+        response = browser_page.goto(f"{server.url}{route}")
+        assert response and response.status == 200
+        sync_api.expect(browser_page.get_by_role("heading", name=heading, level=1)).to_be_visible()
+        if route == "/findings":
+            sync_api.expect(
+                browser_page.get_by_role("link", name="TCP port 443 exposed")
+            ).to_be_visible()
+        result = browser_page.evaluate(
+            """async () => {
+                const tags = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22a", "wcag22aa"];
+                const audit = await axe.run(document, {runOnly: {type: "tag", values: tags}});
+                const summarize = rule => ({
+                    id: rule.id, impact: rule.impact, helpUrl: rule.helpUrl,
+                    nodes: rule.nodes.map(node => ({
+                        target: node.target, reason: node.failureSummary
+                    }))
+                });
+                return {
+                    version: audit.testEngine.version, tags,
+                    passes: audit.passes.map(rule => rule.id),
+                    violations: audit.violations.map(summarize),
+                    incomplete: audit.incomplete.map(summarize),
+                    pageWidth: document.documentElement.scrollWidth
+                };
+            }"""
+        )
+        result.update(route=route, viewport=width)
+        output = os.environ.get("OLYMPUS_A11Y_RESULTS")
+        if output:
+            directory = Path(output)
+            directory.mkdir(parents=True, exist_ok=True)
+            (directory / f"{heading.replace(' ', '-').lower()}-{width}.json").write_text(
+                json.dumps(result, indent=2), encoding="utf-8"
+            )
+        assert result["passes"], "No accessibility rules produced a pass"
+        assert not result["violations"], json.dumps(result["violations"], indent=2)
+        assert result["pageWidth"] <= width, f"Page content overflows at {width}px on {route}"
