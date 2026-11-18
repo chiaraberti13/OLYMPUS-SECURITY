@@ -21,8 +21,8 @@
 <section class="card"><h2>Unavailable</h2><p>The configured Apollo rule pack is unreadable or invalid.</p></section>
 {% else %}
 <section class="card">
-  <h2>Rules <span class="muted">({{ rules | length }})</span></h2>
-  <div class="table-wrap"><table>
+  <h2 id="apollo-rules">Rules <span class="muted">({{ rules | length }})</span></h2>
+  <div class="table-wrap" role="region" aria-labelledby="apollo-rules" tabindex="0"><table>
     <thead><tr><th>ID</th><th>Title</th><th>Event type</th><th>Severity</th><th>ATT&amp;CK</th></tr></thead>
     <tbody>{% for rule in rules %}<tr>
       <td><code>{{ rule.rule_id }}</code></td><td>{{ rule.title }}</td>
