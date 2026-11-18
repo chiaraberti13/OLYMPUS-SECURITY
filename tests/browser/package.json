@@ -1,0 +1,7 @@
+{
+  "name": "olympus-browser-tests",
+  "private": true,
+  "devDependencies": {
+    "axe-core": "4.14.1"
+  }
+}

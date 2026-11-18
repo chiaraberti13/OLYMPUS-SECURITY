@@ -19,6 +19,7 @@ body {
   background: var(--bg);
   color: var(--ink);
 }
+a { color: var(--accent); }
 .skip-link {
   position: absolute; left: -999px;
 }
@@ -65,6 +66,7 @@ button {
   background: var(--accent); color: #06101f; font-weight: 600; cursor: pointer;
 }
 button.danger { background: var(--bad); color: #1a0a0a; }
+.table-wrap { max-width: 100%; overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }
 th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid var(--line); }
 .target { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }

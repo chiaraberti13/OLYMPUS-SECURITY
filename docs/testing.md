@@ -52,12 +52,26 @@ its presence or from an older run on a different commit.
 The Ubuntu Python 3.11 job installs the `browser-test` extra and Chromium and
 runs the real-browser module against a loopback web server with temporary stores.
 To reproduce it, install `.[dev,api,browser-test]`, run
+`npm ci --prefix tests/browser --ignore-scripts --no-audit --no-fund` and
 `python -m playwright install --with-deps chromium`, then run
 `OLYMPUS_REQUIRE_BROWSER=1 python -m pytest tests/integration/test_web_store_states_browser.py`.
 An existing Chromium binary can be selected with `OLYMPUS_CHROMIUM`.
 
-The same job records quick-profile timings and verifies that four concurrent
-writers persist all 200 synthetic jobs. Download the `offline-benchmarks`
-artifact from the run for the measurements. Timing values are descriptive on
-shared runners. The macOS and Windows jobs additionally exercise the schema
-catalog and PDF output on Python 3.14 after their Python 3.11 wheel checks.
+The same job runs the standard performance profile with five measured samples
+after warm-up. It measures ingestion of 10,000 records, deduplication of 20,000
+findings, HTML report generation and a 250-job queue lifecycle. It also runs
+the original four-writer cold-start check and three load trials. Each load trial
+uses a fresh, migrated temporary database, matching the Compose deployment.
+Eight concurrent processes submit 250 jobs apiece. An independent cold-start
+experiment with eight writers and no initial migration on Linux reproduced a
+SQLite journal-mode lock in a fresh database (1,999 of 2,000 jobs persisted). A write error or a
+mismatch between requested and persisted jobs fails the job. Download
+`offline-benchmarks` for the timings, peak traced allocations and per-trial
+write counts and latency percentiles. Timing values are descriptive on shared
+runners. See [performance baselines](performance.md) for workload definitions.
+
+Each macOS and Windows runner exercises shared version compatibility, the JSON
+schema catalog and PDF rendering and private export on Python 3.11, 3.12, 3.13
+and 3.14. Both required portable wheel checks also require all eight contract
+environments to succeed. The Ubuntu matrix continues to run the regular suites
+on all four Python versions.
