@@ -87,11 +87,11 @@ th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid var(--
 .state-closed { color: var(--muted); border-color: var(--muted); }
 .tool-grid {
   display: grid; gap: 1rem;
-  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(18rem, 100%), 1fr));
 }
-.tool-card { margin: 0; display: flex; flex-direction: column; }
+.tool-card { margin: 0; display: flex; flex-direction: column; overflow-wrap: anywhere; }
 .tool-head {
-  display: flex; align-items: flex-start; justify-content: space-between; gap: .6rem;
+  display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: .6rem;
 }
 .tool-name { margin: 0; font-size: 1.1rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .tool-category { margin: .2rem 0 .4rem; color: var(--muted); font-size: .85rem; text-transform: uppercase; letter-spacing: .03em; }
@@ -107,7 +107,12 @@ th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid var(--
 .cap-dependency-missing, .cap-configuration-missing { color: var(--warn); border-color: var(--warn); }
 .detail { display: grid; grid-template-columns: max-content 1fr; gap: .3rem 1rem; }
 .detail dt { color: var(--muted); }
-.detail dd { margin: 0; }
+.detail dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 32rem) {
+  .detail { grid-template-columns: minmax(0, 1fr); }
+  .detail dd { margin-bottom: .3rem; }
+  .card h1 { overflow-wrap: anywhere; }
+}
 .status-line { font-size: 1.1rem; }
 /* New Assessment guided flow (WEB-E). */
 details.advanced { margin-top: 1rem; border: 1px solid var(--line); border-radius: 8px; padding: .4rem .8rem; }

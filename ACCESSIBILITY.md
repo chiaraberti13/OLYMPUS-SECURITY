@@ -6,7 +6,15 @@ CLI, TUI and reports. Check text feedback, operation without colour and navigati
 
 Accessibility is an ongoing objective. Automated checks do not replace manual assessment with assistive technology. This statement does not certify WCAG conformance. Lack of reported issues does not establish the absence of barriers.
 
-The Chromium job audits 13 pages covering login, dashboard, jobs, engagements, incidents, findings (list, comparison, ATT&CK associations and explanations), correlations, Apollo, Minerva and Metis at 320 and 1280 CSS pixels with axe-core. It checks page reflow and fails on detected WCAG A/AA violations. The `browser-accessibility` artifact on each CI run records the rules passed, violations and checks with inconclusive results for each page and viewport. Keyboard tests also cover sign-in and the skip link.
+The Chromium job audits all 26 declared HTML GET pages, including the
+finding, engagement and job details, plus two missing-resource responses.
+At 320 and 1280 CSS pixels it checks the expected status and heading, runs
+axe-core and checks horizontal reflow. A route inventory test flags new HTML
+GET pages missing from the audit matrix. The `browser-accessibility` artifact
+records the passed rules, violations and inconclusive checks for each case.
+Separate keyboard tests exercise sign-in and the skip link. Form submissions,
+all possible data states and assistive-technology usability require separate
+evidence.
 
 ## Environments and limitations
 

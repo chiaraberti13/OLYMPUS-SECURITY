@@ -14,6 +14,7 @@ import socket
 import threading
 import time
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -25,9 +26,11 @@ else:
     sync_api = pytest.importorskip("playwright.sync_api")
     uvicorn = pytest.importorskip("uvicorn")
 
+from olympus.core.models import Engagement, EngagementScope
 from olympus.engagements.store import SqliteEngagementStore
 from olympus.themis.api import ApiSettings
 from olympus.themis.identity import SCOPES
+from olympus.themis.jobs import HistoricalJobImport, JobState, ThemisJobStore
 from olympus.themis.web import create_web_app
 
 pytestmark = pytest.mark.integration
@@ -186,25 +189,85 @@ def test_keyboard_sign_in_and_skip_navigation(
         sync_api.expect(main.locator(":focus")).to_have_count(1)
 
 
+def _seed_terminal_job(settings: ApiSettings) -> str:
+    timestamp = datetime(2026, 1, 1, tzinfo=UTC)
+    (job,) = ThemisJobStore(settings.database).import_historical_terminal(
+        [
+            HistoricalJobImport(
+                idempotency_key="browser-history",
+                scanner="fixture",
+                target="127.0.0.1",
+                target_kind="host",
+                scope_path=settings.scope_directory / "engagement.json",
+                state=JobState.PARTIAL,
+                created_at=timestamp,
+                finished_at=timestamp,
+                result={
+                    "partial": True,
+                    "partial_reason": "Incomplete synthetic record",
+                    "finding_count": 0,
+                },
+            )
+        ]
+    )
+    return job.job_id
+
+
+AUDITED_VIEWS = [
+    ("/login", "Sign in"),
+    ("/", "Dashboard"),
+    ("/jobs", "Jobs"),
+    ("/findings", "Findings"),
+    ("/engagements", "Engagements"),
+    ("/incidents", "Incidents"),
+    ("/findings/diff", "Scan diff"),
+    ("/findings/attack", "ATT&CK finding associations"),
+    ("/correlations", "Correlation workbench"),
+    ("/explain", "Finding explanation workbench"),
+    ("/apollo", "Apollo detection workbench"),
+    ("/minerva", "Minerva custody-ledger verification"),
+    ("/tools", "Tools"),
+    ("/advanced", "Advanced mode"),
+    ("/athena", "Athena assessment planner"),
+    ("/argus", "Argus Certificate Transparency workbench"),
+    ("/artemis", "Artemis response fingerprint workbench"),
+    ("/helios", "Helios passive service identification"),
+    ("/hermes", "Hermes secret scan workbench"),
+    ("/proteus", "Proteus campaign validation workbench"),
+    ("/assessments/new", "New assessment"),
+    ("/assessments/smart", "Smart Scan"),
+    ("/metis", "Metis CTI extraction workbench"),
+    ("/findings/FND-2026-00001", "TCP port 443 exposed"),
+    ("/engagements/ENG-2026-00001", "Accessibility review"),
+    ("/jobs/{job_id}", "Job {job_id}"),
+    ("/jobs/missing", "Job not found"),
+    ("/missing-page", "Not found"),
+]
+
+
+def test_audit_matrix_exercises_each_html_get_route(tmp_path: Path) -> None:
+    from fastapi.responses import HTMLResponse
+    from fastapi.routing import APIRoute
+
+    app = create_web_app(_settings(tmp_path))
+    pages = [
+        route
+        for route in app.routes
+        if isinstance(route, APIRoute)
+        and "GET" in route.methods
+        and route.response_class is HTMLResponse
+    ]
+    audited = {path for path, _ in AUDITED_VIEWS} - {"/missing-page", "/jobs/missing"}
+    # FastAPI dispatches in declaration order. A literal /findings/diff case
+    # must not count as a visit to /findings/{finding_id}.
+    visited = {
+        next(route.path for route in pages if route.path_regex.fullmatch(path)) for path in audited
+    }
+    assert visited == {route.path for route in pages}
+
+
 @pytest.mark.parametrize("width", [320, 1280], ids=["mobile", "desktop"])
-@pytest.mark.parametrize(
-    ("route", "heading"),
-    [
-        ("/login", "Sign in"),
-        ("/", "Dashboard"),
-        ("/jobs", "Jobs"),
-        ("/findings", "Findings"),
-        ("/engagements", "Engagements"),
-        ("/incidents", "Incidents"),
-        ("/findings/diff", "Scan diff"),
-        ("/findings/attack", "ATT&CK finding associations"),
-        ("/correlations", "Correlation workbench"),
-        ("/explain", "Finding explanation workbench"),
-        ("/apollo", "Apollo detection workbench"),
-        ("/minerva", "Minerva custody-ledger verification"),
-        ("/metis", "Metis CTI extraction workbench"),
-    ],
-)
+@pytest.mark.parametrize(("route", "heading"), AUDITED_VIEWS)
 def test_wcag_a_aa_and_page_reflow(
     tmp_path: Path, browser_page: sync_api.Page, route: str, heading: str, width: int
 ) -> None:
@@ -220,7 +283,18 @@ def test_wcag_a_aa_and_page_reflow(
     bundle = root / "examples/output/helios-findings.json"
     (findings / "bundle.json").write_bytes(bundle.read_bytes())
     engagements = tmp_path / "engagements.db"
-    SqliteEngagementStore(engagements).close()
+    store = SqliteEngagementStore(engagements)
+    try:
+        if route == "/engagements/ENG-2026-00001":
+            store.save(
+                Engagement(
+                    engagement_id="ENG-2026-00001",
+                    name="Accessibility review",
+                    scope=EngagementScope(included=("audit.test",)),
+                )
+            )
+    finally:
+        store.close()
     incidents = tmp_path / "incidents"
     incidents.mkdir()
     incident = root / "examples/output/minerva-incident.json"
@@ -233,17 +307,26 @@ def test_wcag_a_aa_and_page_reflow(
     settings = _settings(
         tmp_path,
         findings_directory=findings,
+        findings_database=tmp_path / "finding-transitions.db",
         engagements_database=engagements,
         incidents_directory=incidents,
         baseline_findings_directory=baseline,
         apollo_rules_directory=rules,
     )
+    expected_heading = heading
+    if route == "/jobs/{job_id}":
+        job_id = _seed_terminal_job(settings)
+        route = route.format(job_id=job_id)
+        expected_heading = heading.format(job_id=job_id)
+    expected_status = 404 if route in {"/jobs/missing", "/missing-page"} else 200
     with _Server(settings) as server:
         if route != "/login":
             _login(browser_page, server.url)
         response = browser_page.goto(f"{server.url}{route}")
-        assert response and response.status == 200
-        sync_api.expect(browser_page.get_by_role("heading", name=heading, level=1)).to_be_visible()
+        assert response and response.status == expected_status
+        sync_api.expect(
+            browser_page.get_by_role("heading", name=expected_heading, level=1)
+        ).to_be_visible()
         if route == "/incidents":
             sync_api.expect(browser_page.get_by_text("INC-2026-00004", exact=True)).to_be_visible()
         if route == "/apollo":
@@ -276,7 +359,8 @@ def test_wcag_a_aa_and_page_reflow(
         if output:
             directory = Path(output)
             directory.mkdir(parents=True, exist_ok=True)
-            (directory / f"{heading.replace(' ', '-').lower()}-{width}.json").write_text(
+            slug = heading.lower().replace("{job_id}", "detail").replace(" ", "-")
+            (directory / f"{slug}-{width}.json").write_text(
                 json.dumps(result, indent=2), encoding="utf-8"
             )
         assert result["passes"], "No accessibility rules produced a pass"
