@@ -292,6 +292,12 @@ The browser exposes the same engine at `GET /findings/diff` when the control
 plane is started with a `--baseline-directory` alongside `--findings-directory`;
 see [`web.md`](web.md).
 
+A report can also **ship the comparison**: `olympus vulcan report
+--compare-baseline BASELINE --compare-output diff.json` writes a companion
+scan-diff (same `diff_findings` core) classifying the report's own ranked
+findings against the baseline run — a comparative Vulcan report (`VAL-1`). The two
+flags must be used together.
+
 ### Attack-surface (asset) diff — `VAL-1`
 
 `diff_assets(baseline, current)` is the asset counterpart of the finding diff: it

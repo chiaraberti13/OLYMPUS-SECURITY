@@ -9,6 +9,7 @@ from typer.testing import CliRunner
 from olympus.cli import app
 from olympus.core.enums import AssetType, Severity, Source
 from olympus.core.execution import CancellationRequested, CancellationToken
+from olympus.core.exit_codes import ExitCode
 from olympus.core.models import Alert, Asset, Finding
 from olympus.vulcan.aggregate import (
     AggregationError,
@@ -322,6 +323,59 @@ def test_cli_report_end_to_end(tmp_path: Path) -> None:
     report = json.loads(out.read_text(encoding="utf-8"))
     assert report["summary"]["findings"] == 1  # deduped
     assert md.exists()
+
+
+def test_cli_report_writes_a_scan_diff_companion(tmp_path: Path) -> None:
+    # VAL-1 comparative report: the companion classifies the report's own ranked
+    # findings against a baseline with the same core as `vulcan diff`.
+    baseline = _write(tmp_path / "base.json", [_finding("Old issue", Severity.HIGH, "AST-old")])
+    current = _write(tmp_path / "cur.json", [_finding("New issue", Severity.HIGH, "AST-new")])
+    out = tmp_path / "report.json"
+    diff_out = tmp_path / "diff.json"
+    result = runner.invoke(
+        app,
+        [
+            "vulcan",
+            "report",
+            "--engagement",
+            "demo-eng",
+            "--findings",
+            str(current),
+            "--output",
+            str(out),
+            "--compare-baseline",
+            str(baseline),
+            "--compare-output",
+            str(diff_out),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "wrote scan-diff" in result.stderr
+    diff = json.loads(diff_out.read_text(encoding="utf-8"))
+    assert diff["summary"] == {"new": 1, "resolved": 1, "persistent": 0, "worsened": 0}
+    assert [f["title"] for f in diff["new"]] == ["New issue"]
+    assert [f["title"] for f in diff["resolved"]] == ["Old issue"]
+
+
+def test_cli_report_compare_requires_both_baseline_and_output(tmp_path: Path) -> None:
+    current = _write(tmp_path / "cur.json", [_finding("Issue", Severity.HIGH)])
+    result = runner.invoke(
+        app,
+        [
+            "vulcan",
+            "report",
+            "--engagement",
+            "demo-eng",
+            "--findings",
+            str(current),
+            "--output",
+            str(tmp_path / "r.json"),
+            "--compare-baseline",
+            str(current),
+        ],
+    )
+    assert result.exit_code == ExitCode.USAGE
+    assert "compare-baseline and --compare-output" in result.stderr
 
 
 def test_cli_report_writes_csv(tmp_path: Path) -> None:

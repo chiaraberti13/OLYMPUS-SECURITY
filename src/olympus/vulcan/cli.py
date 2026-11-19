@@ -253,6 +253,19 @@ def report(
         "CORR-1 relationships between the reported findings (same core as the CLI "
         "and the API).",
     ),
+    compare_baseline: list[Path] = typer.Option(
+        [],
+        "--compare-baseline",
+        help="Earlier-run core.Finding JSON file(s) to compare the report's "
+        "findings against (repeatable); requires --compare-output.",
+    ),
+    compare_output: Path | None = typer.Option(
+        None,
+        "--compare-output",
+        help="If set, also write a companion scan-diff JSON (VAL-1) classifying the "
+        "reported findings as new/resolved/persistent against --compare-baseline "
+        "(same core as `vulcan diff`).",
+    ),
     kev: Path | None = typer.Option(
         None, "--kev", help="Local CISA KEV catalogue JSON: adds KEV flags to the PDF (offline)."
     ),
@@ -284,6 +297,12 @@ def report(
     if section not in ("full", "executive"):
         typer.echo("vulcan: --section must be 'full' or 'executive'", err=True)
         raise typer.Exit(code=ExitCode.USAGE)
+    if bool(compare_baseline) != bool(compare_output):
+        typer.echo(
+            "vulcan: --compare-baseline and --compare-output must be used together",
+            err=True,
+        )
+        raise typer.Exit(code=ExitCode.USAGE)
     outputs = tuple(
         path
         for path in (
@@ -294,6 +313,7 @@ def report(
             pdf_output,
             explanations_output,
             correlations_output,
+            compare_output,
         )
         if path is not None
     )
@@ -366,6 +386,20 @@ def report(
             # Same shared core as the CLI `correlate` and the API, over the report's
             # own ranked/filtered findings, so every surface agrees (CORR-2).
             export_report(correlations_document(outcome.report.findings), correlations_output)
+        if compare_output is not None:
+            # VAL-1 comparative report: classify the report's own ranked findings
+            # against an earlier run with the same core as `vulcan diff`.
+            baseline_findings = load_findings(
+                compare_baseline,
+                max_files=max_files,
+                max_bytes=max_input_bytes,
+                max_items_per_file=max_items_per_file,
+                max_total_items=max_total_items,
+            )
+            export_report(
+                diff_findings(baseline_findings, outcome.report.findings).to_dict(),
+                compare_output,
+            )
     except PdfUnavailableError as exc:
         typer.echo(safe_terminal_text(f"vulcan: {exc}"), err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
@@ -385,6 +419,8 @@ def report(
         typer.echo(f"vulcan: wrote finding explanations to {explanations_output}", err=True)
     if correlations_output is not None:
         typer.echo(f"vulcan: wrote correlations to {correlations_output}", err=True)
+    if compare_output is not None:
+        typer.echo(f"vulcan: wrote scan-diff to {compare_output}", err=True)
 
 
 @app.command()
