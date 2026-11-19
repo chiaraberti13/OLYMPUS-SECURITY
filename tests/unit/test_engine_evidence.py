@@ -192,6 +192,23 @@ def test_a_signed_manifest_verifies_and_any_change_breaks_it(
         verify_signed(path, public_pem=public_pem)
 
 
+@pytest.mark.parametrize("signature_content", [None, "", "invalid envelope"])
+def test_missing_or_unreadable_signature_cannot_validate_a_run(
+    engine_runs: None, tmp_path: Path, signature_content: str | None
+) -> None:
+    private_pem, public_pem = _keys()
+    path = tmp_path / "run.evidence.json"
+    write_signed(_evidence(engine_runs), _signer(private_pem), path)
+    envelope = signature_path(path)
+    if signature_content is None:
+        envelope.unlink()
+    else:
+        envelope.write_text(signature_content, encoding="utf-8")
+
+    with pytest.raises(EvidenceError):
+        verify_signed(path, public_pem=public_pem)
+
+
 def test_a_signature_from_another_key_is_refused(engine_runs: None, tmp_path: Path) -> None:
     attacker_private, _ = _keys()
     _, trusted_public = _keys()
