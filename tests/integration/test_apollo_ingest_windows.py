@@ -2,10 +2,12 @@
 
 The fixture ``tests/fixtures/apollo/ingest/windows.jsonl`` is a small, **synthetic
 but format-faithful** NDJSON export (no real data, reserved/documentation IPs): it
-carries Sysmon records (process create, network connection, image/DLL load, create
-remote thread, process access, file create, registry set, file delete) and Security
-records (4624/4625 logon, 4688 process create, 4697 service install, 4720 account
-create), plus a provider-mismatched id, an unmapped id (4634), a non-JSON line, a
+carries Sysmon records (process create, file-create-time change / timestomp, network
+connection, image/DLL load, create remote thread, process access, file create,
+registry set, named pipe created/connected, file delete) and Security records
+(4624/4625 logon, 4688 process create, 4697 service install, 4698 scheduled-task
+create, 4720 account create), plus a provider-mismatched id, an unmapped id (4634),
+a non-JSON line, a
 non-object line and a record with an invalid timestamp — so it also proves the
 parser skips what it cannot faithfully normalize instead of guessing.
 
@@ -82,6 +84,32 @@ def test_parse_derives_target_and_module_basenames() -> None:
     assert by_id["4720"].attributes["account"] == "backdoor"
 
 
+def test_parse_maps_timestomp_named_pipe_and_scheduled_task() -> None:
+    result = parse_windows_json(_FIXTURE.read_text(encoding="utf-8"), source=Source.MARS)
+    by_id = {e.attributes["event_id"]: e for e in result.events}
+
+    # Sysmon 2 (FileCreateTime): both the altered file and the actor basename, so a
+    # timestomping rule can match the temp-dir binary that rewrote the timestamp.
+    timestomp = by_id["2"]
+    assert timestomp.event_type == "windows.sysmon"
+    assert timestomp.attributes["target_filename"] == "C:\\Windows\\System32\\calc.exe"
+    assert timestomp.attributes["process_name"] == "evil.exe"
+    assert timestomp.attributes["creation_time"] == "2019-03-19T10:00:00.000Z"
+
+    # Sysmon 17/18 (named pipe created/connected) both carry the pipe name verbatim;
+    # 18 maps too even though no shipped rule targets it (coverage, not a guess).
+    assert by_id["17"].attributes["pipe_name"] == "evilc2-pipe"
+    assert by_id["17"].attributes["process_name"] == "beacon.exe"
+    assert by_id["18"].attributes["pipe_name"] == "evilc2-pipe"
+    assert by_id["18"].attributes["process_name"] == "svchost.exe"
+
+    # Security 4698 (scheduled task created) carries the task name and the actor.
+    scheduled = by_id["4698"]
+    assert scheduled.event_type == "windows.security"
+    assert scheduled.attributes["task_name"] == "UpdaterTask"
+    assert scheduled.attributes["user"] == "svc-backup"
+
+
 def test_parse_skips_provider_mismatch_unknown_and_malformed() -> None:
     result = parse_windows_json(_FIXTURE.read_text(encoding="utf-8"))
     reasons = {item.reason for item in result.skipped}
@@ -151,7 +179,7 @@ def test_ingest_cli_then_shipped_rules_detect_sysmon_and_security(tmp_path: Path
         ],
     )
     assert ingest.exit_code == 0, ingest.output
-    assert "ingested 15 event(s)" in ingest.output
+    assert "ingested 19 event(s)" in ingest.output
 
     alerts_path = tmp_path / "alerts.json"
     run = runner.invoke(
@@ -177,4 +205,7 @@ def test_ingest_cli_then_shipped_rules_detect_sysmon_and_security(tmp_path: Path
         "APL-SYSMON-LSASS-ACCESS",
         "APL-SYSMON-REMOTE-THREAD-INJECTION",
         "APL-SECURITY-SERVICE-INSTALL",
+        "APL-SYSMON-TIMESTOMP",
+        "APL-SYSMON-NAMED-PIPE-C2",
+        "APL-SECURITY-SCHEDULED-TASK",
     }

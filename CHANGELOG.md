@@ -12,6 +12,21 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — BLUE-1: parser Windows/Sysmon esteso (timestomp, named-pipe, scheduled task)
+
+- `apollo.ingest` (`windows-json`): mappati nuovi EventID ad alto segnale mantenendo la disciplina
+  *skip-never-guess* e il gating per provider — **Sysmon 2** (FileCreateTime → timestomping, con
+  `target_filename`/`creation_time`/`previous_creation_time`), **Sysmon 17/18** (named pipe
+  created/connected → IPC/C2, con `pipe_name`) e **Security 4698** (scheduled task created → persistenza,
+  con `task_name`). Allineati alla tassonomia esistente (`windows.sysmon`/`windows.security` + `event_id`,
+  `process_name` derivato dal basename dell'`Image`).
+- Tre regole di detection reali in `examples/input/apollo-sysmon`: `APL-SYSMON-TIMESTOMP` (T1070.006),
+  `APL-SYSMON-NAMED-PIPE-C2` (T1559) e `APL-SECURITY-SCHEDULED-TASK` (T1053.005), guidate end-to-end
+  dall'ingest su fixture format-fedele (`tests/fixtures/apollo/ingest/windows.jsonl`, 15 → 19 eventi
+  ingeriti, 6 → 9 regole scattate). Preview statica `public/apollo.html` rigenerata dal rule pack reale.
+- Resta solo la validazione contro telemetria Windows **reale** in lab autorizzato (promozione a
+  live-tested); tutto il resto di BLUE-1 è coperto offline.
+
 ### Changed — CI più veloce senza indebolire i gate (`CICD-1`)
 
 - `ci.yml`: aggiunto un blocco **`concurrency`** che annulla i run **superati di una PR** (solo
