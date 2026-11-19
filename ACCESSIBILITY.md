@@ -12,7 +12,7 @@ At 320 and 1280 CSS pixels it checks the expected status and heading, runs
 axe-core and checks horizontal reflow. A route inventory test flags new HTML
 GET pages missing from the audit matrix. The `browser-accessibility` artifact
 records the passed rules, violations and inconclusive checks for each case.
-Separate keyboard tests exercise sign-in and the skip link. Form submissions,
+Separate tests cover keyboard sign-in, the skip link, recovery after a rejected login and offline indicator extraction in Metis. Other form submissions,
 all possible data states and assistive-technology usability require separate
 evidence.
 

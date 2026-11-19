@@ -366,3 +366,46 @@ def test_wcag_a_aa_and_page_reflow(
         assert result["passes"], "No accessibility rules produced a pass"
         assert not result["violations"], json.dumps(result["violations"], indent=2)
         assert result["pageWidth"] <= width, f"Page content overflows at {width}px on {route}"
+
+
+def test_browser_login_recovers_after_an_invalid_credential(
+    tmp_path: Path, browser_page: sync_api.Page
+) -> None:
+    with _Server(_settings(tmp_path)) as server:
+        browser_page.goto(f"{server.url}/login")
+        credential = browser_page.get_by_label("API credential")
+        submit = browser_page.get_by_role("button", name="Sign in")
+        credential.fill("invalid-test-credential")
+        with browser_page.expect_response(f"{server.url}/login") as response:
+            submit.click()
+        assert response.value.status == 401
+        sync_api.expect(browser_page.get_by_role("alert")).to_have_text("Invalid credential.")
+        sync_api.expect(credential).to_have_value("")
+        credential.fill(API_KEY)
+        submit.click()
+        browser_page.wait_for_url(f"{server.url}/")
+        sync_api.expect(
+            browser_page.get_by_role("heading", name="Dashboard", level=1)
+        ).to_be_visible()
+
+
+def test_browser_extracts_indicators_from_a_synthetic_report(
+    tmp_path: Path, browser_page: sync_api.Page
+) -> None:
+    with _Server(_settings(tmp_path)) as server:
+        _login(browser_page, server.url)
+        browser_page.get_by_role("link", name="Metis", exact=True).click()
+        browser_page.get_by_label("Input format").select_option("text")
+        browser_page.get_by_label("Threat-intel input").fill(
+            "The exercise associated 192.0.2.44 with inventory.example.test"
+        )
+        browser_page.get_by_role("button", name="Extract").click()
+        result = browser_page.locator("section").filter(
+            has=browser_page.get_by_role("heading", name="Result", exact=True)
+        )
+        sync_api.expect(result).to_contain_text("2 indicator(s)")
+        sync_api.expect(result).to_contain_text("0 skipped")
+        sync_api.expect(
+            result.get_by_role("row", name="domain inventory.example.test")
+        ).to_be_visible()
+        sync_api.expect(result.get_by_role("row", name="ipv4 192.0.2.44")).to_be_visible()
