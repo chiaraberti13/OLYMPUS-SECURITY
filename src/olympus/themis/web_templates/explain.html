@@ -35,7 +35,7 @@
   <p>{{ explanation.summary }}</p>
 
   <h3>Risk factors</h3>
-  <div class="table-wrap"><table>
+  <div class="table-wrap" tabindex="0" role="group" aria-label="Risk factors table"><table>
     <thead><tr><th scope="col">Factor</th><th scope="col">Detail</th><th scope="col">Decisive</th></tr></thead>
     <tbody>{% for f in explanation.risk_factors %}<tr>
       <td>{{ f.factor }}</td><td>{{ f.detail }}</td><td>{{ "yes" if f.decisive else "—" }}</td>
@@ -43,7 +43,7 @@
   </table></div>
 
   <h3>Claims</h3>
-  <div class="table-wrap"><table>
+  <div class="table-wrap" tabindex="0" role="group" aria-label="Claims table"><table>
     <thead><tr><th scope="col">Statement</th><th scope="col">Epistemic class</th></tr></thead>
     <tbody>{% for s in explanation.statements %}<tr>
       <td>{{ s.text }}</td><td><code>{{ s.epistemic_class }}</code></td>

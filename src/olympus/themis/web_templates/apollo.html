@@ -63,7 +63,7 @@
   {% for item in skipped %}<tr><td>{{ item.line }}</td><td>{{ item.reason }}</td></tr>{% endfor %}
   </tbody></table>
   {% endif %}
-  {% if alerts %}<div class="table-wrap"><table>
+  {% if alerts %}<div class="table-wrap" tabindex="0" role="group" aria-label="Result table"><table>
     <thead><tr><th>Alert ID</th><th>Rule</th><th>Event ID</th><th>Severity</th><th>ATT&amp;CK</th></tr></thead>
     <tbody>{% for alert in alerts %}<tr>
       <td><code>{{ alert.alert_id }}</code></td><td>{{ alert.rule_id }}</td>

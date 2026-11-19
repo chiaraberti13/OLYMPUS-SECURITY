@@ -42,7 +42,7 @@
     {{ fingerprints | length }} technolog{{ "y" if fingerprints | length == 1 else "ies" }} detected
   </p>
   {% if fingerprints %}
-  <div class="table-wrap"><table>
+  <div class="table-wrap" tabindex="0" role="group" aria-label="Result table"><table>
     <thead><tr><th>Product</th><th>Version</th><th>Category</th><th>Evidence</th></tr></thead>
     <tbody>{% for fp in fingerprints %}<tr>
       <td><strong>{{ fp.product }}</strong></td>

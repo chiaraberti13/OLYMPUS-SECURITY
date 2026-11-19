@@ -42,7 +42,7 @@
     {{ result.skipped | length }} skipped
   </p>
   {% if result.indicators %}
-  <div class="table-wrap"><table>
+  <div class="table-wrap" tabindex="0" role="group" aria-label="Result table"><table>
     <thead><tr><th>Type</th><th>Value</th></tr></thead>
     <tbody>{% for item in result.indicators %}<tr>
       <td><code>{{ item.indicator_type.value }}</code></td>
@@ -58,7 +58,7 @@
     {{ result.skipped | length }} element(s) skipped. Unparsed or unmapped input has
     not been imported; an empty indicator set does not imply the input was clean.
   </p>
-  <div class="table-wrap"><table>
+  <div class="table-wrap" tabindex="0" role="group" aria-label="Result table"><table>
     <thead><tr><th>Element</th><th>Reason</th></tr></thead>
     <tbody>{% for item in result.skipped %}<tr>
       <td>{{ item.value }}</td><td>{{ item.reason }}</td>

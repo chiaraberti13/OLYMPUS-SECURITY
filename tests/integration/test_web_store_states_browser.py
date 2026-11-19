@@ -409,3 +409,65 @@ def test_browser_extracts_indicators_from_a_synthetic_report(
             result.get_by_role("row", name="domain inventory.example.test")
         ).to_be_visible()
         sync_api.expect(result.get_by_role("row", name="ipv4 192.0.2.44")).to_be_visible()
+
+
+_RESULT_AUDIT_JS = """async () => {
+    const tags = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22a", "wcag22aa"];
+    const audit = await axe.run(document, {runOnly: {type: "tag", values: tags}});
+    const summarize = rule => ({
+        id: rule.id, impact: rule.impact,
+        nodes: rule.nodes.map(node => ({target: node.target, reason: node.failureSummary}))
+    });
+    return {
+        passes: audit.passes.length,
+        violations: audit.violations.map(summarize),
+        pageWidth: document.documentElement.scrollWidth,
+    };
+}"""
+
+
+def _assert_result_state_accessible(page: sync_api.Page, label: str, viewport: int) -> None:
+    result = page.evaluate(_RESULT_AUDIT_JS)
+    assert result["passes"], f"No accessibility rules passed on {label}"
+    assert not result["violations"], json.dumps(result["violations"], indent=2)
+    assert result["pageWidth"] <= viewport, f"{label} content overflows at {viewport}px"
+
+
+@pytest.mark.parametrize("width", [320, 1280], ids=["mobile", "desktop"])
+def test_workbench_submission_results_are_accessible(
+    tmp_path: Path, browser_page: sync_api.Page, width: int
+) -> None:
+    # The states a form reaches *after* submission — the populated result tables
+    # the GET audit never renders. Offline workbenches, loopback only, no egress.
+    root = Path(__file__).resolve().parents[2]
+    script = root / "tests/browser/node_modules/axe-core/axe.min.js"
+    if not script.is_file() and os.environ.get("OLYMPUS_REQUIRE_BROWSER") != "1":
+        pytest.skip("Install the locked audit engine with npm ci --prefix tests/browser")
+    browser_page.add_init_script(path=script)
+    browser_page.set_viewport_size({"width": width, "height": 800})
+    with _Server(_settings(tmp_path)) as server:
+        _login(browser_page, server.url)
+
+        # Metis: extract indicators, then audit the populated result table.
+        browser_page.goto(f"{server.url}/metis")
+        browser_page.get_by_label("Threat-intel input").fill(
+            "C2 beacon to evil.example.com and 192.0.2.44 observed during the exercise"
+        )
+        browser_page.get_by_role("button", name="Extract").click()
+        browser_page.wait_for_url(f"{server.url}/metis/extract")
+        sync_api.expect(
+            browser_page.get_by_role("heading", name="Result", exact=True)
+        ).to_be_visible()
+        _assert_result_state_accessible(browser_page, "/metis/extract", width)
+
+        # Hermes: scan a secret-bearing config, then audit the masked findings table.
+        browser_page.goto(f"{server.url}/hermes")
+        browser_page.get_by_label("Text to scan").fill(
+            "AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+        )
+        browser_page.get_by_role("button", name="Scan").click()
+        browser_page.wait_for_url(f"{server.url}/hermes/scan")
+        sync_api.expect(
+            browser_page.get_by_role("heading", name="Result", exact=True)
+        ).to_be_visible()
+        _assert_result_state_accessible(browser_page, "/hermes/scan", width)

@@ -34,7 +34,7 @@
   <h2>Result</h2>
   <p>{{ result.finding_count }} potential secret(s) — values shown masked.</p>
   {% if result.findings %}
-  <div class="table-wrap"><table>
+  <div class="table-wrap" tabindex="0" role="group" aria-label="Result table"><table>
     <thead><tr><th>Rule</th><th>Line</th><th>Masked value</th><th>Fingerprint</th></tr></thead>
     <tbody>{% for f in result.findings %}<tr>
       <td><code>{{ f.rule }}</code></td>
