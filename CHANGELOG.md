@@ -12,6 +12,15 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Changed — CI più veloce senza indebolire i gate (`CICD-1`)
+
+- `ci.yml`: aggiunto un blocco **`concurrency`** che annulla i run **superati di una PR** (solo
+  `pull_request`, mai i run su `main`) e la **cache dei download pip** su ogni step `setup-python`. Ogni
+  check obbligatorio continua a **essere eseguito e a dover passare**: nessun job saltato, reso condizionale o
+  path-filtrato (il merge-gate `scripts/audit_required_checks.py` esige che ogni required sia eseguito e verde,
+  quindi saltare i job pesanti romperebbe l'audit per costruzione). Si riducono coda di esecuzione e tempi di
+  installazione, non le garanzie. `--verify-workflows` verde (nomi e set dei check invariati).
+
 ### Planned — AI-native multi-agent orchestration (`AI-*`, solo pianificazione)
 
 - Aggiunta alla ROADMAP la sezione **§21.9 «Orchestrazione AI-native multi-agente (`AI`)»**: un livello AI
