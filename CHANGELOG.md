@@ -12,6 +12,20 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Planned — AI-native multi-agent orchestration (`AI-*`, solo pianificazione)
+
+- Aggiunta alla ROADMAP la sezione **§21.9 «Orchestrazione AI-native multi-agente (`AI`)»**: un livello AI
+  **separato, opzionale e sostituibile** che **coordina** i motori deterministici esistenti (Red: Argus/
+  Artemis/Helios; Blue: Apollo/Minerva/Metis; Purple: Athena/Vulcan/correlazione) sui contratti condivisi,
+  **senza** sostituirli. Epic `AI-0`..`AI-7` (ADR+gap analysis e licenze MIT↔GPL-3.0; orchestratore agganciato
+  ad Athena/Themis; model router multi-provider con modelli locali ed egress gated; fact graph verificabile
+  con provenienza e classe epistemica; agenti Red/Blue/Purple/Verifier/Remediation con autonomia graduata;
+  self-healing; console/osservabilità via WEB-7/8; eval riproducibile) con requisiti, dipendenze e criteri di
+  accettazione. Vincoli cardine: **nessun bypass di Themis/scope/autorizzazione**, AI opzionale con fallback
+  deterministico, nessuna ipotesi presentata come fatto, gate di qualità intatti. Nuove decisioni rimandate
+  `DEC-12`..`DEC-16`; tappe `T12`/`T13`; `FUT-1` assorbito ed esteso dalla famiglia `AI-*`. **Nessun codice:**
+  riferimenti esterni (Sapper-v2 MIT, Nüwa) solo da valutare, non adottati.
+
 ### Added — VAL-1 (report comparativo Vulcan)
 
 - `olympus vulcan report --compare-baseline BASELINE --compare-output diff.json`
