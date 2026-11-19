@@ -12,6 +12,16 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — VAL-1 (report comparativo Vulcan)
+
+- `olympus vulcan report --compare-baseline BASELINE --compare-output diff.json`
+  scrive un companion scan-diff che classifica le finding ranked/filtrate del
+  report come **nuove / risolte / persistenti** rispetto a una run precedente,
+  dallo stesso core di `vulcan diff` (`diff_findings`). I due flag vanno usati
+  insieme (errore USAGE altrimenti); il path è tra gli output esclusi e ha una
+  riga di conferma su stderr. Puro e offline. Avanza `VAL-1` (resta la ricorrenza
+  via Execution Engine `API-3`).
+
 ### Fixed — contesa SQLite all'avvio a freddo (QA-4)
 
 - `ThemisJobStore._connect` eseguiva `PRAGMA journal_mode = WAL` a ogni apertura; il passaggio
@@ -344,7 +354,6 @@ below lives under **Unreleased**.
   divergere dall'API reale (più test di determinismo, blocco delimitato e presenza degli
   endpoint/contratti reali). Avanza `DOCS-2` (restano: guide Web UI per tool e guida deploy
   split).
-
 ### Added — WEB-3 (workbench Web per Helios, Hermes e Proteus)
 
 - Gli ultimi tre moduli senza pagina Web dedicata ne hanno ora una, che guida dal
