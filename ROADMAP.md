@@ -591,7 +591,7 @@ le integrazioni SIEM/CTI live restano `BLUE-2`/`BLUE-3`.
 
 Opportunità da **rivalutare**, non implementazioni immediate (P4; non sottraggono priorità al consolidamento):
 
-- **FUT-1** [ ] Livello AI assistivo (interpretazione dei finding, suggerimenti di correlazione, supporto alla redazione dei report). Ingresso solo dopo `CORR-1` ed `EXPL-1`. Vincoli: poggiare su evidenze verificabili; distinguere dati osservati da contenuto generato; citare le fonti delle conclusioni; esplicitare incertezza e limiti; non inventare vulnerabilità o compromissioni; nessuna operazione attiva senza autorizzazione; rispetto di scope, privacy (incluso cosa lascia il perimetro verso modelli esterni), audit e sicurezza.
+- **FUT-1** [ ] Livello AI assistivo (interpretazione dei finding, suggerimenti di correlazione, supporto alla redazione dei report). Ingresso solo dopo `CORR-1` ed `EXPL-1`. Vincoli: poggiare su evidenze verificabili; distinguere dati osservati da contenuto generato; citare le fonti delle conclusioni; esplicitare incertezza e limiti; non inventare vulnerabilità o compromissioni; nessuna operazione attiva senza autorizzazione; rispetto di scope, privacy (incluso cosa lascia il perimetro verso modelli esterni), audit e sicurezza. **Assorbito ed esteso dalla famiglia `AI-*` (§21.9):** l'orchestrazione AI-native multi-agente generalizza questo livello assistivo mantenendone invariati i vincoli; `FUT-1` resta come voce storica e si realizza tramite `AI-1`/`AI-3`/`AI-4`.
 - **FUT-2** [ ] Ulteriori motori di scansione, solo se necessari ai workflow prioritari: criterio d'ingresso è una capability mancante in `olympus catalog` e la Definition of Done di §18, non il numero di engine.
 - **FUT-3** [ ] Evoluzione verso microservizi, solo con un requisito misurato di scalabilità, isolamento o manutenzione; il monolite modulare (§3) resta l'architettura di riferimento e `ARCH-3` precede qualunque separazione.
 
@@ -618,9 +618,9 @@ obiettivi complessivi.
 |---|---|---|---|
 | P0 | correzione urgente | `SEC-4.1–4.4`, `TOOLS-4.1`, `TOOLS-4.4`, `TOOLS-4.5` | `main` non ha gate dimostrati; un assessment può partire senza engine obbligatori; stati ed evidenze non sono uniformi tra i percorsi |
 | P1 | consolidamento | `TOOLS-4.2`, `TOOLS-4.3`, `TOOLS-4.6`, `TOOLS-5`, `API-3`, `QA-3`, `CICD-1/2/3` | rendono verificabile e ripetibile ciò che già esiste |
-| P2 | integrazione trasversale / evoluzione | `EXPL-1/2`, `CORR-1/2`, `VAL-1/2/3`, `PURPLE-1/2`, `SEC-4.5` | richiedono contratti, stati ed evidenze affidabili (P0/P1) |
-| P3 | esperienza d'uso | `WEB-5/6/7/8`, `TECH-2`, `QA-2` | stesso backend e stessi controlli delle altre interfacce |
-| P4 | differite | `FUT-1/2/3` | solo se giustificate da requisiti reali |
+| P2 | integrazione trasversale / evoluzione | `EXPL-1/2`, `CORR-1/2`, `VAL-1/2/3`, `PURPLE-1/2`, `SEC-4.5`, `AI-0/1/2/3/4/7` (21.9) | richiedono contratti, stati ed evidenze affidabili (P0/P1) |
+| P3 | esperienza d'uso | `WEB-5/6/7/8`, `TECH-2`, `QA-2`, `AI-5/6` (21.9) | stesso backend e stessi controlli delle altre interfacce |
+| P4 | differite | `FUT-1/2/3` (`FUT-1` assorbito da `AI-*`, 21.9) | solo se giustificate da requisiti reali |
 
 ### 21.3 Correlazione unificata (`CORR`)
 
@@ -668,6 +668,7 @@ scheduling di §20. **Non si crea un motore parallelo.**
 - `EXPL-1` e `CORR-1` dipendono da `TOOLS-4.4/4.5` e si definiscono insieme (classi epistemiche comuni); `CORR-2` da `CORR-1`; `EXPL-2` da `EXPL-1`; `VAL-*` da `CORR-1`, `TOOLS-4.4/4.5` e dal lab (`QA-3`/`PURPLE-2`).
 - `WEB-5/6/7` dipendono da `API-3`, `ARCH-4` e dai servizi P0/P1; `WEB-8` da `CORR-2` ed `EXPL-2`.
 - `FUT-*` dipendono da `CORR-1` ed `EXPL-1` e da una valutazione del rischio.
+- `AI-*` (21.9) dipendono da `CORR-1/2`, `EXPL-1/2`, `VAL-1/2/3`, `TOOLS-4.4/4.5`, `API-3`, `ARCH-3/4` e dall'autorità Themis; `AI-0` (ADR) precede ogni codice AI; `AI-1` aggancia Athena/Themis; `AI-3` da `CORR-1`/`EXPL-1` e `DEC-6`/`DEC-15`; `AI-4` da `PURPLE-1/2`, `VAL-2/3` e dal lab (`QA-3`). La famiglia `AI-*` assorbe ed estende `FUT-1`.
 
 ### 21.7 Decisioni architetturali rimandate
 
@@ -684,6 +685,11 @@ Da prendere nelle fasi di implementazione, con valutazione delle alternative dis
 - `DEC-9` Stack frontend e design system per le due modalità (con `TECH-2`).
 - `DEC-10` Fonte di verità per i livelli L1/L2/L3 di maturità degli engine (ledger esistente o estensione).
 - `DEC-11` Assorbimento di `scripts/smoke_scanner_image.py` in `engines doctor --strict` o coesistenza.
+- `DEC-12` Riuso selettivo di Sapper-v2/Nüwa **vs** reimplementazione nativa, per meccanismo; matrice di compatibilità licenze MIT↔GPL-3.0 per componente e dipendenza con obblighi di attribuzione (dopo `AI-0`).
+- `DEC-13` Provider del Model Router, modelli locali di default e politica di egress/privacy verso modelli esterni (opt-in, redazione, confini del perimetro) (`AI-2`).
+- `DEC-14` Livelli di autonomia degli agenti e matrice di gating delle approvazioni per classe di azione (lettura/analisi vs azione attiva/distruttiva); rapporto con `OperatingMode` e manifest firmato (`AI-4`).
+- `DEC-15` Storage del Fact Graph / memoria condivisa AI: riuso `argus.graph` / SQLite→Postgres (`TECH-3`) vs engine dedicato — estende `DEC-6` al dominio AI (`AI-3`).
+- `DEC-16` Formato e fonte di verità delle valutazioni degli agenti (eval harness) e criterio riproducibile di "miglioramento" senza apprendimento opaco (`AI-7`).
 
 #### Decisioni già prese (2026-11-03)
 
@@ -719,7 +725,8 @@ custodisce. Restano aperte solo le parti che richiedono CI/lab, segnalate esplic
   procedura **manuale** attuale e il criterio di policy; l'automazione `check-updates`/
   `update` resta pianificata (Fase 4).
 
-Le decisioni `DEC-3`, `DEC-4`, `DEC-5`, `DEC-6`, `DEC-7`, `DEC-8`, `DEC-9`, `DEC-10`, `DEC-11`
+Le decisioni `DEC-3`, `DEC-4`, `DEC-5`, `DEC-6`, `DEC-7`, `DEC-8`, `DEC-9`, `DEC-10`, `DEC-11`,
+`DEC-12`, `DEC-13`, `DEC-14`, `DEC-15`, `DEC-16`
 restano **aperte**: non sono state prese in questa sessione perché la loro accettazione
 richiede capacità non disponibili qui (CI, lab autorizzato, rete verso terze parti) o
 dipendono da workstream non ancora avviati.
@@ -742,9 +749,108 @@ verificati sullo SHA corretto. «Fase 3» di `docs/engines/INVENTORY.md` corrisp
 | T9 (P2) | Motori e verifica continua: `CORR-2`, `EXPL-2`, `VAL-1/2/3`, `PURPLE-1/2` | T8; lab riproducibile (`QA-3`) | risultati deterministici su fixture; validazione in lab con evidenze; metriche documentate |
 | T10 (P3) | Esperienza d'uso: `WEB-5/6/7/8` | `API-3`, `ARCH-4`, T3–T6; T9 per `WEB-8`; `DEC-9` | percorsi equivalenti alla CLI (parità di audit/evidenze/stati); E2E in browser; revisione UX/accessibilità |
 | T11 (P4) | Rivalutazione `FUT-1/2/3` | T8–T9 consolidate | decisione documentata di avviare o rimandare ciascuna |
+| T12 (P2) | Fondamenta AI (21.9): `AI-0` (ADR+licenze), `AI-2` (router), `AI-3` (fact graph), `AI-7` (eval) | T8; `DEC-12/13/15/16` | ADR e matrice licenze committati; router con modello locale ed egress gated; fact graph con provenienza/classe epistemica e test di non-promozione; Olympus invariato senza LLM; eval deterministico |
+| T13 (P2/P3) | Orchestrazione e agenti (21.9): `AI-1`, `AI-4`, `AI-5`, `AI-6` | T9, T12; `API-3`; lab (`QA-3`/`PURPLE-2`); `DEC-14` | ogni azione attiva gated da Themis/scope/manifest; lab Purple riproducibile con evidenze firmate; console solo via `WEB-7/8`; nessun gate indebolito |
 
 T1 e T2 sono indipendenti e possono procedere in parallelo; T7 può cominciare dopo T1 e T5; nessuna tappa
 P2–P4 deve essere avviata se una tappa P0 precedente è ancora aperta.
+
+### 21.9 Orchestrazione AI-native multi-agente (`AI`)
+
+*Solo pianificazione — nessuna voce qui è implementata.* Proposta di evoluzione verso una piattaforma
+**Red/Blue/Purple Team AI-native** in cui un livello di intelligenza artificiale **coordina** le capacità
+deterministiche già esistenti (Argus, Artemis, Helios, Apollo, Minerva, Metis, Athena, Vulcan, Hermes,
+Proteus) sui contratti condivisi (`Asset`, `Finding`, `Event`, `Evidence`, `Alert`, `Incident`), **senza
+sostituire** i controlli verificabili che li rendono affidabili. Olympus resta la piattaforma centrale,
+**Athena** l'orchestratore degli assessment, **Themis** l'autorità di esecuzione; il livello AI è uno
+strato **separato, opzionale e sostituibile**. Non è un fork di un motore generale: le capacità specialistiche
+esistono già e non vanno duplicate (v. `AI-0`).
+
+*Principi vincolanti (non negoziabili, estendono §0):*
+
+- **AI opzionale, deterministico primario.** Olympus deve funzionare in modo identico **senza** alcun LLM:
+  ogni workflow AI poggia su un fallback deterministico e l'assenza di modelli non degrada le capacità core.
+- **Nessun bypass di Themis.** Nessun agente esegue comandi shell liberi né aggira scope, autorizzazione o
+  sandbox: **ogni** azione operativa attraversa le policy di Olympus (engagement manifest firmato, scope
+  registrato, `--i-am-authorized`, preflight, audit). L'autonomia è **graduata** (advisory → passive →
+  active, coerente con `OperatingMode`), con **approvazione obbligatoria** per ogni azione attiva o a rischio.
+- **Verificabilità ed epistemica onesta.** Ogni conclusione dell'AI cita le fonti (evidenze, custody),
+  distingue dato osservato da contenuto generato, porta confidenza e **classe epistemica** (la stessa enum di
+  `EXPL-1`/`CORR-1`): un'ipotesi non è **mai** presentata come fatto né come compromissione dimostrata.
+- **Privacy ed egress espliciti.** È sempre dichiarato cosa lascia il perimetro verso modelli esterni;
+  modelli locali come default, provider esterni solo con opt-in registrato e redazione dei dati sensibili.
+- **Gate intatti.** Nessun test, coverage o quality gate è disabilitato per far spazio all'AI; le valutazioni
+  degli agenti sono gate aggiuntivi, non sostituti.
+- **Distinzione registrato ≠ production-ready preservata.** L'orchestrazione AI non maschera la maturità reale
+  di un engine (ledger `docs/scanner-maturity.md`): un motore registrato resta tale.
+
+*Riferimenti esterni da valutare (non adottati):* Sapper-v2 (orchestrazione autonoma di agenti offensivi,
+licenza MIT) e la sua base general-purpose Nüwa. Se ne riusano **meccanismi selezionati** (coordinatore/agenti,
+memoria condivisa, scheduling parallelo, self-healing, router multi-modello, valutazione dai risultati), non
+il framework come motore principale; la compatibilità licenze MIT↔GPL-3.0 va verificata per ogni componente e
+dipendenza, con gli obblighi di attribuzione (v. `AI-0`, `DEC-12`).
+
+Priorità: evoluzione **strategica** (P2/P3, `AI-0`/`AI-7` anche P1 per fondamenta ed eval); **non** sottrae
+priorità al consolidamento P0/P1 e non precede `CORR-*`/`EXPL-*`/`VAL-*`/`API-3`. Assorbe ed estende `FUT-1`.
+
+- **AI-0** [ ] (P2) **Audit architetturale, gap analysis e ADR dedicato.** Confronto capacità native Olympus
+  ↔ Sapper-v2/Nüwa; per ogni meccanismo decisione *riusa / reimplementa / scarta*; matrice di compatibilità
+  licenze MIT↔GPL-3.0 per componente e dipendenza con obblighi di attribuzione. Precede **qualunque** codice AI.
+  - *Dipende da:* nessuno (è un documento). *Accettazione:* ADR committato con la decisione per meccanismo e
+    la matrice licenze; nessun fork completo avviato senza decisione esplicita del team; gap analysis che
+    mappa ogni capacità proposta su un modulo Olympus esistente o la motiva come nuova.
+- **AI-1** [ ] (P2) **Strato di orchestrazione multi-agente** come servizio separabile e opzionale, agganciato
+  ad **Athena** (pianificazione/ciclo di vita) e **Themis** (esecuzione/autorità): Planner, Coordinator,
+  Verifier, Memory, Model Router; task-graph con scheduling che rispetta **scope, risorse, priorità e
+  dipendenze**, recovery a checkpoint e budget control. Riusa i contratti condivisi; nessun motore di
+  assessment parallelo.
+  - *Dipende da:* `API-3` (Execution Engine), `ARCH-3` (motore di esecuzione esplicito), `ARCH-4` (contratto
+    UI↔API), `TOOLS-4.1/4.4/4.5` (preflight/stati/evidenze). *Accettazione:* feature flag AI **off** → Olympus
+    invariato (test); un agente che tenta un'azione fuori scope/senza autorizzazione è **rifiutato** (test
+    fail-closed); ogni passo dell'orchestratore è nell'audit con provenienza; nessuna esecuzione che non passi
+    per Themis.
+- **AI-2** [ ] (P1/P2) **Model Router multi-provider** con modelli **locali di default** e provider esterni
+  opt-in; politica di egress/privacy (redazione, confini del perimetro), budget/token control e fallback
+  deterministico quando nessun modello è disponibile.
+  - *Dipende da:* `AI-0`; `DEC-13`. *Accettazione:* almeno un provider locale funzionante; nessun dato
+    sensibile verso un provider esterno senza opt-in registrato (test di redazione/egress); costi/token
+    tracciati; disattivazione del router → percorso deterministico.
+- **AI-3** [ ] (P2) **Memoria/knowledge condivisa verificabile (Fact Graph):** ogni asserzione con
+  provenienza, confidenza, **classe epistemica** (enum condivisa `EXPL-1`/`CORR-1`) e riferimenti alle
+  evidenze (`Evidence`/custody Minerva). Nessuna ipotesi promossa a fatto. Riusa `argus.graph`/`vulcan.correlate`.
+  - *Dipende da:* `CORR-1`, `EXPL-1`, `DEC-6`/`DEC-15` (storage del grafo). *Accettazione:* ogni nodo/arco
+    cita fonte + confidenza + classe epistemica; test di **non-promozione** ipotesi→fatto; grafo ispezionabile
+    e riproducibile a parità di input; nessuna chiamata di rete nel core.
+- **AI-4** [ ] (P2) **Agenti specializzati Red/Blue/Purple/CTI/QA + Verifier + Remediation** sui motori
+  esistenti (Red: Argus/Artemis/Helios; Blue: Apollo/Minerva/Metis; Purple: Athena/Vulcan/correlazione).
+  Autonomia graduata con approvazioni obbligatorie per azioni a rischio. Il **ciclo Purple end-to-end** (Red
+  propone una verifica controllata → Blue valuta gli eventi e le regole Apollo e i gap di detection → Purple
+  correla Red/Blue e mappa ATT&CK e misura la copertura → Verifier valida evidenze, autorizzazioni, falsi
+  positivi e riproducibilità → Remediation propone il fix e prepara il retest → Vulcan misura vs baseline) è
+  il **veicolo** di `PURPLE-1`, `VAL-2` e `VAL-3`: **non** un motore parallelo.
+  - *Dipende da:* `AI-1`, `AI-3`, `CORR-2`, `VAL-2/3`, `PURPLE-1/2`, lab riproducibile (`QA-3`); `DEC-14`
+    (gating autonomia). *Accettazione:* lab Purple **autorizzato** e riproducibile con esito atteso per ogni
+    agente; ogni azione attiva gated da manifest+scope; evidenza firmata per ogni passo (`TOOLS-4.5`); un fix
+    non chiude un finding senza retest (`VAL-2`).
+- **AI-5** [ ] (P2/P3) **Self-healing / recovery:** ripresa dei task da checkpoint con **ri-verifica** di
+  preflight, scope e idempotenza prima della riesecuzione; nessuna riesecuzione di azione attiva senza
+  ri-controllo dell'autorizzazione. *Dipende da:* `AI-1`, `API-3`. *Accettazione:* un task interrotto riprende
+  senza ripetere effetti attivi già compiuti; riesecuzione fuori autorizzazione rifiutata (test).
+- **AI-6** [ ] (P3) **Console AI e osservabilità dei workflow** (task graph, stato, evidenze, costi) solo via
+  `WEB-7/8` e con gli **stessi** controlli delle altre interfacce; nessuna vista presenta un'ipotesi come
+  fatto (invariante `WEB-8`). *Dipende da:* `AI-1`, `WEB-7/8`. *Accettazione:* parità di audit/evidenze/stati
+  con CLI/API; revisione UX/accessibilità; classe epistemica sempre visibile.
+- **AI-7** [ ] (P1/P2) **Benchmark, regression ed eval riproducibile degli agenti:** harness offline e
+  deterministico su fixture; il "miglioramento dei workflow" è guidato da valutazioni **riproducibili**, non
+  da apprendimento opaco; l'eval è un gate di qualità aggiuntivo. *Dipende da:* `AI-1`; `DEC-16`.
+  *Accettazione:* suite di eval deterministica su corpus committato; nessun gate esistente indebolito; i
+  risultati dell'eval sono tracciabili e confrontabili tra versioni.
+
+- *Dipende da (AI):* `CORR-1/2`, `EXPL-1/2`, `VAL-1/2/3`, `TOOLS-4.4/4.5`, `API-3`, `ARCH-3/4` e dall'autorità
+  di esecuzione Themis; `AI-0` precede ogni codice AI. Assorbe `FUT-1`.
+- *Accettazione (famiglia):* nessuna capacità AI è attiva senza che il percorso deterministico equivalente
+  esista e passi; ogni azione operativa degli agenti è gated da Themis/scope/manifest e registrata con
+  evidenza firmata; nessuna ipotesi è mai presentata come fatto in alcuna superficie.
 
 ---
 
