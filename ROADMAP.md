@@ -152,8 +152,9 @@ di sicurezza nel frontend.
   *live-tested* in lab WordPress/NoSQL autorizzato (output reale registrato).
 - **RED-3** [ ] Password auditor (capacità assente oggi): nuovo tool/adapter, scope-gated.
 - **BLUE-1** [~] Apollo ingest Sysmon/Windows Event. Parser `windows-json`
-  implementato (Sysmon 1/3/**7**/**8**/**10**/11/13/22/**23** + Security
-  4624/4625/**4688**/**4697**/**4720**, gating per provider, *skip-never-guess*),
+  implementato (Sysmon 1/**2**/3/**7**/**8**/**10**/11/13/**17**/**18**/22/**23**
+  + Security 4624/4625/**4688**/**4697**/**4698**/**4720**, gating per provider,
+  *skip-never-guess*),
   allineato alla tassonomia delle regole (`windows.sysmon`/`windows.security` +
   `event_id`, `process_name` derivato; per gli eventi cross-process e di load
   anche `target_process_name` e `loaded_module_name` come basename, così una
@@ -163,7 +164,9 @@ di sicurezza nel frontend.
   windows-json`; regole di detection reali in `examples/input/apollo-sysmon`
   (C2 DNS, persistenza Run-key, logon privilegiato fallito, **accesso a LSASS /
   credential dumping T1003.001**, **remote-thread injection T1055**,
-  **installazione di servizio T1543.003**) guidate end-to-end dall'ingest.
+  **installazione di servizio T1543.003**, **timestomping T1070.006**,
+  **named-pipe C2 T1559**, **scheduled-task persistence T1053.005**) guidate
+  end-to-end dall'ingest.
   **Resta:** validazione contro telemetria Windows **reale** in lab autorizzato
   (promozione a live-tested). Zeek e access-log già fatti.
 - **BLUE-2** [~] Connettori SIEM/EDR (Splunk HEC, Elastic, Sentinel) via porte iniettate, test offline. **Formatter offline fatti:** export alert in ECS (`--ecs`), OCSF (`--ocsf`), **Splunk HEC** (`--hec`, envelope HEC con documento ECS nel payload `event`) ed **Elasticsearch `_bulk`** (`--elastic-bulk` + `--elastic-index`, nuovo: `alerts_to_elastic_bulk`, action `create` per-alert_id + documento ECS, pronto per l'API `_bulk` senza log shipper) e **Azure Monitor / Microsoft Sentinel** (`--sentinel`, array JSON per Logs Ingestion API; richiede DCR e tabella custom coerenti), su `apollo test`/`apollo run`, file owner-only `0o600`, puri e deterministici (nessuna rete). **Dispatch offline implementato:** `apollo.dispatch.deliver_alerts` via `SiemTransport` iniettato, policy con autorizzazione e approval reference, gate di scope sul destination URL, token `OLYMPUS_SIEM_*`, URL HTTPS e dimensioni bounded, controlli dei successi applicativi HEC/Elastic; test solo con fake transport, nessun adapter HTTP fornito. **Resta:** adapter HTTPS di produzione con egress/scope enforcement verificabile, gestione dei redirect vietati e validazione in lab autorizzato prima di qualsiasi enablement live.

@@ -97,11 +97,13 @@ become `windows.sysmon` events and Security-auditing records become
 attribute (so a rule matches `event_type: windows.sysmon` + `event_id: "1"`,
 exactly like the shipped rules). The provider/channel must match the expected
 family, so a different provider that reuses a low id is skipped, not guessed.
-Documented ids are Sysmon `1` (process create), `3` (network connection), `7`
-(image/DLL load), `8` (create remote thread), `10` (process access), `11` (file
-create), `13` (registry set), `22` (DNS query), `23` (file delete) and Security
+Documented ids are Sysmon `1` (process create), `2` (file-create-time change /
+timestomp), `3` (network connection), `7` (image/DLL load), `8` (create remote
+thread), `10` (process access), `11` (file create), `13` (registry set), `17`/`18`
+(named pipe created / connected), `22` (DNS query), `23` (file delete) and Security
 `4624`/`4625` (logon / failed logon), `4688` (process create), `4697` (service
-installed) and `4720` (user account created); fields are read from the
+installed), `4698` (scheduled task created) and `4720` (user account created);
+fields are read from the
 `EventData` object first, then the flat record, and the executable basename is
 exposed as `process_name` alongside the full `image`. For cross-process events
 (Sysmon `8`/`10`) the target basename is exposed as `target_process_name`, and

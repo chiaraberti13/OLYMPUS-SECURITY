@@ -353,6 +353,16 @@ _WINDOWS_MAP: dict[int, tuple[str, str, dict[str, str]]] = {
             "Hashes": "hashes",
         },
     ),
+    2: (
+        "sysmon",
+        "windows.sysmon",
+        {
+            "Image": "image",
+            "TargetFilename": "target_filename",
+            "CreationUtcTime": "creation_time",
+            "PreviousCreationUtcTime": "previous_creation_time",
+        },
+    ),
     3: (
         "sysmon",
         "windows.sysmon",
@@ -400,6 +410,16 @@ _WINDOWS_MAP: dict[int, tuple[str, str, dict[str, str]]] = {
         "sysmon",
         "windows.sysmon",
         {"Image": "image", "TargetObject": "target_object", "Details": "details"},
+    ),
+    17: (
+        "sysmon",
+        "windows.sysmon",
+        {"Image": "image", "PipeName": "pipe_name"},
+    ),
+    18: (
+        "sysmon",
+        "windows.sysmon",
+        {"Image": "image", "PipeName": "pipe_name"},
     ),
     22: (
         "sysmon",
@@ -451,6 +471,15 @@ _WINDOWS_MAP: dict[int, tuple[str, str, dict[str, str]]] = {
             "ServiceFileName": "service_file_name",
             "ServiceType": "service_type",
             "ServiceStartType": "service_start_type",
+        },
+    ),
+    4698: (
+        "security",
+        "windows.security",
+        {
+            "SubjectUserName": "user",
+            "TaskName": "task_name",
+            "TaskContent": "task_content",
         },
     ),
     4720: (
@@ -519,9 +548,9 @@ def iter_windows_json(
     Each line is one Windows event record (NDJSON), as produced by
     ``Get-WinEvent | ConvertTo-Json`` or an EVTX-to-JSON exporter: an ``EventID``,
     a provider/channel and, for Sysmon, an ``EventData`` object of named fields.
-    Only documented Sysmon (1/3/7/8/10/11/13/22/23) and Security
-    (4624/4625/4688/4697/4720) IDs whose provider matches the expected family are
-    mapped; anything else — invalid JSON, a non-object, an unknown or
+    Only documented Sysmon (1/2/3/7/8/10/11/13/17/18/22/23) and Security
+    (4624/4625/4688/4697/4698/4720) IDs whose provider matches the expected family
+    are mapped; anything else — invalid JSON, a non-object, an unknown or
     provider-mismatched id, or a record with no mappable field — is recorded as
     skipped, never coerced into an invented event.
     """

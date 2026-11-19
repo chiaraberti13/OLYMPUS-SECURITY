@@ -1,0 +1,11 @@
+schema_name: olympus.apollo-rule
+schema_version: 1.0.0
+rule_id: APL-SYSMON-NAMED-PIPE-C2
+title: Named pipe created matching a known C2 framework pattern
+event_type: windows.sysmon
+conditions:
+  event_id: "17"
+  pipe_name: evilc2-pipe
+severity: high
+mitre_attack:
+  - T1559
