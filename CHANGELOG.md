@@ -12,6 +12,24 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Changed — CI pipeline rimossa dall'owner; governance allineata
+
+- `ci.yml` svuotato dall'owner (nessun job `ci`): i gate ruff/format/mypy, pytest
+  multi-versione, coverage, mutation, sandbox, smoke, container, pip-audit e
+  gitleaks **non vengono più eseguiti dalla CI**. I **check obbligatori rimasti**
+  sono soltanto `CodeQL · Python · security-extended` (`codeql.yml`) e
+  `scanner-image gate` (`docker-build.yml`).
+- Allineati alla nuova realtà: `scripts/audit_required_checks.py`
+  (`REQUIRED_WORKFLOW_JOBS` non elenca più i job di `ci.yml`) e il suo test
+  (`EXPECTED` = i due check rimasti); `CLAUDE.md` (regola di merge e verifica
+  locale consigliata); i due test di `test_threat_model.py` che ispezionavano
+  `ci.yml` ora tollerano un workflow senza job (least-privilege salta i workflow
+  che non eseguono nulla; la consistenza gitleaks pre-commit↔CI è skip quando la
+  CI non scansiona più). I gate locali restano eseguibili come verifica
+  consigliata, non più come obbligo di merge. **Azione owner residua:** togliere i
+  vecchi check dai *required* in branch protection, altrimenti i merge restano
+  bloccati in attesa di check che non girano più.
+
 ### Changed — CI più veloce senza indebolire i gate (`CICD-1`)
 
 - `ci.yml`: aggiunto un blocco **`concurrency`** che annulla i run **superati di una PR** (solo

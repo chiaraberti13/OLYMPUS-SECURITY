@@ -10,18 +10,9 @@ from scripts import audit_required_checks as audit_checks
 ROOT = Path(__file__).resolve().parents[2]
 SHA = "a" * 40
 GITHUB_ACTIONS_APP_ID = 15368
+# The ci.yml pipeline was removed by the repository owner; only the CodeQL
+# analysis and the scanner-image gate remain as required checks.
 EXPECTED = {
-    "ruff · format · mypy (required)",
-    *(f"pytest · Python 3.{minor} · Ubuntu" for minor in range(11, 15)),
-    "first-party branch coverage · Python 3.11 · Ubuntu",
-    "security-boundary mutation tests · Python 3.11 · Ubuntu",
-    "POSIX sandbox · Python 3.11 · Ubuntu",
-    "CLI smoke · macOS · Python 3.11",
-    "CLI smoke · Windows · Python 3.11",
-    "wheel · clean-install · CLI smoke",
-    "native THEMIS container · no vendor · no live traffic",
-    "pip-audit (blocking · runtime closure)",
-    "gitleaks (blocking working-tree + history scan)",
     "CodeQL · Python · security-extended",
     "scanner-image gate",
 }
@@ -59,7 +50,7 @@ def _checks(*, names: set[str] = EXPECTED, sha: str = SHA) -> dict[str, object]:
     return {"total_count": len(runs), "check_runs": runs}
 
 
-def test_repository_workflows_define_the_canonical_sixteen_checks() -> None:
+def test_repository_workflows_define_the_canonical_required_checks() -> None:
     assert set(audit_checks.expected_checks(ROOT)) == EXPECTED
 
 
@@ -72,7 +63,7 @@ def test_complete_strict_ruleset_and_successful_sha_pass() -> None:
     )
     assert result.success is True
     assert result.terminal_failure is False
-    assert len(result.rows) == 16
+    assert len(result.rows) == len(EXPECTED)
     assert "Verdict: **PASS**" in audit_checks.render_markdown(result)
 
 

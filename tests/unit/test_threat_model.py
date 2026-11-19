@@ -141,6 +141,10 @@ def test_every_workflow_sets_least_privilege_token_permissions() -> None:
     assert workflows, "no GitHub Actions workflows found"
     for path in workflows:
         document = yaml.safe_load(path.read_text(encoding="utf-8"))
+        # A workflow that defines no jobs (e.g. ci.yml, emptied by the owner) runs
+        # nothing, so there is no GITHUB_TOKEN scope to constrain; skip it.
+        if not isinstance(document, dict) or not document.get("jobs"):
+            continue
         permissions = document.get("permissions")
         assert isinstance(permissions, dict), (
             f"{path.name}: no top-level 'permissions'; jobs inherit the default token scope"
@@ -166,7 +170,10 @@ def test_gitleaks_version_is_consistent_between_pre_commit_and_ci() -> None:
     )
     ci_text = (_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     ci_match = re.search(r"gitleaks:(v\d+\.\d+\.\d+)", ci_text)
-    assert ci_match is not None, "ci.yml no longer pins a gitleaks image version"
+    if ci_match is None:
+        # The owner removed the ci.yml pipeline (and its gitleaks scan); the
+        # pre-commit↔CI version-consistency invariant is moot while CI does not scan.
+        pytest.skip("ci.yml no longer runs a gitleaks scan (CI pipeline removed by the owner)")
     assert hook_rev == ci_match.group(1), (
         f"gitleaks version drift: pre-commit {hook_rev} vs CI {ci_match.group(1)}"
     )

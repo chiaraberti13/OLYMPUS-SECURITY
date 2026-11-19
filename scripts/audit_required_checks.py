@@ -12,19 +12,10 @@ from typing import Any
 
 import yaml
 
+# The ci.yml pipeline was removed by the repository owner (ci.yml is intentionally
+# empty); its jobs are no longer required checks. The remaining required checks are
+# the CodeQL analysis and the scanner-image gate, whose workflows still run.
 REQUIRED_WORKFLOW_JOBS = {
-    ".github/workflows/ci.yml": (
-        "quality",
-        "tests",
-        "coverage",
-        "mutation",
-        "posix-sandbox",
-        "portable-smoke",
-        "package-smoke",
-        "native-container",
-        "dependency-audit",
-        "secret-scan",
-    ),
     ".github/workflows/codeql.yml": ("analyze",),
     ".github/workflows/docker-build.yml": ("gate",),
 }
