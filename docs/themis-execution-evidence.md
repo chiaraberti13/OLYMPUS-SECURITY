@@ -12,6 +12,47 @@ file authorizes only 127.0.0.1; THEMIS_ENABLE_LIVE_SCANS=true._
 Binaries present in this environment: nmap 7.94, nikto 2.5, wafw00f 2.x,
 sqlmap 1.10.8, testssl.sh 3.x, whatweb (apt binary — broken Ruby env).
 
+## 2026-11-19 — Nuclei pilot: live run with verified signed evidence
+
+Captured against a **local authorized lab** — a throw-away Python HTTP server on
+`127.0.0.1` started by the test; the scope file authorises only `127.0.0.1`, so
+nothing outside the machine is ever contacted. Executed through the real Themis
+sandbox and the `olympus.engine-run-evidence` 1.0.0 contract, then verified with
+the run's Ed25519 public key (`run_id` `themis-3dd6f4e5…`, created
+`2026-11-19T08:44:47Z`).
+
+- Repository commit under test: `779aecf`.
+- Engine: `nuclei` **v3.11.1** (pinned); reported `Nuclei Engine Version: v3.11.1`.
+- Data dependency: `nuclei-templates` **v10.5.1** @ commit
+  `79fb682760ab3d5b0e22afbb44709353cbebf023` (manifest sha256 `11b2e9f6…`), one
+  pinned template `http/misconfiguration/http-missing-security-headers.yaml`.
+- Outcome: state `live`, **10 findings** (the lab page lacks security headers),
+  exit 0, 12 033 bytes of stdout. Scope recorded in the evidence:
+  `allowed_hosts = ["127.0.0.1"]`.
+
+Command actually executed (from the signed evidence):
+
+```text
+nuclei -target http://127.0.0.1:<port> -templates <one-template-dir> \
+  -jsonl -silent -no-color -disable-update-check -no-interactsh -omit-raw -omit-template
+```
+
+Reproduce: install the pinned engine, check out `nuclei-templates` at `v10.5.1`,
+then run the opt-in live-lab suite with explicit authorization:
+
+```bash
+go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@v3.11.1
+OLYMPUS_RUN_LIVE_LAB_TESTS=1 OLYMPUS_LIVE_LAB_AUTHORIZATION=I_HAVE_AUTHORIZATION \
+  THEMIS_NUCLEI_TEMPLATES=<v10.5.1 checkout> \
+  python -m pytest tests/live_lab/test_nuclei_live.py
+```
+
+This is a **local** authorized-lab execution: the signed evidence was produced
+and verified, and the engine/template pins match the manifests. The canonical
+closure for promoting the pilot to *live-tested* remains a green run of the
+owner-triggered `nuclei-live-lab.yml` GitHub Actions workflow, whose run link and
+tested SHA are still to be recorded (see `ROADMAP.md` `QA-3`).
+
 ## Per-state / per-scanner results (actual JSON, trimmed)
 
 ### nmap (live=true)

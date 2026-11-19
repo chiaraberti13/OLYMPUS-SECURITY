@@ -83,7 +83,7 @@
     Report formats: {% for fmt in plan.report_formats %}<code>{{ fmt }}</code>{% if not loop.last %} {% endif %}{% endfor %}<br>
     Authorized: <strong>{{ "yes" if plan.authorized else "no" }}</strong>
   </p>
-  <div class="table-wrap"><table>
+  <div class="table-wrap" tabindex="0" role="group" aria-label="Plan table"><table>
     <thead><tr><th>Target kind</th><th>Value</th></tr></thead>
     <tbody>{% for kind, value in plan.targets %}<tr>
       <td><code>{{ kind }}</code></td><td>{{ value }}</td>

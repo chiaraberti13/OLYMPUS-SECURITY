@@ -49,7 +49,7 @@
   <p>{{ findings_summary.attack_mapped }} mapped findings · {{ findings_summary.attack_techniques }} distinct techniques.</p>
   {% if findings_summary.attack_tactics %}
   <h3>Tactic coverage</h3>
-  <div class="table-wrap"><table>
+  <div class="table-wrap" tabindex="0" role="group" aria-label="Tactic coverage table"><table>
     <thead><tr><th>Tactic</th><th>Techniques</th></tr></thead>
     <tbody>{% for item in findings_summary.attack_tactics %}<tr>
       <td>{{ item.tactic }}</td><td>{{ item.techniques }}</td>

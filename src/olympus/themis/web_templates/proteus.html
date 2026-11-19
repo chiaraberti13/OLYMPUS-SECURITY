@@ -36,7 +36,7 @@
 {% if result is not none %}
 <section class="card">
   <h2>Normalized metadata</h2>
-  <div class="table-wrap"><table>
+  <div class="table-wrap" tabindex="0" role="group" aria-label="Normalized metadata table"><table>
     <tbody>
       <tr><th>Engagement</th><td><code>{{ result.engagement }}</code></td></tr>
       <tr><th>Subject</th><td><code>{{ result.subject }}</code></td></tr>

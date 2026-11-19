@@ -55,7 +55,7 @@
     </dd>
     {% endif %}
   </dl>
-  <div class="table-wrap"><table>
+  <div class="table-wrap" tabindex="0" role="group" aria-label="Result chain verified table"><table>
     <thead><tr><th>#</th><th>Evidence</th><th>Action</th><th>Actor</th><th>When (UTC)</th><th>Entry hash</th></tr></thead>
     <tbody>{% for entry in inspection.entries %}<tr>
       <td>{{ entry.sequence }}</td>

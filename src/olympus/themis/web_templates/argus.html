@@ -39,7 +39,7 @@
     {{ result.subdomain_count }} subdomain(s)
   </p>
   {% if result.subdomains %}
-  <div class="table-wrap"><table>
+  <div class="table-wrap" tabindex="0" role="group" aria-label="Result table"><table>
     <thead><tr><th>Subdomain</th></tr></thead>
     <tbody>{% for name in result.subdomains %}<tr><td><code>{{ name }}</code></td></tr>{% endfor %}</tbody>
   </table></div>

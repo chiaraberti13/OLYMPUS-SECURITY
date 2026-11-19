@@ -34,7 +34,7 @@
 {% if result is not none %}
 <section class="card">
   <h2>Result</h2>
-  <div class="table-wrap"><table>
+  <div class="table-wrap" tabindex="0" role="group" aria-label="Result table"><table>
     <tbody>
       <tr><th>Service</th><td><code>{{ result.service }}</code></td></tr>
       <tr><th>Product</th><td>{% if result.product %}<code>{{ result.product }}</code>{% else %}<span class="muted">—</span>{% endif %}</td></tr>
