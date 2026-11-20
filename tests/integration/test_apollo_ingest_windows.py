@@ -98,15 +98,15 @@ def test_parse_maps_timestomp_named_pipe_and_scheduled_task() -> None:
 
     # Sysmon 17/18 (named pipe created/connected) both carry the pipe name verbatim;
     # 18 maps too even though no shipped rule targets it (coverage, not a guess).
-    assert by_id["17"].attributes["pipe_name"] == "evilc2-pipe"
+    assert by_id["17"].attributes["pipe_name"] == r"\evilc2-pipe"
     assert by_id["17"].attributes["process_name"] == "beacon.exe"
-    assert by_id["18"].attributes["pipe_name"] == "evilc2-pipe"
+    assert by_id["18"].attributes["pipe_name"] == r"\evilc2-pipe"
     assert by_id["18"].attributes["process_name"] == "svchost.exe"
 
     # Security 4698 (scheduled task created) carries the task name and the actor.
     scheduled = by_id["4698"]
     assert scheduled.event_type == "windows.security"
-    assert scheduled.attributes["task_name"] == "UpdaterTask"
+    assert scheduled.attributes["task_name"] == r"\UpdaterTask"
     assert scheduled.attributes["user"] == "svc-backup"
 
 

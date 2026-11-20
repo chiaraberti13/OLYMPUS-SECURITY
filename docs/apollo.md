@@ -121,10 +121,11 @@ olympus apollo run --rules examples/input/apollo-sysmon --events events.ndjson -
 Ingested Windows telemetry drives the shipped Sysmon/Security detection rules in
 `examples/input/apollo-sysmon` (C2 DNS query, Run-key persistence, failed
 privileged logon, LSASS credential access, remote-thread injection, service
-installation) end to end. The parser is proven offline against a
-format-faithful synthetic fixture (`tests/fixtures/apollo/ingest/windows.jsonl`);
-validation against **real** Windows telemetry in an authorized lab stays tracked
-in [`ROADMAP.md`](../ROADMAP.md) as `BLUE-1`.
+installation, file creation time change, named pipe creation and scheduled task
+registration) end to end. The Windows lab exercises Sysmon 2/17/18 and Security
+4698. PipeName and TaskName retain the leading backslash emitted by Windows.
+The lab checks all four records and the exact three expected alerts. See the
+[validation report](../labs/apollo/BLUE-1-windows.md).
 
 ## ATT&CK detection coverage (`OPS-PURPLE`)
 

@@ -5,7 +5,7 @@ title: Scheduled task registered by a service account (persistence)
 event_type: windows.security
 conditions:
   event_id: "4698"
-  task_name: UpdaterTask
+  task_name: '\UpdaterTask'
 severity: high
 mitre_attack:
   - T1053.005
