@@ -135,7 +135,9 @@ def test_cli_preflight_exits_8_on_a_clean_host() -> None:
 def test_cli_preflight_exits_0_when_ready(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "olympus.engines.cli.preflight",
-        lambda env, engines=(): PreflightVerdict(ExitCode.OK, ("nmap", "nuclei", "httpx"), ()),
+        lambda env, engines=(), commands=(): PreflightVerdict(
+            ExitCode.OK, ("nmap", "nuclei", "httpx"), ()
+        ),
     )
     result = runner.invoke(app, ["engines", "preflight"])
     assert result.exit_code == 0
@@ -147,7 +149,9 @@ def test_cli_preflight_json_output_is_a_versioned_contract(monkeypatch: pytest.M
     # olympus.engine-preflight, not an ad-hoc dict (TOOLS-4.1).
     monkeypatch.setattr(
         "olympus.engines.cli.preflight",
-        lambda env, engines=(): PreflightVerdict(ExitCode.OK, ("httpx", "nmap", "nuclei"), ()),
+        lambda env, engines=(), commands=(): PreflightVerdict(
+            ExitCode.OK, ("httpx", "nmap", "nuclei"), ()
+        ),
     )
     result = runner.invoke(app, ["engines", "preflight", "--format", "json"])
     assert result.exit_code == 0
@@ -172,7 +176,9 @@ def test_cli_preflight_json_reports_blocking_engines_with_install_commands(
     )
     monkeypatch.setattr(
         "olympus.engines.cli.preflight",
-        lambda env, engines=(): PreflightVerdict(ExitCode.ENGINE_MISSING, ("nmap",), (blocked,)),
+        lambda env, engines=(), commands=(): PreflightVerdict(
+            ExitCode.ENGINE_MISSING, ("nmap",), (blocked,)
+        ),
     )
     result = runner.invoke(app, ["engines", "preflight", "--format", "json"])
     assert result.exit_code == int(ExitCode.ENGINE_MISSING)

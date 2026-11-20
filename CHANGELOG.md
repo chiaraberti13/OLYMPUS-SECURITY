@@ -12,6 +12,25 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — TOOLS-4.1: mappa `required_for_commands` comando→engine, fail-closed e cablata
+
+- Il campo `required_for_commands` del manifest `engine.toml` (un engine richiesto solo da comandi
+  specifici, non `mandatory`) era **dichiarativo e inerte**: nessun percorso lo consumava e l'id era una
+  stringa libera, così un typo avrebbe lasciato l'engine «richiesto per nulla» e silenziosamente non
+  controllato sul percorso che lo usa — **fail-open** su un percorso di governance. Ora:
+  - **Vocabolario chiuso** dei comandi che lanciano engine in `olympus.engines.commands`
+    (`COMMAND_IDS`, oggi `themis.run`), **verificato contro la CLI reale**: `tests/unit/test_engine_commands.py`
+    fallisce se un id non corrisponde a un comando registrato.
+  - **Validazione fail-closed al load**: un `required_for_commands` che nomina un comando sconosciuto è
+    rifiutato da `parse_manifest` (prima della regola mandatory-XOR).
+  - **Cablaggio nel preflight condiviso**: `required_engines(..., commands=…)`, `preflight(..., commands=…)`
+    e il nuovo `preflight_for_command`; `preflight_for_scanner` passa `themis.run`, così un engine marcato
+    `required_for_commands=["themis.run"]` è preteso automaticamente su tutti i percorsi di scansione
+    (CLI, worker, API, Web) senza che il chiamante lo nomini.
+  - **Gate operatore/CI**: `olympus engines preflight --command <id>` (id sconosciuto → exit 2 USAGE).
+  - Nessun manifest popola ancora la mappa (nessuna dipendenza implicita reale oggi); il meccanismo è pronto,
+    validato e sicuro. Copertura in `tests/unit/test_engine_commands.py` e `test_engine_manifests.py`.
+
 ### Fixed — Apollo Windows
 
 - Corrette le regole per named pipe e attività pianificate sui nomi nativi Windows. Il laboratorio verifica tutti e tre gli alert di BLUE-1.

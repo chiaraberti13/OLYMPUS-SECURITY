@@ -34,6 +34,7 @@ from pydantic import BaseModel, ConfigDict
 
 from olympus.core.exit_codes import ExitCode
 from olympus.core.models import OlympusModel
+from olympus.engines.commands import THEMIS_RUN, require_known
 from olympus.engines.doctor import EngineState, EngineStatus, Environment, inspect_engine
 from olympus.engines.loader import ManifestError, load_all, manifest_for
 from olympus.engines.schema import EngineManifest
@@ -118,28 +119,46 @@ def build_preflight_report(verdict: PreflightVerdict) -> EnginePreflightReport:
     )
 
 
-def required_engines(manifests: dict[str, EngineManifest], named: Sequence[str]) -> tuple[str, ...]:
-    """Return the engines a run needs: every ``mandatory`` engine plus each named one.
+def required_engines(
+    manifests: dict[str, EngineManifest],
+    named: Sequence[str],
+    *,
+    commands: Sequence[str] = (),
+) -> tuple[str, ...]:
+    """Return the engines a run needs: every ``mandatory`` engine, each named one, and
+    every engine a running ``command`` requires via ``required_for_commands``.
 
     Raises :class:`UnknownEngineError` if a named engine has no manifest, so a typo or a
     reference to an engine Olympus does not govern fails loudly instead of silently
-    checking nothing.
+    checking nothing. The ``commands`` are engine-launching command ids (see
+    :mod:`olympus.engines.commands`); an engine whose ``required_for_commands`` names one
+    of them is demanded for that run even when the caller did not name it, closing the
+    gap where a command's implicit engine dependency would otherwise go unchecked.
     """
     unknown = sorted(name for name in named if name not in manifests)
     if unknown:
         raise UnknownEngineError(", ".join(unknown))
+    wanted = set(commands)
     mandatory = {name for name, manifest in manifests.items() if manifest.engine.mandatory}
-    return tuple(sorted(mandatory | set(named)))
+    for_commands = {
+        name
+        for name, manifest in manifests.items()
+        if wanted & set(manifest.engine.required_for_commands)
+    }
+    return tuple(sorted(mandatory | for_commands | set(named)))
 
 
-def preflight(env: Environment, *, engines: Sequence[str] = ()) -> PreflightVerdict:
-    """Return the fail-closed verdict for a run that needs ``engines`` (plus the mandatory set).
+def preflight(
+    env: Environment, *, engines: Sequence[str] = (), commands: Sequence[str] = ()
+) -> PreflightVerdict:
+    """Return the fail-closed verdict for a run that needs ``engines`` (plus the mandatory set
+    and any engine a running ``command`` requires via ``required_for_commands``).
 
     Offline and side-effect free: it inspects the host only through ``env`` (injected
     ``which``/``probe``/``git_head``), never the network or a target.
     """
     manifests = load_all()
-    required = required_engines(manifests, engines)
+    required = required_engines(manifests, engines, commands=commands)
     statuses = [inspect_engine(name, manifests[name], env) for name in required]
     # An ``api``/commercial engine can never be required, so a REQUIRES_PRODUCT status is
     # never blocking; everything else that is not PRESENT blocks the launch.
@@ -157,13 +176,39 @@ def preflight_for_scanner(env: Environment, scanner: str | None) -> PreflightVer
 
     The requested scanner is required when Olympus governs it with a manifest; an
     ungoverned name (e.g. a test double) adds nothing to the mandatory set rather than
-    raising, so callers on the scan path can preflight unconditionally.
+    raising, so callers on the scan path can preflight unconditionally. A Themis scan is
+    the :data:`~olympus.engines.commands.THEMIS_RUN` command, so any engine declared
+    ``required_for_commands = ["themis.run"]`` is demanded here too — automatically, on
+    every scan path (CLI, worker, API, Web) that funnels through this wrapper.
     """
     try:
         governed = scanner is not None and scanner in load_all()
     except ManifestError:  # pragma: no cover - manifests ship with the package
         governed = False
-    return preflight(env, engines=(scanner,) if governed and scanner else ())
+    return preflight(
+        env, engines=(scanner,) if governed and scanner else (), commands=(THEMIS_RUN,)
+    )
+
+
+def preflight_for_command(
+    env: Environment, command_id: str, *, scanner: str | None = None
+) -> PreflightVerdict:
+    """Preflight the engines a governed ``command_id`` needs (fail-closed on an unknown id).
+
+    Checks the mandatory set plus every engine whose ``required_for_commands`` names
+    ``command_id`` (and the ``scanner`` when one is governed). Raises
+    :class:`~olympus.engines.commands.UnknownCommandError` if ``command_id`` is not a
+    command Olympus launches engines for, so an operator or CI gate cannot ask about a
+    command that does not exist and read the empty answer as "ready".
+    """
+    require_known(command_id)
+    try:
+        governed = scanner is not None and scanner in load_all()
+    except ManifestError:  # pragma: no cover - manifests ship with the package
+        governed = False
+    return preflight(
+        env, engines=(scanner,) if governed and scanner else (), commands=(command_id,)
+    )
 
 
 def scanner_readiness(env: Environment, scanner: str) -> EngineStatus | None:

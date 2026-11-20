@@ -102,16 +102,23 @@ def test_presence_probe_cannot_carry_paths_or_shell_syntax(probe: str) -> None:
 
 
 def test_mandatory_and_required_for_commands_are_mutually_exclusive() -> None:
-    text = _manifest(engine_extra='mandatory = true\nrequired_for_commands = ["web.scan"]')
+    text = _manifest(engine_extra='mandatory = true\nrequired_for_commands = ["themis.run"]')
     with pytest.raises(ManifestError, match="either mandatory"):
         parse_manifest(text)
+
+
+def test_required_for_commands_must_name_a_known_command() -> None:
+    # A well-formed but unknown command id is rejected at load: otherwise a typo would
+    # leave the engine required for nothing and silently unchecked (fail-open).
+    with pytest.raises(ManifestError, match="unknown command"):
+        parse_manifest(_manifest(engine_extra='required_for_commands = ["themis.rnu"]'))
 
 
 def test_mandatory_or_required_engine_must_have_an_adapter() -> None:
     with pytest.raises(ManifestError, match="mandatory engine must declare"):
         parse_manifest(_manifest(engine_extra="mandatory = true", adapter=""))
     with pytest.raises(ManifestError, match="required by commands must declare"):
-        parse_manifest(_manifest(engine_extra='required_for_commands = ["web.scan"]', adapter=""))
+        parse_manifest(_manifest(engine_extra='required_for_commands = ["themis.run"]', adapter=""))
 
 
 def test_go_pin_must_be_a_version_tag() -> None:

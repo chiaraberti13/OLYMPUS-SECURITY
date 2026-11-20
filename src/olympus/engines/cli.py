@@ -8,6 +8,7 @@ import typer
 
 from olympus.core.exit_codes import ExitCode
 from olympus.core.output import OutputFormat, render_table
+from olympus.engines.commands import UnknownCommandError, require_known
 from olympus.engines.doctor import (
     Environment,
     build_report,
@@ -141,19 +142,30 @@ def engines_preflight(
     engine: list[str] = typer.Option(
         [], "--engine", help="Also require this engine (repeatable), beyond the mandatory set."
     ),
+    command: str | None = typer.Option(
+        None,
+        "--command",
+        help="Also require every engine this command needs (e.g. 'themis.run'); unknown → exit 2.",
+    ),
     output_format: OutputFormat = typer.Option(
         OutputFormat.TABLE, "--format", help="table or json."
     ),
 ) -> None:
     """Fail-closed readiness gate for a planned scan (no network, no target).
 
-    Checks that every engine the run needs — the mandatory engines (nmap, nuclei, httpx)
-    plus any passed with --engine — is present at its pinned version. Exits 0 when all are
-    ready, 8 (engine missing) when one is not, printing the exact install command for each
-    gap. Meant to be run by an operator, or to gate CI/automation, before launching a scan.
+    Checks that every engine the run needs — the mandatory engines (nmap, nuclei, httpx),
+    any passed with --engine, and any an engine-launching --command requires via its
+    manifest's ``required_for_commands`` — is present at its pinned version. Exits 0 when
+    all are ready, 8 (engine missing) when one is not, printing the exact install command
+    for each gap. Meant to be run by an operator, or to gate CI/automation, before a scan.
     """
     try:
-        verdict = preflight(system_environment(), engines=tuple(engine))
+        commands = (require_known(command),) if command is not None else ()
+    except UnknownCommandError as exc:
+        typer.echo(f"olympus: {exc}", err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    try:
+        verdict = preflight(system_environment(), engines=tuple(engine), commands=commands)
     except UnknownEngineError as exc:
         typer.echo(f"olympus: unknown engine: {exc}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc

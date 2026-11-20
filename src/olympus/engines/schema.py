@@ -26,6 +26,8 @@ from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
+from olympus.engines.commands import COMMAND_IDS
+
 Category = Literal["network", "web", "dns", "tls", "vuln"]
 Distribution = Literal["apt", "pip", "gem", "go", "git", "binary", "docker", "npm", "api"]
 UpdatePolicy = Literal["manual", "patch", "minor", "major"]
@@ -206,6 +208,14 @@ class Engine(_Frozen):
             raise ValueError("presence_probe[0] must be a bare executable name, not a path")
         if len(set(self.required_for_commands)) != len(self.required_for_commands):
             raise ValueError("required_for_commands must not repeat a command")
+        unknown_commands = sorted(set(self.required_for_commands) - COMMAND_IDS)
+        if unknown_commands:
+            known = ", ".join(sorted(COMMAND_IDS))
+            raise ValueError(
+                f"required_for_commands names unknown command(s) {unknown_commands}; a manifest "
+                f"may only require a command Olympus launches engines for (known: {known}) — "
+                "otherwise a typo would leave the engine unchecked on the path that needs it"
+            )
         if self.mandatory and self.required_for_commands:
             raise ValueError(
                 "an engine is either mandatory (always checked) or required_for_commands "
