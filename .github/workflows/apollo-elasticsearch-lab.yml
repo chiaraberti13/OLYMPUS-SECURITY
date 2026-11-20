@@ -6,6 +6,7 @@ on:
       - .github/workflows/apollo-elasticsearch-lab.yml
       - labs/apollo/elasticsearch/**
       - src/olympus/apollo/dispatch.py
+      - src/olympus/apollo/siem_https.py
       - src/olympus/apollo/elastic*.py
       - src/olympus/apollo/ecs.py
 permissions:

@@ -68,6 +68,21 @@ the endpoint via the scope callback. The CLI continues to export local files.
 See the [Elasticsearch lab](../labs/apollo/elasticsearch/README.md) for the
 Windows alert batch, read-back checks and duplicate-delivery test.
 
+For Splunk HEC and Azure Monitor Logs Ingestion, instantiate
+`olympus.apollo.siem_https.SiemHttpsTransport(destination, approved_ip)`.
+The socket connects directly to the approved IP. TLS verifies the hostname from
+the approved endpoint and HTTP uses that hostname. A private CA can be supplied
+with `ca_file`. For Azure, configure the DCR/stream endpoint without a query.
+The transport adds the fixed `api-version=2023-01-01` to the outgoing request.
+The dispatcher expects HEC integer code 0 or Azure HTTP 204 respectively.
+
+The loopback TLS integration test sends the three original Windows alerts to
+local protocol receivers. It verifies both payloads, the authorization header,
+destination path and redirect rejection. Live indexing and read-back in Splunk
+and Log Analytics remain open. A live test must query the configured HEC index
+or DCR destination table for the three alert IDs and correlate the results with
+the new ingestion time. An HTTP receipt alone cannot establish indexing.
+
 The first format is `access-log` — HTTP access logs in the Apache/nginx *Common*
 and *Combined* Log Formats and the Python `http.server` variant — mapped to
 `event_type="http.request"` with string attributes (`client_ip`, `method`,

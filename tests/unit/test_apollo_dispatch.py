@@ -186,3 +186,23 @@ def test_missing_credential_and_empty_batch_fail_closed() -> None:
     with pytest.raises(ExecutionPolicyError, match="empty"):
         deliver_alerts([], environ={"OLYMPUS_SIEM_TEST": "secret"}, **base)
     assert not transport.calls
+
+
+@pytest.mark.parametrize(
+    ("destination", "response"),
+    [
+        (DESTINATIONS[0], SiemResponse(200, b'{"code": false}')),
+        (DESTINATIONS[2], SiemResponse(200)),
+    ],
+)
+def test_provider_success_is_unambiguous(destination, response) -> None:
+    provider, endpoint, _ = destination
+    with pytest.raises(ExecutionPolicyError):
+        deliver_alerts(
+            [_alert()],
+            SiemDestination(provider, endpoint, "OLYMPUS_SIEM_TEST"),
+            policy=_policy(),
+            authorize_endpoint=lambda _: None,
+            transport=FakeTransport(response),
+            environ={"OLYMPUS_SIEM_TEST": "local"},
+        )
