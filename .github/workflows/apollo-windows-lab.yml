@@ -1,9 +1,12 @@
 name: Apollo Windows telemetry lab
 on:
   workflow_dispatch:
-  push:
-    branches: [lab/blue-1-windows-telemetry]
-    paths: [.github/workflows/apollo-windows-lab.yml]
+  pull_request:
+    paths:
+      - .github/workflows/apollo-windows-lab.yml
+      - examples/input/apollo-sysmon/**
+      - src/olympus/apollo/**
+      - tests/fixtures/apollo/ingest/windows.jsonl
 permissions:
   contents: read
 jobs:
@@ -94,8 +97,10 @@ jobs:
           olympus apollo run --rules "$env:GITHUB_WORKSPACE/examples/input/apollo-sysmon" --events events.ndjson --output alerts.json
           if ($LASTEXITCODE -notin 0,1 -or !(Test-Path alerts.json)) { throw 'Rule evaluation failed' }
           $alerts = @((Get-Content alerts.json -Raw | ConvertFrom-Json).alerts)
-          $probe = @($alerts | Where-Object rule_id -eq APL-SYSMON-TIMESTOMP)
-          if ($probe.Count -ne 1) { throw 'Expected one timestomp positive control' }
+          $expected = @('APL-SYSMON-TIMESTOMP', 'APL-SYSMON-NAMED-PIPE-C2', 'APL-SECURITY-SCHEDULED-TASK')
+          if ($alerts.Count -ne 3 -or (Compare-Object $expected @($alerts.rule_id) -CaseSensitive)) {
+            throw "Unexpected Windows detection results: $($alerts.rule_id -join ', ')"
+          }
           foreach ($r in ($rows.Values | Sort-Object EventID)) {
             $indicator = switch ($r.EventID) {
               2 { $r.EventData.Image }

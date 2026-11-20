@@ -12,6 +12,10 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Fixed — Apollo Windows
+
+- Corrette le regole per named pipe e attività pianificate sui nomi nativi Windows. Il laboratorio verifica tutti e tre gli alert di BLUE-1.
+
 ### Added — BLUE-1: parser Windows/Sysmon esteso (timestomp, named-pipe, scheduled task)
 
 - `apollo.ingest` (`windows-json`): mappati nuovi EventID ad alto segnale mantenendo la disciplina
