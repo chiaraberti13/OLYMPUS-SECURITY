@@ -40,7 +40,13 @@ jobs:
           if ($LASTEXITCODE) { throw 'Audit policy failed' }
           $start = Get-Date
           Set-Content $file blue1
-          (Get-Item $file).CreationTimeUtc = [datetime]::UtcNow.AddMinutes(-1)
+          # The shipped rule keys on the image basename. This harmless helper
+          # only adjusts the creation time of our disposable blue1.txt.
+          Set-Content Probe.cs 'using System; using System.IO; class Probe { static void Main() { File.SetCreationTimeUtc("blue1.txt", DateTime.UtcNow.AddMinutes(-1)); } }'
+          & "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /nologo /out:evil.exe Probe.cs
+          if ($LASTEXITCODE) { throw 'Could not compile the local test probe' }
+          & .\evil.exe
+          if ($LASTEXITCODE) { throw 'Probe failed' }
           $server = [IO.Pipes.NamedPipeServerStream]::new($pipe)
           $client = [IO.Pipes.NamedPipeClientStream]::new('.', $pipe, 'InOut')
           try { $client.Connect(5000); $server.WaitForConnection() } finally { $client.Dispose(); $server.Dispose() }
@@ -87,6 +93,18 @@ jobs:
           }
           olympus apollo run --rules "$env:GITHUB_WORKSPACE/examples/input/apollo-sysmon" --events events.ndjson --output alerts.json
           if ($LASTEXITCODE -notin 0,1 -or !(Test-Path alerts.json)) { throw 'Rule evaluation failed' }
+          $alerts = @((Get-Content alerts.json -Raw | ConvertFrom-Json).alerts)
+          $probe = @($alerts | Where-Object rule_id -eq APL-SYSMON-TIMESTOMP)
+          if ($probe.Count -ne 1) { throw 'Expected one timestomp positive control' }
+          foreach ($r in ($rows.Values | Sort-Object EventID)) {
+            $indicator = switch ($r.EventID) {
+              2 { $r.EventData.Image }
+              17 { $r.EventData.PipeName }
+              18 { $r.EventData.PipeName }
+              4698 { $r.EventData.TaskName }
+            }
+            Write-Output "EventID=$($r.EventID) RecordID=$($r.EventRecordID) indicator=$indicator"
+          }
           Get-Content alerts.json
           exit 0
       - uses: actions/upload-artifact@v4
