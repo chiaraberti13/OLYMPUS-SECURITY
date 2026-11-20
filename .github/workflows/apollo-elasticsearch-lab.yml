@@ -1,0 +1,35 @@
+name: Apollo Elasticsearch lab
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/apollo-elasticsearch-lab.yml
+      - labs/apollo/elasticsearch/**
+      - src/olympus/apollo/dispatch.py
+      - src/olympus/apollo/elastic*.py
+      - src/olympus/apollo/ecs.py
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install .
+      - name: Start verified Elasticsearch and check Windows alert delivery over TLS
+        shell: bash
+        run: |
+          set -euo pipefail
+          file=elasticsearch-8.19.0-linux-x86_64.tar.gz
+          cd "$RUNNER_TEMP"
+          curl --fail --silent --show-error --retry 2 --output "$file" "https://artifacts.elastic.co/downloads/elasticsearch/$file"
+          echo "c737bc47ce5255ff58cf8910a404681a4ca60f00cbc0ecd0d912e636058b4a7994a4a5d6e0825a758d5fe066219d8d1079b921cc104d4ca979af980debc85372  $file" | sha512sum --check
+          tar -xzf "$file"
+          export ES_HOME="$RUNNER_TEMP/elasticsearch-8.19.0"
+          bash "$GITHUB_WORKSPACE/labs/apollo/elasticsearch/run.sh"
