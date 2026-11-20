@@ -59,12 +59,14 @@ The endpoint must be HTTPS with no credentials, query or fragment, and its path
 must match the chosen SIEM ingestion API. Tokens come exclusively from an
 environment variable named `OLYMPUS_SIEM_*`; they are never put in the URL.
 Batch size and response size are bounded, and Splunk HEC / Elasticsearch bulk
-responses are checked for application-level failure. Calls are single-attempt;
-redirect/retry handling is the responsibility of a future audited adapter.
-**No live HTTP transport is packaged and no CLI option sends network traffic.**
-The scope callback must be provided by the engagement's authorized egress
-checker, not a no-op; tests use no-op/failing callbacks only with fake transports.
-Live delivery requires a reviewed adapter and an authorized-lab validation.
+responses are checked for application-level failure. The Elasticsearch adapter
+`olympus.apollo.elastic_https.ElasticHttpsTransport` accepts a fixed IP address,
+an explicit TCP port and a trusted CA file. It sends one request directly to the
+configured socket, verifies the TLS certificate for that IP and returns the first
+response. The dispatcher rejects redirects. The engagement must still authorize
+the endpoint via the scope callback. The CLI continues to export local files.
+See the [Elasticsearch lab](../labs/apollo/elasticsearch/README.md) for the
+Windows alert batch, read-back checks and duplicate-delivery test.
 
 The first format is `access-log` — HTTP access logs in the Apache/nginx *Common*
 and *Combined* Log Formats and the Python `http.server` variant — mapped to

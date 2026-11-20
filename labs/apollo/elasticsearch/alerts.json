@@ -1,0 +1,57 @@
+{
+  "alerts": [
+    {
+      "alert_id": "ALT-F5BC476B8A1F5CF05E787BE9",
+      "created_at": "2026-11-20T14:45:47.365022Z",
+      "engagement_id": null,
+      "event_id": "EVT-2026-00002",
+      "evidence_ids": [],
+      "mitre_attack": [
+        "T1559"
+      ],
+      "rule_id": "APL-SYSMON-NAMED-PIPE-C2",
+      "schema_name": "olympus.alert",
+      "schema_version": "1.0.0",
+      "severity": "high",
+      "source": "apollo",
+      "status": "open",
+      "title": "Named pipe created matching a known C2 framework pattern"
+    },
+    {
+      "alert_id": "ALT-AB9DD32D68F01ED3BCE4B762",
+      "created_at": "2026-11-20T14:45:47.359660Z",
+      "engagement_id": null,
+      "event_id": "EVT-2026-00003",
+      "evidence_ids": [],
+      "mitre_attack": [
+        "T1070.006"
+      ],
+      "rule_id": "APL-SYSMON-TIMESTOMP",
+      "schema_name": "olympus.alert",
+      "schema_version": "1.0.0",
+      "severity": "medium",
+      "source": "apollo",
+      "status": "open",
+      "title": "File creation time changed by a temp-dir binary (timestomping)"
+    },
+    {
+      "alert_id": "ALT-86BF4D871CE1A2A1B6C72E5D",
+      "created_at": "2026-11-20T14:45:47.618185Z",
+      "engagement_id": null,
+      "event_id": "EVT-2026-00004",
+      "evidence_ids": [],
+      "mitre_attack": [
+        "T1053.005"
+      ],
+      "rule_id": "APL-SECURITY-SCHEDULED-TASK",
+      "schema_name": "olympus.alert",
+      "schema_version": "1.0.0",
+      "severity": "high",
+      "source": "apollo",
+      "status": "open",
+      "title": "Scheduled task registered by a service account (persistence)"
+    }
+  ],
+  "schema_name": "olympus.apollo-alerts",
+  "schema_version": "1.0.0"
+}

@@ -1,6 +1,6 @@
 """Authorization-gated, transport-injected SIEM delivery boundary (BLUE-2).
 
-No HTTP client is provided. A caller must inject a transport after verifying
+A caller must inject a transport after verifying
 the engagement's approved egress destination; offline tests inject a fake.
 This layer never logs tokens, request bodies or raw SIEM responses.
 """
