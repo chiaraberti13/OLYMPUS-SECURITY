@@ -77,6 +77,7 @@ def test_windows_alert_delivery_over_pinned_tls(cert, provider):
 
     pem, key = cert
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
     ctx.load_cert_chain(pem, key)
     with HTTPServer(("127.0.0.1", 0), Receiver) as server:
         server.socket = ctx.wrap_socket(server.socket, server_side=True)

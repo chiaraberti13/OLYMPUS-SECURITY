@@ -44,6 +44,7 @@ class SiemHttpsTransport:
         if destination.provider is SiemProvider.SENTINEL:
             self._path += "?api-version=2023-01-01"
         self._tls = ssl.create_default_context(cafile=str(ca_file) if ca_file else None)
+        self._tls.minimum_version = ssl.TLSVersion.TLSv1_2
 
     def post(
         self, endpoint: str, body: bytes, headers: Mapping[str, str], *, timeout: float
