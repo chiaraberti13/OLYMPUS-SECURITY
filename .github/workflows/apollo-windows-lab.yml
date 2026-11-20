@@ -1,0 +1,119 @@
+name: Apollo Windows telemetry lab
+on:
+  workflow_dispatch:
+  push:
+    branches: [lab/blue-1-windows-telemetry]
+    paths: [.github/workflows/apollo-windows-lab.yml]
+permissions:
+  contents: read
+jobs:
+  collect:
+    runs-on: windows-2022
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install . pyyaml
+      - name: Collect four native Windows events
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $lab = Join-Path $env:RUNNER_TEMP blue1
+          New-Item $lab -ItemType Directory | Out-Null
+          Set-Location $lab
+          Invoke-WebRequest https://download.sysinternals.com/files/Sysmon.zip -OutFile sysmon.zip
+          Expand-Archive sysmon.zip sysmon
+          $bin = Resolve-Path sysmon/Sysmon64.exe
+          $sig = Get-AuthenticodeSignature $bin
+          if ($sig.Status -ne 'Valid' -or $sig.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation,') { throw 'Sysmon signature check failed' }
+          $file = Join-Path $lab blue1.txt
+          $pipe = 'evilc2-pipe'
+          $cfg = "<Sysmon schemaversion='4.50'><EventFiltering><FileCreateTime onmatch='include'><TargetFilename condition='is'>$file</TargetFilename></FileCreateTime><PipeEvent onmatch='include'><PipeName condition='end with'>$pipe</PipeName></PipeEvent></EventFiltering></Sysmon>"
+          Set-Content config.xml $cfg
+          & $bin -accepteula -i config.xml
+          if ($LASTEXITCODE) { throw 'Sysmon installation failed' }
+          auditpol /set '/subcategory:{0CCE9227-69AE-11D9-BED3-505054503030}' /success:enable
+          if ($LASTEXITCODE) { throw 'Audit policy failed' }
+          $start = Get-Date
+          Set-Content $file blue1
+          # The shipped rule keys on the image basename. This harmless helper
+          # only adjusts the creation time of our disposable blue1.txt.
+          Set-Content Probe.cs 'using System; using System.IO; class Probe { static void Main() { File.SetCreationTimeUtc("blue1.txt", DateTime.UtcNow.AddMinutes(-1)); } }'
+          & "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /nologo /out:evil.exe Probe.cs
+          if ($LASTEXITCODE) { throw 'Could not compile the local test probe' }
+          & .\evil.exe
+          if ($LASTEXITCODE) { throw 'Probe failed' }
+          $server = [IO.Pipes.NamedPipeServerStream]::new($pipe)
+          $client = [IO.Pipes.NamedPipeClientStream]::new('.', $pipe, 'InOut')
+          try { $client.Connect(5000); $server.WaitForConnection() } finally { $client.Dispose(); $server.Dispose() }
+          $task = 'UpdaterTask'
+          $action = New-ScheduledTaskAction -Execute "$env:SystemRoot\System32\whoami.exe"
+          Register-ScheduledTask -TaskName $task -Action $action | Out-Null
+          Unregister-ScheduledTask -TaskName $task -Confirm:$false
+          $rows = @{}
+          foreach ($attempt in 1..30) {
+            foreach ($channel in 'Microsoft-Windows-Sysmon/Operational','Security') {
+              $ids = if ($channel -eq 'Security') { 4698 } else { 2,17,18 }
+              foreach ($evt in (Get-WinEvent -FilterHashtable @{LogName=$channel;Id=$ids;StartTime=$start} -ErrorAction SilentlyContinue)) {
+                $xml = [xml]$evt.ToXml()
+                $fields = @{}
+                foreach ($d in $xml.Event.EventData.Data) { $fields[$d.GetAttribute('Name')] = $d.InnerText }
+                $match = switch ($evt.Id) {
+                  2 { $fields.TargetFilename -eq $file }
+                  17 { $fields.PipeName -eq "\$pipe" }
+                  18 { $fields.PipeName -eq "\$pipe" }
+                  4698 { $fields.TaskName -eq "\$task" }
+                }
+                if ($match) {
+                  $rows[$evt.Id] = @{ EventID=$evt.Id; Provider=$evt.ProviderName; Channel=$channel; EventRecordID=$evt.RecordId; TimeCreated=$xml.Event.System.TimeCreated.SystemTime; EventData=$fields }
+                  Set-Content "$lab/event-$($evt.Id).xml" ($evt.ToXml())
+                }
+              }
+            }
+            if ($rows.Count -eq 4) { break }
+            Start-Sleep 2
+          }
+          if ($rows.Count -ne 4) { throw "Missing expected native records. Found $($rows.Keys -join ',')" }
+          $rows.Values | ForEach-Object { ConvertTo-Json $_ -Compress -Depth 8 } | Set-Content windows.jsonl -Encoding utf8NoBOM
+          olympus apollo ingest --format windows-json --input windows.jsonl --output events.ndjson
+          if ($LASTEXITCODE) { throw 'Ingest failed' }
+          $normalized = @(Get-Content events.ndjson | ForEach-Object { $_ | ConvertFrom-Json })
+          foreach ($e in $rows.Values) {
+            $n = @($normalized | Where-Object { $_.attributes.event_id -eq [string]$e.EventID })
+            if ($n.Count -ne 1) { throw "Missing normalized ID $($e.EventID)" }
+            switch ($e.EventID) {
+              2 { if ($n[0].attributes.target_filename -cne $e.EventData.TargetFilename) { throw 'File mismatch' } }
+              { $_ -in 17,18 } { if ($n[0].attributes.pipe_name -cne $e.EventData.PipeName) { throw 'Pipe mismatch' } }
+              4698 { if ($n[0].attributes.task_name -cne $e.EventData.TaskName) { throw 'Task mismatch' } }
+            }
+          }
+          olympus apollo run --rules "$env:GITHUB_WORKSPACE/examples/input/apollo-sysmon" --events events.ndjson --output alerts.json
+          if ($LASTEXITCODE -notin 0,1 -or !(Test-Path alerts.json)) { throw 'Rule evaluation failed' }
+          $alerts = @((Get-Content alerts.json -Raw | ConvertFrom-Json).alerts)
+          $probe = @($alerts | Where-Object rule_id -eq APL-SYSMON-TIMESTOMP)
+          if ($probe.Count -ne 1) { throw 'Expected one timestomp positive control' }
+          foreach ($r in ($rows.Values | Sort-Object EventID)) {
+            $indicator = switch ($r.EventID) {
+              2 { $r.EventData.Image }
+              17 { $r.EventData.PipeName }
+              18 { $r.EventData.PipeName }
+              4698 { $r.EventData.TaskName }
+            }
+            Write-Output "EventID=$($r.EventID) RecordID=$($r.EventRecordID) indicator=$indicator"
+          }
+          Get-Content alerts.json
+          exit 0
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: blue1-native-events
+          path: |
+            ${{ runner.temp }}/blue1/event-*.xml
+            ${{ runner.temp }}/blue1/windows.jsonl
+            ${{ runner.temp }}/blue1/events.ndjson
+            ${{ runner.temp }}/blue1/alerts.json
+          retention-days: 7
