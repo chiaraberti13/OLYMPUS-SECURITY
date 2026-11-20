@@ -13,20 +13,23 @@ from olympus.core.execution import ExecutionPolicyError
 
 def test_pinned_delivery_rejects_other_destinations_and_never_follows_redirects() -> None:
     with (
-        patch("olympus.apollo.elastic_https.ssl.create_default_context") as tls,
-        patch("olympus.apollo.elastic_https.HTTPSConnection") as connect,
+        patch("olympus.apollo.siem_https.ssl.create_default_context") as tls,
+        patch("olympus.apollo.siem_https.HTTPSConnection") as connect,
+        patch("olympus.apollo.siem_https.socket.create_connection") as tcp,
     ):
         transport = ElasticHttpsTransport(IPv4Address("127.0.0.1"), 19200, ca_file=Path("ca.pem"))
         tls.assert_called_once_with(cafile="ca.pem")
         with pytest.raises(ExecutionPolicyError, match="scope"):
             transport.post("https://127.0.0.2:19200/_bulk", b"", {}, timeout=2)
         connect.assert_not_called()
+        tcp.assert_not_called()
         response = connect.return_value.getresponse.return_value
         response.status = 307
         response.read.return_value = b""
         result = transport.post(transport.endpoint, b"batch", {}, timeout=2)
         assert result.status_code == 307
         connect.assert_called_once_with("127.0.0.1", 19200, context=tls.return_value, timeout=2)
+        tcp.assert_called_once_with(("127.0.0.1", 19200), 2)
         connect.return_value.request.assert_called_once_with("POST", "/_bulk", b"batch", {})
         response.read.assert_called_once_with(MAX_RESPONSE_BYTES + 1)
         connect.return_value.close.assert_called_once()

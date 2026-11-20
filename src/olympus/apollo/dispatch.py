@@ -63,7 +63,7 @@ class SiemDeliveryResult:
     bytes_sent: int
 
 
-def _validate_endpoint(destination: SiemDestination) -> None:
+def validate_endpoint(destination: SiemDestination) -> None:
     raw = destination.endpoint
     if any(ord(char) <= 32 or ord(char) == 127 for char in raw):
         raise ExecutionPolicyError("SIEM endpoint contains forbidden characters")
@@ -91,7 +91,7 @@ def _validate_endpoint(destination: SiemDestination) -> None:
     if destination.provider is SiemProvider.ELASTIC and url.path != "/_bulk":
         raise ExecutionPolicyError("Elasticsearch destination must use /_bulk")
     if destination.provider is SiemProvider.SENTINEL and not re.fullmatch(
-        r"/dataCollectionRules/[^/]+/streams/[^/]+", url.path
+        r"/dataCollectionRules/[A-Za-z0-9_-]+/streams/[A-Za-z0-9_-]+", url.path
     ):
         raise ExecutionPolicyError("Sentinel destination must identify a DCR and stream")
 
@@ -115,7 +115,7 @@ def deliver_alerts(
     policy.require_authorization("SIEM delivery")
     if not policy.approval_reference:
         raise ExecutionPolicyError("SIEM delivery requires an approval reference")
-    _validate_endpoint(destination)
+    validate_endpoint(destination)
     policy.authorize_target("SIEM delivery", destination.endpoint, authorize_endpoint)
     if not _ENV_NAME.fullmatch(destination.credential_env):
         raise ExecutionPolicyError("credential_env must name an OLYMPUS_SIEM_* variable")
@@ -165,8 +165,14 @@ def deliver_alerts(
     elif destination.provider is SiemProvider.SPLUNK:
         try:
             parsed = json.loads(response.body)
-            if not isinstance(parsed, dict) or parsed.get("code") != 0:
+            if (
+                not isinstance(parsed, dict)
+                or type(parsed.get("code")) is not int
+                or parsed["code"] != 0
+            ):
                 raise ValueError("non-successful HEC response")
         except (ValueError, UnicodeError) as exc:
             raise ExecutionPolicyError("Splunk HEC response is incomplete or unsuccessful") from exc
+    elif destination.provider is SiemProvider.SENTINEL and response.status_code != 204:
+        raise ExecutionPolicyError("Azure Logs Ingestion did not return HTTP 204")
     return SiemDeliveryResult(destination.provider, response.status_code, len(alerts), len(body))
