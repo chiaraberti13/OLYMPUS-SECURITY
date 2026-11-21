@@ -137,6 +137,8 @@ class TaxiiCollection:
             raise TaxiiConfigError("TAXII api_root_url must be https://")
         if not split.hostname:
             raise TaxiiConfigError("TAXII api_root_url has no host")
+        if split.username is not None or split.password is not None:
+            raise TaxiiConfigError("TAXII api_root_url must not carry credentials")
         if split.query or split.fragment:
             raise TaxiiConfigError("TAXII api_root_url must not carry a query or fragment")
         if not self.collection_id or any(ch not in _SAFE_ID for ch in self.collection_id):
@@ -309,7 +311,8 @@ def poll_collection(
     and parsed by the offline STIX normalizer, so the IOCs match a later
     ``stix-import`` of the same bundle exactly. ``added_after`` asks the server
     for only what is new since a prior poll; the returned ``next_added_after`` is
-    the cursor to pass next time.
+    the cursor to pass next time. An incomplete poll retains the input cursor
+    so a retry cannot skip objects from a truncated page or unread pages.
 
     Raises :class:`TaxiiError` on a transport/protocol failure and
     :class:`TaxiiConfigError` on a bad bound or missing credential.
@@ -374,7 +377,7 @@ def poll_collection(
         bundle=bundle,
         objects_fetched=len(collected),
         pages_fetched=pages,
-        next_added_after=latest_added or added_after,
+        next_added_after=(latest_added or added_after) if not more_available else added_after,
         more_available=more_available,
     )
 
