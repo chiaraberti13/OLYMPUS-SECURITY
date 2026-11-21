@@ -170,6 +170,16 @@ di sicurezza nel frontend.
   Validazione su Windows Server 2022 per Sysmon 2/17/18 e Security 4698.
   Il laboratorio verifica i quattro eventi e le tre detection attese.
   [Evidenze BLUE-1](labs/apollo/BLUE-1-windows.md).
+  **Validazione su telemetria reale di terzi (2026-11-21):** il parser è stato
+  eseguito su una cattura **reale** pubblica (OTRF *Security-Datasets*, MIT, lab
+  `theshire.local`) in layout NXLog/Winlogbeat — `EventID` int/stringa, provider in
+  `SourceName`, **EventData appiattita a livello superiore** (nessun oggetto annidato).
+  Ingeriti 1899 eventi reali (Sysmon 1/3/7/10/11/13/18/22/23 + Security 4624/4688),
+  gli ID non mappati scartati (skip-never-guess); un estratto verbatim di 12 record è
+  fixture di regressione (`tests/fixtures/apollo/ingest/windows-real-otrf.jsonl`,
+  `tests/integration/test_apollo_ingest_windows_real.py`). Irrobustito il gating di
+  provider per includere `SourceName`. Resta solo la cattura in un lab Windows
+  **proprio** autorizzato (promozione a live-tested) se/quando servirà.
 - **BLUE-2** [~] Connettori SIEM/EDR (Splunk HEC, Elastic, Sentinel) via porte iniettate, test offline. **Formatter offline fatti:** export alert in ECS (`--ecs`), OCSF (`--ocsf`), **Splunk HEC** (`--hec`, envelope HEC con documento ECS nel payload `event`) ed **Elasticsearch `_bulk`** (`--elastic-bulk` + `--elastic-index`, nuovo: `alerts_to_elastic_bulk`, action `create` per-alert_id + documento ECS, pronto per l'API `_bulk` senza log shipper) e **Azure Monitor / Microsoft Sentinel** (`--sentinel`, array JSON per Logs Ingestion API; richiede DCR e tabella custom coerenti), su `apollo test`/`apollo run`, file owner-only `0o600`, puri e deterministici (nessuna rete). **Dispatch offline implementato:** `apollo.dispatch.deliver_alerts` via `SiemTransport` iniettato, policy con autorizzazione e approval reference, gate di scope sul destination URL, token `OLYMPUS_SIEM_*`, URL HTTPS e dimensioni bounded, controlli dei successi applicativi HEC/Elastic; adapter HTTPS Elasticsearch con IP/porta fissati, verifica TLS e rifiuto dei redirect. Il [laboratorio Elasticsearch](labs/apollo/elasticsearch/README.md) verifica le tre detection Windows native tramite invio, rilettura dei documenti e replay dei duplicati. Splunk HEC e Azure Monitor Logs Ingestion dispongono del trasporto HTTPS con IP fissato e verifica TLS del nome host. Il test su loopback controlla i tre alert Windows per entrambi i protocolli.
   - [x] **Splunk HEC, prova live locale (2026-11-20).** Splunk Enterprise `10.6.2.5` e Olympus `1f879d3`. **Accettazione:** HTTP `200`, `code: 0` per il batch originale. **Rilettura:** 3/3 alert nell'indice `olympus_apollo`, una occorrenza per ID, payload ECS identici e orario di indicizzazione coerente con il nuovo invio.
   - [x] **Microsoft Sentinel, test HTTPS locale.** Il ricevitore su loopback ha ricevuto i tre alert e restituito HTTP `204`.
