@@ -68,6 +68,46 @@ The SQLite database and exported reports are owner-only (`0600`), foreign keys
 are enabled, inputs are bounded, evidence files must be regular non-symlink
 files, and every finding retains source and confidence.
 
+## CTI live — TAXII 2.1
+
+```bash
+# Poll a TAXII 2.1 collection, write the collected STIX bundle, print a summary.
+olympus metis taxii poll https://feed.example/taxii2/api1 <collection-id> \
+  --token-env OLYMPUS_TAXII_TOKEN --output feed.stix.json
+# Feed the bundle into a case with its own analyst-visible provenance.
+olympus metis case stix-import .metis/cases.sqlite3 "$CASE_ID" feed.stix.json \
+  --source "TAXII: feed.example/<collection-id>"
+# Next run: only what is new, using the printed next_added_after cursor.
+olympus metis taxii poll https://feed.example/taxii2/api1 <collection-id> \
+  --added-after 2026-11-21T10:00:00Z --output feed.stix.json
+```
+
+`taxii poll` is the **only networked** Metis surface, and it is deliberately
+narrow: it fetches STIX objects and hands them to the **same offline parser**
+used by `case stix-import`, so a live poll and an import of the written bundle
+yield the identical IOCs (simple-equality patterns imported, compound ones
+reported as skipped, never mangled).
+
+Three properties keep the fetch safe to point at the public internet:
+
+- **Pinned, guarded egress.** The connection reuses the vetted address-pinning
+  stack: the destination is resolved once, inside the socket call, and refused
+  if it is private or loopback — closing the SSRF and DNS-rebinding windows. A
+  **private** TAXII server (a local lab) is reachable only when the active lab
+  policy declares its range, exactly like the live-scan gate. No HTTP proxy is
+  permitted.
+- **Bounded reads.** Response size, page count (`--max-pages`) and object count
+  (`--max-objects`) all have hard caps; pagination follows the envelope's
+  `more`/`next` only within them.
+- **No secret in the repo.** `--token-env` names the environment variable that
+  holds the feed's bearer token; the token itself is never a committed value and
+  never logged. A collection that declares a token env var whose value is unset
+  fails closed rather than polling unauthenticated.
+
+Provenance is a stable `taxii://<host>/<collection>` label, and
+`--added-after` with the printed `next_added_after` cursor (from the server's
+`X-TAXII-Date-Added-Last`) makes each subsequent poll incremental.
+
 ## Guided labs
 
 ```bash

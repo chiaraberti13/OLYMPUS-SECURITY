@@ -12,6 +12,27 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — BLUE-3: CTI live via TAXII 2.1 (slice)
+
+- Nuovo modulo `olympus.metis.taxii` e comando **`olympus metis taxii poll`**: scarica oggetti STIX da
+  una collection **TAXII 2.1** e li normalizza a IOC riusando il parser STIX offline già testato
+  (`bundle_to_indicators`), così un poll live e un `metis case stix-import` dello stesso bundle danno
+  **gli stessi IOC** (pattern a uguaglianza semplice importati, compositi riportati come *skipped*, mai
+  mangiati). Il bundle raccolto può essere scritto owner-only (`--output`) e dato in pasto a
+  `case stix-import` con la sua provenienza.
+- **Egress pinned e guardato:** il trasporto reale riusa `core.pinning` + `global_address_policy` —
+  indirizzo risolto **una sola volta** dentro la socket, destinazioni private/loopback rifiutate
+  (SSRF e DNS-rebinding chiusi), nessun proxy HTTP. Un server TAXII **privato** (lab locale) è
+  raggiungibile solo se la lab-policy attiva ne dichiara il range, stessa catena del gate di scansione.
+- **Caching incrementale** con cursore `added_after` (dall'header `X-TAXII-Date-Added-Last`),
+  **paginazione** `more`/`next` **bounded** (byte/pagine/oggetti), **provenance** `taxii://host/collection`.
+  Il **token** del feed arriva da una variabile d'ambiente (`--token-env`, solo il *nome*): mai nel repo,
+  mai nei log; fail-closed se dichiarato e assente.
+- Trasporto iniettabile (`TaxiiTransport` `Protocol`) → test interamente **offline** contro un server
+  TAXII in memoria (`tests/unit/test_metis_taxii.py`: normalizzazione, paginazione, cursore incrementale,
+  limiti, header di auth, rifiuti 401/403/5xx/JSON invalido, solo-https). `docs/metis.md` e CLI reference
+  aggiornate.
+
 ### Added — Runner L3 riproducibile (scansione live con evidenza firmata)
 
 - `labs/l3/run.sh`: esegue un engine mandatory (nmap/httpx/nuclei) **live** dentro il container indurito

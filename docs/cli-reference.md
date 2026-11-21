@@ -1004,6 +1004,23 @@ Route an objective to the best matching local capabilities.
 | `--limit` | option | no | `5` | — |
 | `--advisory-only` | option | no | `False` | Exclude active-execution capabilities. |
 
+### `olympus metis taxii poll`
+
+Poll a TAXII 2.1 collection over pinned HTTPS and normalize STIX to IOCs.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `api_root` | argument | yes | — | TAXII 2.1 API Root URL (https:// only). |
+| `collection_id` | argument | yes | — | Collection id under the API Root. |
+| `--output` | option | no | — | Write the collected STIX 2.1 bundle here (owner-only). |
+| `--added-after` | option | no | — | Only fetch objects added after this cursor (incremental). |
+| `--token-env` | option | no | — | Name of the environment variable holding the bearer token (never the token). |
+| `--page-limit` | option | no | `1000` | — |
+| `--max-objects` | option | no | `10000` | — |
+| `--max-pages` | option | no | `100` | — |
+| `--timeout` | option | no | `30.0` | — |
+| `--ca-file` | option | no | — | Custom CA bundle for TLS. |
+
 ### `olympus minerva capture`
 
 Hash a local artifact and write an evidence reference anchored to its bytes.

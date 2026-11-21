@@ -37,6 +37,17 @@ from olympus.metis.misp import MispError, event_to_indicators, indicators_to_eve
 from olympus.metis.models import load_case_document
 from olympus.metis.planner import build_plan
 from olympus.metis.stix import StixError, bundle_to_indicators, indicators_to_bundle
+from olympus.metis.taxii import (
+    DEFAULT_PAGE_LIMIT,
+    DEFAULT_TIMEOUT,
+    MAX_TAXII_OBJECTS,
+    MAX_TAXII_PAGES,
+    PinnedTaxiiTransport,
+    TaxiiCollection,
+    TaxiiConfigError,
+    TaxiiError,
+    poll_collection,
+)
 
 DEFAULT_MAX_STIX_BYTES = 50_000_000
 #: Cap on an encrypted backup envelope read back for restore (base64 of a DB).
@@ -570,4 +581,80 @@ def _is_encryption_envelope(path: Path) -> bool:
     return prefix.startswith(b"{")
 
 
+taxii_app = typer.Typer(help="Live TAXII 2.1 threat-intelligence polling.", no_args_is_help=True)
+
+
+@taxii_app.command("poll")
+def taxii_poll(
+    api_root: str = typer.Argument(..., help="TAXII 2.1 API Root URL (https:// only)."),
+    collection_id: str = typer.Argument(..., help="Collection id under the API Root."),
+    output: Path | None = typer.Option(
+        None, help="Write the collected STIX 2.1 bundle here (owner-only)."
+    ),
+    added_after: str | None = typer.Option(
+        None, "--added-after", help="Only fetch objects added after this cursor (incremental)."
+    ),
+    token_env: str | None = typer.Option(
+        None,
+        "--token-env",
+        help="Name of the environment variable holding the bearer token (never the token).",
+    ),
+    page_limit: int = typer.Option(
+        DEFAULT_PAGE_LIMIT, "--page-limit", min=1, max=MAX_TAXII_OBJECTS
+    ),
+    max_objects: int = typer.Option(
+        MAX_TAXII_OBJECTS, "--max-objects", min=1, max=MAX_TAXII_OBJECTS
+    ),
+    max_pages: int = typer.Option(MAX_TAXII_PAGES, "--max-pages", min=1, max=MAX_TAXII_PAGES),
+    timeout: float = typer.Option(DEFAULT_TIMEOUT, "--timeout", min=0.1, max=600.0),
+    ca_file: Path | None = typer.Option(None, "--ca-file", help="Custom CA bundle for TLS."),
+) -> None:
+    """Poll a TAXII 2.1 collection over pinned HTTPS and normalize STIX to IOCs.
+
+    Egress is pinned and public-only (a private lab server is reachable only when
+    the active lab policy declares its range); every read is bounded; the bearer
+    token, if any, comes from the named environment variable, never the repo. The
+    collected bundle can be written out and fed to ``metis case stix-import`` with
+    its own provenance; ``--added-after`` with the printed ``next_added_after``
+    makes the next poll incremental.
+    """
+    try:
+        collection = TaxiiCollection(
+            api_root_url=api_root, collection_id=collection_id, token_env=token_env
+        )
+        transport = PinnedTaxiiTransport(ca_file=str(ca_file) if ca_file else None)
+        poll = poll_collection(
+            transport,
+            collection,
+            added_after=added_after,
+            page_limit=page_limit,
+            max_objects=max_objects,
+            max_pages=max_pages,
+            timeout=timeout,
+        )
+        if output is not None:
+            atomic_write_text(
+                output, json.dumps(poll.bundle, indent=2, sort_keys=True) + "\n", mode=0o600
+            )
+    except (TaxiiError, TaxiiConfigError, ValueError, OSError) as exc:
+        _fail(exc)
+    typer.echo(
+        json.dumps(
+            {
+                "source": poll.source,
+                "objects_fetched": poll.objects_fetched,
+                "pages_fetched": poll.pages_fetched,
+                "indicators": poll.indicator_count,
+                "skipped": len(poll.result.skipped),
+                "next_added_after": poll.next_added_after,
+                "more_available": poll.more_available,
+                "output": str(output) if output is not None else None,
+            }
+        )
+    )
+    for item in poll.result.skipped:
+        typer.echo(safe_terminal_text(f"metis: skipped {item.reason}: {item.value}"), err=True)
+
+
 app.add_typer(case_app, name="case")
+app.add_typer(taxii_app, name="taxii")
