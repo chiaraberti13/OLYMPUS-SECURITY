@@ -12,6 +12,20 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — BLUE-1 validato su telemetria Windows reale di terzi
+
+- Il parser `windows-json` è stato eseguito su una cattura **reale** pubblica (OTRF *Security-Datasets*,
+  MIT, lab simulato `theshire.local`) in layout **NXLog/Winlogbeat** — `EventID` int o stringa, provider in
+  `SourceName`, **EventData appiattita a livello superiore** (nessun oggetto `EventData` annidato). Ingeriti
+  **1899 eventi reali** (Sysmon 1/3/7/10/11/13/18/22/23 + Security 4624/4688); gli EventID non mappati (es. WFP
+  5156) scartati come *skip-never-guess*. Conferma end-to-end anche dei Sysmon 2/17/18 aggiunti di recente.
+- Fixture di regressione: estratto verbatim di 12 record reali in
+  `tests/fixtures/apollo/ingest/windows-real-otrf.jsonl` + `tests/integration/test_apollo_ingest_windows_real.py`
+  (verifica layout appiattito, mapping dei campi dal record piatto, skip degli ID non mappati, gating via `SourceName`).
+- **Irrobustito** `_windows_provider`: ora considera anche `SourceName` (campo provider canonico degli export
+  NXLog/Winlogbeat) oltre a `Provider`/`ProviderName`/`Channel`, unendoli per il gating di famiglia; un provider
+  estraneo resta comunque rifiutato. Nessuna regressione sulle fixture sintetiche.
+
 ### Added — Protected engine lab (TOOLS-4.2 L1+L2 eseguito offline)
 
 - `scripts/lab/provision_lab.sh` + `docs/engines/LAB.md`: provisioning riproducibile di un lab engine

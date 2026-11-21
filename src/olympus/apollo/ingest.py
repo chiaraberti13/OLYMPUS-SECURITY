@@ -508,12 +508,16 @@ def _windows_event_id(record: dict[str, object]) -> int | None:
 
 
 def _windows_provider(record: dict[str, object]) -> str:
-    """Read the provider/channel as a lowercased string for family gating."""
-    for key in ("Provider", "ProviderName", "Channel"):
-        value = record.get(key)
-        if isinstance(value, str):
-            return value.lower()
-    return ""
+    """Join the provider/channel identifiers as one lowercased string for family gating.
+
+    Real exporters disagree on where the provider lives: ``Get-WinEvent`` emits
+    ``Provider``/``ProviderName``, EVTX-to-JSON uses ``Channel``, and NXLog/Winlogbeat
+    captures (e.g. the OTRF datasets) carry ``SourceName``. All present values are
+    joined so the family check matches whichever field identifies it, while an
+    unrelated provider still fails to match.
+    """
+    parts = (record.get(key) for key in ("Provider", "ProviderName", "SourceName", "Channel"))
+    return " ".join(value.lower() for value in parts if isinstance(value, str))
 
 
 def _windows_field(record: dict[str, object], event_data: dict[str, object], key: str) -> object:
