@@ -97,6 +97,11 @@ def test_collection_requires_https_and_wellformed_id() -> None:
         TaxiiCollection(api_root_url="https://feed.example/api1?x=1", collection_id="abc")
 
 
+def test_collection_refuses_credentials_in_url() -> None:
+    with pytest.raises(TaxiiConfigError, match="must not carry credentials"):
+        TaxiiCollection(api_root_url="https://user@feed.example/api1", collection_id="abc")
+
+
 def test_collection_urls_and_label_carry_no_secret() -> None:
     collection = TaxiiCollection(
         api_root_url="https://feed.example/taxii2/api1/",
@@ -149,7 +154,7 @@ def test_single_page_normalizes_stix_to_iocs() -> None:
     assert poll.source == "taxii://feed.example/91a7b528-80eb-42ed"
 
 
-def test_pagination_follows_next_and_accumulates() -> None:
+def test_opencti_taxii_collection_paginates_and_normalizes() -> None:
     page1 = _envelope(
         [_indicator_obj("[domain-name:value = 'one.tld']")],
         more=True,
@@ -162,8 +167,20 @@ def test_pagination_follows_next_and_accumulates() -> None:
         date_added_last="2026-11-21T09:05:00Z",
     )
     transport = FakeTransport([page1, page2])
-    poll = poll_collection(transport, _collection(), page_limit=1)
+    collection = TaxiiCollection(
+        api_root_url="https://opencti.example/cti/taxii2/root/",
+        collection_id="opencti-collection",
+        token_env=TOKEN_ENV,
+    )
+    poll = poll_collection(
+        transport, collection, page_limit=1, environ={TOKEN_ENV: "fixture-token"}
+    )
 
+    assert transport.requests[0][0] == (
+        "https://opencti.example/cti/taxii2/root/collections/opencti-collection/objects/?limit=1"
+    )
+    assert transport.requests[0][1]["Authorization"] == "Bearer fixture-token"
+    assert poll.source == "taxii://opencti.example/opencti-collection"
     assert poll.pages_fetched == 2
     assert poll.objects_fetched == 2
     assert {i.value for i in poll.result.indicators} == {"one.tld", "two.tld"}
@@ -184,8 +201,10 @@ def test_added_after_is_sent_and_defaults_forward() -> None:
 
 def test_object_bound_truncates_and_flags_more() -> None:
     objects = [_indicator_obj(f"[domain-name:value = 'h{n}.tld']") for n in range(5)]
-    transport = FakeTransport([_envelope(objects, more=True, next_cursor="C")])
-    poll = poll_collection(transport, _collection(), max_objects=2)
+    starting_cursor = "2026-11-20T00:00:00Z"
+    transport = FakeTransport([_envelope(objects, date_added_last="2026-11-21T00:00:00Z")])
+    poll = poll_collection(transport, _collection(), max_objects=2, added_after=starting_cursor)
+    assert poll.next_added_after == starting_cursor
     assert poll.objects_fetched == 2
     assert poll.more_available is True
     assert poll.pages_fetched == 1
@@ -195,7 +214,10 @@ def test_page_bound_stops_runaway_pagination() -> None:
     # Every page claims more objects; the page cap must stop the loop.
     pages = [
         _envelope(
-            [_indicator_obj(f"[domain-name:value = 'p{n}.tld']")], more=True, next_cursor=f"C{n}"
+            [_indicator_obj(f"[domain-name:value = 'p{n}.tld']")],
+            more=True,
+            next_cursor=f"C{n}",
+            date_added_last="2026-11-21T00:00:00Z",
         )
         for n in range(5)
     ]
@@ -203,6 +225,7 @@ def test_page_bound_stops_runaway_pagination() -> None:
     poll = poll_collection(transport, _collection(), page_limit=1, max_pages=3)
     assert poll.pages_fetched == 3
     assert poll.more_available is True
+    assert poll.next_added_after is None
 
 
 def test_auth_header_reaches_the_transport() -> None:
