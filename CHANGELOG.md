@@ -12,6 +12,17 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — Runner L3 riproducibile (scansione live con evidenza firmata)
+
+- `labs/l3/run.sh`: esegue un engine mandatory (nmap/httpx/nuclei) **live** dentro il container indurito
+  (`docker/Dockerfile.scanners`) contro un bersaglio privato autorizzato, producendo **evidenza firmata**
+  owner-only in `.olympus/out`. Applica esattamente i flag che `require_scanner_isolation()` verifica
+  (`--read-only`, `--cap-drop ALL`, `--security-opt no-new-privileges`, `--tmpfs`, utente non-root, seccomp
+  di default). Nessun segreto committato: la chiave HMAC di engagement arriva da `OLYMPUS_POLICY_LAB_KEY`,
+  la chiave Ed25519 dell'evidenza è generata a run time.
+- Guardia anti-regressione `tests/unit/test_l3_lab.py` (sintassi bash, presenza di ogni flag d'isolamento,
+  scope/lab-policy/`--i-am-authorized`/evidenza, range privato, assenza di materiale di chiave nel file).
+
 ### Added — RED-3: Nemesis, auditor offline di credenziali deboli/default/riutilizzate
 
 - Nuovo tool **Nemesis** (`olympus nemesis audit`), prima implementazione della capability
