@@ -12,6 +12,21 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — RED-3: Nemesis, auditor offline di credenziali deboli/default/riutilizzate
+
+- Nuovo tool **Nemesis** (`olympus nemesis audit`), prima implementazione della capability
+  `password-auditor` (prima «missing»). Audit **offline** di un insieme di credenziali che l'operatore è
+  autorizzato a rivedere: policy (lunghezza, classi di caratteri, soglia di **entropia stimata** opzionale),
+  confronto contro una **wordlist locale** di password note/deboli/di default (percorso iniettato, mai
+  scaricata), e rilevamento del **riuso** tra account.
+- **Fail-closed e difensivo:** richiede `--i-am-authorized` + approval reference; input e wordlist a
+  dimensione limitata; **nessuna rete**; i segreti sono **sempre mascherati** (mai resi in output o log —
+  solo un fingerprint SHA-256 per il raggruppamento del riuso). Classi epistemiche esplicite nell'output
+  (policy/wordlist/riuso = deterministici; entropia = inferenza). Report JSON scritto owner-only (0600).
+- Capability `password-auditor` derivata ora come **present** in `olympus.integrations.suite_catalog`
+  (modulo nativo con evidenza committata `tests/unit/test_nemesis.py`); `docs/professional-platform.md`,
+  anteprima statica e CLI reference aggiornate.
+
 ### Added — BLUE-1 validato su telemetria Windows reale di terzi
 
 - Il parser `windows-json` è stato eseguito su una cattura **reale** pubblica (OTRF *Security-Datasets*,

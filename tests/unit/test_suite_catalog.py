@@ -70,7 +70,8 @@ def test_known_coverage_states_are_honest() -> None:
     assert states["cms-scanner"] == "simulated"  # wpscan adapter-ready (parser not live-proven)
     # Catalogued-only or absent -> missing.
     assert states["network-scanner"] == "missing"  # nessus/openvas catalog-only
-    assert states["password-auditor"] == "missing"  # no module
+    # Tested native module -> present.
+    assert states["password-auditor"] == "present"  # nemesis offline auditor, tested
 
 
 def test_simulated_state_requires_a_bare_registered_adapter(

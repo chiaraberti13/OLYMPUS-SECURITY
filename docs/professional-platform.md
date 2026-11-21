@@ -139,7 +139,7 @@ claims more than it delivers:
 | Domain / DNS Finder | present | Argus (DNS/WHOIS, native) |
 | Network Vulnerability Scanner | missing | nessus / openvas catalogued, not adapted |
 | CMS Scanner | missing | wpscan catalogued; whatweb gives detection only |
-| Password Auditor | missing | no Olympus module |
+| Password Auditor | present | Nemesis (offline weak/default/reused audit, native) |
 
 The state is derived from the maturity ledger
 ([`scanner-maturity.md`](scanner-maturity.md)) and committed native tests, never

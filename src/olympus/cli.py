@@ -34,6 +34,7 @@ from olympus.integrations.cli import (
 )
 from olympus.metis.cli import app as metis_app
 from olympus.minerva.cli import app as minerva_app
+from olympus.nemesis.cli import app as nemesis_app
 from olympus.proteus.cli import app as proteus_app
 from olympus.vulcan.cli import app as vulcan_app
 
@@ -557,6 +558,7 @@ app.add_typer(helios_app, name="helios")
 app.add_typer(artemis_app, name="artemis")
 app.add_typer(proteus_app, name="proteus")
 app.add_typer(hermes_app, name="hermes")
+app.add_typer(nemesis_app, name="nemesis")
 app.add_typer(apollo_app, name="apollo")
 app.add_typer(minerva_app, name="minerva")
 app.add_typer(vulcan_app, name="vulcan")
