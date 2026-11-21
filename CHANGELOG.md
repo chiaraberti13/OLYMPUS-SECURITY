@@ -12,6 +12,23 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — Protected engine lab (TOOLS-4.2 L1+L2 eseguito offline)
+
+- `scripts/lab/provision_lab.sh` + `docs/engines/LAB.md`: provisioning riproducibile di un lab engine
+  **offline e autorizzato per costruzione** — compila i 3 mandatory ai pin esatti dei manifest (nmap 7.992
+  da sorgente, nuclei v3.11.1, httpx v1.11.0), i `nuclei-templates` al commit pinnato, un bersaglio
+  host-local in range di documentazione (`192.0.2.0/24`, TEST-NET-1, non instradabile fuori host) con scope e
+  lab-policy coerenti. Drift test `tests/unit/test_lab_provision.py` aggancia i pin dello script ai manifest
+  (come `test_engine_dockerfile_pins.py` per l'immagine) e verifica che il bersaglio non sia mai loopback/pubblico.
+- **Risultato reale (2026-11-21):** `olympus engines doctor` → exit 0 (L1 presenza/versione/commit + L2 probe
+  nel sandbox di runtime) per nmap/nuclei/httpx; `nuclei` trova esposizioni reali sul bersaglio.
+- **L3 confermato gated, per design:** il pipeline live `themis run` richiede, come ultimo gate,
+  `require_scanner_isolation()` (OCI marker, attestazione immagine pinnata, root read-only, capability vuote,
+  no-new-privs, seccomp), soddisfatto solo dentro `docker/Dockerfile.scanners` + overlay compose. L'L3 dipende
+  da un host container (`DEPLOY-2`), non dai soli engine installati; nessun bypass dell'attestazione.
+- Creato l'ambiente cloud personale protetto `olympus-lab` (rete limitata a `github.com`) che esegue lo stesso
+  provisioning allo startup. È infrastruttura dell'account (Settings → Environments), non un file del repo.
+
 ### Added — TOOLS-4.1: mappa `required_for_commands` comando→engine, fail-closed e cablata
 
 - Il campo `required_for_commands` del manifest `engine.toml` (un engine richiesto solo da comandi
