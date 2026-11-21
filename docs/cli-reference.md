@@ -982,6 +982,24 @@ List safe guided labs built from native Olympus capabilities.
 | `--level` | option | no | — | foundation, beginner, intermediate or advanced. |
 | `--json` | option | no | `False` | — |
 
+### `olympus metis misp pull`
+
+Pull MISP events over pinned HTTPS and normalize their attributes to IOCs.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `base_url` | argument | yes | — | MISP instance base URL (https:// only). |
+| `--token-env` | option | yes | — | Name of the environment variable holding the MISP API key (never the key). |
+| `--output` | option | no | — | Write the pulled MISP event (merged attributes) here (owner-only). |
+| `--since` | option | no | — | Only events with timestamp >= this (unix seconds or e.g. '1d'). |
+| `--tag` | option | no | — | Restrict to events with this tag. |
+| `--include-unpublished` | option | no | `False` | Also pull unpublished events (default: published only). |
+| `--page-limit` | option | no | `100` | — |
+| `--max-events` | option | no | `10000` | — |
+| `--max-pages` | option | no | `100` | — |
+| `--timeout` | option | no | `30.0` | — |
+| `--ca-file` | option | no | — | Custom CA bundle for TLS. |
+
 ### `olympus metis plan`
 
 Build a safe, non-executing engagement plan.

@@ -12,6 +12,24 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — BLUE-3: CTI live via MISP pull (slice)
+
+- Nuovo modulo `olympus.metis.misp_pull` e comando **`olympus metis misp pull`**: controparte MISP di
+  `taxii poll`. Scarica eventi via API REST MISP (`POST /events/restSearch`), ne **unisce gli attributi**
+  in un singolo evento e li normalizza a IOC riusando il parser MISP offline già testato
+  (`event_to_indicators`), così un pull live e un `metis case misp-import` dell'evento scritto danno
+  **gli stessi IOC**. Il pull si scrive owner-only (`--output`) e si dà a `case misp-import`.
+- **Egress pinned e guardato** (stessa catena di TAXII/scansione), **letture bounded** (byte/pagine/eventi;
+  MISP non ha flag *more*, una pagina corta chiude la paginazione), **caching incrementale** via filtro
+  `timestamp` e cursore `next_since`, filtri `--tag`/`--since`/published-only, **provenance** `misp://host`.
+- **API key fail-closed:** MISP richiede sempre autenticazione, quindi `--token-env` è obbligatorio; nomina
+  la variabile d'ambiente con la chiave, inviata nell'header `Authorization` come chiave **grezza**
+  (convenzione MISP), mai nel repo, mai nei log; pull rifiutato se la variabile è assente.
+- Trasporto iniettabile (`MispTransport` `Protocol`) → test interamente **offline**
+  (`tests/unit/test_metis_misp_pull.py`: normalizzazione, paginazione, cursore incrementale, limiti,
+  filtri nel body, header di auth con chiave grezza, rifiuti `401/403/5xx`/JSON invalido, solo-`https`).
+  `docs/metis.md`, `ROADMAP.md` (BLUE-3) e CLI reference aggiornati.
+
 ### Added — BLUE-3: CTI live via TAXII 2.1 (slice)
 
 - Nuovo modulo `olympus.metis.taxii` e comando **`olympus metis taxii poll`**: scarica oggetti STIX da

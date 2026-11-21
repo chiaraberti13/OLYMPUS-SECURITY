@@ -108,6 +108,42 @@ Provenance is a stable `taxii://<host>/<collection>` label, and
 `--added-after` with the printed `next_added_after` cursor (from the server's
 `X-TAXII-Date-Added-Last`) makes each subsequent poll incremental.
 
+## CTI live — MISP
+
+```bash
+# Pull MISP events (published only), write the merged event, print a summary.
+olympus metis misp pull https://misp.example \
+  --token-env OLYMPUS_MISP_KEY --tag tlp:white --output feed.misp.json
+# Feed the pulled event into a case with its own analyst-visible provenance.
+olympus metis case misp-import .metis/cases.sqlite3 "$CASE_ID" feed.misp.json \
+  --source "MISP: misp.example"
+# Next run: only events updated since, using the printed next_since cursor.
+olympus metis misp pull https://misp.example \
+  --token-env OLYMPUS_MISP_KEY --since 1700000001 --output feed.misp.json
+```
+
+`misp pull` is the MISP counterpart of `taxii poll`: it pulls events via the
+MISP REST API (`POST /events/restSearch`), merges their attributes into a single
+event, and hands it to the **same offline parser** used by `case misp-import`,
+so a live pull and an import of the written event yield the identical IOCs.
+
+The same three properties keep the pull safe:
+
+- **Pinned, guarded egress** — resolve-once in the socket, private/loopback
+  refused, no HTTP proxy; a **private** MISP instance (a local lab) is reachable
+  only when the active lab policy declares its range.
+- **Bounded reads** — response size, page count (`--max-pages`) and event count
+  (`--max-events`) all capped; MISP has no "more" flag, so a short page ends the
+  pagination.
+- **No secret in the repo** — MISP always authenticates, so `--token-env` is
+  required; it names the environment variable holding the API key (sent in the
+  `Authorization` header as the **raw** key, MISP's convention), never a
+  committed value, and the pull fails closed when the variable is unset.
+
+Provenance is a stable `misp://<host>` label; `--since` (a unix second or a MISP
+relative value such as `1d`) with the printed `next_since` cursor makes each
+subsequent pull incremental.
+
 ## Guided labs
 
 ```bash

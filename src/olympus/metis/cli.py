@@ -34,6 +34,21 @@ from olympus.metis.cases import (
 from olympus.metis.catalog import CAPABILITIES, recommend
 from olympus.metis.labs import LABS
 from olympus.metis.misp import MispError, event_to_indicators, indicators_to_event
+from olympus.metis.misp_pull import (
+    DEFAULT_PAGE_LIMIT as MISP_DEFAULT_PAGE_LIMIT,
+)
+from olympus.metis.misp_pull import (
+    DEFAULT_TIMEOUT as MISP_DEFAULT_TIMEOUT,
+)
+from olympus.metis.misp_pull import (
+    MAX_MISP_EVENTS,
+    MAX_MISP_PAGES,
+    MispConfigError,
+    MispPullError,
+    MispServer,
+    PinnedMispTransport,
+    pull_events,
+)
 from olympus.metis.models import load_case_document
 from olympus.metis.planner import build_plan
 from olympus.metis.stix import StixError, bundle_to_indicators, indicators_to_bundle
@@ -656,5 +671,84 @@ def taxii_poll(
         typer.echo(safe_terminal_text(f"metis: skipped {item.reason}: {item.value}"), err=True)
 
 
+misp_app = typer.Typer(help="Live MISP threat-intelligence pulling.", no_args_is_help=True)
+
+
+@misp_app.command("pull")
+def misp_pull(
+    base_url: str = typer.Argument(..., help="MISP instance base URL (https:// only)."),
+    token_env: str = typer.Option(
+        ...,
+        "--token-env",
+        help="Name of the environment variable holding the MISP API key (never the key).",
+    ),
+    output: Path | None = typer.Option(
+        None, help="Write the pulled MISP event (merged attributes) here (owner-only)."
+    ),
+    since: str | None = typer.Option(
+        None, "--since", help="Only events with timestamp >= this (unix seconds or e.g. '1d')."
+    ),
+    tag: list[str] | None = typer.Option(None, "--tag", help="Restrict to events with this tag."),
+    include_unpublished: bool = typer.Option(
+        False,
+        "--include-unpublished",
+        help="Also pull unpublished events (default: published only).",
+    ),
+    page_limit: int = typer.Option(
+        MISP_DEFAULT_PAGE_LIMIT, "--page-limit", min=1, max=MAX_MISP_EVENTS
+    ),
+    max_events: int = typer.Option(MAX_MISP_EVENTS, "--max-events", min=1, max=MAX_MISP_EVENTS),
+    max_pages: int = typer.Option(MAX_MISP_PAGES, "--max-pages", min=1, max=MAX_MISP_PAGES),
+    timeout: float = typer.Option(MISP_DEFAULT_TIMEOUT, "--timeout", min=0.1, max=600.0),
+    ca_file: Path | None = typer.Option(None, "--ca-file", help="Custom CA bundle for TLS."),
+) -> None:
+    """Pull MISP events over pinned HTTPS and normalize their attributes to IOCs.
+
+    Egress is pinned and public-only (a private lab instance is reachable only
+    when the active lab policy declares its range); every read is bounded; the
+    API key comes from the named environment variable, never the repo. The pulled
+    event can be written out and fed to ``metis case misp-import`` with its own
+    provenance; ``--since`` with the printed ``next_since`` makes the next pull
+    incremental.
+    """
+    try:
+        server = MispServer(base_url=base_url, token_env=token_env)
+        transport = PinnedMispTransport(ca_file=str(ca_file) if ca_file else None)
+        pull = pull_events(
+            transport,
+            server,
+            since=since,
+            tags=tag,
+            published_only=not include_unpublished,
+            page_limit=page_limit,
+            max_events=max_events,
+            max_pages=max_pages,
+            timeout=timeout,
+        )
+        if output is not None:
+            atomic_write_text(
+                output, json.dumps(pull.event, indent=2, sort_keys=True) + "\n", mode=0o600
+            )
+    except (MispPullError, MispConfigError, ValueError, OSError) as exc:
+        _fail(exc)
+    typer.echo(
+        json.dumps(
+            {
+                "source": pull.source,
+                "events_fetched": pull.events_fetched,
+                "pages_fetched": pull.pages_fetched,
+                "indicators": pull.indicator_count,
+                "skipped": len(pull.result.skipped),
+                "next_since": pull.next_since,
+                "more_available": pull.more_available,
+                "output": str(output) if output is not None else None,
+            }
+        )
+    )
+    for item in pull.result.skipped:
+        typer.echo(safe_terminal_text(f"metis: skipped {item.reason}: {item.value}"), err=True)
+
+
 app.add_typer(case_app, name="case")
 app.add_typer(taxii_app, name="taxii")
+app.add_typer(misp_app, name="misp")
