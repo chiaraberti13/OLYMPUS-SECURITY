@@ -115,7 +115,6 @@ class TaxiiTransport(Protocol):
         self, url: str, headers: Mapping[str, str], *, timeout: float
     ) -> TaxiiResponse:  # pragma: no cover - Protocol signature
         """Fetch ``url`` with ``headers``, returning the bounded response."""
-        ...
 
 
 @dataclass(frozen=True)
