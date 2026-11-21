@@ -373,6 +373,8 @@ def pull_events(
     merged_attributes: list[dict[str, Any]] = []
     for event in collected:
         merged_attributes.extend(_attributes(event))
+    if len(merged_attributes) > MAX_MISP_ATTRIBUTES:
+        raise MispPullError(f"pulled attribute count exceeds the {MAX_MISP_ATTRIBUTES} item limit")
     combined = {
         "Event": {
             "info": f"Olympus MISP pull {server.source_label}",

@@ -16,6 +16,7 @@ from collections.abc import Mapping
 import pytest
 
 from olympus.metis.misp_pull import (
+    MAX_MISP_ATTRIBUTES,
     MAX_MISP_EVENTS,
     MispConfigError,
     MispPullError,
@@ -230,6 +231,14 @@ def test_bounds_are_validated() -> None:
     ):
         with pytest.raises(MispConfigError):
             pull_events(transport, server, environ={TOKEN_ENV: "k"}, **kwargs)  # type: ignore[arg-type]
+
+
+def test_merged_attribute_count_is_bounded() -> None:
+    # One event with more attributes than the cap must be refused, not normalized.
+    attrs = [_attr("domain", f"d{n}.tld") for n in range(MAX_MISP_ATTRIBUTES + 1)]
+    transport = FakeTransport([_response([_event(attrs)])])
+    with pytest.raises(MispPullError, match="attribute count exceeds"):
+        pull_events(transport, _server(), environ={TOKEN_ENV: "k"})
 
 
 def test_pinned_transport_refuses_non_https() -> None:
