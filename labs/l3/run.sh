@@ -90,7 +90,6 @@ docker run --rm \
   "$IMAGE" \
   themis run "$ENGINE" --target "$SCAN_TARGET" --kind "$KIND" \
     --scope /lab/scope.json --lab-policy /lab/lab.toml --i-am-authorized \
-    --evidence "/out/$ENGINE-evidence.json" --output "/out/$ENGINE-result.json" \
-    --timeout 300 --deadline 400
+    --evidence "/out/$ENGINE-evidence.json" --output "/out/$ENGINE-result.json"
 
 echo "L3 done: signed evidence at $OUT/$ENGINE-evidence.json (+ .sig)"

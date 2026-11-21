@@ -339,7 +339,18 @@ def preview_run(
     caller, e.g. via :func:`olympus.themis.application.load_scope`). This
     function performs no I/O and contacts no target.
     """
+    from olympus.themis.resources import resolve_engine_runtime_budget
+
     decision, normalized = _scope_decision(request, scope)
+    budget = resolve_engine_runtime_budget(
+        request.scanner,
+        timeout_seconds=request.timeout_seconds,
+        deadline_seconds=request.deadline_seconds,
+        # Preview is read-only. Resource readiness is reported separately by
+        # the engine preflight/doctor path and must not prevent rendering the
+        # planned budget on a workstation with a smaller local sandbox.
+        enforce_memory=False,
+    )
 
     activity_profile = profile(request.scanner)
     spec = by_name(request.scanner)
@@ -383,8 +394,8 @@ def preview_run(
         authorization_detail=_authorization_detail(request),
         requires_confirmation=requires_confirmation,
         blocks_launch=decision in _BLOCKING_DECISIONS,
-        timeout_seconds=request.timeout_seconds,
-        deadline_seconds=request.deadline_seconds,
+        timeout_seconds=budget.timeout_seconds,
+        deadline_seconds=budget.deadline_seconds,
         max_output_bytes=request.max_output_bytes,
         max_findings=request.max_findings,
         output_path=str(request.output_path) if request.output_path is not None else None,

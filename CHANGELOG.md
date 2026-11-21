@@ -12,6 +12,20 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — TOOLS-4.3: budget runtime condivisi
+
+- Il resolver `themis.resources` applica i timeout revisionati dallo stesso punto
+  di esecuzione usato da CLI, API, Web e worker. I valori espliciti restano
+  invariati; quelli omessi ereditano il profilo revisionato dell'engine.
+- Un minimo di memoria misurato che supera `THEMIS_SANDBOX_MEMORY_BYTES` viene
+  rifiutato prima della risoluzione del target. Il manifest non alza mai il tetto
+  del sandbox.
+- Il manifest nuclei registra ora ambiente e metodo della misura in forma
+  strutturata. `docs/engines/RESOURCES.md` distingue `RLIMIT_AS`, RSS e limite
+  container/cgroup e censisce tutti i profili stimati o misurati.
+- Il runner L3 non forza più un timeout unico di 300 secondi e usa il resolver
+  condiviso, evitando la divergenza con i job persistenti.
+
 ### Added — BLUE-3: CTI live via MISP pull (slice)
 
 - Nuovo modulo `olympus.metis.misp_pull` e comando **`olympus metis misp pull`**: controparte MISP di

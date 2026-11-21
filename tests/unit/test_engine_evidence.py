@@ -47,6 +47,9 @@ def stdout() -> str:
 
 @pytest.fixture
 def engine_runs(monkeypatch: pytest.MonkeyPatch, stdout: str) -> None:
+    # The fixture models a reviewed full-template nuclei run. Match the
+    # production scanner image's measured address-space ceiling.
+    monkeypatch.setenv("THEMIS_SANDBOX_MEMORY_BYTES", str(4 * 1024**3))
     monkeypatch.setattr(base_module, "which", lambda _binary: "/usr/local/bin/nuclei")
 
     def runner(argv: list[str], **_kwargs: object) -> CommandOutput:
