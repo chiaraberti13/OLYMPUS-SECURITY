@@ -156,8 +156,17 @@ SUITE_CAPABILITIES: tuple[SuiteCapability, ...] = (
         capability_id="password-auditor",
         title="Password Auditor",
         summary="Test services for weak, default or reused credentials.",
-        modules=(),
-        note="No Olympus module provides credential auditing; deliberately out of scope for now.",
+        modules=("nemesis",),
+        native=(
+            NativeCapability(
+                "nemesis",
+                "Offline audit of weak/default/reused credentials against a policy and a "
+                "local known-password list",
+                "tests/unit/test_nemesis.py",
+            ),
+        ),
+        note="Offline credential auditing is native and tested (policy, known-password list, "
+        "reuse). Nemesis never attacks a live service; online credential testing is out of scope.",
     ),
 )
 

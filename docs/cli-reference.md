@@ -1128,6 +1128,26 @@ Verify every hash, digest, state, timestamp and (if signed) the signature.
 | `--max-entries` | option | no | `100000` | — |
 | `--deadline` | option | no | `60.0` | — |
 
+### `olympus nemesis audit`
+
+Audit credentials offline for weak, default and reused secrets (secrets masked).
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `input_path` | argument | yes | — | Credentials to audit: NDJSON {account,secret} or 'account:secret' lines. |
+| `--wordlist` | option | no | — | Local weak/default/breached-password list (one per line). |
+| `--min-length` | option | no | `12` | — |
+| `--max-length` | option | no | `128` | — |
+| `--require-upper` | option | no | `True` | — |
+| `--require-lower` | option | no | `True` | — |
+| `--require-digit` | option | no | `True` | — |
+| `--require-symbol` | option | no | `True` | — |
+| `--min-entropy-bits` | option | no | `0.0` | Estimated-bits floor (0 disables). |
+| `--format` | option | no | `table` | table or json. |
+| `--output` | option | no | — | Write the masked JSON report to this owner-only (0600) file. |
+| `--i-am-authorized` | option | no | `False` | Confirm you are authorized to audit these credentials. |
+| `--approval-reference` | option | no | — | Engagement/approval reference for the audit record. |
+
 ### `olympus policy diff`
 
 Show only the bounds this policy changes, and which layer changed them.

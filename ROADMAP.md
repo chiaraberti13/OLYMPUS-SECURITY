@@ -150,7 +150,17 @@ di sicurezza nel frontend.
   format-fedele): la capability CMS passa da *missing* a *simulated* in
   `olympus catalog`. **Resta:** `nosqlmap`; promozione di `wpscan`/Wapiti a
   *live-tested* in lab WordPress/NoSQL autorizzato (output reale registrato).
-- **RED-3** [ ] Password auditor (capacità assente oggi): nuovo tool/adapter, scope-gated.
+- **RED-3** [~] Password auditor. **Fatto (offline, 2026-11-21):** nuovo tool **Nemesis**
+  (`olympus nemesis audit`) — audit **offline** di credenziali per password deboli, di default o
+  **riutilizzate**: policy (lunghezza, classi di caratteri, soglia di entropia *stimata* opzionale),
+  confronto contro una **wordlist locale** di password note/deboli (percorso iniettato, mai scaricata) e
+  rilevamento del riuso tra account. Fail-closed (richiede `--i-am-authorized` + approval reference),
+  input e wordlist a dimensione limitata, **segreti sempre mascherati** (mai in output/log; fingerprint
+  SHA-256 per il raggruppamento), classi epistemiche esplicite (policy/wordlist/riuso = deterministici,
+  entropia = inferenza), nessuna rete. Capability `password-auditor` promossa a **present** in
+  `suite_catalog` con evidenza committata (`tests/unit/test_nemesis.py`). **Resta:** test *online* di
+  credenziali contro un servizio reale (spray/stuffing autorizzato) — esecuzione live gated, fuori scope
+  dell'audit offline.
 - **BLUE-1** [x] Apollo ingest Sysmon/Windows Event. Parser `windows-json`
   implementato (Sysmon 1/**2**/3/**7**/**8**/**10**/11/13/**17**/**18**/22/**23**
   + Security 4624/4625/**4688**/**4697**/**4698**/**4720**, gating per provider,
