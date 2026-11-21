@@ -34,7 +34,7 @@ from olympus.themis.model import (
 )
 from olympus.themis.plugins import resolve_adapter
 from olympus.themis.sandbox import require_scanner_isolation
-from olympus.themis.scope import OutOfScopeError, SsrfBlockedError
+from olympus.themis.scope import OutOfScopeError, SsrfBlockedError, ensure_allowed
 
 DEFAULT_MAX_SCOPE_BYTES = 1_000_000
 _JOB_ID_RE = re.compile(r"^THEMIS-[A-F0-9]{32}$")
@@ -96,8 +96,11 @@ class ThemisRunRequest:
     simulate: bool = False
     output_path: Path | None = None
     audit_path: Path | None = None
-    timeout_seconds: float = 300.0
-    deadline_seconds: float = 600.0
+    # ``None`` means "resolve the shared engine default".  Keeping omission
+    # distinct from an explicit value lets API/Web/worker use reviewed engine
+    # budgets without overriding a deliberate CLI timeout.
+    timeout_seconds: float | None = None
+    deadline_seconds: float | None = None
     max_scope_bytes: int = DEFAULT_MAX_SCOPE_BYTES
     max_output_bytes: int = DEFAULT_MAX_PROCESS_OUTPUT_BYTES
     max_findings: int = DEFAULT_MAX_FINDINGS
@@ -146,19 +149,37 @@ class ThemisApplicationService:
     )
 
     def run(self, request: ThemisRunRequest) -> ScanResult:
-        policy = ExecutionPolicy(
-            authorized=request.authorized,
-            timeout_seconds=request.timeout_seconds,
-            deadline_seconds=request.deadline_seconds,
-        )
+        from olympus.themis.resources import resolve_engine_runtime_budget
+
         _validate_path_conflicts(request)
         execution_id = f"themis-{uuid4().hex}"
         try:
             if not request.simulate:
-                policy.require_authorization(f"Themis {request.scanner} live scan")
+                # Authorization precedes resource inspection just as it precedes
+                # scope loading. An unauthorized caller learns nothing about the
+                # execution host's sandbox configuration.
+                ExecutionPolicy(authorized=request.authorized).require_authorization(
+                    f"Themis {request.scanner} live scan"
+                )
             if request.live_enabled and not request.simulate:
                 self.isolation_verifier()
             scope = load_scope(request.scope_path, max_bytes=request.max_scope_bytes)
+            # Static scope validation precedes host-resource disclosure and uses
+            # the same canonical gate as every adapter. It performs no DNS I/O.
+            ensure_allowed(
+                request.target_kind,
+                request.target,
+                scope.allowed_hosts,
+                scope.allowed_domains,
+                scope.allowed_cidrs,
+                legacy_suffixes=False,
+            )
+            budget = resolve_engine_runtime_budget(
+                request.scanner,
+                timeout_seconds=request.timeout_seconds,
+                deadline_seconds=request.deadline_seconds,
+                enforce_memory=request.live_enabled and not request.simulate,
+            )
             adapter = self.adapter_factory(request.scanner)
             scan_request = ScanRequest(
                 scanner=request.scanner,
@@ -168,8 +189,8 @@ class ThemisApplicationService:
                 allowed_domains=scope.allowed_domains,
                 allowed_cidrs=scope.allowed_cidrs,
                 required_cidrs=request.lab_allowed_cidrs,
-                timeout_seconds=request.timeout_seconds,
-                deadline_seconds=request.deadline_seconds,
+                timeout_seconds=budget.timeout_seconds,
+                deadline_seconds=budget.deadline_seconds,
                 max_output_bytes=request.max_output_bytes,
                 max_findings=request.max_findings,
                 authorized=request.authorized,

@@ -66,6 +66,9 @@ def test_live_scan_is_authorized_scoped_and_evidenced() -> None:
     cidr = re.search(r"OLYMPUS_LAB_CIDR:-([0-9./]+)", text)
     assert cidr is not None and cidr.group(1).startswith(("172.", "10.", "192.168.", "192.0.2."))
     assert "127.0.0.1" not in text
+    # The shared resolver supplies the reviewed per-engine budget. A hardcoded
+    # timeout here would make the L3 path diverge from API/Web/worker execution.
+    assert "--timeout" not in text and "--deadline" not in text
 
 
 def test_script_carries_no_secret_material() -> None:

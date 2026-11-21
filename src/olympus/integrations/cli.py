@@ -1323,8 +1323,20 @@ def themis_preview(
         "can gate a scan on readiness. Runs the engine's version probe. Off by default: a "
         "plain preview launches nothing.",
     ),
-    timeout: float = typer.Option(300.0, "--timeout", min=0.05, max=3_600),
-    deadline: float = typer.Option(600.0, "--deadline", min=0.05, max=7_200),
+    timeout: float | None = typer.Option(
+        None,
+        "--timeout",
+        min=0.05,
+        max=3_600,
+        help="Per-process timeout. Omit it to preview the reviewed engine default.",
+    ),
+    deadline: float | None = typer.Option(
+        None,
+        "--deadline",
+        min=0.05,
+        max=7_200,
+        help="Overall deadline. Omit it to preview the shared derived deadline.",
+    ),
     output: str | None = typer.Option(
         None, "--output", "-o", help="Where a result would be written."
     ),
@@ -2831,14 +2843,6 @@ def themis_run(
         typer.echo(f"olympus: Themis execution error: {exc}", err=True)
         raise typer.Exit(code=ExitCode.FAILED) from exc
 
-    from olympus.engines.loader import reviewed_timeouts
-
-    declared_timeout, declared_deadline = reviewed_timeouts(
-        scanner, default_timeout=300.0, default_deadline=600.0
-    )
-    timeout = declared_timeout if timeout is None else timeout
-    # An explicit longer timeout must not be capped silently by the default deadline.
-    deadline = max(declared_deadline, timeout + 300.0) if deadline is None else deadline
     evidence_signer = None
     if evidence:
         from olympus.engines.evidence import EvidenceError, signer_from_environment

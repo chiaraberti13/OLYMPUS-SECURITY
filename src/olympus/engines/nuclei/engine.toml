@@ -35,3 +35,14 @@ value_flags = ["-target", "-templates"]
 optional_flags = ["-templates"]
 static_flags = ["-jsonl", "-silent", "-no-color", "-disable-update-check", "-no-interactsh", "-omit-raw", "-omit-template"]
 reviewed = true
+
+[adapter.measurement]
+measured_at = "2026-11-03"
+os = "Linux x86_64"
+architecture = "x86_64"
+cpu = "cloud VM"
+cpu_count = 4
+ram_bytes = 16106127360
+engine_version = "v3.11.1"
+data_version = "95131c8dd920db77a5e86e72fe2d2a3e5ca37d2d"
+method = "Full pinned set of 14,104 templates against a loopback HTTP target, sandboxed as nobody; RLIMIT_AS tested at 2, 4 and 8 GiB, wall time and peak RSS recorded."

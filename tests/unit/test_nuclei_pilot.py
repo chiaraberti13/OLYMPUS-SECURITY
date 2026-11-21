@@ -311,21 +311,46 @@ def _invoke_run(
 def test_nuclei_runs_with_its_measured_timeout_unless_the_operator_says_otherwise(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    from olympus.themis.resources import resolve_engine_runtime_budget
+    from olympus.themis.sandbox import SandboxPolicy
+
+    sandbox = SandboxPolicy(memory_bytes=8 * 1024**3, effective_uid=1000)
+
+    def resolved(request: ThemisRunRequest) -> tuple[float, float]:
+        budget = resolve_engine_runtime_budget(
+            request.scanner,
+            timeout_seconds=request.timeout_seconds,
+            deadline_seconds=request.deadline_seconds,
+            sandbox=sandbox,
+        )
+        return budget.timeout_seconds, budget.deadline_seconds
+
     default = _invoke_run(tmp_path, monkeypatch, "nuclei")
-    assert default.timeout_seconds == 1200.0 and default.deadline_seconds == 1500.0
+    assert resolved(default) == (1200.0, 1500.0)
     explicit = _invoke_run(tmp_path, monkeypatch, "nuclei", "--timeout", "90")
-    assert explicit.timeout_seconds == 90.0 and explicit.deadline_seconds == 1500.0
+    assert resolved(explicit) == (90.0, 600.0)
     both = _invoke_run(tmp_path, monkeypatch, "nuclei", "--timeout", "90", "--deadline", "120")
-    assert (both.timeout_seconds, both.deadline_seconds) == (90.0, 120.0)
+    assert resolved(both) == (90.0, 120.0)
 
 
 def test_engines_with_estimated_values_keep_the_legacy_defaults(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    from olympus.themis.resources import resolve_engine_runtime_budget
+
+    def resolved(request: ThemisRunRequest) -> tuple[float, float]:
+        budget = resolve_engine_runtime_budget(
+            request.scanner,
+            timeout_seconds=request.timeout_seconds,
+            deadline_seconds=request.deadline_seconds,
+            enforce_memory=False,
+        )
+        return budget.timeout_seconds, budget.deadline_seconds
+
     request = _invoke_run(tmp_path, monkeypatch, "nmap")
-    assert (request.timeout_seconds, request.deadline_seconds) == (300.0, 600.0)
+    assert resolved(request) == (300.0, 600.0)
     long_run = _invoke_run(tmp_path, monkeypatch, "nmap", "--timeout", "900")
-    assert (long_run.timeout_seconds, long_run.deadline_seconds) == (900.0, 1200.0)
+    assert resolved(long_run) == (900.0, 1200.0)
 
 
 def test_nuclei_out_of_memory_names_the_setting_to_change(
