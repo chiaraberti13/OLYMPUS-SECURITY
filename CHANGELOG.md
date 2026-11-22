@@ -12,6 +12,19 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — TOOLS-4.2 L3: runner engagement-signed per la promozione formale
+
+- `labs/l3/run_engagement.sh`: esegue `nmap` **live** nel container indurito (`docker/Dockerfile.scanners`)
+  autorizzato da un **manifest di engagement firmato** (chiave Ed25519 dell'approver, via
+  `olympus.core.signing` / `olympus.engagements.manifest`) invece che da una lab-policy usa-e-getta, e
+  **firma l'evidenza** — la provenance *manifest-bound* richiesta dalla promozione formale a *live-tested*
+  (TOOLS-4.2 L3 / QA-3). Stessi flag d'isolamento di `require_scanner_isolation()`; chiave approver e chiave
+  evidenza generate a run time (mai nel repo: si committano solo l'evidenza firmata e la chiave pubblica).
+- Catena firma→ricarica→`authorize_and_save_manifest` validata offline (identica al percorso del CLI
+  `themis run --signed-manifest`); guardia anti-regressione `tests/unit/test_l3_engagement_lab.py`
+  (sintassi bash, flag d'isolamento, opzioni signed-manifest/evidence, assenza di lab-policy e di chiavi
+  committate). httpx/nuclei (che scansionano URL) restano sulla via `labs/l3/run.sh` lab-policy.
+
 ### Verified — SEC-4.5: prima release firmata provata end-to-end
 
 - La prima release firmata (tag `v0.2.0_on_publish` a `eec75be`, workflow `release` success) ha allegato
