@@ -75,6 +75,10 @@ TOML
 chmod -R a+rX "$LAB"
 
 # The isolation flags below are what require_scanner_isolation() verifies; never relax them.
+# `themis run` uses findings-aware exit codes (0 = ok, 1 = findings found, 5 = partial):
+# the scan ran in all three. Capture the code so `set -e` does not abort before the
+# evidence read-back just because the engine reported a finding.
+scan_rc=0
 docker run --rm \
   --network "$NET" \
   --user 10001:10001 \
@@ -90,6 +94,27 @@ docker run --rm \
   "$IMAGE" \
   themis run "$ENGINE" --target "$SCAN_TARGET" --kind "$KIND" \
     --scope /lab/scope.json --lab-policy /lab/lab.toml --i-am-authorized \
-    --evidence "/out/$ENGINE-evidence.json" --output "/out/$ENGINE-result.json"
+    --evidence "/out/$ENGINE-evidence.json" --output "/out/$ENGINE-result.json" || scan_rc=$?
+
+case "$scan_rc" in
+  0 | 1 | 5) ;; # ok / findings found / partial — the scan ran and wrote evidence
+  *)
+    echo "olympus: scan failed (exit $scan_rc); no evidence to read back" >&2
+    exit "$scan_rc"
+    ;;
+esac
+
+# The scan wrote the evidence 0600 as uid 10001; relax the read bits so the operator
+# can read it. Throwaway, no-network container, run AS the owner uid (no capability
+# needed), touching only the evidence files — the scan's isolation above is untouched.
+docker run --rm \
+  --user 10001:10001 \
+  --network none \
+  --cap-drop ALL \
+  --security-opt no-new-privileges=true \
+  --entrypoint chmod \
+  -v "$OUT:/out" \
+  "$IMAGE" \
+  a+r "/out/$ENGINE-evidence.json" "/out/$ENGINE-evidence.json.sig" "/out/$ENGINE-result.json"
 
 echo "L3 done: signed evidence at $OUT/$ENGINE-evidence.json (+ .sig)"

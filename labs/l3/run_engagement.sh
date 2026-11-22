@@ -105,6 +105,10 @@ JSON
 chmod -R a+rX "$ENG"
 
 # The isolation flags below are what require_scanner_isolation() verifies; never relax them.
+# `themis run` uses findings-aware exit codes: 0 = ok, 1 = findings found, 5 = partial
+# — the scan executed in all three. Capture the code so `set -e` does not abort the
+# run (and skip the evidence read-back) just because nmap reported an open port.
+scan_rc=0
 docker run --rm \
   --network "$NET" \
   --user 10001:10001 \
@@ -125,7 +129,15 @@ docker run --rm \
     --i-am-authorized \
     --evidence "/out/$ENGINE-engagement-evidence.json" \
     --output "/out/$ENGINE-engagement-result.json" \
-    --timeout 300 --deadline 400
+    --timeout 300 --deadline 400 || scan_rc=$?
+
+case "$scan_rc" in
+  0 | 1 | 5) ;; # ok / findings found / partial — the scan ran and wrote evidence
+  *)
+    echo "olympus: scan failed (exit $scan_rc); no evidence to read back" >&2
+    exit "$scan_rc"
+    ;;
+esac
 
 # The scan ran as the unprivileged 10001 user and wrote the evidence 0600, owned by
 # that uid — unreadable by the operator who must commit it. A tiny throwaway,

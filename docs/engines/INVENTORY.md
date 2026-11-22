@@ -92,6 +92,24 @@ Un engine passa a `production-ready` solo se **tutte** queste condizioni sono ve
 
 `verify_declarations()` continua a rifiutare `production-ready` finché esiste un blocker aperto.
 
+## Livello L3 per engine (scansione autorizzata reale, evidenza committata)
+
+Il livello L3 (*scansione autorizzata reale* end-to-end sul bersaglio di lab, con
+evidenza firmata) non si deduce mai da L1/L2 e vale solo con evidenza **committata**.
+
+- **`nmap` — L3 committato (2026-11-22, engagement-signed).** Scansione `nmap`
+  reale eseguita **live** nel container indurito, autorizzata da un **manifest di
+  engagement firmato** (chiave Ed25519 dell'approver, non una lab-policy usa-e-getta)
+  ed evidenza firmata **pin-verificabile** da terzi. Record committato e procedura di
+  verifica in [`docs/verify/2026-11-22-nmap-l3-engagement.md`](../verify/2026-11-22-nmap-l3-engagement.md)
+  (`olympus.engine-run-evidence` 1.0.0, `state=live`, exit 0, pin `v7.992` @ `0ee5616`,
+  autorizzazione via manifest firmato con `lab_policy_sha256 = null`). Runner:
+  [`labs/l3/run_engagement.sh`](../../labs/l3/run_engagement.sh).
+- **`httpx`, `nuclei` — L3 dimostrato via lab-policy (non committato).** Girati live
+  end-to-end nel container indurito su bersaglio autorizzato (via
+  [`labs/l3/run.sh`](../../labs/l3/run.sh)); scansionano URL, non coperti dallo scope
+  *host* del manifest di engagement. Evidenza firmata prodotta ma non ancora committata.
+
 ## Supply chain: cosa è stato trovato e deciso
 
 | Tema | Fatto verificato | Decisione |

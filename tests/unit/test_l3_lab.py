@@ -71,6 +71,20 @@ def test_live_scan_is_authorized_scoped_and_evidenced() -> None:
     assert "--timeout" not in text and "--deadline" not in text
 
 
+def test_findings_exit_code_does_not_abort_the_readback() -> None:
+    # `themis run` exits 1 on findings and 5 on a partial run; under `set -e` that
+    # would abort before the evidence read-back/banner. The runner must capture the
+    # scan exit code and tolerate 0/1/5, then relax the evidence read bits as the
+    # owner uid (10001) in a throwaway no-network container.
+    text = _script()
+    assert "scan_rc=" in text and "|| scan_rc=$?" in text
+    assert "0 | 1 | 5)" in text
+    assert "--entrypoint chmod" in text
+    chmod_block = text[text.rindex("docker run", 0, text.index("--entrypoint chmod")) :]
+    assert "--network none" in chmod_block and "--user 10001:10001" in chmod_block
+    assert "a+r " in chmod_block
+
+
 def test_script_carries_no_secret_material() -> None:
     text = _script()
     assert "BEGIN PRIVATE KEY" not in text and "BEGIN OPENSSH" not in text
