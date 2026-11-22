@@ -214,6 +214,21 @@ valid and must not be imported as active. Provenance is a stable
 `next_since` cursor (the newest `updated_at` seen) makes each subsequent pull
 incremental.
 
+### Straight into a case
+
+All three live pullers (`taxii poll`, `misp pull`, `opencti pull`) accept
+`--into-case <db> --case-id <id>` to import the normalized IOCs **directly** into
+a Metis case in one step, instead of writing a file and running `case
+stix-import`/`misp-import`. The pull's provenance label (`taxii://…`, `misp://…`,
+`opencti://…`) is carried onto every imported IOC, and `--confidence` sets their
+confidence. A direct import and the two-step flow produce the identical case
+content; an unknown case id fails closed and imports nothing.
+
+```bash
+olympus metis opencti pull https://opencti.example \
+  --token-env OLYMPUS_OPENCTI_TOKEN --into-case .metis/cases.sqlite3 --case-id "$CASE_ID"
+```
+
 ## Guided labs
 
 ```bash

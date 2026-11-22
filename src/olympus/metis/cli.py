@@ -32,6 +32,7 @@ from olympus.metis.cases import (
     verify_backup,
 )
 from olympus.metis.catalog import CAPABILITIES, recommend
+from olympus.metis.extraction import ExtractionResult
 from olympus.metis.labs import LABS
 from olympus.metis.misp import MispError, event_to_indicators, indicators_to_event
 from olympus.metis.misp_pull import (
@@ -102,6 +103,26 @@ case_app = typer.Typer(help="Local-first cyber threat-intelligence cases.", no_a
 def _fail(exc: Exception) -> None:
     typer.echo(safe_terminal_text(f"metis: {exc}"), err=True)
     raise typer.Exit(code=ExitCode.USAGE) from exc
+
+
+def _import_into_case(
+    database: Path, case_id: str, result: ExtractionResult, source: str, confidence: int
+) -> int:
+    """Import the normalized IOCs of a live pull directly into a Metis case.
+
+    Reuses the same conversion as ``metis case stix-import``/``misp-import`` so a
+    direct ``--into-case`` pull and the two-step (pull → file → import) yield the
+    identical case content, carrying the pull's provenance (``source``). Returns
+    the number of rows inserted (duplicates already present are ignored).
+    """
+    if not case_id:
+        raise ValueError("--into-case requires --case-id")
+    indicators = [
+        _indicator(item.indicator_type, item.value, source, confidence)
+        for item in result.indicators
+    ]
+    with CaseStore(database) as store:
+        return store.add_indicators(case_id, indicators)
 
 
 @app.command("capabilities")
@@ -638,6 +659,15 @@ def taxii_poll(
     max_pages: int = typer.Option(MAX_TAXII_PAGES, "--max-pages", min=1, max=MAX_TAXII_PAGES),
     timeout: float = typer.Option(DEFAULT_TIMEOUT, "--timeout", min=0.1, max=600.0),
     ca_file: Path | None = typer.Option(None, "--ca-file", help="Custom CA bundle for TLS."),
+    into_case: Path | None = typer.Option(
+        None, "--into-case", help="Import the pulled IOCs directly into this Metis case database."
+    ),
+    case_id: str | None = typer.Option(
+        None, "--case-id", help="Case id to import into (required with --into-case)."
+    ),
+    confidence: int = typer.Option(
+        50, "--confidence", min=0, max=100, help="Confidence for IOCs imported with --into-case."
+    ),
 ) -> None:
     """Poll a TAXII 2.1 collection over pinned HTTPS and normalize STIX to IOCs.
 
@@ -645,9 +675,11 @@ def taxii_poll(
     the active lab policy declares its range); every read is bounded; the bearer
     token, if any, comes from the named environment variable, never the repo. The
     collected bundle can be written out and fed to ``metis case stix-import`` with
-    its own provenance; ``--added-after`` with the printed ``next_added_after``
-    makes the next poll incremental.
+    its own provenance, or imported straight into a case with ``--into-case``;
+    ``--added-after`` with the printed ``next_added_after`` makes the next poll
+    incremental.
     """
+    imported: int | None = None
     try:
         collection = TaxiiCollection(
             api_root_url=api_root, collection_id=collection_id, token_env=token_env
@@ -666,7 +698,11 @@ def taxii_poll(
             atomic_write_text(
                 output, json.dumps(poll.bundle, indent=2, sort_keys=True) + "\n", mode=0o600
             )
-    except (TaxiiError, TaxiiConfigError, ValueError, OSError) as exc:
+        if into_case is not None:
+            imported = _import_into_case(
+                into_case, case_id or "", poll.result, poll.source, confidence
+            )
+    except (TaxiiError, TaxiiConfigError, ValueError, LookupError, OSError, sqlite3.Error) as exc:
         _fail(exc)
     typer.echo(
         json.dumps(
@@ -679,6 +715,7 @@ def taxii_poll(
                 "next_added_after": poll.next_added_after,
                 "more_available": poll.more_available,
                 "output": str(output) if output is not None else None,
+                "imported": imported,
             }
         )
     )
@@ -716,6 +753,15 @@ def misp_pull(
     max_pages: int = typer.Option(MAX_MISP_PAGES, "--max-pages", min=1, max=MAX_MISP_PAGES),
     timeout: float = typer.Option(MISP_DEFAULT_TIMEOUT, "--timeout", min=0.1, max=600.0),
     ca_file: Path | None = typer.Option(None, "--ca-file", help="Custom CA bundle for TLS."),
+    into_case: Path | None = typer.Option(
+        None, "--into-case", help="Import the pulled IOCs directly into this Metis case database."
+    ),
+    case_id: str | None = typer.Option(
+        None, "--case-id", help="Case id to import into (required with --into-case)."
+    ),
+    confidence: int = typer.Option(
+        50, "--confidence", min=0, max=100, help="Confidence for IOCs imported with --into-case."
+    ),
 ) -> None:
     """Pull MISP events over pinned HTTPS and normalize their attributes to IOCs.
 
@@ -723,9 +769,10 @@ def misp_pull(
     when the active lab policy declares its range); every read is bounded; the
     API key comes from the named environment variable, never the repo. The pulled
     event can be written out and fed to ``metis case misp-import`` with its own
-    provenance; ``--since`` with the printed ``next_since`` makes the next pull
-    incremental.
+    provenance, or imported straight into a case with ``--into-case``; ``--since``
+    with the printed ``next_since`` makes the next pull incremental.
     """
+    imported: int | None = None
     try:
         server = MispServer(base_url=base_url, token_env=token_env)
         transport = PinnedMispTransport(ca_file=str(ca_file) if ca_file else None)
@@ -744,7 +791,11 @@ def misp_pull(
             atomic_write_text(
                 output, json.dumps(pull.event, indent=2, sort_keys=True) + "\n", mode=0o600
             )
-    except (MispPullError, MispConfigError, ValueError, OSError) as exc:
+        if into_case is not None:
+            imported = _import_into_case(
+                into_case, case_id or "", pull.result, pull.source, confidence
+            )
+    except (MispPullError, MispConfigError, ValueError, LookupError, OSError, sqlite3.Error) as exc:
         _fail(exc)
     typer.echo(
         json.dumps(
@@ -757,6 +808,7 @@ def misp_pull(
                 "next_since": pull.next_since,
                 "more_available": pull.more_available,
                 "output": str(output) if output is not None else None,
+                "imported": imported,
             }
         )
     )
@@ -790,6 +842,15 @@ def opencti_pull(
     max_pages: int = typer.Option(MAX_OPENCTI_PAGES, "--max-pages", min=1, max=MAX_OPENCTI_PAGES),
     timeout: float = typer.Option(OPENCTI_DEFAULT_TIMEOUT, "--timeout", min=0.1, max=600.0),
     ca_file: Path | None = typer.Option(None, "--ca-file", help="Custom CA bundle for TLS."),
+    into_case: Path | None = typer.Option(
+        None, "--into-case", help="Import the pulled IOCs directly into this Metis case database."
+    ),
+    case_id: str | None = typer.Option(
+        None, "--case-id", help="Case id to import into (required with --into-case)."
+    ),
+    confidence: int = typer.Option(
+        50, "--confidence", min=0, max=100, help="Confidence for IOCs imported with --into-case."
+    ),
 ) -> None:
     """Pull OpenCTI indicators over pinned HTTPS (GraphQL) and normalize to IOCs.
 
@@ -797,9 +858,11 @@ def opencti_pull(
     when the active lab policy declares its range); every read is bounded; the
     API token comes from the named environment variable, never the repo. Revoked
     indicators are excluded. The collected bundle can be written out and fed to
-    ``metis case stix-import``; ``--since`` with the printed ``next_since`` makes
-    the next pull incremental.
+    ``metis case stix-import``, or imported straight into a case with
+    ``--into-case``; ``--since`` with the printed ``next_since`` makes the next
+    pull incremental.
     """
+    imported: int | None = None
     try:
         server = OpenCtiServer(base_url=base_url, token_env=token_env)
         transport = PinnedOpenCtiTransport(ca_file=str(ca_file) if ca_file else None)
@@ -816,7 +879,18 @@ def opencti_pull(
             atomic_write_text(
                 output, json.dumps(pull.bundle, indent=2, sort_keys=True) + "\n", mode=0o600
             )
-    except (OpenCtiError, OpenCtiConfigError, ValueError, OSError) as exc:
+        if into_case is not None:
+            imported = _import_into_case(
+                into_case, case_id or "", pull.result, pull.source, confidence
+            )
+    except (
+        OpenCtiError,
+        OpenCtiConfigError,
+        ValueError,
+        LookupError,
+        OSError,
+        sqlite3.Error,
+    ) as exc:
         _fail(exc)
     typer.echo(
         json.dumps(
@@ -829,6 +903,7 @@ def opencti_pull(
                 "next_since": pull.next_since,
                 "more_available": pull.more_available,
                 "output": str(output) if output is not None else None,
+                "imported": imported,
             }
         )
     )

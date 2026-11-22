@@ -1000,6 +1000,9 @@ Pull MISP events over pinned HTTPS and normalize their attributes to IOCs.
 | `--max-pages` | option | no | `100` | — |
 | `--timeout` | option | no | `30.0` | — |
 | `--ca-file` | option | no | — | Custom CA bundle for TLS. |
+| `--into-case` | option | no | — | Import the pulled IOCs directly into this Metis case database. |
+| `--case-id` | option | no | — | Case id to import into (required with --into-case). |
+| `--confidence` | option | no | `50` | Confidence for IOCs imported with --into-case. |
 
 ### `olympus metis opencti pull`
 
@@ -1016,6 +1019,9 @@ Pull OpenCTI indicators over pinned HTTPS (GraphQL) and normalize to IOCs.
 | `--max-pages` | option | no | `100` | — |
 | `--timeout` | option | no | `30.0` | — |
 | `--ca-file` | option | no | — | Custom CA bundle for TLS. |
+| `--into-case` | option | no | — | Import the pulled IOCs directly into this Metis case database. |
+| `--case-id` | option | no | — | Case id to import into (required with --into-case). |
+| `--confidence` | option | no | `50` | Confidence for IOCs imported with --into-case. |
 
 ### `olympus metis plan`
 
@@ -1055,6 +1061,9 @@ Poll a TAXII 2.1 collection over pinned HTTPS and normalize STIX to IOCs.
 | `--max-pages` | option | no | `100` | — |
 | `--timeout` | option | no | `30.0` | — |
 | `--ca-file` | option | no | — | Custom CA bundle for TLS. |
+| `--into-case` | option | no | — | Import the pulled IOCs directly into this Metis case database. |
+| `--case-id` | option | no | — | Case id to import into (required with --into-case). |
+| `--confidence` | option | no | `50` | Confidence for IOCs imported with --into-case. |
 
 ### `olympus minerva capture`
 
