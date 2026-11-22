@@ -1627,8 +1627,8 @@ Show the safety preview of a single planned scan.
 | `--simulate` | option | no | `False` | Preview a simulated run (no live traffic, no authorization). |
 | `--i-am-authorized` | option | no | `False` | Reflect that live authorization would be asserted. |
 | `--require-engine` | option | no | `False` | Exit 8 (engine missing) if the scanner's engine is not ready — binary, version/commit and pinned data (e.g. nuclei templates) all checked — so automation can gate a scan on readiness. Runs the engine's version probe. Off by default: a plain preview launches nothing. |
-| `--timeout` | option | no | `300.0` | — |
-| `--deadline` | option | no | `600.0` | — |
+| `--timeout` | option | no | — | Per-process timeout. Omit it to preview the reviewed engine default. |
+| `--deadline` | option | no | — | Overall deadline. Omit it to preview the shared derived deadline. |
 | `--output`, `-o` | option | no | — | Where a result would be written. |
 | `--audit` | option | no | — | Where the redacted audit entry would go. |
 | `--format` | option | no | `table` | Output format: table (human) or json (machine). |

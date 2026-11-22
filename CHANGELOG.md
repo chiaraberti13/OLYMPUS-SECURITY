@@ -19,7 +19,9 @@ below lives under **Unreleased**.
   (`POST /graphql`, paginazione Relay `hasNextPage`/`endCursor`), mappa ogni nodo nel suo `pattern` STIX
   → bundle, e normalizza a IOC riusando il parser STIX offline già testato (`bundle_to_indicators`), così
   un pull live e un `metis case stix-import` del bundle scritto danno **gli stessi IOC**. Il bundle si
-  scrive owner-only (`--output`).
+  scrive owner-only (`--output`). (OpenCTI è raggiungibile anche via le sue collezioni TAXII 2.1 native
+  usando `metis taxii poll`; questo client GraphQL è l'alternativa che non richiede il modulo TAXII di
+  OpenCTI e aggiunge filtro `updated_at` ed esclusione dei revoked.)
 - **Egress pinned e guardato** (stessa catena di TAXII/MISP/scansione), **letture bounded**
   (byte/pagine/indicatori), **caching incrementale** via filtro `updated_at` e cursore `next_since`
   (il `updated_at` più recente visto), **provenance** `opencti://host`.
@@ -31,6 +33,20 @@ below lives under **Unreleased**.
   cursore incrementale, limiti, filtro `updated_at`, header Bearer, errori GraphQL, rifiuti
   `401/403/5xx`/JSON invalido, solo-`https`). `docs/metis.md`, `ROADMAP.md` (BLUE-3) e CLI reference
   aggiornati. **I tre connettori CTI live sono ora completi a livello di codice.**
+
+### Added — TOOLS-4.3: budget runtime condivisi
+
+- Il resolver `themis.resources` applica i timeout revisionati dallo stesso punto
+  di esecuzione usato da CLI, API, Web e worker. I valori espliciti restano
+  invariati; quelli omessi ereditano il profilo revisionato dell'engine.
+- Un minimo di memoria misurato che supera `THEMIS_SANDBOX_MEMORY_BYTES` viene
+  rifiutato prima della risoluzione del target. Il manifest non alza mai il tetto
+  del sandbox.
+- Il manifest nuclei registra ora ambiente e metodo della misura in forma
+  strutturata. `docs/engines/RESOURCES.md` distingue `RLIMIT_AS`, RSS e limite
+  container/cgroup e censisce tutti i profili stimati o misurati.
+- Il runner L3 non forza più un timeout unico di 300 secondi e usa il resolver
+  condiviso, evitando la divergenza con i job persistenti.
 
 ### Added — BLUE-3: CTI live via MISP pull (slice)
 

@@ -438,6 +438,15 @@ def test_estimated_adapter_values_are_marked_until_reviewed() -> None:
     assert parse_manifest(_manifest()).adapter.reviewed is False  # type: ignore[union-attr]
 
 
+def test_reviewed_resource_values_require_measurement_metadata() -> None:
+    text = _manifest().replace(
+        'resource_profile = "network-heavy"',
+        'resource_profile = "network-heavy"\nreviewed = true',
+    )
+    with pytest.raises(ManifestError, match="measurement metadata"):
+        parse_manifest(text)
+
+
 def test_a_tag_whose_code_prints_another_version_is_recorded_not_trusted() -> None:
     manifest = load_all()["xsstrike"]
     assert manifest.engine.pinned_version == "3.1.6"

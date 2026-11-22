@@ -79,11 +79,11 @@ olympus metis case stix-import .metis/cases.sqlite3 "$CASE_ID" feed.stix.json \
   --source "TAXII: feed.example/<collection-id>"
 # Next run: only what is new, using the printed next_added_after cursor.
 olympus metis taxii poll https://feed.example/taxii2/api1 <collection-id> \
-  --added-after 2026-11-21T10:00:00Z --output feed.stix.json
+  --token-env OLYMPUS_TAXII_TOKEN --added-after 2026-11-21T10:00:00Z \
+  --output feed.stix.json
 ```
 
-`taxii poll` is the **only networked** Metis surface, and it is deliberately
-narrow: it fetches STIX objects and hands them to the **same offline parser**
+`taxii poll` fetches STIX objects and hands them to the **same offline parser**
 used by `case stix-import`, so a live poll and an import of the written bundle
 yield the identical IOCs (simple-equality patterns imported, compound ones
 reported as skipped, never mangled).
@@ -106,7 +106,31 @@ Three properties keep the fetch safe to point at the public internet:
 
 Provenance is a stable `taxii://<host>/<collection>` label, and
 `--added-after` with the printed `next_added_after` cursor (from the server's
-`X-TAXII-Date-Added-Last`) makes each subsequent poll incremental.
+`X-TAXII-Date-Added-Last`) makes each subsequent poll incremental. If
+`more_available` is true, the bundle is partial and the input cursor is
+preserved. Retry from the same cursor with a higher bound where possible, or
+start with a narrower collection. A server that omits the date-added header
+does not advance the cursor.
+
+### OpenCTI native collections
+
+In OpenCTI, expose an [outbound TAXII 2.1 collection](https://docs.opencti.io/latest/usage/feeds/#taxii-collections)
+with the filters and access rights for the feed. Copy the collection ID and the
+API root from the advertised endpoint (the URL before `/collections/`,
+including any deployment prefix). Set `OLYMPUS_OPENCTI_TOKEN` in the environment
+to the API token of an account with read access to that collection, then run:
+
+```bash
+olympus metis taxii poll https://opencti.example/taxii2/root "$OPENCTI_COLLECTION_ID" \
+  --token-env OLYMPUS_OPENCTI_TOKEN --output opencti.stix.json
+olympus metis case stix-import .metis/cases.sqlite3 "$CASE_ID" opencti.stix.json \
+  --source "taxii://opencti.example/$OPENCTI_COLLECTION_ID"
+```
+
+The same HTTPS policy, page and object limits, and STIX normalization apply.
+Exported dependencies are limited to what the collection returns. Metis
+extracts supported IOCs from the returned objects without following external
+STIX references.
 
 ## CTI live — MISP
 
@@ -163,6 +187,13 @@ STIX `pattern`, so the client fetches them over GraphQL, maps each one back into
 a STIX indicator object, and hands the bundle to the **same offline parser** used
 by `case stix-import` — a live pull and an import of the written bundle yield the
 identical IOCs.
+
+> There are two ways to pull from OpenCTI. If the instance publishes an outbound
+> TAXII 2.1 feed, [OpenCTI native collections](#opencti-native-collections) above
+> reaches it with `metis taxii poll` and no OpenCTI-specific code. This GraphQL
+> client is the alternative when the TAXII module is not enabled, and it adds
+> OpenCTI-native filtering — the `updated_at` incremental cursor and exclusion of
+> revoked indicators.
 
 The same three properties keep the pull safe:
 

@@ -115,6 +115,20 @@ class Source(_Frozen):
         return self
 
 
+class ResourceMeasurement(_Frozen):
+    """Reproducible environment metadata behind reviewed resource values."""
+
+    measured_at: str = Field(pattern=r"^20\d{2}-(0[1-9]|1[0-2])-([0-2]\d|3[01])$")
+    os: str = Field(min_length=1, max_length=80)
+    architecture: str = Field(min_length=1, max_length=40)
+    cpu: str = Field(min_length=1, max_length=120)
+    cpu_count: int = Field(ge=1, le=1_024)
+    ram_bytes: int = Field(ge=64 * 1024 * 1024, le=16 * 1024**4)
+    engine_version: str = Field(min_length=1, max_length=80)
+    data_version: str | None = Field(default=None, min_length=1, max_length=80)
+    method: str = Field(min_length=1, max_length=500)
+
+
 class Adapter(_Frozen):
     """Link to the existing :class:`~olympus.themis.base.ScannerAdapter` subclass."""
 
@@ -141,6 +155,7 @@ class Adapter(_Frozen):
     #: values derived from evidence. A pilot review flips it; nobody should have to
     #: guess later which numbers were ever measured.
     reviewed: bool = False
+    measurement: ResourceMeasurement | None = None
 
     @model_validator(mode="after")
     def _entrypoint(self) -> Self:
@@ -151,6 +166,10 @@ class Adapter(_Frozen):
             raise ValueError("a flag may appear once, as static or as value flag, never both")
         if not set(self.optional_flags) <= set(self.value_flags):
             raise ValueError("optional_flags must be a subset of value_flags")
+        if self.reviewed and self.measurement is None:
+            raise ValueError("reviewed resource values require measurement metadata")
+        if not self.reviewed and self.measurement is not None:
+            raise ValueError("measurement metadata requires reviewed=true")
         return self
 
 
