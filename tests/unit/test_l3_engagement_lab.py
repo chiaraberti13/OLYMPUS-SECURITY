@@ -71,6 +71,23 @@ def test_live_scan_is_engagement_signed_and_evidenced() -> None:
     assert "--kind host" in text
 
 
+def test_manifest_generation_runs_inside_the_scanner_image() -> None:
+    # The approver keypair + signed manifest must be built inside the scanner image
+    # (which ships olympus), not with a host python3 that has no olympus installed.
+    text = _script()
+    assert "generate_keypair" in text
+    gen_at = text.index("generate_keypair")
+    preamble = text[:gen_at]
+    # The generate_keypair call lives inside a `docker run ... python3 -` heredoc.
+    assert "docker run" in preamble
+    last_docker = preamble.rindex("docker run")
+    assert "python3 -" in preamble[last_docker:], (
+        "the manifest-generation step must run python3 inside the scanner container"
+    )
+    # ...and it must not be a bare host-side `python3 - <<` invocation.
+    assert "OLYMPUS_ENG_DIR=" not in text
+
+
 def test_script_carries_no_secret_material() -> None:
     text = _script()
     assert "BEGIN PRIVATE KEY" not in text and "BEGIN OPENSSH" not in text
