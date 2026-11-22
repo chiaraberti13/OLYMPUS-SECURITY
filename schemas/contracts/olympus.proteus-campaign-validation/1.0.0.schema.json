@@ -1,0 +1,49 @@
+{
+  "$id": "urn:olympus:schema:olympus.proteus-campaign-validation:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Versioned, normalized campaign metadata (no email is ever sent).",
+  "properties": {
+    "engagement": {
+      "title": "Engagement",
+      "type": "string"
+    },
+    "landing_url": {
+      "title": "Landing Url",
+      "type": "string"
+    },
+    "schema_name": {
+      "const": "olympus.proteus-campaign-validation",
+      "default": "olympus.proteus-campaign-validation",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "sender": {
+      "title": "Sender",
+      "type": "string"
+    },
+    "subject": {
+      "title": "Subject",
+      "type": "string"
+    },
+    "valid": {
+      "default": true,
+      "title": "Valid",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "engagement",
+    "subject",
+    "sender",
+    "landing_url"
+  ],
+  "title": "ProteusCampaignValidationResult",
+  "type": "object"
+}

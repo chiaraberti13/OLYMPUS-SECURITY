@@ -1,0 +1,42 @@
+{
+  "$id": "urn:olympus:schema:olympus.argus-ct-subdomains:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Versioned list of in-domain subdomains extracted from a CT export.",
+  "properties": {
+    "domain": {
+      "title": "Domain",
+      "type": "string"
+    },
+    "schema_name": {
+      "const": "olympus.argus-ct-subdomains",
+      "default": "olympus.argus-ct-subdomains",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "subdomain_count": {
+      "title": "Subdomain Count",
+      "type": "integer"
+    },
+    "subdomains": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Subdomains",
+      "type": "array"
+    }
+  },
+  "required": [
+    "domain",
+    "subdomain_count",
+    "subdomains"
+  ],
+  "title": "ArgusCtResult",
+  "type": "object"
+}

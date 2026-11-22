@@ -1,0 +1,117 @@
+{
+  "$defs": {
+    "DetectionRule": {
+      "additionalProperties": false,
+      "description": "A minimal portable detection rule expressed as YAML-compatible JSON.",
+      "properties": {
+        "conditions": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "maxProperties": 64,
+          "minProperties": 1,
+          "title": "Conditions",
+          "type": "object"
+        },
+        "event_type": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "title": "Event Type",
+          "type": "string"
+        },
+        "mitre_attack": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "title": "Mitre Attack",
+          "type": "array"
+        },
+        "rule_id": {
+          "maxLength": 128,
+          "pattern": "^APL-[A-Z0-9-]+$",
+          "title": "Rule Id",
+          "type": "string"
+        },
+        "schema_name": {
+          "const": "olympus.apollo-rule",
+          "default": "olympus.apollo-rule",
+          "title": "Schema Name",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity",
+          "default": "medium"
+        },
+        "title": {
+          "maxLength": 255,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rule_id",
+        "title",
+        "event_type",
+        "conditions"
+      ],
+      "title": "DetectionRule",
+      "type": "object"
+    },
+    "Severity": {
+      "description": "Normalized severity scale shared by findings, alerts and reports.",
+      "enum": [
+        "info",
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "title": "Severity",
+      "type": "string"
+    }
+  },
+  "$id": "urn:olympus:schema:olympus.apollo-rule-list:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Versioned projection of the configured, validated Apollo rule pack.",
+  "properties": {
+    "count": {
+      "title": "Count",
+      "type": "integer"
+    },
+    "rules": {
+      "items": {
+        "$ref": "#/$defs/DetectionRule"
+      },
+      "title": "Rules",
+      "type": "array"
+    },
+    "schema_name": {
+      "const": "olympus.apollo-rule-list",
+      "default": "olympus.apollo-rule-list",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "count",
+    "rules"
+  ],
+  "title": "ApolloRuleList",
+  "type": "object"
+}

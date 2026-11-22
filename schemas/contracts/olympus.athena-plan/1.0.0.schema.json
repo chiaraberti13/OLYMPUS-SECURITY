@@ -1,0 +1,132 @@
+{
+  "$defs": {
+    "AthenaPlanTarget": {
+      "additionalProperties": false,
+      "description": "One authorized assessment target (``domain`` or ``url``).",
+      "properties": {
+        "kind": {
+          "enum": [
+            "domain",
+            "url"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "AthenaPlanTarget",
+      "type": "object"
+    }
+  },
+  "$id": "urn:olympus:schema:olympus.athena-plan:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Versioned, bounded projection of a built Athena plan for API and Web.",
+  "properties": {
+    "active": {
+      "title": "Active",
+      "type": "boolean"
+    },
+    "adapters": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Adapters",
+      "type": "array"
+    },
+    "allowed_domains": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed Domains",
+      "type": "array"
+    },
+    "authorized": {
+      "title": "Authorized",
+      "type": "boolean"
+    },
+    "engagement_id": {
+      "title": "Engagement Id",
+      "type": "string"
+    },
+    "limits": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Limits",
+      "type": "object"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "plan_digest": {
+      "title": "Plan Digest",
+      "type": "string"
+    },
+    "plan_json": {
+      "title": "Plan Json",
+      "type": "string"
+    },
+    "profile_id": {
+      "title": "Profile Id",
+      "type": "string"
+    },
+    "report_formats": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Report Formats",
+      "type": "array"
+    },
+    "schema_name": {
+      "const": "olympus.athena-plan",
+      "default": "olympus.athena-plan",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scope_digest": {
+      "title": "Scope Digest",
+      "type": "string"
+    },
+    "targets": {
+      "items": {
+        "$ref": "#/$defs/AthenaPlanTarget"
+      },
+      "title": "Targets",
+      "type": "array"
+    }
+  },
+  "required": [
+    "profile_id",
+    "name",
+    "engagement_id",
+    "adapters",
+    "active",
+    "targets",
+    "allowed_domains",
+    "report_formats",
+    "authorized",
+    "plan_digest",
+    "scope_digest",
+    "limits",
+    "plan_json"
+  ],
+  "title": "AthenaPlanView",
+  "type": "object"
+}

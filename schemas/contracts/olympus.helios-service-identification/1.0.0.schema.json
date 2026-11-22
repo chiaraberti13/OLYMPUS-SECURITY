@@ -1,0 +1,68 @@
+{
+  "$id": "urn:olympus:schema:olympus.helios-service-identification:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Versioned passive service identification shared by API clients and the Web UI.",
+  "properties": {
+    "identified_from": {
+      "enum": [
+        "banner",
+        "port",
+        "none"
+      ],
+      "title": "Identified From",
+      "type": "string"
+    },
+    "port": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Port"
+    },
+    "product": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Product"
+    },
+    "risky": {
+      "title": "Risky",
+      "type": "boolean"
+    },
+    "schema_name": {
+      "const": "olympus.helios-service-identification",
+      "default": "olympus.helios-service-identification",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "service": {
+      "title": "Service",
+      "type": "string"
+    }
+  },
+  "required": [
+    "port",
+    "service",
+    "product",
+    "risky",
+    "identified_from"
+  ],
+  "title": "HeliosServiceIdentification",
+  "type": "object"
+}

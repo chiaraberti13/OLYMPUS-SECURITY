@@ -1,0 +1,269 @@
+{
+  "$defs": {
+    "JobState": {
+      "description": "Lifecycle state of one durable job.\n\nThe terminal states are deliberately distinct: collapsing them into\n``failed`` hides whether a scan broke, was refused, ran out of time, or\nnever ran at all.",
+      "enum": [
+        "queued",
+        "running",
+        "succeeded",
+        "partial",
+        "failed",
+        "timed_out",
+        "cancelled",
+        "policy_denied"
+      ],
+      "title": "JobState",
+      "type": "string"
+    },
+    "ThemisJob": {
+      "additionalProperties": false,
+      "description": "Versioned job document returned consistently by CLI, API and workers.\n\n``3.0.0`` adds the digest of the signed engagement manifest. Legacy jobs\nmigrate with ``None`` rather than receiving invented authorization provenance.",
+      "properties": {
+        "attempts": {
+          "maximum": 10,
+          "minimum": 0,
+          "title": "Attempts",
+          "type": "integer"
+        },
+        "authorized": {
+          "title": "Authorized",
+          "type": "boolean"
+        },
+        "available_at": {
+          "format": "date-time",
+          "title": "Available At",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        },
+        "finished_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Finished At"
+        },
+        "heartbeat_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Heartbeat At"
+        },
+        "idempotency_key": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Idempotency Key"
+        },
+        "job_id": {
+          "pattern": "^THEMIS-[A-F0-9]{32}$",
+          "title": "Job Id",
+          "type": "string"
+        },
+        "lease_expires_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lease Expires At"
+        },
+        "manifest_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manifest Sha256"
+        },
+        "max_attempts": {
+          "maximum": 10,
+          "minimum": 1,
+          "title": "Max Attempts",
+          "type": "integer"
+        },
+        "result": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Result"
+        },
+        "scanner": {
+          "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+          "title": "Scanner",
+          "type": "string"
+        },
+        "schema_name": {
+          "const": "olympus.themis-job",
+          "default": "olympus.themis-job",
+          "title": "Schema Name",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "3.0.0",
+          "default": "3.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "scope_name": {
+          "maxLength": 255,
+          "minLength": 1,
+          "title": "Scope Name",
+          "type": "string"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Started At"
+        },
+        "state": {
+          "$ref": "#/$defs/JobState"
+        },
+        "target": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Target",
+          "type": "string"
+        },
+        "target_kind": {
+          "enum": [
+            "host",
+            "domain",
+            "url"
+          ],
+          "title": "Target Kind",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "worker_id": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Worker Id"
+        }
+      },
+      "required": [
+        "job_id",
+        "scanner",
+        "target",
+        "target_kind",
+        "scope_name",
+        "state",
+        "authorized",
+        "attempts",
+        "max_attempts",
+        "created_at",
+        "updated_at",
+        "available_at"
+      ],
+      "title": "ThemisJob",
+      "type": "object"
+    }
+  },
+  "$id": "urn:olympus:schema:olympus.themis-job-list:3.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "count": {
+      "title": "Count",
+      "type": "integer"
+    },
+    "jobs": {
+      "items": {
+        "$ref": "#/$defs/ThemisJob"
+      },
+      "title": "Jobs",
+      "type": "array"
+    },
+    "schema_name": {
+      "const": "olympus.themis-job-list",
+      "default": "olympus.themis-job-list",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "3.0.0",
+      "default": "3.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "count",
+    "jobs"
+  ],
+  "title": "JobList",
+  "type": "object"
+}

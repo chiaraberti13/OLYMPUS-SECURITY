@@ -1,0 +1,79 @@
+{
+  "$defs": {
+    "HermesSecretFindingView": {
+      "additionalProperties": false,
+      "description": "One potential secret location. The value is **masked** \u2014 never returned raw.",
+      "properties": {
+        "fingerprint": {
+          "title": "Fingerprint",
+          "type": "string"
+        },
+        "line": {
+          "title": "Line",
+          "type": "integer"
+        },
+        "masked": {
+          "title": "Masked",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "rule": {
+          "title": "Rule",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rule",
+        "path",
+        "line",
+        "masked",
+        "fingerprint"
+      ],
+      "title": "HermesSecretFindingView",
+      "type": "object"
+    }
+  },
+  "$id": "urn:olympus:schema:olympus.hermes-secret-scan:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Versioned Hermes secret-scan result shared by API clients and the Web UI.",
+  "properties": {
+    "finding_count": {
+      "title": "Finding Count",
+      "type": "integer"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/HermesSecretFindingView"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "path": {
+      "title": "Path",
+      "type": "string"
+    },
+    "schema_name": {
+      "const": "olympus.hermes-secret-scan",
+      "default": "olympus.hermes-secret-scan",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "path",
+    "finding_count",
+    "findings"
+  ],
+  "title": "HermesScanResult",
+  "type": "object"
+}

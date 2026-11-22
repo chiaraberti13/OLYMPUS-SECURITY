@@ -41,6 +41,28 @@ from olympus.engines.evidence import EngineRunEvidence
 from olympus.engines.listing import EngineListReport
 from olympus.engines.preflight import EnginePreflightReport
 from olympus.metis.models import EngagementPlan, IntelCaseDocument
+
+# The versioned per-tool API response envelopes (ARCH-4). These are pure Pydantic
+# DTOs that live beside the FastAPI app; publishing them here makes every identity
+# a client can pin — not only the domain models — a byte-stable catalog entry,
+# which the UI↔API contract-surface test holds identical to what the API serves.
+# schema_catalog is imported lazily by the CLI, so pulling the API module costs
+# nothing at startup.
+from olympus.themis.api import (
+    ApolloEvaluationResult,
+    ApolloRuleList,
+    ArgusCtResult,
+    ArtemisFingerprintResult,
+    AthenaPlanView,
+    AthenaProfileList,
+    EngagementList,
+    HeliosServiceIdentification,
+    HermesScanResult,
+    JobList,
+    MetisExtractionResult,
+    MinervaLedgerVerification,
+    ProteusCampaignValidationResult,
+)
 from olympus.themis.legacy_vap import (
     LegacyVapConversionPlan,
     LegacyVapImportApproval,
@@ -105,6 +127,25 @@ PUBLISHED_CONTRACTS = (
     PublishedContract("olympus.legacy-vap-conversion-plan", "output", LegacyVapConversionPlan),
     PublishedContract("olympus.legacy-vap-import-approval", "output", LegacyVapImportApproval),
     PublishedContract("olympus.legacy-vap-import-receipt", "output", LegacyVapImportReceipt),
+    # Per-tool API response envelopes (ARCH-4): one published schema per identity
+    # a client can pin, byte-identical to what the HTTP API serves.
+    PublishedContract("olympus.themis-engagement-list", "output", EngagementList),
+    PublishedContract("olympus.themis-job-list", "output", JobList),
+    PublishedContract("olympus.apollo-rule-list", "output", ApolloRuleList),
+    PublishedContract("olympus.apollo-evaluation", "output", ApolloEvaluationResult),
+    PublishedContract("olympus.minerva-ledger-verification", "output", MinervaLedgerVerification),
+    PublishedContract("olympus.metis-extraction", "output", MetisExtractionResult),
+    PublishedContract("olympus.athena-profile-list", "output", AthenaProfileList),
+    PublishedContract("olympus.athena-plan", "output", AthenaPlanView),
+    PublishedContract("olympus.argus-ct-subdomains", "output", ArgusCtResult),
+    PublishedContract("olympus.artemis-fingerprint", "output", ArtemisFingerprintResult),
+    PublishedContract(
+        "olympus.helios-service-identification", "output", HeliosServiceIdentification
+    ),
+    PublishedContract("olympus.hermes-secret-scan", "output", HermesScanResult),
+    PublishedContract(
+        "olympus.proteus-campaign-validation", "output", ProteusCampaignValidationResult
+    ),
 )
 
 

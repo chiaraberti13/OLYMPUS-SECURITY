@@ -8,11 +8,32 @@
       "sha256": "46c028e0abd0567252db2ac54692b3558a08a7b9ada797cf865946e242745817"
     },
     {
+      "direction": "output",
+      "name": "olympus.apollo-evaluation",
+      "path": "contracts/olympus.apollo-evaluation/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "26d1621e419a36d77958aecbf0e6117dc0b1dbce744af4230a28e5a6df882862"
+    },
+    {
       "direction": "shared",
       "name": "olympus.apollo-rule",
       "path": "contracts/olympus.apollo-rule/1.0.0.schema.json",
       "schema_version": "1.0.0",
       "sha256": "2a86f47635257c791b18ae0674b116508d095c2dd9300580027529bfef2d0051"
+    },
+    {
+      "direction": "output",
+      "name": "olympus.apollo-rule-list",
+      "path": "contracts/olympus.apollo-rule-list/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "c930a6f7e150d180946e923c5b202787b053caf3a4d8eef683ee44961ab0cc01"
+    },
+    {
+      "direction": "output",
+      "name": "olympus.argus-ct-subdomains",
+      "path": "contracts/olympus.argus-ct-subdomains/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "c64ae01afdd13314ce969534c4004545e55f0b5e090711981d23c15155007f14"
     },
     {
       "direction": "output",
@@ -29,11 +50,32 @@
       "sha256": "cba1a64167f7b1782d410fe4696c9179bae05a3b6d47e57367021dd81acee5bd"
     },
     {
+      "direction": "output",
+      "name": "olympus.artemis-fingerprint",
+      "path": "contracts/olympus.artemis-fingerprint/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "b8fa87310b967fb063e31a541faa1139a6f45f59800eb8a392c53ac1a4bf59d2"
+    },
+    {
       "direction": "shared",
       "name": "olympus.asset",
       "path": "contracts/olympus.asset/1.0.0.schema.json",
       "schema_version": "1.0.0",
       "sha256": "6f5393cffd30154a4976f6b620bc36b5b1f52656ab27479b8239dbbdd05870cd"
+    },
+    {
+      "direction": "output",
+      "name": "olympus.athena-plan",
+      "path": "contracts/olympus.athena-plan/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "39ad7afa3d9c77847eecf98f427c1fefc2e8a31cfd2449e62523680d0ac8075e"
+    },
+    {
+      "direction": "output",
+      "name": "olympus.athena-profile-list",
+      "path": "contracts/olympus.athena-profile-list/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "825daa6ea7b116d90a772619282c42e9a8b38d7a8a8a1ec3bb2a1da25f9f0407"
     },
     {
       "direction": "input",
@@ -148,6 +190,20 @@
       "sha256": "d4d5fd72f55c93ed222e6e7b65539565bd89af879d451c812af6612dfb3870b2"
     },
     {
+      "direction": "output",
+      "name": "olympus.helios-service-identification",
+      "path": "contracts/olympus.helios-service-identification/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "41910d32978bedeefda9f5393f3debbb9a79731bdd63177a3c979d83deecfd63"
+    },
+    {
+      "direction": "output",
+      "name": "olympus.hermes-secret-scan",
+      "path": "contracts/olympus.hermes-secret-scan/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "9d14416dcfbff4944403de3602e23187525311fa2f4b72f46bfdb6bad6d6f5d7"
+    },
+    {
       "direction": "shared",
       "name": "olympus.incident",
       "path": "contracts/olympus.incident/1.0.0.schema.json",
@@ -191,10 +247,24 @@
     },
     {
       "direction": "output",
+      "name": "olympus.metis-extraction",
+      "path": "contracts/olympus.metis-extraction/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "019a03121277e83191d9c23e979d73d7cedbd9acacbedc0d57addaa450e307b9"
+    },
+    {
+      "direction": "output",
       "name": "olympus.metis-plan",
       "path": "contracts/olympus.metis-plan/1.0.0.schema.json",
       "schema_version": "1.0.0",
       "sha256": "876fc509197b70fac11e5f9c37145e5d02710fbed855089843f907b23fda2d49"
+    },
+    {
+      "direction": "output",
+      "name": "olympus.minerva-ledger-verification",
+      "path": "contracts/olympus.minerva-ledger-verification/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "185a2ce57681ea78f283a8bcd5d93a5ae8553a4f5fd6791905f36b3c73c31a03"
     },
     {
       "direction": "output",
@@ -209,6 +279,13 @@
       "path": "contracts/olympus.observation/1.0.0.schema.json",
       "schema_version": "1.0.0",
       "sha256": "eda499c5a19e69edd810a52a64a2952afdd10877f183440a8638626f65f9386d"
+    },
+    {
+      "direction": "output",
+      "name": "olympus.proteus-campaign-validation",
+      "path": "contracts/olympus.proteus-campaign-validation/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "2bcaee63e64044e44a9847d34b939f68bc5c985c173c51016991f9d6f32b311c"
     },
     {
       "direction": "shared",
@@ -230,6 +307,20 @@
       "path": "contracts/olympus.signed-engagement-manifest/1.0.0.schema.json",
       "schema_version": "1.0.0",
       "sha256": "3f9c08ca36d407693074ce6ff25cb3773538b8706942f36ae3e236144daab1c2"
+    },
+    {
+      "direction": "output",
+      "name": "olympus.themis-engagement-list",
+      "path": "contracts/olympus.themis-engagement-list/1.0.0.schema.json",
+      "schema_version": "1.0.0",
+      "sha256": "cc072df1df260b1065368234f5aacbedab4d2f2b08aad76df7276d46857c38ca"
+    },
+    {
+      "direction": "output",
+      "name": "olympus.themis-job-list",
+      "path": "contracts/olympus.themis-job-list/3.0.0.schema.json",
+      "schema_version": "3.0.0",
+      "sha256": "1f42cde61956eafc2223cef2a1ce54891a6544bf3e11e13afabf78f4ff4ce353"
     }
   ],
   "schema_name": "olympus.schema-catalog",
