@@ -12,6 +12,15 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Verified — SEC-4.5: prima release firmata provata end-to-end
+
+- La prima release firmata (tag `v0.2.0_on_publish` a `eec75be`, workflow `release` success) ha allegato
+  wheel, sdist, SBOM CycloneDX e provenance SLSA, ciascuno con bundle Sigstore. `cosign verify-blob`
+  (wheel e sdist) e `cosign verify-blob-attestation --type slsaprovenance` (wheel) danno **Verified OK**
+  contro l'identità OIDC del workflow e il generator SLSA; lo sha256 del wheel combacia col subject
+  firmato. Evidenza committata in `docs/verify/2026-11-22-release-signing.md`. SEC-4.5 (firma) chiuso;
+  PyPI resta spento, le immagini container restano gate di SEC-4.4.
+
 ## [0.2.0] - 2026-11-22
 
 First tagged, signed release (`SEC-4.5`): the artifacts below are built, SLSA-
