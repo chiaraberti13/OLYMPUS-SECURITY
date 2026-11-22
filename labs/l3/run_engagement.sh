@@ -52,11 +52,12 @@ chmod 777 "$OUT" # the unprivileged container user must be able to write the evi
 # the files land in the mounted ./.olympus/eng, owned by the invoking user.
 docker run --rm -i \
   --user "$(id -u):$(id -g)" \
+  --entrypoint python3 \
   -e HOME=/tmp \
   -e OLYMPUS_ENG_HOST="$HOST_ONLY" \
   -v "$ENG:/eng" \
   "$IMAGE" \
-  python3 - <<'PY'
+  - <<'PY'
 import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
