@@ -111,10 +111,20 @@ SUITE_CAPABILITIES: tuple[SuiteCapability, ...] = (
         capability_id="cms-scanner",
         title="CMS Scanner",
         summary="Detect CMS-specific vulnerabilities (e.g. WordPress plugins/themes).",
-        modules=("themis",),
+        modules=("artemis", "themis"),
         engines=("wpscan",),
-        note="CMS vulnerability scanning (wpscan) is catalogued only; CMS/technology "
-        "detection is available via whatweb (offline-tested) under website fingerprinting.",
+        native=(
+            NativeCapability(
+                "artemis",
+                "Offline CMS version → advisory assessment: match the fingerprinted CMS "
+                "version against an operator-provided advisory feed (version-based inference)",
+                "tests/unit/test_artemis_cms.py",
+            ),
+        ),
+        note="CMS + version detection and version-based advisory matching are native and "
+        "tested (Artemis, from one authorized response, against an operator-supplied feed — "
+        "a version-in-range inference, not confirmed exploitation). Live plugin/theme "
+        "enumeration (wpscan) is catalogued only.",
     ),
     SuiteCapability(
         capability_id="port-scanner",

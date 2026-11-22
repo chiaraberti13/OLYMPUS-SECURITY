@@ -138,7 +138,7 @@ claims more than it delivers:
 | Subdomain Finder | present | Argus (Certificate Transparency, native) |
 | Domain / DNS Finder | present | Argus (DNS/WHOIS, native) |
 | Network Vulnerability Scanner | missing | nessus / openvas catalogued, not adapted |
-| CMS Scanner | missing | wpscan catalogued; whatweb gives detection only |
+| CMS Scanner | present | Artemis (CMS version → advisory assessment, native); wpscan catalogued |
 | Password Auditor | present | Nemesis (offline weak/default/reused audit, native) |
 
 The state is derived from the maturity ledger

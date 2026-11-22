@@ -387,6 +387,7 @@ Identify the technology stack from one scope-safe GET (passive, no extra request
 | `--max-bytes` | option | no | `1000000` | — |
 | `--asset-id` | option | no | `AST-ARTEMIS-FP-1` | core.Asset id to attach findings to. |
 | `--i-am-authorized` | option | no | `False` | Confirm you are authorized to test this target. |
+| `--advisories` | option | no | — | Operator-provided CMS advisory feed (JSON). When set, detected CMS versions are matched against it and version-based advisory findings are added. |
 | `--output` | option | no | — | Export findings JSON to this path. |
 
 ### `olympus artemis metabase`

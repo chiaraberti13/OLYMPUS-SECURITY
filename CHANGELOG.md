@@ -12,6 +12,24 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — TOOLS-2: CMS Scanner promosso a *present* (assessment versione→advisory)
+
+- Nuovo modulo `olympus.artemis.cms` e opzione **`--advisories`** su `olympus artemis fingerprint`:
+  dopo aver rilevato CMS + versione da un'unica risposta autorizzata (fingerprint Artemis esistente),
+  confronta la versione con un **feed di advisory fornito dall'operatore** (JSON) e aggiunge finding per
+  le versioni che ricadono in un intervallo affetto `[introduced, fixed)`.
+- **Onesto e offline:** un match è un'**inferenza version-based** (la versione installata è in un range
+  noto-affetto), **non** una conferma di sfruttabilità — i finding portano `Confidence.MEDIUM` e una
+  descrizione esplicita (un fix backportato, un componente disabilitato o un controllo compensativo
+  cambiano l'esposizione reale). Nessun traffico oltre il singolo GET autorizzato; nessuna enumerazione di
+  plugin/temi (wpscan resta catalogato). Le vulnerabilità vengono dal feed dell'operatore, mai inventate o
+  hardcoded (stesso modello di Nemesis/Metis): `load_advisories` valida severità, versioni e limiti
+  (`MAX_ADVISORIES`), fail-closed sugli input malformati.
+- La capability `cms-scanner` è ora derivata come **present** in `olympus.integrations.suite_catalog`
+  (modulo nativo con evidenza committata `tests/unit/test_artemis_cms.py`); istogramma catalogo
+  *present* 7 / *missing* 1 / *simulated* 0. `docs/professional-platform.md`, `ROADMAP.md` (TOOLS-2),
+  anteprima statica e CLI reference aggiornate.
+
 ### Added — BLUE-3: CTI live via OpenCTI pull (slice; completa il trio)
 
 - Nuovo modulo `olympus.metis.opencti` e comando **`olympus metis opencti pull`**: terzo fratello di
