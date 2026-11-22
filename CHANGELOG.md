@@ -12,6 +12,19 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — BLUE-3: import diretto dei pull CTI live in un case (`--into-case`)
+
+- I tre comandi di pull CTI live (`metis taxii poll`, `metis misp pull`, `metis opencti pull`) accettano
+  ora **`--into-case <db> --case-id <id>`**: gli IOC normalizzati vengono importati **direttamente** in un
+  case Metis in un solo passo, invece di scrivere un file e lanciare `case stix-import`/`misp-import`. La
+  **provenienza** del pull (`taxii://…` / `misp://…` / `opencti://…`) è riportata su ogni IOC importato e
+  `--confidence` ne imposta la confidenza. L'import diretto e il flusso in due passi producono lo **stesso**
+  contenuto del case; un case id inesistente **fallisce chiuso** senza importare nulla. Riusa la stessa
+  conversione IOC→`Indicator` degli import da file (`_indicator` + `CaseStore.add_indicators`), nessuna
+  logica duplicata. Completa l'ultimo miglio operativo di BLUE-3 («CTI live **in Metis**»). Test CLI
+  end-to-end offline con transport iniettato e case temporaneo (`tests/unit/test_metis_live_into_case.py`);
+  CLI reference aggiornata.
+
 ### Added — TOOLS-2: CMS Scanner promosso a *present* (assessment versione→advisory)
 
 - Nuovo modulo `olympus.artemis.cms` e opzione **`--advisories`** su `olympus artemis fingerprint`:
