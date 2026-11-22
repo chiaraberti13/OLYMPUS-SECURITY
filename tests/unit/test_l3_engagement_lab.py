@@ -120,6 +120,17 @@ def test_evidence_is_committable_and_pin_verifiable() -> None:
     assert "a+r " in chmod_block and "engagement-evidence.json" in chmod_block
 
 
+def test_findings_exit_code_does_not_abort_the_readback() -> None:
+    # `themis run` exits 1 when it finds anything and 5 on a partial run; under
+    # `set -e` that would abort the script before the evidence read-back/banner.
+    # The runner must capture the scan exit code and tolerate 0/1/5.
+    text = _script()
+    assert "scan_rc=" in text, "the scan exit code must be captured, not left to set -e"
+    assert "|| scan_rc=$?" in text
+    # 0 (ok), 1 (findings) and 5 (partial) are all 'the scan ran'.
+    assert "0 | 1 | 5)" in text
+
+
 def test_script_carries_no_secret_material() -> None:
     text = _script()
     assert "BEGIN PRIVATE KEY" not in text and "BEGIN OPENSSH" not in text

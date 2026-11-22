@@ -25,6 +25,27 @@ below lives under **Unreleased**.
   (sintassi bash, flag d'isolamento, opzioni signed-manifest/evidence, assenza di lab-policy e di chiavi
   committate). httpx/nuclei (che scansionano URL) restano sulla via `labs/l3/run.sh` lab-policy.
 
+### Verified — TOOLS-4.2 L3: `nmap` promosso a *live-tested* con evidenza committata
+
+- Il runner `labs/l3/run_engagement.sh` è stato eseguito su un bersaglio autorizzato (lab Docker ARM,
+  `172.18.0.2`): scansione `nmap` **reale** (`state=live`, exit 0, TCP 80/nginx 1.31.9), autorizzata dal
+  **manifest di engagement firmato** (`lab_policy_sha256 = null`), con **evidenza firmata Ed25519
+  pin-verificabile** (`olympus.engine-run-evidence` 1.0.0). Firma verificata con `verify_signed` (valida e
+  chiave combaciante con la pubblica committata). Record e procedura in
+  `docs/verify/2026-11-22-nmap-l3-engagement.md` (+ `nmap-engagement-evidence.json`, `.sig`,
+  `evidence_pub.pem`); dichiarazione L3 per-engine in `docs/engines/INVENTORY.md`.
+
+### Fixed — `labs/l3/run_engagement.sh` reso eseguibile su una VM pulita
+
+- Portabilità del runner (tre difetti trovati eseguendolo su una VM lab senza olympus nell'host):
+  generazione del manifest firmato **dentro l'immagine scanner** (`--entrypoint python3`, l'host non
+  installa olympus); `--scope` versionato `olympus.themis-scope` passato a `themis run` (sempre richiesto,
+  e sufficiente ad autorizzare l'IP privato via `resolve_and_validate`, senza lab-policy); evidenza resa
+  **leggibile** all'operatore (container usa-e-getta senza rete, come l'uid proprietario 10001, `chmod a+r`
+  solo sui file di evidenza) e **pin-verificabile** (export della chiave pubblica `evidence_pub.pem`);
+  l'exit code *findings-aware* di `themis run` (1 = trovati, 5 = parziale) è ora tollerato così `set -e`
+  non salta read-back ed evidenza. Guardie estese in `tests/unit/test_l3_engagement_lab.py`.
+
 ### Verified — SEC-4.5: prima release firmata provata end-to-end
 
 - La prima release firmata (tag `v0.2.0_on_publish` a `eec75be`, workflow `release` success) ha allegato
