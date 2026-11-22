@@ -30,6 +30,7 @@ ENGINE=nmap
 TARGET="${1:-}"
 IMAGE="${OLYMPUS_SCANNER_IMAGE:-olympus-scanners}"
 NET="${OLYMPUS_LAB_NET:-olympuslab}"
+CIDR="${OLYMPUS_LAB_CIDR:-172.18.0.0/16}"
 ENG="$PWD/.olympus/eng"
 OUT="$PWD/.olympus/out"
 
@@ -89,6 +90,14 @@ signed = SignedEngagementManifest.sign_manifest(manifest, private_key_pem=privat
 print(f"signed engagement manifest {signed.manifest_sha256[:12]} for host {host}")
 PY
 
+# Themis scope file: the engagement manifest authorizes the engagement, but
+# `themis run` additionally requires a versioned scope authorizing the target.
+# Listing the host (and the lab CIDR) is what lets resolve_and_validate() reach a
+# private lab IP — no lab policy needed, and no extra required-CIDR constraint.
+cat > "$ENG/scope.json" <<JSON
+{"schema_name":"olympus.themis-scope","schema_version":"1.0.0","allowed_hosts":["$HOST_ONLY"],"allowed_domains":[],"allowed_cidrs":["$CIDR"]}
+JSON
+
 chmod -R a+rX "$ENG"
 
 # The isolation flags below are what require_scanner_isolation() verifies; never relax them.
@@ -105,6 +114,7 @@ docker run --rm \
   -v "$OUT:/out" \
   "$IMAGE" \
   themis run "$ENGINE" --target "$HOST_ONLY" --kind host \
+    --scope /eng/scope.json \
     --signed-manifest /eng/signed-manifest.json \
     --manifest-public-key /eng/approver_pub.pem \
     --engagement-storage /store \

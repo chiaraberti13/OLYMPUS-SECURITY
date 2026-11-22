@@ -58,6 +58,7 @@ def test_live_scan_is_engagement_signed_and_evidenced() -> None:
     assert "OLYMPUS_EVIDENCE_SIGNING_KEY_FILE=" in text
     # The engagement (not lab-policy) authorization path and signed evidence.
     for option in (
+        "--scope ",
         "--signed-manifest ",
         "--manifest-public-key ",
         "--engagement-storage ",
@@ -65,6 +66,9 @@ def test_live_scan_is_engagement_signed_and_evidenced() -> None:
         "--evidence ",
     ):
         assert option in text, f"run_engagement.sh no longer passes {option.strip()!r}"
+    # `themis run` requires a versioned scope authorizing the target in addition to
+    # the signed engagement manifest; the runner must write and pass one.
+    assert "olympus.themis-scope" in text
     # This runner is the engagement path, not the lab-policy one.
     assert "--lab-policy" not in text
     # nmap scans a host; the manifest scope covers the bare host.
