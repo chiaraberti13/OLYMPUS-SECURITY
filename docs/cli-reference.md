@@ -1000,6 +1000,22 @@ Pull MISP events over pinned HTTPS and normalize their attributes to IOCs.
 | `--timeout` | option | no | `30.0` | — |
 | `--ca-file` | option | no | — | Custom CA bundle for TLS. |
 
+### `olympus metis opencti pull`
+
+Pull OpenCTI indicators over pinned HTTPS (GraphQL) and normalize to IOCs.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `base_url` | argument | yes | — | OpenCTI instance base URL (https:// only). |
+| `--token-env` | option | yes | — | Name of the environment variable holding the OpenCTI API token (never the token). |
+| `--output` | option | no | — | Write the collected STIX 2.1 bundle here (owner-only). |
+| `--since` | option | no | — | Only indicators updated at/after this ISO timestamp (incremental). |
+| `--page-size` | option | no | `100` | — |
+| `--max-indicators` | option | no | `10000` | — |
+| `--max-pages` | option | no | `100` | — |
+| `--timeout` | option | no | `30.0` | — |
+| `--ca-file` | option | no | — | Custom CA bundle for TLS. |
+
 ### `olympus metis plan`
 
 Build a safe, non-executing engagement plan.

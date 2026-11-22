@@ -50,6 +50,21 @@ from olympus.metis.misp_pull import (
     pull_events,
 )
 from olympus.metis.models import load_case_document
+from olympus.metis.opencti import (
+    DEFAULT_PAGE_SIZE as OPENCTI_DEFAULT_PAGE_SIZE,
+)
+from olympus.metis.opencti import (
+    DEFAULT_TIMEOUT as OPENCTI_DEFAULT_TIMEOUT,
+)
+from olympus.metis.opencti import (
+    MAX_OPENCTI_INDICATORS,
+    MAX_OPENCTI_PAGES,
+    OpenCtiConfigError,
+    OpenCtiError,
+    OpenCtiServer,
+    PinnedOpenCtiTransport,
+    pull_indicators,
+)
 from olympus.metis.planner import build_plan
 from olympus.metis.stix import StixError, bundle_to_indicators, indicators_to_bundle
 from olympus.metis.taxii import (
@@ -749,6 +764,79 @@ def misp_pull(
         typer.echo(safe_terminal_text(f"metis: skipped {item.reason}: {item.value}"), err=True)
 
 
+opencti_app = typer.Typer(help="Live OpenCTI threat-intelligence pulling.", no_args_is_help=True)
+
+
+@opencti_app.command("pull")
+def opencti_pull(
+    base_url: str = typer.Argument(..., help="OpenCTI instance base URL (https:// only)."),
+    token_env: str = typer.Option(
+        ...,
+        "--token-env",
+        help="Name of the environment variable holding the OpenCTI API token (never the token).",
+    ),
+    output: Path | None = typer.Option(
+        None, help="Write the collected STIX 2.1 bundle here (owner-only)."
+    ),
+    since: str | None = typer.Option(
+        None, "--since", help="Only indicators updated at/after this ISO timestamp (incremental)."
+    ),
+    page_size: int = typer.Option(
+        OPENCTI_DEFAULT_PAGE_SIZE, "--page-size", min=1, max=MAX_OPENCTI_INDICATORS
+    ),
+    max_indicators: int = typer.Option(
+        MAX_OPENCTI_INDICATORS, "--max-indicators", min=1, max=MAX_OPENCTI_INDICATORS
+    ),
+    max_pages: int = typer.Option(MAX_OPENCTI_PAGES, "--max-pages", min=1, max=MAX_OPENCTI_PAGES),
+    timeout: float = typer.Option(OPENCTI_DEFAULT_TIMEOUT, "--timeout", min=0.1, max=600.0),
+    ca_file: Path | None = typer.Option(None, "--ca-file", help="Custom CA bundle for TLS."),
+) -> None:
+    """Pull OpenCTI indicators over pinned HTTPS (GraphQL) and normalize to IOCs.
+
+    Egress is pinned and public-only (a private lab instance is reachable only
+    when the active lab policy declares its range); every read is bounded; the
+    API token comes from the named environment variable, never the repo. Revoked
+    indicators are excluded. The collected bundle can be written out and fed to
+    ``metis case stix-import``; ``--since`` with the printed ``next_since`` makes
+    the next pull incremental.
+    """
+    try:
+        server = OpenCtiServer(base_url=base_url, token_env=token_env)
+        transport = PinnedOpenCtiTransport(ca_file=str(ca_file) if ca_file else None)
+        pull = pull_indicators(
+            transport,
+            server,
+            since=since,
+            page_size=page_size,
+            max_indicators=max_indicators,
+            max_pages=max_pages,
+            timeout=timeout,
+        )
+        if output is not None:
+            atomic_write_text(
+                output, json.dumps(pull.bundle, indent=2, sort_keys=True) + "\n", mode=0o600
+            )
+    except (OpenCtiError, OpenCtiConfigError, ValueError, OSError) as exc:
+        _fail(exc)
+    typer.echo(
+        json.dumps(
+            {
+                "source": pull.source,
+                "indicators_fetched": pull.indicators_fetched,
+                "pages_fetched": pull.pages_fetched,
+                "indicators": pull.indicator_count,
+                "skipped": len(pull.result.skipped),
+                "next_since": pull.next_since,
+                "more_available": pull.more_available,
+                "output": str(output) if output is not None else None,
+            }
+        )
+    )
+    for item in pull.result.skipped:
+        typer.echo(safe_terminal_text(f"metis: skipped {item.reason}: {item.value}"), err=True)
+
+
 app.add_typer(case_app, name="case")
 app.add_typer(taxii_app, name="taxii")
 app.add_typer(misp_app, name="misp")
+app.add_typer(opencti_app, name="opencti")
