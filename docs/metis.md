@@ -168,6 +168,52 @@ Provenance is a stable `misp://<host>` label; `--since` (a unix second or a MISP
 relative value such as `1d`) with the printed `next_since` cursor makes each
 subsequent pull incremental.
 
+## CTI live — OpenCTI
+
+```bash
+# Pull OpenCTI indicators (GraphQL), write the STIX bundle, print a summary.
+olympus metis opencti pull https://opencti.example \
+  --token-env OLYMPUS_OPENCTI_TOKEN --output feed.stix.json
+# Feed the bundle into a case with its own analyst-visible provenance.
+olympus metis case stix-import .metis/cases.sqlite3 "$CASE_ID" feed.stix.json \
+  --source "OpenCTI: opencti.example"
+# Next run: only indicators updated since, using the printed next_since cursor.
+olympus metis opencti pull https://opencti.example \
+  --token-env OLYMPUS_OPENCTI_TOKEN --since 2026-11-21T10:00:00Z --output feed.stix.json
+```
+
+`opencti pull` completes the live CTI trio. OpenCTI indicators already carry a
+STIX `pattern`, so the client fetches them over GraphQL, maps each one back into
+a STIX indicator object, and hands the bundle to the **same offline parser** used
+by `case stix-import` — a live pull and an import of the written bundle yield the
+identical IOCs.
+
+> There are two ways to pull from OpenCTI. If the instance publishes an outbound
+> TAXII 2.1 feed, [OpenCTI native collections](#opencti-native-collections) above
+> reaches it with `metis taxii poll` and no OpenCTI-specific code. This GraphQL
+> client is the alternative when the TAXII module is not enabled, and it adds
+> OpenCTI-native filtering — the `updated_at` incremental cursor and exclusion of
+> revoked indicators.
+
+The same three properties keep the pull safe:
+
+- **Pinned, guarded egress** — resolve-once in the socket, private/loopback
+  refused, no HTTP proxy; a **private** OpenCTI instance (a local lab) is
+  reachable only when the active lab policy declares its range.
+- **Bounded reads** — response size, page count (`--max-pages`) and indicator
+  count (`--max-indicators`) all capped; Relay pagination follows
+  `hasNextPage`/`endCursor` only within them.
+- **No secret in the repo** — OpenCTI always authenticates, so `--token-env` is
+  required; it names the environment variable holding the API token (sent as
+  `Authorization: Bearer`), never a committed value, and the pull fails closed
+  when the variable is unset.
+
+A **revoked** indicator is excluded from the bundle: a revoked IOC is no longer
+valid and must not be imported as active. Provenance is a stable
+`opencti://<host>` label; `--since` (an ISO timestamp) with the printed
+`next_since` cursor (the newest `updated_at` seen) makes each subsequent pull
+incremental.
+
 ## Guided labs
 
 ```bash

@@ -12,6 +12,28 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — BLUE-3: CTI live via OpenCTI pull (slice; completa il trio)
+
+- Nuovo modulo `olympus.metis.opencti` e comando **`olympus metis opencti pull`**: terzo fratello di
+  `taxii poll` e `misp pull`, completa i connettori CTI live. Scarica gli indicatori via **GraphQL**
+  (`POST /graphql`, paginazione Relay `hasNextPage`/`endCursor`), mappa ogni nodo nel suo `pattern` STIX
+  → bundle, e normalizza a IOC riusando il parser STIX offline già testato (`bundle_to_indicators`), così
+  un pull live e un `metis case stix-import` del bundle scritto danno **gli stessi IOC**. Il bundle si
+  scrive owner-only (`--output`). (OpenCTI è raggiungibile anche via le sue collezioni TAXII 2.1 native
+  usando `metis taxii poll`; questo client GraphQL è l'alternativa che non richiede il modulo TAXII di
+  OpenCTI e aggiunge filtro `updated_at` ed esclusione dei revoked.)
+- **Egress pinned e guardato** (stessa catena di TAXII/MISP/scansione), **letture bounded**
+  (byte/pagine/indicatori), **caching incrementale** via filtro `updated_at` e cursore `next_since`
+  (il `updated_at` più recente visto), **provenance** `opencti://host`.
+- **Token fail-closed:** OpenCTI richiede sempre autenticazione, quindi `--token-env` è obbligatorio;
+  nomina la variabile d'ambiente con il token, inviato come `Authorization: Bearer`, mai nel repo. Gli
+  indicatori **revoked** sono esclusi dal bundle (mai importati come attivi).
+- Trasporto iniettabile (`OpenCtiTransport` `Protocol`) → test interamente **offline**
+  (`tests/unit/test_metis_opencti.py`: normalizzazione, esclusione dei revoked, paginazione Relay,
+  cursore incrementale, limiti, filtro `updated_at`, header Bearer, errori GraphQL, rifiuti
+  `401/403/5xx`/JSON invalido, solo-`https`). `docs/metis.md`, `ROADMAP.md` (BLUE-3) e CLI reference
+  aggiornati. **I tre connettori CTI live sono ora completi a livello di codice.**
+
 ### Added — TOOLS-4.3: budget runtime condivisi
 
 - Il resolver `themis.resources` applica i timeout revisionati dallo stesso punto
