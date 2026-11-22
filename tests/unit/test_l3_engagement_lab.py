@@ -78,11 +78,17 @@ def test_manifest_generation_runs_inside_the_scanner_image() -> None:
     assert "generate_keypair" in text
     gen_at = text.index("generate_keypair")
     preamble = text[:gen_at]
-    # The generate_keypair call lives inside a `docker run ... python3 -` heredoc.
+    # The generate_keypair call lives inside a containerized python3 heredoc: the
+    # most recent `docker run` before it must invoke python3 (the scanner image's
+    # entrypoint is the `olympus` CLI, so python3 is reached via --entrypoint).
     assert "docker run" in preamble
-    last_docker = preamble.rindex("docker run")
-    assert "python3 -" in preamble[last_docker:], (
+    block = preamble[preamble.rindex("docker run") :]
+    assert "python3" in block, (
         "the manifest-generation step must run python3 inside the scanner container"
+    )
+    assert "--entrypoint python3" in block, (
+        "the scanner image entrypoint is `olympus`; the generation step must "
+        "override it with --entrypoint python3"
     )
     # ...and it must not be a bare host-side `python3 - <<` invocation.
     assert "OLYMPUS_ENG_DIR=" not in text
