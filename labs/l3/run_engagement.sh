@@ -47,8 +47,16 @@ chmod 777 "$OUT" # the unprivileged container user must be able to write the evi
 [ -f "$ENG/evidence_key.pem" ] || openssl genpkey -algorithm ed25519 -out "$ENG/evidence_key.pem"
 
 # Generate the approver keypair and the signed engagement manifest, scoped to this
-# host and authorizing the nmap technique for the next hour.
-OLYMPUS_ENG_DIR="$ENG" OLYMPUS_ENG_HOST="$HOST_ONLY" python3 - <<'PY'
+# host and authorizing the nmap technique for the next hour. This runs INSIDE the
+# scanner image (which has olympus installed), so the host needs no olympus install;
+# the files land in the mounted ./.olympus/eng, owned by the invoking user.
+docker run --rm -i \
+  --user "$(id -u):$(id -g)" \
+  -e HOME=/tmp \
+  -e OLYMPUS_ENG_HOST="$HOST_ONLY" \
+  -v "$ENG:/eng" \
+  "$IMAGE" \
+  python3 - <<'PY'
 import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -57,7 +65,7 @@ from olympus.core.models import EngagementScope
 from olympus.core.signing import generate_keypair
 from olympus.engagements.manifest import EngagementManifest, SignedEngagementManifest
 
-eng = Path(os.environ["OLYMPUS_ENG_DIR"])
+eng = Path("/eng")
 host = os.environ["OLYMPUS_ENG_HOST"]
 private_pem, public_pem = generate_keypair()
 (eng / "approver_key.pem").write_text(private_pem, encoding="utf-8")
