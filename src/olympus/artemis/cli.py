@@ -16,6 +16,7 @@ from urllib.parse import parse_qsl, urlsplit
 import typer
 
 from olympus.artemis.application import ScopedFetchRequest, ScopedFetchService
+from olympus.artemis.cms import CmsAdvisoryError, assess_cms, load_advisories
 from olympus.artemis.content import (
     WordlistError,
     classify_fetch_error,
@@ -48,6 +49,7 @@ from olympus.core.execution import (
     safe_terminal_text,
 )
 from olympus.core.exit_codes import ExitCode
+from olympus.core.fileio import read_regular_text
 from olympus.core.models import Asset, Finding
 from olympus.core.paths import audit_log_path
 
@@ -163,9 +165,20 @@ def fingerprint(
     i_am_authorized: bool = typer.Option(
         False, "--i-am-authorized", help="Confirm you are authorized to test this target."
     ),
+    advisories: Path | None = typer.Option(
+        None,
+        "--advisories",
+        help="Operator-provided CMS advisory feed (JSON). When set, detected CMS versions "
+        "are matched against it and version-based advisory findings are added.",
+    ),
     output: Path | None = typer.Option(None, "--output", help="Export findings JSON to this path."),
 ) -> None:
-    """Identify the technology stack from one scope-safe GET (passive, no extra requests)."""
+    """Identify the technology stack from one scope-safe GET (passive, no extra requests).
+
+    With ``--advisories`` the detected CMS version is additionally matched against an
+    operator-supplied advisory feed; a match is a version-based inference, never a
+    confirmation of exploitability, and plugin/theme enumeration stays out of scope.
+    """
     try:
         result = ScopedFetchService(SocketResolver(), PinnedTransport()).run(
             ScopedFetchRequest(
@@ -197,6 +210,23 @@ def fingerprint(
 
     fingerprints = fingerprint_response(result.response)
     findings = fingerprints_to_findings(asset_id, result.response.url, fingerprints)
+    if advisories is not None:
+        try:
+            feed = load_advisories(
+                read_regular_text(advisories, max_bytes=5_000_000, label="advisory feed")
+            )
+            assessment = assess_cms(fingerprints, feed, asset_id=asset_id, url=result.response.url)
+        except (CmsAdvisoryError, ValueError, OSError) as exc:
+            typer.echo(safe_terminal_text(f"artemis: advisory assessment failed: {exc}"), err=True)
+            raise typer.Exit(code=ExitCode.USAGE) from exc
+        findings = [*findings, *assessment.findings]
+        typer.echo(
+            safe_terminal_text(
+                f"artemis: cms advisory assessment matched {len(assessment.findings)} "
+                f"advisory(ies) across {len(assessment.assessed)} versioned CMS detection(s)"
+            ),
+            err=True,
+        )
     _emit(findings, output)
     products = ", ".join(f.product for f in fingerprints) or "no known technology"
     typer.echo(safe_terminal_text(f"artemis: fingerprint identified {products}"), err=True)
