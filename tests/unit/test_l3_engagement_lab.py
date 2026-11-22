@@ -98,6 +98,25 @@ def test_manifest_generation_runs_inside_the_scanner_image() -> None:
     assert "OLYMPUS_ENG_DIR=" not in text
 
 
+def test_evidence_is_committable_and_pin_verifiable() -> None:
+    text = _script()
+    # The evidence PUBLIC key is exported so a third party can pin-verify the
+    # signed evidence; the private evidence key is never committed.
+    assert "evidence_pub.pem" in text
+    assert "-pubout" in text
+    # The scan runs as uid 10001 and writes the evidence 0600; a throwaway root
+    # container relaxes the read bits so the operator can read/commit it. It must
+    # not perform a scan (no network) and must not relax the scan's isolation.
+    assert "--entrypoint chmod" in text
+    assert "a+rX /out" in text
+    chmod_at = text.index("--entrypoint chmod")
+    # Find the `docker run` that owns the chmod entrypoint.
+    block_start = text.rindex("docker run", 0, chmod_at)
+    chmod_block = text[block_start : chmod_at + len("--entrypoint chmod")]
+    assert "--network none" in chmod_block, "the readback container must have no network"
+    assert "--user 0:0" in chmod_block
+
+
 def test_script_carries_no_secret_material() -> None:
     text = _script()
     assert "BEGIN PRIVATE KEY" not in text and "BEGIN OPENSSH" not in text

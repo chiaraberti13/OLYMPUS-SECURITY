@@ -46,6 +46,10 @@ HOST_ONLY="${HOST_ONLY%%[:/]*}"
 mkdir -p "$ENG" "$OUT"
 chmod 777 "$OUT" # the unprivileged container user must be able to write the evidence
 [ -f "$ENG/evidence_key.pem" ] || openssl genpkey -algorithm ed25519 -out "$ENG/evidence_key.pem"
+# Export the evidence PUBLIC key: committing it lets a third party PIN-verify the
+# signed evidence (olympus verify refuses an unpinned key). The private key stays
+# local and is never committed.
+openssl pkey -in "$ENG/evidence_key.pem" -pubout -out "$ENG/evidence_pub.pem"
 
 # Generate the approver keypair and the signed engagement manifest, scoped to this
 # host and authorizing the nmap technique for the next hour. This runs INSIDE the
@@ -123,7 +127,23 @@ docker run --rm \
     --output "/out/$ENGINE-engagement-result.json" \
     --timeout 300 --deadline 400
 
+# The scan ran as the unprivileged 10001 user and wrote the evidence 0600, owned by
+# that uid — unreadable by the operator who must commit it. A tiny throwaway root
+# container (no scan, no network) relaxes the read bits on the output so the host
+# user can read the signed evidence. The scan container's isolation above is
+# untouched; this only affects the already-produced evidence files.
+docker run --rm \
+  --user 0:0 \
+  --network none \
+  --cap-drop ALL \
+  --security-opt no-new-privileges=true \
+  --entrypoint chmod \
+  -v "$OUT:/out" \
+  "$IMAGE" \
+  -R a+rX /out
+
 echo "L3 engagement-signed done:"
 echo "  evidence : $OUT/$ENGINE-engagement-evidence.json (+ .sig)"
-echo "  approver public key (for verification): $ENG/approver_pub.pem"
+echo "  evidence public key (pin for verification): $ENG/evidence_pub.pem"
+echo "  approver public key (engagement authorization): $ENG/approver_pub.pem"
 echo "  signed manifest: $ENG/signed-manifest.json"
