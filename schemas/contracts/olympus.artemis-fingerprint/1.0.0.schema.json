@@ -1,0 +1,94 @@
+{
+  "$defs": {
+    "ArtemisFingerprintView": {
+      "additionalProperties": false,
+      "description": "One matched technology projected for API clients and the Web UI.",
+      "properties": {
+        "category": {
+          "title": "Category",
+          "type": "string"
+        },
+        "evidence": {
+          "title": "Evidence",
+          "type": "string"
+        },
+        "product": {
+          "title": "Product",
+          "type": "string"
+        },
+        "references": {
+          "items": {
+            "type": "string"
+          },
+          "title": "References",
+          "type": "array"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Version"
+        }
+      },
+      "required": [
+        "product",
+        "category",
+        "evidence",
+        "references"
+      ],
+      "title": "ArtemisFingerprintView",
+      "type": "object"
+    }
+  },
+  "$id": "urn:olympus:schema:olympus.artemis-fingerprint:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Versioned Artemis passive-fingerprint result shared by API and Web.",
+  "properties": {
+    "fingerprint_count": {
+      "title": "Fingerprint Count",
+      "type": "integer"
+    },
+    "fingerprints": {
+      "items": {
+        "$ref": "#/$defs/ArtemisFingerprintView"
+      },
+      "title": "Fingerprints",
+      "type": "array"
+    },
+    "schema_name": {
+      "const": "olympus.artemis-fingerprint",
+      "default": "olympus.artemis-fingerprint",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "title": "Status",
+      "type": "integer"
+    },
+    "url": {
+      "title": "Url",
+      "type": "string"
+    }
+  },
+  "required": [
+    "url",
+    "status",
+    "fingerprint_count",
+    "fingerprints"
+  ],
+  "title": "ArtemisFingerprintResult",
+  "type": "object"
+}

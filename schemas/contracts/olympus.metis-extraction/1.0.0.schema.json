@@ -1,0 +1,112 @@
+{
+  "$defs": {
+    "IndicatorType": {
+      "description": "Normalized CTI indicator types supported by the native case store.",
+      "enum": [
+        "domain",
+        "email",
+        "ipv4",
+        "ipv6",
+        "url",
+        "sha256",
+        "sha1",
+        "md5",
+        "cve"
+      ],
+      "title": "IndicatorType",
+      "type": "string"
+    },
+    "MetisIndicator": {
+      "additionalProperties": false,
+      "description": "A normalized IOC projected for API clients and the Web UI (type + value).",
+      "properties": {
+        "indicator_type": {
+          "$ref": "#/$defs/IndicatorType"
+        },
+        "value": {
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "indicator_type",
+        "value"
+      ],
+      "title": "MetisIndicator",
+      "type": "object"
+    },
+    "MetisSkippedItem": {
+      "additionalProperties": false,
+      "description": "An input element deliberately not imported, with the honest reason.",
+      "properties": {
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value",
+        "reason"
+      ],
+      "title": "MetisSkippedItem",
+      "type": "object"
+    }
+  },
+  "$id": "urn:olympus:schema:olympus.metis-extraction:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Versioned Metis extraction result shared by API clients and the Web UI.",
+  "properties": {
+    "indicator_count": {
+      "title": "Indicator Count",
+      "type": "integer"
+    },
+    "indicators": {
+      "items": {
+        "$ref": "#/$defs/MetisIndicator"
+      },
+      "title": "Indicators",
+      "type": "array"
+    },
+    "schema_name": {
+      "const": "olympus.metis-extraction",
+      "default": "olympus.metis-extraction",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "skipped": {
+      "items": {
+        "$ref": "#/$defs/MetisSkippedItem"
+      },
+      "title": "Skipped",
+      "type": "array"
+    },
+    "skipped_count": {
+      "title": "Skipped Count",
+      "type": "integer"
+    },
+    "source_format": {
+      "title": "Source Format",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source_format",
+    "indicator_count",
+    "skipped_count",
+    "indicators",
+    "skipped"
+  ],
+  "title": "MetisExtractionResult",
+  "type": "object"
+}

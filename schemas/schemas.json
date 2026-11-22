@@ -136,6 +136,188 @@
     "title": "Alert",
     "type": "object"
   },
+  "olympus.apollo-evaluation": {
+    "$defs": {
+      "Alert": {
+        "additionalProperties": false,
+        "description": "A detection result linked to its source event and supporting evidence.",
+        "properties": {
+          "alert_id": {
+            "title": "Alert Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "engagement_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Engagement Id"
+          },
+          "event_id": {
+            "title": "Event Id",
+            "type": "string"
+          },
+          "evidence_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Ids",
+            "type": "array"
+          },
+          "mitre_attack": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Mitre Attack",
+            "type": "array"
+          },
+          "rule_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Rule Id"
+          },
+          "schema_name": {
+            "const": "olympus.alert",
+            "default": "olympus.alert",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "severity": {
+            "$ref": "#/$defs/Severity",
+            "default": "medium"
+          },
+          "source": {
+            "$ref": "#/$defs/Source"
+          },
+          "status": {
+            "$ref": "#/$defs/AlertStatus",
+            "default": "open"
+          },
+          "title": {
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_id",
+          "title",
+          "source"
+        ],
+        "title": "Alert",
+        "type": "object"
+      },
+      "AlertStatus": {
+        "description": "Lifecycle state of a detection alert.",
+        "enum": [
+          "open",
+          "acknowledged",
+          "investigating",
+          "closed"
+        ],
+        "title": "AlertStatus",
+        "type": "string"
+      },
+      "Severity": {
+        "description": "Normalized severity scale shared by findings, alerts and reports.",
+        "enum": [
+          "info",
+          "low",
+          "medium",
+          "high",
+          "critical"
+        ],
+        "title": "Severity",
+        "type": "string"
+      },
+      "Source": {
+        "description": "Producing module for a given object (provenance).",
+        "enum": [
+          "argus",
+          "helios",
+          "artemis",
+          "proteus",
+          "hermes",
+          "apollo",
+          "minerva",
+          "vulcan",
+          "athena",
+          "themis",
+          "aegis",
+          "mars",
+          "manual"
+        ],
+        "title": "Source",
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Versioned Apollo evaluation result shared by API clients and the Web UI.",
+    "properties": {
+      "alert_count": {
+        "title": "Alert Count",
+        "type": "integer"
+      },
+      "alerts": {
+        "items": {
+          "$ref": "#/$defs/Alert"
+        },
+        "title": "Alerts",
+        "type": "array"
+      },
+      "event_count": {
+        "title": "Event Count",
+        "type": "integer"
+      },
+      "rule_count": {
+        "title": "Rule Count",
+        "type": "integer"
+      },
+      "schema_name": {
+        "const": "olympus.apollo-evaluation",
+        "default": "olympus.apollo-evaluation",
+        "title": "Schema Name",
+        "type": "string"
+      },
+      "schema_version": {
+        "const": "1.0.0",
+        "default": "1.0.0",
+        "title": "Schema Version",
+        "type": "string"
+      }
+    },
+    "required": [
+      "rule_count",
+      "event_count",
+      "alert_count",
+      "alerts"
+    ],
+    "title": "ApolloEvaluationResult",
+    "type": "object"
+  },
   "olympus.apollo-rule": {
     "$defs": {
       "Severity": {
@@ -214,6 +396,161 @@
       "conditions"
     ],
     "title": "DetectionRule",
+    "type": "object"
+  },
+  "olympus.apollo-rule-list": {
+    "$defs": {
+      "DetectionRule": {
+        "additionalProperties": false,
+        "description": "A minimal portable detection rule expressed as YAML-compatible JSON.",
+        "properties": {
+          "conditions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 64,
+            "minProperties": 1,
+            "title": "Conditions",
+            "type": "object"
+          },
+          "event_type": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.-]+$",
+            "title": "Event Type",
+            "type": "string"
+          },
+          "mitre_attack": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Mitre Attack",
+            "type": "array"
+          },
+          "rule_id": {
+            "maxLength": 128,
+            "pattern": "^APL-[A-Z0-9-]+$",
+            "title": "Rule Id",
+            "type": "string"
+          },
+          "schema_name": {
+            "const": "olympus.apollo-rule",
+            "default": "olympus.apollo-rule",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "severity": {
+            "$ref": "#/$defs/Severity",
+            "default": "medium"
+          },
+          "title": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule_id",
+          "title",
+          "event_type",
+          "conditions"
+        ],
+        "title": "DetectionRule",
+        "type": "object"
+      },
+      "Severity": {
+        "description": "Normalized severity scale shared by findings, alerts and reports.",
+        "enum": [
+          "info",
+          "low",
+          "medium",
+          "high",
+          "critical"
+        ],
+        "title": "Severity",
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Versioned projection of the configured, validated Apollo rule pack.",
+    "properties": {
+      "count": {
+        "title": "Count",
+        "type": "integer"
+      },
+      "rules": {
+        "items": {
+          "$ref": "#/$defs/DetectionRule"
+        },
+        "title": "Rules",
+        "type": "array"
+      },
+      "schema_name": {
+        "const": "olympus.apollo-rule-list",
+        "default": "olympus.apollo-rule-list",
+        "title": "Schema Name",
+        "type": "string"
+      },
+      "schema_version": {
+        "const": "1.0.0",
+        "default": "1.0.0",
+        "title": "Schema Version",
+        "type": "string"
+      }
+    },
+    "required": [
+      "count",
+      "rules"
+    ],
+    "title": "ApolloRuleList",
+    "type": "object"
+  },
+  "olympus.argus-ct-subdomains": {
+    "additionalProperties": false,
+    "description": "Versioned list of in-domain subdomains extracted from a CT export.",
+    "properties": {
+      "domain": {
+        "title": "Domain",
+        "type": "string"
+      },
+      "schema_name": {
+        "const": "olympus.argus-ct-subdomains",
+        "default": "olympus.argus-ct-subdomains",
+        "title": "Schema Name",
+        "type": "string"
+      },
+      "schema_version": {
+        "const": "1.0.0",
+        "default": "1.0.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "subdomain_count": {
+        "title": "Subdomain Count",
+        "type": "integer"
+      },
+      "subdomains": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Subdomains",
+        "type": "array"
+      }
+    },
+    "required": [
+      "domain",
+      "subdomain_count",
+      "subdomains"
+    ],
+    "title": "ArgusCtResult",
     "type": "object"
   },
   "olympus.argus-pipeline": {
@@ -489,6 +826,98 @@
     "title": "PipelinePreset",
     "type": "object"
   },
+  "olympus.artemis-fingerprint": {
+    "$defs": {
+      "ArtemisFingerprintView": {
+        "additionalProperties": false,
+        "description": "One matched technology projected for API clients and the Web UI.",
+        "properties": {
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "evidence": {
+            "title": "Evidence",
+            "type": "string"
+          },
+          "product": {
+            "title": "Product",
+            "type": "string"
+          },
+          "references": {
+            "items": {
+              "type": "string"
+            },
+            "title": "References",
+            "type": "array"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Version"
+          }
+        },
+        "required": [
+          "product",
+          "category",
+          "evidence",
+          "references"
+        ],
+        "title": "ArtemisFingerprintView",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Versioned Artemis passive-fingerprint result shared by API and Web.",
+    "properties": {
+      "fingerprint_count": {
+        "title": "Fingerprint Count",
+        "type": "integer"
+      },
+      "fingerprints": {
+        "items": {
+          "$ref": "#/$defs/ArtemisFingerprintView"
+        },
+        "title": "Fingerprints",
+        "type": "array"
+      },
+      "schema_name": {
+        "const": "olympus.artemis-fingerprint",
+        "default": "olympus.artemis-fingerprint",
+        "title": "Schema Name",
+        "type": "string"
+      },
+      "schema_version": {
+        "const": "1.0.0",
+        "default": "1.0.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "status": {
+        "title": "Status",
+        "type": "integer"
+      },
+      "url": {
+        "title": "Url",
+        "type": "string"
+      }
+    },
+    "required": [
+      "url",
+      "status",
+      "fingerprint_count",
+      "fingerprints"
+    ],
+    "title": "ArtemisFingerprintResult",
+    "type": "object"
+  },
   "olympus.asset": {
     "$defs": {
       "AssetType": {
@@ -641,6 +1070,214 @@
       "asset_type"
     ],
     "title": "Asset",
+    "type": "object"
+  },
+  "olympus.athena-plan": {
+    "$defs": {
+      "AthenaPlanTarget": {
+        "additionalProperties": false,
+        "description": "One authorized assessment target (``domain`` or ``url``).",
+        "properties": {
+          "kind": {
+            "enum": [
+              "domain",
+              "url"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "value": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "value"
+        ],
+        "title": "AthenaPlanTarget",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Versioned, bounded projection of a built Athena plan for API and Web.",
+    "properties": {
+      "active": {
+        "title": "Active",
+        "type": "boolean"
+      },
+      "adapters": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Adapters",
+        "type": "array"
+      },
+      "allowed_domains": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Allowed Domains",
+        "type": "array"
+      },
+      "authorized": {
+        "title": "Authorized",
+        "type": "boolean"
+      },
+      "engagement_id": {
+        "title": "Engagement Id",
+        "type": "string"
+      },
+      "limits": {
+        "additionalProperties": {
+          "type": "integer"
+        },
+        "title": "Limits",
+        "type": "object"
+      },
+      "name": {
+        "title": "Name",
+        "type": "string"
+      },
+      "plan_digest": {
+        "title": "Plan Digest",
+        "type": "string"
+      },
+      "plan_json": {
+        "title": "Plan Json",
+        "type": "string"
+      },
+      "profile_id": {
+        "title": "Profile Id",
+        "type": "string"
+      },
+      "report_formats": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Report Formats",
+        "type": "array"
+      },
+      "schema_name": {
+        "const": "olympus.athena-plan",
+        "default": "olympus.athena-plan",
+        "title": "Schema Name",
+        "type": "string"
+      },
+      "schema_version": {
+        "const": "1.0.0",
+        "default": "1.0.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "scope_digest": {
+        "title": "Scope Digest",
+        "type": "string"
+      },
+      "targets": {
+        "items": {
+          "$ref": "#/$defs/AthenaPlanTarget"
+        },
+        "title": "Targets",
+        "type": "array"
+      }
+    },
+    "required": [
+      "profile_id",
+      "name",
+      "engagement_id",
+      "adapters",
+      "active",
+      "targets",
+      "allowed_domains",
+      "report_formats",
+      "authorized",
+      "plan_digest",
+      "scope_digest",
+      "limits",
+      "plan_json"
+    ],
+    "title": "AthenaPlanView",
+    "type": "object"
+  },
+  "olympus.athena-profile-list": {
+    "$defs": {
+      "AthenaProfileView": {
+        "additionalProperties": false,
+        "description": "A target-free scan profile projected for API clients and the Web UI.",
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "active_adapters": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Active Adapters",
+            "type": "array"
+          },
+          "adapters": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Adapters",
+            "type": "array"
+          },
+          "profile_id": {
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profile_id",
+          "title",
+          "summary",
+          "adapters",
+          "active_adapters",
+          "active"
+        ],
+        "title": "AthenaProfileView",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Versioned list of the named scan profiles Athena can build plans from.",
+    "properties": {
+      "profiles": {
+        "items": {
+          "$ref": "#/$defs/AthenaProfileView"
+        },
+        "title": "Profiles",
+        "type": "array"
+      },
+      "schema_name": {
+        "const": "olympus.athena-profile-list",
+        "default": "olympus.athena-profile-list",
+        "title": "Schema Name",
+        "type": "string"
+      },
+      "schema_version": {
+        "const": "1.0.0",
+        "default": "1.0.0",
+        "title": "Schema Version",
+        "type": "string"
+      }
+    },
+    "required": [
+      "profiles"
+    ],
+    "title": "AthenaProfileList",
     "type": "object"
   },
   "olympus.athena.plan": {
@@ -3588,6 +4225,149 @@
     "title": "FindingTransition",
     "type": "object"
   },
+  "olympus.helios-service-identification": {
+    "additionalProperties": false,
+    "description": "Versioned passive service identification shared by API clients and the Web UI.",
+    "properties": {
+      "identified_from": {
+        "enum": [
+          "banner",
+          "port",
+          "none"
+        ],
+        "title": "Identified From",
+        "type": "string"
+      },
+      "port": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Port"
+      },
+      "product": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Product"
+      },
+      "risky": {
+        "title": "Risky",
+        "type": "boolean"
+      },
+      "schema_name": {
+        "const": "olympus.helios-service-identification",
+        "default": "olympus.helios-service-identification",
+        "title": "Schema Name",
+        "type": "string"
+      },
+      "schema_version": {
+        "const": "1.0.0",
+        "default": "1.0.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "service": {
+        "title": "Service",
+        "type": "string"
+      }
+    },
+    "required": [
+      "port",
+      "service",
+      "product",
+      "risky",
+      "identified_from"
+    ],
+    "title": "HeliosServiceIdentification",
+    "type": "object"
+  },
+  "olympus.hermes-secret-scan": {
+    "$defs": {
+      "HermesSecretFindingView": {
+        "additionalProperties": false,
+        "description": "One potential secret location. The value is **masked** \u2014 never returned raw.",
+        "properties": {
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "line": {
+            "title": "Line",
+            "type": "integer"
+          },
+          "masked": {
+            "title": "Masked",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "rule": {
+            "title": "Rule",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule",
+          "path",
+          "line",
+          "masked",
+          "fingerprint"
+        ],
+        "title": "HermesSecretFindingView",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Versioned Hermes secret-scan result shared by API clients and the Web UI.",
+    "properties": {
+      "finding_count": {
+        "title": "Finding Count",
+        "type": "integer"
+      },
+      "findings": {
+        "items": {
+          "$ref": "#/$defs/HermesSecretFindingView"
+        },
+        "title": "Findings",
+        "type": "array"
+      },
+      "path": {
+        "title": "Path",
+        "type": "string"
+      },
+      "schema_name": {
+        "const": "olympus.hermes-secret-scan",
+        "default": "olympus.hermes-secret-scan",
+        "title": "Schema Name",
+        "type": "string"
+      },
+      "schema_version": {
+        "const": "1.0.0",
+        "default": "1.0.0",
+        "title": "Schema Version",
+        "type": "string"
+      }
+    },
+    "required": [
+      "path",
+      "finding_count",
+      "findings"
+    ],
+    "title": "HermesScanResult",
+    "type": "object"
+  },
   "olympus.incident": {
     "$defs": {
       "IncidentStatus": {
@@ -4628,6 +5408,116 @@
     "title": "IntelCaseDocument",
     "type": "object"
   },
+  "olympus.metis-extraction": {
+    "$defs": {
+      "IndicatorType": {
+        "description": "Normalized CTI indicator types supported by the native case store.",
+        "enum": [
+          "domain",
+          "email",
+          "ipv4",
+          "ipv6",
+          "url",
+          "sha256",
+          "sha1",
+          "md5",
+          "cve"
+        ],
+        "title": "IndicatorType",
+        "type": "string"
+      },
+      "MetisIndicator": {
+        "additionalProperties": false,
+        "description": "A normalized IOC projected for API clients and the Web UI (type + value).",
+        "properties": {
+          "indicator_type": {
+            "$ref": "#/$defs/IndicatorType"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indicator_type",
+          "value"
+        ],
+        "title": "MetisIndicator",
+        "type": "object"
+      },
+      "MetisSkippedItem": {
+        "additionalProperties": false,
+        "description": "An input element deliberately not imported, with the honest reason.",
+        "properties": {
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "reason"
+        ],
+        "title": "MetisSkippedItem",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Versioned Metis extraction result shared by API clients and the Web UI.",
+    "properties": {
+      "indicator_count": {
+        "title": "Indicator Count",
+        "type": "integer"
+      },
+      "indicators": {
+        "items": {
+          "$ref": "#/$defs/MetisIndicator"
+        },
+        "title": "Indicators",
+        "type": "array"
+      },
+      "schema_name": {
+        "const": "olympus.metis-extraction",
+        "default": "olympus.metis-extraction",
+        "title": "Schema Name",
+        "type": "string"
+      },
+      "schema_version": {
+        "const": "1.0.0",
+        "default": "1.0.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "skipped": {
+        "items": {
+          "$ref": "#/$defs/MetisSkippedItem"
+        },
+        "title": "Skipped",
+        "type": "array"
+      },
+      "skipped_count": {
+        "title": "Skipped Count",
+        "type": "integer"
+      },
+      "source_format": {
+        "title": "Source Format",
+        "type": "string"
+      }
+    },
+    "required": [
+      "source_format",
+      "indicator_count",
+      "skipped_count",
+      "indicators",
+      "skipped"
+    ],
+    "title": "MetisExtractionResult",
+    "type": "object"
+  },
   "olympus.metis-plan": {
     "$defs": {
       "NoiseLevel": {
@@ -4763,6 +5653,138 @@
       "steps"
     ],
     "title": "EngagementPlan",
+    "type": "object"
+  },
+  "olympus.minerva-ledger-verification": {
+    "$defs": {
+      "MinervaLedgerEntryView": {
+        "additionalProperties": false,
+        "description": "Normalized, bounded projection of one verified custody entry.",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "entry_hash": {
+            "title": "Entry Hash",
+            "type": "string"
+          },
+          "evidence_id": {
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "evidence_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Evidence Sha256"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "previous_hash": {
+            "title": "Previous Hash",
+            "type": "string"
+          },
+          "sequence": {
+            "title": "Sequence",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sequence",
+          "evidence_id",
+          "action",
+          "actor",
+          "occurred_at",
+          "previous_hash",
+          "entry_hash"
+        ],
+        "title": "MinervaLedgerEntryView",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Versioned Minerva custody verification result for API and Web clients.\n\nThe hash chain is always verified (a non-error result means it held). The\nsignature is verified only when the server is configured with the matching\nEd25519 verification key and the ledger is signed; otherwise a signed ledger\nreports ``signature_verified=false`` so the caller refuses to trust it.",
+    "properties": {
+      "chain_verified": {
+        "default": true,
+        "title": "Chain Verified",
+        "type": "boolean"
+      },
+      "entries": {
+        "items": {
+          "$ref": "#/$defs/MinervaLedgerEntryView"
+        },
+        "title": "Entries",
+        "type": "array"
+      },
+      "entry_count": {
+        "title": "Entry Count",
+        "type": "integer"
+      },
+      "evidence_anchored": {
+        "title": "Evidence Anchored",
+        "type": "boolean"
+      },
+      "ledger_schema_version": {
+        "title": "Ledger Schema Version",
+        "type": "string"
+      },
+      "schema_name": {
+        "const": "olympus.minerva-ledger-verification",
+        "default": "olympus.minerva-ledger-verification",
+        "title": "Schema Name",
+        "type": "string"
+      },
+      "schema_version": {
+        "const": "1.0.0",
+        "default": "1.0.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "signature_algorithm": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Signature Algorithm"
+      },
+      "signature_verified": {
+        "title": "Signature Verified",
+        "type": "boolean"
+      },
+      "signed": {
+        "title": "Signed",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "ledger_schema_version",
+      "entry_count",
+      "evidence_anchored",
+      "signed",
+      "signature_verified",
+      "entries"
+    ],
+    "title": "MinervaLedgerVerification",
     "type": "object"
   },
   "olympus.notification": {
@@ -4959,6 +5981,53 @@
       "source"
     ],
     "title": "Observation",
+    "type": "object"
+  },
+  "olympus.proteus-campaign-validation": {
+    "additionalProperties": false,
+    "description": "Versioned, normalized campaign metadata (no email is ever sent).",
+    "properties": {
+      "engagement": {
+        "title": "Engagement",
+        "type": "string"
+      },
+      "landing_url": {
+        "title": "Landing Url",
+        "type": "string"
+      },
+      "schema_name": {
+        "const": "olympus.proteus-campaign-validation",
+        "default": "olympus.proteus-campaign-validation",
+        "title": "Schema Name",
+        "type": "string"
+      },
+      "schema_version": {
+        "const": "1.0.0",
+        "default": "1.0.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "sender": {
+        "title": "Sender",
+        "type": "string"
+      },
+      "subject": {
+        "title": "Subject",
+        "type": "string"
+      },
+      "valid": {
+        "default": true,
+        "title": "Valid",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "engagement",
+      "subject",
+      "sender",
+      "landing_url"
+    ],
+    "title": "ProteusCampaignValidationResult",
     "type": "object"
   },
   "olympus.scan-job": {
@@ -5944,6 +7013,421 @@
       "signature_envelope"
     ],
     "title": "SignedEngagementManifest",
+    "type": "object"
+  },
+  "olympus.themis-engagement-list": {
+    "$defs": {
+      "Engagement": {
+        "additionalProperties": false,
+        "description": "The top-level container that groups an authorized assessment's work.\n\nAn engagement owns its scope and authorization reference; assets, scans,\njobs, findings, evidence, alerts, incidents and reports are associated with\nit by ``engagement_id``. CLI, TUI, API and Web all reference this one model\n(ROADMAP ``WEB-B``) rather than a private per-interface notion of scope.",
+        "properties": {
+          "authorization_reference": {
+            "default": "",
+            "title": "Authorization Reference",
+            "type": "string"
+          },
+          "client": {
+            "default": "",
+            "title": "Client",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "engagement_id": {
+            "title": "Engagement Id",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Metadata",
+            "type": "object"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "schema_name": {
+            "const": "olympus.engagement",
+            "default": "olympus.engagement",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/$defs/EngagementScope"
+          },
+          "status": {
+            "$ref": "#/$defs/EngagementStatus",
+            "default": "active"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "scope"
+        ],
+        "title": "Engagement",
+        "type": "object"
+      },
+      "EngagementScope": {
+        "additionalProperties": false,
+        "description": "The authorized perimeter of an engagement: included minus excluded.\n\nEntries are hostnames or domains (matched like the rest of Olympus: an entry\ncovers itself and its subdomains). IP/CIDR matching is a planned extension\n(ROADMAP ``WEB-B``); until then IPs must be listed verbatim.",
+        "properties": {
+          "excluded": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Excluded",
+            "type": "array"
+          },
+          "included": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Included",
+            "type": "array"
+          }
+        },
+        "required": [
+          "included"
+        ],
+        "title": "EngagementScope",
+        "type": "object"
+      },
+      "EngagementStatus": {
+        "description": "Lifecycle state of an engagement (the top-level assessment container).",
+        "enum": [
+          "planned",
+          "active",
+          "closed"
+        ],
+        "title": "EngagementStatus",
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "description": "The engagements visible over the API, newest first.",
+    "properties": {
+      "count": {
+        "title": "Count",
+        "type": "integer"
+      },
+      "engagements": {
+        "items": {
+          "$ref": "#/$defs/Engagement"
+        },
+        "title": "Engagements",
+        "type": "array"
+      },
+      "schema_name": {
+        "const": "olympus.themis-engagement-list",
+        "default": "olympus.themis-engagement-list",
+        "title": "Schema Name",
+        "type": "string"
+      },
+      "schema_version": {
+        "const": "1.0.0",
+        "default": "1.0.0",
+        "title": "Schema Version",
+        "type": "string"
+      }
+    },
+    "required": [
+      "count",
+      "engagements"
+    ],
+    "title": "EngagementList",
+    "type": "object"
+  },
+  "olympus.themis-job-list": {
+    "$defs": {
+      "JobState": {
+        "description": "Lifecycle state of one durable job.\n\nThe terminal states are deliberately distinct: collapsing them into\n``failed`` hides whether a scan broke, was refused, ran out of time, or\nnever ran at all.",
+        "enum": [
+          "queued",
+          "running",
+          "succeeded",
+          "partial",
+          "failed",
+          "timed_out",
+          "cancelled",
+          "policy_denied"
+        ],
+        "title": "JobState",
+        "type": "string"
+      },
+      "ThemisJob": {
+        "additionalProperties": false,
+        "description": "Versioned job document returned consistently by CLI, API and workers.\n\n``3.0.0`` adds the digest of the signed engagement manifest. Legacy jobs\nmigrate with ``None`` rather than receiving invented authorization provenance.",
+        "properties": {
+          "attempts": {
+            "maximum": 10,
+            "minimum": 0,
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "authorized": {
+            "title": "Authorized",
+            "type": "boolean"
+          },
+          "available_at": {
+            "format": "date-time",
+            "title": "Available At",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Error"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Finished At"
+          },
+          "heartbeat_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Heartbeat At"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Idempotency Key"
+          },
+          "job_id": {
+            "pattern": "^THEMIS-[A-F0-9]{32}$",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "lease_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Lease Expires At"
+          },
+          "manifest_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Manifest Sha256"
+          },
+          "max_attempts": {
+            "maximum": 10,
+            "minimum": 1,
+            "title": "Max Attempts",
+            "type": "integer"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Result"
+          },
+          "scanner": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Scanner",
+            "type": "string"
+          },
+          "schema_name": {
+            "const": "olympus.themis-job",
+            "default": "olympus.themis-job",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "3.0.0",
+            "default": "3.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "scope_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Scope Name",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Started At"
+          },
+          "state": {
+            "$ref": "#/$defs/JobState"
+          },
+          "target": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Target",
+            "type": "string"
+          },
+          "target_kind": {
+            "enum": [
+              "host",
+              "domain",
+              "url"
+            ],
+            "title": "Target Kind",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "worker_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Worker Id"
+          }
+        },
+        "required": [
+          "job_id",
+          "scanner",
+          "target",
+          "target_kind",
+          "scope_name",
+          "state",
+          "authorized",
+          "attempts",
+          "max_attempts",
+          "created_at",
+          "updated_at",
+          "available_at"
+        ],
+        "title": "ThemisJob",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "count": {
+        "title": "Count",
+        "type": "integer"
+      },
+      "jobs": {
+        "items": {
+          "$ref": "#/$defs/ThemisJob"
+        },
+        "title": "Jobs",
+        "type": "array"
+      },
+      "schema_name": {
+        "const": "olympus.themis-job-list",
+        "default": "olympus.themis-job-list",
+        "title": "Schema Name",
+        "type": "string"
+      },
+      "schema_version": {
+        "const": "3.0.0",
+        "default": "3.0.0",
+        "title": "Schema Version",
+        "type": "string"
+      }
+    },
+    "required": [
+      "count",
+      "jobs"
+    ],
+    "title": "JobList",
     "type": "object"
   }
 }

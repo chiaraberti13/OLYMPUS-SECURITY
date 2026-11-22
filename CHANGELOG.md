@@ -12,6 +12,21 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — ARCH-4: pubblicazione nel catalogo dei contratti-envelope API per-tool
+
+- I **13 envelope di risposta API per-tool** finora solo versionati sono ora **pubblicati** nel catalogo
+  JSON Schema (`olympus.schema_catalog.PUBLISHED_CONTRACTS`): `olympus.metis-extraction`,
+  `olympus.apollo-evaluation`, `olympus.apollo-rule-list`, `olympus.minerva-ledger-verification`,
+  `olympus.athena-profile-list`, `olympus.athena-plan`, `olympus.argus-ct-subdomains`,
+  `olympus.artemis-fingerprint`, `olympus.helios-service-identification`, `olympus.hermes-secret-scan`,
+  `olympus.proteus-campaign-validation`, `olympus.themis-engagement-list`, `olympus.themis-job-list`.
+  Ogni identità che un client può pinnare ha ora uno schema pubblicato e versionato (golden in
+  `schemas/contracts/…`; catalogo da 33 a **46** contratti).
+- Il gate di superficie `tests/contract/test_ui_api_contract_surface.py` (invariante «una identità ⇒ uno
+  schema») tiene ciascun envelope **byte-identico** tra l'API HTTP e il catalogo pubblicato: i modelli
+  pubblicati sono gli **stessi** serviti dalle rotte (nessun modello parallelo). Import lazy del catalogo
+  dalla CLI → nessun costo di avvio. `docs/contracts.md` e `ROADMAP.md` (ARCH-4) aggiornati.
+
 ### Added — BLUE-3: import diretto dei pull CTI live in un case (`--into-case`)
 
 - I tre comandi di pull CTI live (`metis taxii poll`, `metis misp pull`, `metis opencti pull`) accettano

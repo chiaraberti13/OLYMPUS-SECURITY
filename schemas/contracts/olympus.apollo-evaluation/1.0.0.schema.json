@@ -1,0 +1,184 @@
+{
+  "$defs": {
+    "Alert": {
+      "additionalProperties": false,
+      "description": "A detection result linked to its source event and supporting evidence.",
+      "properties": {
+        "alert_id": {
+          "title": "Alert Id",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "engagement_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Engagement Id"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "mitre_attack": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Mitre Attack",
+          "type": "array"
+        },
+        "rule_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rule Id"
+        },
+        "schema_name": {
+          "const": "olympus.alert",
+          "default": "olympus.alert",
+          "title": "Schema Name",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity",
+          "default": "medium"
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        },
+        "status": {
+          "$ref": "#/$defs/AlertStatus",
+          "default": "open"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id",
+        "title",
+        "source"
+      ],
+      "title": "Alert",
+      "type": "object"
+    },
+    "AlertStatus": {
+      "description": "Lifecycle state of a detection alert.",
+      "enum": [
+        "open",
+        "acknowledged",
+        "investigating",
+        "closed"
+      ],
+      "title": "AlertStatus",
+      "type": "string"
+    },
+    "Severity": {
+      "description": "Normalized severity scale shared by findings, alerts and reports.",
+      "enum": [
+        "info",
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "Source": {
+      "description": "Producing module for a given object (provenance).",
+      "enum": [
+        "argus",
+        "helios",
+        "artemis",
+        "proteus",
+        "hermes",
+        "apollo",
+        "minerva",
+        "vulcan",
+        "athena",
+        "themis",
+        "aegis",
+        "mars",
+        "manual"
+      ],
+      "title": "Source",
+      "type": "string"
+    }
+  },
+  "$id": "urn:olympus:schema:olympus.apollo-evaluation:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Versioned Apollo evaluation result shared by API clients and the Web UI.",
+  "properties": {
+    "alert_count": {
+      "title": "Alert Count",
+      "type": "integer"
+    },
+    "alerts": {
+      "items": {
+        "$ref": "#/$defs/Alert"
+      },
+      "title": "Alerts",
+      "type": "array"
+    },
+    "event_count": {
+      "title": "Event Count",
+      "type": "integer"
+    },
+    "rule_count": {
+      "title": "Rule Count",
+      "type": "integer"
+    },
+    "schema_name": {
+      "const": "olympus.apollo-evaluation",
+      "default": "olympus.apollo-evaluation",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "rule_count",
+    "event_count",
+    "alert_count",
+    "alerts"
+  ],
+  "title": "ApolloEvaluationResult",
+  "type": "object"
+}

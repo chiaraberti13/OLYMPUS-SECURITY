@@ -1,0 +1,80 @@
+{
+  "$defs": {
+    "AthenaProfileView": {
+      "additionalProperties": false,
+      "description": "A target-free scan profile projected for API clients and the Web UI.",
+      "properties": {
+        "active": {
+          "title": "Active",
+          "type": "boolean"
+        },
+        "active_adapters": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Active Adapters",
+          "type": "array"
+        },
+        "adapters": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Adapters",
+          "type": "array"
+        },
+        "profile_id": {
+          "title": "Profile Id",
+          "type": "string"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "profile_id",
+        "title",
+        "summary",
+        "adapters",
+        "active_adapters",
+        "active"
+      ],
+      "title": "AthenaProfileView",
+      "type": "object"
+    }
+  },
+  "$id": "urn:olympus:schema:olympus.athena-profile-list:1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Versioned list of the named scan profiles Athena can build plans from.",
+  "properties": {
+    "profiles": {
+      "items": {
+        "$ref": "#/$defs/AthenaProfileView"
+      },
+      "title": "Profiles",
+      "type": "array"
+    },
+    "schema_name": {
+      "const": "olympus.athena-profile-list",
+      "default": "olympus.athena-profile-list",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "profiles"
+  ],
+  "title": "AthenaProfileList",
+  "type": "object"
+}
