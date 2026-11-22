@@ -128,19 +128,22 @@ docker run --rm \
     --timeout 300 --deadline 400
 
 # The scan ran as the unprivileged 10001 user and wrote the evidence 0600, owned by
-# that uid — unreadable by the operator who must commit it. A tiny throwaway root
-# container (no scan, no network) relaxes the read bits on the output so the host
-# user can read the signed evidence. The scan container's isolation above is
-# untouched; this only affects the already-produced evidence files.
+# that uid — unreadable by the operator who must commit it. A tiny throwaway,
+# no-network container running AS THE SAME uid (the files' owner) relaxes the read
+# bits so the host operator can read the signed evidence. Owner chmod needs no
+# capabilities (hence --cap-drop ALL holds), and it never touches the scan
+# container's isolation — only the already-produced evidence files.
 docker run --rm \
-  --user 0:0 \
+  --user 10001:10001 \
   --network none \
   --cap-drop ALL \
   --security-opt no-new-privileges=true \
   --entrypoint chmod \
   -v "$OUT:/out" \
   "$IMAGE" \
-  -R a+rX /out
+  a+r "/out/$ENGINE-engagement-evidence.json" \
+      "/out/$ENGINE-engagement-evidence.json.sig" \
+      "/out/$ENGINE-engagement-result.json"
 
 echo "L3 engagement-signed done:"
 echo "  evidence : $OUT/$ENGINE-engagement-evidence.json (+ .sig)"

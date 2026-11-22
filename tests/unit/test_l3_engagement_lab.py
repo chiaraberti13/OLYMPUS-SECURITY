@@ -104,17 +104,20 @@ def test_evidence_is_committable_and_pin_verifiable() -> None:
     # signed evidence; the private evidence key is never committed.
     assert "evidence_pub.pem" in text
     assert "-pubout" in text
-    # The scan runs as uid 10001 and writes the evidence 0600; a throwaway root
-    # container relaxes the read bits so the operator can read/commit it. It must
-    # not perform a scan (no network) and must not relax the scan's isolation.
+    # The scan runs as uid 10001 and writes the evidence 0600; a throwaway container
+    # running AS THE SAME owner uid relaxes the read bits so the operator can
+    # read/commit it. It must not perform a scan (no network), must keep cap-drop
+    # ALL (owner chmod needs no capability), and must not relax the scan's isolation.
     assert "--entrypoint chmod" in text
-    assert "a+rX /out" in text
     chmod_at = text.index("--entrypoint chmod")
-    # Find the `docker run` that owns the chmod entrypoint.
     block_start = text.rindex("docker run", 0, chmod_at)
-    chmod_block = text[block_start : chmod_at + len("--entrypoint chmod")]
+    # The chmod container's own `docker run` block ends at the next `docker run` or EOF.
+    next_run = text.find("docker run", chmod_at)
+    chmod_block = text[block_start : next_run if next_run != -1 else len(text)]
     assert "--network none" in chmod_block, "the readback container must have no network"
-    assert "--user 0:0" in chmod_block
+    assert "--cap-drop ALL" in chmod_block, "the readback container must keep cap-drop ALL"
+    assert "--user 10001:10001" in chmod_block, "the readback must run as the files' owner uid"
+    assert "a+r " in chmod_block and "engagement-evidence.json" in chmod_block
 
 
 def test_script_carries_no_secret_material() -> None:
