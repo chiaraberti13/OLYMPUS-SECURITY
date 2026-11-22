@@ -12,6 +12,12 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-22
+
+First tagged, signed release (`SEC-4.5`): the artifacts below are built, SLSA-
+provenanced and Cosign-keyless-signed by `.github/workflows/release.yml` on the
+`v0.2.0` tag and attached to the GitHub Release.
+
 ### Added — ARCH-4: pubblicazione nel catalogo dei contratti-envelope API per-tool
 
 - I **13 envelope di risposta API per-tool** finora solo versionati sono ora **pubblicati** nel catalogo
