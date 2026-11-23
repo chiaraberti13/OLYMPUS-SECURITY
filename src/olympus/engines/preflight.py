@@ -212,7 +212,9 @@ def preflight(
     )
 
 
-def preflight_for_scanner(env: Environment, scanner: str | None) -> PreflightVerdict:
+def preflight_for_scanner(
+    env: Environment, scanner: str | None, *, allow_missing: bool = False
+) -> PreflightVerdict:
     """Convenience wrapper: preflight a single Themis scan of ``scanner``.
 
     The requested scanner is required when Olympus governs it with a manifest; an
@@ -221,13 +223,20 @@ def preflight_for_scanner(env: Environment, scanner: str | None) -> PreflightVer
     the :data:`~olympus.engines.commands.THEMIS_RUN` command, so any engine declared
     ``required_for_commands = ["themis.run"]`` is demanded here too — automatically, on
     every scan path (CLI, worker, API, Web) that funnels through this wrapper.
+
+    ``allow_missing`` is passed through: an optional engine may degrade (exit 5) while the
+    mandatory baseline still blocks (exit 8). It is advisory on a readiness endpoint — the
+    worker remains the fail-closed authority at run time.
     """
     try:
         governed = scanner is not None and scanner in load_all()
     except ManifestError:  # pragma: no cover - manifests ship with the package
         governed = False
     return preflight(
-        env, engines=(scanner,) if governed and scanner else (), commands=(THEMIS_RUN,)
+        env,
+        engines=(scanner,) if governed and scanner else (),
+        commands=(THEMIS_RUN,),
+        allow_missing=allow_missing,
     )
 
 
