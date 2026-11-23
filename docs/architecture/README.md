@@ -17,6 +17,8 @@ design survives after the people and the pull request that made it
 | [ADR-007](adr-007-web-control-plane.md) | Native web control plane (FastAPI + HTMX + SSE) | Accepted | `WEB-A`…`WEB-H` |
 | [ADR-008](adr-008-durable-athena-audit.md) | Durable Athena audit sequencing across restart and concurrent writers | Accepted | `SEC-E-01` |
 | [ADR-009](adr-009-execution-engine.md) | Themis Execution Engine as an explicit, separable service | Accepted | `ARCH-3` / `API-3` |
+| [ADR-010](adr-010-frontend-stack.md) | Frontend stack: server-rendered control plane, SvelteKit for the split frontend | Accepted — non-binding | `TECH-2` |
+| [ADR-011](adr-011-ai-layer-audit.md) | AI layer: architectural audit, gap analysis and license matrix | Accepted — non-binding | `AI-0` |
 
 ## Rules
 

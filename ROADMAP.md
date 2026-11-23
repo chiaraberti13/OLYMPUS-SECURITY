@@ -137,7 +137,7 @@ di sicurezza nel frontend.
 ## 4. Strategia di evoluzione tecnologica
 
 - **TECH-1** [x] Backend Python 3.11+ (Pydantic v2, Typer, FastAPI, Textual) confermato: adeguato e maturo.
-- **TECH-2** [ ] Frontend Web: valutare e selezionare uno stack moderno (SSR/SPA) integrato realmente all'API; decisione del team su basi tecniche (oggi la Web UI è Jinja2+SSE, adeguata ma limitata).
+- **TECH-2** [x] Frontend Web: valutare e selezionare uno stack moderno (SSR/SPA) integrato realmente all'API; decisione del team su basi tecniche (oggi la Web UI è Jinja2+SSE, adeguata ma limitata). **Deciso (2026-11-23, [ADR-010](docs/architecture/adr-010-frontend-stack.md)):** il control plane resta **server-rendered** (FastAPI + Jinja2 + HTMX + SSE, ADR-007) come default — niente build client, CSP-friendly; per il frontend split (servito da Vercel davanti al BFF) quando serve interattività SPA lo stack scelto è **SvelteKit** (output leggero, static/SSR adapter, CSP senza inline), che parla al backend **solo** via le rotte del BFF. Invarianti di sicurezza (CSP almeno pari all'attuale, dipendenze pinnate+SRI, nessun segreto/scanner lato client) vincolanti. Nessuna riscrittura forzata: SvelteKit entra solo su una vista che lo richiede.
 - **TECH-3** [~] Persistenza: SQLite come default locale; astrazione verso Postgres per deployment multiutente/concorrente. **Fatto (2026-11-16):** porta `JobStore` (Protocol) + factory di selezione backend `resolve_job_store` (vedi `DATA-2`); SQLite resta il default, l'adapter Postgres è pianificato. **Resta:** l'adapter Postgres reale (richiede un server) e l'esposizione del DSN nelle interfacce di servizio.
 - **TECH-4** [x] Valutazione coda/worker fuori Vercel completata. SQLite e worker Themis su un host container sono la scelta attuale. Postgres o broker dedicato si rivalutano al verificarsi dei criteri documentati nel [runbook Themis](docs/themis-runtime.md#decisione-sulla-coda-dei-job).
 
@@ -823,12 +823,21 @@ dipendenza, con gli obblighi di attribuzione (v. `AI-0`, `DEC-12`).
 Priorità: evoluzione **strategica** (P2/P3, `AI-0`/`AI-7` anche P1 per fondamenta ed eval); **non** sottrae
 priorità al consolidamento P0/P1 e non precede `CORR-*`/`EXPL-*`/`VAL-*`/`API-3`. Assorbe ed estende `FUT-1`.
 
-- **AI-0** [ ] (P2) **Audit architetturale, gap analysis e ADR dedicato.** Confronto capacità native Olympus
+- **AI-0** [x] (P2) **Audit architetturale, gap analysis e ADR dedicato.** Confronto capacità native Olympus
   ↔ Sapper-v2/Nüwa; per ogni meccanismo decisione *riusa / reimplementa / scarta*; matrice di compatibilità
   licenze MIT↔GPL-3.0 per componente e dipendenza con obblighi di attribuzione. Precede **qualunque** codice AI.
   - *Dipende da:* nessuno (è un documento). *Accettazione:* ADR committato con la decisione per meccanismo e
     la matrice licenze; nessun fork completo avviato senza decisione esplicita del team; gap analysis che
     mappa ogni capacità proposta su un modulo Olympus esistente o la motiva come nuova.
+  - **Fatto (2026-11-23, [ADR-011](docs/architecture/adr-011-ai-layer-audit.md)):** decisione per-meccanismo
+    (coordinator/agenti → **reimplementa** su Athena+Themis; scheduling parallelo e self-healing → **riusa** il
+    motore di esecuzione Themis, ADR-009; memoria/knowledge → **reimplementa** come Fact Graph su
+    `argus.graph`/`vulcan.correlate`+custody Minerva; model router → **nuovo**; valutazione dai risultati →
+    **riusa** `athena.purple`/Apollo/Vulcan). **Niente fork** di Sapper-v2 come motore. Matrice licenze:
+    Olympus **GPL-3.0**, Sapper-v2 **MIT** → **compatibile** (opera combinata GPL-3.0, si conservano gli avvisi
+    MIT); ogni dipendenza GPL-incompatibile è scartata. Gap analysis che mappa `AI-1`…`AI-7` su moduli esistenti
+    (solo il model router è nuovo). Invarianti: layer AI opzionale e **off di default**, nessuna esecuzione fuori
+    da Themis, nessuna ipotesi promossa a fatto, egress gated/redatto.
 - **AI-1** [ ] (P2) **Strato di orchestrazione multi-agente** come servizio separabile e opzionale, agganciato
   ad **Athena** (pianificazione/ciclo di vita) e **Themis** (esecuzione/autorità): Planner, Coordinator,
   Verifier, Memory, Model Router; task-graph con scheduling che rispetta **scope, risorse, priorità e

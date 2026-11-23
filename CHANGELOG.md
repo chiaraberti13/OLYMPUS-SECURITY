@@ -46,6 +46,16 @@ below lives under **Unreleased**.
   l'exit code *findings-aware* di `themis run` (1 = trovati, 5 = parziale) è ora tollerato così `set -e`
   non salta read-back ed evidenza. Guardie estese in `tests/unit/test_l3_engagement_lab.py`.
 
+### Added — TECH-2 & AI-0: ADR di decisione (stack frontend; audit layer AI)
+
+- **TECH-2** chiuso con [ADR-010](docs/architecture/adr-010-frontend-stack.md): control plane
+  server-rendered (HTMX/SSE, ADR-007) come default; **SvelteKit** scelto per il frontend split davanti al
+  BFF quando serve interattività SPA, con invarianti CSP/pinning/no-secret-client vincolanti.
+- **AI-0** chiuso con [ADR-011](docs/architecture/adr-011-ai-layer-audit.md): audit architetturale +
+  gap analysis + matrice licenze (Olympus GPL-3.0 ↔ Sapper-v2 MIT: compatibile). Decisione per-meccanismo
+  (riusa/reimplementa/scarta), niente fork, layer AI opzionale e off di default. Precede qualunque codice AI.
+- Indice ADR aggiornato in `docs/architecture/README.md`.
+
 ### Added — DEPLOY-3: BFF serverless proxy (scaffolding) per il deploy split
 
 - Nuovi `api/bff.py` (handler Vercel) e `api/_bff.py` (logica): **backend-for-frontend**, un
