@@ -838,7 +838,7 @@ priorità al consolidamento P0/P1 e non precede `CORR-*`/`EXPL-*`/`VAL-*`/`API-3
     MIT); ogni dipendenza GPL-incompatibile è scartata. Gap analysis che mappa `AI-1`…`AI-7` su moduli esistenti
     (solo il model router è nuovo). Invarianti: layer AI opzionale e **off di default**, nessuna esecuzione fuori
     da Themis, nessuna ipotesi promossa a fatto, egress gated/redatto.
-- **AI-1** [ ] (P2) **Strato di orchestrazione multi-agente** come servizio separabile e opzionale, agganciato
+- **AI-1** [~] (P2) **Strato di orchestrazione multi-agente** come servizio separabile e opzionale, agganciato
   ad **Athena** (pianificazione/ciclo di vita) e **Themis** (esecuzione/autorità): Planner, Coordinator,
   Verifier, Memory, Model Router; task-graph con scheduling che rispetta **scope, risorse, priorità e
   dipendenze**, recovery a checkpoint e budget control. Riusa i contratti condivisi; nessun motore di
@@ -848,6 +848,15 @@ priorità al consolidamento P0/P1 e non precede `CORR-*`/`EXPL-*`/`VAL-*`/`API-3
     invariato (test); un agente che tenta un'azione fuori scope/senza autorizzazione è **rifiutato** (test
     fail-closed); ogni passo dell'orchestratore è nell'audit con provenienza; nessuna esecuzione che non passi
     per Themis.
+  - **Core fatto (2026-11-23):** `olympus.ai.orchestrator.Orchestrator` — task-graph con dipendenze (ordine
+    topologico, cicli/dipendenze sconosciute rifiutate) e **matrice di gating DEC-14** (`ActionClass`
+    observe/analyze → autonome; active → richiede l'autorizzazione dell'**autorità**; destructive → richiede
+    **approvazione umana** + autorità). L'orchestratore **non esegue mai direttamente**: delega a una porta
+    `ExecutionAuthority` iniettabile (Themis in produzione) → nessuna esecuzione fuori da Themis. Fail-closed:
+    un'azione negata è **rifiutata** e i suoi dipendenti **skippati**; ogni passo è registrato con provenienza
+    nel trail; a flag off l'orchestratore è inerte. Porte iniettabili → test interamente offline
+    (`tests/unit/test_ai_orchestrator.py`, 8 invarianti). **Resta:** i componenti pieni (Planner/Coordinator/
+    Verifier/Memory, recovery a checkpoint, budget control) e il cablaggio all'autorità Themis viva (`API-3`).
 - **AI-2** [~] (P1/P2) **Model Router multi-provider** con modelli **locali di default** e provider esterni
   opt-in; politica di egress/privacy (redazione, confini del perimetro), budget/token control e fallback
   deterministico quando nessun modello è disponibile.
