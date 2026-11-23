@@ -46,6 +46,15 @@ below lives under **Unreleased**.
   l'exit code *findings-aware* di `themis run` (1 = trovati, 5 = parziale) è ora tollerato così `set -e`
   non salta read-back ed evidenza. Guardie estese in `tests/unit/test_l3_engagement_lab.py`.
 
+### Changed — Registro decisioni: DEC già risolte dall'implementazione
+
+- Registrate come **decise** (con puntatore all'implementazione) le decisioni del registro già incarnate dal
+  codice/doc: `DEC-3` (evidenza per-run firmata + custody Minerva verificabile, chiavi da env, run non firmati
+  rifiutati), `DEC-7` (spiegabilità come documento separato `olympus.finding-explanation`), `DEC-10`
+  (`docs/engines/INVENTORY.md` fonte di verità L1/L2/L3), `DEC-11` (smoke + `doctor --strict` coesistono nel
+  gate SEC-4.4). `DEC-4`/`DEC-5`/`DEC-8` annotate come **differite** con il motivo (dipendenze `TOOLS-4.3`,
+  build immagine, `API-3`).
+
 ### Added — Decisioni esplicite AI (ADR-012: DEC-13/14/16)
 
 - [ADR-012](docs/architecture/adr-012-ai-foundations-decisions.md) risolve le decisioni esplicite
