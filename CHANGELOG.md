@@ -46,6 +46,18 @@ below lives under **Unreleased**.
   l'exit code *findings-aware* di `themis run` (1 = trovati, 5 = parziale) è ora tollerato così `set -e`
   non salta read-back ed evidenza. Guardie estese in `tests/unit/test_l3_engagement_lab.py`.
 
+### Added — DEPLOY-3: BFF serverless proxy (scaffolding) per il deploy split
+
+- Nuovi `api/bff.py` (handler Vercel) e `api/_bff.py` (logica): **backend-for-frontend**, un
+  **forwarder HTTP puro** verso l'unico backend configurato. Nessun import di `olympus`, nessun
+  `subprocess` — **nessuno scanner gira su Vercel** (verificato via AST in `tests/unit/test_bff.py`).
+  Sicurezza: backend solo da `OLYMPUS_BACKEND_URL` **https**; niente SSRF — il client non fornisce
+  URL né path, nomina una **rotta** e il path in uscita è una costante in `ROUTES` (nessun dato di
+  richiesta nell'URL); **allowlist fail-closed** (solo rotte read-only `GET`/`HEAD`), timeout,
+  redirect non seguiti, header hop-by-hop e cookie rimossi, fail-closed `503` senza backend. Routing
+  `vercel.json`: `/bff/<rotta>` → `/api/bff?p=<rotta>`. Guida di deploy split in `docs/deploy-split.md`
+  (avanza anche `DOCS-2`). Il deploy reale dipende da `DEPLOY-2` (backend container).
+
 ### Added — DOCS-3: sito doc statico bilingue da docs/
 
 - Nuovo `scripts/build_docs_site.py`: genera un sito di documentazione statico e autoconsistente
