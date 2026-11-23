@@ -62,9 +62,11 @@ class ModelProvider(Protocol):
     name: str
     local: bool
 
-    def available(self) -> bool: ...
+    def available(self) -> bool:
+        """Whether this provider can serve a request right now."""
 
-    def generate(self, prompt: str, *, max_tokens: int) -> ModelResponse: ...
+    def generate(self, prompt: str, *, max_tokens: int) -> ModelResponse:
+        """Produce a completion for ``prompt`` bounded by ``max_tokens``."""
 
 
 def _count_tokens(text: str) -> int:
