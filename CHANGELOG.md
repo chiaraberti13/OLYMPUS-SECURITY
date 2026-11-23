@@ -46,6 +46,16 @@ below lives under **Unreleased**.
   l'exit code *findings-aware* di `themis run` (1 = trovati, 5 = parziale) è ora tollerato così `set -e`
   non salta read-back ed evidenza. Guardie estese in `tests/unit/test_l3_engagement_lab.py`.
 
+### Documented — TOOLS-4.4 (P0) chiuso: tabella unica di classificazione degli output
+
+- Consolidata in `docs/run-status.md` la **tabella unica di corrispondenza** della grammatica d'output
+  degli adapter (rumore noto→ignora / errore noto→`failed` / record non riconosciuto/malformato/troncato→
+  `partial` con conteggio / record valido→`clean`/`findings`), con gli invarianti "unknown mai `clean`" e
+  "output innocuo mai falso-fallimento" e lo stato di migrazione (13 adapter migrati; `dirsearch`/`arjun`/
+  `xsstrike` esclusi con motivazione). L'implementazione e l'accettazione (corpus di fixture + fuzz del
+  classificatore + ~39 test per-adapter + contract test golden) erano già presenti: questo chiude **TOOLS-4.4**
+  fornendo l'ultimo artefatto del requisito, la tabella documentata.
+
 ### Added — AI-1: core di orchestrazione multi-agente (dietro feature flag)
 
 - Nuovo `olympus.ai.orchestrator.Orchestrator`: task-graph con dipendenze (ordine topologico; cicli e
