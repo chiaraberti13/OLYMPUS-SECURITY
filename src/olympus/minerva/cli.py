@@ -447,3 +447,52 @@ def restore_ledger_command(
         typer.echo(safe_terminal_text(f"minerva: ledger restore refused: {exc}"), err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
     typer.echo(json.dumps({"restored_to": str(destination), **asdict(info)}, indent=2))
+
+
+@app.command("governance-policy")
+def governance_policy() -> None:
+    """Print the system data retention/privacy policy (DATA-3) as JSON."""
+    from olympus.minerva.governance import describe_policy
+
+    typer.echo(json.dumps(describe_policy(), indent=2))
+
+
+@app.command("governance-apply")
+def governance_apply(
+    data_class: str = typer.Argument(..., help="Data class (see governance-policy)."),
+    directory: Path = typer.Argument(..., help="Directory of that class's artefacts."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Report what would be removed only."),
+) -> None:
+    """Apply the class's retention rule to a directory (DATA-3)."""
+    from olympus.core.retention import RetentionError
+    from olympus.minerva.governance import DataClass, GovernanceError, apply_retention
+
+    try:
+        chosen = DataClass(data_class)
+    except ValueError as exc:
+        typer.echo(safe_terminal_text(f"minerva: unknown data class: {data_class}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    try:
+        report = apply_retention(chosen, directory, dry_run=dry_run)
+    except (GovernanceError, RetentionError, OSError) as exc:
+        typer.echo(safe_terminal_text(f"minerva: retention refused: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.USAGE) from exc
+    typer.echo(json.dumps({"data_class": str(chosen), **report.to_dict()}, indent=2))
+
+
+@app.command("governance-verify-custody")
+def governance_verify_custody(
+    ledger: Path = typer.Argument(..., help="Signed custody ledger to verify."),
+) -> None:
+    """Verify the custody chain that historicises evidence (DATA-3)."""
+    from olympus.minerva.custody import CustodyIntegrityError, CustodyKeyError
+    from olympus.minerva.governance import verify_custody
+
+    try:
+        result = verify_custody(ledger)
+    except (CustodyIntegrityError, CustodyKeyError, OSError, ValueError) as exc:
+        typer.echo(safe_terminal_text(f"minerva: custody verification failed: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.FAILED) from exc
+    typer.echo(json.dumps(result.to_dict(), indent=2))
+    if not result.ok:
+        raise typer.Exit(code=ExitCode.FAILED)

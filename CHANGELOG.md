@@ -46,6 +46,19 @@ below lives under **Unreleased**.
   l'exit code *findings-aware* di `themis run` (1 = trovati, 5 = parziale) è ora tollerato così `set -e`
   non salta read-back ed evidenza. Guardie estese in `tests/unit/test_l3_engagement_lab.py`.
 
+### Added — DATA-3: policy di sistema di retention/privacy + custody verificabile
+
+- Nuovo `olympus.minerva.governance`: **una** policy di sistema eseguibile (`SYSTEM_POLICY`) che registra
+  ogni classe di dato sensibile (`engine-evidence`, `finding-history`, `scanner-output`, `job-records`,
+  `audit-trail`) con una regola di retention **limitata**, una classificazione **privacy** e il modo di
+  enforcement. `apply_retention` riusa `core.retention.prune_paths` (stesso secure-delete); le classi
+  gestite dallo store/log rifiutano il prune con un puntatore allo strumento corretto. **Storicizzazione
+  evidenze con catena di custodia verificabile**: `engine-evidence` è tracciata nel ledger firmato Ed25519
+  di Minerva; `verify_custody` riusa `custody.inspect_ledger` per confermare che la catena è
+  evidence-anchored e, se firmata, valida. CLI `olympus minerva governance-policy|governance-apply|
+  governance-verify-custody`; policy di record in `docs/data-governance.md`; test in
+  `tests/unit/test_governance.py`. Chiude **DATA-3**.
+
 ### Added — TECH-2 & AI-0: ADR di decisione (stack frontend; audit layer AI)
 
 - **TECH-2** chiuso con [ADR-010](docs/architecture/adr-010-frontend-stack.md): control plane
