@@ -46,6 +46,19 @@ below lives under **Unreleased**.
   l'exit code *findings-aware* di `themis run` (1 = trovati, 5 = parziale) è ora tollerato così `set -e`
   non salta read-back ed evidenza. Guardie estese in `tests/unit/test_l3_engagement_lab.py`.
 
+### Added — Decisioni esplicite AI (ADR-012: DEC-13/14/16)
+
+- [ADR-012](docs/architecture/adr-012-ai-foundations-decisions.md) risolve le decisioni esplicite
+  mature del track AI, dentro il frame di ADR-011: **DEC-13** model router (modelli **locali di default**,
+  provider esterni opt-in per-engagement dietro egress gated+redatto per la policy DATA-3, budget/provenance,
+  refusal deterministico senza provider); **DEC-14** matrice di gating dell'autonomia per classe di azione
+  (observe/analyze autonome; active/live con manifest firmato + `--i-am-authorized`; distruttive con
+  approvazione umana obbligatoria; mai bypass dell'autorità Themis); **DEC-16** eval harness deterministico,
+  riproducibile e offline (riuso `athena.purple`/Apollo/Vulcan su `labs/mars`), "miglioramento" = delta
+  misurato vs baseline con evidenza firmata, nessun apprendimento opaco. **DEC-15** (storage Fact Graph)
+  **differito** (dipende da `CORR-1`/`DEC-6`). Registro decisioni e indice ADR aggiornati; `DEC-9`→ADR-010,
+  `DEC-12`→ADR-011 registrati. Nessun codice AI: gli ADR non autorizzano implementazione.
+
 ### Added — DATA-3: policy di sistema di retention/privacy + custody verificabile
 
 - Nuovo `olympus.minerva.governance`: **una** policy di sistema eseguibile (`SYSTEM_POLICY`) che registra
