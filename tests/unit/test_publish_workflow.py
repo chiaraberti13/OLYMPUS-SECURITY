@@ -82,5 +82,15 @@ def test_publish_is_keyless_no_stored_registry_secret() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     secret_refs = {ref.split("}}")[0].strip() for ref in text.split("secrets.")[1:]}
     assert secret_refs <= {"GITHUB_TOKEN"}, f"unexpected stored secret(s): {secret_refs}"
-    # And the publish job authenticates to GHCR with that ephemeral token.
-    assert "ghcr.io" in text
+    # And the publish job authenticates to GHCR with that ephemeral token: parse the
+    # login step rather than substring-matching, so the registry is pinned exactly.
+    publish = _job(_workflow(), "publish")
+    login = next(
+        step
+        for step in publish["steps"]
+        if str(step.get("uses", "")).startswith("docker/login-action@")
+    )
+    assert login["with"]["registry"] == "ghcr.io"
+    # Not a secret value — the literal GitHub Actions expression for the ephemeral token.
+    expected_token = "${{ secrets.GITHUB_TOKEN }}"  # noqa: S105
+    assert login["with"]["password"] == expected_token
