@@ -143,3 +143,37 @@ metronome that is trivially fingerprinted or that lands in lockstep with
 another client. `--deadline` bounds the whole run; the derived default scales
 with the wordlist but is capped at one hour rather than multiplying the
 per-request timeout by the wordlist length.
+
+## Output classification (scanner adapter grammar, TOOLS-4.4)
+
+A scanner's stdout/stderr mixes informational noise, diagnostics, errors and
+result records. Every Themis adapter declares a verifiable grammar that sorts each
+line/record into one class and normalises it onto the **canonical states above**
+(`RunStatus` / `ExecutionState` / `OutcomeKind` — no new vocabulary). The rules are
+the same for every adapter:
+
+| Input class | Rule | Canonical outcome |
+|---|---|---|
+| **Known noise** (declared informational lines, e.g. `OK`/`INFO`, empty padding `[{}]`) | ignored | does not change the outcome |
+| **Known error** (a declared failure marker: `scan_aborted`, connection `[CRITICAL]`, nmap `exit="error"`, a non-array/non-object root, no result container at all) | → `failed` (the result carries no information) | `failed` (exit 6) |
+| **Unrecognised / malformed / incomplete record** (a non-JSON line on a JSONL stream, a record missing its required key, a truncated final record) | counted as a discarded record (`coverage_loss`) | `partial` (exit 5) |
+| **Truncated output** (capture hit `max_output_bytes`, or the process was terminated) | the final record is malformed → discarded, and coverage is incomplete | `partial` (exit 5) |
+| **Valid result record** | parsed into findings/assets | `clean` / `findings` |
+
+Two invariants hold by construction and are tested per adapter (a corpus of real
+fixtures plus a classifier fuzz — `tests/unit/test_themis_parser_corpus_fuzz.py`,
+`tests/unit/test_themis_parser_fuzz.py`): an **unknown** input is never read as
+`clean` (it is `partial` with a discard count, so an empty findings list on an
+incomplete run cannot look like a safe target), and an **innocuous** output is
+never turned into a false failure (known noise and legitimate empty results stay
+clean). Thresholds are per-adapter and documented in their grammar tests.
+
+### Migration status
+
+The 3 mandatory engines (`nmap`, `nuclei`, `httpx`) and 10 non-mandatory adapters
+(`katana`, `dalfox`, `wapiti`, `wafw00f`, `testssl`, `whatweb`, `sqlmap`, `nikto`,
+`wpscan`, `commix`) implement this grammar. `dirsearch` already had the fail-closed
+guard; `arjun` and `xsstrike` are **deliberately not migrated** because their empty
+output is a legitimate result and they emit no release-stable machine-readable error
+marker, so adding error heuristics would manufacture false failures — they stay as
+they are until a verifiable signal exists.
