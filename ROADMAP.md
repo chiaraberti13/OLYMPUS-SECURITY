@@ -712,14 +712,14 @@ Da prendere nelle fasi di implementazione, con valutazione delle alternative dis
 - `DEC-6` Necessità e storage di un Security Knowledge Graph (dopo `CORR-1`).
 - `DEC-7` Rappresentazione della spiegabilità: estensione additiva di `olympus.finding` o documento separato.
 - `DEC-8` Scheduling ricorrente: dentro l'Execution Engine (`API-3`) o scheduler esterno.
-- `DEC-9` Stack frontend e design system per le due modalità (con `TECH-2`).
+- `DEC-9` Stack frontend e design system per le due modalità (con `TECH-2`). **[deciso 2026-11-23 — ADR-010]**
 - `DEC-10` Fonte di verità per i livelli L1/L2/L3 di maturità degli engine (ledger esistente o estensione).
 - `DEC-11` Assorbimento di `scripts/smoke_scanner_image.py` in `engines doctor --strict` o coesistenza.
-- `DEC-12` Riuso selettivo di Sapper-v2/Nüwa **vs** reimplementazione nativa, per meccanismo; matrice di compatibilità licenze MIT↔GPL-3.0 per componente e dipendenza con obblighi di attribuzione (dopo `AI-0`).
-- `DEC-13` Provider del Model Router, modelli locali di default e politica di egress/privacy verso modelli esterni (opt-in, redazione, confini del perimetro) (`AI-2`).
-- `DEC-14` Livelli di autonomia degli agenti e matrice di gating delle approvazioni per classe di azione (lettura/analisi vs azione attiva/distruttiva); rapporto con `OperatingMode` e manifest firmato (`AI-4`).
-- `DEC-15` Storage del Fact Graph / memoria condivisa AI: riuso `argus.graph` / SQLite→Postgres (`TECH-3`) vs engine dedicato — estende `DEC-6` al dominio AI (`AI-3`).
-- `DEC-16` Formato e fonte di verità delle valutazioni degli agenti (eval harness) e criterio riproducibile di "miglioramento" senza apprendimento opaco (`AI-7`).
+- `DEC-12` Riuso selettivo di Sapper-v2/Nüwa **vs** reimplementazione nativa, per meccanismo; matrice di compatibilità licenze MIT↔GPL-3.0 per componente e dipendenza con obblighi di attribuzione (dopo `AI-0`). **[deciso 2026-11-23 — ADR-011]**
+- `DEC-13` Provider del Model Router, modelli locali di default e politica di egress/privacy verso modelli esterni (opt-in, redazione, confini del perimetro) (`AI-2`). **[deciso 2026-11-23 — ADR-012]**
+- `DEC-14` Livelli di autonomia degli agenti e matrice di gating delle approvazioni per classe di azione (lettura/analisi vs azione attiva/distruttiva); rapporto con `OperatingMode` e manifest firmato (`AI-4`). **[deciso 2026-11-23 — ADR-012]**
+- `DEC-15` Storage del Fact Graph / memoria condivisa AI: riuso `argus.graph` / SQLite→Postgres (`TECH-3`) vs engine dedicato — estende `DEC-6` al dominio AI (`AI-3`). **[differito 2026-11-23 — dipende da `CORR-1`/`DEC-6`; v. ADR-012]**
+- `DEC-16` Formato e fonte di verità delle valutazioni degli agenti (eval harness) e criterio riproducibile di "miglioramento" senza apprendimento opaco (`AI-7`). **[deciso 2026-11-23 — ADR-012]**
 
 #### Decisioni già prese (2026-11-03)
 
