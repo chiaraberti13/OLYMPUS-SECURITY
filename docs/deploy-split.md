@@ -22,28 +22,28 @@ browser ──▶ Vercel static site (public/)
 ## The BFF proxy (`DEPLOY-3`)
 
 `api/bff.py` (handler) and `api/_bff.py` (logic) are a **backend-for-frontend**: a
-pure HTTP forwarder to the one configured backend. They import nothing from
+named-route HTTP forwarder to the one configured backend. They import nothing from
 `olympus` and spawn no process — relaying only. The safety model (enforced in
 `api/_bff.py`, verified offline in `tests/unit/test_bff.py`):
 
 - **One fixed backend, no SSRF.** The target host comes only from the
   `OLYMPUS_BACKEND_URL` environment variable and must be `https://`. The client
-  supplies only a path, which is validated (server-absolute, no scheme/host, no
-  `..`) and appended — it can never redirect the proxy elsewhere.
-- **Fail-closed allowlist.** Only allow-listed method+path pairs are forwarded;
-  everything else is refused (`403`) without touching the network.
-  `ALLOWED_GET_PREFIXES` covers the read-only API surface; `ALLOWED_POST_PATHS` is
-  **empty by default** — add a write/trigger route there only when a real frontend
-  needs it.
-- **Bounded, non-amplifying.** Bodies are capped (`MAX_BODY_BYTES`), a timeout is
-  always set, redirects are never followed (a `3xx` is passed through), and
-  hop-by-hop headers and ambient cookies are stripped.
+  never supplies a URL or a path: it names a **route**, and the outbound path is a
+  constant looked up in `ROUTES`. No request data is ever concatenated into the
+  request URL, so neither the host nor the path can be steered.
+- **Fail-closed allowlist.** Only the read-only routes in `ROUTES` are forwarded
+  (`GET`/`HEAD`); an unknown route or a write method is refused (`403`/`405`)
+  without touching the network. Add a route (and review any query/body forwarding)
+  only when a real frontend needs it.
+- **Bounded, non-amplifying.** A timeout is always set, redirects are never
+  followed (a `3xx` is passed through), and hop-by-hop headers and ambient cookies
+  are stripped.
 
 ### Routing
 
-`vercel.json` rewrites `/bff/<path>` to `/api/bff?p=/<path>`, so a frontend call to
-`/bff/api/v1/engines/preflight` is forwarded to
-`${OLYMPUS_BACKEND_URL}/api/v1/engines/preflight`.
+`vercel.json` rewrites `/bff/<route>` to `/api/bff?p=<route>`. For example
+`/bff/engines-preflight` forwards to `${OLYMPUS_BACKEND_URL}/api/v1/engines/preflight`
+(the constant path mapped by `ROUTES["engines-preflight"]`).
 
 ## Owner steps to go live
 
@@ -53,8 +53,8 @@ pure HTTP forwarder to the one configured backend. They import nothing from
    URL (no trailing slash, no query/fragment).
 3. Deploy the Vercel project. Until step 2 is done the BFF fails closed with `503`,
    so nothing proxies by accident.
-4. Extend `ALLOWED_GET_PREFIXES` / `ALLOWED_POST_PATHS` in `api/_bff.py` to exactly
-   the routes the frontend needs, and re-run `pytest tests/unit/test_bff.py`.
+4. Extend `ROUTES` in `api/_bff.py` with exactly the read routes the frontend needs
+   (each a constant backend path), and re-run `pytest tests/unit/test_bff.py`.
 
 The backend remains the only place that executes scans, checks authorization and
 enforces scope and container isolation; the Vercel layer is static assets plus a

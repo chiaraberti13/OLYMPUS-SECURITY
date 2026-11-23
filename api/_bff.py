@@ -2,23 +2,25 @@
 
 The production control plane runs on a container **Execution backend** (DEPLOY-2);
 the Vercel deployment is static (``public/``) plus thin serverless functions. This
-module is that thin layer: a **pure forwarder** to the one configured backend. It
-deliberately imports nothing from :mod:`olympus` and never spawns a process — **no
+module is that thin layer: a **named-route forwarder** to the one configured
+backend. It imports nothing from :mod:`olympus` and never spawns a process — **no
 scanner ever runs on Vercel**; execution, authorization, scope and isolation all
 stay on the backend. The function only relays HTTP.
 
-Safety properties (all enforced here, verified offline in ``tests/unit/test_bff.py``):
+Safety properties (enforced here, verified offline in ``tests/unit/test_bff.py``):
 
 * **One fixed backend, no SSRF.** The target host comes only from the
-  ``OLYMPUS_BACKEND_URL`` environment variable and must be ``https://``; the
-  request path is appended but may never introduce a scheme/host or escape with
-  ``..``. The client cannot choose where the proxy connects.
-* **Fail-closed allowlist.** Only method+path combinations on the allowlist are
-  forwarded; everything else is refused *without* contacting the backend. POST is
-  empty by default (extended when a real frontend needs it).
-* **Bounded and non-amplifying.** Request bodies are size-capped, a timeout is
-  always set, and redirects are never followed (a 3xx is passed through, not
-  chased).
+  ``OLYMPUS_BACKEND_URL`` environment variable and must be ``https://``. The client
+  never supplies a URL or a path: it names a **route**, and the outbound path is a
+  constant looked up in :data:`ROUTES`. No request data is ever concatenated into
+  the request URL.
+* **Fail-closed allowlist.** Only the read-only routes in :data:`ROUTES` are
+  forwarded (GET/HEAD); an unknown route or a write method is refused *without*
+  contacting the backend. Add a route here explicitly when a real frontend needs
+  one (and review query/body forwarding then).
+* **Bounded and non-amplifying.** A timeout is always set and redirects are never
+  followed (a 3xx is passed through, not chased); response hop-by-hop headers are
+  stripped and request cookies are not relayed.
 
 This file is a helper (underscore-prefixed) — not a Vercel route. ``api/bff.py``
 is the handler that wires it to the serverless runtime.
@@ -29,17 +31,19 @@ from __future__ import annotations
 import urllib.error
 import urllib.request
 from collections.abc import Callable, Iterable, Mapping
-from dataclasses import dataclass, field
-from urllib.parse import urlsplit
+from dataclasses import dataclass
 
-#: Read-only surface the BFF may forward by default. Keep this tight: the backend
-#: still enforces its own authorization, but the proxy must not be an open relay.
-ALLOWED_GET_PREFIXES: tuple[str, ...] = ("/api/", "/healthz", "/openapi.json")
-#: POST is fail-closed: no write/trigger route is proxied until a real frontend
-#: needs one and it is added here explicitly.
-ALLOWED_POST_PATHS: tuple[str, ...] = ()
+#: Read-only routes the BFF may forward: a stable client-facing name -> the exact,
+#: constant backend path. The client never sends a path, only one of these names,
+#: so no request data can steer the outbound URL (no SSRF, full or partial). Extend
+#: this map deliberately when a real frontend needs a route.
+ROUTES: dict[str, str] = {
+    "health": "/healthz",
+    "openapi": "/openapi.json",
+    "engines-preflight": "/api/v1/engines/preflight",
+    "capabilities": "/api/v1/capabilities",
+}
 
-MAX_BODY_BYTES = 1_000_000
 TIMEOUT_SECONDS = 15.0
 
 #: Hop-by-hop headers never forwarded in either direction (RFC 7230 §6.1).
@@ -58,7 +62,7 @@ _HOP_BY_HOP = frozenset(
     }
 )
 #: Request headers the BFF relays (everything else is dropped — no ambient cookies).
-_FORWARD_REQUEST_HEADERS = frozenset({"accept", "content-type", "authorization"})
+_FORWARD_REQUEST_HEADERS = frozenset({"accept", "authorization"})
 
 
 class BackendError(RuntimeError):
@@ -73,19 +77,11 @@ class Response:
 
     def with_default_security_headers(self) -> Response:
         names = {k.lower() for k, _ in self.headers}
-        extra = []
+        extra: list[tuple[str, str]] = []
         if "content-type" not in names:
             extra.append(("Content-Type", "application/json"))
         extra.append(("X-Content-Type-Options", "nosniff"))
         return Response(self.status, tuple(self.headers) + tuple(extra), self.body)
-
-
-@dataclass(frozen=True)
-class _Request:
-    method: str
-    path: str
-    headers: Mapping[str, str] = field(default_factory=dict)
-    body: bytes = b""
 
 
 # An opener takes a urllib Request + timeout and returns an object exposing
@@ -95,7 +91,9 @@ Opener = Callable[[urllib.request.Request, float], object]
 
 
 def backend_base(env: Mapping[str, str]) -> str:
-    """Return the validated ``https://host[:port]`` base, or raise BackendError."""
+    """Return the validated ``https://host[:port][/base]`` URL, or raise BackendError."""
+    from urllib.parse import urlsplit
+
     raw = (env.get("OLYMPUS_BACKEND_URL") or "").strip()
     if not raw:
         raise BackendError("OLYMPUS_BACKEND_URL is not set")
@@ -106,31 +104,7 @@ def backend_base(env: Mapping[str, str]) -> str:
         raise BackendError("OLYMPUS_BACKEND_URL has no host")
     if parts.query or parts.fragment:
         raise BackendError("OLYMPUS_BACKEND_URL must not carry a query or fragment")
-    # Keep scheme://host[:port] and an optional base path (no trailing slash).
-    base = f"{parts.scheme}://{parts.netloc}{parts.path}"
-    return base.rstrip("/")
-
-
-def _is_allowed(method: str, path: str) -> bool:
-    if method in ("GET", "HEAD"):
-        return any(path == p or path.startswith(p) for p in ALLOWED_GET_PREFIXES)
-    if method == "POST":
-        return path in ALLOWED_POST_PATHS
-    return False
-
-
-def _safe_path(path: str) -> bool:
-    # A relayed path must be server-absolute and must not smuggle a scheme/host or
-    # climb out with "..". Query strings are allowed.
-    if not path.startswith("/") or path.startswith("//"):
-        return False
-    if "://" in path or "\\" in path:
-        return False
-    return (
-        "/../" not in path
-        and not path.endswith("/..")
-        and ".." not in path.split("?", 1)[0].split("/")
-    )
+    return f"{parts.scheme}://{parts.netloc}{parts.path}".rstrip("/")
 
 
 def _default_opener(req: urllib.request.Request, timeout: float) -> object:
@@ -151,40 +125,37 @@ def _relay_response_headers(raw: Iterable[tuple[str, str]]) -> tuple[tuple[str, 
 
 def forward(
     method: str,
-    path: str,
+    route: str,
     headers: Mapping[str, str],
     body: bytes,
     *,
     env: Mapping[str, str],
     opener: Opener | None = None,
 ) -> Response:
-    """Forward one request to the configured backend and return the response.
+    """Forward one read request, named by ``route``, to the configured backend.
 
-    Refusals never touch the network: an unknown method is 405, a path outside the
-    allowlist (or an unsafe path) is 403, an oversized body is 413, and a missing or
-    invalid backend URL is 503. Transport failures are 502.
+    Refusals never touch the network: a write/unknown method is 405, an unknown
+    route is 403, and a missing or invalid backend URL is 503. Transport failures
+    are 502. The outbound path is the constant ``ROUTES[route]`` — no part of the
+    request reaches the URL.
     """
     method = method.upper()
-    if method not in ("GET", "HEAD", "POST"):
+    if method not in ("GET", "HEAD"):
         return _error(405, "method not allowed")
-    if not _safe_path(path) or not _is_allowed(method, path):
-        return _error(403, "not allowed")
-    if len(body) > MAX_BODY_BYTES:
-        return _error(413, "request body too large")
+    backend_path = ROUTES.get(route)
+    if backend_path is None:
+        return _error(403, "unknown route")
     try:
         base = backend_base(env)
     except BackendError as exc:
         return _error(503, f"backend unavailable: {exc}")
 
-    # Scheme is pinned to https by backend_base() and the path is validated by
-    # _safe_path() (no scheme/host, no traversal), so the target is always an https
-    # URL on the configured backend host.
-    req = urllib.request.Request(base + path, method=method)  # noqa: S310
+    # base is https (validated) and backend_path is a constant from ROUTES, so the
+    # URL is fully determined by server-side config — no request data flows into it.
+    req = urllib.request.Request(base + backend_path, method=method)  # noqa: S310
     for name, value in headers.items():
         if name.lower() in _FORWARD_REQUEST_HEADERS:
             req.add_header(name, value)
-    if method == "POST":
-        req.data = body
 
     call = opener or _default_opener
     try:
@@ -195,9 +166,8 @@ def forward(
     status = int(getattr(resp, "status", None) or resp.getcode())  # type: ignore[attr-defined]
     raw_headers = list(getattr(resp, "headers", []).items())  # type: ignore[attr-defined]
     payload = b"" if method == "HEAD" else resp.read()  # type: ignore[attr-defined]
-    return Response(
-        status, _relay_response_headers(raw_headers), payload
-    ).with_default_security_headers()
+    relayed = Response(status, _relay_response_headers(raw_headers), payload)
+    return relayed.with_default_security_headers()
 
 
 def _error(status: int, message: str) -> Response:

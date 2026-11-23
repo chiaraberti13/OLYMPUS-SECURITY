@@ -51,10 +51,11 @@ below lives under **Unreleased**.
 - Nuovi `api/bff.py` (handler Vercel) e `api/_bff.py` (logica): **backend-for-frontend**, un
   **forwarder HTTP puro** verso l'unico backend configurato. Nessun import di `olympus`, nessun
   `subprocess` — **nessuno scanner gira su Vercel** (verificato via AST in `tests/unit/test_bff.py`).
-  Sicurezza: backend solo da `OLYMPUS_BACKEND_URL` **https** (niente SSRF — il client fornisce solo
-  un path validato), **allowlist fail-closed** (POST vuoto di default), body/timeout limitati,
+  Sicurezza: backend solo da `OLYMPUS_BACKEND_URL` **https**; niente SSRF — il client non fornisce
+  URL né path, nomina una **rotta** e il path in uscita è una costante in `ROUTES` (nessun dato di
+  richiesta nell'URL); **allowlist fail-closed** (solo rotte read-only `GET`/`HEAD`), timeout,
   redirect non seguiti, header hop-by-hop e cookie rimossi, fail-closed `503` senza backend. Routing
-  `vercel.json`: `/bff/<path>` → `/api/bff?p=/<path>`. Guida di deploy split in `docs/deploy-split.md`
+  `vercel.json`: `/bff/<rotta>` → `/api/bff?p=<rotta>`. Guida di deploy split in `docs/deploy-split.md`
   (avanza anche `DOCS-2`). Il deploy reale dipende da `DEPLOY-2` (backend container).
 
 ### Added — DOCS-3: sito doc statico bilingue da docs/

@@ -7,7 +7,7 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "rewrites": [
-    { "source": "/bff/(.*)", "destination": "/api/bff?p=/$1" }
+    { "source": "/bff/(.*)", "destination": "/api/bff?p=$1" }
   ],
   "headers": [
     {
