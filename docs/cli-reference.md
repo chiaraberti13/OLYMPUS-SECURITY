@@ -1078,6 +1078,28 @@ Hash a local artifact and write an evidence reference anchored to its bytes.
 | `--max-bytes` | option | no | `268435456` | — |
 | `--force` | option | no | `False` | Overwrite an existing evidence file (default: refuse). |
 
+### `olympus minerva governance-apply`
+
+Apply the class's retention rule to a directory (DATA-3).
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `data_class` | argument | yes | — | Data class (see governance-policy). |
+| `directory` | argument | yes | — | Directory of that class's artefacts. |
+| `--dry-run` | option | no | `False` | Report what would be removed only. |
+
+### `olympus minerva governance-policy`
+
+Print the system data retention/privacy policy (DATA-3) as JSON.
+
+### `olympus minerva governance-verify-custody`
+
+Verify the custody chain that historicises evidence (DATA-3).
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `ledger` | argument | yes | — | Signed custody ledger to verify. |
+
 ### `olympus minerva ledger-backup`
 
 Snapshot a verified custody ledger byte-for-byte (create-only, owner-only).
