@@ -706,15 +706,15 @@ Da prendere nelle fasi di implementazione, con valutazione delle alternative dis
 
 - `DEC-1` Politica di merge su `main`: approvazioni con un solo owner, permessi di bypass, merge queue o branch aggiornato, cronologia lineare, gestione dei check con filtro di percorso.
 - `DEC-2` Collocazione e contratto del preflight (nucleo condiviso vs servizio del piano Themis) e rappresentazione di `ENGINE_MISSING` come stato di job e risposta HTTP. **[deciso in parte 2026-11-03 — v. «Decisioni già prese» sotto]** collocazione risolta (servizio core puro condiviso `olympus.engines.preflight`); rappresentazione come stato di job / HTTP ancora **aperta** (si decide col cablaggio in `API-3`).
-- `DEC-3` Servizio di evidenza: uno solo condiviso o convergenza con la custodia Minerva; formato della busta; gestione delle chiavi (file, keyring, KMS); evidenza dei run rifiutati.
-- `DEC-4` Formato dei profili di risorse, rapporto manifest ↔ policy, metodo di misura (RLIMIT, cgroup, container).
-- `DEC-5` Strumento di scansione vulnerabilità per engine e immagine e strategia di lock delle dipendenze transitive.
+- `DEC-3` Servizio di evidenza: uno solo condiviso o convergenza con la custodia Minerva; formato della busta; gestione delle chiavi (file, keyring, KMS); evidenza dei run rifiutati. **[deciso 2026-11-23 — implementato]** evidenza per-run come manifest firmato `olympus.engine-run-evidence` (`olympus.engines.evidence`); storicizzazione/custody verificabile nel ledger Minerva (DATA-3); chiavi via file da env (`OLYMPUS_EVIDENCE_SIGNING_KEY_FILE`, custody HMAC/Ed25519 da env), no KMS per ora; un run senza signer è **rifiutato prima di partire** (nessuna evidenza non firmata).
+- `DEC-4` Formato dei profili di risorse, rapporto manifest ↔ policy, metodo di misura (RLIMIT, cgroup, container). **[differito — dipende da `TOOLS-4.3`]**
+- `DEC-5` Strumento di scansione vulnerabilità per engine e immagine e strategia di lock delle dipendenze transitive. **[differito — richiede build/scan dell'immagine (container/lab)]**
 - `DEC-6` Necessità e storage di un Security Knowledge Graph (dopo `CORR-1`).
-- `DEC-7` Rappresentazione della spiegabilità: estensione additiva di `olympus.finding` o documento separato.
-- `DEC-8` Scheduling ricorrente: dentro l'Execution Engine (`API-3`) o scheduler esterno.
+- `DEC-7` Rappresentazione della spiegabilità: estensione additiva di `olympus.finding` o documento separato. **[deciso 2026-11-23 — implementato]** documento **separato** versionato `olympus.finding-explanation` (`FindingExplanationDocument`, pubblicato nel catalogo), non un'estensione di `olympus.finding`.
+- `DEC-8` Scheduling ricorrente: dentro l'Execution Engine (`API-3`) o scheduler esterno. **[differito — si decide col cablaggio in `API-3`]**
 - `DEC-9` Stack frontend e design system per le due modalità (con `TECH-2`). **[deciso 2026-11-23 — ADR-010]**
-- `DEC-10` Fonte di verità per i livelli L1/L2/L3 di maturità degli engine (ledger esistente o estensione).
-- `DEC-11` Assorbimento di `scripts/smoke_scanner_image.py` in `engines doctor --strict` o coesistenza.
+- `DEC-10` Fonte di verità per i livelli L1/L2/L3 di maturità degli engine (ledger esistente o estensione). **[deciso 2026-11-23]** `docs/engines/INVENTORY.md` è la fonte di verità (tabella maturità + dichiarazione L1/L2/L3 per-engine), con l'evidenza firmata committata come prova dell'L3 (v. `docs/verify/`).
+- `DEC-11` Assorbimento di `scripts/smoke_scanner_image.py` in `engines doctor --strict` o coesistenza. **[deciso 2026-11-23 — coesistenza]** entrambi girano nel gate di pubblicazione `SEC-4.4` (`.github/workflows/publish-scanner-image.yml`): lo smoke verifica presenza/pin, `doctor --strict` la diagnostica completa; ruoli distinti, nessun assorbimento.
 - `DEC-12` Riuso selettivo di Sapper-v2/Nüwa **vs** reimplementazione nativa, per meccanismo; matrice di compatibilità licenze MIT↔GPL-3.0 per componente e dipendenza con obblighi di attribuzione (dopo `AI-0`). **[deciso 2026-11-23 — ADR-011]**
 - `DEC-13` Provider del Model Router, modelli locali di default e politica di egress/privacy verso modelli esterni (opt-in, redazione, confini del perimetro) (`AI-2`). **[deciso 2026-11-23 — ADR-012]**
 - `DEC-14` Livelli di autonomia degli agenti e matrice di gating delle approvazioni per classe di azione (lettura/analisi vs azione attiva/distruttiva); rapporto con `OperatingMode` e manifest firmato (`AI-4`). **[deciso 2026-11-23 — ADR-012]**
