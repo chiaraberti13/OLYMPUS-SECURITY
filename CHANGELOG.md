@@ -46,6 +46,17 @@ below lives under **Unreleased**.
   l'exit code *findings-aware* di `themis run` (1 = trovati, 5 = parziale) è ora tollerato così `set -e`
   non salta read-back ed evidenza. Guardie estese in `tests/unit/test_l3_engagement_lab.py`.
 
+### Added — AI-1: core di orchestrazione multi-agente (dietro feature flag)
+
+- Nuovo `olympus.ai.orchestrator.Orchestrator`: task-graph con dipendenze (ordine topologico; cicli e
+  dipendenze sconosciute rifiutati) e **matrice di gating DEC-14** — observe/analyze autonome; active richiede
+  l'autorizzazione dell'autorità; destructive richiede **approvazione umana + autorità**. L'orchestratore
+  **non esegue mai direttamente**: delega a una porta `ExecutionAuthority` iniettabile (Themis in produzione),
+  quindi **nessuna esecuzione fuori da Themis**. Fail-closed (azione negata → rifiutata, dipendenti skippati),
+  ogni passo con provenienza nel trail, inerte a flag off. Porte iniettabili → test offline
+  `tests/unit/test_ai_orchestrator.py`. **Resta:** componenti pieni (Planner/Coordinator/Verifier/Memory,
+  checkpoint/budget) e cablaggio all'autorità Themis viva (`API-3`).
+
 ### Added — AI-2: Model Router (fondamenta, dietro feature flag)
 
 - Nuovo package opzionale `olympus.ai` con `router.ModelRouter`, **off di default** (`OLYMPUS_AI_ENABLED`):

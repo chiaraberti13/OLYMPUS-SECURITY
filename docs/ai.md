@@ -44,11 +44,34 @@ router = default_router()  # OLYMPUS_AI_ENABLED must be set, else it refuses
 answer = router.generate("summarise these findings", max_tokens=256)
 ```
 
+## Orchestration core (`olympus.ai.orchestrator`, AI-1)
+
+The orchestrator schedules a task graph of agent actions — it is **not** an execution
+engine. Every action that would touch a target or run an engine is delegated to an
+injected **execution authority** port (Themis in production); the orchestrator never
+executes directly, so Themis stays the only authority for scope, isolation and
+authorization. Each action carries an `ActionClass`, and the DEC-14 gating matrix
+decides how it runs:
+
+| Action class | Gate |
+| --- | --- |
+| observe / analyze | autonomous |
+| active (live scan/engine) | requires the authority's in-scope authorization |
+| destructive (exploitation, external writes, remediation apply) | requires explicit human approval **and** the authority |
+
+It is fail-closed: a denied action is refused and its dependents skipped, every step
+is recorded with provenance in the trail, and with the flag off it is inert. The
+authority and approvals are injectable ports, so it is unit-tested offline
+(`tests/unit/test_ai_orchestrator.py`).
+
 ## Status
 
 `AI-0` (audit + license matrix) and the foundational decisions `DEC-13`/`DEC-14`/
-`DEC-16` are recorded (ADR-011, ADR-012). The Model Router contract above is
+`DEC-16` are recorded (ADR-011, ADR-012). The Model Router (`AI-2`) and the
+orchestration core with its gating/authority-delegation invariants (`AI-1`) are
 implemented and tested. Still to come, each behind the flag with its own
-fail-closed tests: a real local-LLM runtime adapter, the multi-agent orchestration
-(`AI-1`), the verifiable Fact Graph (`AI-3`, gated on `CORR-1`/`DEC-15`), the
-specialized agents (`AI-4`) and the evaluation harness (`AI-7`).
+fail-closed tests: a real local-LLM runtime adapter; the full orchestration
+components (Planner/Coordinator/Verifier/Memory, checkpoint recovery, budget
+control) wired to the live Themis authority; the verifiable Fact Graph (`AI-3`,
+gated on `CORR-1`/`DEC-15`); the specialized agents (`AI-4`); and the evaluation
+harness (`AI-7`).
