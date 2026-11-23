@@ -46,6 +46,17 @@ below lives under **Unreleased**.
   l'exit code *findings-aware* di `themis run` (1 = trovati, 5 = parziale) è ora tollerato così `set -e`
   non salta read-back ed evidenza. Guardie estese in `tests/unit/test_l3_engagement_lab.py`.
 
+### Added — AI-2: Model Router (fondamenta, dietro feature flag)
+
+- Nuovo package opzionale `olympus.ai` con `router.ModelRouter`, **off di default** (`OLYMPUS_AI_ENABLED`):
+  a flag spento ogni chiamata è un `RouterDisabledError` deterministico (ADR-011, invariante "AI off → Olympus
+  invariato"). Provider come **porta iniettabile**; `DeterministicLocalProvider` offline garantisce il path
+  locale e il fallback deterministico. **Egress esterno solo opt-in** (`allow_external` + `external=True`);
+  senza opt-in il provider esterno non è mai chiamato (nessun dato esce) e, quando consentito, il prompt è
+  **redatto** (IPv4/email/target) prima dell'egress (DEC-13 / DATA-3). `Budget` token+chiamate fail-closed.
+  Nessun I/O di rete nel router (provider iniettabili) → test offline `tests/unit/test_ai_router.py`. Doc
+  `docs/ai.md`. **Resta:** adapter per un runtime LLM locale reale e cablaggio in `AI-1`.
+
 ### Changed — Registro decisioni: DEC già risolte dall'implementazione
 
 - Registrate come **decise** (con puntatore all'implementazione) le decisioni del registro già incarnate dal

@@ -848,12 +848,21 @@ priorità al consolidamento P0/P1 e non precede `CORR-*`/`EXPL-*`/`VAL-*`/`API-3
     invariato (test); un agente che tenta un'azione fuori scope/senza autorizzazione è **rifiutato** (test
     fail-closed); ogni passo dell'orchestratore è nell'audit con provenienza; nessuna esecuzione che non passi
     per Themis.
-- **AI-2** [ ] (P1/P2) **Model Router multi-provider** con modelli **locali di default** e provider esterni
+- **AI-2** [~] (P1/P2) **Model Router multi-provider** con modelli **locali di default** e provider esterni
   opt-in; politica di egress/privacy (redazione, confini del perimetro), budget/token control e fallback
   deterministico quando nessun modello è disponibile.
   - *Dipende da:* `AI-0`; `DEC-13`. *Accettazione:* almeno un provider locale funzionante; nessun dato
     sensibile verso un provider esterno senza opt-in registrato (test di redazione/egress); costi/token
     tracciati; disattivazione del router → percorso deterministico.
+  - **Fatto (2026-11-23):** `olympus.ai.router.ModelRouter` dietro il feature flag `OLYMPUS_AI_ENABLED`
+    (**off di default** → `RouterDisabledError` deterministico; ADR-011). Provider come **porta** iniettabile;
+    `DeterministicLocalProvider` offline sempre funzionante = path locale garantito e fallback deterministico.
+    Egress esterno **solo** con opt-in `allow_external` **e** `external=True`, altrimenti il provider esterno
+    non viene mai toccato (nessun dato esce); quando consentito, il prompt è **redatto** (`redact`: IPv4/email
+    + target dell'engagement) prima dell'egress (DEC-13 / policy DATA-3). `Budget` token+chiamate fail-closed.
+    Il router non fa I/O di rete (provider iniettabili) → test interamente offline in `tests/unit/test_ai_router.py`
+    (7 invarianti). Doc [`docs/ai.md`](docs/ai.md). **Resta:** l'adapter di un **runtime LLM locale reale**
+    (llama.cpp/Ollama) dietro la stessa porta e il cablaggio nell'orchestrazione `AI-1`.
 - **AI-3** [ ] (P2) **Memoria/knowledge condivisa verificabile (Fact Graph):** ogni asserzione con
   provenienza, confidenza, **classe epistemica** (enum condivisa `EXPL-1`/`CORR-1`) e riferimenti alle
   evidenze (`Evidence`/custody Minerva). Nessuna ipotesi promossa a fatto. Riusa `argus.graph`/`vulcan.correlate`.
