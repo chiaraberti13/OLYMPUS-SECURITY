@@ -1,0 +1,54 @@
+name: docs-site
+
+# Publishes the static documentation site (DOCS-3) to GitHub Pages from the
+# committed public/docs/ tree. Passive by default: Pages deployment only runs when
+# the owner sets the repository variable PUBLISH_DOCS_SITE == "true" (and enables
+# Pages with the "GitHub Actions" source). The committed pages are always also
+# served by Vercel (public/ is its output directory), so this workflow is an
+# optional second host, not a dependency. The drift between docs/ and the committed
+# site is enforced in the ordinary test suite (tests/unit/test_docs_site.py).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "public/docs/**"
+      - "scripts/build_docs_site.py"
+      - ".github/workflows/docs-site.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-site-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # Off until the owner opts in; nothing is published otherwise.
+    if: ${{ vars.PUBLISH_DOCS_SITE == 'true' }}
+    runs-on: ubuntu-latest
+    environment: github-pages
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: Verify the committed site matches docs/ (no drift)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          python scripts/build_docs_site.py --check
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public/docs
+      - id: deployment
+        uses: actions/deploy-pages@v4

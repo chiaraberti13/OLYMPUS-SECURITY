@@ -46,6 +46,18 @@ below lives under **Unreleased**.
   l'exit code *findings-aware* di `themis run` (1 = trovati, 5 = parziale) è ora tollerato così `set -e`
   non salta read-back ed evidenza. Guardie estese in `tests/unit/test_l3_engagement_lab.py`.
 
+### Added — DOCS-3: sito doc statico bilingue da docs/
+
+- Nuovo `scripts/build_docs_site.py`: genera un sito di documentazione statico e autoconsistente
+  sotto `public/docs/` da ogni `docs/**/*.md`. Rendering **server-side, offline, senza dipendenze**
+  (renderer Markdown→HTML dedicato), imposto dalla **CSP severa** di `public/` (nessuno
+  script/asset remoto). Chrome e landing **bilingui IT/EN**; i corpi dei doc restano nella lingua
+  originale. I link `*.md` tra doc → `*.html` (navigazione statica); i link a file fuori da `docs/`
+  → URL GitHub `blob/main`. Servito da Vercel (`public/`) e, opzionalmente, da GitHub Pages via il
+  nuovo workflow **passivo** `.github/workflows/docs-site.yml` (deploy solo con
+  `PUBLISH_DOCS_SITE == 'true'` + environment protetto `github-pages`). Gate anti-drift
+  `--check` + `tests/unit/test_docs_site.py`.
+
 ### Added — SEC-4.4: gate di pubblicazione dell'immagine scanner (chiude SEC-4)
 
 - Nuovo workflow `.github/workflows/publish-scanner-image.yml`: l'immagine scanner non è
