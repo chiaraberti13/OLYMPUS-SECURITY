@@ -77,7 +77,7 @@ Report engine readiness for a prospective live scan, offline (TOOLS-4.1).
 
 | Tags | Request contract | Response contract |
 | --- | --- | --- |
-| capabilities | — | `olympus.engine-preflight` `1.0.0` |
+| capabilities | — | `olympus.engine-preflight` `1.1.0` |
 
 ### `POST /api/v1/helios/identify-service`
 

@@ -1138,6 +1138,13 @@
             "title": "Blocking",
             "type": "array"
           },
+          "degraded": {
+            "items": {
+              "$ref": "#/components/schemas/PreflightBlockingEngine"
+            },
+            "title": "Degraded",
+            "type": "array"
+          },
           "exit_code": {
             "title": "Exit Code",
             "type": "integer"
@@ -1160,8 +1167,8 @@
             "type": "string"
           },
           "schema_version": {
-            "const": "1.0.0",
-            "default": "1.0.0",
+            "const": "1.1.0",
+            "default": "1.1.0",
             "title": "Schema Version",
             "type": "string"
           }

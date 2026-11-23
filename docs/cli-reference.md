@@ -745,6 +745,7 @@ Fail-closed readiness gate for a planned scan (no network, no target).
 | --- | --- | --- | --- | --- |
 | `--engine` | option | no | — | Also require this engine (repeatable), beyond the mandatory set. |
 | `--command` | option | no | — | Also require every engine this command needs (e.g. 'themis.run'); unknown → exit 2. |
+| `--allow-missing-engines` | option | no | `False` | Tolerate a missing OPTIONAL engine (degraded, exit 5); mandatory still blocks. |
 | `--format` | option | no | `table` | table or json. |
 
 ### `olympus helios scan`

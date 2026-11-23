@@ -46,6 +46,15 @@ below lives under **Unreleased**.
   l'exit code *findings-aware* di `themis run` (1 = trovati, 5 = parziale) è ora tollerato così `set -e`
   non salta read-back ed evidenza. Guardie estese in `tests/unit/test_l3_engagement_lab.py`.
 
+### Added — TOOLS-4.1 (P0): `engines preflight --allow-missing-engines` (opzionali → degraded)
+
+- `preflight(..., allow_missing=True)` + flag CLI `olympus engines preflight --allow-missing-engines`:
+  un engine **opzionale** mancante è tollerato come **`degraded`** (exit 5) invece di bloccare; un engine
+  **mandatory** (nmap/nuclei/httpx) blocca **sempre** (exit 8), mai waivato. Il verdetto espone ora
+  `degraded` e il contratto pubblicato `olympus.engine-preflight` passa a **1.1.0** (additivo: campo
+  `degraded`; golden schema, catalogo, OpenAPI, api-reference e cli-reference rigenerati). Test in
+  `tests/unit/test_engine_preflight.py`. Resta la parità cross-interfaccia (TUI/API/Web) + verifica lab.
+
 ### Documented — TOOLS-4.4 (P0) chiuso: tabella unica di classificazione degli output
 
 - Consolidata in `docs/run-status.md` la **tabella unica di corrispondenza** della grammatica d'output
