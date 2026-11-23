@@ -22,6 +22,7 @@ from olympus.engines.preflight import (
     EnginePreflightReport,
     PreflightVerdict,
     UnknownEngineError,
+    build_preflight_report,
     preflight,
     required_engines,
 )
@@ -135,7 +136,7 @@ def test_cli_preflight_exits_8_on_a_clean_host() -> None:
 def test_cli_preflight_exits_0_when_ready(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "olympus.engines.cli.preflight",
-        lambda env, engines=(), commands=(): PreflightVerdict(
+        lambda env, engines=(), commands=(), allow_missing=False: PreflightVerdict(
             ExitCode.OK, ("nmap", "nuclei", "httpx"), ()
         ),
     )
@@ -149,7 +150,7 @@ def test_cli_preflight_json_output_is_a_versioned_contract(monkeypatch: pytest.M
     # olympus.engine-preflight, not an ad-hoc dict (TOOLS-4.1).
     monkeypatch.setattr(
         "olympus.engines.cli.preflight",
-        lambda env, engines=(), commands=(): PreflightVerdict(
+        lambda env, engines=(), commands=(), allow_missing=False: PreflightVerdict(
             ExitCode.OK, ("httpx", "nmap", "nuclei"), ()
         ),
     )
@@ -157,7 +158,7 @@ def test_cli_preflight_json_output_is_a_versioned_contract(monkeypatch: pytest.M
     assert result.exit_code == 0
     document = json.loads(result.stdout)
     assert document["schema_name"] == "olympus.engine-preflight"
-    assert document["schema_version"] == "1.0.0"
+    assert document["schema_version"] == "1.1.0"
     report = EnginePreflightReport.model_validate(document)
     assert report.ready is True
     assert report.required == ["httpx", "nmap", "nuclei"]
@@ -176,7 +177,7 @@ def test_cli_preflight_json_reports_blocking_engines_with_install_commands(
     )
     monkeypatch.setattr(
         "olympus.engines.cli.preflight",
-        lambda env, engines=(), commands=(): PreflightVerdict(
+        lambda env, engines=(), commands=(), allow_missing=False: PreflightVerdict(
             ExitCode.ENGINE_MISSING, ("nmap",), (blocked,)
         ),
     )
@@ -195,7 +196,28 @@ def test_engine_preflight_is_a_published_output_contract() -> None:
     catalog = json.loads(catalog_files()[Path("catalog.json")])
     entry = next(c for c in catalog["contracts"] if c["name"] == "olympus.engine-preflight")
     assert entry["direction"] == "output"
-    assert entry["schema_version"] == "1.0.0"
+    assert entry["schema_version"] == "1.1.0"
+
+
+def test_allow_missing_partitions_optional_to_degraded_but_mandatory_still_blocks() -> None:
+    # Everything missing + an optional engine requested, with the opt-in: the mandatory
+    # baseline still BLOCKS (exit 8), while the optional engine is partitioned to degraded.
+    verdict = preflight(_all_missing_env(), engines=("katana",), allow_missing=True)
+    assert verdict.exit_code is ExitCode.ENGINE_MISSING
+    assert {s.name for s in verdict.blocking} >= _MANDATORY  # baseline never waived
+    assert {s.name for s in verdict.degraded} == {"katana"}  # optional tolerated
+
+
+def test_optional_only_missing_is_degraded_exit_5() -> None:
+    # An optional-only gap (no mandatory missing) is degraded (exit 5), never blocking.
+    status = EngineStatus(
+        name="katana", state=EngineState.MISSING, mandatory=False, detail="not on PATH"
+    )
+    verdict = PreflightVerdict(ExitCode.PARTIAL, ("katana",), (), (status,))
+    report = build_preflight_report(verdict)
+    assert report.schema_version == "1.1.0"
+    assert report.degraded[0].name == "katana" and report.blocking == []
+    assert report.exit_code == int(ExitCode.PARTIAL)
 
 
 def test_cli_preflight_rejects_an_unknown_engine() -> None:

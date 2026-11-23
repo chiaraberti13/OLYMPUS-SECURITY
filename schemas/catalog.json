@@ -136,9 +136,9 @@
     {
       "direction": "output",
       "name": "olympus.engine-preflight",
-      "path": "contracts/olympus.engine-preflight/1.0.0.schema.json",
-      "schema_version": "1.0.0",
-      "sha256": "dac2c25ac210e087fbd0aadd2b58ee3a96f608258bc8bfe1243d981178a26511"
+      "path": "contracts/olympus.engine-preflight/1.1.0.schema.json",
+      "schema_version": "1.1.0",
+      "sha256": "7ef5a9d43f1aa24b9bff112bc8df6a9fbf5ba152bdf8518f59335e2067284cdd"
     },
     {
       "direction": "output",

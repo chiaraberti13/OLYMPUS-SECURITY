@@ -30,10 +30,9 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from olympus.core.exit_codes import ExitCode
-from olympus.core.models import OlympusModel
 from olympus.engines.commands import THEMIS_RUN, require_known
 from olympus.engines.doctor import EngineState, EngineStatus, Environment, inspect_engine
 from olympus.engines.loader import ManifestError, load_all, manifest_for
@@ -52,25 +51,33 @@ class PreflightVerdict:
     required: tuple[str, ...]
     #: Required engines that are not usable; the run must not launch while this is non-empty.
     blocking: tuple[EngineStatus, ...]
+    #: Optional engines that are missing but were tolerated via --allow-missing-engines:
+    #: the run may proceed degraded (exit 5), never for a mandatory engine.
+    degraded: tuple[EngineStatus, ...] = ()
 
     @property
     def ok(self) -> bool:
         return self.exit_code is ExitCode.OK
 
+    @staticmethod
+    def _engine_records(statuses: tuple[EngineStatus, ...]) -> list[dict[str, object]]:
+        return [
+            {
+                "name": status.name,
+                "state": status.state.value,
+                "detail": status.detail,
+                "install_command": status.install_command,
+            }
+            for status in statuses
+        ]
+
     def audit_metadata(self) -> dict[str, object]:
-        """Redacted audit record: which engines were required and which blocked, with the
-        exact install command for each gap. Contains no secret and no target."""
+        """Redacted audit record: which engines were required, which blocked and which were
+        tolerated as degraded, with the exact install command for each gap. No secret, no target."""
         return {
             "required_engines": list(self.required),
-            "blocking_engines": [
-                {
-                    "name": status.name,
-                    "state": status.state.value,
-                    "detail": status.detail,
-                    "install_command": status.install_command,
-                }
-                for status in self.blocking
-            ],
+            "blocking_engines": self._engine_records(self.blocking),
+            "degraded_engines": self._engine_records(self.degraded),
         }
 
 
@@ -92,11 +99,29 @@ class PreflightBlockingEngine(_ReportPart):
     install_command: str | None
 
 
-class EnginePreflightReport(OlympusModel):
+def _report_engines(statuses: tuple[EngineStatus, ...]) -> list[PreflightBlockingEngine]:
+    return [
+        PreflightBlockingEngine(
+            name=status.name,
+            state=status.state.value,
+            detail=status.detail,
+            install_command=status.install_command,
+        )
+        for status in statuses
+    ]
+
+
+class EnginePreflightReport(BaseModel):
+    # BaseModel (not OlympusModel) because this contract is past 1.0.0 and OlympusModel
+    # pins schema_version to Literal["1.0.0"]; mirror its strict config.
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
     schema_name: Literal["olympus.engine-preflight"] = "olympus.engine-preflight"
-    schema_version: Literal["1.0.0"] = "1.0.0"
+    schema_version: Literal["1.1.0"] = "1.1.0"
     required: list[str]
     blocking: list[PreflightBlockingEngine]
+    #: Optional engines tolerated as missing via --allow-missing-engines (additive in 1.1.0).
+    degraded: list[PreflightBlockingEngine] = Field(default_factory=list)
     ready: bool
     exit_code: int
 
@@ -105,15 +130,8 @@ def build_preflight_report(verdict: PreflightVerdict) -> EnginePreflightReport:
     """Assemble the versioned, machine-readable preflight report from the verdict."""
     return EnginePreflightReport(
         required=list(verdict.required),
-        blocking=[
-            PreflightBlockingEngine(
-                name=status.name,
-                state=status.state.value,
-                detail=status.detail,
-                install_command=status.install_command,
-            )
-            for status in verdict.blocking
-        ],
+        blocking=_report_engines(verdict.blocking),
+        degraded=_report_engines(verdict.degraded),
         ready=verdict.ok,
         exit_code=int(verdict.exit_code),
     )
@@ -149,26 +167,49 @@ def required_engines(
 
 
 def preflight(
-    env: Environment, *, engines: Sequence[str] = (), commands: Sequence[str] = ()
+    env: Environment,
+    *,
+    engines: Sequence[str] = (),
+    commands: Sequence[str] = (),
+    allow_missing: bool = False,
 ) -> PreflightVerdict:
     """Return the fail-closed verdict for a run that needs ``engines`` (plus the mandatory set
     and any engine a running ``command`` requires via ``required_for_commands``).
+
+    With ``allow_missing`` the operator accepts running **degraded**: an *optional* engine
+    that is missing is reported as degraded (exit 5) instead of blocking, so the run may
+    proceed without it. A **mandatory** engine (``nmap``/``nuclei``/``httpx``) always blocks
+    (exit 8), even with the opt-in — the baseline is never waived.
 
     Offline and side-effect free: it inspects the host only through ``env`` (injected
     ``which``/``probe``/``git_head``), never the network or a target.
     """
     manifests = load_all()
     required = required_engines(manifests, engines, commands=commands)
+    mandatory = {name for name, manifest in manifests.items() if manifest.engine.mandatory}
     statuses = [inspect_engine(name, manifests[name], env) for name in required]
     # An ``api``/commercial engine can never be required, so a REQUIRES_PRODUCT status is
     # never blocking; everything else that is not PRESENT blocks the launch.
-    blocking = tuple(
+    unusable = tuple(
         status
         for status in statuses
         if not status.ok and status.state is not EngineState.REQUIRES_PRODUCT
     )
-    exit_code = ExitCode.ENGINE_MISSING if blocking else ExitCode.OK
-    return PreflightVerdict(exit_code=exit_code, required=required, blocking=blocking)
+    if allow_missing:
+        blocking = tuple(s for s in unusable if s.name in mandatory)
+        degraded = tuple(s for s in unusable if s.name not in mandatory)
+    else:
+        blocking = unusable
+        degraded = ()
+    if blocking:
+        exit_code = ExitCode.ENGINE_MISSING
+    elif degraded:
+        exit_code = ExitCode.PARTIAL
+    else:
+        exit_code = ExitCode.OK
+    return PreflightVerdict(
+        exit_code=exit_code, required=required, blocking=blocking, degraded=degraded
+    )
 
 
 def preflight_for_scanner(env: Environment, scanner: str | None) -> PreflightVerdict:

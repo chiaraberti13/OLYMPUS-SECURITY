@@ -37,7 +37,7 @@
       "type": "object"
     }
   },
-  "$id": "urn:olympus:schema:olympus.engine-preflight:1.0.0",
+  "$id": "urn:olympus:schema:olympus.engine-preflight:1.1.0",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
@@ -46,6 +46,13 @@
         "$ref": "#/$defs/PreflightBlockingEngine"
       },
       "title": "Blocking",
+      "type": "array"
+    },
+    "degraded": {
+      "items": {
+        "$ref": "#/$defs/PreflightBlockingEngine"
+      },
+      "title": "Degraded",
       "type": "array"
     },
     "exit_code": {
@@ -70,8 +77,8 @@
       "type": "string"
     },
     "schema_version": {
-      "const": "1.0.0",
-      "default": "1.0.0",
+      "const": "1.1.0",
+      "default": "1.1.0",
       "title": "Schema Version",
       "type": "string"
     }

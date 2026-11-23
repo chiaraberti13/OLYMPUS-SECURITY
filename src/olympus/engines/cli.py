@@ -147,6 +147,11 @@ def engines_preflight(
         "--command",
         help="Also require every engine this command needs (e.g. 'themis.run'); unknown → exit 2.",
     ),
+    allow_missing: bool = typer.Option(
+        False,
+        "--allow-missing-engines",
+        help="Tolerate a missing OPTIONAL engine (degraded, exit 5); mandatory still blocks.",
+    ),
     output_format: OutputFormat = typer.Option(
         OutputFormat.TABLE, "--format", help="table or json."
     ),
@@ -157,7 +162,9 @@ def engines_preflight(
     any passed with --engine, and any an engine-launching --command requires via its
     manifest's ``required_for_commands`` — is present at its pinned version. Exits 0 when
     all are ready, 8 (engine missing) when one is not, printing the exact install command
-    for each gap. Meant to be run by an operator, or to gate CI/automation, before a scan.
+    for each gap. With --allow-missing-engines a missing *optional* engine is tolerated as
+    degraded (exit 5) instead of blocking; a mandatory engine always blocks (exit 8). Meant
+    to be run by an operator, or to gate CI/automation, before a scan.
     """
     try:
         commands = (require_known(command),) if command is not None else ()
@@ -165,7 +172,12 @@ def engines_preflight(
         typer.echo(f"olympus: {exc}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
     try:
-        verdict = preflight(system_environment(), engines=tuple(engine), commands=commands)
+        verdict = preflight(
+            system_environment(),
+            engines=tuple(engine),
+            commands=commands,
+            allow_missing=allow_missing,
+        )
     except UnknownEngineError as exc:
         typer.echo(f"olympus: unknown engine: {exc}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
@@ -173,9 +185,7 @@ def engines_preflight(
         report = build_preflight_report(verdict)
         typer.echo(json.dumps(report.model_dump(mode="json"), indent=2, sort_keys=True))
     else:
-        if verdict.ok:
-            typer.echo(f"preflight OK: {len(verdict.required)} required engine(s) present.")
-        else:
+        if verdict.blocking:
             typer.echo(
                 f"preflight BLOCKED: {len(verdict.blocking)} of {len(verdict.required)} "
                 "required engine(s) missing.",
@@ -185,4 +195,16 @@ def engines_preflight(
                 typer.echo(f"REQUIRED: {status.name}: {status.detail}", err=True)
                 if status.install_command:
                     typer.echo(f"  install: {status.install_command}", err=True)
+        elif verdict.degraded:
+            typer.echo(
+                f"preflight DEGRADED: {len(verdict.degraded)} optional engine(s) missing "
+                "(tolerated via --allow-missing-engines).",
+                err=True,
+            )
+            for status in verdict.degraded:
+                typer.echo(f"OPTIONAL: {status.name}: {status.detail}", err=True)
+                if status.install_command:
+                    typer.echo(f"  install: {status.install_command}", err=True)
+        else:
+            typer.echo(f"preflight OK: {len(verdict.required)} required engine(s) present.")
     raise typer.Exit(code=verdict.exit_code)
