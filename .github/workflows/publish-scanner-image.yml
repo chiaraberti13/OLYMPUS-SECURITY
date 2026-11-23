@@ -1,0 +1,104 @@
+name: publish-scanner-image
+
+# Publication gate (SEC-4.4): the scanner image is NEVER published unless it was
+# built, smoke-tested AND `engines doctor --strict`-validated on the very same
+# image in the same run. The gate exists BEFORE any real publication:
+#
+#   * Passive by default — only a version tag (or a manual dispatch) reaches this
+#     workflow; a pull request or a branch push can never drive it.
+#   * The `publish` job hard-depends on `validate` (`needs: validate`), so an
+#     unvalidated image can never reach the registry: if build / smoke / doctor
+#     fail, publish does not run at all.
+#   * Even after validation, publishing still requires the owner-set repository
+#     variable PUBLISH_SCANNER_IMAGE == "true" AND approval of the protected
+#     `publish-scanner-image` environment.
+#   * Keyless: the push authenticates with the ephemeral GITHUB_TOKEN (GHCR) —
+#     no registry password is stored in the repository.
+#
+# Until the owner flips PUBLISH_SCANNER_IMAGE and configures the environment, this
+# workflow validates on a tag and publishes nothing.
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-scanner-image-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: build · smoke · doctor --strict
+    runs-on: ubuntu-latest
+    timeout-minutes: 90 # nmap and the Go engines are compiled from source
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: Install Olympus (manifest loader for smoke + doctor)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+      - name: Build the scanner image
+        run: |
+          docker build --progress=plain -f docker/Dockerfile.scanners \
+            --iidfile "$RUNNER_TEMP/iid" -t olympus-scanners:candidate .
+          echo "Built image id: $(cat "$RUNNER_TEMP/iid")"
+      - name: Every shipped engine is present at its pinned version (smoke)
+        run: python scripts/smoke_scanner_image.py olympus-scanners:candidate
+      - name: Strict engine diagnostics on the built image (doctor --strict)
+        run: |
+          docker run --rm --entrypoint olympus olympus-scanners:candidate \
+            engines doctor --strict
+      - name: Save the validated image for the publish stage
+        run: docker save olympus-scanners:candidate -o "$RUNNER_TEMP/image.tar"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: validated-scanner-image
+          path: ${{ runner.temp }}/image.tar
+          retention-days: 1
+          if-no-files-found: error
+
+  publish:
+    name: publish validated image (by digest)
+    needs: validate
+    # A version tag, the owner switch, and the protected environment are ALL
+    # required. Never on a pull request; never without the explicit switch.
+    if: ${{ startsWith(github.ref, 'refs/tags/') && vars.PUBLISH_SCANNER_IMAGE == 'true' }}
+    runs-on: ubuntu-latest
+    environment: publish-scanner-image
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: validated-scanner-image
+          path: ${{ runner.temp }}
+      - name: Load the validated image (the exact one that passed validation)
+        run: docker load -i "$RUNNER_TEMP/image.tar"
+      - name: Log in to GHCR (ephemeral GITHUB_TOKEN, no stored secret)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push and record the content digest
+        run: |
+          set -euo pipefail
+          repo="${GITHUB_REPOSITORY,,}"
+          ref="ghcr.io/${repo}/olympus-scanners"
+          docker tag olympus-scanners:candidate "$ref:${GITHUB_REF_NAME}"
+          docker push "$ref:${GITHUB_REF_NAME}"
+          digest="$(docker inspect --format '{{index .RepoDigests 0}}' "$ref:${GITHUB_REF_NAME}")"
+          echo "Published validated scanner image by digest: ${digest}"
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"

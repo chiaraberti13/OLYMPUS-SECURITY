@@ -46,6 +46,19 @@ below lives under **Unreleased**.
   l'exit code *findings-aware* di `themis run` (1 = trovati, 5 = parziale) è ora tollerato così `set -e`
   non salta read-back ed evidenza. Guardie estese in `tests/unit/test_l3_engagement_lab.py`.
 
+### Added — SEC-4.4: gate di pubblicazione dell'immagine scanner (chiude SEC-4)
+
+- Nuovo workflow `.github/workflows/publish-scanner-image.yml`: l'immagine scanner non è
+  pubblicabile se non è stata **validata** (build + `scripts/smoke_scanner_image.py` +
+  `olympus engines doctor --strict`) sulla **stessa** immagine nello stesso run. **Passivo di
+  default** (solo tag `v*.*.*` o dispatch; mai PR/branch); il job `publish` **dipende** da
+  `validate` (un'immagine non validata non raggiunge il registry) e richiede in più la variabile
+  owner `PUBLISH_SCANNER_IMAGE == "true"` e l'approvazione dell'environment protetto
+  `publish-scanner-image`; pubblica per **digest** su GHCR, **keyless** (solo `GITHUB_TOKEN`
+  effimero, nessun segreto di registry). Proprietà verificate offline in
+  `tests/unit/test_publish_workflow.py`. Con questo **SEC-4 è chiuso** (4.1–4.5 completi). La
+  pubblicazione reale resta spenta finché l'owner non attiva switch + environment.
+
 ### Verified — SEC-4.5: prima release firmata provata end-to-end
 
 - La prima release firmata (tag `v0.2.0_on_publish` a `eec75be`, workflow `release` success) ha allegato
