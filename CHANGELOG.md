@@ -46,6 +46,13 @@ below lives under **Unreleased**.
   l'exit code *findings-aware* di `themis run` (1 = trovati, 5 = parziale) è ora tollerato così `set -e`
   non salta read-back ed evidenza. Guardie estese in `tests/unit/test_l3_engagement_lab.py`.
 
+### Added — TOOLS-4.1 (P0): parità API di allow-missing/degraded
+
+- `GET /api/v1/engines/preflight?allow_missing=true` propaga l'opt-in (`preflight_for_scanner(...,
+  allow_missing=...)`); il report `olympus.engine-preflight` 1.1.0 ritorna `degraded`. Un engine opzionale
+  mancante → `degraded`; i mandatory restano `blocking` (exit 8). Test in `tests/unit/test_themis_api.py`;
+  OpenAPI golden + api-reference rigenerati. Restano la parità Web/TUI e la verifica lab.
+
 ### Added — TOOLS-4.1 (P0): `engines preflight --allow-missing-engines` (opzionali → degraded)
 
 - `preflight(..., allow_missing=True)` + flag CLI `olympus engines preflight --allow-missing-engines`:

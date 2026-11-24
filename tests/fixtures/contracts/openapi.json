@@ -3187,7 +3187,7 @@
     },
     "/api/v1/engines/preflight": {
       "get": {
-        "description": "Report engine readiness for a prospective live scan, offline (TOOLS-4.1).\n\nRead-only: inspects the host through the shared fail-closed preflight \u2014 the mandatory\nengines (``nmap``/``nuclei``/``httpx``) plus the named ``scanner`` when Olympus governs\nit \u2014 and returns the versioned ``olympus.engine-preflight`` verdict, so a client can\ncheck readiness **before** queueing a job rather than discovering the gap only when the\nworker fails it. It runs no scan and performs no target I/O. The API enqueues work and a\nworker executes it, so this reflects the node that answers; in a split deployment the\nengines actually used are the worker's, which enforces the same preflight at run time.",
+        "description": "Report engine readiness for a prospective live scan, offline (TOOLS-4.1).\n\nRead-only: inspects the host through the shared fail-closed preflight \u2014 the mandatory\nengines (``nmap``/``nuclei``/``httpx``) plus the named ``scanner`` when Olympus governs\nit \u2014 and returns the versioned ``olympus.engine-preflight`` verdict, so a client can\ncheck readiness **before** queueing a job rather than discovering the gap only when the\nworker fails it. With ``allow_missing=true`` an optional engine is reported as\n``degraded`` (exit 5) instead of blocking; a mandatory engine always blocks (exit 8).\nIt runs no scan and performs no target I/O. The API enqueues work and a worker executes\nit, so this reflects the node that answers; in a split deployment the engines actually\nused are the worker's, which enforces the same preflight at run time.",
         "operationId": "engines_preflight_api_v1_engines_preflight_get",
         "parameters": [
           {
@@ -3205,6 +3205,16 @@
                 }
               ],
               "title": "Scanner"
+            }
+          },
+          {
+            "in": "query",
+            "name": "allow_missing",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Allow Missing",
+              "type": "boolean"
             }
           }
         ],
