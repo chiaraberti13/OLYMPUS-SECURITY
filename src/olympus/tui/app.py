@@ -34,6 +34,11 @@ STATUS_HINT = " Enter: select/run   Tab: next panel   F1: help   F5: run   Esc: 
 #: Its presence in the built argv is the signal for a proportionate confirmation.
 AUTHORIZATION_FLAG = "--i-am-authorized"
 
+#: Explicit opt-in that may tolerate only optional engine dependencies. It is
+#: safety-significant even though ``engines preflight`` itself is read-only: a
+#: downstream operator/automation must treat its exit 5 as incomplete coverage.
+ALLOW_MISSING_ENGINES_FLAG = "--allow-missing-engines"
+
 #: Grace period before the kill switch escalates SIGTERM to SIGKILL.
 KILL_GRACE_SECONDS = 3.0
 
@@ -198,6 +203,53 @@ class ConfirmRunScreen(ModalScreen[bool]):
         self.dismiss(False)
 
 
+class ConfirmDegradedScreen(ModalScreen[bool]):
+    """Confirm the explicit choice to tolerate optional missing engines.
+
+    Mandatory and explicitly named engines remain blocking. The modal exists so
+    the TUI cannot turn the CLI opt-in into an unnoticed checkbox: accepting it
+    means accepting a ``partial``/exit-5 verdict, never a clean assessment.
+    """
+
+    BINDINGS: ClassVar[list[Binding | tuple[str, str] | tuple[str, str, str]]] = [
+        Binding("escape", "deny", "Cancel"),
+        Binding("enter", "confirm", "Confirm"),
+    ]
+
+    def __init__(self, path: tuple[str, ...], arguments: list[str]) -> None:
+        super().__init__()
+        self._invocation = " ".join(("olympus", *path, *arguments))
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="confirm-dialog"):
+            yield Static(" CONFIRM DEGRADED PREFLIGHT ", classes="dialog-title")
+            yield Static(
+                "This opt-in may tolerate missing OPTIONAL engine dependencies.\n\n"
+                f"Command:    {self._invocation}\n\n"
+                "Mandatory and explicitly named engines still block. If an optional "
+                "dependency is missing, the verdict is PARTIAL (exit 5), never clean. "
+                "Proceed?",
+                id="confirm-copy",
+            )
+            with Horizontal(id="confirm-actions"):
+                yield Button("ACCEPT PARTIAL (Enter)", id="confirm-degraded", variant="warning")
+                yield Button("CANCEL (Esc)", id="deny-degraded")
+
+    @on(Button.Pressed, "#confirm-degraded")
+    def confirm_pressed(self) -> None:
+        self.dismiss(True)
+
+    @on(Button.Pressed, "#deny-degraded")
+    def deny_pressed(self) -> None:
+        self.dismiss(False)
+
+    def action_confirm(self) -> None:
+        self.dismiss(True)
+
+    def action_deny(self) -> None:
+        self.dismiss(False)
+
+
 class CommandScreen(Screen[None]):
     """Run one real Olympus command and stream its output."""
 
@@ -340,10 +392,38 @@ class CommandScreen(Screen[None]):
         arguments = self._prepare_arguments()
         if arguments is None:
             return
+        # ``--allow-missing-engines`` is an explicit acceptance of incomplete
+        # coverage. Confirm it before any subprocess starts; the CLI remains the
+        # authority and still refuses mandatory or explicitly named gaps.
+        if ALLOW_MISSING_ENGINES_FLAG in arguments:
+            self.app.push_screen(
+                ConfirmDegradedScreen(self.command.path, arguments),
+                self._resume_after_degraded_confirm,
+            )
+            return
         # Proportionate friction (UX-B): an authorized active operation asks for an
         # explicit confirmation naming the target; passive and local commands run
         # straight away. The authorization flag is the product's universal
         # active-operation gate, so it is the honest signal in a generic launcher.
+        if AUTHORIZATION_FLAG in arguments:
+            self.app.push_screen(
+                ConfirmRunScreen(self.command.path, arguments, self._target_hint(arguments)),
+                self._resume_after_confirm,
+            )
+            return
+        self._start(arguments)
+
+    def _resume_after_degraded_confirm(self, confirmed: bool | None) -> None:
+        if not confirmed:
+            self.query_one("#status-bar", Static).update(
+                " Degraded preflight cancelled before launch. "
+            )
+            return
+        arguments = self._prepare_arguments()
+        if arguments is None:
+            return
+        # Keep the independent active-operation confirmation if a future command
+        # legitimately combines both opt-ins; neither acknowledgement subsumes the other.
         if AUTHORIZATION_FLAG in arguments:
             self.app.push_screen(
                 ConfirmRunScreen(self.command.path, arguments, self._target_hint(arguments)),

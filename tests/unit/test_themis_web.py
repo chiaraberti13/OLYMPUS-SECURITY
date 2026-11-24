@@ -1028,6 +1028,57 @@ def test_tools_page_requires_the_capabilities_scope(tmp_path: Path) -> None:
     assert client.get("/tools", follow_redirects=False).status_code == 403
 
 
+def test_tools_page_exposes_shared_degraded_engine_preflight(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Web renders the same optional-only degraded verdict as CLI/API (TOOLS-4.1)."""
+    from olympus.core.exit_codes import ExitCode
+    from olympus.engines.doctor import EngineState, EngineStatus
+    from olympus.engines.preflight import PreflightVerdict
+
+    missing_optional = EngineStatus(
+        name="katana",
+        mandatory=False,
+        state=EngineState.MISSING,
+        detail="katana is not on PATH",
+        install_command="go install github.com/projectdiscovery/katana/cmd/katana@v1.4.0",
+    )
+
+    def _degraded(env, scanner, *, allow_missing=False):  # type: ignore[no-untyped-def]
+        assert scanner is None
+        assert allow_missing is True
+        return PreflightVerdict(
+            exit_code=ExitCode.PARTIAL,
+            required=("katana",),
+            blocking=(),
+            degraded=(missing_optional,),
+        )
+
+    monkeypatch.setattr("olympus.engines.preflight.preflight_for_scanner", _degraded)
+    client = _client(tmp_path)
+    _login(client)
+    page = client.get("/tools?preflight=1&allow_missing=true")
+    assert page.status_code == 200
+    assert "Degraded · exit 5" in page.text
+    assert "Coverage is incomplete" in page.text
+    assert "katana" in page.text
+    assert "allow_missing" in page.text and "checked" in page.text
+
+
+def test_tools_preflight_rejects_unknown_engine_without_inspection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def _must_not_run(*args, **kwargs):  # type: ignore[no-untyped-def]
+        raise AssertionError("unknown engine must be rejected before host inspection")
+
+    monkeypatch.setattr("olympus.themis.web._engine_preflight_summary", _must_not_run)
+    client = _client(tmp_path)
+    _login(client)
+    page = client.get("/tools?preflight=1&engine=not-governed")
+    assert page.status_code == 200
+    assert "Unknown governed engine" in page.text
+
+
 def test_engagement_pages_require_the_engagements_scope(tmp_path: Path) -> None:
     from olympus.engagements.store import ENGAGEMENTS_DB_NAME
 
@@ -1136,7 +1187,7 @@ def test_preview_reports_engines_ready_when_the_preflight_passes(
     # The seam imports the verdict function from its source module, so patch it there.
     monkeypatch.setattr(
         "olympus.engines.preflight.preflight_for_scanner",
-        lambda env, scanner: PreflightVerdict(
+        lambda env, scanner, *, allow_missing=False: PreflightVerdict(
             exit_code=ExitCode.OK, required=(scanner,), blocking=()
         ),
     )

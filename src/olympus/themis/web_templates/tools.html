@@ -20,6 +20,57 @@
   </div>
 </section>
 
+<section class="card" aria-labelledby="engine-preflight-title">
+  <h2 id="engine-preflight-title">Engine preflight</h2>
+  <p class="muted">
+    Run the same offline, versioned readiness gate used by the CLI and API. It
+    contacts no target. Mandatory engines always block when unavailable; an
+    explicitly selected engine is also always required.
+  </p>
+  <form method="get" action="/tools">
+    <input type="hidden" name="preflight" value="1">
+    <label for="preflight-engine">Additional engine to require</label>
+    <select id="preflight-engine" name="engine">
+      <option value="">Mandatory baseline only</option>
+      {% for engine in engine_options %}
+      <option value="{{ engine }}"{% if engine == selected_engine %} selected{% endif %}>{{ engine }}</option>
+      {% endfor %}
+    </select>
+    <label class="checkbox">
+      <input type="checkbox" name="allow_missing" value="true"{% if allow_missing %} checked{% endif %}>
+      I accept a degraded (partial, exit 5) verdict when only an optional dependency is
+      missing. This never waives a mandatory or explicitly selected engine.
+    </label>
+    <button type="submit">Check engine readiness</button>
+  </form>
+
+  {% if preflight_requested %}
+    {% if preflight_error %}
+    <p class="alert" role="alert">{{ preflight_error }}</p>
+    {% elif preflight_report.blocking %}
+    <p><span class="badge badge-bad">Blocked · exit {{ preflight_report.exit_code }}</span></p>
+    <p class="muted">No scan may start while a required engine is unavailable.</p>
+    <ul>
+      {% for item in preflight_report.blocking %}
+      <li><code>{{ item.name }}</code> ({{ item.state }}){% if item.install_command %} — install: <code>{{ item.install_command }}</code>{% endif %}</li>
+      {% endfor %}
+    </ul>
+    {% elif preflight_report.degraded %}
+    <p><span class="badge badge-warn">Degraded · exit {{ preflight_report.exit_code }}</span></p>
+    <p class="muted">Coverage is incomplete and must never be interpreted as clean.</p>
+    <ul>
+      {% for item in preflight_report.degraded %}
+      <li><code>{{ item.name }}</code> ({{ item.state }}){% if item.install_command %} — install: <code>{{ item.install_command }}</code>{% endif %}</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p><span class="badge badge-ok">Ready · exit {{ preflight_report.exit_code }}</span></p>
+    <p class="muted">All required engines are installed and match their governed pins.</p>
+    {% endif %}
+    <p class="muted">Required: {% if preflight_report.required %}<code>{{ preflight_report.required | join(', ') }}</code>{% else %}none{% endif %}.</p>
+  {% endif %}
+</section>
+
 {% if capabilities %}
 <div class="tool-grid">
   {% for tool in capabilities %}

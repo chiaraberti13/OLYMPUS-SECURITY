@@ -501,29 +501,43 @@ def _ready_scanner_names() -> set[str]:
     return {item.name for item in inventory() if item.ready}
 
 
-def _engine_preflight_summary(scanner: str) -> dict[str, object] | None:
+def _engine_preflight_summary(
+    scanner: str | None, *, allow_missing: bool = False
+) -> dict[str, object] | None:
     """Governed-engine readiness for ``scanner`` via the shared offline preflight (TOOLS-4.1).
 
     Read-only and advisory: reports whether the mandatory engines (``nmap``/``nuclei``/``httpx``)
-    plus the named scanner are installed and pinned on this node, so the launch preview can warn
-    *before* a job is queued. It is distinct from the capability inventory's "ready" (which tells
-    whether the adapter exists): here a binary can be missing or at the wrong pin. The worker is
-    the authority and refuses a live job fail-closed when a required engine is absent; this only
-    informs. Returns ``None`` when the check cannot run, degrading to an honest note.
+    plus the named scanner (when supplied) are installed and pinned on this node, so Web surfaces
+    can warn *before* a job is queued. ``allow_missing`` is passed to the same shared core used by
+    CLI/API: it can degrade only an optional command dependency; mandatory and explicitly named
+    engines still block. The worker remains the fail-closed authority. Returns ``None`` when the
+    check cannot run, degrading to an honest note.
     """
     try:
         from olympus.engines.cli import system_environment
         from olympus.engines.preflight import build_preflight_report, preflight_for_scanner
 
-        report = build_preflight_report(preflight_for_scanner(system_environment(), scanner))
+        report = build_preflight_report(
+            preflight_for_scanner(system_environment(), scanner, allow_missing=allow_missing)
+        )
     except (OSError, ValueError):
         return None
     return {
         "ready": report.ready,
+        "exit_code": report.exit_code,
         "required": list(report.required),
         "blocking": [
             {"name": item.name, "state": item.state, "install_command": item.install_command}
             for item in report.blocking
+        ],
+        "degraded": [
+            {
+                "name": item.name,
+                "state": item.state,
+                "detail": item.detail,
+                "install_command": item.install_command,
+            }
+            for item in report.degraded
         ],
     }
 
@@ -1537,10 +1551,48 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             "available": sum(1 for item in capabilities if item["available"]),
             "ready": sum(1 for item in capabilities if item["ready"]),
         }
+        # Web parity for the versioned engine preflight (TOOLS-4.1). This is a
+        # read-only GET because it changes no state and performs no target/network
+        # I/O. Only manifest-backed names are accepted; a crafted query cannot turn
+        # an unknown engine into an apparently ready result.
+        from olympus.engines.loader import load_all
+
+        manifests = load_all()
+        engine_options = sorted(
+            name for name, manifest in manifests.items() if manifest.engine.distribution != "api"
+        )
+        preflight_requested = "preflight" in request.query_params
+        selected_engine = request.query_params.get("engine", "").strip()
+        allow_missing = request.query_params.get("allow_missing", "").lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+        preflight_error: str | None = None
+        preflight_report: dict[str, object] | None = None
+        if preflight_requested:
+            if selected_engine and selected_engine not in manifests:
+                preflight_error = "Unknown governed engine; choose one from the manifest registry."
+            else:
+                preflight_report = _engine_preflight_summary(
+                    selected_engine or None, allow_missing=allow_missing
+                )
+                if preflight_report is None:
+                    preflight_error = "Engine readiness could not be checked on this node."
         return _page(
             request,
             "tools.html",
-            {"capabilities": capabilities, "summary": summary},
+            {
+                "capabilities": capabilities,
+                "summary": summary,
+                "engine_options": engine_options,
+                "selected_engine": selected_engine,
+                "allow_missing": allow_missing,
+                "preflight_requested": preflight_requested,
+                "preflight_error": preflight_error,
+                "preflight_report": preflight_report,
+            },
         )
 
     @app.get("/advanced", response_class=HTMLResponse, include_in_schema=False)
