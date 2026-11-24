@@ -1467,10 +1467,10 @@ def test_engines_preflight_adds_a_named_governed_scanner(tmp_path: Path) -> None
     assert "nikto" in response.json()["required"]
 
 
-def test_engines_preflight_allow_missing_degrades_optional_not_mandatory(tmp_path: Path) -> None:
-    # TOOLS-4.1 API parity: ?allow_missing=true tolerates an optional engine (degraded) while
-    # the mandatory baseline still blocks. The sandbox lacks all engines, so nikto (optional,
-    # named) must land in `degraded` and the mandatory three in `blocking` (exit_code 8).
+def test_engines_preflight_allow_missing_never_waives_a_named_scanner(tmp_path: Path) -> None:
+    # TOOLS-4.1 API parity: ?allow_missing=true is limited to OPTIONAL dependencies. An
+    # explicitly-named scanner is always required (as the previous test states), so even with
+    # the opt-in nikto and the mandatory baseline both BLOCK (exit_code 8); nothing degrades.
     client = _client(tmp_path)
     response = client.get(
         "/api/v1/engines/preflight",
@@ -1479,9 +1479,9 @@ def test_engines_preflight_allow_missing_degrades_optional_not_mandatory(tmp_pat
     )
     assert response.status_code == 200, response.text
     body = response.json()
-    assert "nikto" in {engine["name"] for engine in body["degraded"]}
-    assert {engine["name"] for engine in body["blocking"]} >= {"nmap", "nuclei", "httpx"}
-    assert body["exit_code"] == 8  # a mandatory engine is never waived
+    assert body["degraded"] == []  # the named scanner is never degraded
+    assert {engine["name"] for engine in body["blocking"]} == {"nmap", "nuclei", "httpx", "nikto"}
+    assert body["exit_code"] == 8  # a named/mandatory engine is never waived
 
 
 def test_engines_preflight_rejects_a_malformed_scanner_name(tmp_path: Path) -> None:

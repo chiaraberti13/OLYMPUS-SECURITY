@@ -737,7 +737,8 @@ custodisce. Restano aperte solo le parti che richiedono CI/lab, segnalate esplic
   nominati esplicitamente sempre richiesti; `api`/commerciali mai bloccanti (nessun artefatto
   locale). Un richiesto non usabile → exit 8 con comando d'installazione **pinnato**, mai un
   segreto. `--allow-missing-engines` resterà limitato alle **sole** dipendenze opzionali
-  (via `required_for_commands`), mai ai mandatory (già annotato in `TOOLS-4.1`).
+  (via `required_for_commands`), mai ai mandatory né agli engine nominati esplicitamente
+  (già annotato in `TOOLS-4.1`; cablato in `preflight(..., allow_missing=True)`).
 - **Supply chain — sorgente unica degli hint d'installazione (`TOOLS-4`).** Sia
   `ScannerAdapter.install` sia `ScannerSpec.install` derivano dal pin del manifest
   (`engines.loader.install_hint`): niente `@latest`, niente pacchetto PyPI errato
