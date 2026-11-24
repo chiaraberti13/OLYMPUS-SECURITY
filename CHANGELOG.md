@@ -12,6 +12,18 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — TOOLS-4.1: parità Web/TUI del preflight degradato
+
+- La pagina Web `/tools` espone ora il preflight engine condiviso e offline: baseline mandatory,
+  engine governato opzionale da selezionare, opt-in `allow_missing` e resa distinta dei verdetti
+  `ready` (exit 0), `degraded` (exit 5, copertura incompleta) e `blocking` (exit 8). L'interfaccia
+  consuma il contratto `olympus.engine-preflight` 1.1.0; non riclassifica gli esiti e non esegue
+  traffico verso target. Un nome engine manipolato fuori registry è rifiutato prima dell'ispezione.
+- La TUI include il gruppo CLI `engines`; `--allow-missing-engines` è derivato dallo stesso schema
+  Typer/Click e richiede una conferma dedicata prima di avviare il comando. Il testo esplicita che
+  solo dipendenze opzionali possono degradare, mentre mandatory ed engine nominati restano bloccanti,
+  e che l'esito tollerato è sempre parziale/exit 5. Regressioni Web/TUI e documentazione aggiornate.
+
 ### Fixed — TOOLS-4.1: `--allow-missing-engines` non waiva più un engine nominato
 
 - Correzione di correttezza: l'opt-in `allow_missing` partizionava a `degraded` **qualsiasi**

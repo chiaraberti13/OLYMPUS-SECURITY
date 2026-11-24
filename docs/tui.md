@@ -81,6 +81,11 @@ single argument box:
   first opens a confirmation modal naming the exact invocation and the target, and
   starts the process only after you confirm. Passive and local commands (no
   authorization gate) run with no extra friction.
+- **Degraded engine confirmation (`TOOLS-4.1`):** the TUI includes the complete
+  `engines` command group. Selecting `--allow-missing-engines` opens a distinct
+  confirmation before the subprocess starts: only optional dependencies may be
+  tolerated, mandatory and explicitly named engines still block, and a tolerated
+  gap is always shown as **partial / exit 5**, never as a clean result.
 - **Kill switch and distinct outcome states (`UX-B`):** the **CANCEL** button and
   `Ctrl+C` are always available while a command runs; cancelling terminates the
   process and, if it ignores the signal, force-kills it after a short grace

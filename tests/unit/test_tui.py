@@ -14,6 +14,7 @@ from olympus.cli import app
 from olympus.core.exit_codes import ExitCode
 from olympus.tui.app import (
     CommandScreen,
+    ConfirmDegradedScreen,
     ConfirmRunScreen,
     HelpScreen,
     OlympusTui,
@@ -56,6 +57,7 @@ def test_catalog_exposes_every_tool_and_real_leaf_commands() -> None:
     inventory = {tool.command: commands_for(root, tool) for tool in TOOLS}
     assert set(inventory) == {
         "themis",
+        "engines",
         "apollo",
         "argus",
         "artemis",
@@ -431,6 +433,52 @@ def test_confirmation_confirm_starts_the_run() -> None:
             assert len(started) == 1
             assert "--i-am-authorized" in started[0]
             assert "--username" in started[0] and "acme" in started[0]
+
+    asyncio.run(scenario())
+
+
+def test_allow_missing_engines_requires_explicit_degraded_confirmation() -> None:
+    """The TUI cannot silently turn the optional-engine waiver into a normal run."""
+
+    async def scenario() -> None:
+        screen = _screen_for(("engines", "preflight"))
+        interface = OlympusTui(get_command(app))
+        started: list[list[str]] = []
+        screen._start = started.append  # type: ignore[method-assign]
+        async with interface.run_test(size=(140, 42)) as pilot:
+            interface.push_screen(screen)
+            await pilot.pause()
+            screen.query_one("#field-allow_missing", Checkbox).value = True
+            screen.action_run_command()
+            await pilot.pause()
+            assert isinstance(interface.screen, ConfirmDegradedScreen)
+            assert "PARTIAL (exit 5)" in str(interface.screen.query_one("#confirm-copy").render())
+            assert started == []
+            await pilot.press("escape")
+            await pilot.pause()
+            assert started == []
+
+    asyncio.run(scenario())
+
+
+def test_confirming_degraded_preflight_runs_the_exact_cli_flag() -> None:
+    async def scenario() -> None:
+        screen = _screen_for(("engines", "preflight"))
+        interface = OlympusTui(get_command(app))
+        started: list[list[str]] = []
+        screen._start = started.append  # type: ignore[method-assign]
+        async with interface.run_test(size=(140, 42)) as pilot:
+            interface.push_screen(screen)
+            await pilot.pause()
+            screen.query_one("#field-allow_missing", Checkbox).value = True
+            screen.action_run_command()
+            await pilot.pause()
+            assert isinstance(interface.screen, ConfirmDegradedScreen)
+            await pilot.press("enter")
+            await pilot.pause()
+            assert len(started) == 1
+            assert "--allow-missing-engines" in started[0]
+            assert started[0][started[0].index("--format") + 1] == "table"
 
     asyncio.run(scenario())
 
