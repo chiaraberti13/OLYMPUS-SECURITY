@@ -12,6 +12,18 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Fixed — TOOLS-4.1: `--allow-missing-engines` non waiva più un engine nominato
+
+- Correzione di correttezza: l'opt-in `allow_missing` partizionava a `degraded` **qualsiasi**
+  engine non-mandatory, incluso lo scanner/engine **nominato esplicitamente** dal chiamante
+  (`?scanner=`, `--engine`). Il requisito TOOLS-4.1 è che *«l'engine nominato esplicitamente è
+  sempre richiesto»*: ora `preflight(..., allow_missing=True)` tratta `mandatory ∪ {nominati}`
+  come sempre **blocking**, e degrada **solo** le dipendenze opzionali tirate implicitamente da
+  un comando (`required_for_commands`). Oggi nessun manifest dichiara `required_for_commands`,
+  quindi in pratica `allow_missing` non degrada nulla finché una tale dipendenza non esiste.
+  Test aggiornati/aggiunti in `tests/unit/test_engine_preflight.py` (named/mandatory sempre
+  bloccanti; dipendenza opzionale sintetica → `degraded`/exit 5) e `tests/unit/test_themis_api.py`.
+
 ### Added — TOOLS-4.2 L3: runner engagement-signed per la promozione formale
 
 - `labs/l3/run_engagement.sh`: esegue `nmap` **live** nel container indurito (`docker/Dockerfile.scanners`)

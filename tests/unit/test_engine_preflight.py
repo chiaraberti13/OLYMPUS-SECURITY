@@ -199,13 +199,73 @@ def test_engine_preflight_is_a_published_output_contract() -> None:
     assert entry["schema_version"] == "1.1.0"
 
 
-def test_allow_missing_partitions_optional_to_degraded_but_mandatory_still_blocks() -> None:
-    # Everything missing + an optional engine requested, with the opt-in: the mandatory
-    # baseline still BLOCKS (exit 8), while the optional engine is partitioned to degraded.
+def test_allow_missing_never_waives_a_named_or_mandatory_engine() -> None:
+    # The opt-in is limited to OPTIONAL dependencies: an explicitly-named engine is always
+    # required (TOOLS-4.1 "l'engine nominato esplicitamente è sempre richiesto"), so even with
+    # ``allow_missing`` both the named engine and the mandatory baseline BLOCK (exit 8), and
+    # nothing is degraded (today no manifest declares a command-pulled optional dependency).
     verdict = preflight(_all_missing_env(), engines=("katana",), allow_missing=True)
     assert verdict.exit_code is ExitCode.ENGINE_MISSING
-    assert {s.name for s in verdict.blocking} >= _MANDATORY  # baseline never waived
-    assert {s.name for s in verdict.degraded} == {"katana"}  # optional tolerated
+    assert {s.name for s in verdict.blocking} == _MANDATORY | {"katana"}
+    assert verdict.degraded == ()
+
+
+def _synthetic_optional_manifest() -> object:
+    """A governed engine required ONLY for ``themis.run`` (an optional command dependency)."""
+    from olympus.engines.loader import parse_manifest
+
+    return parse_manifest(
+        """
+[engine]
+name = "demo"
+category = "web"
+upstream = "https://github.com/example/demo"
+language = "Go"
+license = "MIT"
+distribution = "go"
+pinned_version = "v1.2.3"
+update_policy = "minor"
+presence_probe = ["demo", "-version"]
+capability = "web.scan"
+required_for_commands = ["themis.run"]
+[engine.source]
+module = "github.com/example/demo/cmd/demo"
+[adapter]
+entrypoint = "olympus.themis.adapters.nuclei:NucleiAdapter"
+timeout_seconds = 600
+resource_profile = "network-heavy"
+"""
+    )
+
+
+def test_allow_missing_degrades_an_optional_command_dependency(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # With the mandatory baseline present and ONLY a command-pulled optional dependency
+    # missing, the opt-in degrades it (exit 5), never blocks — the one case ``allow_missing``
+    # is for. Without the opt-in the same gap blocks (fail-closed).
+    from olympus.engines.commands import THEMIS_RUN
+
+    manifests = dict(load_all())
+    manifests["demo"] = _synthetic_optional_manifest()  # type: ignore[assignment]
+    monkeypatch.setattr("olympus.engines.preflight.load_all", lambda: manifests)
+    monkeypatch.setattr(
+        "olympus.engines.preflight.inspect_engine",
+        lambda name, manifest, env: (
+            EngineStatus(name=name, state=EngineState.MISSING, mandatory=False)
+            if name == "demo"
+            else _present(name, mandatory=name in _MANDATORY)
+        ),
+    )
+
+    degraded_verdict = preflight(_all_missing_env(), commands=(THEMIS_RUN,), allow_missing=True)
+    assert degraded_verdict.exit_code is ExitCode.PARTIAL
+    assert degraded_verdict.blocking == ()
+    assert {s.name for s in degraded_verdict.degraded} == {"demo"}
+
+    strict_verdict = preflight(_all_missing_env(), commands=(THEMIS_RUN,))
+    assert strict_verdict.exit_code is ExitCode.ENGINE_MISSING
+    assert {s.name for s in strict_verdict.blocking} == {"demo"}
 
 
 def test_optional_only_missing_is_degraded_exit_5() -> None:

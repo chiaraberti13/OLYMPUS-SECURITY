@@ -196,8 +196,12 @@ def preflight(
         if not status.ok and status.state is not EngineState.REQUIRES_PRODUCT
     )
     if allow_missing:
-        blocking = tuple(s for s in unusable if s.name in mandatory)
-        degraded = tuple(s for s in unusable if s.name not in mandatory)
+        # An explicitly-named engine is always required (so it always blocks); the opt-in
+        # only tolerates OPTIONAL dependencies — engines pulled in implicitly by a command
+        # (``required_for_commands``) that are neither mandatory nor explicitly named.
+        explicitly_required = mandatory | set(engines)
+        blocking = tuple(s for s in unusable if s.name in explicitly_required)
+        degraded = tuple(s for s in unusable if s.name not in explicitly_required)
     else:
         blocking = unusable
         degraded = ()
