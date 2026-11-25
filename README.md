@@ -20,6 +20,7 @@
 
 ## Quick Navigation
 
+- [Architecture Diagram](#-architecture-diagram)
 - **[What is Olympus?](#what-is-olympus)** — what it does, and who it's for.
 - **[Modules](#-modules)** — every tool, what it does, and its entry point.
 - **[Installation](#-installation)** — one command, Python 3.11+.
@@ -57,6 +58,31 @@ $ olympus --help
 $ olympus argus dns --domain example.com --scope scope.json
 $ olympus athena run plan.json --storage ./.athena
 ```
+
+## 🗺️ Architecture Diagram
+
+```mermaid
+flowchart TD
+    accTitle: Architecture of OLYMPUS-SECURITY
+    accDescr: The keyboard interface calls the Python CLI. Its modules handle assessment records, detection and reporting. Themis also exposes a web console and stores job state in SQLite.
+    tui["Keyboard interface · olympus ui"] --> cli["Olympus CLI"]
+    cli --> athena["Athena · assessment management"]
+    cli --> modules["Specialist modules"]
+    cli --> themis["Themis · job management"]
+    modules --> detect["Apollo · detection"]
+    modules --> evidence["Minerva · evidence custody"]
+    modules --> reports["Vulcan · analysis and reporting"]
+    web["Themis web console"] --> api["Themis API"]
+    api --> db["Themis job database · SQLite"]
+    themis --> db
+
+    classDef core fill:#23313a,stroke:#7193a7,color:#f4f7f8;
+    classDef output fill:#2b3035,stroke:#8b959e,color:#f4f7f8;
+    class athena,modules,themis,api core;
+    class detect,evidence,reports,db output;
+```
+
+The keyboard interface calls the Python CLI. Its modules handle assessment records, detection and reporting. Themis also exposes a web console and stores job state in SQLite.
 
 ## 🧰 Modules
 
