@@ -17,6 +17,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -25,7 +26,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from olympus.core.execution import redact_url, safe_terminal_text
-from olympus.core.fileio import atomic_write_text, read_regular_text
+from olympus.core.fileio import UnsafeWriteTarget, atomic_write_text, read_regular_text
 from olympus.core.models import OlympusModel
 from olympus.core.signing import SigningError, sign, verify
 from olympus.engines.loader import (
@@ -45,6 +46,8 @@ MAX_EVIDENCE_BYTES = 1024 * 1024
 Signer = Callable[[bytes], str]
 
 _SHA256 = r"^[a-f0-9]{64}$"
+_JOB_ID = re.compile(r"^THEMIS-[A-F0-9]{32}$")
+_ORCHESTRATION_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$")
 
 
 class EvidenceError(RuntimeError):
@@ -120,6 +123,25 @@ class EngineRunEvidence(OlympusModel):
     authorization: EvidenceAuthorization
     outcome: EvidenceOutcome
     outputs: EvidenceOutputs | None = None
+
+
+class EvidenceVerificationReport(OlympusModel):
+    """Pinned-key verification result shared by CLI, API and Web.
+
+    A report exists only after the detached signature has been checked against
+    the operator-configured Ed25519 public key.  There is deliberately no
+    ``valid=false`` shape: an absent, malformed or untrusted artifact raises
+    :class:`EvidenceError` instead of returning data that a caller might treat
+    as evidence.
+    """
+
+    schema_name: Literal["olympus.engine-run-evidence-verification"] = (
+        "olympus.engine-run-evidence-verification"
+    )
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    valid: Literal[True] = True
+    evidence_sha256: str = Field(pattern=_SHA256)
+    evidence: EngineRunEvidence
 
 
 def _sha256_file(path: Path) -> str:
@@ -223,13 +245,55 @@ def signature_path(path: Path) -> Path:
     return path.with_name(path.name + ".sig")
 
 
+def attempt_evidence_path(directory: Path, job_id: str, attempt: int) -> Path:
+    """Return the canonical, non-overlapping evidence path for one job attempt."""
+    if _JOB_ID.fullmatch(job_id) is None:
+        raise EvidenceError("evidence job_id must be a canonical Themis job id")
+    if isinstance(attempt, bool) or not isinstance(attempt, int) or not 1 <= attempt <= 10:
+        raise EvidenceError("evidence attempt must be an integer between 1 and 10")
+    return directory / f"{job_id}.attempt-{attempt}.json"
+
+
+def orchestrated_evidence_path(
+    directory: Path, assessment_id: str, job_id: str, attempt: int
+) -> Path:
+    """Return a traversal-safe immutable path for one Athena engine attempt."""
+    if _ORCHESTRATION_ID.fullmatch(assessment_id) is None:
+        raise EvidenceError("assessment_id is not safe for an evidence file name")
+    if _ORCHESTRATION_ID.fullmatch(job_id) is None:
+        raise EvidenceError("Athena job_id is not safe for an evidence file name")
+    if isinstance(attempt, bool) or not isinstance(attempt, int) or not 1 <= attempt <= 10:
+        raise EvidenceError("evidence attempt must be an integer between 1 and 10")
+    return directory / f"{assessment_id}.{job_id}.attempt-{attempt}.json"
+
+
 def write_signed(evidence: EngineRunEvidence, signer: Signer, path: Path) -> str:
-    """Write ``path`` (the manifest) and ``path.sig``; return the manifest's SHA-256."""
+    """Create ``path`` and ``path.sig`` immutably; return the manifest SHA-256.
+
+    Evidence is append-only.  Neither member of an existing pair is ever
+    replaced, including by a retry or a second worker racing the first one.
+    The manifest is published first and the signature second; if publishing the
+    signature fails, the manifest created by this call is removed so an
+    incomplete pair is never mistaken for a successful write.
+    """
     envelope = signer(canonical_bytes(evidence))
-    atomic_write_text(
-        path, json.dumps(evidence.model_dump(mode="json"), indent=2) + "\n", mode=0o600
-    )
-    atomic_write_text(signature_path(path), envelope, mode=0o600)
+    signature = signature_path(path)
+    if path.exists() or path.is_symlink() or signature.exists() or signature.is_symlink():
+        raise EvidenceError(f"refusing to overwrite existing evidence: {path}")
+    try:
+        atomic_write_text(
+            path,
+            json.dumps(evidence.model_dump(mode="json"), indent=2) + "\n",
+            mode=0o600,
+            overwrite=False,
+        )
+        try:
+            atomic_write_text(signature, envelope, mode=0o600, overwrite=False)
+        except BaseException:
+            path.unlink(missing_ok=True)
+            raise
+    except (OSError, UnsafeWriteTarget) as exc:
+        raise EvidenceError(f"cannot create immutable evidence: {exc}") from exc
     return evidence_sha256(evidence)
 
 
@@ -247,6 +311,15 @@ def verify_signed(path: Path, *, public_pem: str) -> EngineRunEvidence:
     if not valid:
         raise EvidenceError("evidence signature is invalid: the manifest was altered")
     return evidence
+
+
+def verify_evidence(path: Path, *, public_pem: str) -> EvidenceVerificationReport:
+    """Verify one evidence pair with a pinned key and return the shared report."""
+    evidence = verify_signed(path, public_pem=public_pem)
+    return EvidenceVerificationReport(
+        evidence_sha256=evidence_sha256(evidence),
+        evidence=evidence,
+    )
 
 
 def signer_from_environment(environment: dict[str, str] | None = None) -> Signer:

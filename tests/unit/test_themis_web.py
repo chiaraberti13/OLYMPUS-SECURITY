@@ -22,12 +22,14 @@ from typer.testing import CliRunner
 
 from olympus.cli import app
 from olympus.core.models import EngagementScope
-from olympus.core.signing import generate_keypair
+from olympus.core.signing import generate_keypair, sign
 from olympus.engagements.manifest import EngagementManifest, SignedEngagementManifest
 from olympus.engagements.store import ENGAGEMENTS_DB_NAME, SqliteEngagementStore
+from olympus.engines.evidence import attempt_evidence_path
 from olympus.themis.api import ApiSettings, create_app
+from olympus.themis.application import ThemisApplicationService, ThemisRunRequest
 from olympus.themis.identity import SCOPES, IdentityRegister, add_identity, save_register
-from olympus.themis.jobs import ThemisJobStore
+from olympus.themis.jobs import JobState, ThemisJobStore
 from olympus.themis.web import SESSION_COOKIE, create_web_app
 
 API_KEY = "a" * 32
@@ -2825,6 +2827,67 @@ def _complete_job(tmp_path: Path, job_id: str, *, state, result=None, error=None
     claimed = store.claim_next("worker-test")
     assert claimed is not None and claimed.job_id == job_id
     store.complete(job_id, worker_id="worker-test", state=state, result=result, error=error)
+
+
+def test_job_detail_verifies_and_displays_signed_run_evidence(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    evidence_dir = tmp_path / "evidence"
+    evidence_dir.mkdir()
+    private_pem, public_pem = generate_keypair()
+    settings = settings.__class__(
+        **{
+            **settings.__dict__,
+            "evidence_directory": evidence_dir,
+            "evidence_public_key_pem": public_pem,
+        }
+    )
+    store = ThemisJobStore(settings.database)
+    scope = settings.scope_directory / "engagement.json"
+    queued = store.submit(
+        scanner="nmap",
+        target="127.0.0.1",
+        target_kind="host",
+        scope_path=scope,
+        authorized=True,
+    )
+    claimed = store.claim_next("worker-web-evidence")
+    assert claimed is not None
+    evidence_path = attempt_evidence_path(evidence_dir, queued.job_id, claimed.attempts)
+    result = ThemisApplicationService(isolation_verifier=lambda: None).run(
+        ThemisRunRequest(
+            scanner="nmap",
+            target="127.0.0.1",
+            target_kind="host",
+            scope_path=scope,
+            authorized=True,
+            live_enabled=False,
+            simulate=True,
+            job_id=queued.job_id,
+            evidence_path=evidence_path,
+            evidence_signer=lambda data: sign(data, private_pem),
+        )
+    )
+    store.complete(
+        queued.job_id,
+        worker_id="worker-web-evidence",
+        state=JobState.SUCCEEDED,
+        result=result.to_dict(),
+    )
+    client = TestClient(create_web_app(settings), base_url=BASE)
+    _login(client)
+
+    page = client.get(f"/jobs/{queued.job_id}")
+
+    assert page.status_code == 200
+    assert "Signature verified with the pinned Ed25519 key" in page.text
+    assert "Evidence SHA-256" in page.text
+    assert queued.job_id in page.text
+
+    signature = evidence_path.with_name(evidence_path.name + ".sig")
+    signature.write_text("tampered", encoding="utf-8")
+    warning = client.get(f"/jobs/{queued.job_id}")
+    assert "Evidence integrity warning" in warning.text
+    assert "independently verifiable" in warning.text
 
 
 def test_job_detail_shows_a_guided_partial_outcome_that_is_not_read_as_clean(

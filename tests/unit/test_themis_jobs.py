@@ -1414,8 +1414,8 @@ def test_worker_passes_signed_evidence_path_per_job(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # TOOLS-4.5 / API-3: a job executed by the worker must produce signed run evidence, exactly
-    # like `themis run --evidence`. The worker configures evidence_dir/<job_id>.json + the signer
-    # on the request; the application writes and signs it (covered by test_engine_evidence).
+    # like `themis run --evidence`. Each retry gets an immutable per-attempt path;
+    # the application writes and signs it (covered by test_engine_evidence).
     from olympus.core.signing import generate_keypair
     from olympus.engines.evidence import signer_from_environment
 
@@ -1454,8 +1454,58 @@ def test_worker_passes_signed_evidence_path_per_job(
         evidence_signer=signer,
     )
     worker.run_next()
-    assert captured[0].evidence_path == evidence_dir / f"{job.job_id}.json"
+    assert captured[0].evidence_path == evidence_dir / f"{job.job_id}.attempt-1.json"
     assert captured[0].evidence_signer is signer
+
+
+def test_worker_evidence_configuration_is_all_or_nothing(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    with pytest.raises(ValueError, match="configured together"):
+        ThemisWorker(store, evidence_dir=tmp_path / "evidence")
+    with pytest.raises(ValueError, match="configured together"):
+        ThemisWorker(store, evidence_signer=lambda _data: "signature")
+
+
+def test_worker_uses_a_distinct_immutable_evidence_path_for_each_retry(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3", backoff_seconds=0, max_backoff_seconds=0)
+    job = store.submit(
+        scanner="test-engine",
+        target="127.0.0.1",
+        target_kind="host",
+        scope_path=_scope(tmp_path / "scope.json"),
+        authorized=True,
+        max_attempts=2,
+    )
+    captured: list[Path | None] = []
+
+    class _Timeout:
+        def run(self, request: ThemisRunRequest) -> ScanResult:
+            captured.append(request.evidence_path)
+            return ScanResult(
+                scanner=request.scanner,
+                state=ExecutionState.FAILED,
+                target=request.target,
+                termination=TerminationReport(
+                    cause=TerminationCause.TIMEOUT,
+                    exit_code=None,
+                ),
+            )
+
+    worker = ThemisWorker(
+        store,
+        _Timeout(),
+        live_scans=False,
+        evidence_dir=tmp_path / "evidence",
+        evidence_signer=lambda _data: "signature",
+    )
+    first = worker.run_next()
+    assert first is not None and first.state is JobState.QUEUED
+    second = worker.run_next()
+    assert second is not None
+    assert captured == [
+        tmp_path / "evidence" / f"{job.job_id}.attempt-1.json",
+        tmp_path / "evidence" / f"{job.job_id}.attempt-2.json",
+    ]
 
 
 def test_worker_without_evidence_config_sets_no_evidence(tmp_path: Path) -> None:
@@ -1487,6 +1537,42 @@ def test_worker_without_evidence_config_sets_no_evidence(tmp_path: Path) -> None
     ).run_next()
     assert captured[0].evidence_path is None
     assert captured[0].evidence_signer is None
+
+
+def test_public_live_worker_refuses_without_signed_evidence_before_scan(tmp_path: Path) -> None:
+    store = ThemisJobStore(tmp_path / "jobs.sqlite3")
+    store.submit(
+        scanner="test-engine",
+        target="127.0.0.1",
+        target_kind="host",
+        scope_path=_scope(tmp_path / "scope.json"),
+        authorized=True,
+        manifest_sha256=_TEST_MANIFEST_SHA256,
+    )
+    reached = False
+
+    class _NeverRun:
+        def run(self, request: ThemisRunRequest) -> ScanResult:
+            nonlocal reached
+            reached = True
+            raise AssertionError("scan must not start without signed evidence")
+
+    audit = tmp_path / "audit.ndjson"
+    result = ThemisWorker(
+        store,
+        _NeverRun(),
+        live_scans=True,
+        engine_preflight=_ready_preflight,
+        manifest_authorizer=_AcceptingManifestAuthorizer(),
+        require_signed_evidence=True,
+    ).run_next(audit_path=audit)
+
+    assert result is not None and result.state is JobState.FAILED
+    assert reached is False
+    records = [json.loads(line) for line in audit.read_text(encoding="utf-8").splitlines()]
+    assert records[-1]["action"] == "themis.signed-evidence"
+    assert records[-1]["outcome"] == "refused"
+    assert records[-1]["metadata"]["reason"] == "signer-not-configured"
 
 
 def test_workers_cli_evidence_dir_without_key_refuses_to_start(

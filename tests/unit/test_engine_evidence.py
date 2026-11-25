@@ -7,7 +7,9 @@ import json
 from pathlib import Path
 
 import pytest
+from typer.testing import CliRunner
 
+from olympus.cli import app
 from olympus.core.signing import generate_keypair
 from olympus.engines import evidence as evidence_module
 from olympus.engines.evidence import (
@@ -19,6 +21,7 @@ from olympus.engines.evidence import (
     evidence_sha256,
     signature_path,
     signer_from_environment,
+    verify_evidence,
     verify_signed,
     write_signed,
 )
@@ -195,6 +198,55 @@ def test_a_signed_manifest_verifies_and_any_change_breaks_it(
         verify_signed(path, public_pem=public_pem)
 
 
+def test_verification_report_is_versioned_and_uses_the_same_pinned_key_verifier(
+    engine_runs: None, tmp_path: Path
+) -> None:
+    private_pem, public_pem = _keys()
+    evidence = _evidence(engine_runs)
+    path = tmp_path / "run.evidence.json"
+    write_signed(evidence, _signer(private_pem), path)
+
+    report = verify_evidence(path, public_pem=public_pem)
+
+    assert report.schema_name == "olympus.engine-run-evidence-verification"
+    assert report.schema_version == "1.0.0"
+    assert report.valid is True
+    assert report.evidence_sha256 == evidence_sha256(evidence)
+    assert report.evidence == evidence
+
+
+def test_signed_evidence_is_create_only_and_never_overwritten(
+    engine_runs: None, tmp_path: Path
+) -> None:
+    private_pem, _ = _keys()
+    path = tmp_path / "run.evidence.json"
+    original = _evidence(engine_runs)
+    write_signed(original, _signer(private_pem), path)
+    manifest_before = path.read_bytes()
+    signature_before = signature_path(path).read_bytes()
+
+    with pytest.raises(EvidenceError, match="refusing to overwrite"):
+        write_signed(original, _signer(private_pem), path)
+
+    assert path.read_bytes() == manifest_before
+    assert signature_path(path).read_bytes() == signature_before
+
+
+def test_signed_evidence_refuses_manifest_or_signature_symlinks(
+    engine_runs: None, tmp_path: Path
+) -> None:
+    private_pem, _ = _keys()
+    target = tmp_path / "unrelated.txt"
+    target.write_text("preserve", encoding="utf-8")
+    manifest = tmp_path / "run.evidence.json"
+    manifest.symlink_to(target)
+
+    with pytest.raises(EvidenceError, match="refusing to overwrite"):
+        write_signed(_evidence(engine_runs), _signer(private_pem), manifest)
+
+    assert target.read_text(encoding="utf-8") == "preserve"
+
+
 @pytest.mark.parametrize("signature_content", [None, "", "invalid envelope"])
 def test_missing_or_unreadable_signature_cannot_validate_a_run(
     engine_runs: None, tmp_path: Path, signature_content: str | None
@@ -230,6 +282,49 @@ def test_canonical_bytes_are_stable_and_whitespace_free(engine_runs: None) -> No
         evidence.model_dump(mode="json"), sort_keys=True, separators=(",", ":")
     ).encode()
     assert canonical_bytes(evidence) == expected and b"\n" not in expected
+
+
+def test_cli_verifies_evidence_with_the_pinned_public_key(
+    engine_runs: None, tmp_path: Path
+) -> None:
+    private_pem, public_pem = _keys()
+    path = tmp_path / "run.evidence.json"
+    key = tmp_path / "evidence-public.pem"
+    key.write_text(public_pem, encoding="utf-8")
+    write_signed(_evidence(engine_runs), _signer(private_pem), path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "engines",
+            "verify-evidence",
+            str(path),
+            "--public-key",
+            str(key),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)["valid"] is True
+
+
+def test_cli_rejects_evidence_signed_by_a_different_key(engine_runs: None, tmp_path: Path) -> None:
+    private_pem, _ = _keys()
+    _, other_public = _keys()
+    path = tmp_path / "run.evidence.json"
+    key = tmp_path / "other-public.pem"
+    key.write_text(other_public, encoding="utf-8")
+    write_signed(_evidence(engine_runs), _signer(private_pem), path)
+
+    result = CliRunner().invoke(
+        app,
+        ["engines", "verify-evidence", str(path), "--public-key", str(key)],
+    )
+
+    assert result.exit_code == 6
+    assert "different key" in result.output
 
 
 # --- the signing key comes from the environment, by path -------------------- #

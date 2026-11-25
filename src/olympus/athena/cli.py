@@ -53,6 +53,7 @@ from olympus.core.observability import (
     observability_from_config,
 )
 from olympus.core.output import OutputFormat, render
+from olympus.engines.evidence import EvidenceError, Signer, signer_from_environment
 from olympus.vulcan.enrichment import (
     EnrichmentError,
     FindingEnrichment,
@@ -296,6 +297,12 @@ def run(
         "--enrich-epss",
         help="Local FIRST EPSS response JSON: overlay exploit-probability on findings (offline).",
     ),
+    evidence_dir: Path | None = typer.Option(
+        None,
+        "--evidence-dir",
+        help="Write immutable signed evidence for every Athena Themis attempt; requires "
+        "OLYMPUS_EVIDENCE_SIGNING_KEY_FILE.",
+    ),
 ) -> None:
     """Execute an assessment plan end to end and persist its results.
 
@@ -317,9 +324,41 @@ def run(
         typer.echo(f"athena: observability configuration error: {exc}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
 
+    evidence_signer: Signer | None = None
+    if evidence_dir is not None:
+        try:
+            evidence_signer = signer_from_environment()
+        except EvidenceError as exc:
+            observability.shutdown()
+            typer.echo(safe_terminal_text(f"athena: {exc}"), err=True)
+            raise typer.Exit(code=ExitCode.USAGE) from exc
+    if "themis" in plan.adapters:
+        from olympus.themis.config import ThemisConfigError, live_enabled
+
+        try:
+            live_themis = live_enabled()
+        except ThemisConfigError as exc:
+            observability.shutdown()
+            typer.echo(f"athena: Themis execution error: {exc}", err=True)
+            raise typer.Exit(code=ExitCode.FAILED) from exc
+        if live_themis and (evidence_dir is None or evidence_signer is None):
+            observability.shutdown()
+            typer.echo(
+                "athena: live Themis steps require --evidence-dir and "
+                "OLYMPUS_EVIDENCE_SIGNING_KEY_FILE",
+                err=True,
+            )
+            raise typer.Exit(code=ExitCode.USAGE)
+
     repository = _open_repository(storage)
     try:
-        coordinator = _build_coordinator(plan, repository, observability)
+        coordinator = _build_coordinator(
+            plan,
+            repository,
+            observability,
+            evidence_dir=evidence_dir,
+            evidence_signer=evidence_signer,
+        )
         try:
             outcome = coordinator.run(plan)
         except UnknownAdapterError as exc:
@@ -392,6 +431,9 @@ def _build_coordinator(
     plan: AssessmentPlan,
     repository: SqliteAssessmentRepository,
     observability: Observability | None = None,
+    *,
+    evidence_dir: Path | None = None,
+    evidence_signer: Signer | None = None,
 ) -> Coordinator:
     def _redirect_validator(allowed: tuple[str, ...]) -> Callable[[str], None]:
         def validate(url: str) -> None:
@@ -422,6 +464,8 @@ def _build_coordinator(
         ids=CoreIdProvider(),
         resolver=lambda names: resolve_adapters(names, target_http, service_http=service_http),
         observability=observability,
+        evidence_dir=evidence_dir,
+        evidence_signer=evidence_signer,
     )
 
 

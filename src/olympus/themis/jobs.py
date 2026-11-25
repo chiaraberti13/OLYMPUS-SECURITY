@@ -53,7 +53,7 @@ from olympus.core.execution import (
 )
 from olympus.core.migrations import migrate_document
 from olympus.core.observability import Correlation, Observability
-from olympus.engines.evidence import Signer
+from olympus.engines.evidence import EvidenceError, Signer, attempt_evidence_path
 from olympus.engines.preflight import PreflightVerdict
 from olympus.integrations.activity import RiskClass
 from olympus.integrations.activity import profile as activity_profile
@@ -1388,14 +1388,22 @@ class ThemisWorker:
     clock: Callable[[], datetime] = field(default=_utcnow, repr=False)
     #: Fail-closed engine preflight (TOOLS-4.1); None uses the real host inspection.
     engine_preflight: EnginePreflight | None = None
-    #: Signed run evidence (TOOLS-4.5): when both are set, every executed job writes a signed
-    #: ``olympus.engine-run-evidence`` manifest at ``evidence_dir/<job_id>.json`` (plus ``.sig``).
+    #: Signed run evidence (TOOLS-4.5): when both are set, every executed attempt writes an
+    #: immutable ``olympus.engine-run-evidence`` manifest at the canonical per-attempt path.
     evidence_dir: Path | None = None
     evidence_signer: Signer | None = None
+    #: Public worker entry points enable this for live execution. Keeping the
+    #: policy explicit lets offline/in-process test harnesses run synthetic
+    #: unmanifested adapters without pretending they produced real evidence.
+    require_signed_evidence: bool = False
 
     def __post_init__(self) -> None:
         _validated_worker_id(self.worker_id)
         _validated_concurrency_limit(self.max_concurrent_jobs)
+        if (self.evidence_dir is None) != (self.evidence_signer is None):
+            raise ValueError("evidence_dir and evidence_signer must be configured together")
+        if self.evidence_dir is not None and self.evidence_dir.is_symlink():
+            raise ValueError("evidence_dir must not be a symlink")
 
     def run_next(
         self,
@@ -1470,10 +1478,18 @@ class ThemisWorker:
                     # target when a required engine is missing/unusable. Runs after manifest
                     # authorization and before any resolution or network I/O.
                     self._enforce_engine_preflight(record, audit_path)
+                    if self.require_signed_evidence and (
+                        self.evidence_dir is None or self.evidence_signer is None
+                    ):
+                        self._audit_evidence_requirement(record, audit_path)
+                        raise EvidenceError(
+                            "live worker execution requires immutable signed evidence; "
+                            "configure evidence_dir and OLYMPUS_EVIDENCE_SIGNING_KEY_FILE"
+                        )
                 # Signed run evidence (TOOLS-4.5): the engine emits it, not the interface, so a
                 # job executed by the worker is as provable as one from ``themis run --evidence``.
                 evidence_path = (
-                    self.evidence_dir / f"{record.job_id}.json"
+                    attempt_evidence_path(self.evidence_dir, record.job_id, record.attempts)
                     if self.evidence_dir is not None and self.evidence_signer is not None
                     else None
                 )
@@ -1518,6 +1534,27 @@ class ThemisWorker:
         from olympus.engines.preflight import preflight_for_scanner
 
         return preflight_for_scanner(system_environment(), scanner)
+
+    @staticmethod
+    def _audit_evidence_requirement(record: JobExecution, audit_path: Path | None) -> None:
+        """Record the explicit integrity refusal without copying key material."""
+        if audit_path is None:
+            return
+        append_structured_audit(
+            audit_path,
+            StructuredAuditRecord(
+                timestamp=datetime.now(UTC).isoformat(),
+                execution_id=record.job_id,
+                action="themis.signed-evidence",
+                outcome="refused",
+                target=record.target,
+                metadata={
+                    "job_id": record.job_id,
+                    "scanner": record.scanner,
+                    "reason": "signer-not-configured",
+                },
+            ),
+        )
 
     def _enforce_engine_preflight(self, record: JobExecution, audit_path: Path | None) -> None:
         """Refuse a live job (FAILED) when a required engine is missing/unusable (TOOLS-4.1)."""

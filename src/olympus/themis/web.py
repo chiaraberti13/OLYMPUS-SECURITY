@@ -131,6 +131,7 @@ from olympus.themis.api import (
     _renew_request_lease,
     _trace_id,
     authorize_submission_manifest,
+    verified_job_evidence,
 )
 from olympus.themis.concurrency import RequestConcurrencyGate
 from olympus.themis.identity import IdentityError, RateLimiter
@@ -2775,12 +2776,33 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             job = store.get(job_id)
         except KeyError:
             return _page(request, "not_found.html", {"job_id": _safe(job_id)}, code=404)
+        evidence_view: dict[str, object] | None = None
+        if settings.evidence_directory is not None:
+            try:
+                verification = verified_job_evidence(settings, job)
+            except HTTPException as exc:
+                evidence_view = {
+                    "valid": False,
+                    "pending": job.state not in TERMINAL_STATES,
+                    "message": _safe(str(exc.detail)),
+                }
+            else:
+                evidence_view = {
+                    "valid": True,
+                    "pending": False,
+                    "sha256": verification.evidence_sha256,
+                    "run_id": _safe(verification.evidence.run_id),
+                    "created_at": verification.evidence.created_at.isoformat(),
+                    "engine": verification.evidence.engine.name,
+                    "state": verification.evidence.outcome.state,
+                }
         return _page(
             request,
             "job_detail.html",
             {
                 "job": _present_job(job),
                 "outcome": _assessment_outcome(job),
+                "evidence": evidence_view,
                 "can_cancel": "jobs:cancel" in session.scopes,
                 "csrf_token": _csrf_token(session.nonce),
             },

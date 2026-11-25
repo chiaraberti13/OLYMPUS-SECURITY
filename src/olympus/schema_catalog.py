@@ -37,7 +37,7 @@ from olympus.core.models import (
 from olympus.core.notifications import Notification
 from olympus.engagements.manifest import EngagementManifest, SignedEngagementManifest
 from olympus.engines.doctor import EngineDoctorReport
-from olympus.engines.evidence import EngineRunEvidence
+from olympus.engines.evidence import EngineRunEvidence, EvidenceVerificationReport
 from olympus.engines.listing import EngineListReport
 from olympus.engines.preflight import EnginePreflightReport
 from olympus.metis.models import EngagementPlan, IntelCaseDocument
@@ -120,6 +120,9 @@ PUBLISHED_CONTRACTS = (
     PublishedContract("olympus.correlation", "output", CorrelationModel),
     PublishedContract("olympus.correlations", "output", CorrelationsDocument),
     PublishedContract("olympus.engine-run-evidence", "output", EngineRunEvidence),
+    PublishedContract(
+        "olympus.engine-run-evidence-verification", "output", EvidenceVerificationReport
+    ),
     PublishedContract("olympus.engine-doctor", "output", EngineDoctorReport),
     PublishedContract("olympus.engine-preflight", "output", EnginePreflightReport),
     PublishedContract("olympus.engine-list", "output", EngineListReport),

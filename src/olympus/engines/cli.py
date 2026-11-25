@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import typer
 
+from olympus.core.execution import safe_terminal_text
 from olympus.core.exit_codes import ExitCode
+from olympus.core.fileio import read_regular_text
 from olympus.core.output import OutputFormat, render_table
 from olympus.engines.commands import UnknownCommandError, require_known
 from olympus.engines.doctor import (
@@ -18,6 +21,8 @@ from olympus.engines.doctor import (
 from olympus.engines.listing import build_list_report
 from olympus.engines.loader import ManifestError
 from olympus.engines.preflight import UnknownEngineError, build_preflight_report, preflight
+
+_MAX_PUBLIC_KEY_BYTES = 16 * 1024
 
 app = typer.Typer(
     help="External scanner engines: pins, presence and install commands (no network, no target).",
@@ -208,3 +213,54 @@ def engines_preflight(
         else:
             typer.echo(f"preflight OK: {len(verdict.required)} required engine(s) present.")
     raise typer.Exit(code=verdict.exit_code)
+
+
+@app.command("verify-evidence")
+def engines_verify_evidence(
+    path: Path = typer.Argument(..., help="Signed engine-run evidence JSON to verify."),
+    public_key: Path = typer.Option(
+        ..., "--public-key", help="Pinned Ed25519 public key used to verify the signature."
+    ),
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.TABLE, "--format", help="table or json."
+    ),
+) -> None:
+    """Verify signed run evidence with the single pinned-key verifier.
+
+    The detached ``PATH.sig`` envelope is never trusted by itself: its embedded
+    key must match ``--public-key`` and the signature must cover the canonical
+    evidence bytes. Missing, altered or differently-signed evidence fails
+    closed with exit 6.
+    """
+    from olympus.engines.evidence import EvidenceError, verify_evidence
+
+    try:
+        trusted_public_key = read_regular_text(
+            public_key,
+            max_bytes=_MAX_PUBLIC_KEY_BYTES,
+            label="evidence verification public key",
+        )
+        report = verify_evidence(path, public_pem=trusted_public_key)
+    except (EvidenceError, OSError, ValueError) as exc:
+        typer.echo(safe_terminal_text(f"olympus: evidence verification failed: {exc}"), err=True)
+        raise typer.Exit(code=ExitCode.FAILED) from exc
+    if output_format is OutputFormat.JSON:
+        typer.echo(json.dumps(report.model_dump(mode="json"), indent=2, sort_keys=True))
+        return
+    evidence = report.evidence
+    typer.echo(
+        render_table(
+            ["valid", "run", "job", "engine", "state", "sha256"],
+            [
+                [
+                    "yes",
+                    evidence.run_id,
+                    evidence.authorization.job_id or "-",
+                    evidence.engine.name,
+                    evidence.outcome.state,
+                    report.evidence_sha256,
+                ]
+            ],
+            title="signed engine-run evidence",
+        )
+    )

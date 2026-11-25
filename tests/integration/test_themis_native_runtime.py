@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 from typer.testing import CliRunner
 
 from olympus.cli import app
+from olympus.core.signing import generate_keypair
 from olympus.themis.api import ApiSettings, create_app
 from olympus.themis.identity import SCOPES
 from olympus.themis.jobs import SCHEMA_VERSION
@@ -214,10 +215,22 @@ def test_live_worker_requires_manifest_store_and_pinned_key_before_startup(
     monkeypatch.setenv("THEMIS_ENABLE_LIVE_SCANS", "true")
     monkeypatch.delenv("AEGIS_ENABLE_LIVE_SCANS", raising=False)
     monkeypatch.delenv("VAP_ENABLE_LIVE_SCANS", raising=False)
+    private_key, _ = generate_keypair()
+    key_path = tmp_path / "evidence-private.pem"
+    key_path.write_text(private_key, encoding="utf-8")
+    monkeypatch.setenv("OLYMPUS_EVIDENCE_SIGNING_KEY_FILE", str(key_path))
 
     result = runner.invoke(
         app,
-        ["themis", "workers", "--once", "-d", str(tmp_path / "jobs.sqlite3")],
+        [
+            "themis",
+            "workers",
+            "--once",
+            "-d",
+            str(tmp_path / "jobs.sqlite3"),
+            "--evidence-dir",
+            str(tmp_path / "evidence"),
+        ],
     )
 
     assert result.exit_code == 2

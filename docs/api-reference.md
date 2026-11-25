@@ -119,6 +119,14 @@ Scan submitted text for secrets offline, returning only masked findings.
 | --- | --- | --- |
 | jobs | — | `olympus.themis-job` `3.0.0` |
 
+### `GET /api/v1/jobs/{job_id}/evidence`
+
+Return a job's latest-attempt evidence only after pinned-key verification.
+
+| Tags | Request contract | Response contract |
+| --- | --- | --- |
+| jobs | — | `olympus.engine-run-evidence-verification` `1.0.0` |
+
 ### `POST /api/v1/metis/extract`
 
 Extract IOCs from free text, a STIX bundle or a MISP event, offline.

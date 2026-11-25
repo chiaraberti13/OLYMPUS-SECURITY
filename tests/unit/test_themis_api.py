@@ -12,12 +12,14 @@ from typer.testing import CliRunner
 
 from olympus.cli import app
 from olympus.core.models import Engagement, EngagementScope
-from olympus.core.signing import generate_keypair
+from olympus.core.signing import generate_keypair, sign
 from olympus.engagements.manifest import EngagementManifest, SignedEngagementManifest
 from olympus.engagements.store import ENGAGEMENTS_DB_NAME, SqliteEngagementStore
+from olympus.engines.evidence import attempt_evidence_path
 from olympus.themis.api import ApiSettings, create_app
+from olympus.themis.application import ThemisApplicationService, ThemisRunRequest
 from olympus.themis.identity import SCOPES
-from olympus.themis.jobs import ThemisJobStore
+from olympus.themis.jobs import JobState, ThemisJobStore
 
 API_KEY = "a" * 32
 AUTH = {"X-Olympus-API-Key": API_KEY}
@@ -86,6 +88,153 @@ def _client(tmp_path: Path) -> TestClient:
             )
         )
     )
+
+
+def test_job_evidence_endpoint_returns_only_pinned_key_verified_evidence(tmp_path: Path) -> None:
+    scopes = tmp_path / "scopes"
+    scope = _scope(scopes)
+    evidence_dir = tmp_path / "evidence"
+    evidence_dir.mkdir()
+    private_pem, public_pem = generate_keypair()
+    database = tmp_path / "jobs.sqlite3"
+    store = ThemisJobStore(database)
+    queued = store.submit(
+        scanner="nmap",
+        target="127.0.0.1",
+        target_kind="host",
+        scope_path=scope,
+        authorized=True,
+    )
+    claimed = store.claim_next("worker-evidence")
+    assert claimed is not None and claimed.attempts == 1
+    evidence_path = attempt_evidence_path(evidence_dir, queued.job_id, claimed.attempts)
+    result = ThemisApplicationService(isolation_verifier=lambda: None).run(
+        ThemisRunRequest(
+            scanner="nmap",
+            target="127.0.0.1",
+            target_kind="host",
+            scope_path=scope,
+            authorized=True,
+            live_enabled=False,
+            simulate=True,
+            job_id=queued.job_id,
+            evidence_path=evidence_path,
+            evidence_signer=lambda data: sign(data, private_pem),
+        )
+    )
+    store.complete(
+        queued.job_id,
+        worker_id="worker-evidence",
+        state=JobState.SUCCEEDED,
+        result=result.to_dict(),
+    )
+    client = TestClient(
+        create_app(
+            ApiSettings(
+                database=database,
+                scope_directory=scopes,
+                api_key=API_KEY,
+                api_key_scopes=SCOPES,
+                evidence_directory=evidence_dir,
+                evidence_public_key_pem=public_pem,
+            )
+        )
+    )
+
+    response = client.get(f"/api/v1/jobs/{queued.job_id}/evidence", headers=AUTH)
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["schema_name"] == "olympus.engine-run-evidence-verification"
+    assert body["valid"] is True
+    assert body["evidence"]["authorization"]["job_id"] == queued.job_id
+    assert body["evidence"]["engine"]["name"] == "nmap"
+
+    document = json.loads(evidence_path.read_text(encoding="utf-8"))
+    document["outcome"]["finding_count"] = 999
+    evidence_path.write_text(json.dumps(document), encoding="utf-8")
+    rejected = client.get(f"/api/v1/jobs/{queued.job_id}/evidence", headers=AUTH)
+    assert rejected.status_code == 409
+    assert rejected.json() == {"detail": "signed job evidence failed integrity verification"}
+
+
+def test_job_evidence_server_configuration_is_paired_and_key_validated(tmp_path: Path) -> None:
+    evidence_dir = tmp_path / "evidence"
+    evidence_dir.mkdir()
+    scopes = tmp_path / "scopes"
+    scopes.mkdir()
+    base = {
+        "database": tmp_path / "jobs.sqlite3",
+        "scope_directory": scopes,
+        "api_key": API_KEY,
+    }
+    _, public_pem = generate_keypair()
+
+    with pytest.raises(ValueError) as directory_only:
+        create_app(ApiSettings(**base, evidence_directory=evidence_dir))
+    assert str(directory_only.value) == (
+        "Themis evidence_directory and evidence_public_key_pem must be configured together"
+    )
+
+    with pytest.raises(ValueError) as key_only:
+        create_app(ApiSettings(**base, evidence_public_key_pem=public_pem))
+    assert str(key_only.value) == (
+        "Themis evidence_directory and evidence_public_key_pem must be configured together"
+    )
+
+    with pytest.raises(ValueError) as invalid_key:
+        create_app(
+            ApiSettings(
+                **base,
+                evidence_directory=evidence_dir,
+                evidence_public_key_pem="not-a-public-key",
+            )
+        )
+    assert str(invalid_key.value).startswith("Themis evidence public key is invalid:")
+
+    with pytest.raises(ValueError) as missing_directory:
+        create_app(
+            ApiSettings(
+                **base,
+                evidence_directory=tmp_path / "missing",
+                evidence_public_key_pem=public_pem,
+            )
+        )
+    expected_directory_error = "Themis evidence directory must be an existing non-symlink directory"
+    assert str(missing_directory.value) == expected_directory_error
+
+    evidence_file = tmp_path / "not-a-directory"
+    evidence_file.write_text("not a directory", encoding="utf-8")
+    with pytest.raises(ValueError) as file_directory:
+        create_app(
+            ApiSettings(
+                **base,
+                evidence_directory=evidence_file,
+                evidence_public_key_pem=public_pem,
+            )
+        )
+    assert str(file_directory.value) == expected_directory_error
+
+    evidence_link = tmp_path / "evidence-link"
+    evidence_link.symlink_to(evidence_dir, target_is_directory=True)
+    with pytest.raises(ValueError) as symlink_directory:
+        create_app(
+            ApiSettings(
+                **base,
+                evidence_directory=evidence_link,
+                evidence_public_key_pem=public_pem,
+            )
+        )
+    assert str(symlink_directory.value) == expected_directory_error
+
+    configured = create_app(
+        ApiSettings(
+            **base,
+            evidence_directory=evidence_dir,
+            evidence_public_key_pem=public_pem,
+        )
+    )
+    assert any(route.path == "/api/v1/jobs/{job_id}/evidence" for route in configured.routes)
 
 
 def _apollo_rules(tmp_path: Path) -> Path:

@@ -488,6 +488,7 @@ Execute an assessment plan end to end and persist its results.
 | `--report` | option | no | `False` | Write a findings report into the storage directory. |
 | `--enrich-kev` | option | no | — | Local CISA KEV catalogue JSON: overlay known-exploited status on findings (offline). |
 | `--enrich-epss` | option | no | — | Local FIRST EPSS response JSON: overlay exploit-probability on findings (offline). |
+| `--evidence-dir` | option | no | — | Write immutable signed evidence for every Athena Themis attempt; requires OLYMPUS_EVIDENCE_SIGNING_KEY_FILE. |
 
 ### `olympus athena status`
 
@@ -746,6 +747,16 @@ Fail-closed readiness gate for a planned scan (no network, no target).
 | `--engine` | option | no | — | Also require this engine (repeatable), beyond the mandatory set. |
 | `--command` | option | no | — | Also require every engine this command needs (e.g. 'themis.run'); unknown → exit 2. |
 | `--allow-missing-engines` | option | no | `False` | Tolerate a missing OPTIONAL engine (degraded, exit 5); mandatory still blocks. |
+| `--format` | option | no | `table` | table or json. |
+
+### `olympus engines verify-evidence`
+
+Verify signed run evidence with the single pinned-key verifier.
+
+| Name | Kind | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `path` | argument | yes | — | Signed engine-run evidence JSON to verify. |
+| `--public-key` | option | yes | — | Pinned Ed25519 public key used to verify the signature. |
 | `--format` | option | no | `table` | table or json. |
 
 ### `olympus helios scan`
@@ -1332,6 +1343,8 @@ Serve the authenticated native Themis API.
 | `--engagement-storage` | option | no | — | Directory holding the shared engagements database; enables the engagement read endpoints and engagement-derived scope enforcement. |
 | `--apollo-rules` | option | no | — | Server-owned Apollo rule directory; enables versioned rule-list and offline evaluation API endpoints. |
 | `--manifest-public-key` | option | no | — | Pinned Ed25519 approver public key; requires --engagement-storage and signed manifests on API job submissions. |
+| `--evidence-directory` | option | no | — | Worker evidence directory exposed read-only through verified job evidence endpoints. |
+| `--evidence-public-key` | option | no | — | Pinned Ed25519 public key for --evidence-directory; never a private key. |
 | `--minerva-custody-public-key` | option | no | — | File holding a hex-encoded Ed25519 custody verification public key (not a secret); enables Minerva ledger signature verification over the API. |
 | `--cors-allow-origin` | option | no | — | Exact browser Origin (scheme://host[:port]) allowed to call the API cross-origin; repeatable. Empty (default) emits no CORS headers; the wildcard '*' is rejected. |
 | `--ssl-certfile` | option | no | — | — |
@@ -1555,6 +1568,7 @@ Claim and execute at most one job; safe for cron/systemd/container loops.
 | --- | --- | --- | --- | --- |
 | `--database`, `-d` | option | no | — | — |
 | `--audit` | option | no | — | — |
+| `--evidence-dir` | option | no | — | Write immutable signed evidence per attempt; requires OLYMPUS_EVIDENCE_SIGNING_KEY_FILE. |
 | `--worker-id` | option | no | — | Stable identity for this worker's leases. |
 
 ### `olympus themis legacy-approve`
@@ -1785,6 +1799,8 @@ Serve the native Themis web control plane (browser UI over the same core).
 | `--audit` | option | no | — | Redacted per-request audit log. |
 | `--engagement-storage` | option | no | — | Directory holding the shared engagements database; enables the engagement pages and engagement-derived scope enforcement. |
 | `--manifest-public-key` | option | no | — | Pinned Ed25519 approver public key; requires --engagement-storage and makes every Web job require a signed manifest. |
+| `--evidence-directory` | option | no | — | Worker evidence directory shown read-only after pinned-key verification. |
+| `--evidence-public-key` | option | no | — | Pinned Ed25519 public key for --evidence-directory; never a private key. |
 | `--findings-directory` | option | no | — | Directory of core.Finding JSON bundles to review in the browser; enables the Findings pages (read-only producer artifacts). |
 | `--findings-storage` | option | no | — | Append-only SQLite finding-lifecycle store; enables recording triage decisions (status transitions) from the browser. |
 | `--baseline-directory` | option | no | — | Directory of core.Finding JSON bundles from an earlier run; enables the Scan diff page (new/resolved/persistent vs the current findings). |
@@ -1828,6 +1844,8 @@ Serve the native Themis web control plane (browser UI over the same core).
 | `--audit` | option | no | — | Redacted per-request audit log. |
 | `--engagement-storage` | option | no | — | Directory holding the shared engagements database; enables the engagement pages and engagement-derived scope enforcement. |
 | `--manifest-public-key` | option | no | — | Pinned Ed25519 approver public key; requires --engagement-storage and makes every Web job require a signed manifest. |
+| `--evidence-directory` | option | no | — | Worker evidence directory shown read-only after pinned-key verification. |
+| `--evidence-public-key` | option | no | — | Pinned Ed25519 public key for --evidence-directory; never a private key. |
 | `--findings-directory` | option | no | — | Directory of core.Finding JSON bundles to review in the browser; enables the Findings pages (read-only producer artifacts). |
 | `--findings-storage` | option | no | — | Append-only SQLite finding-lifecycle store; enables recording triage decisions (status transitions) from the browser. |
 | `--baseline-directory` | option | no | — | Directory of core.Finding JSON bundles from an earlier run; enables the Scan diff page (new/resolved/persistent vs the current findings). |
@@ -1845,7 +1863,7 @@ Run the native worker; SIGINT/SIGTERM cancel the active scan and stop.
 | --- | --- | --- | --- | --- |
 | `--database`, `-d` | option | no | — | — |
 | `--audit` | option | no | — | — |
-| `--evidence-dir` | option | no | — | Write a signed run-evidence manifest per executed job here (one <job_id>.json + .sig). Needs OLYMPUS_EVIDENCE_SIGNING_KEY_FILE to name an Ed25519 private key; without it the worker refuses to start. |
+| `--evidence-dir` | option | no | — | Write one immutable signed run-evidence pair per job attempt here (<job_id>.attempt-N.json + .sig). Needs OLYMPUS_EVIDENCE_SIGNING_KEY_FILE to name an Ed25519 private key; without it the worker refuses to start. |
 | `--engagement-storage` | option | no | — | Directory holding signed manifests and their revocation register. |
 | `--manifest-public-key` | option | no | — | Pinned Ed25519 approver public key used to revalidate bound manifests. |
 | `--worker-id` | option | no | — | Stable lease owner. |

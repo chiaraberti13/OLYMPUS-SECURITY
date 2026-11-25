@@ -12,6 +12,25 @@ below lives under **Unreleased**.
 
 ## [Unreleased]
 
+### Added — TOOLS-4.5: evidenze firmate condivise e verificabili su tutti i percorsi live
+
+- Il contratto `olympus.engine-run-evidence` 1.0.0 è ora prodotto dallo stesso servizio per
+  `themis run`, worker persistenti (quindi job avviati da API e Web) e step Themis di Athena.
+  Ogni retry usa una coppia immutabile `<job_id>.attempt-N.json` + `.sig`: una nuova consegna non
+  duplica né sovrascrive l'evidenza di un tentativo precedente. I percorsi live pubblici rifiutano
+  l'esecuzione prima dello scanner se directory o signer non sono configurati; un run rifiutato non
+  genera una falsa evidenza di esecuzione.
+- API e Web accettano una directory canonica e una chiave pubblica Ed25519 pinnata. Il nuovo
+  `GET /api/v1/jobs/{job_id}/evidence` restituisce il contratto verificato
+  `olympus.engine-run-evidence-verification` 1.0.0; la pagina job mostra firma, digest e dati del run.
+  Evidenza terminale assente, alterata, firmata da una chiave diversa o legata a un altro job è un
+  errore d'integrità esplicito, mai un successo silenzioso.
+- Nuovo verificatore unico `olympus engines verify-evidence PATH --public-key KEY`, riusato anche
+  dall'API. Manifesto e firma sono create-only con scrittura atomica; i target esistenti e i symlink
+  sono rifiutati. Athena propaga un receipt con `run_id` e SHA-256 dell'evidenza.
+- Test di parità, alterazione, chiave diversa, retry, binding al job e fail-closed coprono CLI,
+  worker, API, Web e Athena; schema catalog, OpenAPI e riferimenti CLI/API aggiornati.
+
 ### Added — TOOLS-4.1: parità Web/TUI del preflight degradato
 
 - La pagina Web `/tools` espone ora il preflight engine condiviso e offline: baseline mandatory,

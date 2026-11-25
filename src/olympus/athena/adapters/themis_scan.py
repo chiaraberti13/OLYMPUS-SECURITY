@@ -23,17 +23,35 @@ never executes a binary.
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
+from typing import cast
 
 from olympus.athena.adapters.tools.base import guard_target
 from olympus.athena.ports import Cancellation, ToolRequest, ToolResult
+from olympus.engines.evidence import (
+    EvidenceAuthorization,
+    EvidenceError,
+    Signer,
+    build_evidence,
+    write_signed,
+)
+from olympus.engines.preflight import PreflightVerdict
 from olympus.themis import config
 from olympus.themis.base import ScannerAdapter
 from olympus.themis.model import ScanRequest
 from olympus.themis.registry import get_adapter
+from olympus.themis.sandbox import require_scanner_isolation
 from olympus.themis.states import ExecutionState
 
 #: Result states that mean the step completed (real scan or labelled simulation).
 _OK_STATES = frozenset({ExecutionState.LIVE, ExecutionState.SIMULATION})
+
+
+def _engine_preflight(scanner: str) -> PreflightVerdict:
+    from olympus.engines.cli import system_environment
+    from olympus.engines.preflight import preflight_for_scanner
+
+    return preflight_for_scanner(system_environment(), scanner)
 
 
 class ThemisScanAdapter:
@@ -45,10 +63,14 @@ class ThemisScanAdapter:
         *,
         adapter_factory: Callable[[str], ScannerAdapter] = get_adapter,
         live_enabled: Callable[[], bool] = config.live_enabled,
+        engine_preflight: Callable[[str], PreflightVerdict] = _engine_preflight,
+        isolation_verifier: Callable[[], None] = require_scanner_isolation,
     ) -> None:
         self._scanner = scanner
         self._adapter_factory = adapter_factory
         self._live_enabled = live_enabled
+        self._engine_preflight = engine_preflight
+        self._isolation_verifier = isolation_verifier
 
     @property
     def name(self) -> str:
@@ -65,6 +87,27 @@ class ThemisScanAdapter:
         host = guarded
 
         live = self._live_enabled()
+        evidence_values = (
+            request.evidence_run_id,
+            request.evidence_job_id,
+            request.evidence_path,
+            request.evidence_signer,
+        )
+        evidence_configured = all(value is not None for value in evidence_values)
+        if any(value is not None for value in evidence_values) and not evidence_configured:
+            return ToolResult(ok=False, error_code="evidence_configuration_invalid")
+        if live:
+            # Athena is an orchestration surface, not an authority bypass. A live
+            # Themis step must satisfy the same isolation/preflight/evidence
+            # gates as direct and worker execution before the adapter is reached.
+            if not evidence_configured:
+                return ToolResult(ok=False, error_code="evidence_required")
+            try:
+                self._isolation_verifier()
+                if not self._engine_preflight(self._scanner).ok:
+                    return ToolResult(ok=False, error_code="engine_missing")
+            except (OSError, RuntimeError, ValueError):
+                return ToolResult(ok=False, error_code="isolation_required")
         scan_request = ScanRequest(
             scanner=self._scanner,
             target=host,
@@ -84,6 +127,33 @@ class ThemisScanAdapter:
             # error stays a stable, redacted code (no scanner text leaks here).
             return ToolResult(ok=False, error_code="scan_failed")
 
+        evidence_run_id: str | None = None
+        evidence_sha256: str | None = None
+        if evidence_configured:
+            run_id = cast(str, request.evidence_run_id)
+            job_id = cast(str, request.evidence_job_id)
+            evidence_path = cast(Path, request.evidence_path)
+            evidence_signer = cast(Signer, request.evidence_signer)
+            try:
+                evidence = build_evidence(
+                    run_id=run_id,
+                    result=result,
+                    request=scan_request,
+                )
+                evidence = evidence.model_copy(
+                    update={"authorization": EvidenceAuthorization(job_id=job_id)}
+                )
+                evidence_sha256 = write_signed(evidence, evidence_signer, evidence_path)
+                evidence_run_id = run_id
+            except (EvidenceError, OSError, ValueError):
+                return ToolResult(ok=False, error_code="evidence_failed")
+
         if result.state in _OK_STATES:
-            return ToolResult(ok=True, assets=list(result.assets), findings=list(result.findings))
+            return ToolResult(
+                ok=True,
+                assets=list(result.assets),
+                findings=list(result.findings),
+                evidence_run_id=evidence_run_id,
+                evidence_sha256=evidence_sha256,
+            )
         return ToolResult(ok=False, error_code=result.state.value)
