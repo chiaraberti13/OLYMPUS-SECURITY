@@ -46,6 +46,7 @@ from olympus.athena.domain.contracts import AssessmentPlan, Target
 from olympus.core.execution import StructuredAuditRecord, append_structured_audit
 from olympus.core.models import Alert, Engagement, Event, Finding
 from olympus.core.observability import Correlation, Observability, observability_from_config
+from olympus.core.signing import SigningError, validate_public_key
 from olympus.engagements.manifest import (
     ManifestAuthorizationError,
     ManifestVerificationError,
@@ -58,6 +59,12 @@ from olympus.engagements.resolve import (
     require_engagement,
 )
 from olympus.engagements.store import SqliteEngagementStore
+from olympus.engines.evidence import (
+    EvidenceError,
+    EvidenceVerificationReport,
+    attempt_evidence_path,
+    verify_evidence,
+)
 from olympus.engines.preflight import EnginePreflightReport
 from olympus.helios.scanner import identify_banner, is_risky, sanitize_banner, service_for
 from olympus.hermes.scanner import scan_text
@@ -90,6 +97,7 @@ from olympus.themis.identity import (
 )
 from olympus.themis.jobs import (
     MAX_ATTEMPTS_LIMIT,
+    TERMINAL_STATES,
     IdempotencyConflict,
     JobState,
     ThemisJob,
@@ -204,6 +212,11 @@ class ApiSettings:
     #: must carry a signed manifest and is rejected unless it authorizes the
     #: exact engagement, scanner, target and current time.
     trusted_manifest_public_key_pem: str | None = None
+    #: Shared, private evidence store written by the worker. API/Web only read
+    #: from it and return a document after verification with the pinned public
+    #: key; the private signing key remains worker-only.
+    evidence_directory: Path | None = None
+    evidence_public_key_pem: str | None = None
     #: Exact browser Origins allowed to call this API cross-origin (``API-4``).
     #: Empty by default — fail-closed: no ``Access-Control-Allow-Origin`` is ever
     #: emitted, so a browser on another domain cannot read a response. For a split
@@ -260,6 +273,25 @@ class ApiSettings:
                 raise ValueError("Themis trusted manifest public key must not be empty")
             if self.engagements_database is None:
                 raise ValueError("Themis signed manifests require an engagement database")
+        if (self.evidence_directory is None) != (self.evidence_public_key_pem is None):
+            raise ValueError(
+                "Themis evidence_directory and evidence_public_key_pem must be configured together"
+            )
+        if self.evidence_public_key_pem is not None:
+            try:
+                validate_public_key(self.evidence_public_key_pem)
+            except SigningError as exc:
+                raise ValueError(f"Themis evidence public key is invalid: {exc}") from exc
+        if self.evidence_directory is not None:
+            if self.evidence_directory.is_symlink():
+                raise ValueError(
+                    "Themis evidence directory must be an existing non-symlink directory"
+                )
+            evidence_root = self.evidence_directory.resolve()
+            if not evidence_root.exists() or not evidence_root.is_dir():
+                raise ValueError(
+                    "Themis evidence directory must be an existing non-symlink directory"
+                )
         if self.minerva_custody_public_key_hex is not None:
             # Fail at startup on a malformed verification key rather than on the
             # first ledger submission; reuses the canonical hex loader.
@@ -1628,6 +1660,22 @@ def create_app(settings: ApiSettings, observability: Observability | None = None
     def get_job(job_id: str, caller: Caller = reads_jobs) -> ThemisJob:
         return _get(store, job_id)
 
+    @app.get(
+        "/api/v1/jobs/{job_id}/evidence",
+        response_model=EvidenceVerificationReport,
+        tags=["jobs"],
+    )
+    def get_job_evidence(job_id: str, caller: Caller = reads_jobs) -> EvidenceVerificationReport:
+        """Return a job's latest-attempt evidence only after pinned-key verification.
+
+        The worker is the sole writer.  This control-plane route derives the
+        canonical per-attempt path from the persisted job id, accepts no caller
+        path, and uses the same verifier as ``engines verify-evidence`` and the
+        Web detail page. Missing evidence for a terminal attempt is an explicit
+        integrity conflict, never an empty successful response.
+        """
+        return verified_job_evidence(settings, _get(store, job_id))
+
     @app.post(
         "/api/v1/jobs/{job_id}/cancel",
         response_model=ThemisJob,
@@ -1733,3 +1781,43 @@ def _get(store: ThemisJobStore, job_id: str) -> ThemisJob:
         return store.get(job_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=exc.args[0]) from exc
+
+
+def verified_job_evidence(settings: ApiSettings, job: ThemisJob) -> EvidenceVerificationReport:
+    """Verify and return the latest attempt's evidence for API/Web parity."""
+    directory = settings.evidence_directory
+    public_key = settings.evidence_public_key_pem
+    if directory is None or public_key is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="signed run evidence is not configured on this server",
+        )
+    if job.attempts < 1:
+        raise HTTPException(status_code=404, detail="job evidence has not been produced yet")
+    try:
+        path = attempt_evidence_path(directory, job.job_id, job.attempts)
+    except EvidenceError as exc:  # persisted ids/attempts should already be canonical
+        raise HTTPException(status_code=409, detail="job evidence reference is invalid") from exc
+    if not path.exists() and not path.with_name(path.name + ".sig").exists():
+        detail = (
+            "signed evidence is missing for this terminal job attempt"
+            if job.state in TERMINAL_STATES
+            else "job evidence has not been produced yet"
+        )
+        raise HTTPException(
+            status_code=409 if job.state in TERMINAL_STATES else 404,
+            detail=detail,
+        )
+    try:
+        report = verify_evidence(path, public_pem=public_key)
+    except EvidenceError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="signed job evidence failed integrity verification",
+        ) from exc
+    if report.evidence.authorization.job_id != job.job_id:
+        raise HTTPException(
+            status_code=409,
+            detail="signed job evidence is bound to a different job",
+        )
+    return report

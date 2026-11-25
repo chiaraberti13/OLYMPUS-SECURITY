@@ -33,6 +33,45 @@ olympus themis workers --database .olympus/themis-jobs.sqlite3
 olympus themis workers --once --database .olympus/themis-jobs.sqlite3
 ```
 
+### Evidenze firmate dei run live
+
+Ogni esecuzione live deve produrre una coppia immutabile firmata Ed25519. La
+chiave privata resta in un file esterno al repository e viene indicata soltanto
+da `OLYMPUS_EVIDENCE_SIGNING_KEY_FILE`; il percorso non viene scritto nei log.
+Per i worker, che coprono anche i job avviati da API e Web:
+
+```bash
+export OLYMPUS_EVIDENCE_SIGNING_KEY_FILE=/run/secrets/evidence-private.pem
+olympus themis workers --database .olympus/themis-jobs.sqlite3 \
+  --evidence-dir .olympus/evidence
+```
+
+Il tentativo N scrive `<job_id>.attempt-N.json` e `.sig`; i file sono
+create-only, quindi un retry conserva la storia senza sovrascrivere. API e Web
+ricevono esclusivamente la directory e la chiave **pubblica** pinnata:
+
+```bash
+olympus themis api --evidence-directory .olympus/evidence \
+  --evidence-public-key evidence-public.pem
+olympus themis web --evidence-directory .olympus/evidence \
+  --evidence-public-key evidence-public.pem
+```
+
+`GET /api/v1/jobs/{job_id}/evidence` e il dettaglio Web verificano firma,
+digest e binding al job tramite lo stesso verificatore. Un job terminale senza
+evidenza, alterato o firmato da un'altra chiave è un errore d'integrità
+esplicito. Verifica offline:
+
+```bash
+olympus engines verify-evidence .olympus/evidence/THEMIS-….attempt-1.json \
+  --public-key evidence-public.pem
+```
+
+Anche `themis run` live richiede `--evidence PATH`; `athena run` richiede
+`--evidence-dir DIR` quando il piano contiene uno step Themis live. I run
+rifiutati prima dello scanner lasciano un record di audit, non un manifesto che
+potrebbe essere scambiato per prova di esecuzione.
+
 Per i job API/Web protetti da manifest firmato, API, Web e worker devono
 condividere l'archivio revoche e la chiave pubblica dell'approvatore:
 
@@ -420,6 +459,21 @@ SIGINT/SIGTERM cancel active execution and stop new claims, returning `7`.
 `--once` processes at most one job and preserves canonical exit codes:
 `0` empty/clean, `1` findings, `4` denied, `5` partial, `6` failed/timed out,
 `7` cancelled.
+
+### Signed live-run evidence
+
+Every public live path is fail-closed without signed Ed25519 evidence. Point
+`OLYMPUS_EVIDENCE_SIGNING_KEY_FILE` at the private-key file and start workers
+with `--evidence-dir`; attempt N creates an immutable
+`<job_id>.attempt-N.json` plus `.sig`, so retries never overwrite earlier
+evidence. Start API and Web with the same `--evidence-directory` and a pinned
+`--evidence-public-key` (never the private key). The job evidence endpoint and
+Web detail verify signature, digest and job binding through the shared
+verifier; missing or tampered terminal evidence is an explicit integrity
+error. Direct live `themis run` requires `--evidence`, and a live Athena plan
+containing Themis requires `athena run --evidence-dir`. Use `olympus engines
+verify-evidence PATH --public-key KEY` for the same offline verification.
+Pre-execution refusals are audited but do not mint execution evidence.
 
 For API/Web jobs protected by signed manifests, start workers with the same
 `--engagement-storage` and pinned `--manifest-public-key` used by the API and

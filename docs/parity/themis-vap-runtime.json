@@ -471,6 +471,12 @@
     },
     {
       "surface": "api",
+      "method": "GET",
+      "path": "/api/v1/jobs/{job_id}/evidence",
+      "handler": "get_job_evidence"
+    },
+    {
+      "surface": "api",
       "method": "POST",
       "path": "/api/v1/jobs/{job_id}/cancel",
       "handler": "cancel_job"

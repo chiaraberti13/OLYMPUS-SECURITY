@@ -14,6 +14,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, wait
 from dataclasses import dataclass
+from pathlib import Path
 from typing import cast
 
 from olympus.athena.domain.assessment import (
@@ -41,6 +42,7 @@ from olympus.core.execution import (
 )
 from olympus.core.models import Finding, is_canonical_engagement_id
 from olympus.core.observability import Correlation, Observability
+from olympus.engines.evidence import Signer, orchestrated_evidence_path
 
 AdapterResolver = Callable[[tuple[str, ...]], dict[str, ToolRunner]]
 
@@ -68,6 +70,8 @@ class Coordinator:
         ids: IdProvider,
         resolver: AdapterResolver,
         observability: Observability | None = None,
+        evidence_dir: Path | None = None,
+        evidence_signer: Signer | None = None,
     ) -> None:
         self._repo = repository
         self._audit = audit
@@ -75,6 +79,12 @@ class Coordinator:
         self._ids = ids
         self._resolver = resolver
         self._observability = observability or Observability()
+        if (evidence_dir is None) != (evidence_signer is None):
+            raise ValueError("Athena evidence_dir and evidence_signer must be configured together")
+        if evidence_dir is not None and evidence_dir.is_symlink():
+            raise ValueError("Athena evidence_dir must not be a symlink")
+        self._evidence_dir = evidence_dir
+        self._evidence_signer = evidence_signer
         self._sequence: dict[str, int] = {}
 
     # -- auditing ---------------------------------------------------------- #
@@ -348,17 +358,31 @@ class Coordinator:
     ) -> ToolResult:
         correlation = Correlation(assessment_id=assessment_id, job_id=job.job_id)
         with self._observability.span("athena.job", correlation):
-            request = ToolRequest(
-                target_kind=job.target_kind,
-                target_value=job.target_value,
-                allowed_domains=allowed,
-                timeout_seconds=int(policy.timeout_seconds),
-            )
             for attempt in range(policy.retries + 1):
                 try:
                     policy.check_cancellation(cancellation)
                 except CancellationRequested:
                     return ToolResult(ok=False, error_code="cancelled")
+                evidence_run_id: str | None = None
+                evidence_path: Path | None = None
+                if job.adapter == "themis" and self._evidence_dir is not None:
+                    evidence_run_id = f"athena-{assessment_id}-{job.job_id}-attempt-{attempt + 1}"
+                    evidence_path = orchestrated_evidence_path(
+                        self._evidence_dir,
+                        assessment_id,
+                        job.job_id,
+                        attempt + 1,
+                    )
+                request = ToolRequest(
+                    target_kind=job.target_kind,
+                    target_value=job.target_value,
+                    allowed_domains=allowed,
+                    timeout_seconds=int(policy.timeout_seconds),
+                    evidence_run_id=evidence_run_id,
+                    evidence_job_id=job.job_id if evidence_path is not None else None,
+                    evidence_path=evidence_path,
+                    evidence_signer=self._evidence_signer if evidence_path is not None else None,
+                )
                 result = runner.run(request, cancellation)
                 if (
                     result.ok
@@ -418,6 +442,11 @@ class Coordinator:
         ):
             self._observability.artifact_created("athena", "evidence", "json")
         findings.extend(produced_findings)
+        metadata = {"adapter": job.adapter, "count": str(len(produced_findings))}
+        if result.evidence_sha256 is not None:
+            metadata["evidence_sha256"] = result.evidence_sha256
+        if result.evidence_run_id is not None:
+            metadata["evidence_run_id"] = result.evidence_run_id
         updated = self._transition_job(
             assessment_id,
             job,
@@ -425,7 +454,7 @@ class Coordinator:
             action="job_succeeded",
             outcome="succeeded",
             result_id=result_id,
-            metadata={"adapter": job.adapter, "count": str(len(produced_findings))},
+            metadata=metadata,
         )
         self._observability.job_finished("athena", job.adapter, "succeeded", duration_seconds)
         return updated

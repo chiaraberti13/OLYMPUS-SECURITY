@@ -563,6 +563,63 @@ def test_api_settings_manifest_trust_anchor_is_nonempty_and_has_revocation_store
         ).validate()
 
 
+def test_api_settings_evidence_trust_anchor_is_paired_pinned_and_non_symlinked(
+    tmp_path: Path,
+) -> None:
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+    private_pem, public_pem = generate_keypair()
+    assert private_pem not in public_pem
+    base = {
+        "database": tmp_path / "jobs.sqlite3",
+        "scope_directory": tmp_path,
+        "api_key": "a" * 32,
+    }
+    paired_error = (
+        "Themis evidence_directory and evidence_public_key_pem must be configured together"
+    )
+    with pytest.raises(ValueError) as directory_only:
+        ApiSettings(**base, evidence_directory=evidence).validate()  # type: ignore[arg-type]
+    assert str(directory_only.value) == paired_error
+    with pytest.raises(ValueError) as key_only:
+        ApiSettings(**base, evidence_public_key_pem=public_pem).validate()  # type: ignore[arg-type]
+    assert str(key_only.value) == paired_error
+
+    with pytest.raises(ValueError, match=r"^Themis evidence public key is invalid:"):
+        ApiSettings(
+            **base,  # type: ignore[arg-type]
+            evidence_directory=evidence,
+            evidence_public_key_pem="invalid",
+        ).validate()
+
+    directory_error = "Themis evidence directory must be an existing non-symlink directory"
+    evidence_file = tmp_path / "evidence-file"
+    evidence_file.write_text("not a directory", encoding="utf-8")
+    for rejected in (tmp_path / "missing", evidence_file):
+        with pytest.raises(ValueError) as invalid_directory:
+            ApiSettings(
+                **base,  # type: ignore[arg-type]
+                evidence_directory=rejected,
+                evidence_public_key_pem=public_pem,
+            ).validate()
+        assert str(invalid_directory.value) == directory_error
+    evidence_link = tmp_path / "evidence-link"
+    evidence_link.symlink_to(evidence, target_is_directory=True)
+    with pytest.raises(ValueError) as symlink_directory:
+        ApiSettings(
+            **base,  # type: ignore[arg-type]
+            evidence_directory=evidence_link,
+            evidence_public_key_pem=public_pem,
+        ).validate()
+    assert str(symlink_directory.value) == directory_error
+
+    ApiSettings(
+        **base,  # type: ignore[arg-type]
+        evidence_directory=evidence,
+        evidence_public_key_pem=public_pem,
+    ).validate()
+
+
 def test_scope_gate_accepts_domain_and_subdomain_but_rejects_suffix_spoof() -> None:
     allowed = ("example.com",)
 

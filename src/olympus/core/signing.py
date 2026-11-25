@@ -101,6 +101,16 @@ def _raw_public(public_pem: str) -> bytes:
     )
 
 
+def validate_public_key(public_pem: str) -> None:
+    """Fail unless ``public_pem`` is a valid Ed25519 public key.
+
+    Server configuration uses this startup check so a malformed pinned key is
+    detected before the first evidence request rather than turning every
+    verification into a runtime failure.
+    """
+    _load_public(public_pem)
+
+
 def sign(data: bytes, private_pem: str) -> str:
     """Sign ``data`` with an Ed25519 private key; return a JSON signature envelope."""
     private_key = _load_private(private_pem)

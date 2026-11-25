@@ -1006,6 +1006,15 @@ def _direct_run_manifest(tmp_path: Path) -> tuple[Path, Path, SignedEngagementMa
     return manifest_path, key_path, signed
 
 
+def _direct_run_evidence(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, list[str]]:
+    private_key, _ = generate_keypair()
+    key_path = tmp_path / "evidence-private.pem"
+    evidence_path = tmp_path / "engine-run-evidence.json"
+    key_path.write_text(private_key, encoding="utf-8")
+    monkeypatch.setenv("OLYMPUS_EVIDENCE_SIGNING_KEY_FILE", str(key_path))
+    return evidence_path, ["--evidence", str(evidence_path)]
+
+
 def test_direct_live_run_requires_signed_manifest(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1109,6 +1118,7 @@ def test_direct_live_run_verifies_manifest_and_binds_provenance(
 ) -> None:
     scope = _scope(tmp_path / "scope.json")
     manifest_path, key_path, signed = _direct_run_manifest(tmp_path)
+    evidence_path, evidence_args = _direct_run_evidence(tmp_path, monkeypatch)
     audit = tmp_path / "audit.ndjson"
     monkeypatch.setenv("THEMIS_ENABLE_LIVE_SCANS", "true")
     monkeypatch.delenv("AEGIS_ENABLE_LIVE_SCANS", raising=False)
@@ -1151,6 +1161,7 @@ def test_direct_live_run_verifies_manifest_and_binds_provenance(
             str(key_path),
             "--engagement-storage",
             str(tmp_path / "engagements"),
+            *evidence_args,
             "--audit",
             str(audit),
         ],
@@ -1162,11 +1173,59 @@ def test_direct_live_run_verifies_manifest_and_binds_provenance(
     assert re.fullmatch(r"THEMIS-[A-F0-9]{32}", payload["job_id"])
     assert captured[0].manifest_sha256 == signed.manifest_sha256
     assert captured[0].job_id == payload["job_id"]
+    assert captured[0].evidence_path == evidence_path
+    assert captured[0].evidence_signer is not None
     records = [json.loads(line) for line in audit.read_text(encoding="utf-8").splitlines()]
     assert [record["action"] for record in records] == ["themis.manifest-authorization"]
     assert all(
         record["metadata"]["manifest_sha256"] == signed.manifest_sha256 for record in records
     )
+
+
+def test_direct_live_run_refuses_without_signed_evidence_before_scan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scope = _scope(tmp_path / "scope.json")
+    manifest_path, key_path, _ = _direct_run_manifest(tmp_path)
+    reached = False
+    monkeypatch.setenv("THEMIS_ENABLE_LIVE_SCANS", "true")
+    monkeypatch.delenv("AEGIS_ENABLE_LIVE_SCANS", raising=False)
+    monkeypatch.delenv("VAP_ENABLE_LIVE_SCANS", raising=False)
+    monkeypatch.delenv("OLYMPUS_EVIDENCE_SIGNING_KEY_FILE", raising=False)
+    monkeypatch.setattr("olympus.integrations.cli._enforce_engine_preflight", lambda *a, **k: None)
+
+    class _NeverRun:
+        def run(self, request: ThemisRunRequest) -> ScanResult:
+            nonlocal reached
+            reached = True
+            raise AssertionError("scan must not start without signed evidence")
+
+    monkeypatch.setattr("olympus.themis.application.ThemisApplicationService", _NeverRun)
+    result = runner.invoke(
+        app,
+        [
+            "themis",
+            "run",
+            "fake",
+            "--target",
+            "127.0.0.1",
+            "--scope",
+            str(scope),
+            "--i-am-authorized",
+            "--signed-manifest",
+            str(manifest_path),
+            "--manifest-public-key",
+            str(key_path),
+            "--engagement-storage",
+            str(tmp_path / "engagements"),
+            "--audit",
+            "",
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert "requires --evidence" in result.output
+    assert reached is False
 
 
 def _lab_policy(tmp_path: Path) -> Path:
@@ -1206,6 +1265,7 @@ def test_direct_live_lab_profile_is_explicit_signed_bounded_and_manifest_free(
     monkeypatch.delenv("AEGIS_ENABLE_LIVE_SCANS", raising=False)
     monkeypatch.delenv("VAP_ENABLE_LIVE_SCANS", raising=False)
     captured: list[ThemisRunRequest] = []
+    evidence_path, evidence_args = _direct_run_evidence(tmp_path, monkeypatch)
 
     class _CaptureApplication:
         def run(self, request: ThemisRunRequest) -> ScanResult:
@@ -1232,6 +1292,7 @@ def test_direct_live_lab_profile_is_explicit_signed_bounded_and_manifest_free(
             "--i-am-authorized",
             "--lab-policy",
             str(_lab_policy(tmp_path)),
+            *evidence_args,
             "--audit",
             "",
         ],
@@ -1241,6 +1302,8 @@ def test_direct_live_lab_profile_is_explicit_signed_bounded_and_manifest_free(
     assert captured[0].lab_allowed_cidrs == ("10.20.1.0/24",)
     assert re.fullmatch(r"[a-f0-9]{64}", captured[0].lab_policy_sha256 or "")
     assert re.fullmatch(r"[a-f0-9]{64}", captured[0].lab_activation_signature or "")
+    assert captured[0].evidence_path == evidence_path
+    assert captured[0].evidence_signer is not None
 
 
 def _live_lab_scope(path: Path) -> Path:

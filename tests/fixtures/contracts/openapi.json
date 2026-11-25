@@ -1182,6 +1182,82 @@
         "title": "EnginePreflightReport",
         "type": "object"
       },
+      "EngineRunEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "authorization": {
+            "$ref": "#/components/schemas/EvidenceAuthorization"
+          },
+          "command": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Command",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "data_dependencies": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceData"
+            },
+            "maxItems": 8,
+            "title": "Data Dependencies",
+            "type": "array"
+          },
+          "engine": {
+            "$ref": "#/components/schemas/EvidenceEngine"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/EvidenceOutcome"
+          },
+          "outputs": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EvidenceOutputs"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "run_id": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Run Id",
+            "type": "string"
+          },
+          "schema_name": {
+            "const": "olympus.engine-run-evidence",
+            "default": "olympus.engine-run-evidence",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/EvidenceScope"
+          }
+        },
+        "required": [
+          "run_id",
+          "created_at",
+          "engine",
+          "scope",
+          "authorization",
+          "outcome"
+        ],
+        "title": "EngineRunEvidence",
+        "type": "object"
+      },
       "EpistemicClass": {
         "description": "What kind of knowledge a statement is (ROADMAP ``EXPL-1``/``CORR-1``).\n\nShared across explainability (`EXPL-1`) and correlation (`CORR-1`) so every\nsurface labels a claim by how it is known. The ordering is from strongest to\nweakest epistemic standing; a weaker class must never be presented as a\nstronger one (an inference is not an observation, a hypothesis is not a\ndemonstrated compromise).",
         "enum": [
@@ -1262,6 +1338,327 @@
           "source"
         ],
         "title": "Event",
+        "type": "object"
+      },
+      "EvidenceAuthorization": {
+        "additionalProperties": false,
+        "properties": {
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "lab_policy_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lab Policy Sha256"
+          },
+          "manifest_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manifest Sha256"
+          }
+        },
+        "title": "EvidenceAuthorization",
+        "type": "object"
+      },
+      "EvidenceData": {
+        "additionalProperties": false,
+        "properties": {
+          "commit": {
+            "pattern": "^[a-f0-9]{40}$",
+            "title": "Commit",
+            "type": "string"
+          },
+          "manifest_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Manifest Sha256",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "pinned_version": {
+            "title": "Pinned Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "pinned_version",
+          "commit",
+          "manifest_sha256"
+        ],
+        "title": "EvidenceData",
+        "type": "object"
+      },
+      "EvidenceEngine": {
+        "additionalProperties": false,
+        "properties": {
+          "detected_version": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detected Version"
+          },
+          "distribution": {
+            "title": "Distribution",
+            "type": "string"
+          },
+          "manifest_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Manifest Sha256",
+            "type": "string"
+          },
+          "name": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Name",
+            "type": "string"
+          },
+          "pinned_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pinned Version"
+          },
+          "source_commit": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{40}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Commit"
+          }
+        },
+        "required": [
+          "name",
+          "distribution",
+          "manifest_sha256"
+        ],
+        "title": "EvidenceEngine",
+        "type": "object"
+      },
+      "EvidenceOutcome": {
+        "additionalProperties": false,
+        "properties": {
+          "duration_seconds": {
+            "minimum": 0.0,
+            "title": "Duration Seconds",
+            "type": "number"
+          },
+          "exit_code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Code"
+          },
+          "finding_count": {
+            "minimum": 0.0,
+            "title": "Finding Count",
+            "type": "integer"
+          },
+          "partial": {
+            "default": false,
+            "title": "Partial",
+            "type": "boolean"
+          },
+          "partial_reason": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Partial Reason"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "termination_cause": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Termination Cause"
+          }
+        },
+        "required": [
+          "state",
+          "finding_count",
+          "duration_seconds"
+        ],
+        "title": "EvidenceOutcome",
+        "type": "object"
+      },
+      "EvidenceOutputs": {
+        "additionalProperties": false,
+        "description": "Digests of the RAW stdout/stderr. The output itself is never stored here.",
+        "properties": {
+          "stderr_bytes": {
+            "minimum": 0.0,
+            "title": "Stderr Bytes",
+            "type": "integer"
+          },
+          "stderr_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Stderr Sha256",
+            "type": "string"
+          },
+          "stdout_bytes": {
+            "minimum": 0.0,
+            "title": "Stdout Bytes",
+            "type": "integer"
+          },
+          "stdout_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Stdout Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stdout_sha256",
+          "stderr_sha256",
+          "stdout_bytes",
+          "stderr_bytes"
+        ],
+        "title": "EvidenceOutputs",
+        "type": "object"
+      },
+      "EvidenceScope": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_cidrs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Cidrs",
+            "type": "array"
+          },
+          "allowed_domains": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Domains",
+            "type": "array"
+          },
+          "allowed_hosts": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Hosts",
+            "type": "array"
+          },
+          "scope_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Scope Sha256",
+            "type": "string"
+          },
+          "target": {
+            "maxLength": 2048,
+            "title": "Target",
+            "type": "string"
+          },
+          "target_kind": {
+            "title": "Target Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "target_kind",
+          "allowed_hosts",
+          "allowed_domains",
+          "allowed_cidrs",
+          "scope_sha256"
+        ],
+        "title": "EvidenceScope",
+        "type": "object"
+      },
+      "EvidenceVerificationReport": {
+        "additionalProperties": false,
+        "description": "Pinned-key verification result shared by CLI, API and Web.\n\nA report exists only after the detached signature has been checked against\nthe operator-configured Ed25519 public key.  There is deliberately no\n``valid=false`` shape: an absent, malformed or untrusted artifact raises\n:class:`EvidenceError` instead of returning data that a caller might treat\nas evidence.",
+        "properties": {
+          "evidence": {
+            "$ref": "#/components/schemas/EngineRunEvidence"
+          },
+          "evidence_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Evidence Sha256",
+            "type": "string"
+          },
+          "schema_name": {
+            "const": "olympus.engine-run-evidence-verification",
+            "default": "olympus.engine-run-evidence-verification",
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "valid": {
+            "const": true,
+            "default": true,
+            "title": "Valid",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "evidence_sha256",
+          "evidence"
+        ],
+        "title": "EvidenceVerificationReport",
         "type": "object"
       },
       "Finding": {
@@ -3565,6 +3962,57 @@
           }
         ],
         "summary": "Cancel Job",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
+    "/api/v1/jobs/{job_id}/evidence": {
+      "get": {
+        "description": "Return a job's latest-attempt evidence only after pinned-key verification.\n\nThe worker is the sole writer.  This control-plane route derives the\ncanonical per-attempt path from the persisted job id, accepts no caller\npath, and uses the same verifier as ``engines verify-evidence`` and the\nWeb detail page. Missing evidence for a terminal attempt is an explicit\nintegrity conflict, never an empty successful response.",
+        "operationId": "get_job_evidence_api_v1_jobs__job_id__evidence_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceVerificationReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Job Evidence",
         "tags": [
           "jobs"
         ]

@@ -30,6 +30,28 @@
   {% endif %}
 </section>
 
+{% if evidence %}
+<section class="card" aria-labelledby="evidence-heading">
+  <h2 id="evidence-heading">Signed run evidence</h2>
+  {% if evidence.valid %}
+  <p class="badge badge-success">Signature verified with the pinned Ed25519 key</p>
+  <dl class="detail">
+    <dt>Run</dt><dd><code>{{ evidence.run_id }}</code></dd>
+    <dt>Engine</dt><dd>{{ evidence.engine }}</dd>
+    <dt>Outcome</dt><dd>{{ evidence.state }}</dd>
+    <dt>Created</dt><dd>{{ evidence.created_at }}</dd>
+    <dt>Evidence SHA-256</dt><dd class="target"><code>{{ evidence.sha256 }}</code></dd>
+  </dl>
+  {% elif evidence.pending %}
+  <p class="muted" role="status">Signed evidence has not been produced for the active attempt yet.</p>
+  {% else %}
+  <p class="alert" role="alert">
+    Evidence integrity warning: {{ evidence.message }}. Do not treat this job as independently verifiable.
+  </p>
+  {% endif %}
+</section>
+{% endif %}
+
 {% if outcome %}
 <section class="card" aria-labelledby="outcome-heading">
   <h2 id="outcome-heading">Outcome</h2>

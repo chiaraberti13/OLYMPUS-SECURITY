@@ -305,6 +305,16 @@ def themis_api(
         help="Pinned Ed25519 approver public key; requires --engagement-storage and "
         "signed manifests on API job submissions.",
     ),
+    evidence_directory: str = typer.Option(
+        "",
+        "--evidence-directory",
+        help="Worker evidence directory exposed read-only through verified job evidence endpoints.",
+    ),
+    evidence_public_key: str = typer.Option(
+        "",
+        "--evidence-public-key",
+        help="Pinned Ed25519 public key for --evidence-directory; never a private key.",
+    ),
     minerva_custody_public_key: str = typer.Option(
         "",
         "--minerva-custody-public-key",
@@ -382,6 +392,16 @@ def themis_api(
                     if manifest_public_key
                     else None
                 ),
+                evidence_directory=Path(evidence_directory) if evidence_directory else None,
+                evidence_public_key_pem=(
+                    read_regular_text(
+                        Path(evidence_public_key),
+                        max_bytes=16 * 1024,
+                        label="evidence verification public key",
+                    )
+                    if evidence_public_key
+                    else None
+                ),
                 minerva_custody_public_key_hex=(
                     read_regular_text(
                         Path(minerva_custody_public_key),
@@ -451,6 +471,16 @@ def themis_web(
         "--manifest-public-key",
         help="Pinned Ed25519 approver public key; requires --engagement-storage and "
         "makes every Web job require a signed manifest.",
+    ),
+    evidence_directory: str = typer.Option(
+        "",
+        "--evidence-directory",
+        help="Worker evidence directory shown read-only after pinned-key verification.",
+    ),
+    evidence_public_key: str = typer.Option(
+        "",
+        "--evidence-public-key",
+        help="Pinned Ed25519 public key for --evidence-directory; never a private key.",
     ),
     findings_directory: str = typer.Option(
         "",
@@ -551,6 +581,16 @@ def themis_web(
                         label="manifest public key",
                     )
                     if manifest_public_key
+                    else None
+                ),
+                evidence_directory=Path(evidence_directory) if evidence_directory else None,
+                evidence_public_key_pem=(
+                    read_regular_text(
+                        Path(evidence_public_key),
+                        max_bytes=16 * 1024,
+                        label="evidence verification public key",
+                    )
+                    if evidence_public_key
                     else None
                 ),
                 findings_directory=Path(findings_directory) if findings_directory else None,
@@ -866,8 +906,8 @@ def themis_workers(
     evidence_dir: str = typer.Option(
         "",
         "--evidence-dir",
-        help="Write a signed run-evidence manifest per executed job here "
-        "(one <job_id>.json + .sig). Needs OLYMPUS_EVIDENCE_SIGNING_KEY_FILE to name an "
+        help="Write one immutable signed run-evidence pair per job attempt here "
+        "(<job_id>.attempt-N.json + .sig). Needs OLYMPUS_EVIDENCE_SIGNING_KEY_FILE to name an "
         "Ed25519 private key; without it the worker refuses to start.",
     ),
     engagement_storage: str = typer.Option(
@@ -941,6 +981,10 @@ def themis_workers(
     try:
         migrate_jobs(database)
         live = live_enabled()
+        if live and not evidence_dir:
+            raise ValueError(
+                "live workers require --evidence-dir and OLYMPUS_EVIDENCE_SIGNING_KEY_FILE"
+            )
         if live and (not engagement_storage or not manifest_public_key):
             raise ValueError("live workers require --engagement-storage and --manifest-public-key")
         if bool(engagement_storage) != bool(manifest_public_key):
@@ -1015,6 +1059,7 @@ def themis_workers(
             max_concurrent_jobs=max_concurrent_jobs,
             evidence_dir=evidence_directory,
             evidence_signer=evidence_signer,
+            require_signed_evidence=live,
         )
     except ValueError as exc:
         telemetry.shutdown()
@@ -1030,6 +1075,7 @@ def themis_workers(
                             "worker_id": worker.worker_id,
                             "live_scans": live,
                             "manifest_revalidation": manifest_authorizer is not None,
+                            "signed_evidence": evidence_directory is not None,
                             "max_concurrent_jobs": max_concurrent_jobs,
                         },
                         sort_keys=True,
@@ -1903,6 +1949,12 @@ def themis_jobs_cancel(
 def themis_jobs_work(
     database: str = typer.Option(".olympus/themis-jobs.sqlite3", "--database", "-d"),
     audit: str = typer.Option(".olympus/themis-audit.ndjson", "--audit"),
+    evidence_dir: str = typer.Option(
+        "",
+        "--evidence-dir",
+        help="Write immutable signed evidence per attempt; requires "
+        "OLYMPUS_EVIDENCE_SIGNING_KEY_FILE.",
+    ),
     worker_id: str | None = typer.Option(
         None, "--worker-id", help="Stable identity for this worker's leases."
     ),
@@ -1922,17 +1974,37 @@ def themis_jobs_work(
     try:
         live = live_enabled()
         if live:
+            if not evidence_dir:
+                raise ValueError(
+                    "live job execution requires --evidence-dir and "
+                    "OLYMPUS_EVIDENCE_SIGNING_KEY_FILE"
+                )
             require_scanner_isolation()
         observability = observability_from_config()
     except (ObservabilityConfigurationError, SandboxError, ValueError) as exc:
         typer.echo(f"olympus: {exc}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc
+    evidence_directory: Path | None = None
+    evidence_signer = None
+    if evidence_dir:
+        from olympus.engines.evidence import EvidenceError, signer_from_environment
+
+        try:
+            evidence_signer = signer_from_environment()
+        except EvidenceError as exc:
+            observability.shutdown()
+            typer.echo(safe_terminal_text(f"olympus: {exc}"), err=True)
+            raise typer.Exit(code=ExitCode.USAGE) from exc
+        evidence_directory = Path(evidence_dir)
     try:
         worker = ThemisWorker(
             store,
             live_scans=live,
             worker_id=worker_id or generate_worker_id(),
             observability=observability,
+            evidence_dir=evidence_directory,
+            evidence_signer=evidence_signer,
+            require_signed_evidence=live,
         )
     except ValueError as exc:
         observability.shutdown()
@@ -2910,6 +2982,13 @@ def themis_run(
         # target when a required engine is missing/unusable. Runs after authorization and
         # before any resolution or network I/O, so an unauthorized caller learns nothing.
         _enforce_engine_preflight(scanner, target=target, audit_path=Path(audit) if audit else None)
+        if not evidence or evidence_signer is None:
+            typer.echo(
+                "olympus: direct live execution requires --evidence and "
+                "OLYMPUS_EVIDENCE_SIGNING_KEY_FILE",
+                err=True,
+            )
+            raise typer.Exit(code=ExitCode.USAGE)
     try:
         result = ThemisApplicationService().run(
             ThemisRunRequest(

@@ -10,12 +10,14 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Protocol
 
 from olympus.athena.domain.assessment import Assessment, AssessmentState, Job, JobState
 from olympus.athena.domain.audit import AuditEvent
 from olympus.athena.domain.contracts import AssessmentPlan
 from olympus.core.models import Asset, Finding
+from olympus.engines.evidence import Signer
 from olympus.vulcan.enrichment import FindingEnrichment
 
 
@@ -27,6 +29,12 @@ class ToolRequest:
     target_value: str
     allowed_domains: tuple[str, ...]
     timeout_seconds: int
+    #: Optional signed-evidence context supplied by the coordinator to active
+    #: engine adapters. Passive adapters ignore it.
+    evidence_run_id: str | None = None
+    evidence_job_id: str | None = None
+    evidence_path: Path | None = None
+    evidence_signer: Signer | None = field(default=None, repr=False, compare=False)
 
 
 @dataclass(frozen=True)
@@ -37,6 +45,8 @@ class ToolResult:
     assets: list[Asset] = field(default_factory=list)
     findings: list[Finding] = field(default_factory=list)
     error_code: str | None = None
+    evidence_run_id: str | None = None
+    evidence_sha256: str | None = None
 
 
 class Cancellation(Protocol):

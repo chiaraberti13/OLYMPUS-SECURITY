@@ -18,7 +18,11 @@ from olympus.athena.application.registry import available_adapters, resolve_adap
 from olympus.athena.ports import ToolRequest
 from olympus.cli import app
 from olympus.core.enums import Severity, Source
+from olympus.core.exit_codes import ExitCode
 from olympus.core.models import Finding
+from olympus.core.signing import generate_keypair, sign
+from olympus.engines.evidence import verify_evidence
+from olympus.engines.preflight import PreflightVerdict
 from olympus.themis.model import ScanRequest, ScanResult
 from olympus.themis.states import ExecutionState
 
@@ -30,9 +34,30 @@ class _NoCancel:
         return False
 
 
-def _req(target: str = "example.com", allowed: tuple[str, ...] = ("example.com",)) -> ToolRequest:
+def _req(
+    target: str = "example.com",
+    allowed: tuple[str, ...] = ("example.com",),
+    **extra: object,
+) -> ToolRequest:
     return ToolRequest(
-        target_kind="domain", target_value=target, allowed_domains=allowed, timeout_seconds=30
+        target_kind="domain",
+        target_value=target,
+        allowed_domains=allowed,
+        timeout_seconds=30,
+        **extra,  # type: ignore[arg-type]
+    )
+
+
+def _ready(_scanner: str) -> PreflightVerdict:
+    return PreflightVerdict(exit_code=ExitCode.OK, required=("nmap",), blocking=())
+
+
+def _evidence_request(tmp_path: Path, private_pem: str) -> ToolRequest:
+    return _req(
+        evidence_run_id="athena-assessment-job-attempt-1",
+        evidence_job_id="JOB-0001",
+        evidence_path=tmp_path / "athena-job-attempt-1.json",
+        evidence_signer=lambda data: sign(data, private_pem),
     )
 
 
@@ -59,7 +84,8 @@ def _fake_factory(result: ScanResult):
     return lambda _name: _Stub()
 
 
-def test_scan_maps_a_live_result_into_findings() -> None:
+def test_scan_maps_a_live_result_into_findings(tmp_path: Path) -> None:
+    private_pem, public_pem = generate_keypair()
     finding = Finding(
         asset_id="AST-1",
         source=Source.THEMIS,
@@ -73,28 +99,45 @@ def test_scan_maps_a_live_result_into_findings() -> None:
         findings=[finding],
     )
     adapter = ThemisScanAdapter(
-        "nmap", adapter_factory=_fake_factory(live), live_enabled=lambda: True
+        "nmap",
+        adapter_factory=_fake_factory(live),
+        live_enabled=lambda: True,
+        engine_preflight=_ready,
+        isolation_verifier=lambda: None,
     )
-    result = adapter.run(_req(), _NoCancel())
+    request = _evidence_request(tmp_path, private_pem)
+    result = adapter.run(request, _NoCancel())
     assert result.ok is True
     assert [f.title for f in result.findings] == ["Open port 22/tcp (ssh)"]
+    assert result.evidence_sha256 is not None
+    assert request.evidence_path is not None
+    verified = verify_evidence(request.evidence_path, public_pem=public_pem)
+    assert verified.evidence.authorization.job_id == "JOB-0001"
+    assert verified.evidence.run_id == "athena-assessment-job-attempt-1"
 
 
-def test_scan_maps_an_unavailable_result_to_a_failed_step() -> None:
+def test_scan_maps_an_unavailable_result_to_a_failed_step(tmp_path: Path) -> None:
+    private_pem, _ = generate_keypair()
     unavailable = ScanResult(
         scanner="nmap",
         state=ExecutionState.UNAVAILABLE,
         target="example.com",
     )
     adapter = ThemisScanAdapter(
-        "nmap", adapter_factory=_fake_factory(unavailable), live_enabled=lambda: True
+        "nmap",
+        adapter_factory=_fake_factory(unavailable),
+        live_enabled=lambda: True,
+        engine_preflight=_ready,
+        isolation_verifier=lambda: None,
     )
-    result = adapter.run(_req(), _NoCancel())
+    result = adapter.run(_evidence_request(tmp_path, private_pem), _NoCancel())
     assert result.ok is False
     assert result.error_code == "unavailable"
 
 
-def test_scan_turns_a_scanner_crash_into_a_stable_failed_result() -> None:
+def test_scan_turns_a_scanner_crash_into_a_stable_failed_result(tmp_path: Path) -> None:
+    private_pem, _ = generate_keypair()
+
     def _boom(_name: str):
         class _Stub:
             def run(self, request: ScanRequest) -> ScanResult:
@@ -102,10 +145,36 @@ def test_scan_turns_a_scanner_crash_into_a_stable_failed_result() -> None:
 
         return _Stub()
 
-    adapter = ThemisScanAdapter("nmap", adapter_factory=_boom, live_enabled=lambda: True)
-    result = adapter.run(_req(), _NoCancel())
+    adapter = ThemisScanAdapter(
+        "nmap",
+        adapter_factory=_boom,
+        live_enabled=lambda: True,
+        engine_preflight=_ready,
+        isolation_verifier=lambda: None,
+    )
+    result = adapter.run(_evidence_request(tmp_path, private_pem), _NoCancel())
     assert result.ok is False
     assert result.error_code == "scan_failed"  # no scanner text leaks
+
+
+def test_live_athena_scan_refuses_before_adapter_without_signed_evidence() -> None:
+    reached = False
+
+    def factory(_name: str):
+        nonlocal reached
+        reached = True
+        raise AssertionError("adapter must not be resolved")
+
+    result = ThemisScanAdapter(
+        "nmap",
+        adapter_factory=factory,
+        live_enabled=lambda: True,
+        engine_preflight=_ready,
+        isolation_verifier=lambda: None,
+    ).run(_req(), _NoCancel())
+
+    assert result.ok is False and result.error_code == "evidence_required"
+    assert reached is False
 
 
 def test_themis_is_registered_as_an_athena_adapter() -> None:
