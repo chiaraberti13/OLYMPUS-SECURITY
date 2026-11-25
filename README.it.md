@@ -20,6 +20,7 @@
 
 ## Navigazione rapida
 
+- [Diagramma dell’architettura](#-diagramma-dellarchitettura)
 - **[Cos'è Olympus?](#cosè-olympus)** — cosa fa, e a chi si rivolge.
 - **[Moduli](#-moduli)** — ogni tool, cosa fa e il suo punto d'ingresso.
 - **[Installazione](#-installazione)** — un solo comando, Python 3.11+.
@@ -57,6 +58,31 @@ $ olympus --help
 $ olympus argus dns --domain example.com --scope scope.json
 $ olympus athena run plan.json --storage ./.athena
 ```
+
+## 🗺️ Diagramma dell’architettura
+
+```mermaid
+flowchart TD
+    accTitle: Architettura di OLYMPUS-SECURITY
+    accDescr: La TUI richiama la CLI Python. I moduli espongono funzioni distinte per la gestione delle valutazioni, il rilevamento e i report. Themis offre anche una console web e conserva lo stato dei lavori in SQLite.
+    tui["Interfaccia da tastiera · olympus ui"] --> cli["CLI Olympus"]
+    cli --> athena["Athena · gestione delle valutazioni"]
+    cli --> modules["Moduli specialistici"]
+    cli --> themis["Themis · gestione dei lavori"]
+    modules --> detect["Apollo · rilevamento"]
+    modules --> evidence["Minerva · custodia delle prove"]
+    modules --> reports["Vulcan · analisi e report"]
+    web["Console web Themis"] --> api["API Themis"]
+    api --> db["Database dei lavori Themis · SQLite"]
+    themis --> db
+
+    classDef core fill:#23313a,stroke:#7193a7,color:#f4f7f8;
+    classDef output fill:#2b3035,stroke:#8b959e,color:#f4f7f8;
+    class athena,modules,themis,api core;
+    class detect,evidence,reports,db output;
+```
+
+La TUI richiama la CLI Python. I moduli espongono funzioni distinte per la gestione delle valutazioni, il rilevamento e i report. Themis offre anche una console web e conserva lo stato dei lavori in SQLite.
 
 ## 🧰 Moduli
 
