@@ -68,6 +68,30 @@ jobs:
       - name: Every shipped engine is present at its pinned version
         run: python scripts/smoke_scanner_image.py olympus-scanners:ci
 
+      - name: Mandatory engine refusal in an offline disposable container
+        run: |
+          docker run --rm --network none --user 0 --entrypoint sh olympus-scanners:ci -ec '
+            nmap_path=$(command -v nmap)
+            test -x "$nmap_path"
+            rm -- "$nmap_path"
+            ! command -v nmap
+            status=0
+            setpriv --reuid=10001 --regid=10001 --clear-groups env HOME=/tmp \
+              olympus engines preflight --format json > /tmp/report.json || status=$?
+            test "$status" -eq 8
+            cat /tmp/report.json
+          ' > "$RUNNER_TEMP/preflight.json"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          report = json.loads((Path(os.environ["RUNNER_TEMP"]) / "preflight.json").read_text())
+          assert report["ready"] is False and report["exit_code"] == 8
+          assert any(e["name"] == "nmap" and e["state"] == "missing" for e in report["blocking"])
+          print("Verified mandatory nmap refusal in a network-isolated container.")
+          PY
+
   gate:
     name: scanner-image gate
     if: always()
