@@ -99,8 +99,7 @@ _EXIT_LABELS: dict[ExitCode, tuple[str, str]] = {
     ExitCode.FAILED: ("Failed — nothing completed", "red"),
     ExitCode.CANCELLED: ("Cancelled — stopped on request", "red"),
     ExitCode.ENGINE_MISSING: (
-        "Aborted — a mandatory engine is missing; nothing ran. The missing engines and "
-        "their exact install commands are listed above (or run 'olympus engines doctor')",
+        "Blocked — a required engine is not ready. Review the engine diagnostics above.",
         "red",
     ),
 }
