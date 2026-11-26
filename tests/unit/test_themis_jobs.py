@@ -151,8 +151,13 @@ def test_durable_job_lifecycle(tmp_path: Path) -> None:
 
 
 @pytest.mark.posix_only
-def test_live_job_preflight_blocks_and_fails_when_a_required_engine_is_missing(
+@pytest.mark.parametrize(
+    "reason",
+    ["missing", "unusable", "wrong-tool", "version-mismatch", "commit-mismatch", "data-problem"],
+)
+def test_live_job_preflight_blocks_and_audits_each_required_engine_failure(
     tmp_path: Path,
+    reason: str,
 ) -> None:
     # A live worker must refuse (FAILED) a job whose required engine is missing, *before*
     # the scan is ever executed — proving no target I/O happens (TOOLS-4.1).
@@ -174,8 +179,8 @@ def test_live_job_preflight_blocks_and_fails_when_a_required_engine_is_missing(
 
     status = SimpleNamespace(
         name="nmap",
-        state=SimpleNamespace(value="missing"),
-        detail="not on PATH",
+        state=SimpleNamespace(value=reason),
+        detail=f"required engine: {reason}",
         install_command="git clone … (pinned)",
     )
     blocking = PreflightVerdict(
@@ -197,6 +202,7 @@ def test_live_job_preflight_blocks_and_fails_when_a_required_engine_is_missing(
     refusal = [r for r in records if r["action"] == "themis.engine-preflight"]
     assert refusal and refusal[0]["outcome"] == "refused"
     assert "nmap" in refusal[0]["metadata"]["required_engines"]
+    assert refusal[0]["metadata"]["blocking_engines"][0]["state"] == reason
 
 
 @pytest.mark.posix_only
