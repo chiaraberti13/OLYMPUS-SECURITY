@@ -210,11 +210,10 @@ def test_cli_pipeline_runs_the_scan_stage_and_reports(tmp_path: Path) -> None:
     assert reports
 
 
-def test_athena_blocks_before_dns_or_adapter(tmp_path, monkeypatch, blocking_preflight):
+def test_athena_blocks_before_dns_or_adapter(tmp_path, blocking_preflight):
     def forbidden(*args, **kwargs):
         raise AssertionError("preflight refusal must precede target resolution and execution")
 
-    monkeypatch.setattr("socket.getaddrinfo", forbidden)
     request = _evidence_request(tmp_path, generate_keypair()[0])
     result = ThemisScanAdapter(
         "nmap",

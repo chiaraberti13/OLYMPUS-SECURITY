@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import socket
 import sys
 import tempfile
 
@@ -91,6 +92,32 @@ def pytest_collection_finish(session: pytest.Session) -> None:
             )
 
 
+@pytest.fixture
+def forbid_preflight_network(monkeypatch):
+    """Remember attempted Internet I/O even if application code catches the error."""
+    attempts = []
+
+    def reject(operation):
+        attempts.append(operation)
+        raise AssertionError(f"unexpected network operation during preflight: {operation}")
+
+    def guard_socket(method):
+        original = getattr(socket.socket, method)
+
+        def guarded(sock, *args, **kwargs):
+            if sock.family in (socket.AF_INET, socket.AF_INET6):
+                reject(method)
+            return original(sock, *args, **kwargs)
+
+        return guarded
+
+    for method in ("connect", "connect_ex", "sendto"):
+        monkeypatch.setattr(socket.socket, method, guard_socket(method))
+    monkeypatch.setattr(socket, "getaddrinfo", lambda *args, **kwargs: reject("getaddrinfo"))
+    yield
+    assert not attempts, f"preflight attempted network operations: {attempts}"
+
+
 @pytest.fixture(
     params=[
         "missing",
@@ -101,7 +128,7 @@ def pytest_collection_finish(session: pytest.Session) -> None:
         "data-problem",
     ]
 )
-def blocking_preflight(request, monkeypatch):
+def blocking_preflight(request, monkeypatch, forbid_preflight_network):
     """One blocking verdict shared by the public-interface parity tests."""
     from olympus.core.exit_codes import ExitCode
     from olympus.engines.doctor import EngineState, EngineStatus
