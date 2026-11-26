@@ -200,8 +200,12 @@ def preflight(
         # only tolerates OPTIONAL dependencies — engines pulled in implicitly by a command
         # (``required_for_commands``) that are neither mandatory nor explicitly named.
         explicitly_required = mandatory | set(engines)
-        blocking = tuple(s for s in unusable if s.name in explicitly_required)
-        degraded = tuple(s for s in unusable if s.name not in explicitly_required)
+        degraded = tuple(
+            s
+            for s in unusable
+            if s.name not in explicitly_required and s.state is EngineState.MISSING
+        )
+        blocking = tuple(s for s in unusable if s not in degraded)
     else:
         blocking = unusable
         degraded = ()

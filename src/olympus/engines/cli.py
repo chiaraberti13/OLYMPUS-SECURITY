@@ -193,21 +193,25 @@ def engines_preflight(
         if verdict.blocking:
             typer.echo(
                 f"preflight BLOCKED: {len(verdict.blocking)} of {len(verdict.required)} "
-                "required engine(s) missing.",
+                "required engine(s) not ready.",
                 err=True,
             )
             for status in verdict.blocking:
-                typer.echo(f"REQUIRED: {status.name}: {status.detail}", err=True)
+                typer.echo(
+                    f"REQUIRED: {status.name} ({status.state.value}): {status.detail}", err=True
+                )
                 if status.install_command:
                     typer.echo(f"  install: {status.install_command}", err=True)
         elif verdict.degraded:
             typer.echo(
-                f"preflight DEGRADED: {len(verdict.degraded)} optional engine(s) missing "
+                f"preflight DEGRADED: {len(verdict.degraded)} optional engine(s) not ready "
                 "(tolerated via --allow-missing-engines).",
                 err=True,
             )
             for status in verdict.degraded:
-                typer.echo(f"OPTIONAL: {status.name}: {status.detail}", err=True)
+                typer.echo(
+                    f"OPTIONAL: {status.name} ({status.state.value}): {status.detail}", err=True
+                )
                 if status.install_command:
                     typer.echo(f"  install: {status.install_command}", err=True)
         else:

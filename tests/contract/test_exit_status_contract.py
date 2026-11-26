@@ -125,7 +125,8 @@ def test_tui_labels_every_exit_code() -> None:
 
     assert set(_EXIT_LABELS) == set(ExitCode)
     status, _, style = describe_completion(False, ExitCode.ENGINE_MISSING)
-    assert "mandatory engine" in status
+    assert "required engine is not ready" in status
+    assert "exit 8" in status
     assert style == "red"
 
 

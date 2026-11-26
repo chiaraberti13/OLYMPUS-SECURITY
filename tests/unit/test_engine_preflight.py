@@ -125,6 +125,13 @@ def test_a_missing_named_engine_blocks(monkeypatch: pytest.MonkeyPatch) -> None:
 # ------------------------------------------------------------------------------ CLI
 
 
+def test_table_output_reports_the_specific_blocker(monkeypatch, blocking_preflight):
+    monkeypatch.setattr("olympus.engines.cli.preflight", lambda *a, **kw: blocking_preflight)
+    result = runner.invoke(app, ["engines", "preflight", "--format", "table"])
+    assert result.exit_code == 8
+    assert f"REQUIRED: nmap ({blocking_preflight.blocking[0].state.value})" in result.output
+
+
 def test_cli_preflight_exits_8_on_a_clean_host() -> None:
     result = runner.invoke(app, ["engines", "preflight"])
     assert result.exit_code == int(ExitCode.ENGINE_MISSING)
@@ -238,8 +245,20 @@ resource_profile = "network-heavy"
     )
 
 
-def test_allow_missing_degrades_an_optional_command_dependency(
+@pytest.mark.parametrize(
+    "state",
+    [
+        EngineState.MISSING,
+        EngineState.WRONG_TOOL,
+        EngineState.UNUSABLE,
+        EngineState.VERSION_MISMATCH,
+        EngineState.COMMIT_MISMATCH,
+        EngineState.DATA_PROBLEM,
+    ],
+)
+def test_allow_missing_degrades_only_an_absent_optional_command_dependency(
     monkeypatch: pytest.MonkeyPatch,
+    state: EngineState,
 ) -> None:
     # With the mandatory baseline present and ONLY a command-pulled optional dependency
     # missing, the opt-in degrades it (exit 5), never blocks — the one case ``allow_missing``
@@ -252,16 +271,21 @@ def test_allow_missing_degrades_an_optional_command_dependency(
     monkeypatch.setattr(
         "olympus.engines.preflight.inspect_engine",
         lambda name, manifest, env: (
-            EngineStatus(name=name, state=EngineState.MISSING, mandatory=False)
+            EngineStatus(name=name, state=state, mandatory=False)
             if name == "demo"
             else _present(name, mandatory=name in _MANDATORY)
         ),
     )
 
     degraded_verdict = preflight(_all_missing_env(), commands=(THEMIS_RUN,), allow_missing=True)
-    assert degraded_verdict.exit_code is ExitCode.PARTIAL
-    assert degraded_verdict.blocking == ()
-    assert {s.name for s in degraded_verdict.degraded} == {"demo"}
+    if state is EngineState.MISSING:
+        assert degraded_verdict.exit_code is ExitCode.PARTIAL
+        assert degraded_verdict.blocking == ()
+        assert {s.name for s in degraded_verdict.degraded} == {"demo"}
+    else:
+        assert degraded_verdict.exit_code is ExitCode.ENGINE_MISSING
+        assert degraded_verdict.degraded == ()
+        assert [(s.name, s.state) for s in degraded_verdict.blocking] == [("demo", state)]
 
     strict_verdict = preflight(_all_missing_env(), commands=(THEMIS_RUN,))
     assert strict_verdict.exit_code is ExitCode.ENGINE_MISSING
