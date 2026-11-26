@@ -122,6 +122,10 @@ Per ogni cella della matrice T3 registrare il test o il run esistente, il risult
 
 ### Consegne successive
 
+**Verifica offline del 26 novembre 2026.** CLI, API, Web e Athena sono provate sui sei motivi di blocco già coperti dal worker. Athena rifiuta prima di DNS e adapter. La prova T4 segue un job simulato dal registro persistente alla verifica API, al digest di audit e alla provenienza nel report Vulcan. La rotazione usa due coppie Ed25519 temporanee e verifica il rifiuto della firma con la chiave diversa. La prova operativa e la gestione delle chiavi di deployment restano distinte dai risultati offline.
+
+**Rotazione e revoca operativa.** Sospendere i nuovi job e attendere la fine dei tentativi in corso. Conservare in sola lettura le evidenze precedenti e la chiave pubblica con il suo periodo di validità. Generare la nuova coppia nel gestore di segreti e sostituire il signer dei worker e le chiavi pubbliche fidate di API e Web. Riavviare i processi, verificare un nuovo tentativo e il rifiuto con la chiave precedente prima di riaprire la coda. In caso di compromissione, ritirare subito il vecchio signer, registrare il momento della revoca e mettere in quarantena le evidenze di data incerta. Per le verifiche storiche usare la chiave pubblica archiviata e una data attestata indipendentemente: la sola firma non dimostra quando fu prodotta.
+
 | Quando partire | Lavoro raggruppabile | Evidenza da riutilizzare |
 |---|---|---|
 | Dopo T3 | T5 prepara l’immagine verificata. Dopo T5, T6 e T7 possono procedere in parallelo, rispettando T1 per T7. | Fissare il digest dell’immagine. Collegare a quel digest la diagnostica rigorosa, le misure di risorse e i controlli di provenienza. Ogni criterio conserva il proprio esito. |

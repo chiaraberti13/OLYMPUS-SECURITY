@@ -1322,8 +1322,8 @@ def _live_lab_scope(path: Path) -> Path:
     return path
 
 
-def test_direct_live_run_preflight_blocks_when_a_required_engine_is_missing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_direct_live_run_preflight_blocks_for_each_required_engine_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, blocking_preflight
 ) -> None:
     # nmap (a mandatory engine and the named scanner) is not installed in the test
     # sandbox, so the fail-closed preflight (TOOLS-4.1) must refuse the live scan with
@@ -1361,10 +1361,14 @@ def test_direct_live_run_preflight_blocks_when_a_required_engine_is_missing(
     assert result.exit_code == 8  # ExitCode.ENGINE_MISSING
     assert "engine preflight failed" in result.output
     # The pinned install command is surfaced (git clone of the manifest pin), never @latest/apt.
-    assert "nmap" in result.output and "git" in result.output
+    assert f"nmap ({blocking_preflight.blocking[0].state.value})" in result.output
     records = [json.loads(line) for line in audit.read_text(encoding="utf-8").splitlines()]
     refusal = [r for r in records if r["action"] == "themis.engine-preflight"]
     assert refusal and refusal[0]["outcome"] == "refused"
+    assert (
+        refusal[0]["metadata"]["blocking_engines"][0]["state"]
+        == blocking_preflight.blocking[0].state.value
+    )
     assert "nmap" in refusal[0]["metadata"]["required_engines"]
 
 

@@ -89,3 +89,25 @@ def pytest_collection_finish(session: pytest.Session) -> None:
                 "live-lab tests require OLYMPUS_LIVE_LAB_AUTHORIZATION="
                 "I_HAVE_AUTHORIZATION after verifying the target scope"
             )
+
+
+@pytest.fixture(
+    params=[
+        "missing",
+        "unusable",
+        "wrong-tool",
+        "version-mismatch",
+        "commit-mismatch",
+        "data-problem",
+    ]
+)
+def blocking_preflight(request, monkeypatch):
+    """One blocking verdict shared by the public-interface parity tests."""
+    from olympus.core.exit_codes import ExitCode
+    from olympus.engines.doctor import EngineState, EngineStatus
+    from olympus.engines.preflight import PreflightVerdict
+
+    status = EngineStatus(name="nmap", state=EngineState(request.param), mandatory=True)
+    verdict = PreflightVerdict(ExitCode.ENGINE_MISSING, ("nmap",), (status,))
+    monkeypatch.setattr("olympus.engines.preflight.preflight_for_scanner", lambda *a, **kw: verdict)
+    return verdict

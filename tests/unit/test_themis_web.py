@@ -3018,3 +3018,12 @@ def test_advanced_page_requires_a_session(tmp_path: Path) -> None:
     client = _client(tmp_path, api_key_scopes=("jobs:read",))  # no capabilities:read
     _login(client)
     assert client.get("/advanced", follow_redirects=False).status_code == 403
+
+
+def test_web_displays_each_blocking_reason(tmp_path, blocking_preflight):
+    client = _client(tmp_path)
+    _login(client)
+    page = client.get("/tools?preflight=1&engine=nmap&allow_missing=true")
+    assert page.status_code == 200
+    assert "Blocked · exit 8" in page.text
+    assert blocking_preflight.blocking[0].state.value in page.text
