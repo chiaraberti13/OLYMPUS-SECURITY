@@ -5,10 +5,12 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from textual.widgets import Checkbox, Input, RichLog
 from typer.main import get_command
+from typer.testing import CliRunner
 
 from olympus.cli import app
 from olympus.core.exit_codes import ExitCode
@@ -433,6 +435,39 @@ def test_confirmation_confirm_starts_the_run() -> None:
             assert len(started) == 1
             assert "--i-am-authorized" in started[0]
             assert "--username" in started[0] and "acme" in started[0]
+
+    asyncio.run(scenario())
+
+
+def test_preflight_screen_displays_each_blocking_reason(monkeypatch, blocking_preflight):
+    monkeypatch.setattr("olympus.engines.cli.preflight", lambda *a, **kw: blocking_preflight)
+
+    async def run_cli(executable, module_flag, module, *arguments, **options):
+        assert (executable, module_flag, module) == (sys.executable, "-m", "olympus.cli")
+        result = CliRunner().invoke(app, list(arguments))
+        stream = asyncio.StreamReader()
+        stream.feed_data(result.output.encode())
+        stream.feed_eof()
+        return Mock(
+            stdout=stream,
+            returncode=result.exit_code,
+            wait=AsyncMock(return_value=result.exit_code),
+        )
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", run_cli)
+
+    async def scenario():
+        interface = OlympusTui(get_command(app))
+        screen = _screen_for(("engines", "preflight"))
+        async with interface.run_test(size=(140, 42)) as pilot:
+            interface.push_screen(screen)
+            await pilot.pause()
+            screen.action_run_command()
+            await interface.workers.wait_for_complete()
+            reason = blocking_preflight.blocking[0].state.value
+            lines = screen.query_one("#output", RichLog).lines
+            assert any(f"REQUIRED: nmap ({reason})" in line.text for line in lines)
+            assert "exit 8" in str(screen.query_one("#status-bar").render())
 
     asyncio.run(scenario())
 
