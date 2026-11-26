@@ -158,6 +158,7 @@ def test_durable_job_lifecycle(tmp_path: Path) -> None:
 def test_live_job_preflight_blocks_and_audits_each_required_engine_failure(
     tmp_path: Path,
     reason: str,
+    forbid_preflight_network,
 ) -> None:
     # A live worker must refuse (FAILED) a job whose required engine is missing, *before*
     # the scan is ever executed — proving no target I/O happens (TOOLS-4.1).
