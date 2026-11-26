@@ -75,6 +75,7 @@ class PreflightVerdict:
         """Redacted audit record: which engines were required, which blocked and which were
         tolerated as degraded, with the exact install command for each gap. No secret, no target."""
         return {
+            "exit_code": int(self.exit_code),
             "required_engines": list(self.required),
             "blocking_engines": self._engine_records(self.blocking),
             "degraded_engines": self._engine_records(self.degraded),
