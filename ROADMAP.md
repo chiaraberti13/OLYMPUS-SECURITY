@@ -107,6 +107,30 @@ Le tappe originali T1–T13 e i criteri di chiusura restano vincolanti nei limit
 
 ---
 
+## Piano di chiusura per dipendenze
+
+Analisi del 26 novembre 2026. Il riepilogo conta **80 task padre**, di cui **29 completati, 39 in corso e 12 da iniziare**. Le 51 voci aperte hanno dimensioni diverse. Per stimare il calendario servono il lavoro residuo per criterio, la disponibilità del laboratorio e i tempi osservati sui primi collaudi.
+
+### Prima consegna: T3, con T4 in parallelo
+
+| Tappa | Evidenza già disponibile | Lavoro residuo e criterio di chiusura |
+|---|---|---|
+| T3 · Preflight | Il worker registra sei motivi di rifiuto. Il [collaudo nel container](https://github.com/chiaraberti13/OLYMPUS-SECURITY/actions/runs/45702883200) conferma codice 8 e stato `missing` senza nmap. | Completare la matrice per causa e interfaccia. Sui percorsi esecutivi CLI, worker e Athena verificare che il rifiuto preceda DNS e trasporto. Su API, Web e TUI verificare la rappresentazione dello stesso verdetto e, dove previsto, la conferma esplicita. Controllare audit, stato del job e distinzione fra obbligatorio bloccante e opzionale degradato con codice 5. |
+| T4 · Evidenze | Produttore e verificatore condivisi, firma Ed25519 e tentativi immutabili sono integrati con la [PR #279](https://github.com/chiaraberti13/OLYMPUS-SECURITY/pull/279). | Durante la CI di T3, seguire un job da API o Web fino al report Vulcan. Conservare il collegamento verificabile fra job, audit, manifesto firmato e report. Documentare e provare rotazione e revoca delle chiavi, compresa la verifica delle evidenze storiche. |
+
+Per ogni cella della matrice T3 registrare il test o il run esistente, il risultato atteso e quello osservato. Per esempio, il test del worker copre il rifiuto del job accodato dalla Web; serve una verifica distinta per ciò che la pagina mostra all’operatore. Ripetere una prova quando cambia il comportamento sotto esame.
+
+### Consegne successive
+
+| Quando partire | Lavoro raggruppabile | Evidenza da riutilizzare |
+|---|---|---|
+| Dopo T3 | T5 prepara l’immagine verificata. Dopo T5, T6 e T7 possono procedere in parallelo, rispettando T1 per T7. | Fissare il digest dell’immagine. Collegare a quel digest la diagnostica rigorosa, le misure di risorse e i controlli di provenienza. Ogni criterio conserva il proprio esito. |
+| Chiuse le P0 precedenti e disponibili T2/T4 | T8 consolida i contratti. Da T8 possono partire T9 con il laboratorio QA-3 e T12 per le fondamenta AI. | Riutilizzare catalogo e casi versionati per verificare correlazioni, spiegazioni e distinzione fra ipotesi e fatti. |
+| Disponibili API-3, ARCH-4 e T3–T6 | T10 raggruppa i percorsi Web con le verifiche browser e accessibilità di QA-2. WEB-8 richiede anche T9. | Un percorso end-to-end può documentare più criteri se conserva separatamente esito funzionale, audit e riscontro di accessibilità. |
+| Disponibili T9, T12 e prerequisiti di laboratorio | T13 integra i componenti. Dopo il consolidamento di T8–T9, T11 rivaluta separatamente le tre evoluzioni differite. | Per T11 registrare, per ciascuna voce, requisito osservato e decisione di avvio o rinvio. |
+
+Per pianificare le **39 voci in corso**, partire da quelle che sbloccano la prossima consegna. Accanto a ciascun criterio aperto registrare cosa manca (codice, prova, documentazione o accesso esterno), il riferimento alla prova riutilizzabile e la dipendenza che determina la data. Stimare separatamente giornate di lavoro e attesa esterna. Aggiornare checkbox e riepilogo quando la Definition of Done della voce è soddisfatta su `main`.
+
 ## Ciclo A — Integrità, sicurezza e governance degli engine
 
 **Obiettivo:** Garantire autorizzazione, integrità degli esiti, supply chain e maturità verificabile.
