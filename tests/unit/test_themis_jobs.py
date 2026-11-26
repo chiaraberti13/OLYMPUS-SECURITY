@@ -201,7 +201,14 @@ def test_live_job_preflight_blocks_and_audits_each_required_engine_failure(
     assert "required engine not ready" in (completed.error or "")
     records = [json.loads(line) for line in audit.read_text(encoding="utf-8").splitlines()]
     refusal = [r for r in records if r["action"] == "themis.engine-preflight"]
-    assert refusal and refusal[0]["outcome"] == "refused"
+    assert len(refusal) == 1
+    assert refusal[0]["outcome"] == "refused"
+    assert refusal[0]["metadata"]["exit_code"] == 8
+    assert refusal[0]["metadata"]["degraded_engines"] == []
+    assert refusal[0]["execution_id"] == completed.job_id
+    persisted = store.get(refusal[0]["execution_id"])
+    assert persisted.state is JobState.FAILED
+    assert persisted.result is None
     assert "nmap" in refusal[0]["metadata"]["required_engines"]
     assert refusal[0]["metadata"]["blocking_engines"][0]["state"] == reason
 

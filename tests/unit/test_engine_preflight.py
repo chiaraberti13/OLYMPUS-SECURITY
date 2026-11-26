@@ -279,6 +279,9 @@ def test_allow_missing_degrades_only_an_absent_optional_command_dependency(
 
     degraded_verdict = preflight(_all_missing_env(), commands=(THEMIS_RUN,), allow_missing=True)
     if state is EngineState.MISSING:
+        audit = degraded_verdict.audit_metadata()
+        assert audit["exit_code"] == 5
+        assert audit["blocking_engines"] == []
         assert degraded_verdict.exit_code is ExitCode.PARTIAL
         assert degraded_verdict.blocking == ()
         assert {s.name for s in degraded_verdict.degraded} == {"demo"}
