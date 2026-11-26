@@ -33,7 +33,7 @@ import threading
 import time
 from collections.abc import Callable, Collection, Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from pathlib import Path
@@ -1426,6 +1426,9 @@ class ThemisWorker:
                 return self._observed(job.scanner, settled, started_at)
             record = self.store.execution_record(job.job_id)
             job_cancellation = _JobCancellation(self.store, job.job_id, shutdown=shutdown)
+            # Set when the preflight tolerated a missing *optional* engine: the run proceeds
+            # degraded and its outcome is persisted ``partial`` (exit 5), never clean.
+            degraded_reason: str | None = None
             try:
                 execute_live = live_enabled() if self.live_scans is None else self.live_scans
                 if execute_live and record.manifest_sha256 is None:
@@ -1477,7 +1480,7 @@ class ThemisWorker:
                     # Fail-closed engine preflight (TOOLS-4.1): a live job must not reach the
                     # target when a required engine is missing/unusable. Runs after manifest
                     # authorization and before any resolution or network I/O.
-                    self._enforce_engine_preflight(record, audit_path)
+                    degraded_reason = self._enforce_engine_preflight(record, audit_path)
                     if self.require_signed_evidence and (
                         self.evidence_dir is None or self.evidence_signer is None
                     ):
@@ -1523,6 +1526,16 @@ class ThemisWorker:
                 settled = self._settle(job.job_id, JobState.CANCELLED)
                 return self._observed(job.scanner, settled, started_at)
             state, error = classify_result(result)
+            if (
+                degraded_reason is not None
+                and state is JobState.SUCCEEDED
+                and result.state is ExecutionState.LIVE
+            ):
+                # The scan completed, but a missing optional engine means coverage is
+                # incomplete: downgrade to a persisted partial result (exit 5), never a
+                # clean success, carrying the degraded reason the audit already recorded.
+                result = replace(result, partial=True, partial_reason=degraded_reason)
+                state, error = JobState.PARTIAL, degraded_reason
             settled = self._settle(job.job_id, state, result=result.to_dict(), error=error)
             return self._observed(job.scanner, settled, started_at)
 
@@ -1556,11 +1569,22 @@ class ThemisWorker:
             ),
         )
 
-    def _enforce_engine_preflight(self, record: JobExecution, audit_path: Path | None) -> None:
-        """Refuse a live job (FAILED) when a required engine is missing/unusable (TOOLS-4.1)."""
+    def _enforce_engine_preflight(
+        self, record: JobExecution, audit_path: Path | None
+    ) -> str | None:
+        """Gate a live job on the shared fail-closed engine verdict (TOOLS-4.1).
+
+        A verdict with **blocking** engines refuses the job (``FAILED``, exit 8): the scan
+        never launches and the audit records the refusal. A verdict that is only
+        **degraded** — an *optional* engine tolerated as missing — lets the job proceed,
+        records a ``degraded`` audit motivation, and returns the reason so the outcome is
+        persisted ``partial`` (exit 5) instead of a clean success. A clean verdict (no gap)
+        returns ``None`` and the run proceeds normally.
+        """
         verdict = self._engine_preflight_verdict(record.scanner)
         if verdict.ok:
-            return
+            return None
+        outcome = "refused" if verdict.blocking else "degraded"
         if audit_path is not None:
             metadata = {"job_id": record.job_id, **verdict.audit_metadata()}
             append_structured_audit(
@@ -1569,13 +1593,18 @@ class ThemisWorker:
                     timestamp=datetime.now(UTC).isoformat(),
                     execution_id=record.job_id,
                     action="themis.engine-preflight",
-                    outcome="refused",
+                    outcome=outcome,
                     target=record.target,
                     metadata=metadata,
                 ),
             )
-        blocking = ", ".join(f"{status.name} ({status.state.value})" for status in verdict.blocking)
-        raise EnginePreflightError(f"required engine not ready: {blocking}")
+        if verdict.blocking:
+            blocking = ", ".join(
+                f"{status.name} ({status.state.value})" for status in verdict.blocking
+            )
+            raise EnginePreflightError(f"required engine not ready: {blocking}")
+        degraded = ", ".join(f"{status.name} ({status.state.value})" for status in verdict.degraded)
+        return f"optional engine unavailable, coverage reduced: {degraded}"
 
     @staticmethod
     def _audit_manifest_authorization(

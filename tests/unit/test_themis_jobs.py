@@ -214,6 +214,68 @@ def test_live_job_preflight_blocks_and_audits_each_required_engine_failure(
 
 
 @pytest.mark.posix_only
+def test_live_job_degraded_optional_engine_proceeds_partial_and_audits_motivation(
+    tmp_path: Path,
+) -> None:
+    # An *optional* engine tolerated as missing (the --allow-missing-engines verdict, exit 5)
+    # must NOT refuse the job: the scan proceeds degraded and the outcome is persisted PARTIAL
+    # with an audit motivation, never a clean success. This is the degraded counterpart of the
+    # six blocking reasons above — T3 (TOOLS-4.1).
+    from types import SimpleNamespace
+
+    store = ThemisJobStore(tmp_path / "state" / "jobs.sqlite3")
+    store.submit(
+        scanner="test-engine",
+        target="127.0.0.1",
+        target_kind="host",
+        scope_path=_scope(tmp_path / "scope.json"),
+        authorized=True,
+        manifest_sha256=_TEST_MANIFEST_SHA256,
+    )
+
+    optional = SimpleNamespace(
+        name="httpx",
+        state=SimpleNamespace(value="missing"),
+        detail="optional engine: missing",
+        install_command="go install … (pinned)",
+    )
+    degraded = PreflightVerdict(
+        exit_code=ExitCode.PARTIAL,
+        required=("test-engine",),
+        blocking=(),
+        degraded=(optional,),
+    )
+    audit = tmp_path / "audit.ndjson"
+    worker = ThemisWorker(
+        store,
+        _service(_Adapter()),
+        live_scans=True,
+        engine_preflight=lambda scanner: degraded,
+        manifest_authorizer=_AcceptingManifestAuthorizer(),
+    )
+    completed = worker.run_next(audit_path=audit)
+
+    # The job completed degraded (not refused): PARTIAL, with the real adapter's result present.
+    assert completed is not None and completed.state is JobState.PARTIAL
+    records = [json.loads(line) for line in audit.read_text(encoding="utf-8").splitlines()]
+    motivations = [r for r in records if r["action"] == "themis.engine-preflight"]
+    assert len(motivations) == 1
+    motivation = motivations[0]
+    assert motivation["outcome"] == "degraded"
+    assert motivation["metadata"]["exit_code"] == 5
+    assert motivation["metadata"]["blocking_engines"] == []
+    assert motivation["metadata"]["degraded_engines"][0]["name"] == "httpx"
+    assert motivation["execution_id"] == completed.job_id
+    # The partial result is persisted, re-readable via the audit record id, and says why.
+    persisted = store.get(motivation["execution_id"])
+    assert persisted.state is JobState.PARTIAL
+    assert persisted.result is not None
+    assert persisted.result["partial"] is True
+    assert persisted.result["schema_version"] == "1.3.0"
+    assert "httpx" in str(persisted.result["partial_reason"])
+
+
+@pytest.mark.posix_only
 def test_worker_reauthorizes_bound_manifest_immediately_before_execution(tmp_path: Path) -> None:
     signed, public_key, now = _worker_manifest()
     engagement_database = tmp_path / "engagements.db"
