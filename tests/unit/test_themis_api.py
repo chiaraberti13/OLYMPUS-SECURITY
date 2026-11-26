@@ -91,11 +91,31 @@ def _client(tmp_path: Path) -> TestClient:
 
 
 def test_job_evidence_endpoint_returns_only_pinned_key_verified_evidence(tmp_path: Path) -> None:
+    from olympus.vulcan.application import VulcanApplicationService, VulcanReportRequest
+
     scopes = tmp_path / "scopes"
     scope = _scope(scopes)
     evidence_dir = tmp_path / "evidence"
     evidence_dir.mkdir()
     private_pem, public_pem = generate_keypair()
+    auth_private, auth_public = generate_keypair()
+    now = datetime.now(UTC)
+    manifest = EngagementManifest(
+        engagement_id="ENG-2026-00001",
+        client="Test",
+        owner="Owner",
+        approver="Approver",
+        contract_id="TEST-01",
+        scope=EngagementScope(included=("127.0.0.1",)),
+        valid_from=now - timedelta(minutes=1),
+        expires_at=now + timedelta(hours=1),
+        allowed_techniques=("nmap",),
+    )
+    signed = SignedEngagementManifest.sign_manifest(manifest, private_key_pem=auth_private)
+    auth_path = tmp_path / "authorization.json"
+    auth_path.write_text(signed.model_dump_json(), encoding="utf-8")
+    audit_path = tmp_path / "audit.ndjson"
+    result_path = tmp_path / "result.json"
     database = tmp_path / "jobs.sqlite3"
     store = ThemisJobStore(database)
     queued = store.submit(
@@ -104,6 +124,7 @@ def test_job_evidence_endpoint_returns_only_pinned_key_verified_evidence(tmp_pat
         target_kind="host",
         scope_path=scope,
         authorized=True,
+        manifest_sha256=signed.manifest_sha256,
     )
     claimed = store.claim_next("worker-evidence")
     assert claimed is not None and claimed.attempts == 1
@@ -118,6 +139,9 @@ def test_job_evidence_endpoint_returns_only_pinned_key_verified_evidence(tmp_pat
             live_enabled=False,
             simulate=True,
             job_id=queued.job_id,
+            manifest_sha256=signed.manifest_sha256,
+            audit_path=audit_path,
+            output_path=result_path,
             evidence_path=evidence_path,
             evidence_signer=lambda data: sign(data, private_pem),
         )
@@ -149,6 +173,28 @@ def test_job_evidence_endpoint_returns_only_pinned_key_verified_evidence(tmp_pat
     assert body["valid"] is True
     assert body["evidence"]["authorization"]["job_id"] == queued.job_id
     assert body["evidence"]["engine"]["name"] == "nmap"
+    audit = [json.loads(line) for line in audit_path.read_text().splitlines()]
+    assert any(
+        record["execution_id"] == body["evidence"]["run_id"]
+        and record["metadata"].get("evidence_sha256") == body["evidence_sha256"]
+        for record in audit
+    )
+    report = (
+        VulcanApplicationService()
+        .report(
+            VulcanReportRequest(
+                engagement="synthetic",
+                themis_result_paths=(result_path,),
+                signed_manifest_paths=(auth_path,),
+                trusted_manifest_public_key_pem=auth_public,
+            )
+        )
+        .report
+    )
+    (provenance,) = report.authorization_provenance
+    assert (
+        provenance.job_id == queued.job_id and provenance.manifest_sha256 == signed.manifest_sha256
+    )
 
     document = json.loads(evidence_path.read_text(encoding="utf-8"))
     document["outcome"]["finding_count"] = 999
@@ -1656,3 +1702,13 @@ def test_engines_preflight_requires_the_capabilities_read_scope(tmp_path: Path) 
     )
     response = client.get("/api/v1/engines/preflight", headers=AUTH)
     assert response.status_code == 403
+
+
+def test_api_preserves_each_blocking_reason(tmp_path, blocking_preflight):
+    response = _client(tmp_path).get(
+        "/api/v1/engines/preflight?scanner=nmap&allow_missing=true", headers=AUTH
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["exit_code"] == 8 and not body["ready"] and not body["degraded"]
+    assert body["blocking"][0]["state"] == blocking_preflight.blocking[0].state.value

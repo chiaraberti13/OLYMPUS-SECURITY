@@ -417,3 +417,19 @@ def test_the_published_contract_matches_the_model() -> None:
     schema = legacy_schema_bundle()["olympus.engine-run-evidence"]
     assert set(EngineRunEvidence.model_json_schema()["properties"]) == set(schema["properties"])
     assert evidence_module.EngineRunEvidence is EngineRunEvidence
+
+
+def test_key_rotation_preserves_historical_signature(engine_runs, tmp_path):
+    previous_private, previous_public = _keys()
+    current_private, current_public = _keys()
+    old, new = tmp_path / "old.json", tmp_path / "new.json"
+    evidence = _evidence(engine_runs)
+    write_signed(evidence, _signer(previous_private), old)
+    write_signed(evidence, _signer(current_private), new)
+    for path, trusted, retired in [
+        (old, previous_public, current_public),
+        (new, current_public, previous_public),
+    ]:
+        assert verify_signed(path, public_pem=trusted) == evidence
+        with pytest.raises(EvidenceError, match="different key"):
+            verify_signed(path, public_pem=retired)

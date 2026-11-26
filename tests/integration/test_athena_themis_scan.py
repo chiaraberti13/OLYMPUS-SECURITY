@@ -208,3 +208,19 @@ def test_cli_pipeline_runs_the_scan_stage_and_reports(tmp_path: Path) -> None:
     assert summary["findings"] >= 1
     reports = list((tmp_path / "store").glob(f"{summary['assessment_id']}.report.*"))
     assert reports
+
+
+def test_athena_blocks_before_dns_or_adapter(tmp_path, monkeypatch, blocking_preflight):
+    def forbidden(*args, **kwargs):
+        raise AssertionError("preflight refusal must precede target resolution and execution")
+
+    monkeypatch.setattr("socket.getaddrinfo", forbidden)
+    request = _evidence_request(tmp_path, generate_keypair()[0])
+    result = ThemisScanAdapter(
+        "nmap",
+        adapter_factory=forbidden,
+        live_enabled=lambda: True,
+        isolation_verifier=lambda: None,
+    ).run(request, _NoCancel())
+    assert not result.ok and result.error_code == "engine_missing"
+    assert not request.evidence_path.exists()
