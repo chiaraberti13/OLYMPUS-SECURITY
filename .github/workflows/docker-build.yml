@@ -82,14 +82,29 @@ jobs:
             setpriv --reuid=10001 --regid=10001 --clear-groups env HOME=/tmp \
               olympus engines preflight --format json > /tmp/report.json || status=$?
             test "$status" -eq 8
+            status=0
+            setpriv --reuid=10001 --regid=10001 --clear-groups env HOME=/tmp \
+              olympus engines doctor --strict --format json > /tmp/doctor.json || status=$?
+            test "$status" -eq 8
+            echo "["
             cat /tmp/report.json
-          ' > "$RUNNER_TEMP/preflight.json"
+            echo ","
+            cat /tmp/doctor.json
+            echo "]"
+          ' > "$RUNNER_TEMP/diagnostics.json"
           python - <<'PY'
           import json
           import os
           from pathlib import Path
 
-          report = json.loads((Path(os.environ["RUNNER_TEMP"]) / "preflight.json").read_text())
+          from olympus.engines.doctor import EngineDoctorReport
+
+          report, raw_doctor = json.loads((Path(os.environ["RUNNER_TEMP"]) / "diagnostics.json").read_text())
+          assert raw_doctor["schema_name"] == "olympus.engine-doctor"
+          assert raw_doctor["schema_version"] == "1.0.0"
+          doctor = EngineDoctorReport.model_validate(raw_doctor)
+          assert doctor.exit_code == 8 and "nmap" in doctor.blocking
+          assert any(e.name == "nmap" and e.state == "missing" for e in doctor.engines)
           assert report["ready"] is False and report["exit_code"] == 8
           assert any(e["name"] == "nmap" and e["state"] == "missing" for e in report["blocking"])
           print("Verified mandatory nmap refusal in a network-isolated container.")
