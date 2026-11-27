@@ -47,7 +47,9 @@ contract explicit:
 2. **Safety lives in the engine, not in the interfaces.** The engine preflight
    (`TOOLS-4.1`) already runs inside the worker; CLI `themis run` keeps its own
    pre-check only as an operator convenience. Signed-evidence emission
-   (`TOOLS-4.5`) is to move into the engine next (see *Verification criteria*).
+   (`TOOLS-4.5`) now runs in the engine too: the worker writes and signs run
+   evidence per attempt on an immutable path, exactly like `themis run
+   --evidence` (see *Verification criteria*).
 3. The engine is **observable**: `ThemisJobStore.health()` returns a read-only
    `EngineHealth` snapshot (counts by canonical state, active count, and the
    number of running jobs holding an **expired lease** — orphaned work), surfaced
@@ -89,6 +91,14 @@ read-only methods; the `jobs health` command is new. Rollback is removing them.
   `jobs health` CLI exits `5` (partial) when degraded.
 - Already enforced elsewhere: the worker preflight (`tests/unit/test_themis_jobs.py`,
   `TOOLS-4.1`) and the shared canonical states (`docs/run-status.md`).
-- **Remaining** (`API-3`): signed run evidence (`TOOLS-4.5`) emitted by the engine
-  on the job/API/worker paths, explicit backpressure/checkpoint, and resource
-  caps (`TOOLS-4.3`) enforced in the engine.
+- Signed run evidence (`TOOLS-4.5`) **emitted by the engine**: the worker writes
+  and signs evidence per attempt on an immutable `<job>.attempt-N.json` path,
+  with all-or-nothing evidence-dir/signer configuration
+  (`tests/unit/test_themis_jobs.py::test_worker_passes_signed_evidence_path_per_job`,
+  `…::test_worker_uses_a_distinct_immutable_evidence_path_for_each_retry`,
+  `…::test_worker_evidence_configuration_is_all_or_nothing`). This closed the last
+  `ARCH-3`-specific item; `ARCH-3` is now `[x]` at the "verified in CI" level.
+- **Remaining** (`API-3` / `TOOLS-4.3`, **not** `ARCH-3`): explicit
+  backpressure/checkpoint and resource caps (`TOOLS-4.3`) enforced in the engine —
+  engine enhancements tracked under those items, not the "explicit, documented,
+  separable service" deliverable of `ARCH-3`.
