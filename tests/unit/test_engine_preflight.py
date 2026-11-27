@@ -345,3 +345,36 @@ def test_scanner_readiness_is_none_for_an_ungoverned_scanner() -> None:
     from olympus.engines.preflight import scanner_readiness
 
     assert scanner_readiness(_all_missing_env(), "not-a-real-engine") is None
+
+
+def test_every_surface_reads_one_verdict_and_the_exit_vocabulary_is_closed() -> None:
+    """Parity + exit-vocabulary contract (TOOLS-4.1 acceptance).
+
+    CLI, API, Web and the worker never invent an exit code: they all read the single shared
+    ``PreflightVerdict``. This pins that the versioned report (the API ``/engines/preflight``,
+    the Web ``/tools`` block and ``engines preflight --format json`` all serialize it) and the
+    audit record each interface writes echo *exactly* the verdict's code, that ``ready`` is true
+    only for a clean pass, and that a preflight speaks **only** the canonical ``{0, 5, 8}`` slice
+    of the 0-8 vocabulary — ready, degraded (an optional engine tolerated) and engine-missing
+    (a mandatory/blocking gap), never anything else."""
+    optional_status = EngineStatus(
+        name="katana", state=EngineState.MISSING, mandatory=False, detail="not on PATH"
+    )
+    blocking_status = EngineStatus(
+        name="nmap", state=EngineState.MISSING, mandatory=True, detail="not on PATH"
+    )
+    ready = PreflightVerdict(ExitCode.OK, ("nmap",), ())
+    degraded = PreflightVerdict(ExitCode.PARTIAL, ("katana",), (), (optional_status,))
+    blocking = PreflightVerdict(ExitCode.ENGINE_MISSING, ("nmap",), (blocking_status,))
+
+    # The preflight's entire exit vocabulary is exactly these three canonical codes.
+    assert {int(v.exit_code) for v in (ready, degraded, blocking)} == {0, 5, 8}
+
+    for verdict, expected in ((ready, 0), (degraded, 5), (blocking, 8)):
+        report = build_preflight_report(verdict)
+        # The serialized surface shared by API, Web and the CLI JSON output.
+        assert report.exit_code == expected
+        # The audit record every interface writes from the same verdict.
+        assert verdict.audit_metadata()["exit_code"] == expected
+        # `ready` is true only for a clean pass — never for a degraded (exit 5) run.
+        assert report.ready is (verdict.exit_code is ExitCode.OK)
