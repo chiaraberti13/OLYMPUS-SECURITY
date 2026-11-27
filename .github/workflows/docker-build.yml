@@ -68,6 +68,9 @@ jobs:
       - name: Every shipped engine is present at its pinned version
         run: python scripts/smoke_scanner_image.py olympus-scanners:ci
 
+      - name: Strict diagnostics on the built image without network access
+        run: docker run --rm --network none olympus-scanners:ci engines doctor --strict
+
       - name: Mandatory engine refusal in an offline disposable container
         run: |
           docker run --rm --network none --user 0 --entrypoint sh olympus-scanners:ci -ec '
