@@ -49,8 +49,14 @@ ruff format --check .      # repo-wide: formatta anche i blocchi di codice nei M
 python -m mypy --strict src/olympus
 python scripts/export_schema_catalog.py --check
 python scripts/check_doc_links.py
+python scripts/build_docs_site.py   # rigenera public/docs/*.html; deve restare committato
 python -m pytest tests/unit tests/contract -q
 ```
 
 Nota appresa: `ruff format` tratta anche gli snippet Python dentro i file `.md`;
 controllare solo i file toccati non basta — usare `ruff format --check .`.
+
+Nota appresa: aggiungendo o modificando un file `docs/*.md` va rigenerato il sito
+statico con `python scripts/build_docs_site.py` e committati i file risultanti in
+`public/docs/` — `tests/unit/test_docs_site.py` fallisce (pytest obbligatorio) se
+manca la pagina generata o l'indice non è aggiornato.
