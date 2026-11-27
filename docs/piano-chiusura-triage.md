@@ -41,7 +41,7 @@ laboratorio. È qui il risparmio immediato.
 | Voce | Evidenza già presente | Residuo per `[x]` | Confidenza |
 |---|---|---|---|
 | **TOOLS-4.1** Preflight fail-closed | ~~Preflight condiviso cablato su CLI, API, Web, worker, Athena e TUI; sei motivi di blocco (exit 8) e job degradato (exit 5, parziale persistente) con audit e stato persistente.~~ **Chiuso `[x]` il 2026-11-27**: accettazione completa in CI (zero-traffico per interfaccia, parità e vocabolario `{0,5,8}` reificati) e clausola lab coperta dall'evidenza L3 committata. | — | — |
-| **TOOLS-4.5** Evidenze firmate e coerenza tra percorsi | Produttore/verificatore condivisi, firma Ed25519, tentativi immutabili; catena job→audit→report provata offline. | Runbook rotazione/revoca chiavi (provabile offline con chiavi effimere) e demo catena API/Web→Vulcan. Parte di T4. | Media — da confermare |
+| **TOOLS-4.5** Evidenze firmate e coerenza tra percorsi | ~~Produttore/verificatore condivisi, firma Ed25519, tentativi immutabili; catena job→audit→report provata offline.~~ **Chiuso `[x]` il 2026-11-27**: catena job→audit→evidenza→report Vulcan provata offline (test API) + rotazione provata; procedura rotazione/revoca documentata nel runbook; clausola lab coperta dall'evidenza L3 committata. | — | — |
 | **ARCH-3** Execution Engine come servizio documentato | ~~Job, worker, coda, cancellazione, `EngineHealth`: implementati e molto testati.~~ **Chiuso `[x]` il 2026-11-27**: deliverable completo (ADR-009, osservabilità, preflight ed evidenze firmate nel motore). Backpressure/checkpoint e tetti risorse confermati fuori scope (API-3/TOOLS-4.3). | — | — |
 
 ## Bucket 1 — Chiudibili ora con sviluppo offline

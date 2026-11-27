@@ -67,6 +67,36 @@ olympus engines verify-evidence .olympus/evidence/THEMIS-….attempt-1.json \
   --public-key evidence-public.pem
 ```
 
+#### Rotazione e revoca della chiave di evidenza
+
+La chiave privata di firma non compare mai nel repository né nei log: vive solo
+nel file indicato da `OLYMPUS_EVIDENCE_SIGNING_KEY_FILE` (worker) e si distribuisce
+alle interfacce solo come chiave **pubblica** pinnata (`--evidence-public-key`).
+
+**Rotazione pianificata.** Sospendi l'accodamento di nuovi job e attendi che i
+tentativi in corso terminino (la coda si svuota, nessun tentativo resta a metà).
+Conserva in sola lettura le evidenze già prodotte e la chiave **pubblica**
+precedente con il suo periodo di validità (serve alle verifiche storiche). Genera
+la nuova coppia Ed25519 nel gestore di segreti, sostituisci il file privato dei
+worker (`OLYMPUS_EVIDENCE_SIGNING_KEY_FILE`) e la chiave pubblica pinnata di API e
+Web, riavvia i processi, poi verifica un nuovo tentativo con la nuova chiave e
+controlla che la chiave precedente **non** validi più le evidenze nuove, prima di
+riaprire la coda. I manifesti sono create-only: la rotazione non riscrive né
+invalida i tentativi già firmati.
+
+**Revoca per compromissione.** Ritira subito il vecchio signer (rimuovi il file
+privato dai worker e interrompi l'accodamento), registra il momento della revoca
+e metti in quarantena le evidenze di data incerta prodotte nella finestra sospetta
+— la sola firma valida non dimostra *quando* è stata prodotta.
+
+**Verifica storica.** Per rileggere evidenze firmate da una chiave ruotata o
+revocata, usa la chiave **pubblica archiviata** di quel periodo con
+`olympus engines verify-evidence … --public-key <archiviata>.pem` e una data
+attestata in modo indipendente (record di audit, ledger di custodia Minerva —
+`DATA-3`): la firma prova l'integrità e il binding al job, non la data. Una firma
+che verifica con la chiave corrente ma non con quella attesa per il suo periodo è
+un segnale da investigare, non una prova di autenticità.
+
 Anche `themis run` live richiede `--evidence PATH`; `athena run` richiede
 `--evidence-dir DIR` quando il piano contiene uno step Themis live. I run
 rifiutati prima dello scanner lasciano un record di audit, non un manifesto che
