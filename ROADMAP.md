@@ -206,7 +206,7 @@ La [triage di chiusura per criterio](docs/piano-chiusura-triage.md) classifica l
 
 - [x] **ARCH-1** — Core di dominio I/O-free con contratti versionati · [Dettagli](docs/ROADMAP-REFERENCE.md#3-architettura-di-riferimento)
 - [ ] **ARCH-2** — Confini `domain → application → ports → adapters` formalizzati per tutti i moduli — **In corso** · [Dettagli](docs/ROADMAP-REFERENCE.md#3-architettura-di-riferimento)
-- [ ] **ARCH-3** — Execution Engine esplicito e documentato (job, worker, code, cancellazione) come servizio separabile — **In corso** · [Dettagli](docs/ROADMAP-REFERENCE.md#3-architettura-di-riferimento)
+- [x] **ARCH-3** — Execution Engine esplicito e documentato (job, worker, code, cancellazione) come servizio separabile · [Dettagli](docs/ROADMAP-REFERENCE.md#3-architettura-di-riferimento)
 - [ ] **ARCH-4** — Contratto UI/API stabile e versionato per tutti i tool — **In corso** · [Dettagli](docs/ROADMAP-REFERENCE.md#3-architettura-di-riferimento)
 
 ### Strategia di evoluzione tecnologica
