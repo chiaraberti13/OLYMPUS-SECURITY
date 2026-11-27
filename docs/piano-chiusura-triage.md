@@ -59,8 +59,11 @@ grosso del tempo produttivo.
 - **CORR-1** (contratto dati) — **chiuso `[x]` il 2026-11-27**: alla verifica il modello di
   correlazione risultava già completo (5 kind, classi epistemiche, contratto pubblicato, test
   anti-promozione, documento KG); i residui del suo "Resta" erano scope di `CORR-2`. **EXPL-1**
-  (contratto dati) e a valle **CORR-2 / EXPL-2** (motore e superfici): i contratti sono il
-  blocco T8, offline.
+  (contratto dati): avanzato (campo `verifications`, contratto 1.1.0); resta la provenance
+  engine-run (DEC-7), tracciata. **CORR-2** ed **EXPL-2** — **chiusi `[x]` il 2026-11-27**:
+  motore/superfici di correlazione (audit via middleware API, no-network test, budget misurato)
+  e spiegabilità su CLI/API/Web/report (parità con un unico core) completi; la UX trasversale
+  più ampia resta scope di `WEB-8`.
 - **DATA-2 / TECH-3** astrazione repository con backend Postgres opzionale: astrazione più
   test con backend iniettato, senza database reale in CI.
 - **API-3** (retry, backpressure, checkpoint, cancellazione) e **API-4** (CORS/origin, auth

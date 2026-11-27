@@ -193,6 +193,25 @@ def test_correlations_are_deterministic_facts_never_hypotheses_or_compromise() -
         assert "compromis" not in lowered and "exploited" not in lowered
 
 
+def test_correlation_is_pure_and_makes_no_network_call(forbid_preflight_network) -> None:  # type: ignore[no-untyped-def]
+    # CORR-2 acceptance "nessuna chiamata di rete": with every INET socket and
+    # getaddrinfo poisoned, a corpus that yields all deterministic kinds still
+    # correlates purely from the shared contracts — no network is ever touched.
+    findings = [
+        _finding("F1", asset_id="AST-1", source=Source.ARGUS, evidence=["EVD-2026-00007"]),
+        _finding(
+            "F2",
+            asset_id="AST-1",
+            source=Source.THEMIS,
+            cve=["CVE-2024-0001"],
+            evidence=["EVD-2026-00007"],
+        ),
+        _finding("F3", asset_id="AST-2", source=Source.ARTEMIS, cve=["CVE-2024-0001"]),
+    ]
+    kinds = {c.kind for c in correlate_findings(findings)}
+    assert {"asset-overlap", "shared-cve", "shared-evidence"} <= kinds
+
+
 def test_all_three_deterministic_kinds_from_one_corpus() -> None:
     # One realistic corpus that exercises every first-slice relationship kind.
     findings = [
