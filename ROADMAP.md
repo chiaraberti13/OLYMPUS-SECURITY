@@ -173,7 +173,7 @@ La [triage di chiusura per criterio](docs/piano-chiusura-triage.md) classifica l
   - [ ] **TOOLS-4.2** — (P1) Diagnostica rigorosa: `olympus engines doctor --strict` — **In corso** · [Dettagli](docs/ROADMAP-REFERENCE.md#6-inventario-dei-tool-e-capacità)
   - [ ] **TOOLS-4.3** — (P1) Risorse, timeout e profili per engine — **In corso** · [Dettagli](docs/ROADMAP-REFERENCE.md#6-inventario-dei-tool-e-capacità)
   - [x] **TOOLS-4.4** — (P0) Gestione rigorosa degli output e stati canonici · [Dettagli](docs/ROADMAP-REFERENCE.md#6-inventario-dei-tool-e-capacità)
-  - [ ] **TOOLS-4.5** — (P0) Evidenze firmate e coerenza tra percorsi di esecuzione — **In corso** · [Dettagli](docs/ROADMAP-REFERENCE.md#6-inventario-dei-tool-e-capacità)
+  - [x] **TOOLS-4.5** — (P0) Evidenze firmate e coerenza tra percorsi di esecuzione · [Dettagli](docs/ROADMAP-REFERENCE.md#6-inventario-dei-tool-e-capacità)
   - [ ] **TOOLS-4.6** — (P1) Supply chain e distribuzione — **In corso** · [Dettagli](docs/ROADMAP-REFERENCE.md#6-inventario-dei-tool-e-capacità)
 - [ ] **TOOLS-5** — Debito tecnico immagine scanner ed engine · [Dettagli](docs/ROADMAP-REFERENCE.md#6-inventario-dei-tool-e-capacità)
 
