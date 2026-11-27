@@ -26,7 +26,7 @@
 #       it has no Olympus adapter either.
 #   TODO(TOOLS-4): theHarvester - 4.x needs Python >= 3.12 and this image is 3.11;
 #       PyPI "theHarvester" 0.0.1 is a stale release, not the tool.
-#   TODO(TOOLS-4): `olympus engines doctor --strict` as the last step (Phase 3).
+#   The final build check runs strict diagnostics as the runtime user.
 #   API/daemon or commercial engines zap, openvas, nessus, burp, acunetix cannot
 #   be installed here (see docs/scanner-matrix.md and `olympus themis deps`).
 #
@@ -178,5 +178,6 @@ RUN groupadd --gid 10001 olympus \
 ENV OLYMPUS_STATE_DIR=/data/state
 USER 10001:10001
 WORKDIR /data
+RUN --network=none olympus engines doctor --strict
 ENTRYPOINT ["olympus"]
 CMD ["themis", "workers", "--database", "/data/themis-jobs.sqlite3", "--audit", "/data/themis-audit.ndjson"]
