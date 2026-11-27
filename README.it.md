@@ -14,7 +14,7 @@
 
 > Un’unica CLI con controllo dello scope per assessment, rilevamento, raccolta delle evidenze e reporting di sicurezza.
 
-<p align="center"><a href="SECURITY.md">Sicurezza</a> · <a href="LICENSE">Licenza principale</a> · <a href="THIRD_PARTY_NOTICES.md">Licenze di terze parti</a></p>
+<p align="center"><a href="https://olympus-security-phi.vercel.app"><strong>Demo live</strong></a> · <a href="SECURITY.md">Sicurezza</a> · <a href="LICENSE">Licenza principale</a> · <a href="THIRD_PARTY_NOTICES.md">Licenze di terze parti</a></p>
 
 ---
 
