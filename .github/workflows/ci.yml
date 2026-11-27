@@ -12,11 +12,15 @@ on:
 permissions:
   contents: read
 
-# Cancel a superseded run when a PR branch is pushed again: the newest commit
-# still runs every required check, so this only drops redundant in-flight work
-# (never a main-branch run, which branch protection and the merge audit read).
+# Scope the concurrency group to the exact commit under test (per-SHA on a PR,
+# per-ref on a main push). Cancel-in-progress then only supersedes a re-run of the
+# SAME commit, never the current commit's run from an unrelated re-run of an older,
+# obsolete commit on the same branch — a ref-scoped group let a stale (and
+# unpassable) re-run keep cancelling the head commit's checks, starving the merge.
+# A new push no longer auto-cancels the previous commit's in-flight run; that extra
+# work is acceptable to keep every head commit's required checks able to complete.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.head.sha || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
