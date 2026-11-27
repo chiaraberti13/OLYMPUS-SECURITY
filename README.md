@@ -14,7 +14,7 @@
 
 > One scope-safe CLI for security assessment, detection, evidence collection and reporting.
 
-<p align="center"><a href="SECURITY.md">Security</a> · <a href="LICENSE">Primary licence</a> · <a href="THIRD_PARTY_NOTICES.md">Third-party licences</a></p>
+<p align="center"><a href="https://olympus-security-phi.vercel.app"><strong>Live demo</strong></a> · <a href="SECURITY.md">Security</a> · <a href="LICENSE">Primary licence</a> · <a href="THIRD_PARTY_NOTICES.md">Third-party licences</a></p>
 
 ---
 
