@@ -680,7 +680,7 @@ def test_vulcan_explain_returns_the_versioned_contract(tmp_path: Path) -> None:
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["schema_name"] == "olympus.finding-explanation"
-    assert body["schema_version"] == "1.0.0"
+    assert body["schema_version"] == "1.1.0"
     # CVSS 9.8 -> base 98, above the KEV floor (95), no confidence nudge.
     assert body["risk_score"] == 98.0
     # Every claim is epistemically classified; the score is a deterministic result.

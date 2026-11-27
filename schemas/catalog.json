@@ -178,16 +178,16 @@
     {
       "direction": "output",
       "name": "olympus.finding-explanation",
-      "path": "contracts/olympus.finding-explanation/1.0.0.schema.json",
-      "schema_version": "1.0.0",
-      "sha256": "5948d679985278533fe3de8876b4290af4e1060b7234254ea82fe9e78546c5aa"
+      "path": "contracts/olympus.finding-explanation/1.1.0.schema.json",
+      "schema_version": "1.1.0",
+      "sha256": "571b0e5a49749745cc24b032d5803eeb80a01463abc03867756c0b23bc19b0ac"
     },
     {
       "direction": "output",
       "name": "olympus.finding-explanations",
-      "path": "contracts/olympus.finding-explanations/1.0.0.schema.json",
-      "schema_version": "1.0.0",
-      "sha256": "6d98ac3f8030b1ac33d846bdd5f713d6c05abb1fea35a5194bd2514ee97b61f6"
+      "path": "contracts/olympus.finding-explanations/1.1.0.schema.json",
+      "schema_version": "1.1.0",
+      "sha256": "2ee3aa68ed2a6b8aa5e068d44fea50ec553fe7d60133ac8864c43eb14083b711"
     },
     {
       "direction": "shared",

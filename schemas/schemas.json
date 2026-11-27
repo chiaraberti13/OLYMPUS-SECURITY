@@ -4229,8 +4229,8 @@
         "type": "string"
       },
       "schema_version": {
-        "const": "1.0.0",
-        "default": "1.0.0",
+        "const": "1.1.0",
+        "default": "1.1.0",
         "title": "Schema Version",
         "type": "string"
       },
@@ -4260,6 +4260,13 @@
       "title": {
         "title": "Title",
         "type": "string"
+      },
+      "verifications": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Verifications",
+        "type": "array"
       }
     },
     "required": [
@@ -4274,6 +4281,7 @@
       "risk_factors",
       "statements",
       "limits",
+      "verifications",
       "cve",
       "cwe",
       "attack"
@@ -4375,8 +4383,8 @@
             "type": "string"
           },
           "schema_version": {
-            "const": "1.0.0",
-            "default": "1.0.0",
+            "const": "1.1.0",
+            "default": "1.1.0",
             "title": "Schema Version",
             "type": "string"
           },
@@ -4406,6 +4414,13 @@
           "title": {
             "title": "Title",
             "type": "string"
+          },
+          "verifications": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Verifications",
+            "type": "array"
           }
         },
         "required": [
@@ -4420,6 +4435,7 @@
           "risk_factors",
           "statements",
           "limits",
+          "verifications",
           "cve",
           "cwe",
           "attack"
@@ -4529,8 +4545,8 @@
         "type": "string"
       },
       "schema_version": {
-        "const": "1.0.0",
-        "default": "1.0.0",
+        "const": "1.1.0",
+        "default": "1.1.0",
         "title": "Schema Version",
         "type": "string"
       }

@@ -15,7 +15,7 @@ import pytest
 from typer.testing import CliRunner
 
 from olympus.cli import app
-from olympus.core.enums import Confidence, EpistemicClass, Severity, Source
+from olympus.core.enums import Confidence, EpistemicClass, FindingStatus, Severity, Source
 from olympus.core.exit_codes import ExitCode
 from olympus.core.models import Finding
 from olympus.vulcan.explain import (
@@ -145,6 +145,44 @@ def test_limits_flag_text_derived_identifiers_and_missing_data() -> None:
 def test_low_confidence_is_called_out_as_a_lead() -> None:
     explanation = explain_finding(_finding(confidence=Confidence.LOW))
     assert any("lead to verify" in limit for limit in explanation.limits)
+
+
+def test_verifications_name_a_confirmation_step_for_each_epistemic_gap() -> None:
+    # A CWE only in free text, no attached evidence, still NEW and low-confidence:
+    # every gap gets a concrete confirmation step, the actionable counterpart of the
+    # caveats in ``limits`` (EXPL-1 "verifiche necessarie per confermare").
+    explanation = explain_finding(
+        _finding(title="Reflected XSS via CWE-79 in search", confidence=Confidence.LOW)
+    )
+    verifications = " ".join(explanation.verifications)
+    assert "CWE id(s) parsed from free text" in verifications
+    assert "custody-tracked evidence artifact" in verifications
+    assert "NEW triage state" in verifications
+    assert "Re-test to raise confidence" in verifications
+    # The CWE maps to ATT&CK, so a telemetry-confirmation step is added too.
+    assert any("ATT&CK technique" in step for step in explanation.verifications)
+
+
+def test_a_confirmed_evidenced_finding_drops_the_closed_gaps_from_verifications() -> None:
+    # Structured CVE+CWE, an attached custody evidence reference, confirmed and
+    # high-confidence: the derived/missing/unconfirmed gaps are closed, so their
+    # steps disappear. KEV still asks for a local-affectedness confirmation.
+    explanation = explain_finding(
+        _finding(
+            cve=["CVE-2021-1234"],
+            cwe=["CWE-89"],
+            evidence=["EVD-2026-00001"],
+            confidence=Confidence.HIGH,
+            status=FindingStatus.CONFIRMED,
+            kev=True,
+        )
+    )
+    joined = " ".join(explanation.verifications)
+    assert "parsed from free text" not in joined
+    assert "NEW triage state" not in joined
+    assert "Re-test to raise confidence" not in joined
+    assert "custody-tracked evidence artifact" not in joined
+    assert any("KEV" in step for step in explanation.verifications)
 
 
 def test_to_dict_is_versioned_json_serialisable_and_complete() -> None:

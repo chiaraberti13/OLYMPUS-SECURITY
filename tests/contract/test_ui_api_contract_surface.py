@@ -3,7 +3,7 @@
 A versioned contract identity (``schema_name`` @ ``schema_version``) is a public
 compatibility promise. If one identity could map to two *different* JSON schemas
 depending on the surface that serves it, the promise is hollow: a client that
-pins ``olympus.finding-explanation@1.0.0`` from the published catalog could
+pins ``olympus.finding-explanation@1.1.0`` from the published catalog could
 receive a differently-shaped payload from the HTTP API.
 
 These tests pin the invariant **one contract identity ⇒ one schema** across the
@@ -104,7 +104,7 @@ def test_finding_explanation_is_one_contract_across_surfaces() -> None:
     # Direct regression guard for the divergence this gate was built to catch.
     contracts = _api_response_contracts()
     catalog = legacy_schema_bundle()
-    key = ("olympus.finding-explanation", "1.0.0")
+    key = ("olympus.finding-explanation", "1.1.0")
     assert key in contracts, "the API must still serve the finding-explanation contract"
     _handler, api_schema = contracts[key]
     assert api_schema == catalog["olympus.finding-explanation"], (

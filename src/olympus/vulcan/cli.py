@@ -1238,6 +1238,9 @@ def _explanation_lines(explanation: FindingExplanation) -> list[str]:
         )
     lines.append("  Limits:")
     lines.extend(safe_terminal_text(f"    - {entry}") for entry in explanation.limits)
+    if explanation.verifications:
+        lines.append("  Necessary verifications:")
+        lines.extend(safe_terminal_text(f"    - {entry}") for entry in explanation.verifications)
     if explanation.remediation:
         lines.append("  Remediation:")
         lines.append(safe_terminal_text(f"    {explanation.remediation}"))
