@@ -181,7 +181,7 @@ La [triage di chiusura per criterio](docs/piano-chiusura-triage.md) classifica l
 
 - [x] **INT-1** — Contract test degli adapter, fuzzing e fail-closed · [Dettagli](docs/ROADMAP-REFERENCE.md#7-piano-di-integrazione-dei-tool)
 - [x] **INT-2** — Template SDK plugin stabile e documentato per adapter esterni (entry-point discovery) · [Dettagli](docs/ROADMAP-REFERENCE.md#7-piano-di-integrazione-dei-tool)
-- [ ] **INT-3** — Ogni tool espone un contratto input/output tipizzato riusabile da CLI, API e Web — **In corso** · [Dettagli](docs/ROADMAP-REFERENCE.md#7-piano-di-integrazione-dei-tool)
+- [x] **INT-3** — Ogni tool espone un contratto input/output tipizzato riusabile da CLI, API e Web · [Dettagli](docs/ROADMAP-REFERENCE.md#7-piano-di-integrazione-dei-tool)
 
 ### Packaging, deployment e CI/CD
 
@@ -219,7 +219,7 @@ La [triage di chiusura per criterio](docs/piano-chiusura-triage.md) classifica l
 ### Backend, API e orchestrazione
 
 - [x] **API-1** — API FastAPI tipizzata (auth per-scope, accountability, `/jobs`, `/capabilities`, health/ready/metrics) · [Dettagli](docs/ROADMAP-REFERENCE.md#9-backend-api-e-orchestrazione)
-- [ ] **API-2** — Estendere l'API a tutti i tool con contratti versionati (non solo Themis) — **In corso** · [Dettagli](docs/ROADMAP-REFERENCE.md#9-backend-api-e-orchestrazione)
+- [x] **API-2** — Estendere l'API a tutti i tool con contratti versionati (non solo Themis) · [Dettagli](docs/ROADMAP-REFERENCE.md#9-backend-api-e-orchestrazione)
 - [ ] **API-3** — Execution Engine: worker, retry, backpressure, checkpoint e cancellazione — **In corso** · [Dettagli](docs/ROADMAP-REFERENCE.md#9-backend-api-e-orchestrazione)
 - [ ] **API-4** — CORS/origin policy verso il dominio Web di deploy; autenticazione multiutente — **In corso** · [Dettagli](docs/ROADMAP-REFERENCE.md#9-backend-api-e-orchestrazione)
 
