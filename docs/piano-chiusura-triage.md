@@ -49,8 +49,11 @@ laboratorio. È qui il risparmio immediato.
 Lavoro reale ma interamente verificabile qui e in CI, senza laboratorio. È dove va speso il
 grosso del tempo produttivo.
 
-- **INT-3 / ARCH-4 / API-2** — contratto I/O tipizzato per *tutti* i tool: estendere il
-  pattern già usato per Themis, riusando schema catalog e golden.
+- **INT-3** e **API-2** — **chiusi `[x]` il 2026-11-27**: alla verifica il pattern del
+  contratto I/O tipizzato era già esteso a tutti i tool dell'ecosistema (slice API versionata
+  per ciascuno + pagina Web, tutte sullo stesso core offline); la nota "restano gli altri
+  moduli" di INT-3 era stale. **ARCH-4** resta `[~]` (binding Web + descrittore differito).
+  La UX trasversale più profonda è scope di `WEB-4/5/6/8`.
 - **TOOLS-4.2** (`engines doctor --strict`) e **TOOLS-4.3** (risorse, timeout, profili per
   engine): il preflight ispeziona l'host tramite `Environment` iniettato, quindi offline.
 - **WEB-2 / WEB-3** pagine operative per i tool mancanti; **WEB-5 / WEB-6 / WEB-7 / WEB-8**
