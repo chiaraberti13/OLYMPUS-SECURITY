@@ -141,6 +141,8 @@ Verifica T3 del 26 novembre 2026: con `--allow-missing-engines` solo una dipende
 
 Per pianificare le **39 voci in corso**, partire da quelle che sbloccano la prossima consegna. Accanto a ciascun criterio aperto registrare cosa manca (codice, prova, documentazione o accesso esterno), il riferimento alla prova riutilizzabile e la dipendenza che determina la data. Stimare separatamente giornate di lavoro e attesa esterna. Aggiornare checkbox e riepilogo quando la Definition of Done della voce è soddisfatta su `main`.
 
+La [triage di chiusura per criterio](docs/piano-chiusura-triage.md) classifica le voci aperte in tre bucket — codice e test già sufficienti (chiusura a costo basso), sviluppo offline, o bloccate su laboratorio/infra esterna — e fissa la convenzione per le voci lab: implementare la fetta offline fino a «verificato in CI», lasciare la voce `[~]` con il blocker annotato e non riaprirla come codice da scrivere.
+
 ## Ciclo A — Integrità, sicurezza e governance degli engine
 
 **Obiettivo:** Garantire autorizzazione, integrità degli esiti, supply chain e maturità verificabile.
