@@ -269,7 +269,7 @@ La [triage di chiusura per criterio](docs/piano-chiusura-triage.md) classifica l
 
 ### Correlazione unificata (`CORR`)
 
-- [ ] **CORR-1** — Modello di correlazione sui contratti condivisi — **In corso** · [Dettagli](docs/ROADMAP-REFERENCE.md#213-correlazione-unificata-corr)
+- [x] **CORR-1** — Modello di correlazione sui contratti condivisi · [Dettagli](docs/ROADMAP-REFERENCE.md#213-correlazione-unificata-corr)
 - [ ] **CORR-2** — Motore di correlazione e superfici — **In corso** · [Dettagli](docs/ROADMAP-REFERENCE.md#213-correlazione-unificata-corr)
 
 ### Spiegabilità e provenienza dei risultati (`EXPL`)

@@ -56,8 +56,11 @@ grosso del tempo produttivo.
 - **WEB-2 / WEB-3** pagine operative per i tool mancanti; **WEB-5 / WEB-6 / WEB-7 / WEB-8**
   wizard e modalità avanzata (WEB-5 dipende da API-3). I test Chromium di QA-2 girano offline
   su loopback.
-- **CORR-1 / EXPL-1** (contratti dati) e a valle **CORR-2 / EXPL-2** (motore e superfici):
-  i contratti sono il blocco T8, offline.
+- **CORR-1** (contratto dati) — **chiuso `[x]` il 2026-11-27**: alla verifica il modello di
+  correlazione risultava già completo (5 kind, classi epistemiche, contratto pubblicato, test
+  anti-promozione, documento KG); i residui del suo "Resta" erano scope di `CORR-2`. **EXPL-1**
+  (contratto dati) e a valle **CORR-2 / EXPL-2** (motore e superfici): i contratti sono il
+  blocco T8, offline.
 - **DATA-2 / TECH-3** astrazione repository con backend Postgres opzionale: astrazione più
   test con backend iniettato, senza database reale in CI.
 - **API-3** (retry, backpressure, checkpoint, cancellazione) e **API-4** (CORS/origin, auth
