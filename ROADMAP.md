@@ -270,12 +270,12 @@ La [triage di chiusura per criterio](docs/piano-chiusura-triage.md) classifica l
 ### Correlazione unificata (`CORR`)
 
 - [x] **CORR-1** — Modello di correlazione sui contratti condivisi · [Dettagli](docs/ROADMAP-REFERENCE.md#213-correlazione-unificata-corr)
-- [ ] **CORR-2** — Motore di correlazione e superfici — **In corso** · [Dettagli](docs/ROADMAP-REFERENCE.md#213-correlazione-unificata-corr)
+- [x] **CORR-2** — Motore di correlazione e superfici · [Dettagli](docs/ROADMAP-REFERENCE.md#213-correlazione-unificata-corr)
 
 ### Spiegabilità e provenienza dei risultati (`EXPL`)
 
 - [ ] **EXPL-1** — Contratto dati condiviso per spiegabilità dei finding — **In corso** · [Dettagli](docs/ROADMAP-REFERENCE.md#215-spiegabilità-e-provenienza-dei-risultati-expl)
-- [ ] **EXPL-2** — Spiegabilità su backend, CLI, API, Web e reporting — **In corso** · [Dettagli](docs/ROADMAP-REFERENCE.md#215-spiegabilità-e-provenienza-dei-risultati-expl)
+- [x] **EXPL-2** — Spiegabilità su backend, CLI, API, Web e reporting · [Dettagli](docs/ROADMAP-REFERENCE.md#215-spiegabilità-e-provenienza-dei-risultati-expl)
 
 ### Validazione continua della sicurezza (`VAL`)
 

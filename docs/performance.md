@@ -81,6 +81,28 @@ jobs/s**; median per-submit latency **2.574 / 2.787 / 2.660 ms**; nearest-rank
 p95 **11.328 / 10.674 / 17.992 ms**. These are SQLite job-store measurements,
 not API/Web latency, workload capacity guarantees or recovery results.
 
+## Correlation sample (2026-11-27)
+
+The `CORR-2` correlation engine (`vulcan.correlate.correlate_findings`, the pure
+offline core the CLI, API and report companion all share) was measured on
+Linux/Python 3.13 against a synthetic corpus — findings spread over 200 assets
+with overlapping CVEs, CWEs and evidence references, so every deterministic kind
+fires. Five samples each:
+
+| Corpus | Median wall | Worst wall | Peak traced memory |
+|---|---:|---:|---:|
+| 500 findings | 1.6 ms | 1.8 ms | 0.39 MiB |
+| 2000 findings | 9.0 ms | 9.5 ms | 1.53 MiB |
+
+The joins are bounded and near-linear in the finding count. The **diagnostic
+budget** for a 2000-finding correlation is a deliberately broad regression guard:
+**≤ 1.0 s wall and ≤ 32 MiB traced memory** — orders of magnitude above the
+observation, so it catches an accidental superlinear regression without being an
+SLO. It is a documented baseline, not a CI blocker (shared runners vary), and the
+figures are one container run, not a portable promise. Re-measure when the join
+rules change. API/Web request latency is out of scope here; every correlate query
+is recorded by the API audit middleware regardless of timing.
+
 ## Run
 
 ```bash
