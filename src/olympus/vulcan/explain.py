@@ -30,7 +30,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from olympus.core.enums import Confidence, EpistemicClass
+from olympus.core.enums import Confidence, EpistemicClass, FindingStatus
 from olympus.core.models import (
     CONFIDENCE_RISK_MODIFIER,
     KEV_RISK_FLOOR,
@@ -41,13 +41,16 @@ from olympus.vulcan.attack import AttackAssociation, associate_attack
 from olympus.vulcan.view import FindingView
 
 #: Versioned contract identity, so a consumer can pin and evolve the shape.
+#: 1.1.0 adds ``verifications`` (the explicit steps to confirm the finding),
+#: an additive field — a 1.0.0 consumer ignores it.
 SCHEMA_NAME = "olympus.finding-explanation"
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1.0"
 
 #: Versioned identity of a *collection* of explanations, e.g. the companion
-#: document a Vulcan report writes alongside its JSON (`EXPL-2`).
+#: document a Vulcan report writes alongside its JSON (`EXPL-2`). 1.1.0 tracks the
+#: additive ``verifications`` field on each embedded explanation.
 EXPLANATIONS_SCHEMA_NAME = "olympus.finding-explanations"
-EXPLANATIONS_SCHEMA_VERSION = "1.0.0"
+EXPLANATIONS_SCHEMA_VERSION = "1.1.0"
 
 
 # ---------------------------------------------------------------------------
@@ -92,7 +95,7 @@ class FindingExplanationDocument(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     schema_name: Literal["olympus.finding-explanation"] = "olympus.finding-explanation"
-    schema_version: Literal["1.0.0"] = "1.0.0"
+    schema_version: Literal["1.1.0"] = "1.1.0"
     finding_id: str
     title: str
     asset_id: str
@@ -104,6 +107,11 @@ class FindingExplanationDocument(BaseModel):
     risk_factors: list[_RiskFactorModel]
     statements: list[_StatementModel]
     limits: list[str]
+    #: Concrete steps an operator would take to confirm the finding, derived from
+    #: its epistemic gaps (a suggested correlation, a parsed id, missing evidence).
+    #: Suggested actions, not claims — so, like ``limits``, they carry no epistemic
+    #: class (every *claim* lives in ``statements``, each with its class).
+    verifications: list[str]
     cve: list[str]
     cwe: list[str]
     attack: list[_AttackRefModel]
@@ -116,7 +124,7 @@ class FindingExplanationsDocument(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     schema_name: Literal["olympus.finding-explanations"] = "olympus.finding-explanations"
-    schema_version: Literal["1.0.0"] = "1.0.0"
+    schema_version: Literal["1.1.0"] = "1.1.0"
     count: int
     explanations: list[FindingExplanationDocument]
 
@@ -175,6 +183,10 @@ class FindingExplanation:
     risk_factors: tuple[RiskFactor, ...]
     statements: tuple[Statement, ...]
     limits: tuple[str, ...]
+    #: Suggested confirmation steps (``EXPL-1`` "verifiche necessarie"), derived
+    #: from the finding's epistemic gaps. Guidance, not claims — never an assertion
+    #: about the target, so they carry no epistemic class.
+    verifications: tuple[str, ...] = field(default_factory=tuple)
     cve: tuple[str, ...] = field(default_factory=tuple)
     cwe: tuple[str, ...] = field(default_factory=tuple)
     attack: tuple[AttackAssociation, ...] = field(default_factory=tuple)
@@ -220,6 +232,7 @@ class FindingExplanation:
             "risk_factors": [item.to_dict() for item in self.risk_factors],
             "statements": [item.to_dict() for item in self.statements],
             "limits": list(self.limits),
+            "verifications": list(self.verifications),
             "cve": list(self.cve),
             "cwe": list(self.cwe),
             "attack": [item.to_dict() for item in self.attack],
@@ -390,6 +403,54 @@ def _statements(
     return tuple(items)
 
 
+def _verifications(
+    finding: Finding,
+    cves: tuple[str, ...],
+    cwes: tuple[str, ...],
+    attack: tuple[AttackAssociation, ...],
+) -> tuple[str, ...]:
+    """Concrete steps to confirm the finding, one per epistemic gap it carries.
+
+    Each step is the actionable counterpart of a caveat in ``limits``: where a claim
+    is derived, suggested or unconfirmed, it names what would turn it into an
+    observation. Suggested actions only — never a claim about the target, so they
+    carry no epistemic class (every claim lives in ``statements`` with its class).
+    """
+    steps: list[str] = []
+    if attack:
+        steps.append(
+            "Confirm each ATT&CK technique against collected telemetry (e.g. Apollo "
+            "detections) before treating it as observed behaviour rather than a CWE-derived lead."
+        )
+    if not finding.cve and cves:
+        steps.append(
+            "Confirm the CVE id(s) parsed from free text and record them in the structured "
+            "`cve` field, so the match is no longer only an inference."
+        )
+    if not finding.cwe and cwes:
+        steps.append(
+            "Confirm the CWE id(s) parsed from free text against the actual weakness, not "
+            "only the text match."
+        )
+    if not finding.evidence:
+        steps.append(
+            "Attach a custody-tracked evidence artifact (an `olympus.evidence` reference) so the "
+            "finding is independently verifiable, not resting on its source's report alone."
+        )
+    if finding.kev:
+        steps.append(
+            "KEV records in-the-wild exploitation externally; confirm this asset is actually "
+            "affected and reachable with an authorized check before acting on that risk floor."
+        )
+    if finding.status is FindingStatus.NEW:
+        steps.append("Validate the finding on the asset to move it past the NEW triage state.")
+    if finding.confidence is None or finding.confidence is Confidence.LOW:
+        steps.append(
+            "Re-test to raise confidence before acting; treat it as a lead until confirmed."
+        )
+    return tuple(steps)
+
+
 def explain_finding(finding: Finding) -> FindingExplanation:
     """Derive the shared :class:`FindingExplanation` from a finding's own fields.
 
@@ -438,6 +499,7 @@ def explain_finding(finding: Finding) -> FindingExplanation:
         risk_factors=_risk_factors(finding),
         statements=_statements(finding, cves, cwes, attack),
         limits=tuple(limits),
+        verifications=_verifications(finding, cves, cwes, attack),
         cve=cves,
         cwe=cwes,
         attack=attack,

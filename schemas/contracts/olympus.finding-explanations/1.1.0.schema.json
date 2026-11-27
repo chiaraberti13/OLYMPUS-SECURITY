@@ -92,8 +92,8 @@
           "type": "string"
         },
         "schema_version": {
-          "const": "1.0.0",
-          "default": "1.0.0",
+          "const": "1.1.0",
+          "default": "1.1.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -123,6 +123,13 @@
         "title": {
           "title": "Title",
           "type": "string"
+        },
+        "verifications": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Verifications",
+          "type": "array"
         }
       },
       "required": [
@@ -137,6 +144,7 @@
         "risk_factors",
         "statements",
         "limits",
+        "verifications",
         "cve",
         "cwe",
         "attack"
@@ -225,7 +233,7 @@
       "type": "object"
     }
   },
-  "$id": "urn:olympus:schema:olympus.finding-explanations:1.0.0",
+  "$id": "urn:olympus:schema:olympus.finding-explanations:1.1.0",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "The versioned, published shape of a collection of explanations (``EXPL-2``).",
@@ -248,8 +256,8 @@
       "type": "string"
     },
     "schema_version": {
-      "const": "1.0.0",
-      "default": "1.0.0",
+      "const": "1.1.0",
+      "default": "1.1.0",
       "title": "Schema Version",
       "type": "string"
     }

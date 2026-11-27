@@ -163,7 +163,7 @@ Explain one finding with the shared ``EXPL-1`` contract, offline.
 
 | Tags | Request contract | Response contract |
 | --- | --- | --- |
-| vulcan | `olympus.finding` `1.0.0` | `olympus.finding-explanation` `1.0.0` |
+| vulcan | `olympus.finding` `1.0.0` | `olympus.finding-explanation` `1.1.0` |
 
 ### `GET /health`
 
