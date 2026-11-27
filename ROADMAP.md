@@ -169,7 +169,7 @@ La [triage di chiusura per criterio](docs/piano-chiusura-triage.md) classifica l
 - [ ] **TOOLS-2** — Colmare le capability missing/simulated con strumenti reali — **In corso** · [Dettagli](docs/ROADMAP-REFERENCE.md#6-inventario-dei-tool-e-capacità)
 - [ ] **TOOLS-3** — Promuovere adapter a *live-tested* in lab autorizzato (con evidenze committate) · [Dettagli](docs/ROADMAP-REFERENCE.md#6-inventario-dei-tool-e-capacità)
 - [ ] **TOOLS-4** — Governance supply-chain degli engine esterni — **In corso** · [Dettagli](docs/ROADMAP-REFERENCE.md#6-inventario-dei-tool-e-capacità)
-  - [ ] **TOOLS-4.1** — (P0) Preflight fail-closed condiviso (CLI, API, Web, worker, step Athena) — **In corso** · [Dettagli](docs/ROADMAP-REFERENCE.md#6-inventario-dei-tool-e-capacità)
+  - [x] **TOOLS-4.1** — (P0) Preflight fail-closed condiviso (CLI, API, Web, worker, step Athena) · [Dettagli](docs/ROADMAP-REFERENCE.md#6-inventario-dei-tool-e-capacità)
   - [ ] **TOOLS-4.2** — (P1) Diagnostica rigorosa: `olympus engines doctor --strict` — **In corso** · [Dettagli](docs/ROADMAP-REFERENCE.md#6-inventario-dei-tool-e-capacità)
   - [ ] **TOOLS-4.3** — (P1) Risorse, timeout e profili per engine — **In corso** · [Dettagli](docs/ROADMAP-REFERENCE.md#6-inventario-dei-tool-e-capacità)
   - [x] **TOOLS-4.4** — (P0) Gestione rigorosa degli output e stati canonici · [Dettagli](docs/ROADMAP-REFERENCE.md#6-inventario-dei-tool-e-capacità)

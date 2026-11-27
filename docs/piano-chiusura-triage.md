@@ -40,7 +40,7 @@ laboratorio. È qui il risparmio immediato.
 
 | Voce | Evidenza già presente | Residuo per `[x]` | Confidenza |
 |---|---|---|---|
-| **TOOLS-4.1** Preflight fail-closed | Preflight condiviso cablato su CLI, API, Web, worker, Athena e TUI; sei motivi di blocco (exit 8) e job degradato (exit 5, parziale persistente) con audit e stato persistente; test su tutte le interfacce. | Passata di verifica finale, flip del checkbox, nota di stato. Candidato più maturo. | Alta (verificato in src+test) |
+| **TOOLS-4.1** Preflight fail-closed | ~~Preflight condiviso cablato su CLI, API, Web, worker, Athena e TUI; sei motivi di blocco (exit 8) e job degradato (exit 5, parziale persistente) con audit e stato persistente.~~ **Chiuso `[x]` il 2026-11-27**: accettazione completa in CI (zero-traffico per interfaccia, parità e vocabolario `{0,5,8}` reificati) e clausola lab coperta dall'evidenza L3 committata. | — | — |
 | **TOOLS-4.5** Evidenze firmate e coerenza tra percorsi | Produttore/verificatore condivisi, firma Ed25519, tentativi immutabili; catena job→audit→report provata offline. | Runbook rotazione/revoca chiavi (provabile offline con chiavi effimere) e demo catena API/Web→Vulcan. Parte di T4. | Media — da confermare |
 | **ARCH-3** Execution Engine come servizio documentato | Job, worker, coda, cancellazione, `EngineHealth`: implementati e molto testati. | Consolidamento documentale dei confini del servizio (lease, recovery, separabilità). Non codice. | Media — da confermare |
 
