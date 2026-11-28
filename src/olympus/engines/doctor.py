@@ -18,6 +18,8 @@ import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
+from importlib import metadata
+from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
@@ -51,6 +53,19 @@ class EngineState(StrEnum):
     REQUIRES_PRODUCT = "requires-product"
 
 
+def _installed_cli_version(package: str, executable: str) -> str | None:
+    """Read the distribution version only when its install record owns the CLI."""
+    try:
+        dist = metadata.distribution(package)
+        binary = Path(executable).resolve(strict=True)
+        for item in dist.files or ():
+            if item.name == binary.name and Path(dist.locate_file(item)).resolve() == binary:
+                return dist.version
+    except (metadata.PackageNotFoundError, OSError, RuntimeError, ValueError):
+        return None
+    return None
+
+
 @dataclass(frozen=True)
 class Environment:
     """Everything the checks need from the host, injectable for tests."""
@@ -61,6 +76,7 @@ class Environment:
     environ: Mapping[str, str] = field(default_factory=lambda: dict(os.environ))
     #: Address-space limit the Themis sandbox would apply to a scanner on this host.
     sandbox_memory_bytes: int = 2 * 1024**3
+    installed_cli_version: Callable[[str, str], str | None] = _installed_cli_version
 
 
 @dataclass(frozen=True)
@@ -331,7 +347,22 @@ def inspect_engine(name: str, manifest: EngineManifest, env: Environment) -> Eng
             detail=f"'{binary}' on PATH is not the {name} engine",
             install_command=install,
         )
-    check = _version_check(manifest, output)
+    if engine.distribution == "pip" and "--help" in engine.presence_probe:
+        # Help can include IP addresses and examples that look like version numbers.
+        installed = env.installed_cli_version(str(source.package), path)
+        if installed != engine.pinned_version or not installed:
+            return EngineStatus(
+                **base,  # type: ignore[arg-type]
+                state=EngineState.VERSION_MISMATCH,
+                path=path,
+                detected_version=installed,
+                version_check="mismatch" if installed else "unknown",
+                detail=f"installed package version {installed!r}, pinned {engine.pinned_version}",
+                install_command=install,
+            )
+        text, check = installed, "match"
+    else:
+        check = _version_check(manifest, output)
     data = _inspect_data(manifest, env)
     common = {**base, "path": path, "detected_version": text or None, "data": data}
     if engine.distribution == "git":

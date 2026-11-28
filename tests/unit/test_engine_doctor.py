@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -111,6 +112,19 @@ def test_a_healthy_machine_passes_with_the_real_version_and_template_commit() ->
     assert nuclei.detected_version == NUCLEI_BANNER
     assert nuclei.data[0].ok
     assert verdict(statuses).exit_code is ExitCode.OK
+
+
+@pytest.mark.parametrize("installed", ["2.2.7", "2.2.6", None])
+def test_help_only_pip_probe_uses_installed_package_version(installed: str | None) -> None:
+    def version(package: str, executable: str) -> str | None:
+        assert (package, executable) == ("arjun", "/usr/bin/arjun")
+        return installed
+
+    env = replace(_env({"arjun": "Default is 127.0.0.1:8080."}), installed_cli_version=version)
+    status = _status("arjun", env)
+    assert status.detected_version == installed
+    assert status.ok == (installed == "2.2.7")
+    assert verdict([status], strict=True).blocking == (() if status.ok else ("arjun",))
 
 
 # --- runtime prerequisite commands (TOOLS-4.2) ------------------------------ #
@@ -293,7 +307,6 @@ def test_the_default_environment_uses_the_sandboxed_runner_and_a_safe_git_direct
 
 
 def test_a_sandbox_memory_limit_below_the_engine_need_is_noted_not_hidden() -> None:
-    from dataclasses import replace
 
     low = replace(_healthy(), sandbox_memory_bytes=2 * 1024**3)
     (status,) = check_all(low, ("nuclei",))
