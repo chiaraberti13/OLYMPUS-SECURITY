@@ -147,9 +147,11 @@ def test_help_only_pip_probe_uses_installed_package_version(installed: str | Non
 
 
 # --- runtime prerequisite commands (TOOLS-4.2) ------------------------------ #
-def _testssl_env(*, hexdump: bool) -> Environment:
+def _testssl_env(*, hexdump: bool, ps: bool = True) -> Environment:
     # testssl is present and pinned; only the auxiliary command varies.
     present = {"testssl.sh": "testssl 3.2.4 from https://testssl.sh/"}
+    if ps:
+        present["ps"] = "procps"
     if hexdump:
         present["hexdump"] = "hexdump from util-linux"
     return _env(present=present, heads={"/opt/testssl": _commit("testssl")})
@@ -165,6 +167,13 @@ def test_a_present_engine_missing_a_runtime_prerequisite_is_not_ready() -> None:
     if status.in_scanner_image:
         # not ok -> blocking under --strict for an engine the image ships
         assert "testssl" in verdict([status], strict=True).blocking
+
+
+def test_strict_doctor_rejects_missing_ps() -> None:
+    status = _status("testssl", _testssl_env(hexdump=True, ps=False))
+    assert status.state is EngineState.PREREQUISITE_MISSING
+    assert "ps" in status.detail
+    assert verdict([status], strict=True).exit_code is ExitCode.ENGINE_MISSING
 
 
 def test_a_present_engine_with_its_prerequisites_is_ready() -> None:

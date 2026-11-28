@@ -14,7 +14,7 @@ presence_probe = ["testssl.sh", "--version"]
 # testssl.sh invokes hexdump at runtime (hex dumps of certificate bytes and TLS
 # extensions). Without it the scan degrades or fails, so doctor treats a missing
 # hexdump as a prerequisite gap rather than a ready engine.
-requires_commands = ["hexdump"]
+requires_commands = ["hexdump", "ps"]
 capability = "tls.scan"
 
 [engine.source]
