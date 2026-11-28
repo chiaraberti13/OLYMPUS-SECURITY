@@ -12,28 +12,9 @@
     <span class="brand">🏛️ Olympus <strong>Themis</strong></span>
     {% block nav %}
     <nav aria-label="Primary">
-      <a href="/">Dashboard</a>
-      <a href="/jobs">Jobs</a>
-      <a href="/findings">Findings</a>
-      <a href="/findings/diff">Scan diff</a>
-      <a href="/findings/attack">ATT&CK</a>
-      <a href="/correlations">Correlations</a>
-      <a href="/explain">Explain</a>
-      <a href="/engagements">Engagements</a>
-      <a href="/incidents">Incidents</a>
-      <a href="/tools">Tools</a>
-      <a href="/apollo">Apollo</a>
-      <a href="/minerva">Minerva</a>
-      <a href="/metis">Metis</a>
-      <a href="/athena">Athena</a>
-      <a href="/argus">Argus</a>
-      <a href="/artemis">Artemis</a>
-      <a href="/helios">Helios</a>
-      <a href="/hermes">Hermes</a>
-      <a href="/proteus">Proteus</a>
-      <a href="/assessments/new">New assessment</a>
-      <a href="/assessments/smart">Smart Scan</a>
-      <a href="/advanced">Advanced</a>
+      {% for href, label in nav_items|default([]) %}
+      <a href="{{ href }}"{% if href == active_nav %} aria-current="page"{% endif %}>{{ label }}</a>
+      {% endfor %}
       <form class="inline" method="post" action="/logout">
         <button type="submit" class="link-button">Sign out</button>
       </form>

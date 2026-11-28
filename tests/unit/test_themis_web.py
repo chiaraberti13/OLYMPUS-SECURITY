@@ -30,7 +30,7 @@ from olympus.themis.api import ApiSettings, create_app
 from olympus.themis.application import ThemisApplicationService, ThemisRunRequest
 from olympus.themis.identity import SCOPES, IdentityRegister, add_identity, save_register
 from olympus.themis.jobs import JobState, ThemisJobStore
-from olympus.themis.web import SESSION_COOKIE, create_web_app
+from olympus.themis.web import _NAV_ITEMS, SESSION_COOKIE, _active_nav, create_web_app
 
 API_KEY = "a" * 32
 # A browser speaks to the web app over HTTPS, so the Secure session cookie is
@@ -3030,3 +3030,60 @@ def test_web_displays_each_blocking_reason(tmp_path, blocking_preflight):
     assert page.status_code == 200
     assert "Blocked · exit 8" in page.text
     assert blocking_preflight.blocking[0].state.value in page.text
+
+
+# -- Primary navigation: current-page semantics (WEB-9, accessibility) --------- #
+# A screen-reader and keyboard user must be able to tell, without colour, which
+# page they are on. The server marks exactly one navigation link with
+# aria-current="page"; a section link stays current on its detail pages, and the
+# longest matching entry wins so a nested path is not stolen by its parent.
+
+
+def test_active_nav_resolves_sections_and_longest_prefix() -> None:
+    assert _active_nav("/") == "/"
+    assert _active_nav("/jobs") == "/jobs"
+    # A detail page keeps its section link current.
+    assert _active_nav("/jobs/abc-123") == "/jobs"
+    assert _active_nav("/engagements/e-1") == "/engagements"
+    # The longest matching entry wins: a nested route is not captured by its parent.
+    assert _active_nav("/findings") == "/findings"
+    assert _active_nav("/findings/diff") == "/findings/diff"
+    assert _active_nav("/findings/attack") == "/findings/attack"
+    # The dashboard never matches as a prefix of everything else.
+    assert _active_nav("/metis") == "/metis"
+    # An unknown path marks nothing as current rather than guessing.
+    assert _active_nav("/does-not-exist") == ""
+
+
+def test_active_nav_covers_every_declared_entry() -> None:
+    # Every visible navigation target resolves to itself; the bar and the resolver
+    # share one source of truth, so a new page cannot ship without a current marker.
+    for href, _label in _NAV_ITEMS:
+        assert _active_nav(href) == href
+
+
+def test_pages_mark_exactly_one_current_link(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    _login(client)
+    for path, expected in (
+        ("/", "/"),
+        ("/jobs", "/jobs"),
+        ("/findings", "/findings"),
+        ("/findings/diff", "/findings/diff"),
+        ("/findings/attack", "/findings/attack"),
+        ("/metis", "/metis"),
+        ("/engagements", "/engagements"),
+    ):
+        page = client.get(path)
+        assert page.status_code == 200, page.text
+        current = re.findall(r'<a href="([^"]+)"\s+aria-current="page">', page.text)
+        assert current == [expected], (path, current)
+
+
+def test_login_page_has_no_navigation_or_current_marker(tmp_path: Path) -> None:
+    # The sign-in page overrides the primary nav; it must not emit a current marker.
+    client = _client(tmp_path)
+    page = client.get("/login")
+    assert page.status_code == 200, page.text
+    assert 'aria-current="page"' not in page.text
+    assert 'aria-label="Primary"' not in page.text

@@ -41,6 +41,14 @@ nav a, .link-button {
   font: inherit; cursor: pointer; padding: 0;
 }
 nav a:hover, .link-button:hover { text-decoration: underline; }
+/* The current page is marked with aria-current="page" for assistive technology; the
+   underline and weight give sighted and keyboard users the same cue without relying on
+   colour alone (WCAG 2.2 — use of colour, focus not obscured). */
+nav a[aria-current="page"] {
+  text-decoration: underline;
+  text-underline-offset: .3rem;
+  font-weight: 600;
+}
 .inline { display: inline; margin: 0; }
 main { max-width: 960px; margin: 0 auto; padding: 1.2rem 1rem 3rem; }
 .card {
