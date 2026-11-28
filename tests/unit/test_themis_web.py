@@ -2107,6 +2107,9 @@ def test_scan_diff_classifies_new_resolved_and_persistent(tmp_path: Path) -> Non
     assert "Reflected XSS in search" in page.text
     assert "Legacy TLS" in page.text
     assert "low → high" in page.text
+    trend = page.text.split('id="diff-trend"', 1)[1].split("</table>", 1)[0]
+    cells = " ".join(trend.split())
+    assert "<td>2</td> <td>1</td> <td>-1</td>" in cells
 
 
 def test_scan_diff_json_export_matches_the_engine(tmp_path: Path) -> None:

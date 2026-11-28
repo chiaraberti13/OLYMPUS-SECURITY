@@ -433,8 +433,7 @@ report, not a page. When set, `engagement` both filters the findings to that
 engagement and labels the report; it is sanitised (`SEC-H`) and slugified for the
 filename. `tag` is a comma-separated list with AND semantics, exactly like the
 CLI `olympus vulcan findings list --tag`. PDF stays CLI-only for now (`olympus vulcan report --pdf`,
-optional `report` extra); trends and notifications are the remaining `WEB-I`
-slices.
+optional `report` extra); the scan diff displays baseline and current finding counts and their net change. La vista Scan diff mostra i conteggi dei due snapshot e la variazione netta. Notifications remain open.
 
 ### Scan diff (`WEB-I`)
 

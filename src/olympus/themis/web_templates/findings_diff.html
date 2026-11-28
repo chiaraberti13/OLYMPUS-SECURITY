@@ -30,6 +30,19 @@
 </section>
 
 <section class="card">
+  <h2 id="diff-trend">Finding count trend</h2>
+  <p class="muted">Counts cover the two configured snapshots. A decrease alone does not establish remediation.</p>
+  <div class="table-wrap" tabindex="0" role="region" aria-labelledby="diff-trend"><table>
+    <thead><tr><th scope="col">Baseline</th><th scope="col">Current</th><th scope="col">Net change</th></tr></thead>
+    <tbody><tr>
+      <td>{{ summary.persistent + summary.resolved }}</td>
+      <td>{{ summary.persistent + summary.new }}</td>
+      <td>{{ "%+d" | format(summary.new - summary.resolved) }}</td>
+    </tr></tbody>
+  </table></div>
+</section>
+
+<section class="card">
   <h2 id="diff-new">New <span class="muted">— present now, absent in the baseline</span></h2>
   {% if new %}
   <div class="table-wrap" tabindex="0" role="region" aria-labelledby="diff-new"><table>
