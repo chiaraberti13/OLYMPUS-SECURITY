@@ -1,62 +1,8 @@
-# CLAUDE.md — regole operative per Claude su questo repository
+# Istruzioni Claude Code
 
-Queste istruzioni valgono per **ogni sessione** di Claude su OLYMPUS-SECURITY e
-hanno priorità sulle abitudini predefinite dell'assistente.
+@./AGENTS.md
+@./docs/COMPETENZE.md
 
-## Merge in `main` — lo fa SEMPRE Claude (autorizzazione permanente dell'owner)
+Cerca e analizza le roadmap preesistenti prima di modificarle. Se non esistono, genera `docs/ROADMAP.md` dopo l’assessment; altrimenti consolida e aggiorna la roadmap nel percorso canonico. Applica il protocollo di inizializzazione e sviluppo di AGENTS.md. Non limitarti a pianificare: implementa, verifica e pubblica progressivamente su main. Mantieni la roadmap aggiornata. Comunica in italiano. Le istruzioni specifiche del progetto compatibili con questo protocollo devono essere preservate.
 
-L'owner del repository **non riesce** a eseguire il merge dei PR: lo fa Claude.
-Questa è un'autorizzazione esplicita e permanente a mergiare, non serve richiederla
-di volta in volta.
-
-Al termine di ogni task, dopo aver pushato il branch di sviluppo:
-
-1. Individua (o, se manca, apri) la Pull Request del branch verso `main`.
-2. **Attendi che tutti i check CI obbligatori siano verdi.** In particolare
-   `ruff · format · mypy (required)`, i `pytest` su tutte le versioni Python,
-   coverage e mutation. Un check `skipped` condizionale (es. `build · engine smoke
-   test`) non è un fallimento.
-3. **Mergia** la PR in `main` (metodo *merge commit*, coerente con lo storico),
-   proteggendo il merge con l'`expectedHeadSha` (SHA completo a 40 caratteri).
-4. Conferma all'owner che `main` è aggiornato.
-
-**Se la CI non è verde, è compito di Claude risolvere i problemi** — in modo
-autonomo e nella stessa sessione: leggi i log del job fallito, correggi la causa
-reale nel codice/test/doc, ripusha, attendi la nuova esecuzione e **ripeti finché
-tutti i check obbligatori sono verdi**, poi mergia. Non lasciare il merge in sospeso
-segnalando solo il fallimento.
-
-Vincoli invariati di sicurezza/integrità:
-
-- **Mai** mergiare con un check obbligatorio rosso o in corso; **mai** bypassare,
-  disabilitare o rendere non-bloccante un gate per far passare il merge. La CI
-  rossa si risolve correggendo il difetto, non aggirando il controllo.
-- Niente force-push distruttivi su `main`. Se il branch è già stato mergiato,
-  ripartire dallo stesso nome da `main` aggiornato (fast-forward o force-with-lease
-  solo su storia già mergiata).
-- Non serve chiedere conferma per il merge: è pre-autorizzato qui. Resta valida la
-  conferma per azioni distruttive esplicite (es. cancellare dati, riscrivere la
-  storia di `main`).
-
-## Prima di ogni push — verifica come la CI
-
-Esegui i gate **con lo stesso scope della CI**, a livello di intero repo, per non
-far fallire i check obbligatori:
-
-```bash
-ruff check .
-ruff format --check .      # repo-wide: formatta anche i blocchi di codice nei Markdown
-python -m mypy --strict src/olympus
-python scripts/export_schema_catalog.py --check
-python scripts/check_doc_links.py
-python scripts/build_docs_site.py   # rigenera public/docs/*.html; deve restare committato
-python -m pytest tests/unit tests/contract -q
-```
-
-Nota appresa: `ruff format` tratta anche gli snippet Python dentro i file `.md`;
-controllare solo i file toccati non basta — usare `ruff format --check .`.
-
-Nota appresa: aggiungendo o modificando un file `docs/*.md` va rigenerato il sito
-statico con `python scripts/build_docs_site.py` e committati i file risultanti in
-`public/docs/` — `tests/unit/test_docs_site.py` fallisce (pytest obbligatorio) se
-manca la pagina generata o l'indice non è aggiornato.
+A ogni sessione riesamina tutte le attività residue, applica i criteri di chiusura e continua con le attività indipendenti in caso di blocco. Non creare una roadmap vuota prima dell’analisi. Non dichiarare concluso il progetto prima della validazione finale.
