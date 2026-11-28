@@ -73,7 +73,7 @@ grosso del tempo produttivo.
   multiutente); **ARCH-2** (formalizzare i confini `domain → application → ports → adapters`).
 - **AI-2** (model router), **AI-3** (fact graph), **AI-7** (eval): fondamenta T12, offline con
   provider finti. Poi **AI-1 / AI-4 / AI-5 / AI-6** (orchestrazione, T13).
-- **DEMO-2** (ampliamento della demo statica a fixture), **DOCS-2** (guide Web/API/deploy).
+- **DEMO-2** (ampliamento della demo statica a fixture). **DOCS-2** chiuso il 2026-11-28 con la [guida Web bilingue](web.md), il riferimento API generato e la guida di deploy.
 - Fette offline di **RED-1/2/3** (adapter), **BLUE-2** (connettori con porte iniettate),
   **VAL-1** (asset diff), **VAL-3** (metriche di copertura).
 

@@ -642,7 +642,8 @@ long-lived, stato durevole). Modello adottato:
 - [x] **DOCS-1** — README IT/EN, docs per modulo, CLI reference generata, disclaimer d'uso.
 <a id="docs-2"></a>
 
-- [~] **DOCS-2** — Guide Web UI per ogni tool; documentazione API completa; guida deploy split + Vercel. **Fatto (riferimento API generato, anti-drift):** `docs/api-reference.md` è **generato dallo schema OpenAPI live** dell'app Themis (`olympus.api_reference.render_document`, script `scripts/generate_api_reference.py` con `--check`), unica fonte di verità: ogni operazione elenca metodo+path, lo scopo (dalla docstring) e il **contratto versionato** di request e response (risolto dai costanti `schema_name`/`schema_version`). Puro/offline/deterministico (ordinato per path poi metodo); gate anti-drift come per il CLI reference tramite il test `tests/unit/test_api_reference.py::test_committed_reference_is_current` (la pagina non può divergere dall'API reale). **Guida al deploy split + Vercel fatta (2026-11-23):** [`docs/deploy-split.md`](deploy-split.md) descrive l'architettura split (statico Vercel + BFF serverless → backend container), la configurazione `OLYMPUS_BACKEND_URL`, il modello di sicurezza del BFF e i passi owner per andare live. **Resta:** le guide d'uso Web UI per singolo tool.
+- [x] **DOCS-2** — Guide Web UI per ogni tool; documentazione API completa; guida deploy split + Vercel. **Fatto (riferimento API generato, anti-drift):** `docs/api-reference.md` è **generato dallo schema OpenAPI live** dell'app Themis (`olympus.api_reference.render_document`, script `scripts/generate_api_reference.py` con `--check`), unica fonte di verità: ogni operazione elenca metodo+path, lo scopo (dalla docstring) e il **contratto versionato** di request e response (risolto dai costanti `schema_name`/`schema_version`). Puro/offline/deterministico (ordinato per path poi metodo); gate anti-drift come per il CLI reference tramite il test `tests/unit/test_api_reference.py::test_committed_reference_is_current` (la pagina non può divergere dall'API reale). **Guida al deploy split + Vercel fatta (2026-11-23):** [`docs/deploy-split.md`](deploy-split.md) descrive l'architettura split (statico Vercel + BFF serverless → backend container), la configurazione `OLYMPUS_BACKEND_URL`, il modello di sicurezza del BFF e i passi owner per andare live. **Resta:** le guide d'uso Web UI per singolo tool.
+  - **Chiusura 2026-11-28.** La [guida dei moduli Web](web.md) copre i percorsi, gli input e l’interpretazione dei risultati in italiano e inglese per tutti gli undici moduli. Il riferimento API e la guida al deploy split sono collegati dalla stessa pagina.
 <a id="docs-3"></a>
 
 - [x] **DOCS-3** — Sito doc statico bilingue (Pages/Vercel) dalla stessa fonte `docs/`. **Fatto (2026-11-23):** `scripts/build_docs_site.py` rende ogni `docs/**/*.md` in pagine HTML autoconsistenti sotto `public/docs/` (servite da Vercel, `public/` è la sua output dir; e da GitHub Pages via `.github/workflows/docs-site.yml`). Rendering **server-side, offline, senza dipendenze** (renderer Markdown→HTML dedicato: heading, paragrafi, code fence, blockquote, tabelle GFM, liste annidate, inline code/bold/italic/link/immagini; commenti HTML rimossi; raw HTML escapato) — necessario perché le pagine ereditano la **CSP severa** di `public/` (`default-src 'none'; style-src 'unsafe-inline'`, nessuno script/asset remoto). Chrome e landing **bilingui IT/EN**; i corpi dei doc restano nella lingua in cui sono scritti (nessuna traduzione automatica). I link `*.md` tra doc sono riscritti a `*.html` (navigazione statica funzionante); i link a file fuori da `docs/` (sorgenti, `labs/`, script) sono riscritti a URL GitHub `blob/main` così non si rompono. Gate anti-drift `scripts/build_docs_site.py --check` + test `tests/unit/test_docs_site.py` (drift, completezza/indice, autoconsistenza+CSP, zero link `.md` residui, costrutti del renderer). Deploy Pages **passivo** (`vars.PUBLISH_DOCS_SITE == 'true'` + environment `github-pages`): off finché l'owner non lo attiva. **Resta:** le guide d'uso Web UI per-tool (`DOCS-2`) e l'eventuale traduzione integrale dei singoli documenti.
@@ -1247,16 +1248,16 @@ Conteggio derivato esclusivamente dagli stati dei task padre nel documento sorge
 
 | Ciclo | Completati `[x]` | Parziali `[~]` | Pianificati `[ ]` | Totale | Stato |
 |---|---:|---:|---:|---:|---|
-| A — Integrità, sicurezza e governance degli engine | 10 | 5 | 2 | 17 | In corso |
-| B — Architettura, Execution Engine e persistenza | 7 | 8 | 0 | 15 | In corso |
+| A — Integrità, sicurezza e governance degli engine | 11 | 4 | 2 | 17 | In corso |
+| B — Architettura, Execution Engine e persistenza | 9 | 6 | 0 | 15 | In corso |
 | C — Capacità Red, Blue e Purple Team | 2 | 6 | 0 | 8 | In corso |
-| D — Correlazione, spiegabilità e validazione continua | 0 | 7 | 0 | 7 | In corso |
-| E — Web UI ed esperienza operativa | 2 | 6 | 0 | 8 | In corso |
-| F — Deployment, demo e documentazione | 5 | 3 | 2 | 10 | In corso |
+| D — Correlazione, spiegabilità e validazione continua | 3 | 4 | 0 | 7 | In corso |
+| E — Web UI ed esperienza operativa | 3 | 5 | 0 | 8 | In corso |
+| F — Deployment, demo e documentazione | 6 | 2 | 2 | 10 | In corso |
 | G — Quality Assurance e validazione in laboratorio | 2 | 2 | 0 | 4 | In corso |
 | H — Orchestrazione AI-native multi-agente | 1 | 2 | 5 | 8 | In corso |
 | I — Evoluzioni differite | 0 | 0 | 3 | 3 | Pianificato |
-| **Totale** | 29 | 39 | 12 | 80 | — |
+| **Totale** | 37 | 31 | 12 | 80 | — |
 
 ---
 

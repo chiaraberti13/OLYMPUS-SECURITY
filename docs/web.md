@@ -1,5 +1,41 @@
 # Web control plane
 
+## Guida ai moduli Web / Web module guide
+
+Accedi al pannello Web autenticato e scegli il modulo dal menu. I percorsi sono relativi al tuo deployment. Per consultare un risultato già acquisito parti da Jobs o Findings. Le etichette dei pulsanti qui sotto sono quelle mostrate nell’interfaccia.
+
+| Modulo e pagina | Cosa fare | Come leggere il risultato |
+|---|---|---|
+| Themis · `/jobs` | Apri il job che ti interessa dal registro. | Controlla stato e copertura prima di interpretare i finding. Un job parziale lascia una parte della valutazione incompleta. |
+| Vulcan · `/explain`, `/correlations` | Incolla un finding JSON in Explain, oppure una lista di finding in Correlations. Premi **Explain** o **Correlate**. | Usa la motivazione per risalire ai dati che sostengono una conclusione. Una correlazione segnala una relazione da verificare. |
+| Apollo · `/apollo` | Scegli il formato della telemetria, incolla gli eventi e premi **Evaluate**. | Confronta regola ed evento per ciascun alert. Controlla le righe scartate e il relativo motivo prima di valutare una prova senza alert. |
+| Minerva · `/minerva` | Incolla il registro di custodia JSON e premi **Verify integrity**. | Leggi separatamente integrità della catena, ancoraggio delle evidenze e stato della firma. Anche una catena integra può essere priva di firma. |
+| Metis · `/metis` | Seleziona il formato del documento, incolla il testo e premi **Extract**. | Consulta gli indicatori per tipo e valore. Nella tabella degli elementi scartati trovi il motivo di ogni omissione. |
+| Athena · `/athena` | Nel modulo **Build a plan** inserisci profilo, riferimenti di ingaggio e perimetro da riesaminare. Premi **Build plan**. | Verifica il perimetro riportato nell’anteprima e conserva i digest del piano e dello scope per il confronto successivo. |
+| Argus · `/argus` | Inserisci un dominio e la risposta JSON di Certificate Transparency già acquisita. Premi **Extract**. | Leggi i sottodomini estratti dal documento. Il conteggio riguarda soltanto l’input fornito. |
+| Artemis · `/artemis` | Inserisci etichetta URL, stato e header di una risposta HTTP acquisita, uno per riga. Il corpo è facoltativo. Premi **Fingerprint**. | Per ciascun prodotto rilevato consulta la colonna Evidence per individuare il dato che ha determinato il riconoscimento. |
+| Helios · `/helios` | Inserisci un banner acquisito, una porta o entrambi e premi **Identify**. | Leggi **Identified from**. Il valore `port` indica una convenzione sulla porta; `banner` indica un riscontro nel testo acquisito. |
+| Hermes · `/hermes` | Assegna un’etichetta al campione, incolla il testo e premi **Scan**. | Individua la riga e la regola che hanno prodotto il riscontro. Il valore è mascherato e il fingerprint aiuta a riconoscere i duplicati. |
+| Proteus · `/proteus` | Compila ingaggio, oggetto, mittente e URL di destinazione, poi premi **Validate**. | Confronta i metadati normalizzati con quelli attesi. La pagina convalida i campi senza inviare messaggi. |
+
+Sign in to your deployed Web control plane. The navigation labels and button names below match the interface. Start with Jobs or Findings when reviewing previously collected results.
+
+| Module | Action | What to check |
+|---|---|---|
+| Themis · `/jobs` | Open the job from the register. | Check its terminal state and coverage before interpreting findings. A partial result leaves part of the assessment unresolved. |
+| Vulcan · `/explain`, `/correlations` | Submit one JSON finding with **Explain**, or submit an array with **Correlate**. | Trace the rationale back to the supplied facts. Review a proposed relationship before treating it as corroborated. |
+| Apollo · `/apollo` | Select the telemetry format, paste events and choose **Evaluate**. | Match each alert to its rule and event. Review rejected lines before drawing conclusions from an empty alert list. |
+| Minerva · `/minerva` | Paste the custody ledger JSON and choose **Verify integrity**. | Check chain integrity, evidence anchoring and signature status separately. An intact chain can be unsigned. |
+| Metis · `/metis` | Select the source format, paste the document and choose **Extract**. | Review the indicators by type and value, then check why any elements were skipped. |
+| Athena · `/athena` | Fill in the profile, engagement details and scope for review. Choose **Build plan**. | Review the scope in the preview and retain the plan and scope digests for later comparison. |
+| Argus · `/argus` | Enter a domain, paste a previously captured CT JSON response and choose **Extract**. | The names and count describe the submitted document. |
+| Artemis · `/artemis` | Enter the URL label, status and captured headers, one per line. Optionally add the body. Choose **Fingerprint**. | Inspect the evidence alongside each proposed product identification. |
+| Helios · `/helios` | Supply a captured banner, port or both and choose **Identify**. | **Identified from** distinguishes banner evidence from a port-based convention. |
+| Hermes · `/hermes` | Label a text sample, paste it and choose **Scan**. | Use line and rule to locate potential secrets. Compare fingerprints to identify duplicates while keeping the values masked. |
+| Proteus · `/proteus` | Enter the engagement, subject, sender and landing URL, then choose **Validate**. | Review the normalized metadata. Validation does not send a message. |
+
+Per i contratti e i requisiti di deployment / For contracts and deployment requirements: [API reference](api-reference.md) · [Split deployment and Vercel](deploy-split.md).
+
 ## Vulcan ATT&CK associations / Associazioni ATT&CK Vulcan
 
 Authenticated readers with `findings:read` can open `/findings/attack` from the

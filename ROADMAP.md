@@ -139,7 +139,7 @@ Verifica T3 del 26 novembre 2026: con `--allow-missing-engines` solo una dipende
 | Disponibili API-3, ARCH-4 e T3–T6 | T10 raggruppa i percorsi Web con le verifiche browser e accessibilità di QA-2. WEB-8 richiede anche T9. | Un percorso end-to-end può documentare più criteri se conserva separatamente esito funzionale, audit e riscontro di accessibilità. |
 | Disponibili T9, T12 e prerequisiti di laboratorio | T13 integra i componenti. Dopo il consolidamento di T8–T9, T11 rivaluta separatamente le tre evoluzioni differite. | Per T11 registrare, per ciascuna voce, requisito osservato e decisione di avvio o rinvio. |
 
-Per pianificare le **39 voci in corso**, partire da quelle che sbloccano la prossima consegna. Accanto a ciascun criterio aperto registrare cosa manca (codice, prova, documentazione o accesso esterno), il riferimento alla prova riutilizzabile e la dipendenza che determina la data. Stimare separatamente giornate di lavoro e attesa esterna. Aggiornare checkbox e riepilogo quando la Definition of Done della voce è soddisfatta su `main`.
+Per pianificare le voci in corso, partire da quelle che sbloccano la prossima consegna. Accanto a ciascun criterio aperto registrare cosa manca (codice, prova, documentazione o accesso esterno), il riferimento alla prova riutilizzabile e la dipendenza che determina la data. Stimare separatamente giornate di lavoro e attesa esterna. Aggiornare checkbox e riepilogo quando la Definition of Done della voce è soddisfatta su `main`.
 
 La [triage di chiusura per criterio](docs/piano-chiusura-triage.md) classifica le voci aperte in tre bucket — codice e test già sufficienti (chiusura a costo basso), sviluppo offline, o bloccate su laboratorio/infra esterna — e fissa la convenzione per le voci lab: implementare la fetta offline fino a «verificato in CI», lasciare la voce `[~]` con il blocker annotato e non riaprirla come codice da scrivere.
 
@@ -334,7 +334,7 @@ La [triage di chiusura per criterio](docs/piano-chiusura-triage.md) classifica l
 ### Documentazione e localizzazione
 
 - [x] **DOCS-1** — README IT/EN, docs per modulo, CLI reference generata, disclaimer d'uso · [Dettagli](docs/ROADMAP-REFERENCE.md#15-documentazione-e-localizzazione)
-- [ ] **DOCS-2** — Guide Web UI per ogni tool; documentazione API completa; guida deploy split + Vercel — **In corso** · [Dettagli](docs/ROADMAP-REFERENCE.md#15-documentazione-e-localizzazione)
+- [x] **DOCS-2** — Guide Web UI per ogni tool; documentazione API completa; guida deploy split + Vercel · [Dettagli](docs/ROADMAP-REFERENCE.md#15-documentazione-e-localizzazione)
 - [x] **DOCS-3** — Sito doc statico bilingue (Pages/Vercel) dalla stessa fonte `docs/` · [Dettagli](docs/ROADMAP-REFERENCE.md#15-documentazione-e-localizzazione)
 
 **Completato quando:** I criteri DEPLOY, DEMO e DOCS sono soddisfatti, con separazione esplicita tra demo e live.
@@ -423,20 +423,20 @@ Questa checklist sintetizza i vincoli originari e resta aperta perché continua.
 
 ## Avanzamento per ciclo
 
-Conteggio dei soli task padre; ricavato dagli stati originali, non da una verifica tecnica nuova.
+Conteggio dei task padre dalle checkbox correnti, aggiornato il 28 novembre 2026.
 
 | Ciclo | Completati | In corso | Da fare | Totale |
 |---|---:|---:|---:|---:|
-| Ciclo A — Integrità, sicurezza e governance degli engine | 10 | 5 | 2 | 17 |
-| Ciclo B — Architettura, Execution Engine e persistenza | 7 | 8 | 0 | 15 |
+| Ciclo A — Integrità, sicurezza e governance degli engine | 11 | 4 | 2 | 17 |
+| Ciclo B — Architettura, Execution Engine e persistenza | 9 | 6 | 0 | 15 |
 | Ciclo C — Capacità Red, Blue e Purple Team | 2 | 6 | 0 | 8 |
-| Ciclo D — Correlazione, spiegabilità e validazione continua | 0 | 7 | 0 | 7 |
-| Ciclo E — Web UI ed esperienza operativa | 2 | 6 | 0 | 8 |
-| Ciclo F — Deployment, demo e documentazione | 5 | 3 | 2 | 10 |
+| Ciclo D — Correlazione, spiegabilità e validazione continua | 3 | 4 | 0 | 7 |
+| Ciclo E — Web UI ed esperienza operativa | 3 | 5 | 0 | 8 |
+| Ciclo F — Deployment, demo e documentazione | 6 | 2 | 2 | 10 |
 | Ciclo G — Quality Assurance e validazione in laboratorio | 2 | 2 | 0 | 4 |
 | Ciclo H — Orchestrazione AI-native multi-agente | 1 | 2 | 5 | 8 |
 | Ciclo I — Evoluzioni differite | 0 | 0 | 3 | 3 |
-| **Totale** | **29** | **39** | **12** | **80** |
+| **Totale** | 37 | 31 | 12 | 80 |
 
 ---
 
