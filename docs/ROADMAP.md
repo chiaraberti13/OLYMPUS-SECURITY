@@ -15,14 +15,14 @@ localizzazione, qualità e sicurezza.
 |---|---|
 | Architettura e tecnologie | CLI Python, Web/API Themis e persistenza SQLite condividono contratti documentati. Mantenere il monolite modulare e valutare separazione e storage alternativi con misure di carico. |
 | Funzionalità e sicurezza | Apollo, Minerva e Vulcan forniscono i punti di ingresso per rilevazione, custodia e reportistica. Dare priorità a consultazione, integrità delle evidenze e tutela dei dati. |
-| Prestazioni e scalabilità | I [benchmark esistenti](performance.md) coprono ingest, deduplicazione, rendering e code. Estendere il profilo con storico di remediation e serie di snapshot di volumi crescenti. |
+| Prestazioni e scalabilità | I [benchmark esistenti](performance.md) coprono ingest, deduplicazione, rendering e code. Una misura sintetica in memoria della singola allocazione di un ID ha rilevato 0,25 ms con mille record e 26,35 ms con centomila, senza I/O su disco o contesa. Estendere il profilo con storico di remediation e serie di snapshot di volumi crescenti. |
 | Visual design e accessibilità | La Web nativa ha navigazione da tastiera e test browser. Applicare alla documentazione statica landmark principale, salto della navigazione e contrasto del footer in modalità scura. |
 | Bilinguismo e documentazione | README IT/EN disponibili, Web operativa prevalentemente inglese. Correggere i link della roadmap e dare priorità alla localizzazione dei flussi di consultazione. |
 | Qualità e release | Makefile e workflow versionati. La verifica sul commit candidato, i test browser e il rilascio stabile richiedono evidenze dedicate. |
 
 | ID | Stato e priorità | Impatto, stima e dipendenze | Criterio di chiusura |
 |---|---|---|---|
-| DOCS-4 | READY_TO_CLOSE · P1 | Navigazione documentale e accessibilità di base, meno di un giorno, collegata a DOCS-3 | Percorso canonico unico, link interni validi, HTML aggiornato e verifica di landmark, skip link e lingua della roadmap. Verificare il commit remoto. |
+| DOCS-4 | FEATURE_DONE · P1 | Navigazione documentale e accessibilità di base, meno di un giorno, collegata a DOCS-3 | Percorso canonico unico, link interni validi, HTML aggiornato e verifica di landmark, skip link e lingua della roadmap. Prima tranche verificata su main (`1322660`), con 108 file Markdown e 86 pagine HTML. Seconda verifica mirata sulle ancore HTML della roadmap. |
 | WEB-9 | TODO · P2 | Orientamento e bilinguismo nei percorsi dashboard e risultati, 2–4 giorni, con QA-2 e DOCS-3 | Catalogo IT/EN con parità e fallback, pagina corrente identificata semanticamente, stati vuoto/errore tradotti, test browser esistenti estesi per tastiera e reflow. |
 | PERF-1 | TODO · P2 | Ridurre il costo di lettura e scrittura dello storico difensivo, 2–4 giorni, con DB e QA-4 | Misurare append concorrente delle transizioni e serie Vulcan su volumi crescenti. Verificare compatibilità con database precedenti e parità di output prima di adottare contatore transazionale o lettura incrementale. |
 

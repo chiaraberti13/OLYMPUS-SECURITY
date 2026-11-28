@@ -86,11 +86,12 @@ _IMAGE = re.compile(r"!\[([^\]]*)\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 _BOLD = re.compile(r"\*\*(.+?)\*\*")
 _ITALIC = re.compile(r"(?<![\w*])[*_](?!\s)(.+?)(?<!\s)[*_](?![\w*])")
 _CODE_SPAN = re.compile(r"`([^`]+)`")
-_SLUG = re.compile(r"[^a-z0-9]+")
+_LEGACY_SLUG = re.compile(r"[^a-z0-9]+")
+_SLUG_PUNCTUATION = re.compile(r"[^\w\- ]+")
 
 
 def _slug(text: str) -> str:
-    return _SLUG.sub("-", _strip_inline(text).lower()).strip("-")
+    return _SLUG_PUNCTUATION.sub("", _strip_inline(text).lower()).replace(" ", "-")
 
 
 def _strip_inline(text: str) -> str:
@@ -204,6 +205,7 @@ def render_markdown(md: str) -> str:
     md = re.sub(r"<!--.*?-->", "", md, flags=re.DOTALL)
     lines = md.replace("\r\n", "\n").split("\n")
     out: list[str] = []
+    heading_counts: dict[str, int] = {}
     i = 0
     n = len(lines)
     while i < n:
@@ -225,7 +227,14 @@ def render_markdown(md: str) -> str:
         if heading:
             level = len(heading.group(1))
             text = heading.group(2)
-            out.append(f'<h{level} id="{_slug(text)}">{_inline(text)}</h{level}>')
+            slug = _slug(text)
+            count = heading_counts.get(slug, 0)
+            heading_counts[slug] = count + 1
+            heading_id = f"{slug}-{count}" if count else slug
+            legacy_id = _LEGACY_SLUG.sub("-", _strip_inline(text).lower()).strip("-")
+            if not count and legacy_id and legacy_id != heading_id:
+                out.append(f'<span id="{legacy_id}"></span>')
+            out.append(f'<h{level} id="{heading_id}">{_inline(text)}</h{level}>')
             i += 1
             continue
         if _HR.match(line):
