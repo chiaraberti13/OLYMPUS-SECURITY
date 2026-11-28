@@ -56,8 +56,18 @@ class EngineState(StrEnum):
 def _installed_cli_version(package: str, executable: str) -> str | None:
     """Read the distribution version only when its install record owns the CLI."""
     try:
-        dist = metadata.distribution(package)
         binary = Path(executable).resolve(strict=True)
+        prefix = binary.parent.parent
+        if binary.parent.name == "bin" and (prefix / "pyvenv.cfg").is_file():
+            # Each pip engine in the scanner image lives in its own POSIX venv.
+            # Read its install records without running the engine's interpreter.
+            sites = list((prefix / "lib").glob("python*/site-packages"))
+            distributions = list(metadata.Distribution.discover(name=package, path=sites))
+            if len(distributions) != 1:
+                return None
+            dist = distributions[0]
+        else:
+            dist = metadata.distribution(package)
         for item in dist.files or ():
             if item.name == binary.name and Path(dist.locate_file(item)).resolve() == binary:
                 return dist.version

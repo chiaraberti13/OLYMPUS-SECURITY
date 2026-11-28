@@ -110,6 +110,31 @@ jobs:
           print("Verified mandatory nmap refusal in a network-isolated container.")
           PY
 
+      - name: Reject changed engine and template commits offline
+        run: |
+          docker run --rm --network none --user 0 --entrypoint sh olympus-scanners:ci -ec '
+            for checkout in /opt/nmap /opt/nuclei-templates; do
+              git -C "$checkout" -c user.name=T5 -c user.email=t5@example.invalid \
+                -c commit.gpgSign=false commit --allow-empty -qm "T5 diagnostic fixture"
+            done
+            status=0
+            setpriv --reuid=10001 --regid=10001 --clear-groups env HOME=/tmp \
+              olympus engines doctor --strict --engine nmap --engine nuclei --format json || status=$?
+            test "$status" -eq 8
+          ' > "$RUNNER_TEMP/changed-commits.json"
+          python - <<'PYTHON'
+          import os
+          from pathlib import Path
+          from olympus.engines.doctor import EngineDoctorReport
+
+          report = EngineDoctorReport.model_validate_json(
+              (Path(os.environ["RUNNER_TEMP"]) / "changed-commits.json").read_bytes()
+          )
+          assert report.exit_code == 8 and set(report.blocking) == {"nmap", "nuclei"}
+          states = {engine.name: engine.state for engine in report.engines}
+          assert states == {"nmap": "commit-mismatch", "nuclei": "data-problem"}
+          PYTHON
+
   gate:
     name: scanner-image gate
     if: always()

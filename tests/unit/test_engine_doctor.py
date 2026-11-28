@@ -17,6 +17,7 @@ from olympus.engines.doctor import (
     EngineState,
     EngineStatus,
     Environment,
+    _installed_cli_version,
     adapter_for,
     check_all,
     inspect_engine,
@@ -112,6 +113,24 @@ def test_a_healthy_machine_passes_with_the_real_version_and_template_commit() ->
     assert nuclei.detected_version == NUCLEI_BANNER
     assert nuclei.data[0].ok
     assert verdict(statuses).exit_code is ExitCode.OK
+
+
+def test_distribution_owns_symlinked_cli_in_a_separate_venv(tmp_path: Path) -> None:
+    prefix = tmp_path / "venv"
+    binary = prefix / "bin/arjun"
+    binary.parent.mkdir(parents=True)
+    binary.touch()
+    (prefix / "pyvenv.cfg").touch()
+    link = tmp_path / "arjun"
+    link.symlink_to(binary)
+    info = prefix / "lib/python3.11/site-packages/arjun-2.2.7.dist-info"
+    info.mkdir(parents=True)
+    (info / "METADATA").write_text("Metadata-Version: 2.1\nName: arjun\nVersion: 2.2.7\n")
+    record = info / "RECORD"
+    record.write_text("../../../bin/arjun,,\n")
+    assert _installed_cli_version("arjun", str(link)) == "2.2.7"
+    record.write_text("../../../bin/other,,\n")
+    assert _installed_cli_version("arjun", str(link)) is None
 
 
 @pytest.mark.parametrize("installed", ["2.2.7", "2.2.6", None])
