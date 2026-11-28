@@ -298,7 +298,7 @@ La [triage di chiusura per criterio](docs/piano-chiusura-triage.md) classifica l
 ### Web UI completa (obiettivo portante)
 
 - [x] **WEB-1** — Web control plane nativo sopra l'API tipizzata (submit job, SSE, cancel), con security headers/CSP/CSRF/sessioni · [Dettagli](docs/ROADMAP-REFERENCE.md#8-web-ui-completa-obiettivo-portante)
-- [ ] **WEB-2** — Pagine operative dei tool esistenti (Themis scan, findings, diff, trend, report, engagement) — **In corso** · [Dettagli](docs/ROADMAP-REFERENCE.md#8-web-ui-completa-obiettivo-portante)
+- [x] **WEB-2** — Pagine operative dei tool esistenti (Themis scan, findings, diff, trend, report, engagement) · [Dettagli](docs/ROADMAP-REFERENCE.md#8-web-ui-completa-obiettivo-portante)
 - [x] **WEB-3** — Copertura Web di tutti i tool dell'ecosistema (Argus, Apollo, Metis, Minerva, Athena, Artemis…) con pagine dedicate operative · [Dettagli](docs/ROADMAP-REFERENCE.md#8-web-ui-completa-obiettivo-portante)
 - [x] **WEB-4** — Dashboard principale (`/`): stato sistema (versione piattaforma, versione mappa ATT&CK, stato per-sottosistema configurato/non configurato), job attivi e istogramma stati, avanzamento assessment, findings · [Dettagli](docs/ROADMAP-REFERENCE.md#8-web-ui-completa-obiettivo-portante)
 - [ ] **WEB-5** — Wizard New Assessment end-to-end (modalità guidata) — **In corso** · [Dettagli](docs/ROADMAP-REFERENCE.md#8-web-ui-completa-obiettivo-portante)
@@ -328,7 +328,7 @@ La [triage di chiusura per criterio](docs/piano-chiusura-triage.md) classifica l
 ### Demo professionale su Vercel
 
 - [x] **DEMO-1** — Demo statica/fixture navigabile (panoramica, catalogo tool, pagine, report d'esempio nel formato reale) con banner «DEMO — nessuna esecuzione, dati sintetici» · [Dettagli](docs/ROADMAP-REFERENCE.md#11-demo-professionale-su-vercel)
-- [ ] **DEMO-2** — Ampliare la demo: dashboard, identità visiva completa, flussi rappresentativi, grafici/visualizzazioni, esempi realistici etichettati — **In corso** · [Dettagli](docs/ROADMAP-REFERENCE.md#11-demo-professionale-su-vercel)
+- [x] **DEMO-2** — Ampliare la demo: dashboard, identità visiva completa, flussi rappresentativi, grafici/visualizzazioni, esempi realistici etichettati · [Dettagli](docs/ROADMAP-REFERENCE.md#11-demo-professionale-su-vercel)
 - [ ] **DEMO-3** — Quando possibile, integrare funzioni realmente eseguibili via backend dedicato (split), senza confondere live e demo · [Dettagli](docs/ROADMAP-REFERENCE.md#11-demo-professionale-su-vercel)
 
 ### Documentazione e localizzazione
@@ -431,12 +431,12 @@ Conteggio dei task padre dalle checkbox correnti, aggiornato il 28 novembre 2026
 | Ciclo B — Architettura, Execution Engine e persistenza | 9 | 6 | 0 | 15 |
 | Ciclo C — Capacità Red, Blue e Purple Team | 2 | 6 | 0 | 8 |
 | Ciclo D — Correlazione, spiegabilità e validazione continua | 3 | 4 | 0 | 7 |
-| Ciclo E — Web UI ed esperienza operativa | 3 | 5 | 0 | 8 |
-| Ciclo F — Deployment, demo e documentazione | 6 | 2 | 2 | 10 |
+| Ciclo E — Web UI ed esperienza operativa | 4 | 4 | 0 | 8 |
+| Ciclo F — Deployment, demo e documentazione | 7 | 1 | 2 | 10 |
 | Ciclo G — Quality Assurance e validazione in laboratorio | 2 | 2 | 0 | 4 |
 | Ciclo H — Orchestrazione AI-native multi-agente | 1 | 2 | 5 | 8 |
 | Ciclo I — Evoluzioni differite | 0 | 0 | 3 | 3 |
-| **Totale** | 37 | 31 | 12 | 80 |
+| **Totale** | 39 | 29 | 12 | 80 |
 
 ---
 

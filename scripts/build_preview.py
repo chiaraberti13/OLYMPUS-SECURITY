@@ -71,7 +71,8 @@ _BANNER = (
 _STYLE = (
     "body{font-family:system-ui,sans-serif;max-width:64rem;margin:0 auto;padding:0 1rem 3rem;"
     "color:#111;line-height:1.5}"
-    "header{padding:2rem 0 1rem;border-top:.35rem solid #285784}header h1{letter-spacing:.035em}h1{margin:.2rem 0}h2{margin-top:2rem}"
+    "header{padding:2rem 0 1rem;border-top:.35rem solid #285784}"
+    "header h1{letter-spacing:.035em}h1{margin:.2rem 0}h2{margin-top:2rem}"
     "a{color:#1d4ed8}.banner{background:#fef3c7;border:1px solid #f59e0b;border-radius:.5rem;"
     "padding:.6rem .9rem;margin:1rem 0;font-size:.9rem}"
     "nav{display:flex;gap:1rem;flex-wrap:wrap;margin:.5rem 0 1rem}"
