@@ -98,4 +98,4 @@ single argument box:
 
 Both the guided form and the raw mode consume the same `cli_forms` schema, so the
 TUI and a future web UI stay in lockstep with the CLI. See
-[`ROADMAP.md`](../ROADMAP.md) under `UX-A`.
+[`ROADMAP.md`](ROADMAP.md) under `UX-A`.

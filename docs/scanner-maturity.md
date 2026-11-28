@@ -187,11 +187,11 @@ scoperta è **default-deny** e verificata (`olympus/themis/plugins.py`):
 In questo modo la superficie di supply-chain resta esplicita: un entry point
 malevolo sul sistema non viene eseguito finché l'operatore non ne approva il nome.
 La **firma crittografica** dei plugin (oltre all'allowlist per nome) è tracciata a
-parte in [`ROADMAP.md`](../ROADMAP.md) sotto `DEV-B`.
+parte in [`ROADMAP.md`](ROADMAP.md) sotto `DEV-B`.
 
 ## Riferimenti
 
 - Catalogo e licenze: [`docs/scanner-matrix.md`](scanner-matrix.md)
 - Evidenze di esecuzione reale: [`docs/themis-execution-evidence.md`](themis-execution-evidence.md)
-- Definition of Done: [`ROADMAP.md`](../ROADMAP.md)
+- Definition of Done: [`ROADMAP.md`](ROADMAP.md)
 - Licenze di terze parti: [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md)

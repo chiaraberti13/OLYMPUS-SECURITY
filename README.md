@@ -201,7 +201,7 @@ design — user drop and `setrlimit` have no Windows equivalent. Its real-kernel
 tests are isolated under `tests/platform/posix/`, use strict registered markers
 and run in a dedicated Ubuntu test job (`make test-posix`; in CI when a workflow
 is configured). Widening this matrix further is tracked in
-[`ROADMAP.md`](ROADMAP.md) as `DEV-C`.
+[`docs/ROADMAP.md`](docs/ROADMAP.md) as `DEV-C`.
 
 ## ⚙️ Configuration
 

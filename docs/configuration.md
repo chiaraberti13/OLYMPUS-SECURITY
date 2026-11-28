@@ -104,4 +104,4 @@ non superiore a un'ora. Il claim `sub` identifica una voce del registro locale:
 scope per azione, scadenza, rate limit e revoca provengono sempre da quel
 registro e una revoca ha effetto senza riavvio. Il bearer non viene mai scritto
 nell'audit. La rotazione uniforme delle credenziali resta tracciata in
-[`ROADMAP.md`](../ROADMAP.md) sotto `SEC-D`.
+[`ROADMAP.md`](ROADMAP.md) sotto `SEC-D`.

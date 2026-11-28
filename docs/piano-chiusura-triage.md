@@ -1,12 +1,12 @@
 # Triage di chiusura per criterio — 2026-11-27
 
-Companion operativo del [Piano di chiusura per dipendenze](../ROADMAP.md#piano-di-chiusura-per-dipendenze).
+Companion operativo del [Piano di chiusura per dipendenze](ROADMAP.md#piano-di-chiusura-per-dipendenze).
 Mentre il piano ordina le tappe `T*` per dipendenze, questo documento classifica le
 **voci aperte** per *criterio di chiusura*: capire in anticipo quali hanno già codice e
 test sufficienti e quali no è il primo risparmio, perché evita di aprire una sessione di
 sviluppo su ciò che è bloccato altrove.
 
-La classificazione si basa sullo stato già committato in [ROADMAP](../ROADMAP.md) e
+La classificazione si basa sullo stato già committato in [ROADMAP](ROADMAP.md) e
 [ROADMAP-REFERENCE](ROADMAP-REFERENCE.md), sul ledger di
 [maturità scanner](scanner-maturity.md) (gate automatico) e su verifiche puntuali del
 codice. Dove la riga dice **da confermare**, serve una rilettura di codice+test prima di

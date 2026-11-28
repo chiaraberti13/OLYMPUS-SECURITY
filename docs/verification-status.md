@@ -4,7 +4,7 @@ Baseline audit: `b5cc491ac466fc5875a40266151e3aa55730c82e`. The tested merge
 `bca1daa` includes remote `e177498` and the SEC-E-01 audit fix `e8dea67`.
 [Machine-readable checks](verify/audit-2026-10-29-checks.json) record commands,
 counts, source digests and limitations. [Ecosystem audit](ecosystem-audit.md) and
-[ROADMAP](../ROADMAP.md) define coverage and follow-up work.
+[ROADMAP](ROADMAP.md) define coverage and follow-up work.
 
 ## Follow-up snapshot — 2026-10-31
 
@@ -126,7 +126,7 @@ commit status reports a Vercel deployment failure, separate from the successful
 GitHub Actions CI run. Branch-protection inspection was denied by GitHub
 integration (403), so required-check enforcement remains unverified. See the
 current [ecosystem audit](ecosystem-audit.md) and
-[roadmap](../ROADMAP.md) for scope-specific status.
+[roadmap](ROADMAP.md) for scope-specific status.
 
 ## What actually ran
 

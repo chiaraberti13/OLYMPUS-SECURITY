@@ -138,7 +138,7 @@ and their parents operator-controlled and unavailable for untrusted writes.
 ## What is NOT yet covered
 
 Honesty is a control here too. These are open, and tracked in
-[`ROADMAP.md`](../ROADMAP.md) (`SEC-B`, `SEC-E`):
+[`ROADMAP.md`](ROADMAP.md) (`SEC-B`, `SEC-E`):
 
 - **Egress allowlist on scanner processes.** Scanner subprocesses are sandboxed
   for host isolation but do not yet run behind an egress allowlist.

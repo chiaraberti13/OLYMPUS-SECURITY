@@ -123,10 +123,10 @@ come `failed`, mai come pulito.
 Questa è la fonte dati (preview pre-run + summary dell'esito) e la sua
 esposizione CLI. L'innesto nel rendering della TUI e nella Web UI, la conferma
 interattiva in-flow e il kill switch sempre visibile restano follow-up tracciati
-in [`ROADMAP.md`](../ROADMAP.md) sotto `UX-B`.
+in [`ROADMAP.md`](ROADMAP.md) sotto `UX-B`.
 
 ## Riferimenti
 
 - Classificazione attività/rischio: [`docs/scanner-maturity.md`](scanner-maturity.md)
 - Form derivati dalla CLI (`UX-A`): [`docs/tui.md`](tui.md)
-- Dati ostili dai target (`SEC-H`): [`ROADMAP.md`](../ROADMAP.md)
+- Dati ostili dai target (`SEC-H`): [`ROADMAP.md`](ROADMAP.md)

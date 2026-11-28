@@ -635,7 +635,7 @@ Two kinds of evidence reference can appear on a finding:
 Everything is defanged. Inline snippets and resolved URIs are stripped of
 terminal control sequences and passed through `redact_text` (so a hostile target
 cannot rewrite the operator's terminal or leak a query secret — see
-[`SEC-H`](../ROADMAP.md)), and the raw bytes an evidence reference points at are
+[`SEC-H`](ROADMAP.md)), and the raw bytes an evidence reference points at are
 never read or printed — only the digest and custody metadata. Absence is told
 honestly: an evidence id with no custody record renders as `no-custody`, a
 digest that disagrees with the ledger as `digest-mismatch`, and an unsigned or
