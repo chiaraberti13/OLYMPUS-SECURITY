@@ -61,7 +61,7 @@ def _installed_cli_version(package: str, executable: str) -> str | None:
         if binary.parent.name == "bin" and (prefix / "pyvenv.cfg").is_file():
             # Each pip engine in the scanner image lives in its own POSIX venv.
             # Read its install records without running the engine's interpreter.
-            sites = list((prefix / "lib").glob("python*/site-packages"))
+            sites = [str(site) for site in (prefix / "lib").glob("python*/site-packages")]
             distributions = list(metadata.Distribution.discover(name=package, path=sites))
             if len(distributions) != 1:
                 return None
@@ -69,7 +69,10 @@ def _installed_cli_version(package: str, executable: str) -> str | None:
         else:
             dist = metadata.distribution(package)
         for item in dist.files or ():
-            if item.name == binary.name and Path(dist.locate_file(item)).resolve() == binary:
+            if item.name != binary.name:
+                continue
+            location = dist.locate_file(item)
+            if isinstance(location, Path) and location.resolve() == binary:
                 return dist.version
     except (metadata.PackageNotFoundError, OSError, RuntimeError, ValueError):
         return None
@@ -306,7 +309,9 @@ def _memory_notes(name: str, manifest: EngineManifest, env: Environment) -> tupl
     )
 
 
-def inspect_engine(name: str, manifest: EngineManifest, env: Environment) -> EngineStatus:
+def inspect_engine(
+    name: str, manifest: EngineManifest, env: Environment, *, strict: bool = False
+) -> EngineStatus:
     """Check one engine against its manifest; never touches a target or the network."""
     engine, source = manifest.engine, manifest.engine.source
     spec = by_name(name)
@@ -419,21 +424,31 @@ def inspect_engine(name: str, manifest: EngineManifest, env: Environment) -> Eng
                 f"PATH: {', '.join(missing_commands)}"
             ),
         )
+    notes = _memory_notes(name, manifest, env)
+    if strict and notes:
+        return EngineStatus(
+            **common,  # type: ignore[arg-type]
+            state=EngineState.PREREQUISITE_MISSING,
+            version_check=check,
+            detail=notes[0],
+        )
     return EngineStatus(
         **common,  # type: ignore[arg-type]
         state=EngineState.PRESENT,
         version_check=check,
-        notes=_memory_notes(name, manifest, env),
+        notes=notes,
     )
 
 
-def check_all(env: Environment, only: tuple[str, ...] = ()) -> list[EngineStatus]:
+def check_all(
+    env: Environment, only: tuple[str, ...] = (), *, strict: bool = False
+) -> list[EngineStatus]:
     manifests = load_all()
     names = sorted(only) if only else sorted(manifests)
     unknown = [name for name in names if name not in manifests]
     if unknown:
         raise KeyError(", ".join(unknown))
-    return [inspect_engine(name, manifests[name], env) for name in names]
+    return [inspect_engine(name, manifests[name], env, strict=strict) for name in names]
 
 
 def verdict(statuses: list[EngineStatus], *, strict: bool = False) -> Verdict:

@@ -135,6 +135,37 @@ jobs:
           assert states == {"nmap": "commit-mismatch", "nuclei": "data-problem"}
           PYTHON
 
+      - name: Reject insufficient sandbox memory and missing ps offline
+        run: |
+          status=0
+          docker run --rm --network none -e THEMIS_SANDBOX_MEMORY_BYTES=2147483648 \
+            olympus-scanners:ci engines doctor --strict --engine nuclei --format json \
+            > "$RUNNER_TEMP/low-memory.json" || status=$?
+          test "$status" -eq 8
+          docker run --rm --network none --user 0 --entrypoint sh olympus-scanners:ci -ec '
+            rm -- "$(command -v ps)"
+            ! command -v ps
+            status=0
+            setpriv --reuid=10001 --regid=10001 --clear-groups env HOME=/tmp \
+              olympus engines doctor --strict --engine testssl --format json || status=$?
+            test "$status" -eq 8
+          ' > "$RUNNER_TEMP/missing-ps.json"
+          python - <<'PYTHON'
+          import os
+          from pathlib import Path
+          from olympus.engines.doctor import EngineDoctorReport
+
+          for filename, engine, reason in [
+              ("low-memory.json", "nuclei", "needs 4 GiB"),
+              ("missing-ps.json", "testssl", "ps"),
+          ]:
+              report = EngineDoctorReport.model_validate_json(
+                  (Path(os.environ["RUNNER_TEMP"]) / filename).read_bytes()
+              )
+              assert report.exit_code == 8 and report.blocking == [engine]
+              assert reason in report.engines[0].detail, report.engines[0]
+          PYTHON
+
   gate:
     name: scanner-image gate
     if: always()

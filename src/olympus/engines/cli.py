@@ -112,7 +112,7 @@ def engines_doctor(
     engines that are missing are reported but do not change the exit code.
     """
     try:
-        statuses = check_all(system_environment(), tuple(engine))
+        statuses = check_all(system_environment(), tuple(engine), strict=strict)
     except KeyError as exc:
         typer.echo(f"olympus: unknown engine: {exc.args[0]}", err=True)
         raise typer.Exit(code=ExitCode.USAGE) from exc

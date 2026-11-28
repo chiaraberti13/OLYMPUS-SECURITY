@@ -344,3 +344,20 @@ def test_a_sandbox_memory_limit_below_the_engine_need_is_noted_not_hidden() -> N
     enough = replace(_healthy(), sandbox_memory_bytes=4 * 1024**3)
     assert check_all(enough, ("nuclei",))[0].notes == ()
     assert check_all(low, ("nmap",))[0].notes == ()  # no declared need, nothing to say
+
+
+@pytest.mark.parametrize("limit, expected", [(2, 8), (4, 0)])
+def test_strict_cli_enforces_full_dataset_memory(
+    runner: CliRunner, monkeypatch: pytest.MonkeyPatch, limit: int, expected: int
+) -> None:
+    env = replace(_healthy(), sandbox_memory_bytes=limit * 1024**3)
+    monkeypatch.setattr(engines_cli, "system_environment", lambda: env)
+    result = runner.invoke(
+        app, ["engines", "doctor", "--strict", "--engine", "nuclei", "--format", "json"]
+    )
+    assert result.exit_code == expected
+    report = EngineDoctorReport.model_validate_json(result.stdout)
+    assert report.exit_code == expected
+    assert report.blocking == (["nuclei"] if expected else [])
+    if expected:
+        assert "needs 4 GiB" in report.engines[0].detail
