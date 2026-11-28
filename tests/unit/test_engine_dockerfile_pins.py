@@ -2,8 +2,9 @@
 
 A pin that only lives in ``engine.toml`` is cosmetic; this fails the build when the
 Dockerfile and a manifest disagree (manifest -> Dockerfile direction). The reverse
-direction (an install with no manifest) is asserted once every catalogued engine
-has a manifest.
+direction (an install with no governing manifest, or a shipped engine the image never
+installs) is covered by ``test_scanner_image_has_no_ungoverned_installs`` below, so
+drift fails a deterministic offline check in either direction.
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+from olympus.engines.inventory import scanner_image_drift
 from olympus.engines.loader import load_all, load_all_data
 from olympus.engines.schema import EngineManifest
 from olympus.integrations.scanners import by_name
@@ -175,3 +177,43 @@ def test_the_image_sets_the_sandbox_memory_nuclei_was_measured_to_need() -> None
     assert adapter is not None and adapter.min_memory_bytes
     text = DOCKERFILE.read_text(encoding="utf-8")
     assert f"ENV THEMIS_SANDBOX_MEMORY_BYTES={adapter.min_memory_bytes}" in text
+
+
+def test_scanner_image_has_no_ungoverned_installs() -> None:
+    # Reverse direction: nothing reaches the scanner image ungoverned, and every engine
+    # the catalogue marks shipped is actually installed. A new engine baked into the
+    # Dockerfile without a manifest (or an ``in_scanner_image`` flag that drifted from
+    # what the image installs) fails here instead of shipping silently (TOOLS-4.2).
+    text = DOCKERFILE.read_text(encoding="utf-8")
+    ungoverned, shipped_missing = scanner_image_drift(text)
+    assert ungoverned == [], f"installs with no governing manifest: {ungoverned}"
+    assert shipped_missing == [], f"catalogued as shipped but not installed: {shipped_missing}"
+
+
+def test_scanner_image_drift_flags_an_ungoverned_install() -> None:
+    # An engine binary baked in with no manifest behind it must be reported, so the
+    # reverse guard cannot pass merely because the real Dockerfile happens to be clean.
+    text = DOCKERFILE.read_text(encoding="utf-8")
+    forged = text + "\n    go install github.com/evil/rogue-scanner@v1.0.0; \\\n"
+    ungoverned, _ = scanner_image_drift(forged)
+    assert "go:github.com/evil/rogue-scanner" in ungoverned
+
+
+def test_scanner_image_drift_flags_a_shipped_engine_the_image_omits() -> None:
+    # If the catalogue marks an engine shipped, a Dockerfile that never installs it is
+    # drift the other way (the image is missing a governed engine).
+    manifests = load_all()
+    shipped = next(n for n in sorted(manifests) if (s := by_name(n)) and s.in_scanner_image)
+    source = manifests[shipped].engine.source
+    token = {
+        "go": f"go install {source.module}@",
+        "git": f"git_pin {source.repo} ",
+        "pip": f"pip_engine {shipped} ",
+        "gem": f"gem install {source.package} -v",
+    }[manifests[shipped].engine.distribution]
+    text = DOCKERFILE.read_text(encoding="utf-8")
+    # Remove every install line that mentions this engine's token.
+    pruned = "\n".join(line for line in text.splitlines() if token not in line)
+    assert pruned != text  # the token really was present
+    _, shipped_missing = scanner_image_drift(pruned)
+    assert shipped in shipped_missing

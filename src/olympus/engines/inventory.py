@@ -9,6 +9,8 @@ maturity ledger (stage) - and a test fails when the committed file differs.
 
 from __future__ import annotations
 
+import re
+
 from olympus.engines.loader import load_all, load_all_data
 from olympus.engines.schema import DataManifest, EngineManifest
 from olympus.integrations.maturity import record_for
@@ -16,6 +18,88 @@ from olympus.integrations.scanners import by_name
 
 BLOCK_BEGIN = "<!-- GENERATED:engine-inventory START -->"
 BLOCK_END = "<!-- GENERATED:engine-inventory END -->"
+
+# --- Scanner-image supply-chain closure (TOOLS-4.2, reverse direction) -------- #
+# ``tests/unit/test_engine_dockerfile_pins.py`` proves the forward direction: every
+# governed pin reaches ``docker/Dockerfile.scanners``. These helpers prove the
+# converse — nothing reaches the image ungoverned — so a scanner baked into the
+# image without a manifest (or a catalogue ``in_scanner_image`` flag that drifted
+# from what the image installs) fails a deterministic, offline check instead of
+# shipping silently. Each regex matches one install idiom the Dockerfile uses.
+_GO_INSTALL = re.compile(r"\bgo install\s+(\S+?)@")
+_GIT_PIN = re.compile(r"\bgit_pin\s+(\S+)\s")
+_PIP_ENGINE = re.compile(r"\bpip_engine\s+(\S+)\s")
+_GEM_INSTALL = re.compile(r"\bgem install\s+(?:--no-document\s+)?(\S+)\s+-v")
+
+
+def _governed_install_tokens() -> tuple[dict[tuple[str, str], str], set[str]]:
+    """Resolve every install token the scanner image may legitimately carry.
+
+    Returns ``(engine_tokens, support_packages)``. ``engine_tokens`` maps a
+    ``(kind, key)`` install token to the governed engine or data dependency that owns
+    it; ``support_packages`` is the set of runtime gem/pip package names a shipped
+    engine declares (e.g. whatweb's ``addressable``), which the forward pin test
+    already binds to the manifest.
+    """
+    manifests = load_all()
+    tokens: dict[tuple[str, str], str] = {}
+    support: set[str] = set()
+    for name, manifest in manifests.items():
+        spec = by_name(name)
+        if spec is None or not spec.in_scanner_image:
+            continue
+        source = manifest.engine.source
+        match manifest.engine.distribution:
+            case "go" if source.module is not None:
+                tokens[("go", source.module)] = name
+            case "git" if source.repo is not None:
+                tokens[("git", source.repo)] = name
+            case "pip":
+                # The ``pip_engine`` helper is called with the engine name, one venv each.
+                tokens[("pip", name)] = name
+            case "gem" if source.package is not None:
+                tokens[("gem", source.package)] = name
+        for item in source.runtime_packages:
+            support.add(item.split("==", 1)[0])
+    for name, data_manifest in load_all_data().items():
+        repo = data_manifest.data.source.repo
+        if repo is not None:
+            tokens[("git", repo)] = f"data:{name}"
+    return tokens, support
+
+
+def installed_engine_tokens(dockerfile_text: str) -> list[tuple[str, str]]:
+    """Every engine, data and gem install token the scanner Dockerfile carries."""
+    found: list[tuple[str, str]] = []
+    found += [("pip", match.group(1)) for match in _PIP_ENGINE.finditer(dockerfile_text)]
+    found += [("go", match.group(1)) for match in _GO_INSTALL.finditer(dockerfile_text)]
+    found += [("git", match.group(1)) for match in _GIT_PIN.finditer(dockerfile_text)]
+    found += [("gem", match.group(1)) for match in _GEM_INSTALL.finditer(dockerfile_text)]
+    return found
+
+
+def scanner_image_drift(dockerfile_text: str) -> tuple[list[str], list[str]]:
+    """Reverse-direction supply-chain closure for the scanner image (TOOLS-4.2).
+
+    Returns ``(ungoverned, shipped_missing)``: install tokens in the Dockerfile that
+    map to no manifest (ungoverned), and engines the catalogue marks shipped yet the
+    Dockerfile never installs. Both empty means the image and the manifests agree.
+    """
+    tokens, support = _governed_install_tokens()
+    found = installed_engine_tokens(dockerfile_text)
+    ungoverned = sorted(
+        f"{kind}:{key}"
+        for kind, key in found
+        if (kind, key) not in tokens and not (kind == "gem" and key in support)
+    )
+    installed_owners = {tokens[token] for token in found if token in tokens}
+    shipped = {
+        name
+        for name in load_all()
+        if (spec := by_name(name)) is not None and spec.in_scanner_image
+    }
+    shipped_missing = sorted(shipped - installed_owners)
+    return ungoverned, shipped_missing
 
 
 def _normal(version: str) -> str:
