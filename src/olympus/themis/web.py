@@ -308,6 +308,57 @@ _ERROR_TITLES: dict[int, str] = {
 }
 
 
+#: Primary navigation, declared once here so every page renders an identical bar and the
+#: current location can be marked semantically (WEB-9). Each entry is ``(href, label)``;
+#: the order is the visible order. ``_active_nav`` resolves the request path to the single
+#: entry that owns it so the template can emit ``aria-current="page"`` on exactly one link,
+#: which both assistive technology and sighted keyboard users rely on to stay oriented.
+_NAV_ITEMS: tuple[tuple[str, str], ...] = (
+    ("/", "Dashboard"),
+    ("/jobs", "Jobs"),
+    ("/findings", "Findings"),
+    ("/findings/diff", "Scan diff"),
+    ("/findings/attack", "ATT&CK"),
+    ("/correlations", "Correlations"),
+    ("/explain", "Explain"),
+    ("/engagements", "Engagements"),
+    ("/incidents", "Incidents"),
+    ("/tools", "Tools"),
+    ("/apollo", "Apollo"),
+    ("/minerva", "Minerva"),
+    ("/metis", "Metis"),
+    ("/athena", "Athena"),
+    ("/argus", "Argus"),
+    ("/artemis", "Artemis"),
+    ("/helios", "Helios"),
+    ("/hermes", "Hermes"),
+    ("/proteus", "Proteus"),
+    ("/assessments/new", "New assessment"),
+    ("/assessments/smart", "Smart Scan"),
+    ("/advanced", "Advanced"),
+)
+
+
+def _active_nav(path: str) -> str:
+    """Return the ``href`` of the navigation entry that owns ``path``, or ``""``.
+
+    A detail page such as ``/jobs/<id>`` or ``/engagements/<id>`` keeps its section link
+    current, and the longest matching entry wins so ``/findings/diff`` highlights "Scan diff"
+    rather than "Findings". ``/`` matches only the exact dashboard path, never as a prefix of
+    everything else.
+    """
+
+    best = ""
+    for href, _label in _NAV_ITEMS:
+        if href == "/":
+            if path == "/":
+                return "/"
+            continue
+        if (path == href or path.startswith(href + "/")) and len(href) > len(best):
+            best = href
+    return best
+
+
 #: Guided interpretation of each terminal job state (WEB-5): a plain-language headline, what
 #: it means for trust, and a tone. The canonical states and their meaning are owned by
 #: ``JobState``/``docs/run-status.md``; this only renders them for the operator and never
@@ -1192,7 +1243,12 @@ def create_web_app(settings: ApiSettings, observability: Observability | None = 
             concurrency.release(lease)
 
     def _page(request: Request, name: str, context: dict[str, object], code: int = 200) -> Response:
-        payload: dict[str, object] = {"version": __version__, **context}
+        payload: dict[str, object] = {
+            "version": __version__,
+            "nav_items": _NAV_ITEMS,
+            "active_nav": _active_nav(request.url.path),
+            **context,
+        }
         return templates.TemplateResponse(request, name, payload, status_code=code)
 
     # -- Uniform error model (WEB-6) --------------------------------------- #
